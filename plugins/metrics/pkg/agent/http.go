@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 )
@@ -26,12 +27,12 @@ type HttpServer struct {
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
 
-	conditions ConditionTracker
+	conditions health.ConditionTracker
 
 	enabled atomic.Bool
 }
 
-func NewHttpServer(ct ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
+func NewHttpServer(ct health.ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
 	return &HttpServer{
 		logger:     lg,
 		conditions: ct,
@@ -40,7 +41,7 @@ func NewHttpServer(ct ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
 
 func (s *HttpServer) SetEnabled(enabled bool) {
 	if enabled {
-		s.conditions.Set(CondRemoteWrite, StatusPending, "")
+		s.conditions.Set(CondRemoteWrite, health.StatusPending, "")
 	} else {
 		s.conditions.Clear(CondRemoteWrite)
 	}
@@ -70,7 +71,7 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 	}
 	ok := s.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
-			s.conditions.Set(CondRemoteWrite, StatusPending, "gateway not connected")
+			s.conditions.Set(CondRemoteWrite, health.StatusPending, "gateway not connected")
 			c.Error(errors.New("gateway not connected"))
 			c.String(http.StatusServiceUnavailable, "gateway not connected")
 			return
@@ -111,7 +112,7 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 					}
 				}
 			} else {
-				s.conditions.Set(CondRemoteWrite, StatusFailure, message)
+				s.conditions.Set(CondRemoteWrite, health.StatusFailure, stat.Message())
 				c.Error(err)
 			}
 

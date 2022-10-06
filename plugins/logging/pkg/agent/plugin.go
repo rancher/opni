@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 
+	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
@@ -23,7 +24,7 @@ type Plugin struct {
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("logging")
 
-	ct := NewConditionTracker(lg)
+	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
 		ctx:    ctx,

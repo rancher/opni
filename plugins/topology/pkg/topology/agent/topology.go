@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/remote"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ type TopologyStreamer struct {
 	conditions health.ConditionTracker
 
 	remoteWriteClientMu sync.Mutex
-	remoteWriteClient   remotewrite.RemoteWriteClient //TODO : implement our own
+	remoteWriteClient   remote.RemoteTopologyClient
 }
 
 func NewTopologyStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *TopologyStreamer {
@@ -25,7 +25,7 @@ func NewTopologyStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *Top
 	}
 }
 
-func (s *TopologyStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient) {
+func (s *TopologyStreamer) SetRemoteWriteClient(client remote.RemoteTopologyClient) {
 	s.remoteWriteClientMu.Lock()
 	defer s.remoteWriteClientMu.Unlock()
 	s.remoteWriteClient = client
@@ -40,7 +40,7 @@ func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilit
 
 		// set some sensible defaults
 	}
-
-	//TODO : Implement me
+	
+	//TODO : implement me
 	return nil
 }

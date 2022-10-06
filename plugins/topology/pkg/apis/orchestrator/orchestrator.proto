@@ -23,13 +23,14 @@ service TopologyOrchestrator {
     };
    }
 }
-enum GraphRepr {
-    None = 0;
-    KubectlGraph = 1; 
-}
 
 message TopologyGraph {
     core.Reference id = 1;
     bytes data = 2;
     GraphRepr repr = 3;
+}
+
+enum GraphRepr {
+    None = 0;
+    KubectlGraph = 1; 
 }

@@ -37,6 +37,9 @@ type TopologyNode struct {
 	conditions health.ConditionTracker
 }
 
+var _ capabilityv1.NodeServer = &TopologyNode{}
+var _ controlv1.HealthServer = &TopologyNode{}
+
 func NewTopologyNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *TopologyNode {
 	return &TopologyNode{
 		logger:     lg,

@@ -1,7 +1,22 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/plugins/topology/pkg/apis/remote";
-package remote;
+option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/remote";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+// import "github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator/orchestrator.proto";
+
+
+package remote.topology;
 
 service RemoteTopology {
-    
+    rpc Push(Payload) returns (google.protobuf.Empty);
+    rpc SyncTopology(Payload) returns (google.protobuf.Empty);
 }
+
+message Payload {
+    bytes data = 1;
+    // orchestrator.TopologyGraph graph = 1;
+}
+
+
+

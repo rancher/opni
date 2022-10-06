@@ -12,9 +12,14 @@ service ModelTraining {
       get: "/workload_log_count/{id}"
     };
   }
-  rpc TrainModel(WorkloadsList) returns (core.Reference) {
+  rpc ModelStatus(google.protobuf.Empty) returns (core.Reference) {
     option (google.api.http) = {
-      post: "/train_model/{workloads}"
+      get: "/model_status"
+    };
+  }
+  rpc ModelTrainingParameters(google.protobuf.Empty) returns (WorkloadsList) {
+    option (google.api.http) = {
+      get: "/model_training_parameters"
     };
   }
 }

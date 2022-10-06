@@ -13,6 +13,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
 	"github.com/cortexproject/cortex/pkg/api"
+	"github.com/cortexproject/cortex/pkg/chunk/cache"
 	"github.com/cortexproject/cortex/pkg/chunk/purger"
 	"github.com/cortexproject/cortex/pkg/chunk/storage"
 	"github.com/cortexproject/cortex/pkg/compactor"
@@ -243,6 +244,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 		Storage: storage.Config{
 			Engine: "blocks",
+			IndexQueriesCacheConfig: cache.Config{
+				EnableFifoCache: true,
+				Fifocache: cache.FifoCacheConfig{
+					Validity: 1 * time.Hour,
+				},
+			},
 		},
 		BlocksStorage: tsdb.BlocksStorageConfig{
 			TSDB: tsdb.TSDBConfig{
@@ -254,7 +261,11 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				BucketIndex: tsdb.BucketIndexConfig{
 					Enabled: true,
 				},
-				SyncDir: "/data/tsdb-sync",
+				SyncDir:      "/data/tsdb-sync",
+				SyncInterval: 5 * time.Minute,
+				IndexCache: tsdb.IndexCacheConfig{
+					Backend: "inmemory",
+				},
 			},
 		},
 		RulerStorage: rulestore.Config{
@@ -293,6 +304,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			ShardingRing: compactor.RingConfig{
 				KVStore: kvConfig,
 			},
+			CleanupInterval: 5 * time.Minute,
 		},
 		Distributor: distributor.Config{
 			PoolConfig: distributor.PoolConfig{
@@ -342,11 +354,21 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
 			},
+			AtModifierEnabled:   true,
+			QueryStoreForLabels: true,
 		},
 		QueryRange: queryrange.Config{
+			SplitQueriesByInterval: 24 * time.Hour,
 			AlignQueriesWithStep:   true,
 			CacheResults:           true,
-			SplitQueriesByInterval: 24 * time.Hour,
+			ResultsCacheConfig: queryrange.ResultsCacheConfig{
+				CacheConfig: cache.Config{
+					EnableFifoCache: true,
+					Fifocache: cache.FifoCacheConfig{
+						Validity: 1 * time.Hour,
+					},
+				},
+			},
 		},
 		Ruler: ruler.Config{
 			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingClusterNodeServiceName),

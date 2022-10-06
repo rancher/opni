@@ -44,20 +44,24 @@ func workloadComponent(o metav1.Object) (value string, ok bool) {
 }
 
 type CortexWorkloadOptions struct {
-	replicas           int32
-	ports              []Port
-	extraArgs          []string
-	extraVolumes       []corev1.Volume
-	extraVolumeMounts  []corev1.VolumeMount
-	extraEnvVars       []corev1.EnvVar
-	sidecarContainers  []corev1.Container
-	initContainers     []corev1.Container
-	lifecycle          *corev1.Lifecycle
-	serviceName        string
-	deploymentStrategy appsv1.DeploymentStrategy
-	updateStrategy     appsv1.StatefulSetUpdateStrategy
-	securityContext    corev1.SecurityContext
-	affinity           corev1.Affinity
+	replicas                      int32
+	ports                         []Port
+	extraArgs                     []string
+	extraVolumes                  []corev1.Volume
+	extraVolumeMounts             []corev1.VolumeMount
+	extraEnvVars                  []corev1.EnvVar
+	sidecarContainers             []corev1.Container
+	initContainers                []corev1.Container
+	lifecycle                     *corev1.Lifecycle
+	serviceName                   string
+	deploymentStrategy            appsv1.DeploymentStrategy
+	updateStrategy                appsv1.StatefulSetUpdateStrategy
+	securityContext               corev1.SecurityContext
+	affinity                      corev1.Affinity
+	noLivenessProbe               bool
+	noStartupProbe                bool
+	terminationGracePeriodSeconds int64
+	volumeClaimTemplates          []corev1.PersistentVolumeClaim
 }
 
 type CortexWorkloadOption func(*CortexWorkloadOptions)
@@ -152,6 +156,30 @@ func ServiceName(serviceName string) CortexWorkloadOption {
 	}
 }
 
+func NoStartupProbe() CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.noStartupProbe = true
+	}
+}
+
+func NoLivenessProbe() CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.noLivenessProbe = true
+	}
+}
+
+func TerminationGracePeriodSeconds(seconds int64) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.terminationGracePeriodSeconds = seconds
+	}
+}
+
+func VolumeClaimTemplates(templates ...corev1.PersistentVolumeClaim) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.volumeClaimTemplates = templates
+	}
+}
+
 func WithOverrides(spec *corev1beta1.CortexWorkloadSpec) CortexWorkloadOption {
 	return func(o *CortexWorkloadOptions) {
 		if spec == nil {
@@ -242,6 +270,7 @@ func (r *Reconciler) defaultWorkloadOptions(target string) CortexWorkloadOptions
 				},
 			},
 		},
+		terminationGracePeriodSeconds: 30,
 	}
 
 	return options
@@ -299,9 +328,10 @@ func (r *Reconciler) buildCortexStatefulSet(
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},
-		UpdateStrategy: options.updateStrategy,
-		ServiceName:    options.serviceName,
-		Template:       r.cortexWorkloadPodTemplate(target, options),
+		UpdateStrategy:       options.updateStrategy,
+		ServiceName:          options.serviceName,
+		Template:             r.cortexWorkloadPodTemplate(target, options),
+		VolumeClaimTemplates: options.volumeClaimTemplates,
 	}
 
 	r.setOwner(statefulSet)
@@ -369,8 +399,9 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 			Labels: labels,
 		},
 		Spec: corev1.PodSpec{
-			ServiceAccountName: "cortex",
-			InitContainers:     options.initContainers,
+			ServiceAccountName:            "cortex",
+			InitContainers:                options.initContainers,
+			TerminationGracePeriodSeconds: &options.terminationGracePeriodSeconds,
 			Containers: append([]corev1.Container{
 				{
 					Name: target,

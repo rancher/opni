@@ -366,9 +366,12 @@ func (p *Plugin) convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
-	var version, osVersion string
+	var osVersion string
+	version := "0.6.0-rc1"
 	if cluster == nil {
-		version = util.Version
+		if util.Version != "unversioned" {
+			version = util.Version
+		}
 		if p.version != "" {
 			version = p.version
 		}

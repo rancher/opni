@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util/future"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,8 +21,8 @@ type ModelTrainingPlugin struct {
 	ctx            context.Context
 	Logger         *zap.SugaredLogger
 	k8sClient      client.Client
-	natsConnection *nats.Conn
-	kv             nats.KeyValue
+	natsConnection future.Future[*nats.Conn]
+	kv             future.Future[nats.KeyValue]
 }
 
 func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient) {
@@ -43,17 +44,20 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	for _, ext := range list.Items {
 		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
+	nc, _ := newNatsConnection()
+	mgr, _ := nc.JetStream()
+	keyValue, _ := mgr.KeyValue("os-workload-aggregation")
+	s.natsConnection.Set(nc)
+	s.kv.Set(keyValue)
+
 }
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
-	nc, _ := newNatsConnection()
-	mgr, _ := nc.JetStream()
-	keyValue, _ := mgr.KeyValue("os-workload-aggregation")
 	p := &ModelTrainingPlugin{
 		Logger:         logger.NewPluginLogger().Named("model_training"),
-		natsConnection: nc,
-		kv:             keyValue,
+		natsConnection: future.New[*nats.Conn](),
+		kv:             future.New[nats.KeyValue](),
 	}
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	return scheme

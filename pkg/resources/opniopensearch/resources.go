@@ -15,11 +15,10 @@ import (
 )
 
 var (
-	natsConnection = template.Must(template.New("natsconn").Parse(`
-nats:
+	natsConnection = template.Must(template.New("natsconn").Parse(`nats:
   endpoint: nats://{{ .NatsName }}-nats-client.{{ .Namespace }}.svc:4222
   seed_file: /etc/nkey/seed
-	`))
+`))
 )
 
 type natsConfig struct {

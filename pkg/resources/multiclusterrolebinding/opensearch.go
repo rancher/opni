@@ -1,6 +1,7 @@
 package multiclusterrolebinding
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/rancher/opni/pkg/features"
@@ -46,8 +47,14 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		}
 	}
 
+	retErr = reconciler.MaybeCreateIngestPipeline(preProcessingPipelineName, preprocessingPipeline)
+	if retErr != nil {
+		return
+	}
+
 	templates := []osapiext.IndexTemplateSpec{
 		indices.OpniLogTemplate,
+		ingestPipelineTemplate,
 	}
 	if features.FeatureList.FeatureIsEnabled("tracing") {
 		templates = append(templates, opniSpanTemplate)
@@ -72,6 +79,14 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		}
 	}
 
+	retErr = reconciler.UpdateDefaultIngestPipelineForIndex(
+		fmt.Sprintf("%s*", indices.LogIndexPrefix),
+		preProcessingPipelineName,
+	)
+	if retErr != nil {
+		return
+	}
+
 	retErr = reconciler.MaybeBootstrapIndex(indices.LogIndexPrefix, indices.LogIndexAlias, indices.OldIndexPrefixes)
 	if retErr != nil {
 		return
@@ -91,6 +106,8 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 			return
 		}
 	}
+
+	retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
 
 	return
 }

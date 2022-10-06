@@ -1,4 +1,4 @@
-package agent
+package health
 
 import (
 	"fmt"
@@ -14,6 +14,10 @@ const (
 	StatusFailure ConditionStatus = 1
 )
 
+const (
+	CondConfigSync = "Config Sync"
+)
+
 func (s ConditionStatus) String() string {
 	switch s {
 	case StatusPending:
@@ -24,30 +28,26 @@ func (s ConditionStatus) String() string {
 	return ""
 }
 
-const (
-	CondConfigSync = "Config Sync"
-)
-
 type ConditionTracker interface {
 	Set(key string, value ConditionStatus, reason string)
 	Clear(key string, reason ...string)
 	List() []string
 }
 
-func NewConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
-	ct := &conditionTracker{
+func NewDefaultConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
+	ct := &defaultConditionTracker{
 		logger: logger,
 	}
 	ct.conditions.Store(CondConfigSync, StatusPending)
 	return ct
 }
 
-type conditionTracker struct {
+type defaultConditionTracker struct {
 	conditions gsync.Map[string, ConditionStatus]
 	logger     *zap.SugaredLogger
 }
 
-func (ct *conditionTracker) Set(key string, value ConditionStatus, reason string) {
+func (ct *defaultConditionTracker) Set(key string, value ConditionStatus, reason string) {
 	lg := ct.logger.With(
 		"condition", key,
 		"status", value,
@@ -63,7 +63,7 @@ func (ct *conditionTracker) Set(key string, value ConditionStatus, reason string
 	ct.conditions.Store(key, value)
 }
 
-func (ct *conditionTracker) Clear(key string, reason ...string) {
+func (ct *defaultConditionTracker) Clear(key string, reason ...string) {
 	lg := ct.logger.With(
 		"condition", key,
 	)
@@ -77,7 +77,7 @@ func (ct *conditionTracker) Clear(key string, reason ...string) {
 	}
 }
 
-func (ct *conditionTracker) List() []string {
+func (ct *defaultConditionTracker) List() []string {
 	var conditions []string
 	ct.conditions.Range(func(key string, value ConditionStatus) bool {
 		conditions = append(conditions, fmt.Sprintf("%s %s", key, value))

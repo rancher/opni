@@ -11,6 +11,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
@@ -40,7 +41,7 @@ type MetricsNode struct {
 	config   *node.MetricsCapabilityConfig
 
 	listeners  []chan<- *node.MetricsCapabilityConfig
-	conditions ConditionTracker
+	conditions health.ConditionTracker
 }
 
 func NewMetricsNode(ct ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
@@ -163,7 +164,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 	if err != nil {
 		err := fmt.Errorf("error syncing metrics node: %w", err)
-		m.conditions.Set(CondConfigSync, StatusFailure, err.Error())
+		m.conditions.Set(health.CondConfigSync, health.StatusFailure, err.Error())
 		return
 	}
 
@@ -175,7 +176,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 		m.updateConfig(syncResp.UpdatedConfig)
 	}
 
-	m.conditions.Clear(CondConfigSync)
+	m.conditions.Clear(health.CondConfigSync)
 }
 
 func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 
 	"sync/atomic"
@@ -97,15 +98,24 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 			// will return code 400 to prometheus, which prometheus will treat as
 			// a non-retriable error. In this case, the remote write status condition
 			// will be cleared as if the request succeeded.
+			message := stat.Message()
 			if respCode == http.StatusBadRequest {
-				s.conditions.Clear(CondRemoteWrite)
-				c.Error(errors.New("soft error: this request likely succeeded"))
+				if strings.Contains(message, "out of bounds") ||
+					strings.Contains(message, "out of order sample") ||
+					strings.Contains(message, "duplicate sample for timestamp") ||
+					strings.Contains(message, "exemplars not ingested because series not already present") {
+					{
+						s.conditions.Clear(CondRemoteWrite)
+						c.Error(errors.New("soft error (request succeeded): " + message))
+						respCode = http.StatusOK // try returning 200, prometheus may be throttling on 400
+					}
+				}
 			} else {
-				s.conditions.Set(CondRemoteWrite, StatusFailure, stat.Message())
+				s.conditions.Set(CondRemoteWrite, StatusFailure, message)
 				c.Error(err)
 			}
 
-			c.String(respCode, stat.Message())
+			c.String(respCode, message)
 			return
 		}
 		s.conditions.Clear(CondRemoteWrite)

@@ -145,12 +145,17 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		ClusterID          string
 		EnableTracing      bool
 	}{
-		Username:           r.spec.Username,
-		Password:           string(password),
-		OpensearchEndpoint: r.spec.Opensearch.Endpoint,
-		Insecure:           r.spec.Opensearch.InsecureDisableSSLVerify,
-		ClusterID:          r.spec.ClusterID,
-		EnableTracing:      r.spec.EnableTracing,
+		Username: r.spec.Username,
+		Password: string(password),
+		OpensearchEndpoint: func() string {
+			if r.urlOverride != "" {
+				return r.urlOverride
+			}
+			return r.spec.Opensearch.Endpoint
+		}(),
+		Insecure:      r.spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
+		ClusterID:     r.spec.ClusterID,
+		EnableTracing: r.spec.EnableTracing,
 	}
 
 	var buffer bytes.Buffer

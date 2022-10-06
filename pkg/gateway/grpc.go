@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -51,7 +52,8 @@ type GatewayGRPCServer struct {
 	logger     *zap.SugaredLogger
 	serverOpts []grpc.ServerOption
 
-	services []util.ServicePack[any]
+	servicesMu sync.Mutex
+	services   []util.ServicePack[any]
 }
 
 func NewGRPCServer(
@@ -85,9 +87,11 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
+	s.servicesMu.Lock()
 	for _, services := range s.services {
 		server.RegisterService(services.Unpack())
 	}
+	s.servicesMu.Unlock()
 
 	s.logger.With(
 		"address", listener.Addr().String(),
@@ -106,5 +110,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 }
 
 func (s *GatewayGRPCServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	s.servicesMu.Lock()
+	defer s.servicesMu.Unlock()
 	s.services = append(s.services, util.PackService(desc, impl))
 }

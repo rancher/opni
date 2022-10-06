@@ -19,6 +19,7 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
+	ReconcilerOptions
 	client             client.Client
 	dataPrepper        *v1beta2.DataPrepper
 	loggingDataPrepper *loggingv1beta1.DataPrepper
@@ -28,15 +29,51 @@ type Reconciler struct {
 	spec               loggingv1beta1.DataPrepperSpec
 }
 
+type ReconcilerOptions struct {
+	forceInsecure   bool
+	urlOverride     string
+	resourceOptions []reconciler.ResourceReconcilerOption
+}
+
+type ReconcilerOption func(*ReconcilerOptions)
+
+func (o *ReconcilerOptions) apply(opts ...ReconcilerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithForceInsecure() ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.forceInsecure = true
+	}
+}
+
+func WithURLOverride(urlOverride string) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.urlOverride = urlOverride
+	}
+}
+
+func WithResourceOptions(opts ...reconciler.ResourceReconcilerOption) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.resourceOptions = opts
+	}
+}
+
 func NewReconciler(
 	ctx context.Context,
 	instance interface{},
 	c client.Client,
-	opts ...reconciler.ResourceReconcilerOption,
+	opts ...ReconcilerOption,
 ) (*Reconciler, error) {
+	options := ReconcilerOptions{}
+	options.apply(opts...)
+
 	reconciler := &Reconciler{
+		ReconcilerOptions: options,
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
-			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
+			append(options.resourceOptions, reconciler.WithLog(log.FromContext(ctx)))...),
 		client: c,
 		ctx:    ctx,
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gogo/protobuf/proto"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
@@ -82,7 +82,7 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		return nil, err
 	}
 
-	return b.buildResponse(req.CurrentConfig, &node.LoggingCapabilityConfig{
+	return b.buildResponse(req.GetCurrentConfig(), &node.LoggingCapabilityConfig{
 		Enabled:          enabled,
 		Conditions:       conditions,
 		OpensearchConfig: osConf,

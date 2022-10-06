@@ -124,6 +124,8 @@ func (c *ClientConfigV2) bootstrapJoin(ctx context.Context) (*bootstrapv2.Bootst
 	}
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
 		append(c.DialOpts,
+			grpc.WithBlock(),
+			grpc.FailOnNonTempDialError(true),
 			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
@@ -137,7 +139,7 @@ func (c *ClientConfigV2) bootstrapJoin(ctx context.Context) (*bootstrapv2.Bootst
 	client := bootstrapv2.NewBootstrapClient(cc)
 
 	var peer peer.Peer
-	resp, err := client.Join(ctx, &bootstrapv2.BootstrapJoinRequest{}, grpc.Peer(&peer))
+	resp, err := client.Join(ctx, &bootstrapv2.BootstrapJoinRequest{}, grpc.Peer(&peer), grpc.WaitForReady(true))
 	if err != nil {
 		return nil, nil, fmt.Errorf("join request failed: %w", err)
 	}

@@ -85,6 +85,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		natsConnection:   nc,
 		k8sClient:        p.k8sClient,
 		storageBackend:   p.storageBackend,
+		logger:           p.logger.Named("uninstaller"),
 	})
 	if err != nil {
 		p.logger.With(

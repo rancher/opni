@@ -3,14 +3,18 @@ package model_training
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
+	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/model_training/pkg/apis/model_training"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,7 +50,13 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	}
 	nc, _ := newNatsConnection()
 	mgr, _ := nc.JetStream()
-	keyValue, _ := mgr.KeyValue("os-workload-aggregation")
+	keyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      "os-workload-aggregation",
+		Description: "Storing aggregation of workload logs from Opensearch.",
+	})
+	if err != nil {
+		os.Exit(1)
+	}
 	s.natsConnection.Set(nc)
 	s.kv.Set(keyValue)
 
@@ -60,5 +70,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		kv:             future.New[nats.KeyValue](),
 	}
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID,
+		managementext.NewPlugin(util.PackService(&model_training.ModelTraining_ServiceDesc, p)))
 	return scheme
 }

@@ -1,0 +1,25 @@
+digraph {
+  graph [layout="sfdp" tooltip="kubectl-graph" overlap="scale"];
+  node [shape="circle" style="filled" fontsize="8" width="0.8" fixedsize="true"];
+  edge [color="#9e9e9e" fontsize="6"];
+
+{{- range .NodeList }}
+  "{{ .UID }}" [fillcolor="{{ color .Kind }}5e" label="
+  {{- if (gt (len .Name) 12) -}}
+    {{- printf "%.10s" .Name -}}...
+  {{- else -}}
+    {{- .Name -}}
+  {{- end -}}" tooltip={{ yaml . | json }}];
+{{- end }}
+
+{{- range .RelationshipList }}
+  "{{ .From }}" -> "{{ .To }}" [label="{{ .Label }}" labeltooltip="
+  {{- with (index $.Nodes .From) -}}
+    {{ .Kind }}[{{ .Name }}]
+  {{- end }} ->\n
+  {{- with (index $.Nodes .To) -}}
+    {{ .Kind }}[{{ .Name }}]
+  {{- end -}}"
+  {{- range $key, $value := .Attr }} {{ $key }}="{{ $value }}"{{ end }}];
+{{- end }}
+}

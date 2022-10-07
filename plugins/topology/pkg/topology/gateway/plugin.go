@@ -1,5 +1,9 @@
 package gateway
 
+/*
+Declares the topology plugin's gateway meta scheme.
+*/
+
 import (
 	"context"
 
@@ -13,6 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator"
+	"github.com/rancher/opni/plugins/topology/pkg/backend"
+	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +31,9 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
+	topologyRemoteWrite stream.TopologyRemoteWriter
+	topologyBackend     backend.TopologyBackend
+
 	nc      future.Future[*nats.Conn]
 	storage future.Future[ConfigStorageAPIs]
 
@@ -33,7 +42,7 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	return &Plugin{
+	p := &Plugin{
 		ctx:        ctx,
 		logger:     logger.NewPluginLogger().Named("topology"),
 		nc:         future.New[*nats.Conn](),
@@ -41,6 +50,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 		mgmtClient: future.New[managementv1.ManagementClient](),
 		k8sClient:  future.New[client.Client](),
 	}
+
+	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{})
+
+	return p
 }
 
 var _ orchestrator.TopologyOrchestratorServer = (*Plugin)(nil)

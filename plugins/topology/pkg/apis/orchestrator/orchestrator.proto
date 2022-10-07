@@ -10,14 +10,21 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 package orchestrator;
 
 service TopologyOrchestrator {
-   rpc Put(TopologyGraph) returns (google.protobuf.Empty) {
+    rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus){
+        option (google.api.http) = {
+            get: "/cluster/status"
+        };
+    }
+
+
+   rpc PutGraph(TopologyGraph) returns (google.protobuf.Empty) {
     option(google.api.http) = {
         post: "/topology/object"
         body: "*"
     };
    }
 
-   rpc Get(core.Reference) returns (TopologyGraph) {
+   rpc GetGraph(core.Reference) returns (TopologyGraph) {
     option(google.api.http) = {
         get: "/topology/object/{id}"
     };
@@ -33,4 +40,18 @@ message TopologyGraph {
 enum GraphRepr {
     None = 0;
     KubectlGraph = 1; 
+}
+
+enum InstallState {
+    Unknown = 0;
+    NotInstalled = 1;
+    Updating = 2;
+    Installed = 3;
+    Uninstalling = 4;
+}
+
+message InstallStatus {
+    InstallState state = 1;
+    string version = 2;
+    map<string, string> metadata = 3;
 }

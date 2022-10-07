@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Suppress "imported and not used" errors
@@ -32,7 +33,25 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_TopologyOrchestrator_Put_0(ctx context.Context, marshaler runtime.Marshaler, client TopologyOrchestratorClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_TopologyOrchestrator_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, client TopologyOrchestratorClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.GetClusterStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_TopologyOrchestrator_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, server TopologyOrchestratorServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.GetClusterStatus(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+func request_TopologyOrchestrator_PutGraph_0(ctx context.Context, marshaler runtime.Marshaler, client TopologyOrchestratorClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq TopologyGraph
 	var metadata runtime.ServerMetadata
 
@@ -44,12 +63,12 @@ func request_TopologyOrchestrator_Put_0(ctx context.Context, marshaler runtime.M
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.Put(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.PutGraph(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_TopologyOrchestrator_Put_0(ctx context.Context, marshaler runtime.Marshaler, server TopologyOrchestratorServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_TopologyOrchestrator_PutGraph_0(ctx context.Context, marshaler runtime.Marshaler, server TopologyOrchestratorServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq TopologyGraph
 	var metadata runtime.ServerMetadata
 
@@ -61,12 +80,12 @@ func local_request_TopologyOrchestrator_Put_0(ctx context.Context, marshaler run
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.Put(ctx, &protoReq)
+	msg, err := server.PutGraph(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_TopologyOrchestrator_Get_0(ctx context.Context, marshaler runtime.Marshaler, client TopologyOrchestratorClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_TopologyOrchestrator_GetGraph_0(ctx context.Context, marshaler runtime.Marshaler, client TopologyOrchestratorClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -87,12 +106,12 @@ func request_TopologyOrchestrator_Get_0(ctx context.Context, marshaler runtime.M
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
 	}
 
-	msg, err := client.Get(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetGraph(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_TopologyOrchestrator_Get_0(ctx context.Context, marshaler runtime.Marshaler, server TopologyOrchestratorServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_TopologyOrchestrator_GetGraph_0(ctx context.Context, marshaler runtime.Marshaler, server TopologyOrchestratorServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -113,7 +132,7 @@ func local_request_TopologyOrchestrator_Get_0(ctx context.Context, marshaler run
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
 	}
 
-	msg, err := server.Get(ctx, &protoReq)
+	msg, err := server.GetGraph(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -124,19 +143,19 @@ func local_request_TopologyOrchestrator_Get_0(ctx context.Context, marshaler run
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterTopologyOrchestratorHandlerFromEndpoint instead.
 func RegisterTopologyOrchestratorHandlerServer(ctx context.Context, mux *runtime.ServeMux, server TopologyOrchestratorServer) error {
 
-	mux.Handle("POST", pattern_TopologyOrchestrator_Put_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_TopologyOrchestrator_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/Put", runtime.WithHTTPPathPattern("/topology/object"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/GetClusterStatus", runtime.WithHTTPPathPattern("/cluster/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_TopologyOrchestrator_Put_0(ctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_TopologyOrchestrator_GetClusterStatus_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -144,23 +163,23 @@ func RegisterTopologyOrchestratorHandlerServer(ctx context.Context, mux *runtime
 			return
 		}
 
-		forward_TopologyOrchestrator_Put_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_TopologyOrchestrator_GetClusterStatus_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_TopologyOrchestrator_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_TopologyOrchestrator_PutGraph_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/Get", runtime.WithHTTPPathPattern("/topology/object/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/PutGraph", runtime.WithHTTPPathPattern("/topology/object"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_TopologyOrchestrator_Get_0(ctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_TopologyOrchestrator_PutGraph_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -168,7 +187,31 @@ func RegisterTopologyOrchestratorHandlerServer(ctx context.Context, mux *runtime
 			return
 		}
 
-		forward_TopologyOrchestrator_Get_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_TopologyOrchestrator_PutGraph_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("GET", pattern_TopologyOrchestrator_GetGraph_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/GetGraph", runtime.WithHTTPPathPattern("/topology/object/{id}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_TopologyOrchestrator_GetGraph_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_TopologyOrchestrator_GetGraph_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -213,45 +256,66 @@ func RegisterTopologyOrchestratorHandler(ctx context.Context, mux *runtime.Serve
 // "TopologyOrchestratorClient" to call the correct interceptors.
 func RegisterTopologyOrchestratorHandlerClient(ctx context.Context, mux *runtime.ServeMux, client TopologyOrchestratorClient) error {
 
-	mux.Handle("POST", pattern_TopologyOrchestrator_Put_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_TopologyOrchestrator_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/Put", runtime.WithHTTPPathPattern("/topology/object"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/GetClusterStatus", runtime.WithHTTPPathPattern("/cluster/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TopologyOrchestrator_Put_0(ctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_TopologyOrchestrator_GetClusterStatus_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TopologyOrchestrator_Put_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_TopologyOrchestrator_GetClusterStatus_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_TopologyOrchestrator_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_TopologyOrchestrator_PutGraph_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/Get", runtime.WithHTTPPathPattern("/topology/object/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/PutGraph", runtime.WithHTTPPathPattern("/topology/object"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TopologyOrchestrator_Get_0(ctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_TopologyOrchestrator_PutGraph_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TopologyOrchestrator_Get_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_TopologyOrchestrator_PutGraph_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("GET", pattern_TopologyOrchestrator_GetGraph_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/orchestrator.TopologyOrchestrator/GetGraph", runtime.WithHTTPPathPattern("/topology/object/{id}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_TopologyOrchestrator_GetGraph_0(ctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_TopologyOrchestrator_GetGraph_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -259,13 +323,17 @@ func RegisterTopologyOrchestratorHandlerClient(ctx context.Context, mux *runtime
 }
 
 var (
-	pattern_TopologyOrchestrator_Put_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"topology", "object"}, ""))
+	pattern_TopologyOrchestrator_GetClusterStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"cluster", "status"}, ""))
 
-	pattern_TopologyOrchestrator_Get_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"topology", "object", "id"}, ""))
+	pattern_TopologyOrchestrator_PutGraph_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"topology", "object"}, ""))
+
+	pattern_TopologyOrchestrator_GetGraph_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"topology", "object", "id"}, ""))
 )
 
 var (
-	forward_TopologyOrchestrator_Put_0 = runtime.ForwardResponseMessage
+	forward_TopologyOrchestrator_GetClusterStatus_0 = runtime.ForwardResponseMessage
 
-	forward_TopologyOrchestrator_Get_0 = runtime.ForwardResponseMessage
+	forward_TopologyOrchestrator_PutGraph_0 = runtime.ForwardResponseMessage
+
+	forward_TopologyOrchestrator_GetGraph_0 = runtime.ForwardResponseMessage
 )

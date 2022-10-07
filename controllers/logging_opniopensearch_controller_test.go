@@ -7,6 +7,7 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -14,15 +15,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	opsterv1 "opensearch.opster.io/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller"), func() {
 	var (
 		testNs string
+		nats   *opnicorev1beta1.NatsCluster
 		object *loggingv1beta1.OpniOpensearch
 	)
 	Specify("setup", func() {
 		testNs = makeTestNamespace()
+		nats = &opnicorev1beta1.NatsCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "natstest",
+				Namespace: testNs,
+			},
+			Spec: opnicorev1beta1.NatsSpec{
+				AuthMethod: opnicorev1beta1.NatsAuthNkey,
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), nats)).To(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(nats), nats)
+			if err != nil {
+				return false
+			}
+			return nats.Status.AuthSecretKeyRef != nil
+		}).Should(BeTrue())
+
 		object = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-test",
@@ -139,7 +160,7 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 							Name: "nkey",
 							Path: "/etc/nkey",
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: "natstest-nats-config",
+								SecretName: "natstest-nats-client",
 							},
 						},
 						{

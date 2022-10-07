@@ -2,6 +2,7 @@ package opniopensearch
 
 import (
 	"context"
+	"time"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -34,9 +35,15 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
-	natsSecret, err := r.fetchNatsAuthSecretName()
+	natsSecret, requeue, err := r.fetchNatsAuthSecretName()
 	if err != nil {
 		return nil, err
+	}
+	if requeue {
+		return &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	}
 
 	result := reconciler.CombinedResult{}

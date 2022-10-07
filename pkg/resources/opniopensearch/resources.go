@@ -129,7 +129,7 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 	return configmap
 }
 
-func (r *Reconciler) fetchNatsAuthSecretName() (string, error) {
+func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
 	nats := &opnicorev1beta1.NatsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Spec.NatsRef.Name,
@@ -138,7 +138,12 @@ func (r *Reconciler) fetchNatsAuthSecretName() (string, error) {
 	}
 	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(nats), nats)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return nats.Status.AuthSecretKeyRef.Name, nil
+
+	if nats.Status.AuthSecretKeyRef == nil {
+		return "", true, nil
+	}
+
+	return nats.Status.AuthSecretKeyRef.Name, false, nil
 }

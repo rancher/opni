@@ -1,6 +1,8 @@
 package drivers
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -48,8 +50,22 @@ func ResetClusterDrivers() {
 	}
 }
 
+func GetClusterDriver(name string) (ClusterDriver, error) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	driver, ok := clusterDrivers[name]
+	if !ok {
+		if failureMsg, ok := failedClusterDrivers[name]; ok {
+			return nil, errors.New(failureMsg)
+		}
+		return nil, fmt.Errorf("driver not found")
+	}
+	return driver, nil
+}
+
 type NoopClusterDriver struct {
-	// cortexops.UnimplementedCortexOpsServer
+	orchestrator.UnimplementedTopologyOrchestratorServer
 }
 
 func (d *NoopClusterDriver) Name() string {

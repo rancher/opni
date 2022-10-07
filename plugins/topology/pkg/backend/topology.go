@@ -25,7 +25,7 @@ import (
 
 type TopologyBackendConfig struct {
 	Logger              *zap.SugaredLogger             `validate:"required"`
-	storageBackend      storage.Backend                `validate:"required"`
+	StorageBackend      storage.Backend                `validate:"required"`
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
@@ -191,7 +191,7 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 	}
 
 	// look up the cluster and check if the capability is installed
-	cluster, err := t.storageBackend.GetCluster(ctx, &corev1.Reference{
+	cluster, err := t.StorageBackend.GetCluster(ctx, &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {

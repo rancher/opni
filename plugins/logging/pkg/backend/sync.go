@@ -77,9 +77,13 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		return nil, err
 	}
 
-	osConf, err := b.getOpensearchConfig(ctx, id)
-	if err != nil {
-		return nil, err
+	var osConf *node.OpensearchConfig
+
+	if !b.shouldDisableNode(ctx) {
+		osConf, err = b.getOpensearchConfig(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return b.buildResponse(req.GetCurrentConfig(), &node.LoggingCapabilityConfig{

@@ -71,7 +71,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 			}
 			switch status.State {
 			case StatePending, StateRunning:
-				if err := ctrl.LaunchTask(id, WithMetadata(status.GetMetadata())); err != nil {
+				if err := ctrl.LaunchTask(id, WithJsonMetadata(status.GetMetadata())); err != nil {
 					ctrl.logger.With(
 						zap.String("id", id),
 						zap.Error(err),
@@ -101,6 +101,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 
 type NewTaskOptions struct {
 	metadata       any
+	jsonMetadata   *string
 	statusCallback chan *Status
 	stateCallback  chan State
 }
@@ -121,6 +122,12 @@ func WithMetadata(md any) NewTaskOption {
 
 	return func(o *NewTaskOptions) {
 		o.metadata = md
+	}
+}
+
+func WithJsonMetadata(md string) NewTaskOption {
+	return func(o *NewTaskOptions) {
+		o.jsonMetadata = &md
 	}
 }
 
@@ -151,7 +158,9 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 	options.apply(opts...)
 
 	var mdJson string
-	if options.metadata != nil {
+	if options.jsonMetadata != nil {
+		mdJson = *options.jsonMetadata
+	} else if options.metadata != nil {
 		data, err := json.Marshal(options.metadata)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata: %w", err)

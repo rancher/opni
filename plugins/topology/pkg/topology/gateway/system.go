@@ -9,6 +9,7 @@ import (
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -36,9 +37,16 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.logger.With("err", err).Error("failed to load config")
 		os.Exit(1)
 	}
-
+	machinery.LoadAuthProviders(p.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		//TODO : get whatever is necessary from here
+		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
+		if err != nil {
+			p.logger.With(
+				"err", err,
+			).Error("failed to configure storage backend")
+			os.Exit(1)
+		}
+		p.storageBackend.Set(backend)
 	})
 
 	k8sclient, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
@@ -107,4 +115,9 @@ func (p *Plugin) newNatsConnection() (*nats.Conn, error) {
 			},
 		),
 	)
+}
+
+func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
+	p.nodeManagerClient.Set(client)
+	<-p.ctx.Done()
 }

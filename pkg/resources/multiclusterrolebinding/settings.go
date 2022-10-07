@@ -3,18 +3,24 @@ package multiclusterrolebinding
 import (
 	"fmt"
 
+	_ "embed" // embed should be a blank import
+
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"k8s.io/utils/pointer"
 )
 
 const (
-	tracingPolicyName      = "tracing-policy"
-	spanIndexPrefix        = "otel-v1-apm-span"
-	spanIndexAlias         = "otel-v1-apm-span"
-	spanIndexTemplateName  = "span-mapping"
-	serviceMapIndexName    = "otel-v1-apm-service-map"
-	serviceMapTemplateName = "servicemap-mapping"
+	tracingPolicyName           = "tracing-policy"
+	spanIndexPrefix             = "otel-v1-apm-span"
+	spanIndexAlias              = "otel-v1-apm-span"
+	spanIndexTemplateName       = "span-mapping"
+	serviceMapIndexName         = "otel-v1-apm-service-map"
+	serviceMapTemplateName      = "servicemap-mapping"
+	preProcessingPipelineName   = "opni-ingest-pipeline"
+	kibanaDashboardVersionDocID = "latest"
+	kibanaDashboardVersion      = "v0.5.4"
+	kibanaDashboardVersionIndex = "opni-dashboard-version"
 )
 
 var (
@@ -225,6 +231,36 @@ var (
 			},
 		},
 	}
+
+	preprocessingPipeline = osapiext.IngestPipeline{
+		Description: "Opni preprocessing ingest pipeline",
+		Processors: []osapiext.Processor{
+			{
+				OpniPreProcessor: &osapiext.OpniPreProcessor{
+					Field:       "log",
+					TargetField: "masked_log",
+				},
+			},
+		},
+	}
+
+	ingestPipelineTemplate = osapiext.IndexTemplateSpec{
+		TemplateName: "logs-ingest-pipeline",
+		IndexPatterns: []string{
+			fmt.Sprintf("%s*", indices.LogIndexPrefix),
+		},
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
+				DefaultPipeline: preProcessingPipelineName,
+			},
+		},
+		Priority: 50,
+	}
+
+	// kibanaObjects contains the ndjson form data for creating the kibana
+	// index patterns and dashboards
+	//go:embed dashboard.ndjson
+	kibanaObjects string
 )
 
 func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {

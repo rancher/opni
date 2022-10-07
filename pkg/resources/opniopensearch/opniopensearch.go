@@ -2,6 +2,7 @@ package opniopensearch
 
 import (
 	"context"
+	"time"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -34,8 +35,19 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
+	natsSecret, requeue, err := r.fetchNatsAuthSecretName()
+	if err != nil {
+		return nil, err
+	}
+	if requeue {
+		return &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: 10 * time.Second,
+		}, nil
+	}
+
 	result := reconciler.CombinedResult{}
-	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(), reconciler.StatePresent))
+	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(natsSecret), reconciler.StatePresent))
 	result.Combine(r.ReconcileResource(r.buildMulticlusterRoleBinding(), reconciler.StatePresent))
 	if r.instance.Spec.NatsRef != nil {
 		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
@@ -45,7 +57,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return &result.Result, result.Err
 	}
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.instance), r.instance); err != nil {
 			return err
 		}

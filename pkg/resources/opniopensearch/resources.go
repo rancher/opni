@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
@@ -12,14 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	natsConnection = template.Must(template.New("natsconn").Parse(`
-nats:
+	natsConnection = template.Must(template.New("natsconn").Parse(`nats:
   endpoint: nats://{{ .NatsName }}-nats-client.{{ .Namespace }}.svc:4222
   seed_file: /etc/nkey/seed
-	`))
+`))
 )
 
 type natsConfig struct {
@@ -27,7 +28,7 @@ type natsConfig struct {
 	Namespace string
 }
 
-func (r *Reconciler) buildOpensearchCluster() *opsterv1.OpenSearchCluster {
+func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.OpenSearchCluster {
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
@@ -64,7 +65,7 @@ func (r *Reconciler) buildOpensearchCluster() *opsterv1.OpenSearchCluster {
 							Path: "/etc/nkey",
 							Secret: &corev1.SecretVolumeSource{
 								// TODO select this with labels (not hard coded)
-								SecretName: fmt.Sprintf("%s-nats-config", r.instance.Spec.NatsRef.Name),
+								SecretName: natsAuthSecret,
 							},
 						},
 						{
@@ -126,4 +127,23 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 	}
 	ctrl.SetControllerReference(r.instance, configmap, r.client.Scheme())
 	return configmap
+}
+
+func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
+	nats := &opnicorev1beta1.NatsCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.instance.Spec.NatsRef.Name,
+			Namespace: r.instance.Namespace,
+		},
+	}
+	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(nats), nats)
+	if err != nil {
+		return "", false, err
+	}
+
+	if nats.Status.AuthSecretKeyRef == nil {
+		return "", true, nil
+	}
+
+	return nats.Status.AuthSecretKeyRef.Name, false, nil
 }

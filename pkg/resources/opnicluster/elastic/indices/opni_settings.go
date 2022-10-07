@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
-
-	_ "embed" // embed should be a blank import
 )
 
 const (
@@ -13,8 +11,7 @@ const (
 	LogIndexPrefix               = "logs-v0.5.4"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
-	logTemplateIndexName        = "templates"
-	PreProcessingPipelineName    = "opni-ingest-pipeline"
+	logTemplateIndexName         = "templates"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
 	drainStatusIndexAlias        = "opni-drain-model-status"
@@ -24,9 +21,6 @@ const (
 	metricIndexAlias             = "opni-metric"
 	metricIndexTemplateName      = "opni-metric_rollover_mapping"
 	normalIntervalIndexName      = "opni-normal-intervals"
-	kibanaDashboardVersionDocID  = "latest"
-	kibanaDashboardVersion       = "v0.5.4"
-	kibanaDashboardVersionIndex  = "opni-dashboard-version"
 )
 
 var (
@@ -687,19 +681,6 @@ var (
 		Priority: 100,
 	}
 
-	IngestPipelineTemplate = osapiext.IndexTemplateSpec{
-		TemplateName: "logs-ingest-pipeline",
-		IndexPatterns: []string{
-			fmt.Sprintf("%s*", LogIndexPrefix),
-		},
-		Template: osapiext.TemplateSpec{
-			Settings: osapiext.TemplateSettingsSpec{
-				DefaultPipeline: PreProcessingPipelineName,
-			},
-		},
-		Priority: 50,
-	}
-
 	opniMetricTemplate = osapiext.IndexTemplateSpec{
 		TemplateName: metricIndexTemplateName,
 		IndexPatterns: []string{
@@ -755,10 +736,10 @@ var (
 		"mappings": {
 			Properties: map[string]osapiext.PropertySettings{
 				"log": {
-					Type:   "text",
+					Type: "text",
 				},
 				"template_matched": {
-					Type:   "keyword",
+					Type: "keyword",
 				},
 				"template_cluster_id": {
 					Type: "integer",
@@ -766,7 +747,6 @@ var (
 			},
 		},
 	}
-
 
 	normalIntervalIndexSettings = map[string]osapiext.TemplateMappingsSpec{
 		"mappings": {
@@ -782,21 +762,4 @@ var (
 			},
 		},
 	}
-
-	PreprocessingPipeline = osapiext.IngestPipeline{
-		Description: "Opni preprocessing ingest pipeline",
-		Processors: []osapiext.Processor{
-			{
-				OpniPreProcessor: &osapiext.OpniPreProcessor{
-					Field:       "log",
-					TargetField: "masked_log",
-				},
-			},
-		},
-	}
-
-	// kibanaObjects contains the ndjson form data for creating the kibana
-	// index patterns and dashboards
-	//go:embed dashboard.ndjson
-	kibanaObjects string
 )

@@ -68,9 +68,10 @@ func NewReconciler(
 		Transport:            transport,
 	}
 	kbCfg := kibana.Config{
-		URL:      fmt.Sprintf("http://%s.%s:5601", kbServiceName, namespace),
-		Username: username,
-		Password: password,
+		URL:       fmt.Sprintf("https://%s.%s:5601", kbServiceName, namespace),
+		Username:  username,
+		Password:  password,
+		Transport: transport,
 	}
 	kbClient, _ := kibana.NewClient(kbCfg)
 	esClient, _ := opensearch.NewClient(esCfg)

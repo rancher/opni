@@ -146,7 +146,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 			},
 			Spec: loggingv1beta1.OpniOpensearchSpec{
 				OpensearchSettings: loggingv1beta1.OpensearchSettings{
-					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
+					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, nil),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
 						Tls: &opsterv1.TlsConfig{
@@ -366,9 +366,12 @@ func (p *Plugin) convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
-	var version, osVersion string
+	var osVersion string
+	version := "0.6.0-rc1"
 	if cluster == nil {
-		version = util.Version
+		if util.Version != "unversioned" {
+			version = util.Version
+		}
 		if p.version != "" {
 			version = p.version
 		}

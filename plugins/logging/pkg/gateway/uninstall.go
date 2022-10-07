@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +50,7 @@ type UninstallTaskRunner struct {
 	natsConnection   *nats.Conn
 	k8sClient        client.Client
 	storageBackend   future.Future[storage.Backend]
+	logger           *zap.SugaredLogger
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
@@ -253,6 +255,7 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
+		a.logger.Debugf("opensearch taskID is :%s", taskID)
 		_, err = a.kv.PutString(id, taskID)
 		if err != nil {
 			return err

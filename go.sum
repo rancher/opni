@@ -641,8 +641,8 @@ github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116 h1:h
 github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116/go.mod h1:pzDiuRy1QgnVI8yq1e3d7WvuofNAzgj/c48IRNX2n38=
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2 h1:GPBUVhDuyLGWicbQ0FPVF1ZxCOI/0rJ7C3b64nN16oY=
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2/go.mod h1:ew+9wAV4nyz0ZKybKcM4cMosZwggyAkzU3BU/wZxHTA=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220920002841-44ac67a7ccba h1:GNIuTmu7+yLRJupKaWQuerwTEfdnEIjNXI+aDbIdBEM=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220920002841-44ac67a7ccba/go.mod h1:EqF551mOepdzxRdxlCXsczhQWAV76IATDzZ8FWSuwaw=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221007053522-739447fc3dce h1:CxLL+GhwevW2CjImI0t8NhjRzomytOLSPQFKbcFD1oI=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221007053522-739447fc3dce/go.mod h1:EqF551mOepdzxRdxlCXsczhQWAV76IATDzZ8FWSuwaw=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d h1:1iy2qD6JEhHKKhUOA9IWs7mjco7lnw2qx8FsRI2wirE=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d/go.mod h1:tmAIfUFEirG/Y8jhZ9M+h36obRZAk/1fcSpXwAVlfqE=

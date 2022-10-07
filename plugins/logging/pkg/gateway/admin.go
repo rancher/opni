@@ -146,7 +146,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 			},
 			Spec: loggingv1beta1.OpniOpensearchSpec{
 				OpensearchSettings: loggingv1beta1.OpensearchSettings{
-					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
+					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, nil),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
 						Tls: &opsterv1.TlsConfig{

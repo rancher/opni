@@ -34,8 +34,13 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
+	natsSecret, err := r.fetchNatsAuthSecretName()
+	if err != nil {
+		return nil, err
+	}
+
 	result := reconciler.CombinedResult{}
-	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(), reconciler.StatePresent))
+	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(natsSecret), reconciler.StatePresent))
 	result.Combine(r.ReconcileResource(r.buildMulticlusterRoleBinding(), reconciler.StatePresent))
 	if r.instance.Spec.NatsRef != nil {
 		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
@@ -45,7 +50,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return &result.Result, result.Err
 	}
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.instance), r.instance); err != nil {
 			return err
 		}

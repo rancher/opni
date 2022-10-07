@@ -25,7 +25,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		username,
 		password,
 		opensearchCluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
+		fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName),
 	)
 
 	retErr = reconciler.MaybeCreateRole(clusterIndexRole)
@@ -107,7 +107,9 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		}
 	}
 
-	retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
+	if opensearchCluster.Spec.Dashboards.Enable {
+		retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
+	}
 
 	return
 }

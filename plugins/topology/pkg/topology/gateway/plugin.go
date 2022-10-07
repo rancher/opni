@@ -21,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/representation"
 	"github.com/rancher/opni/plugins/topology/pkg/backend"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
@@ -30,7 +31,7 @@ import (
 )
 
 type Plugin struct {
-	orchestrator.UnsafeTopologyOrchestratorServer
+	representation.UnsafeTopologyRepresentationServer
 	system.UnimplementedSystemPluginClient
 
 	ctx    context.Context
@@ -85,7 +86,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
-var _ orchestrator.TopologyOrchestratorServer = (*Plugin)(nil)
+// var _ orchestrator.TopologyOrchestratorServer = (*Plugin)(nil)
+var _ representation.TopologyRepresentationServer = (*Plugin)(nil)
 
 type ConfigStorageAPIs struct {
 	//FIXME: to rename if we find a use

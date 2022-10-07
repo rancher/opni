@@ -8,7 +8,6 @@ package orchestrator
 
 import (
 	context "context"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -25,8 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TopologyOrchestratorClient interface {
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
-	PutGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*TopologyGraph, error)
 }
 
 type topologyOrchestratorClient struct {
@@ -46,31 +43,11 @@ func (c *topologyOrchestratorClient) GetClusterStatus(ctx context.Context, in *e
 	return out, nil
 }
 
-func (c *topologyOrchestratorClient) PutGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/orchestrator.TopologyOrchestrator/PutGraph", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *topologyOrchestratorClient) GetGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*TopologyGraph, error) {
-	out := new(TopologyGraph)
-	err := c.cc.Invoke(ctx, "/orchestrator.TopologyOrchestrator/GetGraph", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // TopologyOrchestratorServer is the server API for TopologyOrchestrator service.
 // All implementations must embed UnimplementedTopologyOrchestratorServer
 // for forward compatibility
 type TopologyOrchestratorServer interface {
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
-	PutGraph(context.Context, *TopologyGraph) (*emptypb.Empty, error)
-	GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error)
 	mustEmbedUnimplementedTopologyOrchestratorServer()
 }
 
@@ -80,12 +57,6 @@ type UnimplementedTopologyOrchestratorServer struct {
 
 func (UnimplementedTopologyOrchestratorServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
-}
-func (UnimplementedTopologyOrchestratorServer) PutGraph(context.Context, *TopologyGraph) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PutGraph not implemented")
-}
-func (UnimplementedTopologyOrchestratorServer) GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetGraph not implemented")
 }
 func (UnimplementedTopologyOrchestratorServer) mustEmbedUnimplementedTopologyOrchestratorServer() {}
 
@@ -118,42 +89,6 @@ func _TopologyOrchestrator_GetClusterStatus_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TopologyOrchestrator_PutGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TopologyGraph)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TopologyOrchestratorServer).PutGraph(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/orchestrator.TopologyOrchestrator/PutGraph",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopologyOrchestratorServer).PutGraph(ctx, req.(*TopologyGraph))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _TopologyOrchestrator_GetGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TopologyOrchestratorServer).GetGraph(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/orchestrator.TopologyOrchestrator/GetGraph",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopologyOrchestratorServer).GetGraph(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // TopologyOrchestrator_ServiceDesc is the grpc.ServiceDesc for TopologyOrchestrator service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -164,14 +99,6 @@ var TopologyOrchestrator_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterStatus",
 			Handler:    _TopologyOrchestrator_GetClusterStatus_Handler,
-		},
-		{
-			MethodName: "PutGraph",
-			Handler:    _TopologyOrchestrator_PutGraph_Handler,
-		},
-		{
-			MethodName: "GetGraph",
-			Handler:    _TopologyOrchestrator_GetGraph_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -85,7 +85,7 @@ func (m *Server) WatchClusters(
 		return err
 	}
 	known := map[string]*corev1.Reference{}
-	for _, cluster := range in.KnownClusters.Items {
+	for _, cluster := range in.GetKnownClusters().GetItems() {
 		if _, err := m.coreDataSource.StorageBackend().GetCluster(context.Background(), cluster); err != nil {
 			return err
 		}
@@ -94,37 +94,37 @@ func (m *Server) WatchClusters(
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 	for {
+		clusters, err := m.coreDataSource.StorageBackend().ListClusters(context.Background(), nil, 0)
+		updatedIds := map[string]struct{}{}
+		if err != nil {
+			return err
+		}
+		for _, cluster := range clusters.Items {
+			updatedIds[cluster.Id] = struct{}{}
+			if _, ok := known[cluster.Id]; !ok {
+				ref := cluster.Reference()
+				known[cluster.Id] = ref
+				if err := stream.Send(&managementv1.WatchEvent{
+					Cluster: ref,
+					Type:    managementv1.WatchEventType_Added,
+				}); err != nil {
+					return status.Error(codes.Internal, err.Error())
+				}
+			}
+		}
+		for id, cluster := range known {
+			if _, ok := updatedIds[id]; !ok {
+				delete(known, id)
+				if err := stream.Send(&managementv1.WatchEvent{
+					Cluster: cluster,
+					Type:    managementv1.WatchEventType_Deleted,
+				}); err != nil {
+					return status.Error(codes.Internal, err.Error())
+				}
+			}
+		}
 		select {
 		case <-tick.C:
-			clusters, err := m.coreDataSource.StorageBackend().ListClusters(context.Background(), nil, 0)
-			updatedIds := map[string]struct{}{}
-			if err != nil {
-				return err
-			}
-			for _, cluster := range clusters.Items {
-				updatedIds[cluster.Id] = struct{}{}
-				if _, ok := known[cluster.Id]; !ok {
-					ref := cluster.Reference()
-					known[cluster.Id] = ref
-					if err := stream.Send(&managementv1.WatchEvent{
-						Cluster: ref,
-						Type:    managementv1.WatchEventType_Added,
-					}); err != nil {
-						return status.Error(codes.Internal, err.Error())
-					}
-				}
-			}
-			for id, cluster := range known {
-				if _, ok := updatedIds[id]; !ok {
-					delete(known, id)
-					if err := stream.Send(&managementv1.WatchEvent{
-						Cluster: cluster,
-						Type:    managementv1.WatchEventType_Deleted,
-					}); err != nil {
-						return status.Error(codes.Internal, err.Error())
-					}
-				}
-			}
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}

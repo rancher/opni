@@ -420,6 +420,45 @@
         ]
       }
     },
+    "/management/clusters/{id}/health/watch": {
+      "post": {
+        "operationId": "Management_WatchClusterHealthStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/coreHealthStatus"
+                },
+                "error": {
+                  "$ref": "#/definitions/googlerpcStatus"
+                }
+              },
+              "title": "Stream result of coreHealthStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/clusters/{target.cluster.id}/capabilities/{name}/install": {
       "post": {
         "operationId": "Management_InstallCapability",
@@ -1247,6 +1286,10 @@
     "coreHealth": {
       "type": "object",
       "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
         "ready": {
           "type": "boolean"
         },
@@ -1443,6 +1486,10 @@
     "coreStatus": {
       "type": "object",
       "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
         "connected": {
           "type": "boolean"
         }

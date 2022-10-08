@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -57,7 +58,7 @@ const (
 )
 
 type Agent struct {
-	controlv1.UnsafeHealthServer
+	controlv1.UnimplementedHealthServer
 	AgentOptions
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine
@@ -351,6 +352,8 @@ func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, erro
 		conditions = append(conditions, fmt.Sprintf("%s %s", key, value))
 		return true
 	})
+
+	sort.Strings(conditions)
 
 	return &corev1.Health{
 		Ready:      len(conditions) == 0,

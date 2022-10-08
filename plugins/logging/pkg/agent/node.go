@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -98,6 +99,7 @@ func (l *LoggingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 		}
 	}
 
+	sort.Strings(conditions)
 	return &corev1.Health{
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,

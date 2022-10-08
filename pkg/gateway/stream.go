@@ -15,7 +15,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -54,7 +53,6 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
 	ts, err := totem.NewServer(stream,
 		totem.WithName("gateway-server"),
-		// totem.WithUnaryServerInterceptor(s.interceptor),
 	)
 	if err != nil {
 		return err
@@ -76,31 +74,13 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 		).Error("failed to get cluster")
 		return err
 	}
+	eventC, err := s.clusterStore.WatchCluster(ctx, c)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	ctx = storage.NewWatchContext(ctx, eventC)
 
-	// find any remote streams that match the cluster's capabilities, or that
-	// don't require any capabilities. If the cluster loses any required
-	// capabilities once it is connected, the stream will be closed and the
-	// cluster will need to reconnect.
-	// requiredCapabilities := []*corev1.ClusterCapability{} // TODO
 	for _, r := range s.remotes {
-		// var services []*descriptorpb.ServiceDescriptorProto
-		// for _, service := range r.services {
-		// 	// check if the service requires a specific capability
-		// 	if service.Options.RequireCapability != "" {
-		// 		rc := capabilities.Cluster(service.Options.RequireCapability)
-		// 		// if the cluster doesn't have the capability, skip the service
-		// 		if !capabilities.Has(cluster, rc) {
-		// 			continue
-		// 		} else {
-		// 			requiredCapabilities = append(requiredCapabilities, rc)
-		// 		}
-		// 	}
-		// 	services = append(services, service.ServiceDescriptor)
-		// }
-		// if len(services) == 0 {
-		// 	continue
-		// }
-
 		streamClient := streamv1.NewStreamClient(r.cc)
 		ctx := cluster.AuthorizedOutgoingContext(ctx)
 		splicedStream, err := streamClient.Connect(ctx)
@@ -119,18 +99,6 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 			continue
 		}
 	}
-
-	// set up a context which will be canceled when the cluster loses any
-	// required capabilities
-
-	// TODO
-	// eventC, err := s.clusterStore.WatchCluster(ctx, c)
-	// if err != nil {
-	// 	return status.Error(codes.Internal, err.Error())
-	// }
-	// var ca context.CancelFunc
-	// ctx, ca = capabilities.NewContext(ctx, eventC, requiredCapabilities...)
-	// defer ca()
 
 	cc, errC := ts.Serve()
 
@@ -156,9 +124,8 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 			zap.Error(ctx.Err()),
 		).Info("agent stream closing")
 		err := ctx.Err()
-		if errors.Is(err, capabilities.ErrObjectDeleted) ||
-			errors.Is(err, capabilities.ErrCapabilityNotFound) {
-			return status.Error(codes.FailedPrecondition, err.Error())
+		if errors.Is(err, storage.ErrObjectDeleted) {
+			return status.Error(codes.Unauthenticated, err.Error())
 		}
 		return status.Error(codes.Unavailable, err.Error())
 	}

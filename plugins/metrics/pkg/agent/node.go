@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type MetricsNode struct {
@@ -25,8 +27,14 @@ type MetricsNode struct {
 
 	logger *zap.SugaredLogger
 
-	clientMu sync.RWMutex
-	client   node.NodeMetricsCapabilityClient
+	nodeClientMu sync.RWMutex
+	nodeClient   node.NodeMetricsCapabilityClient
+
+	identityClientMu sync.RWMutex
+	identityClient   controlv1.IdentityClient
+
+	healthListenerClientMu sync.RWMutex
+	healthListenerClient   controlv1.HealthListenerClient
 
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
@@ -36,23 +44,59 @@ type MetricsNode struct {
 }
 
 func NewMetricsNode(ct ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
-	return &MetricsNode{
+	node := &MetricsNode{
 		logger:     lg,
 		conditions: ct,
 	}
+	node.conditions.AddListener(node.sendHealthUpdate)
+	return node
 }
 
+func (m *MetricsNode) sendHealthUpdate() {
+	// TODO this can be optimized to de-duplicate rapid updates
+	m.healthListenerClientMu.RLock()
+	defer m.healthListenerClientMu.RUnlock()
+	if m.healthListenerClient != nil {
+		health, err := m.GetHealth(context.TODO(), &emptypb.Empty{})
+		if err != nil {
+			m.logger.With(
+				zap.Error(err),
+			).Warn("failed to get node health")
+			return
+		}
+		if _, err := m.healthListenerClient.UpdateHealth(context.TODO(), health); err != nil {
+			m.logger.With(
+				zap.Error(err),
+			).Warn("failed to send node health update")
+		}
+		m.logger.Debug("sent node health update")
+	}
+}
 func (m *MetricsNode) AddConfigListener(ch chan<- *node.MetricsCapabilityConfig) {
 	m.listeners = append(m.listeners, ch)
 }
 
-func (m *MetricsNode) SetClient(client node.NodeMetricsCapabilityClient) {
-	m.clientMu.Lock()
-	defer m.clientMu.Unlock()
+func (m *MetricsNode) SetNodeClient(client node.NodeMetricsCapabilityClient) {
+	m.nodeClientMu.Lock()
+	defer m.nodeClientMu.Unlock()
 
-	m.client = client
+	m.nodeClient = client
 
 	go m.doSync(context.Background())
+}
+
+func (m *MetricsNode) SetIdentityClient(client controlv1.IdentityClient) {
+	m.identityClientMu.Lock()
+	defer m.identityClientMu.Unlock()
+
+	m.identityClient = client
+}
+
+func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerClient) {
+	m.healthListenerClientMu.Lock()
+	m.healthListenerClient = client
+	m.healthListenerClientMu.Unlock()
+	m.sendHealthUpdate()
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
@@ -71,10 +115,10 @@ func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emp
 	}
 	m.logger.Debug("received sync request")
 
-	m.clientMu.RLock()
-	defer m.clientMu.RUnlock()
+	m.nodeClientMu.RLock()
+	defer m.nodeClientMu.RUnlock()
 
-	if m.client == nil {
+	if m.nodeClient == nil {
 		return nil, status.Error(codes.Unavailable, "not connected to node server")
 	}
 
@@ -92,30 +136,26 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 
 	conditions := m.conditions.List()
 
-	if m.config != nil {
-		if !m.config.Enabled && len(m.config.Conditions) > 0 {
-			conditions = append(conditions, fmt.Sprintf("Disabled: %s", strings.Join(m.config.Conditions, ", ")))
-		}
-	}
-
+	sort.Strings(conditions)
 	return &corev1.Health{
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
+		Timestamp:  timestamppb.New(m.conditions.LastModified()),
 	}, nil
 }
 
 func (m *MetricsNode) doSync(ctx context.Context) {
 	m.logger.Debug("syncing metrics node")
-	m.clientMu.RLock()
-	defer m.clientMu.RUnlock()
+	m.nodeClientMu.RLock()
+	defer m.nodeClientMu.RUnlock()
 
-	if m.client == nil {
+	if m.nodeClient == nil {
 		m.conditions.Set(CondConfigSync, StatusPending, "no client, skipping sync")
 		return
 	}
 
 	m.configMu.RLock()
-	syncResp, err := m.client.Sync(ctx, &node.SyncRequest{
+	syncResp, err := m.nodeClient.Sync(ctx, &node.SyncRequest{
 		CurrentConfig: util.ProtoClone(m.config),
 	})
 	m.configMu.RUnlock()
@@ -143,6 +183,12 @@ func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
 	defer m.configMu.Unlock()
 
 	m.config = config
+
+	if !m.config.Enabled && len(m.config.Conditions) > 0 {
+		m.conditions.Set(CondBackend, StatusDisabled, strings.Join(m.config.Conditions, ", "))
+	} else {
+		m.conditions.Clear(CondBackend)
+	}
 
 	for _, ch := range m.listeners {
 		clone := util.ProtoClone(config)

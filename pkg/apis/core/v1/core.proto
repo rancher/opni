@@ -113,10 +113,12 @@ message SubjectAccessRequest {
 }
 
 message Status {
-  bool connected = 1;
+  google.protobuf.Timestamp timestamp = 1;
+  bool connected = 2;
 }
 
 message Health {
+  google.protobuf.Timestamp timestamp = 1;
   bool ready = 2;
   repeated string conditions = 3;
   map<string, string> annotations = 4;

@@ -12,9 +12,11 @@ import (
 
 type Monitor struct {
 	MonitorOptions
-	mu            sync.Mutex
-	currentHealth map[string]*corev1.Health
-	currentStatus map[string]*corev1.Status
+	mu              sync.Mutex
+	currentHealth   map[string]*corev1.Health
+	currentStatus   map[string]*corev1.Status
+	healthListeners map[string][]chan *corev1.Health
+	statusListeners map[string][]chan *corev1.Status
 }
 
 type MonitorOptions struct {
@@ -42,9 +44,11 @@ func NewMonitor(opts ...MonitorOption) *Monitor {
 	options.apply(opts...)
 
 	return &Monitor{
-		MonitorOptions: options,
-		currentHealth:  make(map[string]*corev1.Health),
-		currentStatus:  make(map[string]*corev1.Status),
+		MonitorOptions:  options,
+		currentHealth:   make(map[string]*corev1.Health),
+		currentStatus:   make(map[string]*corev1.Status),
+		healthListeners: make(map[string][]chan *corev1.Health),
+		statusListeners: make(map[string][]chan *corev1.Status),
 	}
 }
 
@@ -54,6 +58,18 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 		defer m.mu.Unlock()
 		m.currentHealth = make(map[string]*corev1.Health)
 		m.currentStatus = make(map[string]*corev1.Status)
+		for _, listeners := range m.healthListeners {
+			for _, c := range listeners {
+				close(c)
+			}
+		}
+		for _, listeners := range m.statusListeners {
+			for _, c := range listeners {
+				close(c)
+			}
+		}
+		m.healthListeners = make(map[string][]chan *corev1.Health)
+		m.statusListeners = make(map[string][]chan *corev1.Status)
 	}()
 	for {
 		select {
@@ -73,6 +89,9 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 				annotations.KeyValuePairs(update.Health.GetAnnotations())...,
 			).Info("received health update")
 			m.currentHealth[update.ID] = update.Health
+			for _, ch := range m.healthListeners[update.ID] {
+				ch <- util.ProtoClone(update.Health)
+			}
 			m.mu.Unlock()
 		case update, ok := <-updater.StatusC():
 			if !ok {
@@ -85,6 +104,9 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 				"connected", update.Status.Connected,
 			).Info("received status update")
 			m.currentStatus[update.ID] = update.Status
+			for _, ch := range m.statusListeners[update.ID] {
+				ch <- util.ProtoClone(update.Status)
+			}
 			m.mu.Unlock()
 		}
 	}
@@ -97,4 +119,75 @@ func (m *Monitor) GetHealthStatus(id string) *corev1.HealthStatus {
 		Health: util.ProtoClone(m.currentHealth[id]),
 		Status: util.ProtoClone(m.currentStatus[id]),
 	}
+}
+
+func (m *Monitor) WatchHealthStatus(ctx context.Context, id string) <-chan *corev1.HealthStatus {
+	m.mu.Lock()
+	ch := make(chan *corev1.HealthStatus, 10)
+	hl := make(chan *corev1.Health, 10)
+	sl := make(chan *corev1.Status, 10)
+	m.healthListeners[id] = append(m.healthListeners[id], hl)
+	m.statusListeners[id] = append(m.statusListeners[id], sl)
+	curHealth := util.ProtoClone(m.currentHealth[id])
+	curStatus := util.ProtoClone(m.currentStatus[id])
+
+	ch <- &corev1.HealthStatus{
+		Health: util.ProtoClone(curHealth),
+		Status: util.ProtoClone(curStatus),
+	}
+	m.mu.Unlock()
+
+	go func() {
+	LOOP:
+		for {
+			select {
+			case <-ctx.Done():
+				break LOOP
+			case health, ok := <-hl:
+				if !ok {
+					break LOOP
+				}
+				hs := &corev1.HealthStatus{
+					Health: health,
+					Status: util.ProtoClone(curStatus),
+				}
+				select {
+				case <-ctx.Done():
+				case ch <- hs:
+				}
+			case status, ok := <-sl:
+				if !ok {
+					break LOOP
+				}
+
+				hs := &corev1.HealthStatus{
+					Health: util.ProtoClone(curHealth),
+					Status: status,
+				}
+				select {
+				case <-ctx.Done():
+				case ch <- hs:
+				}
+			}
+		}
+
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		for i, h := range m.healthListeners[id] {
+			if h == hl {
+				m.healthListeners[id] = append(m.healthListeners[id][:i], m.healthListeners[id][i+1:]...)
+				close(hl)
+				break
+			}
+		}
+		for i, s := range m.statusListeners[id] {
+			if s == sl {
+				m.statusListeners[id] = append(m.statusListeners[id][:i], m.statusListeners[id][i+1:]...)
+				close(sl)
+				break
+			}
+		}
+	}()
+
+	return ch
 }

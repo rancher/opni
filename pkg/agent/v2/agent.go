@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/pkg/ident/identserver"
 	"github.com/rancher/opni/pkg/patch"
 
 	"github.com/gin-contrib/pprof"
@@ -227,6 +228,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
+	controlv1.RegisterIdentityServer(gatewayClient, identserver.NewFromProvider(ip))
 
 	hm := health.NewAggregator(health.WithStaticAnnotations(map[string]string{
 		annotations.AgentVersion: annotations.Version2,
@@ -392,9 +394,12 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			).Warn("error connecting to gateway")
 		}
 
-		if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
+		switch util.StatusCode(errF.Get()) {
+		case codes.FailedPrecondition:
 			// this error will be returned if the agent needs to restart
 			lg.Warn("encountered non-retriable error")
+			return errF.Get()
+		case codes.Unauthenticated:
 			return errF.Get()
 		}
 		isRetry = true

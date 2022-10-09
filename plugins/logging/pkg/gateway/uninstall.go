@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/logging/pkg/errors"
+	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
@@ -63,9 +64,11 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 		ti.AddLogEntry(zapcore.WarnLevel, "Will delete opensearch data")
 		err := a.getPendingDeleteBucket()
 		if err != nil {
+			ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 			return err
 		}
 		if err := a.doClusterDataDelete(ctx, ti.TaskId()); err != nil {
+			ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 			return err
 		}
 
@@ -100,6 +103,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 					ti.AddLogEntry(zapcore.WarnLevel, "some log entries not deleted")
 					break RETRY
 				case deleteFinished:
+					ti.AddLogEntry(zapcore.InfoLevel, "Logging data deleted successfully")
 					break RETRY
 				}
 			}
@@ -108,8 +112,10 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 		ti.AddLogEntry(zapcore.InfoLevel, "Log data will not be deleted")
 	}
 
+	ti.AddLogEntry(zapcore.InfoLevel, "Deleting Kubernetes data")
 	err := a.deleteKubernetesObjects(ctx, ti.TaskId())
 	if err != nil {
+		ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 		return err
 	}
 
@@ -162,10 +168,10 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 		client.InNamespace(a.storageNamespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		errors.ErrListingClustersFaled(err)
+		loggingerrors.ErrListingClustersFaled(err)
 	}
 	if len(loggingClusterList.Items) > 1 {
-		return errors.ErrDeleteClusterInvalidList(id)
+		return loggingerrors.ErrDeleteClusterInvalidList(id)
 	}
 	if len(loggingClusterList.Items) == 1 {
 		loggingCluster = &loggingClusterList.Items[0]
@@ -178,11 +184,11 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 		client.InNamespace(a.storageNamespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		errors.ErrListingClustersFaled(err)
+		loggingerrors.ErrListingClustersFaled(err)
 	}
 
 	if len(secretList.Items) > 1 {
-		return errors.ErrDeleteClusterInvalidList(id)
+		return loggingerrors.ErrDeleteClusterInvalidList(id)
 	}
 	if len(secretList.Items) == 1 {
 		secret = &secretList.Items[0]
@@ -222,14 +228,18 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 		if err != nil {
 			return nil
 		}
-		createNewJob = string(entry.Value()) != pendingValue
+		createNewJob = string(entry.Value()) == pendingValue
 	} else {
 		createNewJob = true
 	}
 
 	query, _ := sjson.Set("", `query.term.cluster_id`, id)
 	if createNewJob {
-		_, err = a.kv.PutString(id, pendingValue)
+		if idExists {
+			_, err = a.kv.PutString(id, pendingValue)
+		} else {
+			_, err = a.kv.Create(id, []byte(pendingValue))
+		}
 		if err != nil {
 			return err
 		}
@@ -250,7 +260,7 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 		defer resp.Body.Close()
 
 		if resp.IsError() {
-			return errors.ErrOpensearchRequestFailed(resp.String())
+			return loggingerrors.ErrOpensearchRequestFailed(resp.String())
 		}
 
 		respString := util.ReadString(resp.Body)
@@ -268,6 +278,9 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 func (a *UninstallTaskRunner) keyExists(keyToCheck string) (bool, error) {
 	keys, err := a.kv.Keys()
 	if err != nil {
+		if errors.Is(err, nats.ErrNoKeysFound) {
+			return false, nil
+		}
 		return false, err
 	}
 	for _, key := range keys {
@@ -279,6 +292,16 @@ func (a *UninstallTaskRunner) keyExists(keyToCheck string) (bool, error) {
 }
 
 func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (deleteStatus, error) {
+	idExists, err := a.keyExists(id)
+	if err != nil {
+		return deleteError, err
+	}
+	// If ID doesn't exist in KV set task to finished with errors
+	if !idExists {
+		a.logger.Warn("could not find cluster id in KV store")
+		return deleteFinishedWithErrors, nil
+	}
+
 	value, err := a.kv.Get(id)
 	if err != nil {
 		return deleteError, err
@@ -287,6 +310,7 @@ func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (
 	taskID := string(value.Value())
 
 	if taskID == pendingValue {
+		a.logger.Debug("kv status is pending")
 		return deletePending, nil
 	}
 
@@ -300,17 +324,23 @@ func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		return deleteError, errors.ErrOpensearchRequestFailed(resp.String())
+		return deleteError, loggingerrors.ErrOpensearchRequestFailed(resp.String())
 	}
 
 	body := util.ReadString(resp.Body)
 
 	if !gjson.Get(body, "completed").Bool() {
+		a.logger.Debug(body)
 		return deleteRunning, nil
 	}
 
 	if len(gjson.Get(body, "response.failures").Array()) > 0 {
 		return deleteFinishedWithErrors, nil
+	}
+
+	err = a.kv.Delete(id)
+	if err != nil {
+		return deleteError, err
 	}
 
 	return deleteFinished, nil

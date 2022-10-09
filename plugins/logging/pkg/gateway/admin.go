@@ -180,7 +180,6 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err != nil {
 			return nil, err
 		}
-		go p.setOpensearchClient()
 		return &emptypb.Empty{}, nil
 	}
 

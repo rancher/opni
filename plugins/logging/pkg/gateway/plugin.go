@@ -209,6 +209,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		WithNamespace(ns),
 		WithOpensearchCluster(opniCluster),
 	)
+	p.logger.Info("logging plugin enabled")
 
 	restconfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -229,10 +230,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	if p.featureOverride != nil {
 		p.manageFlag = p.featureOverride
 	}
-
-	if p.manageFlag != nil && !p.manageFlag.IsEnabled() {
-		go p.setOpensearchClient()
-	}
+	go p.setOpensearchClient()
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))

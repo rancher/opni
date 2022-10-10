@@ -175,6 +175,7 @@ service Management {
   rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/management/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
+      body: "target"
     };
   }
   rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {

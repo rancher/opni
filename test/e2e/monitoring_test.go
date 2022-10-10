@@ -295,7 +295,10 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 					Name: c.Name,
 					Target: &capabilityv1.UninstallRequest{
 						Cluster: &corev1.Reference{Id: agentId},
-						Options: `{"initialDelay":"1s","deleteStoredData":"true"}`,
+						Options: capabilityv1.DefaultUninstallOptions{
+							InitialDelay:     capabilityv1.Duration(1 * time.Second),
+							DeleteStoredData: true,
+						}.ToStruct(),
 					},
 				})
 			}
@@ -358,7 +361,10 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				Cluster: &corev1.Reference{
 					Id: agentId,
 				},
-				Options: `{"initialDelay":"10m","deleteStoredData":"true"}`,
+				Options: capabilityv1.DefaultUninstallOptions{
+					InitialDelay:     capabilityv1.Duration(10 * time.Minute),
+					DeleteStoredData: true,
+				}.ToStruct(),
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -378,13 +384,17 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		Eventually(getTaskState, 1*time.Minute, 1*time.Second).Should(Equal(task.StateCanceled))
 
 		By("restarting the uninstall")
+
 		_, err = mgmtClient.UninstallCapability(ctx, &managementv1.CapabilityUninstallRequest{
 			Name: wellknown.CapabilityMetrics,
 			Target: &capabilityv1.UninstallRequest{
 				Cluster: &corev1.Reference{
 					Id: agentId,
 				},
-				Options: `{"initialDelay":"1s","deleteStoredData":"true"}`,
+				Options: capabilityv1.DefaultUninstallOptions{
+					InitialDelay:     capabilityv1.Duration(1 * time.Second),
+					DeleteStoredData: true,
+				}.ToStruct(),
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())

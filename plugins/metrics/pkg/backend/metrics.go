@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -156,9 +155,9 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 		return nil, err
 	}
 
-	defaultOpts := capabilityv1.DefaultUninstallOptions{}
-	if strings.TrimSpace(req.Options) != "" {
-		if err := json.Unmarshal([]byte(req.Options), &defaultOpts); err != nil {
+	var defaultOpts capabilityv1.DefaultUninstallOptions
+	if req.Options != nil {
+		if err := defaultOpts.LoadFromStruct(req.Options); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal options: %v", err)
 		}
 	}

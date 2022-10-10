@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type conditionStatus int32
@@ -356,6 +357,7 @@ func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, erro
 	sort.Strings(conditions)
 
 	return &corev1.Health{
+		Timestamp:  timestamppb.Now(),
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
 		Annotations: map[string]string{

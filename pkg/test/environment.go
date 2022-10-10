@@ -78,6 +78,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
@@ -210,7 +211,7 @@ func defaultAgentVersion() string {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_AGENT_VERSION"); ok {
 		return v
 	}
-	return "v1"
+	return "v2"
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
@@ -1040,6 +1041,7 @@ func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	}
 	return cc
 }
+
 func (e *Environment) NewCortexAdminClient() cortexadmin.CortexAdminClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
@@ -1047,6 +1049,20 @@ func (e *Environment) NewCortexAdminClient() cortexadmin.CortexAdminClient {
 	c, err := cortexadmin.NewClient(e.ctx,
 		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
 		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (e *Environment) NewCortexOpsClient() cortexops.CortexOpsClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := cortexops.NewClient(e.ctx,
+		cortexops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		cortexops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
 	)
 	if err != nil {
 		panic(err)

@@ -315,8 +315,8 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	m.desiredNodeSpecMu.RLock()
 	defer m.desiredNodeSpecMu.RUnlock()
 
-	m.nodeStatusMu.RLock()
-	defer m.nodeStatusMu.RUnlock()
+	m.nodeStatusMu.Lock()
+	defer m.nodeStatusMu.Unlock()
 
 	status := m.nodeStatus[id]
 	if status == nil {

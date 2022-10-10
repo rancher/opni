@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 /******************************************************************************
@@ -596,6 +597,7 @@ type HealthStore struct {
 }
 
 func (hb *HealthStore) SetHealth(health *corev1.Health) {
+	health.Timestamp = timestamppb.Now()
 	hb.health.Store(util.ProtoClone(health))
 }
 

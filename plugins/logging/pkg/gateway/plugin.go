@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
-	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"go.uber.org/zap"
@@ -40,6 +39,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -60,7 +60,7 @@ type Plugin struct {
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
-	opensearchClient    future.Future[*osclient.Client]
+	opensearchClient    *loggingutil.AsyncOpensearchClient
 	manageFlag          featureflags.FeatureFlag
 	logging             backend.LoggingBackend
 }
@@ -161,7 +161,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
-		opensearchClient:    future.New[*osclient.Client](),
+		opensearchClient:    loggingutil.NewAsyncOpensearchClient(),
 		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 	}
 
@@ -209,6 +209,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		WithNamespace(ns),
 		WithOpensearchCluster(opniCluster),
 	)
+	p.logger.Info("logging plugin enabled")
 
 	restconfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -230,9 +231,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		p.manageFlag = p.featureOverride
 	}
 
-	if p.manageFlag != nil && !p.manageFlag.IsEnabled() {
-		go p.setOpensearchClient()
-	}
+	go p.opensearchClient.SetClient(p.setOpensearchClient)
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))

@@ -11,6 +11,7 @@ import (
 
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/opensearch-project/opensearch-go"
+	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
@@ -87,6 +88,8 @@ func (p *Plugin) DeleteOpensearchCluster(
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 	// Check that it is safe to delete the cluster
+	p.opensearchClient.UnsetClient()
+
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
 	err := p.k8sClient.List(p.ctx, loggingClusters, client.InNamespace(p.storageNamespace))
 	if err != nil {
@@ -117,6 +120,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
+	go p.opensearchClient.SetClient(p.setOpensearchClient)
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,
@@ -180,7 +184,6 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err != nil {
 			return nil, err
 		}
-		go p.setOpensearchClient()
 		return &emptypb.Empty{}, nil
 	}
 
@@ -392,6 +395,10 @@ func (p *Plugin) convertProtobufToDashboards(
 		}
 	}
 
+	if version == "unversioned" {
+		version = "0.6.0-rc1"
+	}
+
 	image := fmt.Sprintf(
 		"%s/opensearch-dashboards:%s-%s",
 		defaultRepo,
@@ -462,7 +469,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	}
 }
 
-func (p *Plugin) setOpensearchClient() {
+func (p *Plugin) setOpensearchClient() *osclient.Client {
 	expBackoff := backoff.Exponential(
 		backoff.WithMaxRetries(0),
 		backoff.WithMinInterval(5*time.Second),
@@ -498,7 +505,7 @@ FETCH:
 	username, password, err := helpers.UsernameAndPassword(p.ctx, p.k8sClient, cluster)
 	if err != nil {
 		p.logger.Errorf("failed to get cluster details: %v", err)
-		return
+		panic(err)
 	}
 
 	// Set sane transport timeouts
@@ -521,13 +528,13 @@ FETCH:
 		Transport:            transport,
 	}
 
-	osclient, err := opensearch.NewClient(osCfg)
+	osClient, err := opensearch.NewClient(osCfg)
 	if err != nil {
 		p.logger.Errorf("failed to create opensearch client: %v", err)
-		return
+		panic(err)
 	}
 
-	p.opensearchClient.Set(osclient)
+	return osClient
 }
 
 func (p *Plugin) validDurationString(duration string) bool {

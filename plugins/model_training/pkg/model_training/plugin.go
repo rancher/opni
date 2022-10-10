@@ -21,6 +21,7 @@ import (
 )
 
 type ModelTrainingPlugin struct {
+	model_training.UnsafeModelTrainingServer
 	system.UnimplementedSystemPluginClient
 	ctx            context.Context
 	Logger         *zap.SugaredLogger
@@ -61,7 +62,7 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	s.kv.Set(keyValue)
 
 }
-
+var _ model_training.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ModelTrainingPlugin{

@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModelTrainingClient interface {
+	TrainModel(ctx context.Context, in *WorkloadsList, opts ...grpc.CallOption) (*v1.Reference, error)
 	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error)
 	ModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
 	ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error)
@@ -35,6 +36,15 @@ type modelTrainingClient struct {
 
 func NewModelTrainingClient(cc grpc.ClientConnInterface) ModelTrainingClient {
 	return &modelTrainingClient{cc}
+}
+
+func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadsList, opts ...grpc.CallOption) (*v1.Reference, error) {
+	out := new(v1.Reference)
+	err := c.cc.Invoke(ctx, "/model_training.ModelTraining/TrainModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error) {
@@ -68,6 +78,7 @@ func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *e
 // All implementations must embed UnimplementedModelTrainingServer
 // for forward compatibility
 type ModelTrainingServer interface {
+	TrainModel(context.Context, *WorkloadsList) (*v1.Reference, error)
 	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error)
 	ModelStatus(context.Context, *emptypb.Empty) (*v1.Reference, error)
 	ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error)
@@ -78,6 +89,9 @@ type ModelTrainingServer interface {
 type UnimplementedModelTrainingServer struct {
 }
 
+func (UnimplementedModelTrainingServer) TrainModel(context.Context, *WorkloadsList) (*v1.Reference, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TrainModel not implemented")
+}
 func (UnimplementedModelTrainingServer) WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WorkloadLogCount not implemented")
 }
@@ -98,6 +112,24 @@ type UnsafeModelTrainingServer interface {
 
 func RegisterModelTrainingServer(s grpc.ServiceRegistrar, srv ModelTrainingServer) {
 	s.RegisterService(&ModelTraining_ServiceDesc, srv)
+}
+
+func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkloadsList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModelTrainingServer).TrainModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/model_training.ModelTraining/TrainModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModelTrainingServer).TrainModel(ctx, req.(*WorkloadsList))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ModelTraining_WorkloadLogCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -161,6 +193,10 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "model_training.ModelTraining",
 	HandlerType: (*ModelTrainingServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "TrainModel",
+			Handler:    _ModelTraining_TrainModel_Handler,
+		},
 		{
 			MethodName: "WorkloadLogCount",
 			Handler:    _ModelTraining_WorkloadLogCount_Handler,

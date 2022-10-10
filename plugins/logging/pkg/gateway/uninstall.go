@@ -9,7 +9,6 @@ import (
 
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
-	"github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -21,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
@@ -47,7 +47,7 @@ type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 	storageNamespace string
 	kv               nats.KeyValue
-	opensearchClient future.Future[*opensearch.Client]
+	opensearchClient *loggingutil.AsyncOpensearchClient
 	natsConnection   *nats.Conn
 	k8sClient        client.Client
 	storageBackend   future.Future[storage.Backend]
@@ -217,6 +217,10 @@ func (a *UninstallTaskRunner) getPendingDeleteBucket() error {
 }
 
 func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string) error {
+	a.opensearchClient.WaitForInit()
+	a.opensearchClient.Lock()
+	defer a.opensearchClient.Unlock()
+
 	var createNewJob bool
 	idExists, err := a.keyExists(id)
 	if err != nil {
@@ -244,15 +248,15 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 			return err
 		}
 
-		resp, err := a.opensearchClient.Get().DeleteByQuery(
+		resp, err := a.opensearchClient.Client.DeleteByQuery(
 			[]string{
 				"logs",
 			},
 			strings.NewReader(query),
-			a.opensearchClient.Get().DeleteByQuery.WithWaitForCompletion(false),
-			a.opensearchClient.Get().DeleteByQuery.WithRefresh(true),
-			a.opensearchClient.Get().DeleteByQuery.WithSearchType("dfs_query_then_fetch"),
-			a.opensearchClient.Get().DeleteByQuery.WithContext(ctx),
+			a.opensearchClient.Client.DeleteByQuery.WithWaitForCompletion(false),
+			a.opensearchClient.Client.DeleteByQuery.WithRefresh(true),
+			a.opensearchClient.Client.DeleteByQuery.WithSearchType("dfs_query_then_fetch"),
+			a.opensearchClient.Client.DeleteByQuery.WithContext(ctx),
 		)
 		if err != nil {
 			return err
@@ -292,6 +296,10 @@ func (a *UninstallTaskRunner) keyExists(keyToCheck string) (bool, error) {
 }
 
 func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (deleteStatus, error) {
+	a.opensearchClient.WaitForInit()
+	a.opensearchClient.Lock()
+	defer a.opensearchClient.Unlock()
+
 	idExists, err := a.keyExists(id)
 	if err != nil {
 		return deleteError, err
@@ -314,9 +322,9 @@ func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (
 		return deletePending, nil
 	}
 
-	resp, err := a.opensearchClient.Get().Tasks.Get(
+	resp, err := a.opensearchClient.Client.Tasks.Get(
 		taskID,
-		a.opensearchClient.Get().Tasks.Get.WithContext(ctx),
+		a.opensearchClient.Client.Tasks.Get.WithContext(ctx),
 	)
 	if err != nil {
 		return deleteError, err

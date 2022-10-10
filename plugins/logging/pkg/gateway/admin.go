@@ -120,6 +120,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
+	go p.opensearchClient.SetClient(p.setOpensearchClient)
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,
@@ -203,8 +204,6 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 
 		return p.k8sClient.Update(ctx, k8sOpensearchCluster)
 	})
-
-	go p.opensearchClient.SetClient(p.setOpensearchClient)
 
 	return &emptypb.Empty{}, err
 }
@@ -394,6 +393,10 @@ func (p *Plugin) convertProtobufToDashboards(
 		} else {
 			osVersion = opensearchVersion
 		}
+	}
+
+	if version == "unversioned" {
+		version = "0.6.0-rc1"
 	}
 
 	image := fmt.Sprintf(

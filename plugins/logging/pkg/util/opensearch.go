@@ -9,13 +9,18 @@ import (
 type AsyncOpensearchClient struct {
 	*osclient.Client
 
-	setupCondOnce sync.Once
-	initCond      *sync.Cond
-	initialized   bool
+	initCond    *sync.Cond
+	initialized bool
+	rw          sync.RWMutex
+}
+
+func NewAsyncOpensearchClient() *AsyncOpensearchClient {
+	return &AsyncOpensearchClient{
+		initCond: sync.NewCond(&sync.Mutex{}),
+	}
 }
 
 func (c *AsyncOpensearchClient) WaitForInit() {
-	c.checkInitCond()
 	c.initCond.L.Lock()
 	for !c.initialized {
 		c.initCond.Wait()
@@ -24,9 +29,12 @@ func (c *AsyncOpensearchClient) WaitForInit() {
 }
 
 func (c *AsyncOpensearchClient) SetClient(setter func() *osclient.Client) {
-	c.checkInitCond()
+	c.rw.Lock()
+	defer c.rw.Unlock()
+
 	c.initCond.L.Lock()
 	defer c.initCond.L.Unlock()
+
 	if c.initialized {
 		return
 	}
@@ -36,7 +44,9 @@ func (c *AsyncOpensearchClient) SetClient(setter func() *osclient.Client) {
 }
 
 func (c *AsyncOpensearchClient) UnsetClient() {
-	c.checkInitCond()
+	c.rw.Lock()
+	defer c.rw.Unlock()
+
 	c.initCond.L.Lock()
 	defer c.initCond.L.Unlock()
 	if !c.initialized {
@@ -46,17 +56,9 @@ func (c *AsyncOpensearchClient) UnsetClient() {
 }
 
 func (c *AsyncOpensearchClient) Lock() {
-	c.checkInitCond()
-	c.initCond.L.Lock()
+	c.rw.RLock()
 }
 
 func (c *AsyncOpensearchClient) Unlock() {
-	c.checkInitCond()
-	c.initCond.L.Unlock()
-}
-
-func (c *AsyncOpensearchClient) checkInitCond() {
-	c.setupCondOnce.Do(func() {
-		c.initCond = sync.NewCond(&sync.Mutex{})
-	})
+	c.rw.RUnlock()
 }

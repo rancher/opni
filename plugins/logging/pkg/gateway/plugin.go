@@ -161,7 +161,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
-		opensearchClient:    &loggingutil.AsyncOpensearchClient{},
+		opensearchClient:    loggingutil.NewAsyncOpensearchClient(),
 		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 	}
 

@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	secretName        = "opni-opensearch-auth"
-	secretKey         = "password"
-	dataPrepperName   = "opni-shipper"
-	clusterOutputName = "opni-output"
-	clusterFlowName   = "opni-flow"
+	secretName         = "opni-opensearch-auth"
+	secretKey          = "password"
+	dataPrepperName    = "opni-shipper"
+	dataPrepperVersion = "1.5.1"
+	clusterOutputName  = "opni-output"
+	clusterFlowName    = "opni-flow"
 )
 
 type KubernetesManagerDriver struct {
@@ -207,6 +208,7 @@ func (m *KubernetesManagerDriver) buildDataPrepper(config *node.OpensearchConfig
 			},
 			ClusterID:     m.clusterID,
 			EnableTracing: true,
+			Version:       dataPrepperVersion,
 		},
 	}
 }

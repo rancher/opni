@@ -1,0 +1,16 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/control/v1";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/kralicky/totem/extensions.proto";
+
+package control;
+
+service Identity {
+  option (totem.visibility) = {
+    splicedClients: true
+  };
+
+  rpc Whoami(google.protobuf.Empty) returns (core.Reference);
+}

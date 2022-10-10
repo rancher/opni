@@ -2,6 +2,7 @@ package agent
 
 import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/clients"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
@@ -23,5 +24,9 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
-	p.node.SetClient(nodeClient)
+	healthListenerClient := controlv1.NewHealthListenerClient(cc)
+	identityClient := controlv1.NewIdentityClient(cc)
+	p.node.SetNodeClient(nodeClient)
+	p.node.SetHealthListenerClient(healthListenerClient)
+	p.node.SetIdentityClient(identityClient)
 }

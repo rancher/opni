@@ -242,7 +242,7 @@ Modes:
 
 func BuildClusterStatsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list-clusters",
 		Short: "List clusters",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})

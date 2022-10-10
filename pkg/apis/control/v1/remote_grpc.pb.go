@@ -106,6 +106,92 @@ var Health_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
 
+// HealthListenerClient is the client API for HealthListener service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type HealthListenerClient interface {
+	UpdateHealth(ctx context.Context, in *v1.Health, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type healthListenerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewHealthListenerClient(cc grpc.ClientConnInterface) HealthListenerClient {
+	return &healthListenerClient{cc}
+}
+
+func (c *healthListenerClient) UpdateHealth(ctx context.Context, in *v1.Health, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/control.HealthListener/UpdateHealth", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// HealthListenerServer is the server API for HealthListener service.
+// All implementations must embed UnimplementedHealthListenerServer
+// for forward compatibility
+type HealthListenerServer interface {
+	UpdateHealth(context.Context, *v1.Health) (*emptypb.Empty, error)
+	mustEmbedUnimplementedHealthListenerServer()
+}
+
+// UnimplementedHealthListenerServer must be embedded to have forward compatible implementations.
+type UnimplementedHealthListenerServer struct {
+}
+
+func (UnimplementedHealthListenerServer) UpdateHealth(context.Context, *v1.Health) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateHealth not implemented")
+}
+func (UnimplementedHealthListenerServer) mustEmbedUnimplementedHealthListenerServer() {}
+
+// UnsafeHealthListenerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HealthListenerServer will
+// result in compilation errors.
+type UnsafeHealthListenerServer interface {
+	mustEmbedUnimplementedHealthListenerServer()
+}
+
+func RegisterHealthListenerServer(s grpc.ServiceRegistrar, srv HealthListenerServer) {
+	s.RegisterService(&HealthListener_ServiceDesc, srv)
+}
+
+func _HealthListener_UpdateHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Health)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HealthListenerServer).UpdateHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.HealthListener/UpdateHealth",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HealthListenerServer).UpdateHealth(ctx, req.(*v1.Health))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// HealthListener_ServiceDesc is the grpc.ServiceDesc for HealthListener service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var HealthListener_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.HealthListener",
+	HandlerType: (*HealthListenerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UpdateHealth",
+			Handler:    _HealthListener_UpdateHealth_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}
+
 // PluginManifestClient is the client API for PluginManifest service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.

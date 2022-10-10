@@ -2,6 +2,7 @@ package health_test
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -9,7 +10,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testutil"
 )
 
 var _ = Describe("Monitor", func() {
@@ -35,43 +35,45 @@ var _ = Describe("Monitor", func() {
 		monitor := health.NewMonitor()
 		go monitor.Run(monitorCtx, listener)
 
-		Eventually(func() *corev1.HealthStatus {
-			return monitor.GetHealthStatus("agent1")
-		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
-			Health: &corev1.Health{
-				Ready:      false,
-				Conditions: []string{"foo"},
-			},
-			Status: &corev1.Status{
-				Connected: true,
-			},
-		}))
+		Eventually(func() error {
+			hs := monitor.GetHealthStatus("agent1")
+			if len(hs.GetHealth().GetConditions()) != 1 {
+				return errors.New("wrong number of conditions")
+			}
+			if hs.GetHealth().GetReady() {
+				return errors.New("should not be ready")
+			}
+			if !hs.GetStatus().GetConnected() {
+				return errors.New("not connected")
+			}
+			return nil
+		}).Should(Succeed())
 
 		agent1.SetHealth(&corev1.Health{Ready: true})
 
-		Eventually(func() *corev1.HealthStatus {
-			return monitor.GetHealthStatus("agent1")
-		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
-			Health: &corev1.Health{
-				Ready: true,
-			},
-			Status: &corev1.Status{
-				Connected: true,
-			},
-		}))
+		Eventually(func() error {
+			hs := monitor.GetHealthStatus("agent1")
+			if !hs.GetHealth().GetReady() {
+				return errors.New("not ready")
+			}
+			if !hs.GetStatus().GetConnected() {
+				return errors.New("not connected")
+			}
+			return nil
+		}).Should(Succeed())
 
 		agentCa()
 
-		Eventually(func() *corev1.HealthStatus {
-			return monitor.GetHealthStatus("agent1")
-		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
-			Health: &corev1.Health{
-				Ready: false,
-			},
-			Status: &corev1.Status{
-				Connected: false,
-			},
-		}))
+		Eventually(func() error {
+			hs := monitor.GetHealthStatus("agent1")
+			if hs.GetHealth().GetReady() {
+				return errors.New("still ready")
+			}
+			if hs.GetStatus().GetConnected() {
+				return errors.New("still connected")
+			}
+			return nil
+		}).Should(Succeed())
 	})
 	It("should stop if the updater's health or status channels are closed", func() {
 		monitor := health.NewMonitor()

@@ -21,7 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -180,9 +179,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 					Cluster: &corev1.Reference{
 						Id: "test-cluster-id",
 					},
-					Options: string(testutil.Must(json.Marshal(capabilityv1.DefaultUninstallOptions{
+					Options: capabilityv1.DefaultUninstallOptions{
 						DeleteStoredData: true,
-					}))),
+					}.ToStruct(),
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())

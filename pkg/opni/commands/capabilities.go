@@ -1,11 +1,8 @@
 package commands
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -96,62 +93,22 @@ func BuildCapabilityInstallCmd() *cobra.Command {
 }
 
 func BuildCapabilityUninstallCmd() *cobra.Command {
-	var options []string
+	var options capabilityv1.DefaultUninstallOptions
 	var follow bool
-	var optionsHelp []string
-	fields := reflect.TypeOf(capabilityv1.DefaultUninstallOptions{})
-	for i := 0; i < fields.NumField(); i++ {
-		field := fields.Field(i)
-		// get json tag
-		tag := field.Tag.Get("json")
-		if tag == "" {
-			continue
-		}
-		// get option name
-		name := strings.Split(tag, ",")[0]
-		optionsHelp = append(optionsHelp, fmt.Sprintf("%s: %s", name, field.Type.String()))
-	}
 
 	cmd := &cobra.Command{
-		Use:   "uninstall [--option key=value ...] <capability-name> <cluster-id> [cluster-id ...]",
+		Use:   "uninstall <capability-name> <cluster-id> [cluster-id ...]",
 		Short: "Uninstall a capability from one or more clusters",
-		Long:  fmt.Sprintf("Available options:\n%s", strings.Join(optionsHelp, "\n")),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			optionMap := map[string]string{}
-			for _, option := range options {
-				k, v, ok := strings.Cut(option, "=")
-				if !ok {
-					return fmt.Errorf("invalid option: %s", option)
-				}
-				optionMap[k] = v
-			}
-
-			inputData, err := json.Marshal(optionMap)
-			if err != nil {
-				return err
-			}
-
-			opts := capabilityv1.DefaultUninstallOptions{}
-			decoder := json.NewDecoder(bytes.NewReader(inputData))
-			decoder.DisallowUnknownFields()
-			if err := decoder.Decode(&opts); err != nil {
-				return err
-			}
-
-			jsonData, err := json.Marshal(opts)
-			if err != nil {
-				return err
-			}
-
 			for _, clusterID := range args[1:] {
-				_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
+				_, err := mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
 					Name: args[0],
 					Target: &capabilityv1.UninstallRequest{
 						Cluster: &corev1.Reference{
 							Id: clusterID,
 						},
-						Options: string(jsonData),
+						Options: options.ToStruct(),
 					},
 				})
 				if err != nil {
@@ -169,7 +126,8 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVarP(&options, "option", "o", nil, "option key=value")
+	cmd.Flags().BoolVar(&options.DeleteStoredData, "delete-stored-data", false, "Delete all stored data associated with the capability")
+	cmd.Flags().DurationVar((*time.Duration)(&options.InitialDelay), "initial-delay", 0, "Delay the uninstall operation by this amount of time, during which the operation can be canceled without incurring any data loss.")
 	cmd.Flags().BoolVar(&follow, "follow", true, "follow progress of uninstall task")
 	return cmd
 }

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"reflect"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -42,6 +43,7 @@ func BuildClustersListCmd() *cobra.Command {
 					healthStatus = append(healthStatus, stat)
 				}
 			}
+			fmt.Println(cliutil.RenderClusterList(t, healthStatus))
 		},
 	}
 	return cmd

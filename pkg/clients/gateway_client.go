@@ -176,7 +176,6 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
 	}
-	cleanup := []func() error{}
 	for _, sc := range gc.spliced {
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		splicedStream, err := streamClient.Connect(ctx)
@@ -187,7 +186,6 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 			).Warn("failed to connect to spliced stream, skipping")
 			continue
 		}
-		cleanup = append(cleanup, splicedStream.CloseSend)
 
 		if err := ts.Splice(splicedStream, totem.WithStreamName(sc.name)); err != nil {
 			return nil, future.Instant(fmt.Errorf("failed to splice stream: %w", err))
@@ -204,14 +202,6 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 
 	cc, errC := ts.Serve()
 	f := future.NewFromChannel(errC)
-
-	go func() {
-		<-f.C()
-		for _, c := range cleanup {
-			c()
-		}
-		ts.CloseSend()
-	}()
 	return cc, f
 }
 

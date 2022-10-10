@@ -9,33 +9,35 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
-
-	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/condition"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	"golang.org/x/sync/semaphore"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Listener struct {
+	controlv1.UnsafeHealthListenerServer
 	ListenerOptions
-	statusUpdate        chan StatusUpdate
-	healthUpdate        chan HealthUpdate
-	idLocksMu           sync.Mutex
-	idLocks             map[string]*sync.Mutex
-	closed              chan struct{}
-	sem                 *semaphore.Weighted
-	AlertProvider       *alerting.Provider
-	alertToggle         chan struct{}
-	alertTickerDuration time.Duration
-	alertCondition      *alertingv1alpha.AlertCondition
+	statusUpdate            chan StatusUpdate
+	healthUpdate            chan HealthUpdate
+	idLocksMu               sync.Mutex
+	idLocks                 map[string]*sync.Mutex
+	incomingHealthUpdatesMu sync.RWMutex
+	incomingHealthUpdates   map[string]chan HealthUpdate
+	closed                  chan struct{}
+	sem                     *semaphore.Weighted
+	AlertProvider           *alerting.Provider
+	alertToggle             chan struct{}
+	alertTickerDuration     time.Duration
+	alertCondition          *alertingv1alpha.AlertCondition
 }
 
 type ListenerOptions struct {
@@ -115,8 +117,9 @@ func WithAlertProvider(alertProvider *alerting.Provider) ListenerOption {
 
 func NewListener(opts ...ListenerOption) *Listener {
 	options := ListenerOptions{
-		interval:       5 * time.Second,
-		maxJitter:      1 * time.Second,
+		// poll slowly, health updates are also sent on demand by the agent
+		interval:       30 * time.Second,
+		maxJitter:      30 * time.Second,
 		updateQueueCap: 1000,
 		maxConnections: math.MaxInt64,
 	}
@@ -125,16 +128,17 @@ func NewListener(opts ...ListenerOption) *Listener {
 		options.maxJitter = options.interval
 	}
 	return &Listener{
-		AlertProvider:       options.alertProvider,
-		alertToggle:         options.alertToggle,
-		alertCondition:      options.alertCondition,
-		alertTickerDuration: options.tickerDuration,
-		ListenerOptions:     options,
-		statusUpdate:        make(chan StatusUpdate, options.updateQueueCap),
-		healthUpdate:        make(chan HealthUpdate, options.updateQueueCap),
-		idLocks:             make(map[string]*sync.Mutex),
-		closed:              make(chan struct{}),
-		sem:                 semaphore.NewWeighted(options.maxConnections),
+		AlertProvider:         options.alertProvider,
+		alertToggle:           options.alertToggle,
+		alertCondition:        options.alertCondition,
+		alertTickerDuration:   options.tickerDuration,
+		ListenerOptions:       options,
+		statusUpdate:          make(chan StatusUpdate, options.updateQueueCap),
+		healthUpdate:          make(chan HealthUpdate, options.updateQueueCap),
+		incomingHealthUpdates: make(map[string]chan HealthUpdate),
+		idLocks:               make(map[string]*sync.Mutex),
+		closed:                make(chan struct{}),
+		sem:                   semaphore.NewWeighted(options.maxConnections),
 	}
 }
 
@@ -149,7 +153,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	if err := l.sem.Acquire(ctx, 1); err != nil {
 		return // context canceled
 	}
-	defer l.sem.Release(1)
+	defer l.sem.Release(1) // 5th
 
 	id := cluster.StreamAuthorizedID(ctx)
 
@@ -171,7 +175,18 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	// locks keyed based on agent id ensure this function is reentrant during
 	// agent reconnects
 	clientLock.Lock()
-	defer clientLock.Unlock() // 3rd
+	defer clientLock.Unlock() // 4th
+
+	l.incomingHealthUpdatesMu.Lock()
+	incomingHealthUpdates := make(chan HealthUpdate, l.updateQueueCap)
+	l.incomingHealthUpdates[id] = incomingHealthUpdates
+	l.incomingHealthUpdatesMu.Unlock()
+
+	defer func() { // 3rd
+		l.incomingHealthUpdatesMu.Lock()
+		delete(l.incomingHealthUpdates, id)
+		l.incomingHealthUpdatesMu.Unlock()
+	}()
 
 	l.statusUpdate <- StatusUpdate{
 		ID: id,
@@ -218,13 +233,32 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 		case <-timer.C:
 			health, err := clientset.GetHealth(ctx, &emptypb.Empty{})
 			if err == nil {
-				if !proto.Equal(health, curHealth) {
+				healthEq := health.Equal(curHealth)
+				healthNewer := health.NewerThan(curHealth)
+				if !healthEq && healthNewer {
 					curHealth = health
 					l.healthUpdate <- HealthUpdate{
 						ID:     id,
 						Health: util.ProtoClone(curHealth),
 					}
 				}
+			}
+			timer.Reset(calcDuration())
+		case up := <-incomingHealthUpdates:
+			health, id := up.Health, up.ID
+			healthEq := health.Equal(curHealth)
+			healthNewer := health.NewerThan(curHealth)
+			if !healthEq && healthNewer {
+				curHealth = util.ProtoClone(health)
+				l.healthUpdate <- HealthUpdate{
+					ID:     id,
+					Health: util.ProtoClone(curHealth),
+				}
+			}
+
+			// drain the timer channel if it happened to fire at the same time
+			if !timer.Stop() {
+				<-timer.C
 			}
 			timer.Reset(calcDuration())
 		}
@@ -324,4 +358,21 @@ func (l *Listener) Close() {
 // Implements gateway.ConnectionHandler
 func (l *Listener) HandleAgentConnection(ctx context.Context, clientset agentv1.ClientSet) {
 	l.HandleConnection(ctx, clientset)
+}
+
+// Implements controlv1.HealthListenerServer
+func (l *Listener) UpdateHealth(ctx context.Context, req *corev1.Health) (*emptypb.Empty, error) {
+	id := cluster.StreamAuthorizedID(ctx)
+
+	l.incomingHealthUpdatesMu.RLock()
+	defer l.incomingHealthUpdatesMu.RUnlock()
+
+	if ch, ok := l.incomingHealthUpdates[id]; ok {
+		ch <- HealthUpdate{
+			ID:     id,
+			Health: util.ProtoClone(req),
+		}
+	}
+
+	return &emptypb.Empty{}, nil
 }

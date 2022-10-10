@@ -2,16 +2,20 @@ package agent
 
 import (
 	"fmt"
+	"sync"
+	"time"
 
 	gsync "github.com/kralicky/gpkg/sync"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
 type ConditionStatus int32
 
 const (
-	StatusPending ConditionStatus = 0
-	StatusFailure ConditionStatus = 1
+	StatusPending ConditionStatus = iota
+	StatusFailure
+	StatusDisabled
 )
 
 func (s ConditionStatus) String() string {
@@ -20,6 +24,8 @@ func (s ConditionStatus) String() string {
 		return "Pending"
 	case StatusFailure:
 		return "Failure"
+	case StatusDisabled:
+		return "Disabled"
 	}
 	return ""
 }
@@ -28,20 +34,26 @@ const (
 	CondRemoteWrite = "Remote Write"
 	CondRuleSync    = "Rule Sync"
 	CondConfigSync  = "Config Sync"
+	CondBackend     = "Backend"
 )
 
 type ConditionTracker interface {
 	Set(key string, value ConditionStatus, reason string)
 	Clear(key string, reason ...string)
 	List() []string
+	LastModified() time.Time
+
+	// Adds a listener that will be called whenever any condition is changed.
+	// The listener will be called in a separate goroutine. Ensure that the
+	// listener does not itself set or clear any conditions.
+	AddListener(listener func())
 }
 
 func NewConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
 	ct := &conditionTracker{
-		logger: logger,
+		logger:  logger,
+		modTime: atomic.NewTime(time.Now()),
 	}
-	// ct.conditions.Store(CondRemoteWrite, StatusPending)
-	// ct.conditions.Store(CondRuleSync, StatusPending)
 	ct.conditions.Store(CondConfigSync, StatusPending)
 	return ct
 }
@@ -49,6 +61,10 @@ func NewConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
 type conditionTracker struct {
 	conditions gsync.Map[string, ConditionStatus]
 	logger     *zap.SugaredLogger
+	modTime    *atomic.Time
+
+	listenersMu sync.Mutex
+	listeners   []func()
 }
 
 func (ct *conditionTracker) Set(key string, value ConditionStatus, reason string) {
@@ -65,6 +81,8 @@ func (ct *conditionTracker) Set(key string, value ConditionStatus, reason string
 		lg.Info("condition set")
 	}
 	ct.conditions.Store(key, value)
+	ct.modTime.Store(time.Now())
+	ct.notifyListeners()
 }
 
 func (ct *conditionTracker) Clear(key string, reason ...string) {
@@ -75,9 +93,11 @@ func (ct *conditionTracker) Clear(key string, reason ...string) {
 		lg = lg.With("reason", reason[0])
 	}
 	if v, ok := ct.conditions.LoadAndDelete(key); ok {
+		ct.modTime.Store(time.Now())
 		lg.With(
 			"previous", v,
 		).Info("condition cleared")
+		ct.notifyListeners()
 	}
 }
 
@@ -88,4 +108,22 @@ func (ct *conditionTracker) List() []string {
 		return true
 	})
 	return conditions
+}
+
+func (ct *conditionTracker) LastModified() time.Time {
+	return ct.modTime.Load()
+}
+
+func (ct *conditionTracker) AddListener(listener func()) {
+	ct.listenersMu.Lock()
+	defer ct.listenersMu.Unlock()
+	ct.listeners = append(ct.listeners, listener)
+}
+
+func (ct *conditionTracker) notifyListeners() {
+	ct.listenersMu.Lock()
+	defer ct.listenersMu.Unlock()
+	for _, listener := range ct.listeners {
+		go listener()
+	}
 }

@@ -79,6 +79,11 @@ service Management {
       get: "/management/clusters/{id}/health"
     };
   }
+  rpc WatchClusterHealthStatus(core.Reference) returns (stream core.HealthStatus) {
+    option (google.api.http) = {
+      post: "/management/clusters/{id}/health/watch"
+    };
+  }
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
     option (google.api.http) = {
       put: "/management/clusters/{cluster.id}"
@@ -170,6 +175,7 @@ service Management {
   rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/management/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
+      body: "target"
     };
   }
   rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {

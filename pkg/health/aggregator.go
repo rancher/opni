@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Aggregator implements a HealthServer that queries one or more HealthClients
@@ -68,6 +70,7 @@ func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.H
 	h.clientsMu.RLock()
 	defer h.clientsMu.RUnlock()
 
+	clientTimestamps := make([]time.Time, len(h.clients))
 	clientConditions := make([][]string, len(h.clients))
 	clientsReady := make([]bool, len(h.clients))
 
@@ -92,6 +95,10 @@ func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.H
 				}
 				return
 			}
+			clientTimestamps[i] = health.Timestamp.AsTime()
+			for i, condition := range health.Conditions {
+				health.Conditions[i] = fmt.Sprintf("%s: %s", name, condition)
+			}
 			clientConditions[i] = health.Conditions
 			clientsReady[i] = health.Ready
 		}(i)
@@ -106,6 +113,9 @@ func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.H
 	allConditions := lo.Flatten(clientConditions)
 	sort.Strings(allConditions)
 	return &corev1.Health{
+		Timestamp: timestamppb.New(lo.MaxBy(clientTimestamps, func(t1, t2 time.Time) bool {
+			return t1.Before(t2)
+		})),
 		Ready:       allClientsReady,
 		Conditions:  allConditions,
 		Annotations: h.staticAnnotations,

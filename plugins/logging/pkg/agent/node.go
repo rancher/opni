@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type LoggingNode struct {
@@ -98,7 +100,9 @@ func (l *LoggingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 		}
 	}
 
+	sort.Strings(conditions)
 	return &corev1.Health{
+		Timestamp:  timestamppb.Now(),
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
 	}, nil

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type conditionStatus int32
@@ -57,7 +59,7 @@ const (
 )
 
 type Agent struct {
-	controlv1.UnsafeHealthServer
+	controlv1.UnimplementedHealthServer
 	AgentOptions
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine
@@ -352,7 +354,10 @@ func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, erro
 		return true
 	})
 
+	sort.Strings(conditions)
+
 	return &corev1.Health{
+		Timestamp:  timestamppb.Now(),
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
 		Annotations: map[string]string{

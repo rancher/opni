@@ -220,8 +220,9 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	agentHandler := MultiConnectionHandler(listener, sync)
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
-	streamv1.RegisterStreamServer(grpcServer, streamSvc)
+	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 
+	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -348,12 +349,17 @@ func (g *Gateway) NodeManagerServer() capabilityv1.NodeManagerServer {
 }
 
 // Implements management.HealthStatusDataSource
-func (g *Gateway) ClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error) {
+func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error) {
 	hs := g.statusQuerier.GetHealthStatus(ref.Id)
 	if hs.Health == nil && hs.Status == nil {
 		return nil, status.Error(codes.NotFound, "no health or status has been reported for this cluster yet")
 	}
 	return hs, nil
+}
+
+// Implements management.HealthStatusDataSource
+func (g *Gateway) WatchClusterHealthStatus(ctx context.Context, ref *corev1.Reference) <-chan *corev1.HealthStatus {
+	return g.statusQuerier.WatchHealthStatus(ctx, ref.Id)
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {

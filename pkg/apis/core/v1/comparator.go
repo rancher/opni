@@ -1,5 +1,10 @@
 package v1
 
+import (
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+)
+
 type Comparator[T any] interface {
 	Equal(other T) bool
 }
@@ -18,6 +23,19 @@ func (r *Reference) Equal(other *Reference) bool {
 		return r == other
 	}
 	return equalNonzeroOperator(r.Id, other.Id)
+}
+
+func (r *Health) Equal(other *Health) bool {
+	if r == nil || other == nil {
+		return r == other
+	}
+	return r.GetReady() == other.GetReady() &&
+		slices.Equal(r.GetConditions(), other.GetConditions()) &&
+		maps.Equal(r.GetAnnotations(), other.GetAnnotations())
+}
+
+func (r *Health) NewerThan(other *Health) bool {
+	return r.GetTimestamp().AsTime().After(other.GetTimestamp().AsTime())
 }
 
 func equalNonzeroFunc[T Comparator[T]](a, b T) bool {

@@ -7,9 +7,15 @@ import "google/api/annotations.proto";
 package model_training;
 
 service ModelTraining {
+  rpc TrainModel(WorkloadsList) returns (core.Reference) {
+    option (google.api.http) = {
+      post: "/train_model"
+      body: "*"
+    };
+  }
   rpc WorkloadLogCount(core.Reference) returns (WorkloadsList) {
     option (google.api.http) = {
-      get: "/workload_log_count/{id}"
+      post: "/workload_log_count/{id}"
     };
   }
   rpc ModelStatus(google.protobuf.Empty) returns (core.Reference) {

@@ -10,6 +10,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *model_training.WorkloadsList) (*corev1.Reference, error) {
+	var model_training_parameters = map[string]map[string][]string{};
+	for idx := 0; idx < len(in.List); idx++ {
+		cluster_id := in.List[idx].ClusterId
+		namespace_name := in.List[idx].Namespace
+		deployment_name := in.List[idx].Deployment
+	}
+}
+
 func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*model_training.WorkloadsList, error) {
 	result, _ := c.kv.Get().Get("aggregation")
 	jsonRes := result.Value()

@@ -11,12 +11,34 @@ import (
 )
 
 func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *model_training.WorkloadsList) (*corev1.Reference, error) {
-	var model_training_parameters = map[string]map[string][]string{};
+	var model_training_parameters = map[string]map[string][]string{}
 	for idx := 0; idx < len(in.List); idx++ {
 		cluster_id := in.List[idx].ClusterId
 		namespace_name := in.List[idx].Namespace
 		deployment_name := in.List[idx].Deployment
+		_, cluster_found := model_training_parameters[cluster_id]
+		if cluster_found {
+			_, namespace_found := model_training_parameters[cluster_id][namespace_name]
+			if namespace_found {
+				model_training_parameters[cluster_id][namespace_name] = append(model_training_parameters[cluster_id][namespace_name], deployment_name)
+			} else {
+				model_training_parameters[cluster_id][namespace_name] = make([]string, 0)
+				model_training_parameters[cluster_id][namespace_name] = append(model_training_parameters[cluster_id][namespace_name], deployment_name)
+			}
+		} else {
+			model_training_parameters[cluster_id] = map[string][]string{}
+			model_training_parameters[cluster_id][namespace_name] = make([]string, 0)
+			model_training_parameters[cluster_id][namespace_name] = append(model_training_parameters[cluster_id][namespace_name], deployment_name)
+		}
 	}
+	json_parameters, _ := json.Marshal(model_training_parameters)
+	json_bytes := []byte(json_parameters)
+	msg, err := c.natsConnection.Get().Request("train_model", json_bytes, time.Second)
+	if err != nil {
+		return nil, err
+	}
+	res := corev1.Reference{Id: string(msg.Data)}
+	return &res, nil
 }
 
 func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*model_training.WorkloadsList, error) {

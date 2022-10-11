@@ -60,7 +60,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	//#region Happy Path Tests
 
-	It("can get information about a specific cluster", func() {
+	XIt("can get information about a specific cluster", func() {
 		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})

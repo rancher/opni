@@ -60,7 +60,7 @@ func (t *TopologyNode) AddConfigListener(ch chan<- *node.TopologyCapabilityConfi
 }
 
 func (t *TopologyNode) doSync(ctx context.Context) {
-	t.logger.Debug("syncing metrics node")
+	t.logger.Debug("syncing topology node")
 	t.clientMu.RLock()
 	defer t.clientMu.RUnlock()
 
@@ -76,7 +76,7 @@ func (t *TopologyNode) doSync(ctx context.Context) {
 	t.configMu.RUnlock()
 
 	if err != nil {
-		err := fmt.Errorf("error syncing metrics node: %w", err)
+		err := fmt.Errorf("error syncing topology node: %w", err)
 		t.conditions.Set(health.CondConfigSync, health.StatusFailure, err.Error())
 		return
 	}

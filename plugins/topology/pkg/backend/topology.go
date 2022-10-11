@@ -35,6 +35,7 @@ type TopologyBackendConfig struct {
 type TopologyBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeTopologyCapabilityServer
+	orchestrator.UnsafeTopologyOrchestratorServer
 	TopologyBackendConfig
 
 	nodeStatusMu sync.RWMutex
@@ -46,8 +47,16 @@ type TopologyBackend struct {
 	util.Initializer
 }
 
+func (t *TopologyBackend) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+	// nothing to install
+	return &orchestrator.InstallStatus{
+		State: orchestrator.InstallState_Installed,
+	}, nil
+}
+
 var _ node.NodeTopologyCapabilityServer = (*TopologyBackend)(nil)
 var _ capabilityv1.BackendServer = (*TopologyBackend)(nil)
+var _ orchestrator.TopologyOrchestratorServer = (*TopologyBackend)(nil)
 
 func (t *TopologyBackend) Initialize(conf TopologyBackendConfig) {
 	t.InitOnce(func() {

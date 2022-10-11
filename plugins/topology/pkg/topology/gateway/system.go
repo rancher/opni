@@ -8,13 +8,14 @@ import (
 	"github.com/cenkalti/backoff"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/apis"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
-	"github.com/rancher/opni/pkg/util/k8sutil"
+	"github.com/rancher/opni/pkg/task"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -49,14 +50,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.storageBackend.Set(backend)
 	})
 
-	k8sclient, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-		Scheme: apis.NewScheme(),
-	})
 	if err != nil {
 		p.logger.With("err", err).Error("failed to create k8s client")
 		os.Exit(1)
 	}
-	p.k8sClient.Set(k8sclient)
 	<-p.ctx.Done()
 }
 
@@ -80,6 +77,19 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		p.logger.Error("failed to connect to NATs, retrying")
 	}
 	p.nc.Set(nc)
+
+	ctrl, err := task.NewController(
+		p.ctx,
+		"topology.uninstall",
+		system.NewKVStoreClient[*corev1.TaskStatus](client),
+		&p.uninstallRunner)
+
+	if err != nil {
+		p.logger.With(
+			zap.Error(err),
+		).Error("failed to create uninstall task controller")
+	}
+	p.uninstallController.Set(ctrl)
 
 	p.storage.Set(ConfigStorageAPIs{
 		Placeholder: system.NewKVStoreClient[proto.Message](client),

@@ -30,10 +30,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("topology")
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 	p := &Plugin{
-		ctx:       ctx,
-		logger:    lg,
-		node:      NewTopologyNode(ct, lg),
-		k8sClient: future.New[client.Client](),
+		ctx:              ctx,
+		logger:           lg,
+		node:             NewTopologyNode(ct, lg),
+		topologyStreamer: NewTopologyStreamer(ct, lg),
+		k8sClient:        future.New[client.Client](),
 	}
 
 	if d, err := drivers.NewExternalTopologyOperatorDriver(lg.Named("external-topology-operator")); err != nil {

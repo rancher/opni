@@ -18,6 +18,8 @@ import (
 	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
 	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	topology_agent "github.com/rancher/opni/plugins/topology/pkg/topology/agent"
+	topology_gateway "github.com/rancher/opni/plugins/topology/pkg/topology/gateway"
 )
 
 type apiextensionTestPlugin struct {
@@ -82,14 +84,17 @@ type testPlugin struct {
 
 func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	var metricsPluginScheme meta.Scheme
+	var topologyPluginScheme meta.Scheme
 	var scheme meta.Scheme
 	switch mode {
 	case meta.ModeGateway:
 		scheme = plugins.GatewayScheme
 		metricsPluginScheme = metrics_gateway.Scheme(context.Background())
+		topologyPluginScheme = topology_gateway.Scheme(context.Background())
 	case meta.ModeAgent:
 		scheme = plugins.AgentScheme
 		metricsPluginScheme = metrics_agent.Scheme(context.Background())
+		topologyPluginScheme = topology_agent.Scheme(context.Background())
 	default:
 		panic("unknown plugin mode: " + mode)
 	}
@@ -125,6 +130,14 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 				BinaryPath: "plugin_alerting",
 				GoVersion:  runtime.Version(),
 				Module:     "github.com/rancher/opni/plugins/alerting",
+			},
+		},
+		{
+			Scheme: topologyPluginScheme,
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_topology",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni/plugins/topology",
 			},
 		},
 	}

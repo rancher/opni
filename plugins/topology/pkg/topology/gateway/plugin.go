@@ -27,12 +27,12 @@ import (
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Plugin struct {
 	representation.UnsafeTopologyRepresentationServer
 	system.UnimplementedSystemPluginClient
+	uninstallRunner NoOpUninstallTaskRunner
 
 	ctx    context.Context
 	logger *zap.SugaredLogger
@@ -44,8 +44,7 @@ type Plugin struct {
 	storage future.Future[ConfigStorageAPIs]
 
 	mgmtClient future.Future[managementv1.ManagementClient]
-	// remove this if we decide to acquire the opni-manager cluster driver
-	k8sClient           future.Future[client.Client]
+
 	storageBackend      future.Future[storage.Backend]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
@@ -54,16 +53,19 @@ type Plugin struct {
 
 func NewPlugin(ctx context.Context) *Plugin {
 	p := &Plugin{
-		ctx:        ctx,
-		logger:     logger.NewPluginLogger().Named("topology"),
-		nc:         future.New[*nats.Conn](),
-		storage:    future.New[ConfigStorageAPIs](),
-		mgmtClient: future.New[managementv1.ManagementClient](),
-		k8sClient:  future.New[client.Client](),
+		ctx:                 ctx,
+		logger:              logger.NewPluginLogger().Named("topology"),
+		nc:                  future.New[*nats.Conn](),
+		storage:             future.New[ConfigStorageAPIs](),
+		mgmtClient:          future.New[managementv1.ManagementClient](),
+		storageBackend:      future.New[storage.Backend](),
+		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
+		uninstallController: future.New[*task.Controller](),
+		clusterDriver:       future.New[drivers.ClusterDriver](),
 	}
 
 	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{})
-	p.logger.Debug("Waiting for async requirements for starting topology backend")
+	p.logger.Debug("waiting for async requirements for starting topology backend")
 	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
 		func(
 			storageBackend storage.Backend,
@@ -72,6 +74,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
 		) {
+			p.logger.With(
+				"storageBackend", storageBackend,
+				"mgmtClient", mgmtClient,
+				"nodeManagerClient", nodeManagerClient,
+				"uninstallController", uninstallController,
+				"clusterDriver", clusterDriver,
+			).Debug("async requirements for starting topology backend are ready")
 			p.topologyBackend.Initialize(backend.TopologyBackendConfig{
 				Logger:              p.logger.Named("topology-backend"),
 				StorageBackend:      storageBackend,
@@ -80,13 +89,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 			})
+			p.logger.Debug("initialized topology backend")
 		})
-	p.logger.Debug("Initialized topology backend")
 
 	return p
 }
 
-// var _ orchestrator.TopologyOrchestratorServer = (*Plugin)(nil)
 var _ representation.TopologyRepresentationServer = (*Plugin)(nil)
 
 type ConfigStorageAPIs struct {
@@ -101,8 +109,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(
-				&orchestrator.TopologyOrchestrator_ServiceDesc,
+				&representation.TopologyRepresentation_ServiceDesc,
 				p,
+			),
+			util.PackService(
+				&orchestrator.TopologyOrchestrator_ServiceDesc,
+				&p.topologyBackend,
 			),
 		),
 	)

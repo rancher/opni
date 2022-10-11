@@ -5,36 +5,13 @@ import (
 	"sync"
 	"time"
 
-	gsync "github.com/kralicky/gpkg/sync"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
-type ConditionStatus int32
-
-const (
-	StatusPending ConditionStatus = iota
-	StatusFailure
-	StatusDisabled
-)
-
-func (s ConditionStatus) String() string {
-	switch s {
-	case StatusPending:
-		return "Pending"
-	case StatusFailure:
-		return "Failure"
-	case StatusDisabled:
-		return "Disabled"
-	}
-	return ""
-}
-
 const (
 	CondRemoteWrite = "Remote Write"
 	CondRuleSync    = "Rule Sync"
-	CondConfigSync  = "Config Sync"
-	CondBackend     = "Backend"
 )
 
 type ConditionTracker interface {

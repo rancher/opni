@@ -44,7 +44,7 @@ type MetricsNode struct {
 	conditions health.ConditionTracker
 }
 
-func NewMetricsNode(ct ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
+func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
 		logger:     lg,
 		conditions: ct,
@@ -152,7 +152,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	defer m.nodeClientMu.RUnlock()
 
 	if m.nodeClient == nil {
-		m.conditions.Set(CondConfigSync, StatusPending, "no client, skipping sync")
+		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
 		return
 	}
 
@@ -186,9 +186,9 @@ func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
 	m.config = config
 
 	if !m.config.Enabled && len(m.config.Conditions) > 0 {
-		m.conditions.Set(CondBackend, StatusDisabled, strings.Join(m.config.Conditions, ", "))
+		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
 	} else {
-		m.conditions.Clear(CondBackend)
+		m.conditions.Clear(health.CondBackend)
 	}
 
 	for _, ch := range m.listeners {

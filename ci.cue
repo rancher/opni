@@ -103,7 +103,6 @@ dagger.#Plan & {
 
 		// Build with mage using the builder image
 
-		_buildVersion: client.env.BUILD_VERSION | *""
 		#_build: {
 			target:   string | *"all"
 			_minimal: target == "minimal"
@@ -134,7 +133,7 @@ dagger.#Plan & {
 				input:   _exec.output
 				workdir: "/src"
 				env: {
-					"BUILD_VERSION": _buildVersion
+					"BUILD_VERSION": client.env.BUILD_VERSION
 				}
 				command: {
 					name: "mage"

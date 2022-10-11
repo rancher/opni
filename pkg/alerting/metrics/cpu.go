@@ -12,13 +12,17 @@ func NewCpuRule() (*AlertingRule, error) {
 }
 
 type CpuRuleOptions struct {
-	cluster corev1.Cluster `metric:"node_cpu_seconds_total"`
+	Cluster *corev1.Cluster `metric:"node_cpu_seconds_total"`
 
-	node       string `label:"instance", metric:"node_cpu_seconds_total"`
-	usageModes string `label:"mode, metric:"node_cpu_seconds_total"`
-	cpus       string `label:"cpu", metric:"node_cpu_seconds_total"`
+	Node      []string `label:"instance" metric:"node_cpu_seconds_total"`
+	UsageMode string   `label:"mode" metric:"node_cpu_seconds_total"`
+	Cpu       []string `label:"cpu" metric:"node_cpu_seconds_total"`
 
-	compOperator ComparisonOperator
-	target       float64 `range:[0,100]`
-	forDuration  time.Duration
+	CompOperator ComparisonOperator
+	Target       float64 `range:"[0,100]"`
+	ForDuration  time.Duration
+	// Interval     prometheus.Duration
 }
+
+// Implements MetricOpts interface
+func (c *CpuRuleOptions) MetricOptions() {}

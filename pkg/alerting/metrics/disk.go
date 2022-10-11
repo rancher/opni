@@ -15,6 +15,9 @@ type DiskBytesOptions struct {
 	forDuration  time.Duration
 }
 
+// Implements MetricOpts interface
+func (d *DiskBytesOptions) MetricOptions() {}
+
 type DiskTimeOptions struct {
 	cluster      corev1.Cluster `metric:"node_disk_.*_time_seconds_total"`
 	ioType       string         `jobExtractor:"node_disk_.*_time_seconds_total"`
@@ -23,6 +26,9 @@ type DiskTimeOptions struct {
 	forDuration  time.Duration
 }
 
+// Implements MetricOpts interface
+func (d *DiskTimeOptions) MetricOptions() {}
+
 type DiskOperationsOptions struct {
 	cluster      corev1.Cluster `metric:"node_disk_.*_completed_total"`
 	ioType       string         `jobExtractor:"node_disk_.*_completed_total"`
@@ -30,3 +36,6 @@ type DiskOperationsOptions struct {
 	target       int64 `range:[0,inf]`
 	forDuration  time.Duration
 }
+
+// Implements MEtricOpts interface
+func (d *DiskOperationsOptions) MetricOptions() {}

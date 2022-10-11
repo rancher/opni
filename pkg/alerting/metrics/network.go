@@ -6,6 +6,11 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
+func NewNetworkBytesRule() (*AlertingRule, error) {
+	// TODO
+	return nil, nil
+}
+
 type NetworkBytesOptions struct {
 	cluster corev1.Cluster `metric:"node_network_.*_bytes_total"`
 
@@ -22,9 +27,10 @@ type NetworkBytesOptions struct {
 	// node
 }
 
-func NewNetworkBytesRule() (*AlertingRule, error) {
-	// TODO
-	return nil, nil
-}
+// Implements MetricOpts interface
+func (n *NetworkBytesOptions) MetricOptions() {}
 
 type NetworkErrorsOptions struct{}
+
+// Implements MetricOpts interface
+func (n *NetworkErrorsOptions) MetricOptions() {}

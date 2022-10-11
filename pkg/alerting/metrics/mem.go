@@ -17,3 +17,5 @@ type MemoryRuleOptions struct {
 	percentValue float64 `range:[0,100]`
 	forDuration  time.Duration
 }
+
+func (m *MemoryRuleOptions) MetricOptions() {}

@@ -1,0 +1,13 @@
+sum(
+    rate(
+        node_cpu_seconds_total{mode={{ .UsageMode }}}[{{ .Interval }}]
+        )
+) 
+BY (__tenant_id__) / ON(__tenant_id__) GROUP_LEFT()     
+sum(
+    rate(
+        node_cpu_seconds_total[{{ .Interval }}]
+    )
+)
+BY (__tenant_id__)
+

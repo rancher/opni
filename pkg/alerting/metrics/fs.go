@@ -17,6 +17,9 @@ type FilesystemUsageOptions struct {
 	forDuration  time.Duration
 }
 
+// Implements MetricOpts interface
+func (f *FilesystemUsageOptions) MetricOptions() {}
+
 // `node_filefd_allocated` is the number of file descriptors allocated.
 type FilesystemOpenFiledescriptorRuleOptions struct {
 	cluster corev1.Cluster `metric:"node_filefd_allocated"`
@@ -25,3 +28,6 @@ type FilesystemOpenFiledescriptorRuleOptions struct {
 	target       int64 `range:[0,inf]`
 	forDuration  time.Duration
 }
+
+// Implements MetricOpts interface
+func (f *FilesystemOpenFiledescriptorRuleOptions) MetricOptions() {}

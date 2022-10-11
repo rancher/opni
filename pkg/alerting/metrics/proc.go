@@ -14,3 +14,6 @@ type ProcessesRuleOptions struct {
 	target       int64 `range:[0,inf]`
 	forDuration  time.Duration
 }
+
+// Implements MetricOpts interface
+func (p *ProcessesRuleOptions) MetricOptions() {}

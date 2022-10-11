@@ -5,14 +5,87 @@
 package metrics
 
 import (
+	_ "embed"
 	"fmt"
 	"reflect"
+	"text/template"
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 )
+
+//go:embed templates/cpu_X_rate.tmpl
+var cpuAlertTemplate []byte
+
+//go:embed templates/disk_bytes.tmpl
+var diskBytesAlertTemplate []byte
+
+//go:embed templates/disk_time.tmpl
+var diskIOTimeAlertTemplate []byte
+
+//go:embed templates/disk_ops.tmpl
+var diskOperationsAlertTemplate []byte
+
+//go:embed templates/fs_fd.tmpl
+var fsFdAlertTemplate []byte
+
+//go:embed templates/fs_usage.tmpl
+var fsUsageAlertTemplate []byte
+
+//go:embed templates/mem.tmpl
+var memoryAlertTemplate []byte
+
+//go:embed templates/network_bytes.tmpl
+var networkAlertTemplate []byte
+
+//go:embed templates/network_error.tmpl
+var networkErrorAlertTemplate []byte
+
+//go:embed templates/proc.tmpl
+var procAlertTemplate []byte
+
+var ComputeNameToTemplate map[string]*template.Template
+var ComputeNameToOpts map[string]MetricOpts
+
+func init() {
+	ComputeNameToTemplate = map[string]*template.Template{
+		"cpu": template.Must(template.New("cpu").
+			Option("missingkey=error").
+			Parse(string(cpuAlertTemplate))),
+		"diskBytes": template.Must(template.New("disk").
+			Option("missingkey=error").
+			Parse(string(diskBytesAlertTemplate))),
+		"diskIOTime": template.Must(template.New("disk").
+			Option("missingkey=error").
+			Parse(string(diskIOTimeAlertTemplate))),
+		"diskOperations": template.Must(template.New("disk").
+			Option("missingkey=error").
+			Parse(string(diskOperationsAlertTemplate))),
+		"fsFD": template.Must(template.New("fs").
+			Option("missingkey=error").
+			Parse(string(fsFdAlertTemplate))),
+		"fsUsage": template.Must(template.New("fs").
+			Option("missingkey=error").
+			Parse(string(fsUsageAlertTemplate))),
+		"mem": template.Must(template.New("mem").
+			Option("missingkey=error").
+			Parse(string(memoryAlertTemplate))),
+		"network_bytes": template.Must(template.New("network_bytes").
+			Option("missingkey=error").
+			Parse(string(networkAlertTemplate))),
+		"network_error": template.Must(template.New("network_error").
+			Option("missingkey=error").
+			Parse(string(networkErrorAlertTemplate))),
+		"proc": template.Must(template.New("proc").
+			Option("missingkey=error").
+			Parse(string(procAlertTemplate))),
+	}
+	ComputeNameToOpts = map[string]MetricOpts{
+		"cpu": &CpuRuleOptions{},
+	}
+}
 
 const labelTag = "label" // label also requires a metric tag
 const jobExtractorTag = "jobExtractor"

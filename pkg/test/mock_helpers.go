@@ -208,6 +208,12 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 			return cloned, nil
 		}).
 		AnyTimes()
+	mockClusterStore.EXPECT().
+		WatchCluster(gomock.Any(), gomock.Any()).Return(nil, errors.New("FIXME: unimplemented")).
+		AnyTimes()
+	mockClusterStore.EXPECT().
+		WatchClusters(gomock.Any(), gomock.Any()).Return(nil, errors.New("FIXME: unimplemented")).
+		AnyTimes()
 	return mockClusterStore
 }
 

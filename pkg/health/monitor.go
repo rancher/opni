@@ -147,27 +147,20 @@ func (m *Monitor) WatchHealthStatus(ctx context.Context, id string) <-chan *core
 				if !ok {
 					break LOOP
 				}
-				hs := &corev1.HealthStatus{
-					Health: health,
-					Status: util.ProtoClone(curStatus),
-				}
-				select {
-				case <-ctx.Done():
-				case ch <- hs:
-				}
+				curHealth = health
 			case status, ok := <-sl:
 				if !ok {
 					break LOOP
 				}
-
-				hs := &corev1.HealthStatus{
-					Health: util.ProtoClone(curHealth),
-					Status: status,
-				}
-				select {
-				case <-ctx.Done():
-				case ch <- hs:
-				}
+				curStatus = status
+			}
+			hs := &corev1.HealthStatus{
+				Health: util.ProtoClone(curHealth),
+				Status: util.ProtoClone(curStatus),
+			}
+			select {
+			case <-ctx.Done():
+			case ch <- hs:
 			}
 		}
 

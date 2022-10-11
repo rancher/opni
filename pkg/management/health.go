@@ -37,10 +37,17 @@ func (m *Server) WatchClusterHealthStatus(
 	}
 
 	healthStatusC := m.healthStatusDataSource.WatchClusterHealthStatus(stream.Context(), ref)
-	for healthStatus := range healthStatusC {
-		if err := stream.Send(healthStatus); err != nil {
-			return err
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case healthStatus, ok := <-healthStatusC:
+			if !ok {
+				return nil
+			}
+			if err := stream.Send(healthStatus); err != nil {
+				return err
+			}
 		}
 	}
-	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -84,51 +83,38 @@ func (m *Server) WatchClusters(
 	if err := validation.Validate(in); err != nil {
 		return err
 	}
-	known := map[string]*corev1.Reference{}
+	var known []*corev1.Cluster
 	for _, cluster := range in.GetKnownClusters().GetItems() {
-		if _, err := m.coreDataSource.StorageBackend().GetCluster(context.Background(), cluster); err != nil {
+		if c, err := m.coreDataSource.StorageBackend().GetCluster(stream.Context(), cluster); err != nil {
 			return err
-		}
-		known[cluster.Id] = cluster
-	}
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	for {
-		clusters, err := m.coreDataSource.StorageBackend().ListClusters(context.Background(), nil, 0)
-		updatedIds := map[string]struct{}{}
-		if err != nil {
-			return err
-		}
-		for _, cluster := range clusters.Items {
-			updatedIds[cluster.Id] = struct{}{}
-			if _, ok := known[cluster.Id]; !ok {
-				ref := cluster.Reference()
-				known[cluster.Id] = ref
-				if err := stream.Send(&managementv1.WatchEvent{
-					Cluster: ref,
-					Type:    managementv1.WatchEventType_Added,
-				}); err != nil {
-					return status.Error(codes.Internal, err.Error())
-				}
-			}
-		}
-		for id, cluster := range known {
-			if _, ok := updatedIds[id]; !ok {
-				delete(known, id)
-				if err := stream.Send(&managementv1.WatchEvent{
-					Cluster: cluster,
-					Type:    managementv1.WatchEventType_Deleted,
-				}); err != nil {
-					return status.Error(codes.Internal, err.Error())
-				}
-			}
-		}
-		select {
-		case <-tick.C:
-		case <-stream.Context().Done():
-			return stream.Context().Err()
+		} else {
+			known = append(known, c)
 		}
 	}
+
+	eventC, err := m.coreDataSource.StorageBackend().WatchClusters(stream.Context(), known)
+	if err != nil {
+		return err
+	}
+
+	for event := range eventC {
+		var eventType managementv1.WatchEventType
+		switch event.EventType {
+		case storage.WatchEventCreate:
+			eventType = managementv1.WatchEventType_Created
+		case storage.WatchEventUpdate:
+			eventType = managementv1.WatchEventType_Updated
+		case storage.WatchEventDelete:
+			eventType = managementv1.WatchEventType_Deleted
+		}
+		if err := stream.Send(&managementv1.WatchEvent{
+			Cluster: event.Current,
+			Type:    eventType,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *Server) EditCluster(

@@ -2,6 +2,7 @@ package crds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -137,7 +138,7 @@ func (c *CRDStore) WatchCluster(
 			case watch.Modified:
 				current := util.ProtoClone(event.Object.(*monitoringv1beta1.Cluster).Spec)
 				eventC <- storage.WatchEvent[*corev1.Cluster]{
-					EventType: storage.WatchEventPut,
+					EventType: storage.WatchEventCreate,
 					Current:   util.ProtoClone(current),
 					Previous:  util.ProtoClone(existing),
 				}
@@ -158,4 +159,11 @@ func (c *CRDStore) WatchCluster(
 	}()
 
 	return eventC, nil
+}
+
+func (c *CRDStore) WatchClusters(
+	ctx context.Context,
+	known []*corev1.Cluster,
+) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+	return nil, errors.New("not implemented")
 }

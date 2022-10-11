@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
+	tea "github.com/charmbracelet/bubbletea"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/opni/ui"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -18,6 +20,7 @@ func BuildClustersCmd() *cobra.Command {
 		Short:   "Manage clusters",
 	}
 	clustersCmd.AddCommand(BuildClustersListCmd())
+	clustersCmd.AddCommand(BuildClustersWatchCmd())
 	clustersCmd.AddCommand(BuildClustersDeleteCmd())
 	clustersCmd.AddCommand(BuildClustersLabelCmd())
 	ConfigureManagementCommand(clustersCmd)
@@ -25,27 +28,66 @@ func BuildClustersCmd() *cobra.Command {
 }
 
 func BuildClustersListCmd() *cobra.Command {
+	var watch bool
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List clusters",
-		Run: func(cmd *cobra.Command, args []string) {
-			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
-			if err != nil {
-				lg.Fatal(err)
-			}
-			var healthStatus []*corev1.HealthStatus
-			for _, c := range t.Items {
-				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
-				if err != nil {
-					healthStatus = append(healthStatus, &corev1.HealthStatus{})
-				} else {
-					healthStatus = append(healthStatus, stat)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if watch {
+				m := ui.NewClusterListModel()
+				w := &ui.ClusterListWatcher{
+					Messages: make(chan tea.Msg, 100),
+					Client:   mgmtClient,
 				}
+				go func() {
+					if err := w.Run(cmd.Context()); err != nil {
+						lg.Fatal(err)
+					}
+				}()
+				p := tea.NewProgram(m)
+				go func() {
+					for {
+						select {
+						case msg := <-w.Messages:
+							p.Send(msg)
+						case <-cmd.Context().Done():
+							p.Send(tea.Quit())
+							return
+						}
+					}
+				}()
+				return p.Start()
+			} else {
+				t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					return err
+				}
+				var healthStatus []*corev1.HealthStatus
+				for _, c := range t.Items {
+					stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
+					if err != nil {
+						healthStatus = append(healthStatus, &corev1.HealthStatus{})
+					} else {
+						healthStatus = append(healthStatus, stat)
+					}
+				}
+				fmt.Println(cliutil.RenderClusterList(t, healthStatus))
 			}
-			fmt.Println(cliutil.RenderClusterList(t, healthStatus))
+			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Watch for updates")
+	return cmd
+}
+
+func BuildClustersWatchCmd() *cobra.Command {
+	cmd := BuildClustersListCmd()
+	cmd.Use = "watch"
+	cmd.Aliases = []string{}
+	cmd.Short = "Alias for 'list --watch'"
+	cmd.Flags().Set("watch", "true")
+	cmd.Flags().MarkHidden("watch")
 	return cmd
 }
 

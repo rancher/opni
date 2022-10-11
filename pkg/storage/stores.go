@@ -35,6 +35,7 @@ type ClusterStore interface {
 	GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error)
 	UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator ClusterMutator) (*corev1.Cluster, error)
 	WatchCluster(ctx context.Context, cluster *corev1.Cluster) (<-chan WatchEvent[*corev1.Cluster], error)
+	WatchClusters(ctx context.Context, known []*corev1.Cluster) (<-chan WatchEvent[*corev1.Cluster], error)
 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
@@ -90,7 +91,8 @@ type AlertingStore interface {
 type WatchEventType string
 
 const (
-	WatchEventPut    WatchEventType = "PUT"
+	WatchEventCreate WatchEventType = "PUT"
+	WatchEventUpdate WatchEventType = "UPDATE"
 	WatchEventDelete WatchEventType = "DELETE"
 )
 

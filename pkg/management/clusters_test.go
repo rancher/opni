@@ -79,7 +79,7 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 			for i := 0; i < 10; i++ {
 				select {
 				case event := <-events:
-					Expect(event.Type).To(Equal(managementv1.WatchEventType_Added))
+					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
 					cluster, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 						Id: event.Cluster.Id,

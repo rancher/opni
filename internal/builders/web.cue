@@ -77,7 +77,7 @@ import (
 					workdir: "/app"
 					command: {
 						name: "node_modules/.bin/nuxt"
-						args: ["generate", "-c", "product/opni/nuxt.config.js"]
+						args: ["generate", "-c", "product/opni/nuxt.config.js", "--spa"]
 					}
 				},
 				docker.#Run & {

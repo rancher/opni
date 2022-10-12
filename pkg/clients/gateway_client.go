@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"emperror.dev/errors"
@@ -97,15 +98,20 @@ type gatewayClient struct {
 	id     string
 	logger *zap.SugaredLogger
 
+	svcMu    sync.Mutex
 	services []util.ServicePack[any]
 	spliced  []*splicedConn
 }
 
 func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	gc.svcMu.Lock()
+	defer gc.svcMu.Unlock()
 	gc.services = append(gc.services, util.PackService(desc, impl))
 }
 
 func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name string) {
+	gc.svcMu.Lock()
+	defer gc.svcMu.Unlock()
 	for _, s := range gc.spliced {
 		if s.name == name {
 			panic("bug: duplicate spliced stream name")
@@ -173,6 +179,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}
+	gc.svcMu.Lock()
+	defer gc.svcMu.Unlock()
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
 	}

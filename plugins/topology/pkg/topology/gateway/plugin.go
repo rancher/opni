@@ -62,9 +62,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
+		topologyBackend:     backend.TopologyBackend{},
 	}
 
-	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{})
+	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{
+		Logger: p.logger.Named("remote-write-server"),
+	})
+
 	p.logger.Debug("waiting for async requirements for starting topology backend")
 	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
 		func(

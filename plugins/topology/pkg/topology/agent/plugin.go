@@ -6,6 +6,8 @@ import (
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	"github.com/rancher/opni/pkg/plugins/apis/capability"
+	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
@@ -95,6 +97,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
 	p := NewPlugin(ctx)
 	// scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewPlugin(p))
 	return scheme
 }

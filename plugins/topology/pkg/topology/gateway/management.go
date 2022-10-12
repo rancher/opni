@@ -8,14 +8,12 @@ import (
 func (p *Plugin) configureTopologyManagement() {
 	drivers.ResetClusterDrivers()
 
-	// if kcd, err := drivers.NewOpniManagerClusterDriver(); err == nil {
-	// 	drivers.RegisterClusterDriver(kcd)
-	// } else {
-	// 	drivers.LogClusterDriverFailure(kcd.Name(), err)
-	// }
-
-	// TODO : acquire the real driver for topology
-	name := "topology-driver-name"
+	if kcd, err := drivers.NewTopologyManagerClusterDriver(); err == nil {
+		drivers.RegisterClusterDriver(kcd)
+	} else {
+		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
+	}
+	name := "topology-manager"
 	driver, err := drivers.GetClusterDriver(name)
 	if err != nil {
 		p.logger.With(

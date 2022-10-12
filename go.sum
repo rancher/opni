@@ -1891,6 +1891,8 @@ github.com/kralicky/totem v1.1.0-rc4.0.20221012015347-f752584b0e56 h1:a8QJIHYV09
 github.com/kralicky/totem v1.1.0-rc4.0.20221012015347-f752584b0e56/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
 github.com/kralicky/totem v1.1.0-rc5 h1:z8a2GXQsGpA2wd5whmu81Ivxs/5Czxx87YYwNMcJEDU=
 github.com/kralicky/totem v1.1.0-rc5/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
+github.com/kralicky/totem v1.1.0-rc6 h1:x3BH1GrdFuVbFnBAuIifpzX9VUQjagz/atlbX31XSeY=
+github.com/kralicky/totem v1.1.0-rc6/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db h1:OhMQACnkI4y5uEciBkaVGzPFpS/5LkPT1uHnOv84Fcw=

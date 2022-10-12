@@ -1,12 +1,14 @@
 package drivers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ClusterDriver interface {
@@ -64,9 +66,18 @@ func GetClusterDriver(name string) (ClusterDriver, error) {
 	return driver, nil
 }
 
-type NoopClusterDriver struct {
-	orchestrator.UnimplementedTopologyOrchestratorServer
+func LogClusterDriverFailure(name string, err error) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	failedClusterDrivers[name] = err.Error()
 }
+
+type NoopClusterDriver struct {
+	orchestrator.UnsafeTopologyOrchestratorServer
+}
+
+var _ orchestrator.TopologyOrchestratorServer = &NoopClusterDriver{}
 
 func (d *NoopClusterDriver) Name() string {
 	return "noop"
@@ -75,4 +86,10 @@ func (d *NoopClusterDriver) Name() string {
 func (d *NoopClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 	// the noop driver will never forcefully disable a node
 	return nil
+}
+
+func (d *NoopClusterDriver) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+	return &orchestrator.InstallStatus{
+		State: orchestrator.InstallState_Installed,
+	}, nil
 }

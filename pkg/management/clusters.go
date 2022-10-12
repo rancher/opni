@@ -98,17 +98,21 @@ func (m *Server) WatchClusters(
 	}
 
 	for event := range eventC {
+		var c *corev1.Cluster
 		var eventType managementv1.WatchEventType
 		switch event.EventType {
 		case storage.WatchEventCreate:
 			eventType = managementv1.WatchEventType_Created
+			c = event.Current
 		case storage.WatchEventUpdate:
 			eventType = managementv1.WatchEventType_Updated
+			c = event.Current
 		case storage.WatchEventDelete:
 			eventType = managementv1.WatchEventType_Deleted
+			c = event.Previous
 		}
 		if err := stream.Send(&managementv1.WatchEvent{
-			Cluster: event.Current,
+			Cluster: c,
 			Type:    eventType,
 		}); err != nil {
 			return err

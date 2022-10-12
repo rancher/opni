@@ -75,12 +75,14 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
-				fmt.Println("created cluster ", id)
 			}
 			timeout := time.After(2000 * time.Millisecond)
 			for i := 0; i < 10; i++ {
 				select {
 				case event := <-events:
+					if event == nil {
+						break
+					}
 					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
 					fmt.Println(event.Cluster.Id)

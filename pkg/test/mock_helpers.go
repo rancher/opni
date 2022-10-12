@@ -346,7 +346,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 							if knownCluster, ok := observedClusters[oldCl.GetId()]; !ok {
 								eventC <- storage.WatchEvent[*corev1.Cluster]{
 									EventType: storage.WatchEventDelete,
-									Current:   oldCopyCluster, // FIXME : shouldn't this be allowed to be nil?
+									Current:   nil,
 									Previous:  oldCopyCluster,
 								}
 								delete(knownClusterMap, oldCl.GetId())

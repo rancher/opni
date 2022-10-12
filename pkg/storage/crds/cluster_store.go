@@ -2,10 +2,11 @@ package crds
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -162,8 +163,8 @@ func (c *CRDStore) WatchCluster(
 }
 
 func (c *CRDStore) WatchClusters(
-	ctx context.Context,
-	known []*corev1.Cluster,
+	_ context.Context,
+	_ []*corev1.Cluster,
 ) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
-	return nil, errors.New("not implemented")
+	return nil, status.Error(codes.Unimplemented, "WatchClusters is not available when using CRD cluster storage.")
 }

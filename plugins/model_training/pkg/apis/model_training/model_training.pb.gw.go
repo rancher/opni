@@ -169,7 +169,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/TrainModel", runtime.WithHTTPPathPattern("/train_model"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/TrainModel", runtime.WithHTTPPathPattern("/trainModel"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -194,7 +194,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workload_log_count/{id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workloadLogCount/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -219,7 +219,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/model_status"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/modelStatus"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -244,7 +244,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/model_training_parameters"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/modelTrainingParameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -308,7 +308,7 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/TrainModel", runtime.WithHTTPPathPattern("/train_model"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/TrainModel", runtime.WithHTTPPathPattern("/trainModel"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -330,7 +330,7 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workload_log_count/{id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workloadLogCount/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -352,7 +352,7 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/model_status"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/modelStatus"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -374,7 +374,7 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/model_training_parameters"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/modelTrainingParameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -394,13 +394,13 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_ModelTraining_TrainModel_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"train_model"}, ""))
+	pattern_ModelTraining_TrainModel_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"trainModel"}, ""))
 
-	pattern_ModelTraining_WorkloadLogCount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"workload_log_count", "id"}, ""))
+	pattern_ModelTraining_WorkloadLogCount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"workloadLogCount", "id"}, ""))
 
-	pattern_ModelTraining_ModelStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"model_status"}, ""))
+	pattern_ModelTraining_ModelStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"modelStatus"}, ""))
 
-	pattern_ModelTraining_ModelTrainingParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"model_training_parameters"}, ""))
+	pattern_ModelTraining_ModelTrainingParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"modelTrainingParameters"}, ""))
 )
 
 var (

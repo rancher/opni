@@ -74,29 +74,24 @@ func (p *Plugin) onConfigUpdated(cfg *node.TopologyCapabilityConfig) {
 
 	switch {
 	case currentlyRunning && shouldRun:
-		p.logger.Debug("reconfiguring rule sync")
+		p.logger.Debug("reconfiguring topology stream")
 		p.stopStreaming()
 		startTopologyStream()
 	case currentlyRunning && !shouldRun:
-		p.logger.Debug("stopping rule sync")
+		p.logger.Debug("stopping topology stream")
 		p.stopStreaming()
 		p.stopStreaming = nil
-
-		// optional http server
 	case !currentlyRunning && shouldRun:
-		p.logger.Debug("starting rule sync")
+		p.logger.Debug("starting topology stream")
 		startTopologyStream()
-
-		// optional http server
 	case !currentlyRunning && !shouldRun:
-		p.logger.Debug("topology syncing is disabled")
+		p.logger.Debug("topology streaming is disabled")
 	}
 }
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
 	p := NewPlugin(ctx)
-	// scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewPlugin(p))

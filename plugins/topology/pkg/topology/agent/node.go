@@ -44,6 +44,9 @@ func NewTopologyNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *Topolog
 	return &TopologyNode{
 		logger:     lg,
 		conditions: ct,
+		config: &node.TopologyCapabilityConfig{
+			Enabled: false,
+		},
 	}
 }
 

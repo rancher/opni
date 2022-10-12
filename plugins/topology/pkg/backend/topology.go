@@ -9,6 +9,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
@@ -125,9 +126,8 @@ func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.R
 func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
 	ctxTimeout, ca := context.WithTimeout(ctx, time.Second*60)
 	defer ca()
-	err := t.WaitForInitContext(ctxTimeout)
-	if err != nil { // !! t.Logger is not initialized if the deadline is exceeded
-		// t.Logger.With("capability", "install", zap.Error(err)).Error("topology backend not intialized before install")
+	if err := t.WaitForInitContext(ctxTimeout); err != nil {
+		// !! t.Logger is not initialized if the deadline is exceeded
 		return nil, err
 	}
 
@@ -141,6 +141,13 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 		} else {
 			warningErr = err
 		}
+	}
+
+	_, err := t.StorageBackend.UpdateCluster(ctx, req.Cluster,
+		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityTopology)),
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	t.requestNodeSync(ctx, req.Cluster)
@@ -172,8 +179,35 @@ func (t *TopologyBackend) Status(ctx context.Context, req *capabilityv1.StatusRe
 func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
 	t.WaitForInit()
 
-	// TODO : implement me if necessary
+	cluster, err := t.MgmtClient.GetCluster(ctx, req.Cluster)
+	if err != nil {
+		return nil, err
+	}
 
+	exists := false
+	for _, cap := range cluster.GetMetadata().GetCapabilities() {
+		if cap.Name != wellknown.CapabilityTopology {
+			continue
+		}
+		exists = true
+		if cap.DeletionTimestamp != nil {
+			// TODO check uninstall task status if necessary
+		}
+		break
+	}
+	if !exists {
+		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the requested capability")
+	}
+
+	_, deleteErr := t.StorageBackend.UpdateCluster(
+		ctx,
+		cluster.Reference(),
+		storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityTopology)))
+	if deleteErr != nil {
+		return nil, deleteErr
+	}
+
+	t.requestNodeSync(ctx, req.Cluster)
 	return &emptypb.Empty{}, nil
 }
 
@@ -239,6 +273,7 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 
 	status := t.nodeStatus[id]
 	if status == nil {
+		t.Logger.Debug("No current status found, setting to default")
 		t.nodeStatus[id] = &capabilityv1.NodeCapabilityStatus{}
 		status = t.nodeStatus[id]
 	}

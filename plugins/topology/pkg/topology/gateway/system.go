@@ -48,12 +48,47 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			os.Exit(1)
 		}
 		p.storageBackend.Set(backend)
+		p.configureTopologyManagement()
 	})
 
-	if err != nil {
-		p.logger.With("err", err).Error("failed to create k8s client")
-		os.Exit(1)
-	}
+	// cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
+	// if err != nil {
+	// 	p.logger.With(
+	// 		zap.Error(err),
+	// 	).Error("failed to get config")
+	// 	os.Exit(1)
+	// }
+	// objectList, err := machinery.LoadDocuments(cfg.Documents)
+	// if err != nil {
+	// 	p.logger.With(
+	// 		zap.Error(err),
+	// 	).Error("failed to load config")
+	// 	os.Exit(1)
+	// }
+	// machinery.LoadAuthProviders(p.ctx, objectList)
+	// objectList.Visit(func(config *v1beta1.GatewayConfig) {
+	// 	backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
+	// 	if err != nil {
+	// 		p.logger.With(
+	// 			zap.Error(err),
+	// 		).Error("failed to configure storage backend")
+	// 		os.Exit(1)
+	// 	}
+	// 	p.storageBackend.Set(backend)
+	// 	p.config.Set(config)
+	// 	tlsConfig := p.loadCortexCerts()
+	// 	p.cortexTlsConfig.Set(tlsConfig)
+	// 	clientset, err := cortex.NewClientSet(p.ctx, &config.Spec.Cortex, tlsConfig)
+	// 	if err != nil {
+	// 		p.logger.With(
+	// 			zap.Error(err),
+	// 		).Error("failed to configure cortex clientset")
+	// 		os.Exit(1)
+	// 	}
+	// 	p.cortexClientSet.Set(clientset)
+
+	// 	p.configureCortexManagement()
+	// })
 	<-p.ctx.Done()
 }
 
@@ -62,22 +97,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		nc  *nats.Conn
 		err error
 	)
-	retrier := backoffv2.Exponential(
-		backoffv2.WithMaxRetries(0),
-		backoffv2.WithMinInterval(5*time.Second),
-		backoffv2.WithMaxInterval(1*time.Minute),
-		backoffv2.WithMultiplier(1.1),
-	)
-	b := retrier.Start(p.ctx)
-	for backoffv2.Continue(b) {
-		nc, err = p.newNatsConnection()
-		if err != nil {
-			break
-		}
-		p.logger.Error("failed to connect to NATs, retrying")
-	}
-	p.nc.Set(nc)
-
+	// set other futures before trying to acquire NATS connection
 	ctrl, err := task.NewController(
 		p.ctx,
 		"topology.uninstall",
@@ -94,6 +114,22 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(ConfigStorageAPIs{
 		Placeholder: system.NewKVStoreClient[proto.Message](client),
 	})
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(0),
+		backoffv2.WithMinInterval(5*time.Second),
+		backoffv2.WithMaxInterval(1*time.Minute),
+		backoffv2.WithMultiplier(1.1),
+	)
+	b := retrier.Start(p.ctx)
+	for backoffv2.Continue(b) {
+		nc, err = p.newNatsConnection()
+		if err != nil {
+			break
+		}
+		p.logger.Error("failed to connect to NATs, retrying")
+	}
+	p.nc.Set(nc)
 	<-p.ctx.Done()
 }
 

@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"sync"
+	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -60,7 +61,9 @@ var _ orchestrator.TopologyOrchestratorServer = (*TopologyBackend)(nil)
 
 func (t *TopologyBackend) Initialize(conf TopologyBackendConfig) {
 	t.InitOnce(func() {
-		// TODO : initialization code goes here
+		t.TopologyBackendConfig = conf
+		t.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
+		t.desiredNodeSpec = make(map[string]*node.TopologyCapabilitySpec)
 	})
 }
 
@@ -120,7 +123,13 @@ func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.R
 }
 
 func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
-	t.WaitForInit()
+	ctxTimeout, ca := context.WithTimeout(ctx, time.Second*60)
+	defer ca()
+	err := t.WaitForInitContext(ctxTimeout)
+	if err != nil { // !! t.Logger is not initialized if the deadline is exceeded
+		// t.Logger.With("capability", "install", zap.Error(err)).Error("topology backend not intialized before install")
+		return nil, err
+	}
 
 	var warningErr error
 	if err := t.canInstall(ctx); err != nil {

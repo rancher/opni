@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/kralicky/gpkg/sync/atomic"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -371,15 +372,10 @@ type KeyringStoreHandler = func(prefix string, ref *corev1.Reference) storage.Ke
 
 func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreHandler) storage.KeyringStoreBroker {
 	mockKeyringStoreBroker := mock_storage.NewMockKeyringStoreBroker(ctrl)
-	keyringStores := map[string]storage.KeyringStore{}
+	keyringStores := gsync.Map[string, storage.KeyringStore]{}
 	defaultHandler := func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-		if keyringStore, ok := keyringStores[prefix+ref.Id]; !ok {
-			s := NewTestKeyringStore(ctrl, prefix, ref)
-			keyringStores[prefix+ref.Id] = s
-			return s
-		} else {
-			return keyringStore
-		}
+		store, _ := keyringStores.LoadOrStore(prefix+ref.Id, NewTestKeyringStore(ctrl, prefix, ref))
+		return store
 	}
 
 	var h KeyringStoreHandler

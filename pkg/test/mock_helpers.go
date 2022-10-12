@@ -374,8 +374,13 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 	mockKeyringStoreBroker := mock_storage.NewMockKeyringStoreBroker(ctrl)
 	keyringStores := gsync.Map[string, storage.KeyringStore]{}
 	defaultHandler := func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-		store, _ := keyringStores.LoadOrStore(prefix+ref.Id, NewTestKeyringStore(ctrl, prefix, ref))
-		return store
+		if store, ok := keyringStores.Load(prefix + ref.Id); ok {
+			return store
+		} else {
+			newStore := NewTestKeyringStore(ctrl, prefix, ref)
+			keyringStores.Store(prefix+ref.Id, newStore)
+			return newStore
+		}
 	}
 
 	var h KeyringStoreHandler

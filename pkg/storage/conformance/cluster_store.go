@@ -275,7 +275,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			By("ensuring a Put update is received")
 			select {
 			case event := <-wc:
-				Expect(event.EventType).To(Equal(storage.WatchEventPut))
+				Expect(event.EventType).To(Equal(storage.WatchEventCreate))
 				Expect(event.Previous.Metadata.Labels).To(Equal(map[string]string{
 					"foo": "bar",
 				}))

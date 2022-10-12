@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -137,7 +139,7 @@ func (c *CRDStore) WatchCluster(
 			case watch.Modified:
 				current := util.ProtoClone(event.Object.(*monitoringv1beta1.Cluster).Spec)
 				eventC <- storage.WatchEvent[*corev1.Cluster]{
-					EventType: storage.WatchEventPut,
+					EventType: storage.WatchEventCreate,
 					Current:   util.ProtoClone(current),
 					Previous:  util.ProtoClone(existing),
 				}
@@ -158,4 +160,11 @@ func (c *CRDStore) WatchCluster(
 	}()
 
 	return eventC, nil
+}
+
+func (c *CRDStore) WatchClusters(
+	_ context.Context,
+	_ []*corev1.Cluster,
+) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+	return nil, status.Error(codes.Unimplemented, "WatchClusters is not available when using CRD cluster storage.")
 }

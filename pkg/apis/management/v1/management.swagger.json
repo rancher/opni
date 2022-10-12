@@ -1749,7 +1749,7 @@
       "type": "object",
       "properties": {
         "cluster": {
-          "$ref": "#/definitions/coreReference"
+          "$ref": "#/definitions/coreCluster"
         },
         "type": {
           "$ref": "#/definitions/managementWatchEventType"
@@ -1759,10 +1759,11 @@
     "managementWatchEventType": {
       "type": "string",
       "enum": [
-        "Added",
+        "Created",
+        "Updated",
         "Deleted"
       ],
-      "default": "Added"
+      "default": "Created"
     },
     "protobufAny": {
       "type": "object",

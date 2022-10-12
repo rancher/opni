@@ -170,7 +170,7 @@ func (e *EtcdStore) WatchCluster(
 					case mvccpb.DELETE:
 						eventType = storage.WatchEventDelete
 					case mvccpb.PUT:
-						eventType = storage.WatchEventPut
+						eventType = storage.WatchEventCreate
 					default:
 						continue
 					}
@@ -197,6 +197,120 @@ func (e *EtcdStore) WatchCluster(
 							zap.Error(err),
 						).Error("error unmarshaling cluster")
 						continue
+					}
+
+					eventC <- storage.WatchEvent[*corev1.Cluster]{
+						EventType: eventType,
+						Current:   current,
+						Previous:  previous,
+					}
+				}
+			}
+		}
+	}()
+	return eventC, nil
+}
+
+func (e *EtcdStore) WatchClusters(
+	ctx context.Context,
+	knownClusters []*corev1.Cluster,
+) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey), clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list clusters: %w", err)
+	}
+	startRev := resp.Header.Revision
+	knownClusterMap := make(map[string]*corev1.Cluster, len(knownClusters))
+	for _, cluster := range knownClusters {
+		knownClusterMap[cluster.Id] = cluster
+	}
+	initialEvents := make([]storage.WatchEvent[*corev1.Cluster], 0, len(resp.Kvs))
+	for _, kv := range resp.Kvs {
+		cluster := &corev1.Cluster{}
+		if err := protojson.Unmarshal(kv.Value, cluster); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cluster: %w", err)
+		}
+		if knownCluster, ok := knownClusterMap[cluster.Id]; !ok {
+			// cluster was not known
+			initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
+				EventType: storage.WatchEventCreate,
+				Current:   cluster,
+			})
+		} else if knownCluster.GetResourceVersion() != cluster.GetResourceVersion() {
+			// cluster was known, but resource version has changed
+			initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
+				EventType: storage.WatchEventUpdate,
+				Current:   cluster,
+				Previous:  knownCluster,
+			})
+		}
+	}
+	bufSize := 100
+	for len(initialEvents) > bufSize {
+		bufSize *= 2
+	}
+	eventC := make(chan storage.WatchEvent[*corev1.Cluster], bufSize)
+
+	// send create or update events for unknown clusters
+	for _, event := range initialEvents {
+		eventC <- event
+	}
+
+	wc := e.Client.Watch(ctx, path.Join(e.Prefix, clusterKey),
+		clientv3.WithPrefix(),
+		clientv3.WithPrevKV(),
+		clientv3.WithRev(startRev),
+	)
+	go func() {
+		defer close(eventC)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event := <-wc:
+				if event.Err() != nil {
+					e.Logger.With(
+						zap.Error(event.Err()),
+					).Error("error watching clusters")
+					return
+				}
+				for _, ev := range event.Events {
+					var eventType storage.WatchEventType
+					current := &corev1.Cluster{}
+					previous := &corev1.Cluster{}
+					if ev.Type == mvccpb.DELETE {
+						eventType = storage.WatchEventDelete
+					}
+					if ev.Kv.Version == 1 {
+						// created
+						if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
+							e.Logger.With(
+								zap.Error(err),
+							).Error("error unmarshaling cluster")
+							continue
+						}
+						previous = nil
+						eventType = storage.WatchEventCreate
+					} else {
+						if ev.Kv.Version == 0 {
+							// deleted
+							current = nil
+						} else {
+							if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
+								e.Logger.With(
+									zap.Error(err),
+								).Error("error unmarshaling cluster")
+								continue
+							}
+							eventType = storage.WatchEventUpdate
+						}
+						// if we get here, version is > 1 or 0, therefore PrevKv will always be set
+						if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
+							e.Logger.With(
+								zap.Error(err),
+							).Error("error unmarshaling cluster")
+							continue
+						}
 					}
 
 					eventC <- storage.WatchEvent[*corev1.Cluster]{

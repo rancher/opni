@@ -226,12 +226,13 @@ message WatchClustersRequest {
 }
 
 enum WatchEventType {
-  Added = 0;
+  Created = 0;
+  Updated = 1;
   Deleted = 2;
 }
 
 message WatchEvent {
-  core.Reference cluster = 1;
+  core.Cluster cluster = 1;
   WatchEventType type = 2;
 }
 

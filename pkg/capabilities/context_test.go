@@ -25,7 +25,7 @@ func makeCluster(caps ...string) *corev1.Cluster {
 
 func putEvent(old, new *corev1.Cluster) storage.WatchEvent[*corev1.Cluster] {
 	return storage.WatchEvent[*corev1.Cluster]{
-		EventType: storage.WatchEventPut,
+		EventType: storage.WatchEventCreate,
 		Previous:  old,
 		Current:   new,
 	}

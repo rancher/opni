@@ -208,6 +208,162 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 			return cloned, nil
 		}).
 		AnyTimes()
+	mockClusterStore.EXPECT().
+		WatchCluster(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			ctx context.Context,
+			cluster *corev1.Cluster) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+			t := time.NewTicker(time.Millisecond * 100)
+			eventC := make(chan storage.WatchEvent[*corev1.Cluster], 10)
+			found := false
+			var currentState *corev1.Cluster
+			mu.Lock()
+			for _, observedCluster := range clusters {
+				if observedCluster.GetId() == cluster.GetId() {
+					currentState = observedCluster
+					found = true
+					if observedCluster.GetResourceVersion() != cluster.GetResourceVersion() {
+						eventC <- storage.WatchEvent[*corev1.Cluster]{
+							EventType: storage.WatchEventUpdate,
+							Current:   observedCluster,
+							Previous:  cluster,
+						}
+					}
+					break
+
+				}
+			}
+			mu.Unlock()
+			if !found {
+				eventC <- storage.WatchEvent[*corev1.Cluster]{
+					EventType: storage.WatchEventDelete,
+					Current:   nil,
+					Previous:  cluster,
+				}
+				currentState = nil
+			}
+
+			go func() {
+				defer close(eventC)
+				defer t.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-t.C:
+						mu.Lock()
+						for _, observedCluster := range clusters {
+							if observedCluster.GetId() == cluster.GetId() {
+								if currentState == nil {
+									eventC <- storage.WatchEvent[*corev1.Cluster]{
+										EventType: storage.WatchEventCreate,
+										Current:   observedCluster,
+										Previous:  nil,
+									}
+								} else if observedCluster.GetResourceVersion() != currentState.GetResourceVersion() {
+									eventC <- storage.WatchEvent[*corev1.Cluster]{
+										EventType: storage.WatchEventUpdate,
+										Current:   observedCluster,
+										Previous:  currentState,
+									}
+								}
+								currentState = observedCluster
+								break
+							}
+						}
+						mu.Unlock()
+					}
+				}
+			}()
+			return eventC, nil
+		}).AnyTimes()
+
+	mockClusterStore.EXPECT().
+		WatchClusters(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, knownClusters []*corev1.Cluster) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+			t := time.NewTicker(1 * time.Millisecond * 100)
+
+			knownClusterMap := make(map[string]*corev1.Cluster, len(knownClusters))
+			for _, cluster := range knownClusters {
+				knownClusterMap[cluster.GetId()] = cluster
+			}
+			initialEvents := []storage.WatchEvent[*corev1.Cluster]{}
+			mu.Lock()
+			for _, cluster := range clusters {
+				if knownCluster, ok := knownClusterMap[cluster.GetId()]; !ok {
+					initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
+						EventType: storage.WatchEventCreate,
+						Current:   cluster,
+						Previous:  nil,
+					})
+				} else if knownCluster.GetResourceVersion() != cluster.GetResourceVersion() {
+					initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
+						EventType: storage.WatchEventUpdate,
+						Current:   cluster,
+						Previous:  knownCluster,
+					})
+				}
+			}
+			mu.Unlock()
+			bufSize := 100
+			for len(initialEvents) > bufSize {
+				bufSize *= 2
+			}
+			eventC := make(chan storage.WatchEvent[*corev1.Cluster], bufSize)
+
+			for _, event := range initialEvents {
+				eventC <- event
+			}
+
+			go func() {
+				defer close(eventC)
+				defer t.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-t.C:
+						observedClusters := map[string]*corev1.Cluster{}
+						mu.Lock()
+						for _, newCl := range clusters {
+							observedClusters[newCl.GetId()] = newCl
+						}
+						mu.Unlock()
+						//create
+						for _, newCl := range observedClusters {
+							if _, ok := knownClusterMap[newCl.GetId()]; !ok {
+								eventC <- storage.WatchEvent[*corev1.Cluster]{
+									EventType: storage.WatchEventCreate,
+									Current:   newCl,
+									Previous:  nil,
+								}
+								knownClusterMap[newCl.GetId()] = newCl
+							}
+						}
+						//delete or update
+						for _, oldCl := range knownClusterMap {
+							oldCopyCluster := oldCl //capture in closure
+							if knownCluster, ok := observedClusters[oldCl.GetId()]; !ok {
+								eventC <- storage.WatchEvent[*corev1.Cluster]{
+									EventType: storage.WatchEventDelete,
+									Current:   nil,
+									Previous:  oldCopyCluster,
+								}
+								delete(knownClusterMap, oldCl.GetId())
+							} else if knownCluster.GetResourceVersion() != oldCl.GetResourceVersion() {
+								eventC <- storage.WatchEvent[*corev1.Cluster]{
+									EventType: storage.WatchEventUpdate,
+									Current:   knownCluster,
+									Previous:  oldCopyCluster,
+								}
+								knownClusterMap[knownCluster.GetId()] = knownCluster
+							}
+						}
+					}
+				}
+			}()
+			return eventC, nil
+		}).AnyTimes()
 	return mockClusterStore
 }
 

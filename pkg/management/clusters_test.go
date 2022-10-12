@@ -61,6 +61,7 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 	})
 	It("should create clusters", func() {
 		for x := 0; x < 3; x++ {
+			time.Sleep(time.Second * 1)
 			ids := map[string]struct{}{}
 			for i := 0; i < 10; i++ {
 				id := uuid.NewString()
@@ -75,12 +76,16 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}
-			timeout := time.After(1100 * time.Millisecond)
+			timeout := time.After(2000 * time.Millisecond)
 			for i := 0; i < 10; i++ {
 				select {
 				case event := <-events:
-					Expect(event.Type).To(Equal(managementv1.WatchEventType_Added))
+					if event == nil {
+						break
+					}
+					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
+					fmt.Println(event.Cluster.Id)
 					cluster, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 						Id: event.Cluster.Id,
 					})
@@ -141,6 +146,8 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 
 			for event := range events {
 				Expect(event.Type).To(Equal(managementv1.WatchEventType_Deleted))
+				Expect(event.Cluster).NotTo(BeNil())
+				Expect(event.Cluster.Id).NotTo(BeNil())
 				Expect(ids).To(HaveKey(event.Cluster.Id))
 				delete(ids, event.Cluster.Id)
 

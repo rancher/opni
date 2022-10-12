@@ -9,29 +9,29 @@ package model_training;
 service ModelTraining {
   rpc TrainModel(WorkloadsList) returns (core.Reference) {
     option (google.api.http) = {
-      post: "/train_model"
+      post: "/trainModel"
       body: "*"
     };
   }
   rpc WorkloadLogCount(core.Reference) returns (WorkloadsList) {
     option (google.api.http) = {
-      post: "/workload_log_count/{id}"
+      post: "/workloadLogCount/{id}"
     };
   }
   rpc ModelStatus(google.protobuf.Empty) returns (core.Reference) {
     option (google.api.http) = {
-      get: "/model_status"
+      get: "/modelStatus"
     };
   }
   rpc ModelTrainingParameters(google.protobuf.Empty) returns (WorkloadsList) {
     option (google.api.http) = {
-      get: "/model_training_parameters"
+      get: "/modelTrainingParameters"
     };
   }
 }
 
 message WorkloadResponse {
-  string cluster_id = 1;
+  string clusterId = 1;
   string namespace = 2;
   string deployment = 3;
   int64 count = 4;

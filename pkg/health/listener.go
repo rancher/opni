@@ -178,7 +178,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer clientLock.Unlock() // 4th
 
 	l.incomingHealthUpdatesMu.Lock()
-	incomingHealthUpdates := make(chan HealthUpdate, l.updateQueueCap)
+	incomingHealthUpdates := make(chan HealthUpdate, 10)
 	l.incomingHealthUpdates[id] = incomingHealthUpdates
 	l.incomingHealthUpdatesMu.Unlock()
 

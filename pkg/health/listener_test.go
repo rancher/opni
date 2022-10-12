@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Listener", func() {
+var _ = Describe("Listener", Label("unit", "slow"), func() {
 	When("creating a new listener", func() {
 		It("should not send any updates", func() {
 			listener := health.NewListener()
@@ -109,7 +109,7 @@ var _ = Describe("Listener", func() {
 			}
 		}
 
-		Eventually(statusC).Should(HaveLen(98 * numAgents))
+		Eventually(statusC, 5*time.Second, 100*time.Millisecond).Should(HaveLen(98 * numAgents))
 		Consistently(statusC).Should(HaveLen(98 * numAgents))
 
 		// reconnect all agents
@@ -121,7 +121,7 @@ var _ = Describe("Listener", func() {
 			go listener.HandleConnection(test.ContextWithAuthorizedID(context.Background(), agentId), a)
 		}
 
-		Eventually(statusC).Should(HaveLen(99 * numAgents))
+		Eventually(statusC, 5*time.Second, 100*time.Millisecond).Should(HaveLen(99 * numAgents))
 		Consistently(statusC).Should(HaveLen(99 * numAgents))
 
 		listener.Close()

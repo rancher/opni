@@ -32,15 +32,21 @@ func (s *TopologyStreamer) SetRemoteWriteClient(client remote.RemoteTopologyClie
 }
 
 func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilitySpec) error {
-	s.conditions.Set(CondTopologySync, health.StatusPending, "starting topology stream")
-	defer s.conditions.Clear(CondTopologySync)
 	lg := s.logger
 	if spec == nil {
 		lg.With("stream", "topology").Warn("no topology capability spec provided, setting defaults")
 
 		// set some sensible defaults
 	}
-	
-	//TODO : implement me
-	return nil
+
+	// blocking action
+	for {
+		select {
+		case <-ctx.Done():
+			lg.With(
+				zap.Error(ctx.Err()),
+			).Warn("topology stream closing")
+			return nil
+		}
+	}
 }

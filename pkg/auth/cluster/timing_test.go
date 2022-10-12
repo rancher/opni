@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"path"
 	"runtime"
 	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	gsync "github.com/kralicky/gpkg/sync"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -26,7 +27,6 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
 )
 
 func threadClock() int64 {
@@ -35,10 +35,50 @@ func threadClock() int64 {
 	return time.Nano()
 }
 
+// Can't use the test keyring store broker due to possible extra overhead
+// from the mock controller and/or unrelated implementation details that
+// are otherwise not relevant to tests but may affect timing or performance.
+type keyringStoreBroker struct {
+	store *gsync.Map[string, keyring.Keyring]
+}
+
+func (b *keyringStoreBroker) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {
+	return &keyringStore{
+		store:  b.store,
+		ref:    ref,
+		prefix: prefix,
+	}
+}
+
+type keyringStore struct {
+	store  *gsync.Map[string, keyring.Keyring]
+	ref    *corev1.Reference
+	prefix string
+}
+
+func (ks *keyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
+	ks.store.Store(path.Join(ks.prefix, "keyrings", ks.ref.Id), keyring)
+	return nil
+}
+
+func (ks *keyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
+	value, ok := ks.store.Load(path.Join(ks.prefix, "keyrings", ks.ref.Id))
+	if !ok {
+		return nil, storage.ErrNotFound
+	}
+	return value, nil
+}
+
+func (ks *keyringStore) Delete(ctx context.Context) error {
+	_, ok := ks.store.LoadAndDelete(path.Join(ks.prefix, "keyrings", ks.ref.Id))
+	if !ok {
+		return storage.ErrNotFound
+	}
+	return nil
+}
+
 var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), func() {
-	var ctrl *gomock.Controller
 	BeforeAll(func() {
-		ctrl = gomock.NewController(GinkgoT())
 		// temporarily pause garbage collection and debug logging to avoid interfering with timing
 		gcPercent := debug.SetGCPercent(-1)
 		logger.DefaultLogLevel.SetLevel(zapcore.ErrorLevel)
@@ -48,17 +88,13 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 		})
 	})
 	Specify("different unauthorized requests should take the same amount of time", func() {
-		store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-			Id: "cluster-1",
-		})
-		store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-		handler := func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-			if ref.Id == "cluster-1" {
-				return store
-			}
-			return nil // fall back to default handler
+		broker := &keyringStoreBroker{
+			store: &gsync.Map[string, keyring.Keyring]{},
 		}
-		broker := test.NewTestKeyringStoreBroker(ctrl, handler)
+		broker.KeyringStore("timing", &corev1.Reference{
+			Id: "cluster-1",
+		}).Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
+
 		mw, err := cluster.New(context.Background(), broker, "X-Test")
 		Expect(err).NotTo(HaveOccurred())
 

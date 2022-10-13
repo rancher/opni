@@ -13,9 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
 func setEndpointImplementationIfAvailable(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) error {

@@ -3,16 +3,17 @@ package endpoints_test
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/config"
 	"os"
+
+	"github.com/rancher/opni/pkg/alerting/config"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"

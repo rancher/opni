@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	cfg "github.com/prometheus/alertmanager/config"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"golang.org/x/exp/slices"
 	"net/url"
 	"strings"
+
+	cfg "github.com/prometheus/alertmanager/config"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	"golang.org/x/exp/slices"
 )
 
 func (c *ConfigMapData) AppendReceiver(recv *Receiver) {

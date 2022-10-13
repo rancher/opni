@@ -9,9 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/test"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
 var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, test.Slow), func() {

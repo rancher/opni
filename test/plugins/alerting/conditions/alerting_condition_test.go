@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/condition"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"

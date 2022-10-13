@@ -1,13 +1,14 @@
-package v1alpha
+package common
 
 import (
+	"net/mail"
+	"net/url"
+	"strings"
+
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
-	"net/mail"
-	"net/url"
-	"strings"
 )
 
 func (s *SilenceRequest) Validate() error {

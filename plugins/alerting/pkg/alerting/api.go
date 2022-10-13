@@ -3,19 +3,20 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/backend"
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/backend"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"go.uber.org/zap"
 
 	"github.com/rancher/opni/pkg/alerting/templates"
 
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"

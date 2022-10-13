@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/tidwall/gjson"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/tidwall/gjson"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -19,8 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

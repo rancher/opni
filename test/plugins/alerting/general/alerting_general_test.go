@@ -3,18 +3,19 @@ package general_test
 import (
 	"context"
 	"fmt"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/templates"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/test"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/templates"
+	"github.com/rancher/opni/pkg/test"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
 func ManualReloadEndpointBackend(

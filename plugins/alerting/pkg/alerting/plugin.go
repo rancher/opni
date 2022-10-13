@@ -3,7 +3,6 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
@@ -13,19 +12,27 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/trigger"
 )
 
 const AlertingLogCacheSize = 32
 
 type Plugin struct {
-	alertingv1alpha.UnsafeAlertingServer
+	condition.UnsafeAlertingConditionsServer
+	endpoint.UnsafeAlertingEndpointsServer
+	log.UnsafeAlertingLogsServer
+	trigger.UnsafeAlertingServer
+
 	system.UnimplementedSystemPluginClient
 	Ctx             context.Context
 	Logger          *zap.SugaredLogger
@@ -56,14 +63,31 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 }
 
-var _ alertingv1alpha.AlertingServer = (*Plugin)(nil)
-var _ alerting.Provider = (alertingv1alpha.AlertingClient)(nil)
+var _ endpoint.AlertingEndpointsServer = (*Plugin)(nil)
+var _ condition.AlertingConditionsServer = (*Plugin)(nil)
+var _ log.AlertingLogsServer = (*Plugin)(nil)
+var _ trigger.AlertingServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	// We omit the trigger server here since it should only be used internally
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&alertingv1alpha.Alerting_ServiceDesc, p)))
+		managementext.NewPlugin(
+			util.PackService(
+				&condition.AlertingConditions_ServiceDesc,
+				p,
+			),
+			util.PackService(
+				&endpoint.AlertingEndpoints_ServiceDesc,
+				p,
+			),
+			util.PackService(
+				&log.AlertingLogs_ServiceDesc,
+				p,
+			),
+		),
+	)
 	return scheme
 }

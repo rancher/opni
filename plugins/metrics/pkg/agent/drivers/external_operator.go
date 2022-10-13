@@ -165,6 +165,32 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 				RemoteWrite: []monitoringcoreosv1.RemoteWriteSpec{
 					{
 						URL: fmt.Sprintf("http://%s.%s.svc/api/agent/push", d.serviceName(), d.namespace),
+						// Default queue config:
+						//   MaxShards:         200,
+						//   MinShards:         1,
+						//   MaxSamplesPerSend: 500,
+						//   Capacity:          2500
+						//   BatchSendDeadline: 5s
+						//   MinBackoff:        30ms
+						//   MaxBackoff:        5s
+						//
+						// Default target max bandwidth: (500 samples * 200 shards) * 10 requests/s = 1M samples/s
+						// Capacity goal should be ~600k samples max
+						//
+						// Larger payloads at reduced frequency will be much more efficient
+						// when dealing with many nodes. Keep the same max bandwidth, but
+						// increase the payload size by an order of magnitude.
+						//
+						// Unfortunately there is no way to _dynamically_ tune these parameters
+						// without restarting the prometheus agent (todo: investigate)
+						QueueConfig: &monitoringcoreosv1.QueueConfig{
+							MaxShards:         20,
+							MinShards:         1,
+							MaxSamplesPerSend: 5000,  // (5000 samples * 20 shards) * 10 requests/s = 1M samples/s
+							Capacity:          25000, // 25000+5000 samples * 20 shards = 600k samples
+							BatchSendDeadline: "4s",  // reduce slightly to offset increased buffer size
+							RetryOnRateLimit:  true,
+						},
 					},
 				},
 				Replicas:                        lo.ToPtr[int32](1),

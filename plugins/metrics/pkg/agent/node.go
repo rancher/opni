@@ -172,7 +172,6 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	case node.ConfigStatus_NeedsUpdate:
 		m.logger.Info("updating metrics node config")
 		m.updateConfig(syncResp.UpdatedConfig)
-		go m.doSync(ctx)
 	}
 
 	m.conditions.Clear(CondConfigSync)

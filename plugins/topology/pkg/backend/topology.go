@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -22,7 +23,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -325,7 +326,7 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 
 // !! the calling function must have exclusive ownership of both old and new
 func buildResponse(old, new *node.TopologyCapabilityConfig) *node.SyncResponse {
-	if proto.Equal(old, new) {
+	if cmp.Equal(old, new, protocmp.Transform()) {
 		return &node.SyncResponse{
 			ConfigStatus: node.ConfigStatus_UpToDate,
 		}

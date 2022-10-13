@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/bucket"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -43,12 +44,12 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 	if p.inMemCache != nil {
 		p.inMemCache.Add(event.ConditionId.Id, event)
 	}
-	existing, err := GetIndices() // get the existing indices for each condition
+	existing, err := bucket.GetIndices() // get the existing indices for each condition
 	if err != nil {
 		return nil, err
 	}
 	found := false
-	var b *BucketInfo
+	var b *bucket.BucketInfo
 	for _, index := range existing { // check if condition is already indexed
 		if index.ConditionId == event.ConditionId.Id {
 			found = true
@@ -62,7 +63,7 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 		}
 	} else {
 		if b == nil {
-			b = &BucketInfo{
+			b = &bucket.BucketInfo{
 				ConditionId: event.ConditionId.Id,
 			}
 		}

@@ -1,8 +1,8 @@
 package alerting
 
 import (
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

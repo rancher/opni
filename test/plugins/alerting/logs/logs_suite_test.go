@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/bucket"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
@@ -69,10 +69,10 @@ var curTestState TestSuiteState
 
 var _ = BeforeSuite(func() {
 	fmt.Println("Starting BeforeSuite...")
-	alerting.AlertPath = "alerttestdata/logs"
-	err := os.RemoveAll(alerting.AlertPath)
+	bucket.AlertPath = "alerttestdata/logs"
+	err := os.RemoveAll(bucket.AlertPath)
 	Expect(err).To(BeNil())
-	err = os.MkdirAll(alerting.AlertPath, 0777)
+	err = os.MkdirAll(bucket.AlertPath, 0777)
 	Expect(err).To(BeNil())
 
 	err = os.Setenv(shared.LocalBackendEnvToggle, "true")

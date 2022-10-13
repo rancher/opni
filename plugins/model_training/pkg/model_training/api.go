@@ -42,11 +42,14 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *model_training
 }
 
 func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*model_training.WorkloadsList, error) {
-	result, _ := c.kv.Get().Get("aggregation")
+	result, err := c.kv.Get().Get("aggregation")
+	if err != nil {
+		return nil, err
+	}
 	jsonRes := result.Value()
 	var results_storage = map[string]map[string]map[string]int{}
 	if err := json.Unmarshal(jsonRes, &results_storage); err != nil {
-		panic(err)
+		return nil, err
 	}
 	cluster_aggregation_results := results_storage[in.Id]
 	workloads_list := model_training.WorkloadsList{}
@@ -97,4 +100,16 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 	}
 	training_parameters.List = parameters_array
 	return &training_parameters, nil
+}
+
+func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*corev1.Reference, error)
+{
+	b := []byte("gpu present")
+	msg, err := c.natsConnection.Get().Request("gpu_present", b, time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	res := corev1.Reference{Id: string(msg.Data)}
+	return &res, nil
 }

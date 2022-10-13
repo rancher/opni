@@ -22,7 +22,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/trigger"
 )
 
 func TestAlerting(t *testing.T) {
@@ -54,7 +57,10 @@ type TestSuiteState struct {
 }
 
 var env *test.Environment
-var alertingClient alertingv1alpha.AlertingClient
+var alertingConditionClient condition.AlertingConditionsClient
+var alertingEndpointClient endpoint.AlertingEndpointsClient
+var alertingLogClient log.AlertingLogsClient
+var alertingTriggerClient trigger.AlertingClient
 var adminClient cortexadmin.CortexAdminClient
 var agentPort int
 var kubernetesTempMetricServerPort int
@@ -112,7 +118,10 @@ var _ = BeforeSuite(func() {
 	fmt.Println("agent port : ", agentPort)
 	adminClient = env.NewCortexAdminClient()
 	// alerting plugin
-	alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
+	alertingConditionClient = condition.NewAlertingConditionsClient(env.ManagementClientConn())
+	alertingEndpointClient = endpoint.NewAlertingEndpointsClient(env.ManagementClientConn())
+	alertingLogClient = log.NewAlertingLogsClient(env.ManagementClientConn())
+	alertingTriggerClient = trigger.NewAlertingClient(env.ManagementClientConn())
 	Eventually(func() error {
 		stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
 		if err != nil {

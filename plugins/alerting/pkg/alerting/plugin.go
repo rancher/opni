@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
@@ -28,15 +30,17 @@ import (
 const AlertingLogCacheSize = 32
 
 type Plugin struct {
+	system.UnimplementedSystemPluginClient
 	condition.UnsafeAlertingConditionsServer
 	endpoint.UnsafeAlertingEndpointsServer
 	log.UnsafeAlertingLogsServer
 	trigger.UnsafeAlertingServer
 
-	system.UnimplementedSystemPluginClient
-	Ctx             context.Context
-	Logger          *zap.SugaredLogger
-	inMemCache      *lru.Cache
+	Ctx        context.Context
+	Logger     *zap.SugaredLogger
+	inMemCache *lru.Cache
+	opsNode    *ops.AlertingOpsNode
+
 	endpointBackend future.Future[backend.RuntimeEndpointBackend]
 	AlertingOptions future.Future[shared.NewAlertingOptions]
 	storage         future.Future[StorageAPIs]
@@ -51,6 +55,7 @@ type StorageAPIs struct {
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
+	clusterDriver := future.New[drivers.ClusterDriver]()
 	return &Plugin{
 		Ctx:             ctx,
 		Logger:          lg,
@@ -59,6 +64,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		endpointBackend: future.New[backend.RuntimeEndpointBackend](),
 		AlertingOptions: future.New[shared.NewAlertingOptions](),
+		opsNode:         ops.NewAlertingOpsNode(clusterDriver),
 		storage:         future.New[StorageAPIs](),
 	}
 }

@@ -1,4 +1,4 @@
-package alerting
+package bucket
 
 import (
 	"fmt"

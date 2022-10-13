@@ -13,10 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/bucket"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
 func curConfig() *config.ConfigMapData {
@@ -34,7 +34,7 @@ var idsToCreate = map[string]string{"slack": uuid.New().String(), "email": uuid.
 var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
 	BeforeEach(func() {
-		alerting.AlertPath = "../../../dev/alerttestdata/logs"
+		bucket.AlertPath = "../../../dev/alerttestdata/logs"
 	})
 
 	When("The API is passed invalid input, handle it", func() {

@@ -28,11 +28,21 @@ service ModelTraining {
       get: "/modelTrainingParameters"
     };
   }
-  rpc GpuPresentCluster(google.protobuf.Empty) returns (core.Reference) {
+  rpc GpuPresentCluster(google.protobuf.Empty) returns (GPUInfoList) {
     option (google.api.http) = {
       get: "/gpuPresentCluster"
     };
   }
+}
+
+message GPUInfo {
+  string name = 1;
+  string capacity = 2;
+  string allocatable = 3;
+}
+
+message GPUInfoList {
+  repeated GPUInfo list = 1;
 }
 
 message WorkloadResponse {

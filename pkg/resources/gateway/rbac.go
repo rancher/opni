@@ -118,7 +118,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			},
 			{
 				APIGroups: []string{""},
-				Resources: []string{"endpoints"},
+				Resources: []string{"endpoints", "nodes"},
 				Verbs: []string{
 					"get",
 					"list",

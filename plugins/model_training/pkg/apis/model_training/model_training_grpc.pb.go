@@ -28,7 +28,7 @@ type ModelTrainingClient interface {
 	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error)
 	ModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
 	ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error)
-	GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
+	GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error)
 }
 
 type modelTrainingClient struct {
@@ -75,8 +75,8 @@ func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *e
 	return out, nil
 }
 
-func (c *modelTrainingClient) GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error) {
-	out := new(v1.Reference)
+func (c *modelTrainingClient) GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error) {
+	out := new(GPUInfoList)
 	err := c.cc.Invoke(ctx, "/model_training.ModelTraining/GpuPresentCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ type ModelTrainingServer interface {
 	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error)
 	ModelStatus(context.Context, *emptypb.Empty) (*v1.Reference, error)
 	ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error)
-	GpuPresentCluster(context.Context, *emptypb.Empty) (*v1.Reference, error)
+	GpuPresentCluster(context.Context, *emptypb.Empty) (*GPUInfoList, error)
 	mustEmbedUnimplementedModelTrainingServer()
 }
 
@@ -112,7 +112,7 @@ func (UnimplementedModelTrainingServer) ModelStatus(context.Context, *emptypb.Em
 func (UnimplementedModelTrainingServer) ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModelTrainingParameters not implemented")
 }
-func (UnimplementedModelTrainingServer) GpuPresentCluster(context.Context, *emptypb.Empty) (*v1.Reference, error) {
+func (UnimplementedModelTrainingServer) GpuPresentCluster(context.Context, *emptypb.Empty) (*GPUInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GpuPresentCluster not implemented")
 }
 func (UnimplementedModelTrainingServer) mustEmbedUnimplementedModelTrainingServer() {}

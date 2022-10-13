@@ -16,17 +16,17 @@ import (
 )
 
 func (p *Plugin) StoreGraph(ctx context.Context, graph *representation.TopologyGraph) (*emptypb.Empty, error) {
-	// TODO : implement me
+	// TODO(topology) : implement me
 	return nil, status.Error(codes.Unimplemented, "method not implemented")
 }
 
 func (p *Plugin) GetGraph(ctx context.Context, ref *corev1.Reference) (*representation.TopologyGraph, error) {
-	// TODO : implement me
+	// TODO(topology) : implement me
 	return nil, status.Error(codes.Unimplemented, "method not implemented")
 }
 
 func (p *Plugin) RenderGraph(ctx context.Context, graph *representation.TopologyGraph) (*representation.GraphHtml, error) {
-	// TODO : implement me
+	// TODO(topology) : implement me
 	return nil, status.Error(codes.Unimplemented, "method not implemented")
 }
 

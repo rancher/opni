@@ -32,7 +32,7 @@ var _ remote.RemoteTopologyServer = (*TopologyRemoteWriter)(nil)
 
 func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
 	t.InitOnce(func() {
-		// TODO : initialization code goes here
+		// TODO(topology) : initialization code goes here
 	})
 }
 
@@ -41,7 +41,7 @@ func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *remote.Payload
 		return nil, util.StatusError(codes.Unavailable)
 	}
 
-	// TODO : implement me
+	// TODO(topology) : implement me
 	return nil, nil
 }
 
@@ -50,7 +50,7 @@ func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *remote
 		return nil, util.StatusError(codes.Unavailable)
 	}
 
-	// TODO : implement me
+	// TODO(topology) : implement me
 
 	return nil, nil
 }

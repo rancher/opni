@@ -123,6 +123,6 @@ BACKOFF:
 }
 
 func (t *ExternalTopologyOperatorDriver) reconcileObject(desired client.Object, shouldExist bool) error {
-	// TODO : implement me, reconcile objects here
+	// TODO(topology) : implement me, reconcile objects here
 	return nil
 }

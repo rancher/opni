@@ -32,7 +32,7 @@ import (
 type Plugin struct {
 	representation.UnsafeTopologyRepresentationServer
 	system.UnimplementedSystemPluginClient
-	uninstallRunner NoOpUninstallTaskRunner
+	uninstallRunner TopologyUninstallTaskRunner
 
 	ctx    context.Context
 	logger *zap.SugaredLogger
@@ -68,6 +68,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{
 		Logger: p.logger.Named("remote-write-server"),
 	})
+
+	future.Wait2(p.storageBackend, p.uninstallController,
+		func(storageBackend storage.Backend, uninstallController *task.Controller) {
+			p.uninstallRunner.logger = p.logger.Named("topology-uninstall-runner")
+			p.uninstallRunner.storageBackend = storageBackend
+		})
 
 	p.logger.Debug("waiting for async requirements for starting topology backend")
 	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,

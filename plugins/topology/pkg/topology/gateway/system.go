@@ -50,45 +50,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.storageBackend.Set(backend)
 		p.configureTopologyManagement()
 	})
-
-	// cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
-	// if err != nil {
-	// 	p.logger.With(
-	// 		zap.Error(err),
-	// 	).Error("failed to get config")
-	// 	os.Exit(1)
-	// }
-	// objectList, err := machinery.LoadDocuments(cfg.Documents)
-	// if err != nil {
-	// 	p.logger.With(
-	// 		zap.Error(err),
-	// 	).Error("failed to load config")
-	// 	os.Exit(1)
-	// }
-	// machinery.LoadAuthProviders(p.ctx, objectList)
-	// objectList.Visit(func(config *v1beta1.GatewayConfig) {
-	// 	backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
-	// 	if err != nil {
-	// 		p.logger.With(
-	// 			zap.Error(err),
-	// 		).Error("failed to configure storage backend")
-	// 		os.Exit(1)
-	// 	}
-	// 	p.storageBackend.Set(backend)
-	// 	p.config.Set(config)
-	// 	tlsConfig := p.loadCortexCerts()
-	// 	p.cortexTlsConfig.Set(tlsConfig)
-	// 	clientset, err := cortex.NewClientSet(p.ctx, &config.Spec.Cortex, tlsConfig)
-	// 	if err != nil {
-	// 		p.logger.With(
-	// 			zap.Error(err),
-	// 		).Error("failed to configure cortex clientset")
-	// 		os.Exit(1)
-	// 	}
-	// 	p.cortexClientSet.Set(clientset)
-
-	// 	p.configureCortexManagement()
-	// })
 	<-p.ctx.Done()
 }
 

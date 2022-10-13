@@ -14,7 +14,7 @@ message TopologyCapabilityConfig {
 }
 
 message TopologyCapabilitySpec {
-    // TODO add spec fields
+    // TODO(topology) add spec fields
 }
 
 enum ConfigStatus {

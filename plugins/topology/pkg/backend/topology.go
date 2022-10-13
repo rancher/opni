@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -184,6 +186,13 @@ func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.Unins
 		return nil, err
 	}
 
+	var defaultOpts capabilityv1.DefaultUninstallOptions
+	if req.Options != nil {
+		if err := defaultOpts.LoadFromStruct(req.Options); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal options: %v", err)
+		}
+	}
+
 	exists := false
 	for _, cap := range cluster.GetMetadata().GetCapabilities() {
 		if cap.Name != wellknown.CapabilityTopology {
@@ -191,39 +200,63 @@ func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.Unins
 		}
 		exists = true
 		if cap.DeletionTimestamp != nil {
-			// TODO check uninstall task status if necessary
+			stat, err := t.UninstallController.TaskStatus(cluster.Id)
+			if err != nil {
+				if util.StatusCode(err) != codes.NotFound {
+					return nil, status.Errorf(codes.Internal, "failed to get task status : %v", err)
+				}
+			}
+
+			switch stat.GetState() {
+			case task.StateCanceled, task.StateFailed:
+				// ok to reset
+			case task.StateCompleted:
+				return nil, status.Errorf(codes.FailedPrecondition, "uninstall already completed")
+			default:
+				return nil, status.Errorf(codes.FailedPrecondition, "uninstall already is already in progress")
+			}
 		}
 		break
 	}
 	if !exists {
 		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the requested capability")
 	}
-
-	_, deleteErr := t.StorageBackend.UpdateCluster(
-		ctx,
-		cluster.Reference(),
-		storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityTopology)))
-	if deleteErr != nil {
-		return nil, deleteErr
+	now := timestamppb.Now()
+	_, updateErr := t.StorageBackend.UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
+		for _, cap := range c.Metadata.Capabilities {
+			if cap.Name == wellknown.CapabilityTopology {
+				cap.DeletionTimestamp = now
+				break
+			}
+		}
+	})
+	if updateErr != nil {
+		return nil, fmt.Errorf("failed to update cluster metadata : %v", err)
 	}
-
 	t.requestNodeSync(ctx, req.Cluster)
+
+	md := uninstall.TimestampedMetadata{
+		DefaultUninstallOptions: defaultOpts,
+		DeletionTimestamp:       now.AsTime(),
+	}
+	err = t.UninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
+	if err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyBackend) UninstallStatus(ctx context.Context, reference *corev1.Reference) (*corev1.TaskStatus, error) {
+func (t *TopologyBackend) UninstallStatus(ctx context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
 	t.WaitForInit()
 
-	// TODO : implement me if necessary
-	return &corev1.TaskStatus{
-		State: corev1.TaskState_Completed,
-	}, nil
+	return t.UninstallController.TaskStatus(cluster.Id)
 }
 
-func (t *TopologyBackend) CancelUninstall(ctx context.Context, reference *corev1.Reference) (*emptypb.Empty, error) {
+func (t *TopologyBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
 	t.WaitForInit()
-	//TODO implement me if necessary
 
+	t.UninstallController.CancelTask(cluster.Id)
+	t.requestNodeSync(ctx, cluster)
 	return &emptypb.Empty{}, nil
 }
 
@@ -280,12 +313,12 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.LastSync = timestamppb.Now()
 
-	//  TODO : allow for additional customization
+	//  TODO(topology) : allow for additional customization
 	return buildResponse(req.GetCurrentConfig(), &node.TopologyCapabilityConfig{
 		Enabled:    enabled,
 		Conditions: conditions,
 		Spec:       &node.TopologyCapabilitySpec{
-			// TODO
+			// TODO(topology)
 		},
 	}), nil
 }

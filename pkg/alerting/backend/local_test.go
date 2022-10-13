@@ -12,9 +12,9 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
 	//"github.com/rancher/opni/pkg/test"
 	"net/http"

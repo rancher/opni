@@ -2,8 +2,9 @@ package config_test
 
 import (
 	"bytes"
-	"github.com/rancher/opni/pkg/alerting/backend"
 	"strings"
+
+	"github.com/rancher/opni/pkg/alerting/backend"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -11,8 +12,8 @@ import (
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/test"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"gopkg.in/yaml.v2"
 )
 

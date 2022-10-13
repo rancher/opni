@@ -14,11 +14,11 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 
 	lru "github.com/hashicorp/golang-lru"
-	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -108,8 +108,8 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	}
 
 	p.storage.Set(StorageAPIs{
-		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](client),
-		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
+		Conditions:    system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
+		AlertEndpoint: system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
 	})
 	<-p.Ctx.Done()
 }

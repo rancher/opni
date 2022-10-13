@@ -1,8 +1,9 @@
-package v1alpha
+package common
 
 import (
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"reflect"
+
+	"github.com/rancher/opni/pkg/alerting/shared"
 )
 
 // EnumConditionToDatasource

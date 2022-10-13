@@ -6,12 +6,13 @@ package noop
 
 import (
 	"context"
+
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
 func TestAlerting(t *testing.T) {

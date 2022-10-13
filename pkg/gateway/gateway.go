@@ -24,7 +24,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -164,7 +163,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			if err == nil {
 				for _, desc := range descs.Items {
 					if desc.GetName() == "Alerting" {
-						options.alerting = alertingv1alpha.NewAlertingClient(cc)
+						// TODO : fixme by acquiring all alerting clients
+						// options.alerting = alertingv1alpha.NewAlertingClient(cc)
 					}
 				}
 			}

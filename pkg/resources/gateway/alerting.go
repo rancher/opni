@@ -105,6 +105,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		}
 	}
+
 	controllerDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
@@ -137,13 +138,18 @@ func (r *Reconciler) alerting() []resources.Resource {
 										},
 									},
 								},
+								{
+									Name:  "USER",
+									Value: "alerting",
+								},
 							},
 							Name:            "opni-alertmanager",
-							Image:           "bitnami/alertmanager:latest",
+							Image:           r.statusImage(),
 							ImagePullPolicy: "Always",
 							// Defaults to
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
+							Command: []string{"opni", "alertmanager"},
 							Args: []string{
 								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.spec.Alerting.ClusterPort),
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
@@ -260,13 +266,21 @@ func (r *Reconciler) alerting() []resources.Resource {
 						FSGroup:    lo.ToPtr(int64(1099)),
 					},
 					Containers: []corev1.Container{
+
 						{
 							Name:            "opni-alertmanager",
-							Image:           "bitnami/alertmanager:latest",
+							Image:           r.statusImage(),
 							ImagePullPolicy: "Always",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "USER",
+									Value: "alerting",
+								},
+							},
 							// Defaults to
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
+							Command: []string{"opni", "alertmanager"},
 							Args: []string{
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),

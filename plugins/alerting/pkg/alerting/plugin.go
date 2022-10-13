@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
@@ -92,6 +93,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 			util.PackService(
 				&log.AlertingLogs_ServiceDesc,
 				p,
+			),
+			util.PackService(
+				&alertops.AlertingOps_ServiceDesc,
+				p.opsNode,
 			),
 		),
 	)

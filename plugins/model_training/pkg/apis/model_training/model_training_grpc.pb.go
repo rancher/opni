@@ -28,6 +28,7 @@ type ModelTrainingClient interface {
 	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error)
 	ModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
 	ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error)
+	GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
 }
 
 type modelTrainingClient struct {
@@ -74,6 +75,15 @@ func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *e
 	return out, nil
 }
 
+func (c *modelTrainingClient) GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error) {
+	out := new(v1.Reference)
+	err := c.cc.Invoke(ctx, "/model_training.ModelTraining/GpuPresentCluster", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ModelTrainingServer is the server API for ModelTraining service.
 // All implementations must embed UnimplementedModelTrainingServer
 // for forward compatibility
@@ -82,6 +92,7 @@ type ModelTrainingServer interface {
 	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error)
 	ModelStatus(context.Context, *emptypb.Empty) (*v1.Reference, error)
 	ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error)
+	GpuPresentCluster(context.Context, *emptypb.Empty) (*v1.Reference, error)
 	mustEmbedUnimplementedModelTrainingServer()
 }
 
@@ -100,6 +111,9 @@ func (UnimplementedModelTrainingServer) ModelStatus(context.Context, *emptypb.Em
 }
 func (UnimplementedModelTrainingServer) ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModelTrainingParameters not implemented")
+}
+func (UnimplementedModelTrainingServer) GpuPresentCluster(context.Context, *emptypb.Empty) (*v1.Reference, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GpuPresentCluster not implemented")
 }
 func (UnimplementedModelTrainingServer) mustEmbedUnimplementedModelTrainingServer() {}
 
@@ -186,6 +200,24 @@ func _ModelTraining_ModelTrainingParameters_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ModelTraining_GpuPresentCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModelTrainingServer).GpuPresentCluster(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/model_training.ModelTraining/GpuPresentCluster",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModelTrainingServer).GpuPresentCluster(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ModelTraining_ServiceDesc is the grpc.ServiceDesc for ModelTraining service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -208,6 +240,10 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ModelTrainingParameters",
 			Handler:    _ModelTraining_ModelTrainingParameters_Handler,
+		},
+		{
+			MethodName: "GpuPresentCluster",
+			Handler:    _ModelTraining_GpuPresentCluster_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

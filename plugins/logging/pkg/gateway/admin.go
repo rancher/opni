@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
@@ -173,7 +174,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					if p.version != "" {
 						return p.version
 					}
-					return util.Version
+					return strings.TrimPrefix(util.Version, "v")
 				}(),
 				ImageRepo: "docker.io/rancher",
 				NatsRef:   p.natsRef,
@@ -211,7 +212,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	var version string
-	version = util.Version
+	version = strings.TrimPrefix(util.Version, "v")
 	if p.version != "" {
 		version = p.version
 	}
@@ -255,7 +256,7 @@ func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, err
 	}
 
 	var version string
-	version = util.Version
+	version = strings.TrimPrefix(util.Version, "v")
 	if p.version != "" {
 		version = p.version
 	}
@@ -373,7 +374,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	version := "0.6.0-rc3"
 	if cluster == nil {
 		if util.Version != "unversioned" {
-			version = util.Version
+			version = strings.TrimPrefix(util.Version, "v")
 		}
 		if p.version != "" {
 			version = p.version
@@ -383,7 +384,7 @@ func (p *Plugin) convertProtobufToDashboards(
 		if cluster.Status.Version != nil {
 			version = *cluster.Status.Version
 		} else {
-			version = util.Version
+			version = strings.TrimPrefix(util.Version, "v")
 			if p.version != "" {
 				version = p.version
 			}

@@ -4,9 +4,9 @@ package serialization
 var graphvizDigraph []byte
 
 func init() {
-	// TODO : convert templates to text/template
+	// TODO(topology) : convert templates to text/template
 
-	// TODO : set up a map of GraphRepr -> GraphSerailization Objects
+	// TODO(topology) : set up a map of GraphRepr -> GraphSerailization Objects
 }
 
 type GraphSeralization interface {

@@ -90,7 +90,6 @@ func (t *TopologyNode) doSync(ctx context.Context) {
 	case node.ConfigStatus_NeedsUpdate:
 		t.logger.Info("topology node needs update")
 		t.updateConfig(syncResp.UpdatedConfig)
-		go t.doSync(ctx)
 	}
 
 	t.conditions.Clear(health.CondConfigSync)

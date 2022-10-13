@@ -37,7 +37,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 
 	When("The alerting plugin starts...", func() {
 		It("Should be able to list the available logs", func() {
-			/*items*/ _, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 			})
 			Expect(err).To(BeNil())
@@ -52,18 +52,18 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 					Seconds: time.Now().Unix(),
 				},
 			}
-			_, err := alertingClient.CreateAlertLog(ctx, alertLog)
+			_, err := alertingLogClient.CreateAlertLog(ctx, alertLog)
 			Expect(err).To(BeNil())
 
 			/*items*/
-			_, err = alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
+			_, err = alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
 			Expect(err).To(BeNil())
 			//FIXME: something broken here
 			//Expect(len(items.Items)).To(BeNumerically(">=", existingLogCount+1))
 		})
 
 		It("Should be able to list the most recently available alert logs", func() {
-			/*items*/ _, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 				StartTimestamp: &timestamppb.Timestamp{
 					Seconds: beforeTime.Unix(),
@@ -76,7 +76,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 
 		It("Should be able to list previously available alert logs", func() {
 			t := time.Now().Unix()
-			/*items*/ _, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 				EndTimestamp: &timestamppb.Timestamp{
 					Seconds: t,

@@ -148,13 +148,13 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 	When("The user wants to list available runtime information", func() {
 		XIt("Should list available runtime information they can use in alert descriptions", func() {
 			for _, enumValue := range alertingv1alpha.AlertType_value {
-				_, err := alertingClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{
+				_, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{
 					AlertType: alertingv1alpha.AlertType(enumValue),
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			resp, err := alertingClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{AlertType: alertingv1alpha.AlertType_SYSTEM})
+			resp, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{AlertType: alertingv1alpha.AlertType_SYSTEM})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Template).To(ConsistOf(templates.StrSliceAsTemplates([]string{"agentId", "timeout"})))
 		})

@@ -114,7 +114,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			}
 
 			for _, invalidInput := range toTestCreateEndpoint {
-				_, err := alertingClient.CreateAlertEndpoint(ctx, invalidInput.req.(*alertingv1alpha.AlertEndpoint))
+				_, err := alertingEndpointClient.CreateAlertEndpoint(ctx, invalidInput.req.(*alertingv1alpha.AlertEndpoint))
 				Expect(err).To(HaveOccurred())
 			}
 
@@ -177,13 +177,13 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				},
 			}
 			for num, input := range inputs {
-				_, err := alertingClient.CreateAlertEndpoint(ctx, input)
+				_, err := alertingEndpointClient.CreateAlertEndpoint(ctx, input)
 				Expect(err).To(Succeed())
-				existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+				existing, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 				Expect(err).To(Succeed())
 				Expect(existing.Items).To(HaveLen(num + 1))
 			}
-			actual, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			actual, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			for _, input := range inputs {
 				found := false
@@ -206,16 +206,16 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		})
 
 		It("Should be able to update & delete those alert endpoints", func() {
-			existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(existing.Items).NotTo(HaveLen(0))
 			emailName := "Updated"
 			emailDescription := "Udpated"
 			emailTo := "alex7285@gmail.com"
 			some := existing.Items[0]
-			_, err = alertingClient.GetAlertEndpoint(ctx, some.Id)
+			_, err = alertingEndpointClient.GetAlertEndpoint(ctx, some.Id)
 			Expect(err).To(Succeed())
-			_, err = alertingClient.UpdateAlertEndpoint(ctx, &alertingv1alpha.UpdateAlertEndpointRequest{
+			_, err = alertingEndpointClient.UpdateAlertEndpoint(ctx, &alertingv1alpha.UpdateAlertEndpointRequest{
 				Id: some.Id,
 				UpdateAlert: &alertingv1alpha.AlertEndpoint{
 					Name:        emailName,
@@ -229,7 +229,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			})
 			Expect(err).To(Succeed())
 
-			newItems, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			newItems, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(newItems.Items).To(HaveLen(len(existing.Items)))
 			var found *alertingv1alpha.AlertEndpointWithId
@@ -247,7 +247,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			slackChannel := "#channel"
 			slackApiUrl := "https://slack.com/api"
 
-			_, err = alertingClient.UpdateAlertEndpoint(ctx, &alertingv1alpha.UpdateAlertEndpointRequest{
+			_, err = alertingEndpointClient.UpdateAlertEndpoint(ctx, &alertingv1alpha.UpdateAlertEndpointRequest{
 				Id: some.Id,
 				UpdateAlert: &alertingv1alpha.AlertEndpoint{
 					Name:        emailName,
@@ -261,7 +261,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				},
 			})
 			Expect(err).To(Succeed())
-			newestItems, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			newestItems, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			for _, item := range newestItems.Items {
 				if item.Id.Id == some.Id.Id {
@@ -277,9 +277,9 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(found.Endpoint.GetSlack().Channel).To(Equal(slackChannel))
 			Expect(found.Endpoint.GetSlack().WebhookUrl).To(Equal(slackApiUrl))
 
-			_, err = alertingClient.DeleteAlertEndpoint(ctx, some.Id)
+			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, some.Id)
 			Expect(err).To(Succeed())
-			newestNewestItems, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			newestNewestItems, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			var missing *alertingv1alpha.AlertEndpointWithId
 			for _, item := range newestNewestItems.Items {
@@ -294,7 +294,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		It("Should be able to create endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
-			existing, err := alertingClient.ListAlertEndpoints(ctx,
+			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
 				&alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(existing.Items).NotTo(HaveLen(0))
@@ -315,7 +315,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(err).To(Succeed())
 			Expect(curConfigData.Receivers).To(HaveLen(1))
 
-			_, err = alertingClient.CreateEndpointImplementation(ctx,
+			_, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
 					EndpointId: slack.Id,
 					ConditionId: &corev1.Reference{
@@ -343,7 +343,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			// check configuration
 
 			emailContent := "Email message content [CI]"
-			_, err = alertingClient.CreateEndpointImplementation(ctx,
+			_, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
 					EndpointId: email.Id,
 					ConditionId: &corev1.Reference{
@@ -363,7 +363,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		It("Should be able to update endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
-			existing, err := alertingClient.ListAlertEndpoints(ctx,
+			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
 				&alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(existing.Items).NotTo(HaveLen(0))
@@ -380,7 +380,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 
 			// for an alert condition, update slack to email notification
 			newEmailMsg := "Email message content [CI]"
-			_, err = alertingClient.UpdateEndpointImplementation(ctx,
+			_, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
 					EndpointId: email.Id,
 					ConditionId: &corev1.Reference{
@@ -395,7 +395,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(err).To(Succeed())
 
 			// for an alert condition, update email to slack notification
-			_, err = alertingClient.UpdateEndpointImplementation(ctx,
+			_, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
 					EndpointId: slack.Id,
 					ConditionId: &corev1.Reference{
@@ -415,7 +415,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		It("Should be able to delete endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
-			existing, err := alertingClient.ListAlertEndpoints(ctx,
+			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
 				&alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(existing.Items).NotTo(HaveLen(0))
@@ -429,12 +429,12 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(slack).NotTo(BeNil())
 			Expect(email).NotTo(BeNil())
 			Expect(curConfig().Receivers).To(HaveLen(3))
-			_, err = alertingClient.DeleteAlertEndpoint(ctx, slack.Id)
+			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, slack.Id)
 			Expect(err).To(Succeed())
-			_, err = alertingClient.DeleteAlertEndpoint(ctx, email.Id)
+			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, email.Id)
 			Expect(err).To(Succeed())
 
-			newItems, err := alertingClient.ListAlertEndpoints(ctx,
+			newItems, err := alertingEndpointClient.ListAlertEndpoints(ctx,
 				&alertingv1alpha.ListAlertEndpointsRequest{},
 			)
 			var slackNotSet *alertingv1alpha.AlertEndpointWithId

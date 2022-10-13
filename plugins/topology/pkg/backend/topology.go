@@ -299,11 +299,11 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 		}
 	}
 
-	t.desiredNodeSpecMu.RLock()
-	defer t.desiredNodeSpecMu.RUnlock()
+	t.desiredNodeSpecMu.Lock()
+	defer t.desiredNodeSpecMu.Unlock()
 
-	t.nodeStatusMu.RLock()
-	defer t.nodeStatusMu.RUnlock()
+	t.nodeStatusMu.Lock()
+	defer t.nodeStatusMu.Unlock()
 
 	status := t.nodeStatus[id]
 	if status == nil {

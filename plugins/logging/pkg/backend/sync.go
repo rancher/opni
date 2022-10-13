@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -15,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
@@ -94,7 +95,7 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 }
 
 func (b *LoggingBackend) buildResponse(old, new *node.LoggingCapabilityConfig) *node.SyncResponse {
-	if proto.Equal(old, new) {
+	if cmp.Equal(old, new, protocmp.Transform()) {
 		return &node.SyncResponse{
 			ConfigStatus: node.ConfigStatus_UpToDate,
 		}

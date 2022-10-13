@@ -136,7 +136,6 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 	case node.ConfigStatus_NeedsUpdate:
 		l.logger.Info("updating logging node config")
 		l.updateConfig(syncResp.UpdatedConfig)
-		go l.doSync(ctx)
 	}
 
 	l.conditions.Clear(CondConfigSync)

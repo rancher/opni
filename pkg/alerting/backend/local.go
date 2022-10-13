@@ -47,8 +47,9 @@ func (b *LocalEndpointBackend) Start(ctx context.Context, lg *zap.SugaredLogger)
 	}
 
 	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
-	amBin := path.Join(RuntimeBinaryPath, "testbin/bin/alertmanager")
+	amBin := path.Join(RuntimeBinaryPath, "bin/opni")
 	defaultArgs := []string{
+		"alertmanager",
 		fmt.Sprintf("--config.file=%s", b.ConfigFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", port),
 		fmt.Sprintf("--cluster.listen-address=:%d", clusterPort),

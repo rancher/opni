@@ -33,7 +33,7 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_AlertingEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.AlertEndpoint
 	var metadata runtime.ServerMetadata
 
@@ -50,7 +50,7 @@ func request_AlertingEndpoints_CreateAlertEndpoint_0(ctx context.Context, marsha
 
 }
 
-func local_request_AlertingEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.AlertEndpoint
 	var metadata runtime.ServerMetadata
 
@@ -67,7 +67,7 @@ func local_request_AlertingEndpoints_CreateAlertEndpoint_0(ctx context.Context, 
 
 }
 
-func request_AlertingEndpoints_GetAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_GetAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -93,7 +93,7 @@ func request_AlertingEndpoints_GetAlertEndpoint_0(ctx context.Context, marshaler
 
 }
 
-func local_request_AlertingEndpoints_GetAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_GetAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -119,7 +119,7 @@ func local_request_AlertingEndpoints_GetAlertEndpoint_0(ctx context.Context, mar
 
 }
 
-func request_AlertingEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.ListAlertEndpointsRequest
 	var metadata runtime.ServerMetadata
 
@@ -128,7 +128,7 @@ func request_AlertingEndpoints_ListAlertEndpoints_0(ctx context.Context, marshal
 
 }
 
-func local_request_AlertingEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.ListAlertEndpointsRequest
 	var metadata runtime.ServerMetadata
 
@@ -137,7 +137,7 @@ func local_request_AlertingEndpoints_ListAlertEndpoints_0(ctx context.Context, m
 
 }
 
-func request_AlertingEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.UpdateAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
@@ -154,7 +154,7 @@ func request_AlertingEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marsha
 
 }
 
-func local_request_AlertingEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.UpdateAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
@@ -171,7 +171,7 @@ func local_request_AlertingEndpoints_UpdateAlertEndpoint_0(ctx context.Context, 
 
 }
 
-func request_AlertingEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -197,7 +197,7 @@ func request_AlertingEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marsha
 
 }
 
-func local_request_AlertingEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
@@ -223,7 +223,7 @@ func local_request_AlertingEndpoints_DeleteAlertEndpoint_0(ctx context.Context, 
 
 }
 
-func request_AlertingEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.TestAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
@@ -240,7 +240,7 @@ func request_AlertingEndpoints_TestAlertEndpoint_0(ctx context.Context, marshale
 
 }
 
-func local_request_AlertingEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq common.TestAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
@@ -257,117 +257,13 @@ func local_request_AlertingEndpoints_TestAlertEndpoint_0(ctx context.Context, ma
 
 }
 
-func request_AlertingEndpoints_CreateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.CreateImplementation
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := client.CreateEndpointImplementation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_AlertingEndpoints_CreateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.CreateImplementation
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := server.CreateEndpointImplementation(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
-func request_AlertingEndpoints_UpdateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.CreateImplementation
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := client.UpdateEndpointImplementation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_AlertingEndpoints_UpdateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.CreateImplementation
-	var metadata runtime.ServerMetadata
-
-	newReader, berr := utilities.IOReaderFactory(req.Body)
-	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
-	}
-	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := server.UpdateEndpointImplementation(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
-var (
-	filter_AlertingEndpoints_DeleteEndpointImplementation_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
-
-func request_AlertingEndpoints_DeleteEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
-	var metadata runtime.ServerMetadata
-
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertingEndpoints_DeleteEndpointImplementation_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := client.DeleteEndpointImplementation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_AlertingEndpoints_DeleteEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
-	var metadata runtime.ServerMetadata
-
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertingEndpoints_DeleteEndpointImplementation_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	msg, err := server.DeleteEndpointImplementation(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
-// RegisterAlertingEndpointsHandlerServer registers the http handlers for service AlertingEndpoints to "mux".
-// UnaryRPC     :call AlertingEndpointsServer directly.
+// RegisterAlertEndpointsHandlerServer registers the http handlers for service AlertEndpoints to "mux".
+// UnaryRPC     :call AlertEndpointsServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterAlertingEndpointsHandlerFromEndpoint instead.
-func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.ServeMux, server AlertingEndpointsServer) error {
+// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterAlertEndpointsHandlerFromEndpoint instead.
+func RegisterAlertEndpointsHandlerServer(ctx context.Context, mux *runtime.ServeMux, server AlertEndpointsServer) error {
 
-	mux.Handle("POST", pattern_AlertingEndpoints_CreateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertEndpoints_CreateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -375,12 +271,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_CreateAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_CreateAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -388,11 +284,11 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_CreateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_CreateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingEndpoints_GetAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertEndpoints_GetAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -400,12 +296,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/GetAlertEndpoint", runtime.WithHTTPPathPattern("/list/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_GetAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_GetAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -413,11 +309,11 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_GetAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_GetAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingEndpoints_ListAlertEndpoints_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertEndpoints_ListAlertEndpoints_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -425,12 +321,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/ListAlertEndpoints", runtime.WithHTTPPathPattern("/list"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_ListAlertEndpoints_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_ListAlertEndpoints_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -438,11 +334,11 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_ListAlertEndpoints_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_ListAlertEndpoints_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("PUT", pattern_AlertingEndpoints_UpdateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_AlertEndpoints_UpdateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -450,12 +346,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_UpdateAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_UpdateAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -463,11 +359,11 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_UpdateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_UpdateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_AlertingEndpoints_DeleteAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_AlertEndpoints_DeleteAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -475,12 +371,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/configure/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_DeleteAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_DeleteAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -488,11 +384,11 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_DeleteAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_DeleteAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingEndpoints_TestAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertEndpoints_TestAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -500,12 +396,12 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/test"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/TestAlertEndpoint", runtime.WithHTTPPathPattern("/test"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingEndpoints_TestAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertEndpoints_TestAlertEndpoint_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -513,91 +409,16 @@ func RegisterAlertingEndpointsHandlerServer(ctx context.Context, mux *runtime.Se
 			return
 		}
 
-		forward_AlertingEndpoints_TestAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("POST", pattern_AlertingEndpoints_CreateEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/CreateEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_AlertingEndpoints_CreateEndpointImplementation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_CreateEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("PUT", pattern_AlertingEndpoints_UpdateEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/UpdateEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_AlertingEndpoints_UpdateEndpointImplementation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_UpdateEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("DELETE", pattern_AlertingEndpoints_DeleteEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/DeleteEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_AlertingEndpoints_DeleteEndpointImplementation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_DeleteEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_TestAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterAlertingEndpointsHandlerFromEndpoint is same as RegisterAlertingEndpointsHandler but
+// RegisterAlertEndpointsHandlerFromEndpoint is same as RegisterAlertEndpointsHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterAlertingEndpointsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterAlertEndpointsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -617,217 +438,151 @@ func RegisterAlertingEndpointsHandlerFromEndpoint(ctx context.Context, mux *runt
 		}()
 	}()
 
-	return RegisterAlertingEndpointsHandler(ctx, mux, conn)
+	return RegisterAlertEndpointsHandler(ctx, mux, conn)
 }
 
-// RegisterAlertingEndpointsHandler registers the http handlers for service AlertingEndpoints to "mux".
+// RegisterAlertEndpointsHandler registers the http handlers for service AlertEndpoints to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterAlertingEndpointsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterAlertingEndpointsHandlerClient(ctx, mux, NewAlertingEndpointsClient(conn))
+func RegisterAlertEndpointsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterAlertEndpointsHandlerClient(ctx, mux, NewAlertEndpointsClient(conn))
 }
 
-// RegisterAlertingEndpointsHandlerClient registers the http handlers for service AlertingEndpoints
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "AlertingEndpointsClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "AlertingEndpointsClient"
+// RegisterAlertEndpointsHandlerClient registers the http handlers for service AlertEndpoints
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "AlertEndpointsClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "AlertEndpointsClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "AlertingEndpointsClient" to call the correct interceptors.
-func RegisterAlertingEndpointsHandlerClient(ctx context.Context, mux *runtime.ServeMux, client AlertingEndpointsClient) error {
+// "AlertEndpointsClient" to call the correct interceptors.
+func RegisterAlertEndpointsHandlerClient(ctx context.Context, mux *runtime.ServeMux, client AlertEndpointsClient) error {
 
-	mux.Handle("POST", pattern_AlertingEndpoints_CreateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertEndpoints_CreateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_CreateAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_CreateAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_CreateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_CreateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingEndpoints_GetAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertEndpoints_GetAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/GetAlertEndpoint", runtime.WithHTTPPathPattern("/list/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_GetAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_GetAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_GetAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_GetAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingEndpoints_ListAlertEndpoints_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertEndpoints_ListAlertEndpoints_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/ListAlertEndpoints", runtime.WithHTTPPathPattern("/list"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_ListAlertEndpoints_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_ListAlertEndpoints_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_ListAlertEndpoints_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_ListAlertEndpoints_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("PUT", pattern_AlertingEndpoints_UpdateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_AlertEndpoints_UpdateAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_UpdateAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_UpdateAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_UpdateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_UpdateAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_AlertingEndpoints_DeleteAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_AlertEndpoints_DeleteAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/configure/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_DeleteAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_DeleteAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_DeleteAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_DeleteAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingEndpoints_TestAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertEndpoints_TestAlertEndpoint_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/test"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/TestAlertEndpoint", runtime.WithHTTPPathPattern("/test"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingEndpoints_TestAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertEndpoints_TestAlertEndpoint_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingEndpoints_TestAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("POST", pattern_AlertingEndpoints_CreateEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/CreateEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_AlertingEndpoints_CreateEndpointImplementation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_CreateEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("PUT", pattern_AlertingEndpoints_UpdateEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/UpdateEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_AlertingEndpoints_UpdateEndpointImplementation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_UpdateEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("DELETE", pattern_AlertingEndpoints_DeleteEndpointImplementation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertingEndpoints/DeleteEndpointImplementation", runtime.WithHTTPPathPattern("/alerts/endpoints/implementation"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_AlertingEndpoints_DeleteEndpointImplementation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_AlertingEndpoints_DeleteEndpointImplementation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertEndpoints_TestAlertEndpoint_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -835,41 +590,29 @@ func RegisterAlertingEndpointsHandlerClient(ctx context.Context, mux *runtime.Se
 }
 
 var (
-	pattern_AlertingEndpoints_CreateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
+	pattern_AlertEndpoints_CreateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configure"}, ""))
 
-	pattern_AlertingEndpoints_GetAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "endpoints", "id"}, ""))
+	pattern_AlertEndpoints_GetAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"list", "id"}, ""))
 
-	pattern_AlertingEndpoints_ListAlertEndpoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
+	pattern_AlertEndpoints_ListAlertEndpoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"list"}, ""))
 
-	pattern_AlertingEndpoints_UpdateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
+	pattern_AlertEndpoints_UpdateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configure"}, ""))
 
-	pattern_AlertingEndpoints_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "endpoints", "id"}, ""))
+	pattern_AlertEndpoints_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"configure", "id"}, ""))
 
-	pattern_AlertingEndpoints_TestAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "endpoints", "test"}, ""))
-
-	pattern_AlertingEndpoints_CreateEndpointImplementation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "endpoints", "implementation"}, ""))
-
-	pattern_AlertingEndpoints_UpdateEndpointImplementation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "endpoints", "implementation"}, ""))
-
-	pattern_AlertingEndpoints_DeleteEndpointImplementation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "endpoints", "implementation"}, ""))
+	pattern_AlertEndpoints_TestAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"test"}, ""))
 )
 
 var (
-	forward_AlertingEndpoints_CreateAlertEndpoint_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_CreateAlertEndpoint_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingEndpoints_GetAlertEndpoint_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_GetAlertEndpoint_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingEndpoints_ListAlertEndpoints_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_ListAlertEndpoints_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingEndpoints_UpdateAlertEndpoint_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_UpdateAlertEndpoint_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingEndpoints_DeleteAlertEndpoint_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_DeleteAlertEndpoint_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingEndpoints_TestAlertEndpoint_0 = runtime.ForwardResponseMessage
-
-	forward_AlertingEndpoints_CreateEndpointImplementation_0 = runtime.ForwardResponseMessage
-
-	forward_AlertingEndpoints_UpdateEndpointImplementation_0 = runtime.ForwardResponseMessage
-
-	forward_AlertingEndpoints_DeleteEndpointImplementation_0 = runtime.ForwardResponseMessage
+	forward_AlertEndpoints_TestAlertEndpoint_0 = runtime.ForwardResponseMessage
 )

@@ -5,10 +5,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func (p *Plugin) configureAlertManagerConfiguration() {
+func (p *Plugin) configureAlertManagerConfiguration(opts ...drivers.AlertingManagerDriverOption) {
 	// load default cluster drivers
 	drivers.ResetClusterDrivers()
-	if kcd, err := drivers.NewAlertingManagerDriver(); err == nil {
+	if kcd, err := drivers.NewAlertingManagerDriver(opts...); err == nil {
 		drivers.RegisterClusterDriver(kcd)
 	} else {
 		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer

@@ -32,7 +32,7 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_AlertingOps_GetClusterConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingOpsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertingAdmin_GetClusterConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -41,7 +41,7 @@ func request_AlertingOps_GetClusterConfiguration_0(ctx context.Context, marshale
 
 }
 
-func local_request_AlertingOps_GetClusterConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingOpsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertingAdmin_GetClusterConfiguration_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -50,7 +50,7 @@ func local_request_AlertingOps_GetClusterConfiguration_0(ctx context.Context, ma
 
 }
 
-func request_AlertingOps_ConfigureCluster_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingOpsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertingAdmin_ConfigureCluster_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ClusterConfiguration
 	var metadata runtime.ServerMetadata
 
@@ -67,7 +67,7 @@ func request_AlertingOps_ConfigureCluster_0(ctx context.Context, marshaler runti
 
 }
 
-func local_request_AlertingOps_ConfigureCluster_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingOpsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertingAdmin_ConfigureCluster_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ClusterConfiguration
 	var metadata runtime.ServerMetadata
 
@@ -84,7 +84,7 @@ func local_request_AlertingOps_ConfigureCluster_0(ctx context.Context, marshaler
 
 }
 
-func request_AlertingOps_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingOpsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertingAdmin_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -93,7 +93,7 @@ func request_AlertingOps_GetClusterStatus_0(ctx context.Context, marshaler runti
 
 }
 
-func local_request_AlertingOps_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingOpsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertingAdmin_GetClusterStatus_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -102,7 +102,7 @@ func local_request_AlertingOps_GetClusterStatus_0(ctx context.Context, marshaler
 
 }
 
-func request_AlertingOps_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingOpsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_AlertingAdmin_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -111,7 +111,7 @@ func request_AlertingOps_UninstallCluster_0(ctx context.Context, marshaler runti
 
 }
 
-func local_request_AlertingOps_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingOpsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_AlertingAdmin_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
@@ -120,13 +120,13 @@ func local_request_AlertingOps_UninstallCluster_0(ctx context.Context, marshaler
 
 }
 
-// RegisterAlertingOpsHandlerServer registers the http handlers for service AlertingOps to "mux".
-// UnaryRPC     :call AlertingOpsServer directly.
+// RegisterAlertingAdminHandlerServer registers the http handlers for service AlertingAdmin to "mux".
+// UnaryRPC     :call AlertingAdminServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterAlertingOpsHandlerFromEndpoint instead.
-func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux, server AlertingOpsServer) error {
+// Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterAlertingAdminHandlerFromEndpoint instead.
+func RegisterAlertingAdminHandlerServer(ctx context.Context, mux *runtime.ServeMux, server AlertingAdminServer) error {
 
-	mux.Handle("GET", pattern_AlertingOps_GetClusterConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertingAdmin_GetClusterConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -134,12 +134,12 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingOps/GetClusterConfiguration", runtime.WithHTTPPathPattern("/configuration"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/GetClusterConfiguration", runtime.WithHTTPPathPattern("/configuration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingOps_GetClusterConfiguration_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertingAdmin_GetClusterConfiguration_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -147,11 +147,11 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_AlertingOps_GetClusterConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_GetClusterConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingOps_ConfigureCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertingAdmin_ConfigureCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -159,12 +159,12 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingOps/ConfigureCluster", runtime.WithHTTPPathPattern("/configure"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/ConfigureCluster", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingOps_ConfigureCluster_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertingAdmin_ConfigureCluster_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -172,11 +172,11 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_AlertingOps_ConfigureCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_ConfigureCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingOps_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertingAdmin_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -184,12 +184,12 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingOps/GetClusterStatus", runtime.WithHTTPPathPattern("/status"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/GetClusterStatus", runtime.WithHTTPPathPattern("/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingOps_GetClusterStatus_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertingAdmin_GetClusterStatus_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -197,11 +197,11 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_AlertingOps_GetClusterStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_GetClusterStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingOps_UninstallCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertingAdmin_UninstallCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -209,12 +209,12 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingOps/UninstallCluster", runtime.WithHTTPPathPattern("/uninstall"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/UninstallCluster", runtime.WithHTTPPathPattern("/uninstall"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_AlertingOps_UninstallCluster_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_AlertingAdmin_UninstallCluster_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -222,16 +222,16 @@ func RegisterAlertingOpsHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_AlertingOps_UninstallCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_UninstallCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterAlertingOpsHandlerFromEndpoint is same as RegisterAlertingOpsHandler but
+// RegisterAlertingAdminHandlerFromEndpoint is same as RegisterAlertingAdminHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterAlertingOpsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterAlertingAdminHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -251,107 +251,107 @@ func RegisterAlertingOpsHandlerFromEndpoint(ctx context.Context, mux *runtime.Se
 		}()
 	}()
 
-	return RegisterAlertingOpsHandler(ctx, mux, conn)
+	return RegisterAlertingAdminHandler(ctx, mux, conn)
 }
 
-// RegisterAlertingOpsHandler registers the http handlers for service AlertingOps to "mux".
+// RegisterAlertingAdminHandler registers the http handlers for service AlertingAdmin to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterAlertingOpsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterAlertingOpsHandlerClient(ctx, mux, NewAlertingOpsClient(conn))
+func RegisterAlertingAdminHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterAlertingAdminHandlerClient(ctx, mux, NewAlertingAdminClient(conn))
 }
 
-// RegisterAlertingOpsHandlerClient registers the http handlers for service AlertingOps
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "AlertingOpsClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "AlertingOpsClient"
+// RegisterAlertingAdminHandlerClient registers the http handlers for service AlertingAdmin
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "AlertingAdminClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "AlertingAdminClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "AlertingOpsClient" to call the correct interceptors.
-func RegisterAlertingOpsHandlerClient(ctx context.Context, mux *runtime.ServeMux, client AlertingOpsClient) error {
+// "AlertingAdminClient" to call the correct interceptors.
+func RegisterAlertingAdminHandlerClient(ctx context.Context, mux *runtime.ServeMux, client AlertingAdminClient) error {
 
-	mux.Handle("GET", pattern_AlertingOps_GetClusterConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertingAdmin_GetClusterConfiguration_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingOps/GetClusterConfiguration", runtime.WithHTTPPathPattern("/configuration"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/GetClusterConfiguration", runtime.WithHTTPPathPattern("/configuration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingOps_GetClusterConfiguration_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertingAdmin_GetClusterConfiguration_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingOps_GetClusterConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_GetClusterConfiguration_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingOps_ConfigureCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertingAdmin_ConfigureCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingOps/ConfigureCluster", runtime.WithHTTPPathPattern("/configure"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/ConfigureCluster", runtime.WithHTTPPathPattern("/configure"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingOps_ConfigureCluster_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertingAdmin_ConfigureCluster_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingOps_ConfigureCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_ConfigureCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_AlertingOps_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_AlertingAdmin_GetClusterStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingOps/GetClusterStatus", runtime.WithHTTPPathPattern("/status"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/GetClusterStatus", runtime.WithHTTPPathPattern("/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingOps_GetClusterStatus_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertingAdmin_GetClusterStatus_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingOps_GetClusterStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_GetClusterStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("POST", pattern_AlertingOps_UninstallCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_AlertingAdmin_UninstallCluster_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingOps/UninstallCluster", runtime.WithHTTPPathPattern("/uninstall"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.ops.AlertingAdmin/UninstallCluster", runtime.WithHTTPPathPattern("/uninstall"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_AlertingOps_UninstallCluster_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_AlertingAdmin_UninstallCluster_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_AlertingOps_UninstallCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_AlertingAdmin_UninstallCluster_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -359,21 +359,21 @@ func RegisterAlertingOpsHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_AlertingOps_GetClusterConfiguration_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configuration"}, ""))
+	pattern_AlertingAdmin_GetClusterConfiguration_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configuration"}, ""))
 
-	pattern_AlertingOps_ConfigureCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configure"}, ""))
+	pattern_AlertingAdmin_ConfigureCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configure"}, ""))
 
-	pattern_AlertingOps_GetClusterStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"status"}, ""))
+	pattern_AlertingAdmin_GetClusterStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"status"}, ""))
 
-	pattern_AlertingOps_UninstallCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"uninstall"}, ""))
+	pattern_AlertingAdmin_UninstallCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"uninstall"}, ""))
 )
 
 var (
-	forward_AlertingOps_GetClusterConfiguration_0 = runtime.ForwardResponseMessage
+	forward_AlertingAdmin_GetClusterConfiguration_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingOps_ConfigureCluster_0 = runtime.ForwardResponseMessage
+	forward_AlertingAdmin_ConfigureCluster_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingOps_GetClusterStatus_0 = runtime.ForwardResponseMessage
+	forward_AlertingAdmin_GetClusterStatus_0 = runtime.ForwardResponseMessage
 
-	forward_AlertingOps_UninstallCluster_0 = runtime.ForwardResponseMessage
+	forward_AlertingAdmin_UninstallCluster_0 = runtime.ForwardResponseMessage
 )

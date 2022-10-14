@@ -8,14 +8,16 @@ import "google/api/annotations.proto";
 package alerting.ops;
 
 
-// The AlertingOps service controls meta-operations for
+// The AlertingAdmin service controls meta-operations for
 // deploying, connecting & configuring AlertManager in the upstream environment
-service AlertingOps {
+service AlertingAdmin {
     rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
         option (google.api.http) = {
           get: "/configuration"
         };
       }
+
+      // Install/Uninstall the alerting cluster by setting enabled=true/false
       rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
         option (google.api.http) = {
           post: "/configure"
@@ -32,6 +34,13 @@ service AlertingOps {
           post: "/uninstall"
         };
       }
+}
+
+// !! opni alerting internal only server
+// Service implemented by the alerting cluster driver
+// to rollout updates to the alert manager config map 
+service DynamicAlerting {
+  // TODO: implement
 }
 
 enum InstallState {
@@ -51,15 +60,36 @@ message InstallStatus {
 message ClusterConfiguration {
     // install / uninstall Alerting
     bool enabled = 1;
-    // number of replicas for the opni-alerting statefulset (odd-number for HA)
+    // number of replicas for the opni-alerting (odd-number for HA)
     int32 numReplicas = 2;
-    // Set resources to apply to each opni-alerting-pod
-    ResourceLimitSpec resourceLimits = 3;
+    
+    // Maximum time to wait for cluster
+    // connections to settle before
+    // evaluating notifications.
+    string clusterSettleTimeout = 3;
+    // Interval for gossip state syncs.
+    // Setting this interval lower
+    // (more frequent) will increase
+    // convergence speeds across larger
+    // clusters at the expense of
+    // increased bandwidth usage.
+    string clusterPushPullInterval = 4;
+    // Interval between sending gossip
+    // messages. By lowering this
+    // value (more frequent) gossip
+    // messages are propagated across
+    // the cluster more quickly at the
+    // expense of increased bandwidth.
+    string clusterGossipInterval = 5;
+
+    ResourceLimitSpec resourceLimits = 6;
 }
 
 message ResourceLimitSpec {
-    // CPU resource limit
-    string cpu = 1;
-    // Memory resource limit
-    string memory = 2;
+    // Storage resource limit for alerting volume
+    string storage = 1;
+    // CPU resource limit per replica
+    string cpu = 2;
+    // Memory resource limit per replica
+    string memory = 3;
 }

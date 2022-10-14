@@ -10,7 +10,8 @@ import (
 )
 
 type ClusterDriver interface {
-	alertops.AlertingOpsServer
+	alertops.AlertingAdminServer
+	alertops.DynamicAlertingServer
 	// Unique name of the driver
 	Name() string
 	// ShouldDisableNode is called during node sync for nodes which otherwise
@@ -79,7 +80,8 @@ func ResetClusterDrivers() {
 }
 
 type NoopClusterDriver struct {
-	alertops.UnimplementedAlertingOpsServer
+	alertops.UnimplementedAlertingAdminServer
+	alertops.DynamicAlertingServer
 }
 
 func (d *NoopClusterDriver) Name() string {

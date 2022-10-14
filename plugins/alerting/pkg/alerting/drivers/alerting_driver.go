@@ -125,7 +125,6 @@ func (a *AlertingManager) GetClusterConfiguration(ctx context.Context, _ *emptyp
 	switch spec := alertingSpec.(type) {
 	case *corev1beta1.AlertingSpec:
 		return &alertops.ClusterConfiguration{
-			Enabled:                 spec.Enabled,
 			NumReplicas:             spec.Replicas,
 			ClusterSettleTimeout:    spec.ClusterSettleTimeout,
 			ClusterPushPullInterval: spec.ClusterPushPullInterval,
@@ -138,7 +137,6 @@ func (a *AlertingManager) GetClusterConfiguration(ctx context.Context, _ *emptyp
 		}, nil
 	case *v1beta2.AlertingSpec:
 		return &alertops.ClusterConfiguration{
-			Enabled:                 spec.Enabled,
 			NumReplicas:             spec.Replicas,
 			ClusterSettleTimeout:    spec.ClusterSettleTimeout,
 			ClusterPushPullInterval: spec.ClusterPushPullInterval,
@@ -173,7 +171,6 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	mutator := func(gateway client.Object) error {
 		switch gateway := gateway.(type) {
 		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.Enabled = conf.Enabled
 			gateway.Spec.Alerting.Replicas = conf.NumReplicas
 			gateway.Spec.Alerting.ClusterGossipInterval = conf.ClusterGossipInterval
 			gateway.Spec.Alerting.ClusterPushPullInterval = conf.ClusterPushPullInterval
@@ -183,7 +180,6 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			gateway.Spec.Alerting.Memory = conf.ResourceLimits.Memory
 			return nil
 		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.Enabled = conf.Enabled
 			gateway.Spec.Alerting.Replicas = conf.NumReplicas
 			gateway.Spec.Alerting.ClusterGossipInterval = conf.ClusterGossipInterval
 			gateway.Spec.Alerting.ClusterPushPullInterval = conf.ClusterPushPullInterval
@@ -233,6 +229,9 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)
 	}
+	if retryErr != nil {
+		return nil, retryErr
+	}
 
 	return &emptypb.Empty{}, retryErr
 }
@@ -246,21 +245,74 @@ func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 	if err != nil {
 		return nil, err
 	}
-
 	return a.alertingControllerStatus(existing)
 }
 
-func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	conf, err := a.GetClusterConfiguration(ctx, &emptypb.Empty{})
+func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	existing, err := a.newOpniGateway()
 	if err != nil {
 		return nil, err
 	}
-	conf.Enabled = false
-	_, confErr := a.ConfigureCluster(ctx, conf)
-	if confErr != nil {
-		return nil, confErr
+	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	if err != nil {
+		return nil, err
 	}
+	enableMutator := func(gateway client.Object) error {
+		switch gateway := gateway.(type) {
+		case *corev1beta1.Gateway:
+			gateway.Spec.Alerting.Enabled = true
+			return nil
+		case *v1beta2.Gateway:
+			gateway.Spec.Alerting.Enabled = true
+			return nil
+		default:
+			return fmt.Errorf("unkown gateway type %T", gateway)
+		}
+	}
+	retryErr := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
+		clone := existing.DeepCopyObject().(client.Object)
+		if err := enableMutator(clone); err != nil {
+			return err
+		}
+		return a.k8sClient.Update(ctx, clone)
+	})
+	if retryErr != nil {
+		return nil, retryErr
+	}
+	return &emptypb.Empty{}, nil
+}
 
+func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	existing, err := a.newOpniGateway()
+	if err != nil {
+		return nil, err
+	}
+	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	if err != nil {
+		return nil, err
+	}
+	disableMutator := func(gateway client.Object) error {
+		switch gateway := gateway.(type) {
+		case *corev1beta1.Gateway:
+			gateway.Spec.Alerting.Enabled = false
+			return nil
+		case *v1beta2.Gateway:
+			gateway.Spec.Alerting.Enabled = false
+			return nil
+		default:
+			return fmt.Errorf("unkown gateway type %T", gateway)
+		}
+	}
+	retryErr := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
+		clone := existing.DeepCopyObject().(client.Object)
+		if err := disableMutator(clone); err != nil {
+			return err
+		}
+		return a.k8sClient.Update(ctx, clone)
+	})
+	if retryErr != nil {
+		return nil, retryErr
+	}
 	return &emptypb.Empty{}, nil
 }
 

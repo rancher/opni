@@ -82,3 +82,13 @@ func (a *AlertingOpsNode) UninstallCluster(ctx context.Context, _ *emptypb.Empty
 	}
 	return driver.UninstallCluster(ctx, &emptypb.Empty{})
 }
+
+func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return driver.InstallCluster(ctx, &emptypb.Empty{})
+}

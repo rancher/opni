@@ -1065,16 +1065,35 @@ spec:
                           type: object
                       type: object
                     type: array
+                  clusterGossipInterval:
+                    default: 200ms
+                    type: string
                   clusterPort:
                     default: 9094
                     type: integer
+                  clusterPushPullInterval:
+                    default: 1m0s
+                    type: string
+                  clusterSettleTimeout:
+                    default: 1m0s
+                    type: string
                   configName:
                     default: alertmanager-config
                     type: string
+                  cpu:
+                    default: 500m
+                    type: string
                   enabled:
                     type: boolean
+                  memory:
+                    default: 200Mi
+                    type: string
                   rawConfigMap:
                     type: string
+                  replicas:
+                    default: 1
+                    format: int32
+                    type: integer
                   serviceType:
                     default: ClusterIP
                     type: string

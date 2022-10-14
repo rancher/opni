@@ -20,18 +20,40 @@ import (
 )
 
 func alertingMutator(spec *v1beta1.AlertingSpec) {
-	// handle missing fields because the test suite is flaky locally
+	// networking
 	if spec.WebPort == 0 {
 		spec.WebPort = 9093
 	}
-
 	if spec.ClusterPort == 0 {
 		spec.ClusterPort = 9094
 	}
 
+	// resources
 	if spec.Storage == "" {
 		spec.Storage = "500Mi"
 	}
+	if spec.CPU == "" {
+		spec.CPU = "500m"
+	}
+	if spec.Memory == "" {
+		spec.Memory = "200Mi"
+	}
+
+	// cluster-behaviour
+	if spec.Replicas == 0 {
+		spec.Replicas = 1
+	}
+	if spec.ClusterSettleTimeout == "" {
+		spec.ClusterSettleTimeout = "1m0s"
+	}
+	if spec.ClusterPushPullInterval == "" {
+		spec.ClusterPushPullInterval = "1m0s"
+	}
+	if spec.ClusterGossipInterval == "" {
+		spec.ClusterGossipInterval = "200ms"
+	}
+
+	// dynamic config
 	if spec.ConfigName == "" {
 		spec.ConfigName = "alertmanager-config"
 	}
@@ -45,6 +67,7 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 		}
 		spec.RawConfigMap = amData.String()
 	}
+
 }
 
 func (r *Reconciler) alerting() []resources.Resource {
@@ -157,15 +180,15 @@ func (r *Reconciler) alerting() []resources.Resource {
 								fmt.Sprintf("--log.level=%s", "debug"),
 								fmt.Sprintf("--log.format=json"),
 								// Maximum time to wait for cluster connections to settle before evaluating notifications.
-								fmt.Sprintf("--cluster.settle-timeout=%s", "10s"),
+								fmt.Sprintf("--cluster.settle-timeout=%s", r.spec.Alerting.ClusterSettleTimeout),
 								//Interval for gossip state syncs. Setting this interval lower (more frequent)
 								// will increase convergence speeds across larger clusters at the expense
 								// of increased bandwidth usage.
-								fmt.Sprintf("--cluster.pushpull-interval=%s", "20s"),
+								fmt.Sprintf("--cluster.pushpull-interval=%s", r.spec.Alerting.ClusterPushPullInterval),
 								// Interval between sending gossip messages. By lowering this value (more frequent)
 								// gossip messages are propagated across the cluster more quickly at the expense of increased
 								// bandwidth.
-								fmt.Sprintf("--cluster.gossip-interval=%s", "20ms"),
+								fmt.Sprintf("--cluster.gossip-interval=%s", r.spec.Alerting.ClusterGossipInterval),
 								// Time to wait between peers to send notifications
 								fmt.Sprintf("--cluster.peer-timeout=1s"),
 							},
@@ -251,7 +274,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			Labels:    publicNodeLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(r.numAlertingReplicas()),
+			Replicas: lo.ToPtr(r.spec.Alerting.Replicas - 1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: publicNodeLabels,
 			},
@@ -364,7 +387,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
 			resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
 			resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
-			resources.PresentIff(r.spec.Alerting.Enabled, nodeDeploy),
+			resources.PresentIff(r.spec.Alerting.Enabled && r.spec.Alerting.Replicas > 1, nodeDeploy),
 			resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
 		}
 	}
@@ -377,14 +400,10 @@ func (r *Reconciler) alerting() []resources.Resource {
 		resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
 		resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
 		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
-		resources.PresentIff(r.spec.Alerting.Enabled, nodeDeploy),
+		resources.PresentIff(r.spec.Alerting.Enabled && r.spec.Alerting.Replicas > 1, nodeDeploy),
 		resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
 	}
 
-}
-
-func (r *Reconciler) numAlertingReplicas() int32 {
-	return 3
 }
 
 func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {

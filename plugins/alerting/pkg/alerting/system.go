@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -60,6 +61,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 		}
 		p.AlertingOptions.Set(opt)
+		p.configureAlertManagerConfiguration(drivers.WithLogger(p.Logger.Named("alerting-manager")))
 	})
 	<-p.Ctx.Done()
 }

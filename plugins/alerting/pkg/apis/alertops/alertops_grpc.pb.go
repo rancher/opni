@@ -19,196 +19,247 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// AlertingOpsClient is the client API for AlertingOps service.
+// AlertingAdminClient is the client API for AlertingAdmin service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type AlertingOpsClient interface {
+type AlertingAdminClient interface {
 	GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error)
+	// Install/Uninstall the alerting cluster by setting enabled=true/false
 	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
 	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type alertingOpsClient struct {
+type alertingAdminClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAlertingOpsClient(cc grpc.ClientConnInterface) AlertingOpsClient {
-	return &alertingOpsClient{cc}
+func NewAlertingAdminClient(cc grpc.ClientConnInterface) AlertingAdminClient {
+	return &alertingAdminClient{cc}
 }
 
-func (c *alertingOpsClient) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error) {
+func (c *alertingAdminClient) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error) {
 	out := new(ClusterConfiguration)
-	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingOps/GetClusterConfiguration", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/GetClusterConfiguration", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *alertingOpsClient) ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingAdminClient) ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingOps/ConfigureCluster", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/ConfigureCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *alertingOpsClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+func (c *alertingAdminClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
 	out := new(InstallStatus)
-	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingOps/GetClusterStatus", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/GetClusterStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *alertingOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingAdminClient) UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingOps/UninstallCluster", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/UninstallCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AlertingOpsServer is the server API for AlertingOps service.
-// All implementations must embed UnimplementedAlertingOpsServer
+// AlertingAdminServer is the server API for AlertingAdmin service.
+// All implementations must embed UnimplementedAlertingAdminServer
 // for forward compatibility
-type AlertingOpsServer interface {
+type AlertingAdminServer interface {
 	GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error)
+	// Install/Uninstall the alerting cluster by setting enabled=true/false
 	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
 	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	mustEmbedUnimplementedAlertingOpsServer()
+	mustEmbedUnimplementedAlertingAdminServer()
 }
 
-// UnimplementedAlertingOpsServer must be embedded to have forward compatible implementations.
-type UnimplementedAlertingOpsServer struct {
+// UnimplementedAlertingAdminServer must be embedded to have forward compatible implementations.
+type UnimplementedAlertingAdminServer struct {
 }
 
-func (UnimplementedAlertingOpsServer) GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error) {
+func (UnimplementedAlertingAdminServer) GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfiguration not implemented")
 }
-func (UnimplementedAlertingOpsServer) ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error) {
+func (UnimplementedAlertingAdminServer) ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigureCluster not implemented")
 }
-func (UnimplementedAlertingOpsServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+func (UnimplementedAlertingAdminServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
 }
-func (UnimplementedAlertingOpsServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedAlertingAdminServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
 }
-func (UnimplementedAlertingOpsServer) mustEmbedUnimplementedAlertingOpsServer() {}
+func (UnimplementedAlertingAdminServer) mustEmbedUnimplementedAlertingAdminServer() {}
 
-// UnsafeAlertingOpsServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AlertingOpsServer will
+// UnsafeAlertingAdminServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AlertingAdminServer will
 // result in compilation errors.
-type UnsafeAlertingOpsServer interface {
-	mustEmbedUnimplementedAlertingOpsServer()
+type UnsafeAlertingAdminServer interface {
+	mustEmbedUnimplementedAlertingAdminServer()
 }
 
-func RegisterAlertingOpsServer(s grpc.ServiceRegistrar, srv AlertingOpsServer) {
-	s.RegisterService(&AlertingOps_ServiceDesc, srv)
+func RegisterAlertingAdminServer(s grpc.ServiceRegistrar, srv AlertingAdminServer) {
+	s.RegisterService(&AlertingAdmin_ServiceDesc, srv)
 }
 
-func _AlertingOps_GetClusterConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingAdmin_GetClusterConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingOpsServer).GetClusterConfiguration(ctx, in)
+		return srv.(AlertingAdminServer).GetClusterConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.ops.AlertingOps/GetClusterConfiguration",
+		FullMethod: "/alerting.ops.AlertingAdmin/GetClusterConfiguration",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingOpsServer).GetClusterConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(AlertingAdminServer).GetClusterConfiguration(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertingOps_ConfigureCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingAdmin_ConfigureCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ClusterConfiguration)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingOpsServer).ConfigureCluster(ctx, in)
+		return srv.(AlertingAdminServer).ConfigureCluster(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.ops.AlertingOps/ConfigureCluster",
+		FullMethod: "/alerting.ops.AlertingAdmin/ConfigureCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingOpsServer).ConfigureCluster(ctx, req.(*ClusterConfiguration))
+		return srv.(AlertingAdminServer).ConfigureCluster(ctx, req.(*ClusterConfiguration))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertingOps_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingAdmin_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingOpsServer).GetClusterStatus(ctx, in)
+		return srv.(AlertingAdminServer).GetClusterStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.ops.AlertingOps/GetClusterStatus",
+		FullMethod: "/alerting.ops.AlertingAdmin/GetClusterStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingOpsServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
+		return srv.(AlertingAdminServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertingOps_UninstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingAdmin_UninstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingOpsServer).UninstallCluster(ctx, in)
+		return srv.(AlertingAdminServer).UninstallCluster(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.ops.AlertingOps/UninstallCluster",
+		FullMethod: "/alerting.ops.AlertingAdmin/UninstallCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingOpsServer).UninstallCluster(ctx, req.(*emptypb.Empty))
+		return srv.(AlertingAdminServer).UninstallCluster(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// AlertingOps_ServiceDesc is the grpc.ServiceDesc for AlertingOps service.
+// AlertingAdmin_ServiceDesc is the grpc.ServiceDesc for AlertingAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var AlertingOps_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "alerting.ops.AlertingOps",
-	HandlerType: (*AlertingOpsServer)(nil),
+var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.ops.AlertingAdmin",
+	HandlerType: (*AlertingAdminServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetClusterConfiguration",
-			Handler:    _AlertingOps_GetClusterConfiguration_Handler,
+			Handler:    _AlertingAdmin_GetClusterConfiguration_Handler,
 		},
 		{
 			MethodName: "ConfigureCluster",
-			Handler:    _AlertingOps_ConfigureCluster_Handler,
+			Handler:    _AlertingAdmin_ConfigureCluster_Handler,
 		},
 		{
 			MethodName: "GetClusterStatus",
-			Handler:    _AlertingOps_GetClusterStatus_Handler,
+			Handler:    _AlertingAdmin_GetClusterStatus_Handler,
 		},
 		{
 			MethodName: "UninstallCluster",
-			Handler:    _AlertingOps_UninstallCluster_Handler,
+			Handler:    _AlertingAdmin_UninstallCluster_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
+}
+
+// DynamicAlertingClient is the client API for DynamicAlerting service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DynamicAlertingClient interface {
+}
+
+type dynamicAlertingClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDynamicAlertingClient(cc grpc.ClientConnInterface) DynamicAlertingClient {
+	return &dynamicAlertingClient{cc}
+}
+
+// DynamicAlertingServer is the server API for DynamicAlerting service.
+// All implementations must embed UnimplementedDynamicAlertingServer
+// for forward compatibility
+type DynamicAlertingServer interface {
+	mustEmbedUnimplementedDynamicAlertingServer()
+}
+
+// UnimplementedDynamicAlertingServer must be embedded to have forward compatible implementations.
+type UnimplementedDynamicAlertingServer struct {
+}
+
+func (UnimplementedDynamicAlertingServer) mustEmbedUnimplementedDynamicAlertingServer() {}
+
+// UnsafeDynamicAlertingServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DynamicAlertingServer will
+// result in compilation errors.
+type UnsafeDynamicAlertingServer interface {
+	mustEmbedUnimplementedDynamicAlertingServer()
+}
+
+func RegisterDynamicAlertingServer(s grpc.ServiceRegistrar, srv DynamicAlertingServer) {
+	s.RegisterService(&DynamicAlerting_ServiceDesc, srv)
+}
+
+// DynamicAlerting_ServiceDesc is the grpc.ServiceDesc for DynamicAlerting service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DynamicAlerting_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.ops.DynamicAlerting",
+	HandlerType: (*DynamicAlertingServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams:     []grpc.StreamDesc{},
+	Metadata:    "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
 }

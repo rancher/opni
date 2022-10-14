@@ -13,7 +13,7 @@ import (
 type AlertingOpsNode struct {
 	AlertingOpsNodeOptions
 	ClusterDriver future.Future[drivers.ClusterDriver]
-	alertops.UnsafeAlertingOpsServer
+	alertops.UnsafeAlertingAdminServer
 }
 
 type AlertingOpsNodeOptions struct {
@@ -28,7 +28,7 @@ func (a *AlertingOpsNodeOptions) apply(opts ...AlertingOpsNodeOption) {
 	}
 }
 
-var _ alertops.AlertingOpsServer = (*AlertingOpsNode)(nil)
+var _ alertops.AlertingAdminServer = (*AlertingOpsNode)(nil)
 
 func NewAlertingOpsNode(clusterDriver future.Future[drivers.ClusterDriver], opts ...AlertingOpsNodeOption) *AlertingOpsNode {
 	options := AlertingOpsNodeOptions{

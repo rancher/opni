@@ -124,6 +124,16 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"list",
 				},
 			},
+			{
+				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{"statefulsets"},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+			},
 		},
 	}
 

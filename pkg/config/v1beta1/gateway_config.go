@@ -30,10 +30,6 @@ type GatewayConfigSpec struct {
 }
 
 type AlertingSpec struct {
-	//ManagementHookHandlerName string   `json:"managementHookHandlerName,omitempty"`
-	//Endpoints                 []string `json:"endpoints,omitempty"`
-	//ConfigMapName             string   `json:"configMapName,omitempty"`
-	//StatefulSetName           string   `json:"statefulSetName,omitempty"`
 	Namespace             string `json:"Namespace,omitempty"`
 	WorkerNodeService     string `json:"workerNodeService,omitempty"`
 	WorkerPort            int    `json:"workerPort,omitempty"`

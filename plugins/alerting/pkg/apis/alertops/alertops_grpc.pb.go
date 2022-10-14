@@ -27,6 +27,7 @@ type AlertingAdminClient interface {
 	// Install/Uninstall the alerting cluster by setting enabled=true/false
 	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	InstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -65,6 +66,15 @@ func (c *alertingAdminClient) GetClusterStatus(ctx context.Context, in *emptypb.
 	return out, nil
 }
 
+func (c *alertingAdminClient) InstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/InstallCluster", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *alertingAdminClient) UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.ops.AlertingAdmin/UninstallCluster", in, out, opts...)
@@ -82,6 +92,7 @@ type AlertingAdminServer interface {
 	// Install/Uninstall the alerting cluster by setting enabled=true/false
 	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	InstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertingAdminServer()
 }
@@ -98,6 +109,9 @@ func (UnimplementedAlertingAdminServer) ConfigureCluster(context.Context, *Clust
 }
 func (UnimplementedAlertingAdminServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+}
+func (UnimplementedAlertingAdminServer) InstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstallCluster not implemented")
 }
 func (UnimplementedAlertingAdminServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
@@ -169,6 +183,24 @@ func _AlertingAdmin_GetClusterStatus_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertingAdmin_InstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingAdminServer).InstallCluster(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.ops.AlertingAdmin/InstallCluster",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingAdminServer).InstallCluster(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AlertingAdmin_UninstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -205,6 +237,10 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterStatus",
 			Handler:    _AlertingAdmin_GetClusterStatus_Handler,
+		},
+		{
+			MethodName: "InstallCluster",
+			Handler:    _AlertingAdmin_InstallCluster_Handler,
 		},
 		{
 			MethodName: "UninstallCluster",

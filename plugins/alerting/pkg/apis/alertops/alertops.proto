@@ -29,11 +29,18 @@ service AlertingAdmin {
           get: "/status"
         };
       }
+
+      rpc InstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+          post: "/install"
+        };
+      }
       rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
         option (google.api.http) = {
           post: "/uninstall"
         };
       }
+
 }
 
 // !! opni alerting internal only server
@@ -58,8 +65,6 @@ message InstallStatus {
 }
 
 message ClusterConfiguration {
-    // install / uninstall Alerting
-    bool enabled = 1;
     // number of replicas for the opni-alerting (odd-number for HA)
     int32 numReplicas = 2;
     

@@ -19,9 +19,9 @@ var alertingMutex = &sync.Mutex{}
 //
 // Should at least encapsulate all alerting plugin implementations
 type Provider interface {
-	endpoint.AlertingEndpointsClient
-	condition.AlertingConditionsClient
-	log.AlertingLogsClient
+	endpoint.AlertEndpointsClient
+	condition.AlertConditionsClient
+	log.AlertLogsClient
 	trigger.AlertingClient
 }
 

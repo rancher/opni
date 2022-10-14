@@ -21,7 +21,7 @@ service Alerting {
   // opni internal use
   rpc TriggerAlerts(common.TriggerAlertsRequest) returns (common.TriggerAlertsResponse) {
     option (google.api.http) = {
-      post : "/alerts/trigger"
+      post : "/trigger"
       body : "*"
     };
   }

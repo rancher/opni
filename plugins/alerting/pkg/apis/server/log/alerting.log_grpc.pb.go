@@ -21,124 +21,124 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// AlertingLogsClient is the client API for AlertingLogs service.
+// AlertLogsClient is the client API for AlertLogs service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type AlertingLogsClient interface {
+type AlertLogsClient interface {
 	// alerting internal use only
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListAlertLogs(ctx context.Context, in *common.ListAlertLogRequest, opts ...grpc.CallOption) (*common.InformativeAlertLogList, error)
 }
 
-type alertingLogsClient struct {
+type alertLogsClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAlertingLogsClient(cc grpc.ClientConnInterface) AlertingLogsClient {
-	return &alertingLogsClient{cc}
+func NewAlertLogsClient(cc grpc.ClientConnInterface) AlertLogsClient {
+	return &alertLogsClient{cc}
 }
 
-func (c *alertingLogsClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertLogsClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/alerting.log.AlertingLogs/CreateAlertLog", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.log.AlertLogs/CreateAlertLog", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *alertingLogsClient) ListAlertLogs(ctx context.Context, in *common.ListAlertLogRequest, opts ...grpc.CallOption) (*common.InformativeAlertLogList, error) {
+func (c *alertLogsClient) ListAlertLogs(ctx context.Context, in *common.ListAlertLogRequest, opts ...grpc.CallOption) (*common.InformativeAlertLogList, error) {
 	out := new(common.InformativeAlertLogList)
-	err := c.cc.Invoke(ctx, "/alerting.log.AlertingLogs/ListAlertLogs", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.log.AlertLogs/ListAlertLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AlertingLogsServer is the server API for AlertingLogs service.
-// All implementations must embed UnimplementedAlertingLogsServer
+// AlertLogsServer is the server API for AlertLogs service.
+// All implementations must embed UnimplementedAlertLogsServer
 // for forward compatibility
-type AlertingLogsServer interface {
+type AlertLogsServer interface {
 	// alerting internal use only
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
 	ListAlertLogs(context.Context, *common.ListAlertLogRequest) (*common.InformativeAlertLogList, error)
-	mustEmbedUnimplementedAlertingLogsServer()
+	mustEmbedUnimplementedAlertLogsServer()
 }
 
-// UnimplementedAlertingLogsServer must be embedded to have forward compatible implementations.
-type UnimplementedAlertingLogsServer struct {
+// UnimplementedAlertLogsServer must be embedded to have forward compatible implementations.
+type UnimplementedAlertLogsServer struct {
 }
 
-func (UnimplementedAlertingLogsServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
+func (UnimplementedAlertLogsServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
-func (UnimplementedAlertingLogsServer) ListAlertLogs(context.Context, *common.ListAlertLogRequest) (*common.InformativeAlertLogList, error) {
+func (UnimplementedAlertLogsServer) ListAlertLogs(context.Context, *common.ListAlertLogRequest) (*common.InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
 }
-func (UnimplementedAlertingLogsServer) mustEmbedUnimplementedAlertingLogsServer() {}
+func (UnimplementedAlertLogsServer) mustEmbedUnimplementedAlertLogsServer() {}
 
-// UnsafeAlertingLogsServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AlertingLogsServer will
+// UnsafeAlertLogsServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AlertLogsServer will
 // result in compilation errors.
-type UnsafeAlertingLogsServer interface {
-	mustEmbedUnimplementedAlertingLogsServer()
+type UnsafeAlertLogsServer interface {
+	mustEmbedUnimplementedAlertLogsServer()
 }
 
-func RegisterAlertingLogsServer(s grpc.ServiceRegistrar, srv AlertingLogsServer) {
-	s.RegisterService(&AlertingLogs_ServiceDesc, srv)
+func RegisterAlertLogsServer(s grpc.ServiceRegistrar, srv AlertLogsServer) {
+	s.RegisterService(&AlertLogs_ServiceDesc, srv)
 }
 
-func _AlertingLogs_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertLogs_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.AlertLog)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingLogsServer).CreateAlertLog(ctx, in)
+		return srv.(AlertLogsServer).CreateAlertLog(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.log.AlertingLogs/CreateAlertLog",
+		FullMethod: "/alerting.log.AlertLogs/CreateAlertLog",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingLogsServer).CreateAlertLog(ctx, req.(*v1.AlertLog))
+		return srv.(AlertLogsServer).CreateAlertLog(ctx, req.(*v1.AlertLog))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertingLogs_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertLogs_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(common.ListAlertLogRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertingLogsServer).ListAlertLogs(ctx, in)
+		return srv.(AlertLogsServer).ListAlertLogs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.log.AlertingLogs/ListAlertLogs",
+		FullMethod: "/alerting.log.AlertLogs/ListAlertLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingLogsServer).ListAlertLogs(ctx, req.(*common.ListAlertLogRequest))
+		return srv.(AlertLogsServer).ListAlertLogs(ctx, req.(*common.ListAlertLogRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// AlertingLogs_ServiceDesc is the grpc.ServiceDesc for AlertingLogs service.
+// AlertLogs_ServiceDesc is the grpc.ServiceDesc for AlertLogs service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var AlertingLogs_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "alerting.log.AlertingLogs",
-	HandlerType: (*AlertingLogsServer)(nil),
+var AlertLogs_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.log.AlertLogs",
+	HandlerType: (*AlertLogsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateAlertLog",
-			Handler:    _AlertingLogs_CreateAlertLog_Handler,
+			Handler:    _AlertLogs_CreateAlertLog_Handler,
 		},
 		{
 			MethodName: "ListAlertLogs",
-			Handler:    _AlertingLogs_ListAlertLogs_Handler,
+			Handler:    _AlertLogs_ListAlertLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

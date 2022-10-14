@@ -57,9 +57,9 @@ type TestSuiteState struct {
 }
 
 var env *test.Environment
-var alertingConditionClient condition.AlertingConditionsClient
-var alertingEndpointClient endpoint.AlertingEndpointsClient
-var alertingLogClient log.AlertingLogsClient
+var alertingConditionClient condition.AlertConditionsClient
+var alertingEndpointClient endpoint.AlertEndpointsClient
+var alertingLogClient log.AlertLogsClient
 var alertingTriggerClient trigger.AlertingClient
 var adminClient cortexadmin.CortexAdminClient
 var agentPort int
@@ -118,9 +118,9 @@ var _ = BeforeSuite(func() {
 	fmt.Println("agent port : ", agentPort)
 	adminClient = env.NewCortexAdminClient()
 	// alerting plugin
-	alertingConditionClient = condition.NewAlertingConditionsClient(env.ManagementClientConn())
-	alertingEndpointClient = endpoint.NewAlertingEndpointsClient(env.ManagementClientConn())
-	alertingLogClient = log.NewAlertingLogsClient(env.ManagementClientConn())
+	alertingConditionClient = condition.NewAlertConditionsClient(env.ManagementClientConn())
+	alertingEndpointClient = endpoint.NewAlertEndpointsClient(env.ManagementClientConn())
+	alertingLogClient = log.NewAlertLogsClient(env.ManagementClientConn())
 	alertingTriggerClient = trigger.NewAlertingClient(env.ManagementClientConn())
 	Eventually(func() error {
 		stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})

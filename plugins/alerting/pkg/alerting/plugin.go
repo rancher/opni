@@ -32,9 +32,9 @@ const AlertingLogCacheSize = 32
 
 type Plugin struct {
 	system.UnimplementedSystemPluginClient
-	condition.UnsafeAlertingConditionsServer
-	endpoint.UnsafeAlertingEndpointsServer
-	log.UnsafeAlertingLogsServer
+	condition.UnsafeAlertConditionsServer
+	endpoint.UnsafeAlertEndpointsServer
+	log.UnsafeAlertLogsServer
 	trigger.UnsafeAlertingServer
 
 	Ctx        context.Context
@@ -70,9 +70,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 }
 
-var _ endpoint.AlertingEndpointsServer = (*Plugin)(nil)
-var _ condition.AlertingConditionsServer = (*Plugin)(nil)
-var _ log.AlertingLogsServer = (*Plugin)(nil)
+var _ endpoint.AlertEndpointsServer = (*Plugin)(nil)
+var _ condition.AlertConditionsServer = (*Plugin)(nil)
+var _ log.AlertLogsServer = (*Plugin)(nil)
 var _ trigger.AlertingServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
@@ -83,15 +83,15 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(
-				&condition.AlertingConditions_ServiceDesc,
+				&condition.AlertConditions_ServiceDesc,
 				p,
 			),
 			util.PackService(
-				&endpoint.AlertingEndpoints_ServiceDesc,
+				&endpoint.AlertEndpoints_ServiceDesc,
 				p,
 			),
 			util.PackService(
-				&log.AlertingLogs_ServiceDesc,
+				&log.AlertLogs_ServiceDesc,
 				p,
 			),
 			util.PackService(

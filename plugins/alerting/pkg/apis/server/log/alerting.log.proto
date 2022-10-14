@@ -14,20 +14,15 @@ import "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
 
 package alerting.log;
 
-service AlertingLogs {
+service AlertLogs {
     // ------- CRUD for alerting events log -------
 
   // alerting internal use only
-  rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post : "/alerts/log"
-      body : "*"
-    };
-  }
+  rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {}
 
   rpc ListAlertLogs(common.ListAlertLogRequest) returns (common.InformativeAlertLogList) {
     option (google.api.http) = {
-      get : "/alerts/events"
+      get : "/events"
     };
   }
 }

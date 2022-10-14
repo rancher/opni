@@ -15,48 +15,47 @@ import "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
 
 package alerting.endpoint;
 
-service AlertingEndpoints{
+service AlertEndpoints{
     // -------- CRUD for alerting endpoints ----
 
   rpc CreateAlertEndpoint(common.AlertEndpoint) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post : "/alerts/endpoints"
+      post : "/configure"
       body : "*"
     };
   }
 
   rpc GetAlertEndpoint(core.Reference) returns (common.AlertEndpoint) {
     option (google.api.http) = {
-      get : "/alerts/endpoints/{id}"
+      get : "/list/{id}"
     };
   }
 
   rpc ListAlertEndpoints(common.ListAlertEndpointsRequest)
       returns (common.AlertEndpointList) {
     option (google.api.http) = {
-      get : "/alerts/endpoints"
+      get : "/list"
     };
   }
 
   rpc UpdateAlertEndpoint(common.UpdateAlertEndpointRequest)
       returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put : "/alerts/endpoints"
+      put : "/configure"
       body : "*"
     };
   }
 
   rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete : "/alerts/endpoints/{id}"
+      delete : "/configure/{id}"
     };
   }
 
-  // unimplemented
   rpc TestAlertEndpoint(common.TestAlertEndpointRequest)
       returns (common.TestAlertEndpointResponse) {
     option (google.api.http) = {
-      post : "/alerts/endpoints/test"
+      post : "/test"
       body : "*"
     };
   }
@@ -64,27 +63,16 @@ service AlertingEndpoints{
   // alerting internal use only
   rpc CreateEndpointImplementation(common.CreateImplementation)
       returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post : "/alerts/endpoints/implementation"
-      body : "*"
-    };
   }
 
   // alerting internal use only
   rpc UpdateEndpointImplementation(common.CreateImplementation)
       returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put : "/alerts/endpoints/implementation"
-      body : "*"
-    };
   }
 
   // alerting internal use only
   // conditionMustBePassed in here
   rpc DeleteEndpointImplementation(core.Reference)
       returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      delete : "/alerts/endpoints/implementation"
-    };
   }
 }

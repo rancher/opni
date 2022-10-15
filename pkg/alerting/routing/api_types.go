@@ -1,4 +1,4 @@
-package config
+package routing
 
 import (
 	"fmt"
@@ -256,17 +256,17 @@ func parseURL(s string) (*cfg.URL, error) {
 	return &cfg.URL{URL: u}, nil
 }
 
-func (c *ConfigMapData) SetDefaultSMTPServer() {
+func (c *RoutingTree) SetDefaultSMTPServer() {
 	defConfig := DefaultGlobalConfig()
 	c.Global = &defConfig
 	c.Global.SMTPSmarthost = cfg.HostPort{Port: fmt.Sprintf("%d", DefaultSMTPServerPort)}
 }
 
-func (c *ConfigMapData) SetDefaultSMTPFrom() {
+func (c *RoutingTree) SetDefaultSMTPFrom() {
 	c.Global.SMTPFrom = "alerting@opni.io"
 }
 
-func (c *ConfigMapData) UnsetSMTPServer() {
+func (c *RoutingTree) UnsetSMTPServer() {
 	c.Global.SMTPRequireTLS = false
 	c.Global.SMTPFrom = ""
 	c.Global.SMTPSmarthost = cfg.HostPort{}

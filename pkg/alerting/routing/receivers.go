@@ -1,4 +1,4 @@
-package config
+package routing
 
 import (
 	"fmt"
@@ -11,18 +11,18 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (c *ConfigMapData) AppendReceiver(recv *Receiver) {
+func (c *RoutingTree) AppendReceiver(recv *Receiver) {
 	c.Receivers = append(c.Receivers, recv)
 }
 
-func (c *ConfigMapData) GetReceivers() []*Receiver {
+func (c *RoutingTree) GetReceivers() []*Receiver {
 	return c.Receivers
 }
 
 // Assumptions:
 // - Id is unique among receivers
 // - Receiver Name corresponds with Ids one-to-one
-func (c *ConfigMapData) findReceivers(id string) (int, error) {
+func (c *RoutingTree) findReceivers(id string) (int, error) {
 	foundIdx := -1
 	for idx, r := range c.Receivers {
 		if r.Name == id {
@@ -36,7 +36,7 @@ func (c *ConfigMapData) findReceivers(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *ConfigMapData) UpdateReceiver(id string, recv *Receiver) error {
+func (c *RoutingTree) UpdateReceiver(id string, recv *Receiver) error {
 	idx, err := c.findReceivers(id)
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (c *ConfigMapData) UpdateReceiver(id string, recv *Receiver) error {
 	return nil
 }
 
-func (c *ConfigMapData) DeleteReceiver(id string) error {
+func (c *RoutingTree) DeleteReceiver(id string) error {
 	idx, err := c.findReceivers(id)
 	if err != nil {
 		return err

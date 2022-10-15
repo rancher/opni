@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/google/uuid"
@@ -18,18 +18,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const endpointPrefix = "/alerting/endpoints"
-
 var locker = sync.Mutex{}
 
-func configFromBackend(p *Plugin, ctx context.Context) (*config.ConfigMapData, error) {
+func configFromBackend(p *Plugin, ctx context.Context) (*routing.RoutingTree, error) {
 	locker.Lock()
 	defer locker.Unlock()
 	rawConfig, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	config, err := config.NewConfigMapDataFrom(rawConfig.Raw)
+	config, err := routing.NewRoutingTreeFrom(rawConfig.Raw)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +37,7 @@ func configFromBackend(p *Plugin, ctx context.Context) (*config.ConfigMapData, e
 func applyConfigToBackend(
 	p *Plugin,
 	ctx context.Context,
-	config *config.ConfigMapData,
+	config *routing.RoutingTree,
 	updatedConditionId string,
 ) error {
 	rawData, err := config.Marshal()
@@ -192,24 +190,24 @@ func processEndpointDetails(
 	conditionId string,
 	req *alertingv1alpha.RoutingNode,
 	endpointDetails *alertingv1alpha.AlertEndpoint,
-) (*config.Receiver, error) {
+) (*routing.Receiver, error) {
 	if s := endpointDetails.GetSlack(); s != nil {
-		recv, err := config.NewSlackReceiver(conditionId, s)
+		recv, err := routing.NewSlackReceiver(conditionId, s)
 		if err != nil {
 			return nil, err // some validation error
 		}
-		recv, err = config.WithSlackImplementation(recv, req.Implementation)
+		recv, err = routing.WithSlackImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
 		}
 		return recv, nil
 	}
 	if e := endpointDetails.GetEmail(); e != nil {
-		recv, err := config.NewEmailReceiver(conditionId, e)
+		recv, err := routing.NewEmailReceiver(conditionId, e)
 		if err != nil {
 			return nil, err // some validation error
 		}
-		recv, err = config.WithEmailImplementation(recv, req.Implementation)
+		recv, err = routing.WithEmailImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
 		}

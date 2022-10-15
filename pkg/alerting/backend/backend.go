@@ -3,7 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"go.uber.org/zap"
 	"path"
@@ -20,7 +20,7 @@ const (
 
 type RuntimeEndpointBackend interface {
 	Fetch(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string) (string, error)
-	Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, data *config.ConfigMapData) error
+	Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, data *routing.RoutingTree) error
 	Reload(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string) error
 	Port() int
 }

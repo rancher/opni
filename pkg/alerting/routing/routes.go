@@ -1,4 +1,4 @@
-package config
+package routing
 
 import (
 	"fmt"
@@ -43,7 +43,7 @@ func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.RoutingNo
 	return route
 }
 
-func (c *ConfigMapData) AppendRoute(recv *Receiver, req *alertingv1alpha.RoutingNode) {
+func (c *RoutingTree) AppendRoute(recv *Receiver, req *alertingv1alpha.RoutingNode) {
 	r := &cfg.Route{
 		Receiver: recv.Name,
 		Matchers: cfg.Matchers{
@@ -57,14 +57,14 @@ func (c *ConfigMapData) AppendRoute(recv *Receiver, req *alertingv1alpha.Routing
 	c.Route.Routes = append(c.Route.Routes, updatedRoute)
 }
 
-func (c *ConfigMapData) GetRoutes() []*cfg.Route {
+func (c *RoutingTree) GetRoutes() []*cfg.Route {
 	return c.Route.Routes
 }
 
 // Assumptions:
 // - Id is unique among receivers
 // - Route Name corresponds with Ids one-to-one
-func (c *ConfigMapData) findRoutes(id string) (int, error) {
+func (c *RoutingTree) findRoutes(id string) (int, error) {
 	foundIdx := -1
 	for idx, r := range c.Route.Routes {
 		if r.Receiver == id {
@@ -78,7 +78,7 @@ func (c *ConfigMapData) findRoutes(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *ConfigMapData) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.RoutingNode) error {
+func (c *RoutingTree) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.RoutingNode) error {
 	if recv == nil {
 		return fmt.Errorf("nil receiver passed to UpdateRoute")
 	}
@@ -100,7 +100,7 @@ func (c *ConfigMapData) UpdateRoute(id string, recv *Receiver, req *alertingv1al
 	return nil
 }
 
-func (c *ConfigMapData) DeleteRoute(id string) error {
+func (c *RoutingTree) DeleteRoute(id string) error {
 	idx, err := c.findRoutes(id)
 	if err != nil {
 		return err

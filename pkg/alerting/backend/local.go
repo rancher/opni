@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/phayes/freeport"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -96,7 +96,7 @@ func (b *LocalEndpointBackend) Fetch(ctx context.Context, lg *zap.SugaredLogger,
 	return string(data), nil
 }
 
-func (b *LocalEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, data *config.ConfigMapData) error {
+func (b *LocalEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, data *routing.RoutingTree) error {
 	loopError := ReconcileInvalidStateLoop(time.Duration(time.Second*10), data, lg)
 	if loopError != nil {
 		return shared.WithInternalServerError(fmt.Sprintf("failed to reconcile config : %s", loopError))

@@ -1,4 +1,4 @@
-package config_test
+package routing_test
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	cfg "github.com/prometheus/alertmanager/config"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/test"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
@@ -40,8 +40,8 @@ inhibit_rules:
   severity: 'warning'
   equal: ['alertname', 'dev', 'instance']`
 
-func defaultConfig() (*config.ConfigMapData, error) {
-	var c config.ConfigMapData
+func defaultConfig() (*routing.RoutingTree, error) {
+	var c routing.RoutingTree
 	templateToFill := shared.DefaultAlertManager
 	var b bytes.Buffer
 	err := templateToFill.Execute(&b, shared.DefaultAlertManagerInfo{
@@ -98,7 +98,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := routing.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
@@ -109,13 +109,13 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				SmtpFrom: &fromAddr,
 			}
 			emailId1 := uuid.New().String()
-			emailRecv, err := config.NewEmailReceiver(emailId1, &emailEndpoint)
+			emailRecv, err := routing.NewEmailReceiver(emailId1, &emailEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(emailRecv)
 			Expect(cfg.Receivers).To(HaveLen(3))
 			tempId := uuid.New().String()
 			emailEndpoint.To = "alexandre.lamarre@suse.com"
-			_, err = config.NewEmailReceiver(tempId, &emailEndpoint)
+			_, err = routing.NewEmailReceiver(tempId, &emailEndpoint)
 			Expect(err).To(Succeed())
 		})
 
@@ -128,7 +128,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := routing.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
@@ -137,7 +137,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				Channel:    "#somethingelse",
 				WebhookUrl: "http://localhost:5001/",
 			}
-			newRecv, err := config.NewSlackReceiver(id1, target)
+			newRecv, err := routing.NewSlackReceiver(id1, target)
 			Expect(err).To(Succeed())
 			err = cfg.UpdateReceiver(id1, newRecv)
 			Expect(err).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := routing.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
@@ -164,7 +164,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			// udpate
 
-			recv, err = config.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
+			recv, err = routing.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
 				To: "alexandre.lamarre@suse.com",
 			})
 			Expect(err).To(Succeed())
@@ -179,7 +179,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 		It("Should fail when updating receivers out of bounds", func() {
 			cfg, err := defaultConfig()
 			Expect(err).To(BeNil())
-			newRecv, err := config.NewSlackReceiver(
+			newRecv, err := routing.NewSlackReceiver(
 				uuid.New().String(),
 				&alertingv1alpha.SlackEndpoint{
 					Channel:    "#general",
@@ -214,7 +214,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
-				recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
+				recv, err := routing.NewSlackReceiver(id1, &slackEndpoint)
 				Expect(err).To(Succeed())
 				cfg.AppendReceiver(recv)
 			}
@@ -236,7 +236,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
-				recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
+				recv, err := routing.NewSlackReceiver(id1, &slackEndpoint)
 				Expect(err).To(Succeed())
 				cfg.AppendReceiver(recv)
 				lastId = id1

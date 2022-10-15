@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -67,7 +67,7 @@ func (b *K8sEndpointBackend) Fetch(ctx context.Context, lg *zap.SugaredLogger, o
 	return cfgMap.Data[key], nil
 }
 
-func (b *K8sEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, newData *config.ConfigMapData) error {
+func (b *K8sEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, newData *routing.RoutingTree) error {
 	lg = lg.With("alerting-backend", "k8s", "action", "put")
 
 	configPersistMu.Lock()

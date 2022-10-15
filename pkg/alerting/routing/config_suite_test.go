@@ -1,4 +1,4 @@
-package config_test
+package routing_test
 
 import (
 	"testing"

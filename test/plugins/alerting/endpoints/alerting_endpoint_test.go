@@ -38,7 +38,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 	})
 
 	When("The API is passed invalid input, handle it", func() {
-		Specify("Create Endpoint API should be robust to invalid input", func() {
+		XSpecify("Create Endpoint API should be robust to invalid input", func() {
 			notFromUrl := "not an email url"
 			fromUrl := "alexandre.lamarre@suse.com"
 			toTestCreateEndpoint := []InvalidInputs{
@@ -119,7 +119,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			}
 
 		})
-		Specify("Cleaning up edge case data", func() {
+		XSpecify("Cleaning up edge case data", func() {
 			defaultCfg, err := defaultConfig()
 			Expect(err).To(Succeed())
 			err = os.WriteFile(shared.LocalAlertManagerPath, defaultCfg.Bytes(), 0644)
@@ -129,7 +129,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 	})
 
 	When("The alerting plugin starts", func() {
-		It("Should be able to CRUD (Reusable K,V groups) Alert Endpoints", func() {
+		XIt("Should be able to CRUD (Reusable K,V groups) Alert Endpoints", func() {
 			fromUrl := "bot@google.com"
 
 			// Note : do not use `#general` slack channel when testing, since if something goes wrong
@@ -205,7 +205,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			}
 		})
 
-		It("Should be able to update & delete those alert endpoints", func() {
+		XIt("Should be able to update & delete those alert endpoints", func() {
 			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			Expect(existing.Items).NotTo(HaveLen(0))
@@ -291,7 +291,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(missing).To(BeNil())
 		})
 
-		It("Should be able to create endpoint implementations", func() {
+		XIt("Should be able to create endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
 			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
@@ -360,7 +360,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(configMap).To(HaveLen(3))
 		})
 
-		It("Should be able to update endpoint implementations", func() {
+		XIt("Should be able to update endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
 			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
@@ -412,7 +412,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(err).To(Succeed())
 		})
 
-		It("Should be able to delete endpoint implementations", func() {
+		XIt("Should be able to delete endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
 			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,

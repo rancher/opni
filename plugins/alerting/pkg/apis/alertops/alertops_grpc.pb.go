@@ -255,6 +255,10 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DynamicAlertingClient interface {
+	Fetch(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingConfig, error)
+	Update(ctx context.Context, in *AlertingConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DynamicStatus, error)
+	Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type dynamicAlertingClient struct {
@@ -265,10 +269,50 @@ func NewDynamicAlertingClient(cc grpc.ClientConnInterface) DynamicAlertingClient
 	return &dynamicAlertingClient{cc}
 }
 
+func (c *dynamicAlertingClient) Fetch(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingConfig, error) {
+	out := new(AlertingConfig)
+	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Fetch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dynamicAlertingClient) Update(ctx context.Context, in *AlertingConfig, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Update", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dynamicAlertingClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DynamicStatus, error) {
+	out := new(DynamicStatus)
+	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/GetStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dynamicAlertingClient) Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Reload", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DynamicAlertingServer is the server API for DynamicAlerting service.
 // All implementations must embed UnimplementedDynamicAlertingServer
 // for forward compatibility
 type DynamicAlertingServer interface {
+	Fetch(context.Context, *emptypb.Empty) (*AlertingConfig, error)
+	Update(context.Context, *AlertingConfig) (*emptypb.Empty, error)
+	GetStatus(context.Context, *emptypb.Empty) (*DynamicStatus, error)
+	Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error)
 	mustEmbedUnimplementedDynamicAlertingServer()
 }
 
@@ -276,6 +320,18 @@ type DynamicAlertingServer interface {
 type UnimplementedDynamicAlertingServer struct {
 }
 
+func (UnimplementedDynamicAlertingServer) Fetch(context.Context, *emptypb.Empty) (*AlertingConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Fetch not implemented")
+}
+func (UnimplementedDynamicAlertingServer) Update(context.Context, *AlertingConfig) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+}
+func (UnimplementedDynamicAlertingServer) GetStatus(context.Context, *emptypb.Empty) (*DynamicStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
+}
+func (UnimplementedDynamicAlertingServer) Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reload not implemented")
+}
 func (UnimplementedDynamicAlertingServer) mustEmbedUnimplementedDynamicAlertingServer() {}
 
 // UnsafeDynamicAlertingServer may be embedded to opt out of forward compatibility for this service.
@@ -289,13 +345,102 @@ func RegisterDynamicAlertingServer(s grpc.ServiceRegistrar, srv DynamicAlertingS
 	s.RegisterService(&DynamicAlerting_ServiceDesc, srv)
 }
 
+func _DynamicAlerting_Fetch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DynamicAlertingServer).Fetch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.ops.DynamicAlerting/Fetch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DynamicAlertingServer).Fetch(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DynamicAlerting_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertingConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DynamicAlertingServer).Update(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.ops.DynamicAlerting/Update",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DynamicAlertingServer).Update(ctx, req.(*AlertingConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DynamicAlerting_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DynamicAlertingServer).GetStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.ops.DynamicAlerting/GetStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DynamicAlertingServer).GetStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DynamicAlerting_Reload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReloadInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DynamicAlertingServer).Reload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.ops.DynamicAlerting/Reload",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DynamicAlertingServer).Reload(ctx, req.(*ReloadInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DynamicAlerting_ServiceDesc is the grpc.ServiceDesc for DynamicAlerting service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DynamicAlerting_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "alerting.ops.DynamicAlerting",
 	HandlerType: (*DynamicAlertingServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams:     []grpc.StreamDesc{},
-	Metadata:    "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Fetch",
+			Handler:    _DynamicAlerting_Fetch_Handler,
+		},
+		{
+			MethodName: "Update",
+			Handler:    _DynamicAlerting_Update_Handler,
+		},
+		{
+			MethodName: "GetStatus",
+			Handler:    _DynamicAlerting_GetStatus_Handler,
+		},
+		{
+			MethodName: "Reload",
+			Handler:    _DynamicAlerting_Reload_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
 }

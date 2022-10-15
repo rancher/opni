@@ -5,10 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	util "github.com/rancher/opni/pkg/util/k8sutil"
-
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -61,7 +57,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 		}
 		p.AlertingOptions.Set(opt)
-		p.configureAlertManagerConfiguration(drivers.WithLogger(p.Logger.Named("alerting-manager")))
+
+		p.configureAlertManagerConfiguration(
+			drivers.WithLogger(p.Logger.Named("alerting-manager")),
+			drivers.WithAlertingOptions(&opt),
+		)
 	})
 	<-p.Ctx.Done()
 }
@@ -73,41 +73,41 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
-	if os.Getenv(shared.LocalBackendEnvToggle) != "" { // test mode
-		b := &backend.LocalEndpointBackend{
-			ConfigFilePath: shared.LocalAlertManagerPath,
-		}
-		go func() {
-			// FIXME: management url is not correct
-			err := shared.BackendDefaultFile("http://localhost:5001")
-			if err != nil {
-				panic(err)
-			}
-			b.Start(p.Ctx, p.Logger)
-			peb := b.Port()
-			opt := p.AlertingOptions.Get()
-			opt.WorkerNodesService = "http://localhost"
-			opt.ControllerNodeService = "http://localhost"
-			opt.WorkerNodePort = peb
-			opt.ControllerNodePort = peb
-			opt.ControllerClusterPort = peb
-			p.endpointBackend.Set(b)
+	// if os.Getenv(shared.LocalBackendEnvToggle) != "" { // test mode
+	// 	b := &backend.LocalEndpointBackend{
+	// 		ConfigFilePath: shared.LocalAlertManagerPath,
+	// 	}
+	// 	go func() {
+	// 		// FIXME: management url is not correct
+	// 		err := shared.BackendDefaultFile("http://localhost:5001")
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		b.Start(p.Ctx, p.Logger)
+	// 		peb := b.Port()
+	// 		opt := p.AlertingOptions.Get()
+	// 		opt.WorkerNodesService = "http://localhost"
+	// 		opt.ControllerNodeService = "http://localhost"
+	// 		opt.WorkerNodePort = peb
+	// 		opt.ControllerNodePort = peb
+	// 		opt.ControllerClusterPort = peb
+	// 		p.endpointBackend.Set(b)
 
-			p.AlertingOptions = future.New[shared.NewAlertingOptions]()
-			p.AlertingOptions.Set(opt)
-		}()
-	} else { // production mode
-		client, err := util.NewK8sClient(util.ClientOptions{
-			Scheme: apis.NewScheme(),
-		})
-		if err != nil {
-			// causes integration test to crash
-			// panic(err)
-		}
-		p.endpointBackend.Set(&backend.K8sEndpointBackend{
-			Client: client,
-		})
-	}
+	// 		p.AlertingOptions = future.New[shared.NewAlertingOptions]()
+	// 		p.AlertingOptions.Set(opt)
+	// 	}()
+	// } else { // production mode
+	// 	client, err := util.NewK8sClient(util.ClientOptions{
+	// 		Scheme: apis.NewScheme(),
+	// 	})
+	// 	if err != nil {
+	// 		// causes integration test to crash
+	// 		// panic(err)
+	// 	}
+	// 	p.endpointBackend.Set(&backend.K8sEndpointBackend{
+	// 		Client: client,
+	// 	})
+	// }
 
 	p.storage.Set(StorageAPIs{
 		Conditions:    system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),

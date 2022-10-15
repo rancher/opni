@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -22,18 +23,14 @@ const endpointPrefix = "/alerting/endpoints"
 
 var locker = sync.Mutex{}
 
-func configFromBackend(backend backend.RuntimeEndpointBackend, ctx context.Context, p *Plugin) (*config.ConfigMapData, error) {
+func configFromBackend(p *Plugin, ctx context.Context) (*config.ConfigMapData, error) {
 	locker.Lock()
 	defer locker.Unlock()
-	options, err := p.AlertingOptions.GetContext(ctx)
+	rawConfig, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	rawConfig, err := backend.Fetch(ctx, p.Logger, options, "alertmanager.yaml")
-	if err != nil {
-		return nil, err
-	}
-	config, err := config.NewConfigMapDataFrom(rawConfig)
+	config, err := config.NewConfigMapDataFrom(rawConfig.Raw)
 	if err != nil {
 		return nil, err
 	}
@@ -41,25 +38,24 @@ func configFromBackend(backend backend.RuntimeEndpointBackend, ctx context.Conte
 }
 
 func applyConfigToBackend(
-	backend backend.RuntimeEndpointBackend,
-	ctx context.Context,
 	p *Plugin,
+	ctx context.Context,
 	config *config.ConfigMapData,
 	updatedConditionId string,
 ) error {
-	options, err := p.AlertingOptions.GetContext(ctx)
+	rawData, err := config.Marshal()
 	if err != nil {
 		return err
 	}
-
-	err = backend.Put(ctx, p.Logger, options, "alertmanager.yaml", config)
+	_, err = p.opsNode.Update(ctx, &alertops.AlertingConfig{
+		Raw: string(rawData),
+	})
 	if err != nil {
 		return err
 	}
-	//p.Logger.Debug("Sleeping")
-	//time.Sleep(time.Second * 10) // FIXME: configmap needs to reload on disk before we reload
-	//p.Logger.Debug("Done sleeping")
-	err = backend.Reload(ctx, p.Logger, options, updatedConditionId)
+	_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
+		UpdatedKey: updatedConditionId,
+	})
 	if err != nil {
 		return err
 	}
@@ -149,6 +145,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+
 	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 
 	// - Create dummy Endpoint id
@@ -165,7 +162,6 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	if err != nil {
 		return nil, err
 	}
-	pluginBackend, err := p.endpointBackend.GetContext(ctx)
 	if err != nil {
 		lg.Errorf("Failed to fetch backend within timeout : %s", err)
 		return nil, err
@@ -176,26 +172,35 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		return nil, err
 	}
 	// interact with pluginBackend
-	config, err := configFromBackend(pluginBackend, ctx, p)
+	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
 	lg.Debugf("received config from pluginBackend %v", config)
 	config.AppendReceiver(recv)
 	config.AppendRoute(recv, createImpl)
-	err = applyConfigToBackend(pluginBackend, ctx, p, config, dummyConditionId)
+	err = applyConfigToBackend(p, ctx, config, dummyConditionId)
 	if err != nil {
 		return nil, err
 	}
 	lg.Debug("done reloading")
 	// - Trigger it using httpv2 api
-	e := options.GetWorkerEndpoint()
+	var availableEndpoint string
+	status, err := p.opsNode.GetClusterConfiguration(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if status.NumReplicas == 1 { // exactly one that is the controller
+		availableEndpoint = options.GetControllerEndpoint()
+	} else {
+		availableEndpoint = options.GetWorkerEndpoint()
+	}
 	alert := &backend.PostableAlert{}
 	alert.WithCondition(dummyConditionId)
 	var alerts []*backend.PostableAlert
 	alerts = append(alerts, alert)
 	lg.Debugf("sending alert to alertmanager : %v, %v", alert.Annotations, alert.Labels)
-	_, resp, err := backend.PostAlert(context.Background(), e, alerts)
+	_, resp, err := backend.PostAlert(context.Background(), availableEndpoint, alerts)
 	if err != nil {
 		lg.Errorf("Error while posting alert : %s", err)
 		return nil, err
@@ -252,11 +257,8 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 		return nil, err
 	}
 	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-	backend, err := p.endpointBackend.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config, err := configFromBackend(backend, ctx, p)
+
+	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +274,7 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 	}
 	config.AppendReceiver(recv)
 	config.AppendRoute(recv, req)
-	err = applyConfigToBackend(backend, ctx, p, config, conditionId)
+	err = applyConfigToBackend(p, ctx, config, conditionId)
 	if err != nil {
 		return nil, err
 	}
@@ -286,11 +288,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	}
 	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 
-	backend, err := p.endpointBackend.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config, err := configFromBackend(backend, ctx, p)
+	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +311,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	if err != nil {
 		return nil, err
 	}
-	err = applyConfigToBackend(backend, ctx, p, config, req.ConditionId.Id)
+	err = applyConfigToBackend(p, ctx, config, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -324,11 +322,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 // Id must be a conditionId
 func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
 	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-	backend, err := p.endpointBackend.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config, err := configFromBackend(backend, ctx, p)
+	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +332,7 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 	if err := config.DeleteRoute(req.Id); err != nil {
 		return nil, err
 	}
-	err = applyConfigToBackend(backend, ctx, p, config, req.Id)
+	err = applyConfigToBackend(p, ctx, config, req.Id)
 	if err != nil {
 		return nil, err
 	}

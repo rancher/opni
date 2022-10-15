@@ -394,7 +394,9 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 		LimitsConfig: validation.Limits{
 			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),
-			IngestionRateStrategy:              "infinite",
+			IngestionRateStrategy:              "local",
+			IngestionRate:                      600000,
+			IngestionBurstSize:                 1000000,
 			MaxLocalSeriesPerUser:              math.MaxInt32,
 			MaxLocalSeriesPerMetric:            math.MaxInt32,
 			MaxLocalMetricsWithMetadataPerUser: math.MaxInt32,

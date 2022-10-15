@@ -92,7 +92,6 @@ var _ = BeforeSuite(func() {
 		test.WithEnableGateway(false),
 		test.WithDefaultAgentOpts(
 			test.WithRemoteGatewayAddress(outputs.GatewayURL+":9090"),
-			test.WithRemoteKubeconfig(outputs.Kubeconfig),
 		),
 	)).To(Succeed())
 

@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 
-	"github.com/cortexproject/cortex/pkg/cortexpb"
-	"github.com/golang/snappy"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
@@ -76,23 +75,44 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 			lg.Error("error pushing metrics to cortex")
 		}
 	}()
-	writeReq := &cortexpb.WriteRequest{}
-	buf, err := snappy.Decode(nil, payload.Contents)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "failed to decode payload: %v", err)
-	}
-	if err := writeReq.Unmarshal(buf); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "failed to unmarshal decompressed payload: %v", err)
-	}
-	ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, clusterId))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
-	}
-	_, err = f.CortexClientSet.Distributor().Push(ctx, writeReq)
-	if err != nil {
+	url := fmt.Sprintf("https://%s/api/v1/push", f.Config.Cortex.Distributor.HTTPAddress)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
+		bytes.NewReader(payload.Contents))
+
+	if err := user.InjectOrgIDIntoHTTPRequest(user.InjectOrgID(ctx, clusterId), req); err != nil {
 		return nil, err
 	}
+	for k, v := range payload.Headers {
+		req.Header.Add(k, v)
+	}
+	resp, err := f.CortexClientSet.HTTP().Do(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error pushing metrics to cortex: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(resp.Body)
+		return nil, status.New(codes.Code(resp.StatusCode), string(msg)).Err() // match cortex logic
+	}
 	return &emptypb.Empty{}, nil
+
+	// writeReq := &cortexpb.WriteRequest{}
+	// buf, err := snappy.Decode(nil, payload.Contents)
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.InvalidArgument, "failed to decode payload: %v", err)
+	// }
+	// if err := writeReq.Unmarshal(buf); err != nil {
+	// 	return nil, status.Errorf(codes.InvalidArgument, "failed to unmarshal decompressed payload: %v", err)
+	// }
+	// ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, clusterId))
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
+	// }
+	// _, err = f.CortexClientSet.Distributor().Push(ctx, writeReq)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &emptypb.Empty{}, nil
 }
 
 func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {

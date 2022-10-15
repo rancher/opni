@@ -39,12 +39,12 @@ func (f *SyncRequester) HandleAgentConnection(ctx context.Context, clientSet age
 	f.mu.Unlock()
 
 	// blocks until ctx is canceled
-	// send a periodic sync request to the agent every 10-20 minutes
+	// send a periodic sync request to the agent every 5-10 minutes
 	f.runPeriodicSync(ctx, &capabilityv1.SyncRequest{
 		Cluster: &corev1.Reference{
 			Id: id,
 		},
-	}, 10*time.Minute, 10*time.Minute)
+	}, 5*time.Minute, 5*time.Minute)
 
 	f.mu.Lock()
 	delete(f.activeAgents, id)

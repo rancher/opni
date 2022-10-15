@@ -44,6 +44,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -75,6 +76,7 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -1512,14 +1514,18 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	if options.enableGateway {
 		client = environment.NewManagementClient()
 	} else if agentOptions.remoteKubeconfig != "" {
-		// c, err := util.NewK8sClient(util.ClientOptions{
-		// 	Kubeconfig: &agentOptions.remoteKubeconfig,
-		// })
-		// if err != nil {
-		// 	panic(err)
-		// }
-		// port-forward to service/opni-internal:11090
-
+		ports, err := testutil.PortForward(environment.ctx, types.NamespacedName{
+			Namespace: "opni",
+			Name:      "opni-internal",
+		}, []string{"11090"}, util.Must(k8sutil.NewRestConfig(k8sutil.ClientOptions{
+			Kubeconfig: &agentOptions.remoteKubeconfig,
+		})), apis.NewScheme())
+		if err != nil || len(ports) != 1 {
+			Log.Fatal(err)
+		}
+		client, err = clients.NewManagementClient(environment.ctx,
+			clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", ports[0].Local)),
+		)
 	}
 
 	handleKey := func(rn rune) {

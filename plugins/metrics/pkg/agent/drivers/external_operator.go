@@ -106,6 +106,8 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityC
 	d.state.backoffCancel = ca
 	d.state.Unlock()
 
+	additionalScrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
+
 	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
 	svcAccount, cr, crb := d.buildRbac()
 
@@ -115,7 +117,7 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityC
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		for _, obj := range []client.Object{svcAccount, cr, crb, prometheus} {
+		for _, obj := range []client.Object{svcAccount, cr, crb, additionalScrapeConfigs, prometheus} {
 			if err := d.reconcileObject(obj, shouldExist); err != nil {
 				d.logger.With(
 					"object", client.ObjectKeyFromObject(obj).String(),
@@ -159,6 +161,7 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 							"--web.enable-lifecycle",
 							"--storage.agent.path=/prometheus",
 							"--enable-feature=agent",
+							"--log.level=debug",
 						},
 					},
 				},
@@ -179,20 +182,21 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 						//
 						// Larger payloads at reduced frequency will be much more efficient
 						// when dealing with many nodes. Keep the same max bandwidth, but
-						// increase the payload size by an order of magnitude.
+						// increase the payload size.
 						//
 						// Unfortunately there is no way to _dynamically_ tune these parameters
 						// without restarting the prometheus agent (todo: investigate)
 						QueueConfig: &monitoringcoreosv1.QueueConfig{
-							MaxShards:         20,
+							MaxShards:         10,
 							MinShards:         1,
-							MaxSamplesPerSend: 5000,  // (5000 samples * 20 shards) * 10 requests/s = 1M samples/s
-							Capacity:          25000, // 25000+5000 samples * 20 shards = 600k samples
+							MaxSamplesPerSend: 5000,  // (1000 samples * 10 shards) * 10 requests/s = 1M samples/s
+							Capacity:          25000, // 5000+1000 samples * 100 shards = 600k samples
 							BatchSendDeadline: "4s",  // reduce slightly to offset increased buffer size
 							RetryOnRateLimit:  true,
 						},
 					},
 				},
+				ScrapeInterval:                  "15s",
 				Replicas:                        lo.ToPtr[int32](1),
 				PodMonitorNamespaceSelector:     selector,
 				PodMonitorSelector:              selector,
@@ -201,7 +205,29 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 				ServiceMonitorNamespaceSelector: selector,
 				ServiceMonitorSelector:          selector,
 				ServiceAccountName:              "opni-prometheus-agent",
+				AdditionalScrapeConfigs: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "opni-additional-scrape-configs",
+					},
+					Key: "prometheus.yaml",
+				},
 			},
+		},
+	}
+}
+
+func (d *ExternalPromOperatorDriver) buildAdditionalScrapeConfigsSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-additional-scrape-configs",
+			Namespace: d.namespace,
+		},
+		Data: map[string][]byte{
+			"prometheus.yaml": []byte(`
+- job_name: "prometheus"
+  static_configs:
+  - targets: ["localhost:9090"]
+`[1:]),
 		},
 	}
 }

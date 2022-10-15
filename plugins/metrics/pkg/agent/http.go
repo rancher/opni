@@ -2,14 +2,15 @@ package agent
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
 
 	"sync/atomic"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/valyala/bytebufferpool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
@@ -55,6 +56,7 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handlePushRequest)
+	pprof.Register(router, "/api/plugin/pprof")
 }
 
 func (s *HttpServer) handlePushRequest(c *gin.Context) {
@@ -75,14 +77,17 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 			c.String(http.StatusServiceUnavailable, "gateway not connected")
 			return
 		}
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
+
+		buf := bytebufferpool.Get()
+		if _, err := buf.ReadFrom(c.Request.Body); err != nil {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
-		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
-			Contents: body,
+		_, err := rwc.Push(c.Request.Context(), &remotewrite.Payload{
+			Contents: buf.B,
 		})
+		bytebufferpool.Put(buf)
+
 		var respCode int
 		if err != nil {
 			stat := status.Convert(err)

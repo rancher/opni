@@ -68,8 +68,9 @@ func (m *MetricsNode) sendHealthUpdate() {
 			m.logger.With(
 				zap.Error(err),
 			).Warn("failed to send node health update")
+		} else {
+			m.logger.Debug("sent node health update")
 		}
-		m.logger.Debug("sent node health update")
 	}
 }
 func (m *MetricsNode) AddConfigListener(ch chan<- *node.MetricsCapabilityConfig) {

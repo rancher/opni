@@ -34,7 +34,7 @@ var emailId *corev1.Reference
 var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
 	When("The alerting condition API is passed invalid input it should be robust", func() {
-		Specify("Create Alert Condition API should be robust to invalid input", func() {
+		XSpecify("Create Alert Condition API should be robust to invalid input", func() {
 			fmt.Println("Alert condition tests starting")
 			toTestCreateCondition := []InvalidInputs{
 				{
@@ -50,26 +50,26 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 
 		})
 
-		Specify("Get Alert Condition API should be robust to invalid input", func() {
+		XSpecify("Get Alert Condition API should be robust to invalid input", func() {
 			//TODO
 
 		})
 
-		Specify("Update Alert Condition API should be robust to invalid input", func() {
+		XSpecify("Update Alert Condition API should be robust to invalid input", func() {
 			//TODO
 		})
 
-		Specify("List Alert Condition API should be robust to invalid input", func() {
+		XSpecify("List Alert Condition API should be robust to invalid input", func() {
 			//TODO
 		})
 
-		Specify("Delete Alert Condition API should be robust to invalid input", func() {
+		XSpecify("Delete Alert Condition API should be robust to invalid input", func() {
 			//TODO
 		})
 	})
 
 	When("The management server starts", func() {
-		Specify("The cortex webhook handler should be available for use", func() {
+		XSpecify("The cortex webhook handler should be available for use", func() {
 			gatewayTls := env.GatewayTLSConfig()
 			cortexHookHandler := env.GetAlertingManagementWebhookEndpoint()
 			badRequestCortexPayload := condition.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
@@ -105,7 +105,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 	})
 
 	When("We mock out backend metrics for alerting", func() {
-		Specify("We should be able to mock out kubernetes pod metrics", func() {
+		XSpecify("We should be able to mock out kubernetes pod metrics", func() {
 			fmt.Println("mock pod tests starting")
 			Expect(kubernetesTempMetricServerPort).NotTo(Equal(0))
 			Expect(curTestState.mockPods).NotTo(BeEmpty())
@@ -262,15 +262,15 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			fmt.Println("cortex kubernetes alert conditions finished")
 		})
 
-		It("Should be able to CRUD [composition] type alert conditions", func() {
+		XIt("Should be able to CRUD [composition] type alert conditions", func() {
 			// TODO : when implemented
 		})
 
-		It("Should be able to CRUD [control flow] type alert conditions", func() {
+		XIt("Should be able to CRUD [control flow] type alert conditions", func() {
 			// TODO: when implemented
 		})
 
-		It("Should be CRUD [system] type alert conditions", func() {
+		XIt("Should be CRUD [system] type alert conditions", func() {
 			fmt.Println("System Alert Conditions starting")
 			conditions, err := alertingConditionClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
@@ -369,7 +369,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 	When("We attach notification details to an alert condition", func() {
 		// BIG BIG WARNING: we can't actually test if alert manager successfully dispatches the alert to the endpoint
 		// BUT we can test that everything is configured correctly & opni alerting processes information correctly
-		It("should be able to set up a new disconnect condition for testing", func() {
+		XIt("should be able to set up a new disconnect condition for testing", func() {
 			existing, err := alertingConditionClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
 
@@ -399,7 +399,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			}
 		})
 
-		It("Should be able to setup some reusable notification groups", func() {
+		XIt("Should be able to setup some reusable notification groups", func() {
 			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			// create a notification group
@@ -470,7 +470,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 
 		})
 
-		It("Should be able to send slack notifications when the condition fails", func() {
+		XIt("Should be able to send slack notifications when the condition fails", func() {
 			Expect(testConditionImplementationReference).NotTo(BeNil())
 			Expect(slackId).NotTo(BeNil())
 			_, err := alertingConditionClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
@@ -491,7 +491,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			Expect(err).To(Succeed())
 		})
 
-		It("Should be able to send email notifications when the condition fails", func() {
+		XIt("Should be able to send email notifications when the condition fails", func() {
 			Expect(testConditionImplementationReference).NotTo(BeNil())
 			e := emailId
 			fmt.Println(e)

@@ -73,41 +73,6 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
-	// if os.Getenv(shared.LocalBackendEnvToggle) != "" { // test mode
-	// 	b := &backend.LocalEndpointBackend{
-	// 		ConfigFilePath: shared.LocalAlertManagerPath,
-	// 	}
-	// 	go func() {
-	// 		// FIXME: management url is not correct
-	// 		err := shared.BackendDefaultFile("http://localhost:5001")
-	// 		if err != nil {
-	// 			panic(err)
-	// 		}
-	// 		b.Start(p.Ctx, p.Logger)
-	// 		peb := b.Port()
-	// 		opt := p.AlertingOptions.Get()
-	// 		opt.WorkerNodesService = "http://localhost"
-	// 		opt.ControllerNodeService = "http://localhost"
-	// 		opt.WorkerNodePort = peb
-	// 		opt.ControllerNodePort = peb
-	// 		opt.ControllerClusterPort = peb
-	// 		p.endpointBackend.Set(b)
-
-	// 		p.AlertingOptions = future.New[shared.NewAlertingOptions]()
-	// 		p.AlertingOptions.Set(opt)
-	// 	}()
-	// } else { // production mode
-	// 	client, err := util.NewK8sClient(util.ClientOptions{
-	// 		Scheme: apis.NewScheme(),
-	// 	})
-	// 	if err != nil {
-	// 		// causes integration test to crash
-	// 		// panic(err)
-	// 	}
-	// 	p.endpointBackend.Set(&backend.K8sEndpointBackend{
-	// 		Client: client,
-	// 	})
-	// }
 
 	p.storage.Set(StorageAPIs{
 		Conditions:    system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),

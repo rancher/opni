@@ -36,7 +36,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 	})
 
 	When("The alerting plugin starts...", func() {
-		It("Should be able to list the available logs", func() {
+		XIt("Should be able to list the available logs", func() {
 			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 			})
@@ -44,7 +44,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 			//existingLogCount = len(items.Items)
 		})
 
-		It("Should be able to create alert logs", func() {
+		XIt("Should be able to create alert logs", func() {
 			alertLog := &corev1.AlertLog{
 				ConditionId: &corev1.Reference{Id: testIds["test1"]},
 
@@ -62,7 +62,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 			//Expect(len(items.Items)).To(BeNumerically(">=", existingLogCount+1))
 		})
 
-		It("Should be able to list the most recently available alert logs", func() {
+		XIt("Should be able to list the most recently available alert logs", func() {
 			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 				StartTimestamp: &timestamppb.Timestamp{
@@ -74,7 +74,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 			//Expect(items.Items).To(HaveLen(existingLogCount + 1))
 		})
 
-		It("Should be able to list previously available alert logs", func() {
+		XIt("Should be able to list previously available alert logs", func() {
 			t := time.Now().Unix()
 			/*items*/ _, err := alertingLogClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},

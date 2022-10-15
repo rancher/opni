@@ -10,7 +10,7 @@ import (
 	"github.com/phayes/freeport"
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
@@ -49,8 +49,8 @@ inhibit_rules:
   severity: 'warning'
   equal: ['alertname', 'dev', 'instance']`
 
-func defaultConfig() (*config.ConfigMapData, error) {
-	var c config.ConfigMapData
+func defaultConfig() (*routing.RoutingTree, error) {
+	var c routing.RoutingTree
 	templateToFill := shared.DefaultAlertManager
 	var b bytes.Buffer
 	err := templateToFill.Execute(&b, shared.DefaultAlertManagerInfo{
@@ -87,10 +87,10 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			testcfg, err := defaultConfig()
 			Expect(err).To(BeNil())
 			testcfg.SetDefaultSMTPServer()
-			Expect(testcfg.Global.SMTPHello).To(Equal(config.DefaultSMTPServerHost))
+			Expect(testcfg.Global.SMTPHello).To(Equal(routing.DefaultSMTPServerHost))
 			Expect(testcfg.Global.SMTPSmarthost).To(Equal(
 				cfg.HostPort{
-					Port: fmt.Sprintf("%d", config.DefaultSMTPServerPort),
+					Port: fmt.Sprintf("%d", routing.DefaultSMTPServerPort),
 				}))
 
 			testcfg.UnsetSMTPServer()
@@ -107,7 +107,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				SmtpFrom: &fromAddr,
 			}
 			emailId1 := uuid.New().String()
-			emailRecv, err := config.NewEmailReceiver(emailId1, &emailEndpoint)
+			emailRecv, err := routing.NewEmailReceiver(emailId1, &emailEndpoint)
 			Expect(err).To(Succeed())
 			testcfg.AppendReceiver(emailRecv)
 			raw, err := testcfg.Marshal()
@@ -118,10 +118,10 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(reconcileErr.Error()).To(Equal(expectedError))
 			err = backend.ReconcileInvalidState(testcfg, reconcileErr)
 			Expect(err).To(Succeed())
-			Expect(testcfg.Global.SMTPHello).To(Equal(config.DefaultSMTPServerHost))
+			Expect(testcfg.Global.SMTPHello).To(Equal(routing.DefaultSMTPServerHost))
 			Expect(testcfg.Global.SMTPSmarthost).To(Equal(
 				cfg.HostPort{Port: fmt.Sprintf("%d",
-					config.DefaultSMTPServerPort)}))
+					routing.DefaultSMTPServerPort)}))
 		})
 
 		It("Should apply a reconciler loop successfully to an STMP host not set", func() {
@@ -157,7 +157,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 			bytes, err := os.ReadFile("/tmp/alertmanager.yaml")
 			Expect(err).To(Succeed())
-			c := &config.ConfigMapData{}
+			c := &routing.RoutingTree{}
 			err = c.Parse(string(bytes))
 			Expect(err).To(Succeed())
 		})

@@ -15,7 +15,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/tidwall/gjson"
@@ -71,7 +71,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	lg := a.Logger.With("action", "Update")
 	a.configPersistMu.Lock()
 	defer a.configPersistMu.Unlock()
-	cfgStruct := &config.ConfigMapData{}
+	cfgStruct := &routing.RoutingTree{}
 	err := cfgStruct.Parse(conf.Raw)
 	if err != nil {
 		return nil, err

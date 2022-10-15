@@ -1,4 +1,4 @@
-package config
+package routing
 
 import (
 	cfg "github.com/prometheus/alertmanager/config"
@@ -7,7 +7,7 @@ import (
 
 // Mimics github.com/prometheus/alertmanager/config/config.go's Config struct
 // but we can't due to mismatched github.com/prometheus/common versions
-type ConfigMapData struct {
+type RoutingTree struct {
 	Global       *GlobalConfig      `yaml:"global,omitempty" json:"global,omitempty"`
 	Route        *cfg.Route         `yaml:"route,omitempty" json:"route,omitempty"`
 	InhibitRules []*cfg.InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
@@ -15,17 +15,17 @@ type ConfigMapData struct {
 	Templates    []string           `yaml:"templates" json:"templates"`
 }
 
-func (c *ConfigMapData) Parse(data string) error {
+func (c *RoutingTree) Parse(data string) error {
 	return yaml.Unmarshal([]byte(data), c)
 }
 
-func NewConfigMapDataFrom(data string) (*ConfigMapData, error) {
-	c := &ConfigMapData{}
+func NewRoutingTreeFrom(data string) (*RoutingTree, error) {
+	c := &RoutingTree{}
 	err := c.Parse(data)
 	return c, err
 }
 
-func (c *ConfigMapData) Marshal() ([]byte, error) {
+func (c *RoutingTree) Marshal() ([]byte, error) {
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return nil, err

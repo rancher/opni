@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
@@ -19,11 +19,11 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-func curConfig() *config.ConfigMapData {
+func curConfig() *routing.RoutingTree {
 	curConfigData, err := os.ReadFile(shared.LocalAlertManagerPath)
 	Expect(err).To(Succeed())
 	curConfig := string(curConfigData)
-	configMap := &config.ConfigMapData{}
+	configMap := &routing.RoutingTree{}
 	err = configMap.Parse(curConfig)
 	Expect(err).To(Succeed())
 	return configMap

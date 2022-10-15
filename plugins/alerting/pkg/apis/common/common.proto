@@ -235,10 +235,14 @@ message EndpointImplementation {
 
 // TODO: include general configs such as repeat interval, throttling via
 // group_wait, group_interval, etc
-message CreateImplementation {
+message RoutingNode {
   core.Reference endpointId = 1;
   core.Reference conditionId = 2;
   EndpointImplementation implementation = 3;
+}
+
+message RoutingRelationships {
+  // TODO 
 }
 
 message AlertEndpoint {

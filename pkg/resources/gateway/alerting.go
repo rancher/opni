@@ -67,7 +67,6 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 		}
 		spec.RawConfigMap = amData.String()
 	}
-
 }
 
 func (r *Reconciler) alerting() []resources.Resource {

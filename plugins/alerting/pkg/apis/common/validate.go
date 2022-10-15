@@ -171,7 +171,7 @@ func (u *UpdateAlertEndpointRequest) Validate() error {
 	return nil
 }
 
-func (c *CreateImplementation) Validate() error {
+func (c *RoutingNode) Validate() error {
 	if err := c.GetImplementation().Validate(); err != nil {
 		return err
 	}

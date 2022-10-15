@@ -30,7 +30,7 @@ func setEndpointImplementationIfAvailable(p *Plugin, lg *zap.SugaredLogger, ctx 
 			return err
 		}
 
-		_, err := p.CreateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
+		_, err := p.CreateConditionRoutingNode(ctx, &alertingv1alpha.RoutingNode{
 			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
 			ConditionId:    &corev1.Reference{Id: newId},
 			Implementation: req.Details,
@@ -55,7 +55,7 @@ func updateEndpointImplemetation(p *Plugin, lg *zap.SugaredLogger, ctx context.C
 			return err
 		}
 
-		_, err := p.UpdateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
+		_, err := p.UpdateConditionRoutingNode(ctx, &alertingv1alpha.RoutingNode{
 			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
 			ConditionId:    &corev1.Reference{Id: id},
 			Implementation: req.Details,
@@ -81,7 +81,7 @@ func handleUpdateEndpointImplementation(
 	if existing.NotificationId != nil { // delete implementation
 		// !!! must pass in the existing condition id
 		lg.Debug("previous implementation set, removing...")
-		_, err := p.DeleteEndpointImplementation(ctx, &corev1.Reference{Id: conditionId})
+		_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: conditionId})
 		return err
 	} else {
 		lg.Debug("no previous implementation set")

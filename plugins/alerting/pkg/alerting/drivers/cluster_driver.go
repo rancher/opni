@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 )
@@ -18,6 +19,8 @@ type ClusterDriver interface {
 	// have this capability enabled. If this function returns an error, the
 	// node will be set to disabled instead, and the error will be logged.
 	ShouldDisableNode(*corev1.Reference) error
+	// !! Read only view of alerting options
+	GetRuntimeOptions() (shared.NewAlertingOptions, error)
 }
 
 var (
@@ -91,6 +94,10 @@ func (d *NoopClusterDriver) Name() string {
 func (d *NoopClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 	// the noop driver will never forcefully disable a node
 	return nil
+}
+
+func (d *NoopClusterDriver) GetRuntimeOptions() (shared.NewAlertingOptions, error) {
+	return shared.NewAlertingOptions{}, fmt.Errorf("noop driver does not have alerting runtime options")
 }
 
 var _ ClusterDriver = &NoopClusterDriver{}

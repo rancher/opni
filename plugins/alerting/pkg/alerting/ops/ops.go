@@ -4,12 +4,15 @@ import (
 	"context"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// Manages all dynamic backend configurations
+// that must interact with & modify the runtime cluster
 type AlertingOpsNode struct {
 	AlertingOpsNodeOptions
 	ClusterDriver future.Future[drivers.ClusterDriver]
@@ -132,4 +135,14 @@ func (a *AlertingOpsNode) Reload(ctx context.Context, info *alertops.ReloadInfo)
 		return nil, err
 	}
 	return driver.Reload(ctx, info)
+}
+
+func (a *AlertingOpsNode) GetRuntimeOptions(ctx context.Context) (shared.NewAlertingOptions, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return shared.NewAlertingOptions{}, err
+	}
+	return driver.GetRuntimeOptions()
 }

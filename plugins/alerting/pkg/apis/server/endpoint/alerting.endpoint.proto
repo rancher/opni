@@ -27,7 +27,8 @@ service AlertEndpoints{
 
   rpc GetAlertEndpoint(core.Reference) returns (common.AlertEndpoint) {
     option (google.api.http) = {
-      get : "/list/{id}"
+      post : "/list/{id}"
+      body : "*"
     };
   }
 
@@ -48,7 +49,7 @@ service AlertEndpoints{
 
   rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete : "/configure/{id}"
+      post : "/delete/{id}"
     };
   }
 

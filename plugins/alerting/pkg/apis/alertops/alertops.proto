@@ -16,7 +16,6 @@ service AlertingAdmin {
           get: "/configuration"
         };
       }
-
       // Install/Uninstall the alerting cluster by setting enabled=true/false
       rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
         option (google.api.http) = {
@@ -40,20 +39,60 @@ service AlertingAdmin {
           post: "/uninstall"
         };
       }
-
 }
 
 // !! opni alerting internal only server
 // Service implemented by the alerting cluster driver
 // to rollout updates to the alert manager config map 
 service DynamicAlerting {
-  // TODO: implement
+  rpc Fetch(google.protobuf.Empty) returns (AlertingConfig) {
+    option (google.api.http) = {
+      get: "/fetch"
+    };
+  }
+
+  rpc Update(AlertingConfig) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/update"
+      body: "*"
+    };
+  }
+
+  rpc GetStatus(google.protobuf.Empty) returns (DynamicStatus) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  }
+
+  rpc Reload(ReloadInfo) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/reload"
+    };
+  }
+}
+
+message ReloadInfo{
+  string updatedKey = 1;
+}
+
+message AlertingConfig{
+  string raw = 1;
+}
+
+message DynamicStatus{
+  DynamicState state = 1;
+}
+
+enum DynamicState {
+  DyanmicUnknown = 0;
+  DynamicUpdating = 1;
+  Ready = 2;
 }
 
 enum InstallState {
-    Unknown = 0;
+    InstallUnknown = 0;
     NotInstalled = 1;
-    Updating = 2;
+    InstallUpdating = 2;
     Installed = 3;
     Uninstalling = 4;
   }

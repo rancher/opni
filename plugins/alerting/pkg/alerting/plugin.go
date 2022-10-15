@@ -3,7 +3,6 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -42,7 +41,6 @@ type Plugin struct {
 	inMemCache *lru.Cache
 	opsNode    *ops.AlertingOpsNode
 
-	endpointBackend future.Future[backend.RuntimeEndpointBackend]
 	AlertingOptions future.Future[shared.NewAlertingOptions]
 	storage         future.Future[StorageAPIs]
 	mgmtClient      future.Future[managementv1.ManagementClient]
@@ -63,7 +61,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		inMemCache:      nil,
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
-		endpointBackend: future.New[backend.RuntimeEndpointBackend](),
 		AlertingOptions: future.New[shared.NewAlertingOptions](),
 		opsNode:         ops.NewAlertingOpsNode(clusterDriver),
 		storage:         future.New[StorageAPIs](),

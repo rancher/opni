@@ -39,9 +39,13 @@ message AlertCondition {
 }
 
 enum AlertType {
+  // Reserved for opni-alerting internal use
   SYSTEM = 0;
+  // Ready for UI use
   KUBE_STATE = 1;
+  // Unimplemented
   COMPOSITION = 2;
+  // Unimplemented
   CONTROL_FLOW = 3;
 }
 
@@ -90,6 +94,7 @@ message ListAlertTypeDetails {
   }
 }
 
+// Reserved for opni-alerting internal use
 message AlertConditionSystem {}
 
 message ListAlertConditionSystem {}
@@ -285,7 +290,7 @@ message AlertEndpointWithId {
 message ListAlertEndpointsRequest {}
 message UpdateAlertEndpointRequest {
   core.Reference id = 1;
-  AlertEndpoint UpdateAlert = 2;
+  AlertEndpoint updateAlert = 2;
 }
 
 message TestAlertEndpointRequest {

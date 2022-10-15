@@ -14,6 +14,7 @@ type AlertingOpsNode struct {
 	AlertingOpsNodeOptions
 	ClusterDriver future.Future[drivers.ClusterDriver]
 	alertops.UnsafeAlertingAdminServer
+	alertops.UnsafeDynamicAlertingServer
 }
 
 type AlertingOpsNodeOptions struct {
@@ -91,4 +92,44 @@ func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 		return nil, err
 	}
 	return driver.InstallCluster(ctx, &emptypb.Empty{})
+}
+
+func (a *AlertingOpsNode) Fetch(ctx context.Context, _ *emptypb.Empty) (*alertops.AlertingConfig, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return driver.Fetch(ctx, &emptypb.Empty{})
+}
+
+func (a *AlertingOpsNode) GetStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.DynamicStatus, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return driver.GetStatus(ctx, &emptypb.Empty{})
+}
+
+func (a *AlertingOpsNode) Update(ctx context.Context, config *alertops.AlertingConfig) (*emptypb.Empty, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return driver.Update(ctx, config)
+}
+
+func (a *AlertingOpsNode) Reload(ctx context.Context, info *alertops.ReloadInfo) (*emptypb.Empty, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return driver.Reload(ctx, info)
 }

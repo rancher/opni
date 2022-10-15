@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/backend"
@@ -15,50 +14,13 @@ import (
 	"github.com/rancher/opni/pkg/alerting/templates"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const postableAlertRoute = "/api/v1/alerts"
 const amRetries = 5
-
-func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
-	keys, err := kvc.ListKeys(ctx, prefix)
-	if err != nil {
-		return nil, err
-	}
-	items := make([]T, len(keys))
-	for i, key := range keys {
-		item, err := kvc.Get(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		items[i] = item
-	}
-	return items, nil
-}
-
-func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]string, []T, error) {
-	keys, err := kvc.ListKeys(ctx, prefix)
-	if err != nil {
-		return nil, nil, err
-	}
-	items := make([]T, len(keys))
-	ids := make([]string, len(keys))
-	for i, key := range keys {
-		item, err := kvc.Get(ctx, key)
-
-		if err != nil {
-			return nil, nil, err
-		}
-		items[i] = item
-		ids[i] = path.Base(key)
-	}
-	return ids, items, nil
-}
 
 func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId string, options shared.NewAlertingOptions) (bool, error) {
 	_, resp, err := backend.GetAlerts(ctx, options.GetWorkerEndpoint())
@@ -114,7 +76,7 @@ func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options shared.Ne
 func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) error {
 	lg := p.Logger
 	// check for rate limiting
-	options, err := p.AlertingOptions.GetContext(ctx)
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Error(fmt.Sprintf("failed to load alerting options in required time : %s", err))
 		return err

@@ -94,15 +94,19 @@ func (a *AlertingNoopV1Alpha) GetImplementationFromEndpoint(ctx context.Context,
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) CreateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) DeleteEndpointImplementation(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) DeleteConditionRoutingNode(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) ListRoutingRelationships(ctx context.Context, req *emptypb.Empty, opts ...grpc.CallOption) (*alertingv1alpha.RoutingRelationships, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 

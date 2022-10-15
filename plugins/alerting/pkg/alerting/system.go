@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
@@ -56,11 +57,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			opt.ControllerNodeService = "http://localhost"
 
 		}
-		p.AlertingOptions.Set(opt)
 
 		p.configureAlertManagerConfiguration(
 			drivers.WithLogger(p.Logger.Named("alerting-manager")),
 			drivers.WithAlertingOptions(&opt),
+			drivers.WithManagementClient(client),
 		)
 	})
 	<-p.Ctx.Done()
@@ -73,11 +74,12 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
-
-	p.storage.Set(StorageAPIs{
-		Conditions:    system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
-		AlertEndpoint: system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
-	})
+	p.storageNode = alertstorage.NewStorageNode(
+		alertstorage.WithStorage(&alertstorage.StorageAPIs{
+			Conditions: system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
+			Endpoints:  system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
+		}),
+	)
 	<-p.Ctx.Done()
 }
 

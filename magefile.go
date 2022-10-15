@@ -351,6 +351,11 @@ func init() {
 				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kubectl",
 				GetVersion: getKubectlVersion,
 			},
+			testbin.Binary{
+				Name:    "node_exporter",
+				Version: "1.4.0",
+				URL:     "https://github.com/prometheus/node_exporter/releases/download/v{{.Version}}/node_exporter-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			},
 		)
 	}
 }

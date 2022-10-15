@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"path"
 	"sync"
 	"time"
 
@@ -67,35 +66,21 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.A
 		return nil, err
 	}
 	newId := uuid.New().String()
-	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
+	if err := p.storageNode.CreateEndpointsStorage(ctx, newId, req); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	storage, err := p.storage.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return storage.AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
+	return p.storageNode.GetEndpointStorage(ctx, ref.Id)
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	storage, err := p.storage.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	_, err = storage.AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
-	if err != nil {
-		return nil, err
-	}
-	if err := storage.AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), req.UpdateAlert); err != nil {
+	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -106,16 +91,8 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	storage, err := p.storage.GetContext(ctx)
+	ids, endpoints, err := p.storageNode.ListWithKeyEndpointStorage(ctx)
 	if err != nil {
-		return nil, err
-	}
-	ids, endpoints, err := listWithKeys(ctx, storage.AlertEndpoint, endpointPrefix)
-	if err != nil {
-		return nil, err
-	}
-	if len(ids) != len(endpoints) {
 		return nil, err
 	}
 	items := []*alertingv1alpha.AlertEndpointWithId{}
@@ -129,12 +106,7 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 }
 
 func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	storage, err := p.storage.GetContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err := storage.AlertEndpoint.Delete(ctx, path.Join(endpointPrefix, ref.Id)); err != nil {
+	if err := p.storageNode.DeleteEndpointStorage(ctx, ref.Id); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -146,14 +118,12 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		return nil, err
 	}
 
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-
 	// - Create dummy Endpoint id
 	dummyConditionId := "test-" + uuid.New().String()
 	lg.Debugf("dummy id : %s", dummyConditionId)
 	impl := req.GetImpl()
 	impl.InitialDelay = durationpb.New(time.Duration(time.Second * 0))
-	createImpl := &alertingv1alpha.CreateImplementation{
+	createImpl := &alertingv1alpha.RoutingNode{
 		ConditionId:    &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
 		EndpointId:     &corev1.Reference{Id: ""},               // should never be used
 		Implementation: req.GetImpl(),
@@ -162,11 +132,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		lg.Errorf("Failed to fetch backend within timeout : %s", err)
-		return nil, err
-	}
-	options, err := p.AlertingOptions.GetContext(ctx)
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return nil, err
@@ -195,6 +161,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	} else {
 		availableEndpoint = options.GetWorkerEndpoint()
 	}
+	lg.Debug("active workload endpoint :%s", availableEndpoint)
 	alert := &backend.PostableAlert{}
 	alert.WithCondition(dummyConditionId)
 	var alerts []*backend.PostableAlert
@@ -214,7 +181,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	go func() {
 		time.Sleep(time.Second * 30)
 		// this cannot be done in the same context as the above call, otherwise the deadline will be exceeded
-		if _, err := p.DeleteEndpointImplementation(context.TODO(), &corev1.Reference{Id: dummyConditionId}); err != nil {
+		if _, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId}); err != nil {
 			lg.Errorf("delete test implementation failed with %s", err.Error())
 		}
 	}()
@@ -223,7 +190,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 
 func processEndpointDetails(
 	conditionId string,
-	req *alertingv1alpha.CreateImplementation,
+	req *alertingv1alpha.RoutingNode,
 	endpointDetails *alertingv1alpha.AlertEndpoint,
 ) (*config.Receiver, error) {
 	if s := endpointDetails.GetSlack(); s != nil {
@@ -252,18 +219,17 @@ func processEndpointDetails(
 }
 
 // Called from CreateAlertCondition
-func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 
 	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
 	// get the base which is a notification endpoint
-	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.EndpointId.Id))
+	endpointDetails, err := p.storageNode.GetEndpointStorage(ctx, req.EndpointId.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -282,18 +248,16 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 }
 
 // Called from UpdateAlertCondition
-func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-
 	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
 	}
 	// get the base which is a notification endpoint
-	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.EndpointId.Id))
+	endpointDetails, err := p.storageNode.GetEndpointStorage(ctx, req.EndpointId.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -320,8 +284,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 
 // Called from DeleteAlertCondition
 // Id must be a conditionId
-func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
 	config, err := configFromBackend(p, ctx)
 	if err != nil {
 		return nil, err
@@ -337,4 +300,9 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1alpha.RoutingRelationships, error) {
+	// TODO : implement this !!!!
+	return nil, nil
 }

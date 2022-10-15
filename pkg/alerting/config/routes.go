@@ -2,15 +2,16 @@ package config
 
 import (
 	"fmt"
+	"time"
+
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
-	"time"
 )
 
-func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.CreateImplementation) *cfg.Route {
+func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.RoutingNode) *cfg.Route {
 	if req == nil {
 		return route
 	}
@@ -42,7 +43,7 @@ func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.CreateImp
 	return route
 }
 
-func (c *ConfigMapData) AppendRoute(recv *Receiver, req *alertingv1alpha.CreateImplementation) {
+func (c *ConfigMapData) AppendRoute(recv *Receiver, req *alertingv1alpha.RoutingNode) {
 	r := &cfg.Route{
 		Receiver: recv.Name,
 		Matchers: cfg.Matchers{
@@ -77,7 +78,7 @@ func (c *ConfigMapData) findRoutes(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *ConfigMapData) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.CreateImplementation) error {
+func (c *ConfigMapData) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.RoutingNode) error {
 	if recv == nil {
 		return fmt.Errorf("nil receiver passed to UpdateRoute")
 	}

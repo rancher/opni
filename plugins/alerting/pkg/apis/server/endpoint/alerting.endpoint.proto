@@ -61,19 +61,30 @@ service AlertEndpoints{
     };
   }
 
+  rpc ListRoutingRelationships(google.protobuf.Empty) 
+      returns (common.RoutingRelationships) {
+  }
+
   // alerting internal use only
-  rpc CreateEndpointImplementation(common.CreateImplementation)
+  // creates a node in the alertmanager config to be routed to 
+  // by the conditionId
+  // it uses the endpoint id to fetch the implementation type
+  // and attaches the remaining details to that endpoint
+  rpc CreateConditionRoutingNode(common.RoutingNode)
       returns (google.protobuf.Empty) {
   }
 
   // alerting internal use only
-  rpc UpdateEndpointImplementation(common.CreateImplementation)
+  // updates a node in the alertmanager config to be routed to
+  // by the conditionId
+  // it uses the endpoint id to fetch (&update if necessary)
+  rpc UpdateConditionRoutingNode(common.RoutingNode)
       returns (google.protobuf.Empty) {
   }
 
   // alerting internal use only
   // conditionMustBePassed in here
-  rpc DeleteEndpointImplementation(core.Reference)
+  rpc DeleteConditionRoutingNode(core.Reference)
       returns (google.protobuf.Empty) {
   }
 }

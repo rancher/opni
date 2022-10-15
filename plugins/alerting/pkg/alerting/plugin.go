@@ -3,7 +3,6 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
@@ -18,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
@@ -39,12 +39,12 @@ type Plugin struct {
 	Ctx        context.Context
 	Logger     *zap.SugaredLogger
 	inMemCache *lru.Cache
-	opsNode    *ops.AlertingOpsNode
 
-	AlertingOptions future.Future[shared.NewAlertingOptions]
-	storage         future.Future[StorageAPIs]
-	mgmtClient      future.Future[managementv1.ManagementClient]
-	adminClient     future.Future[cortexadmin.CortexAdminClient]
+	opsNode     *ops.AlertingOpsNode
+	storageNode *alertstorage.StorageNode
+
+	mgmtClient  future.Future[managementv1.ManagementClient]
+	adminClient future.Future[cortexadmin.CortexAdminClient]
 }
 
 type StorageAPIs struct {
@@ -56,14 +56,15 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
 	clusterDriver := future.New[drivers.ClusterDriver]()
 	return &Plugin{
-		Ctx:             ctx,
-		Logger:          lg,
-		inMemCache:      nil,
-		mgmtClient:      future.New[managementv1.ManagementClient](),
-		adminClient:     future.New[cortexadmin.CortexAdminClient](),
-		AlertingOptions: future.New[shared.NewAlertingOptions](),
-		opsNode:         ops.NewAlertingOpsNode(clusterDriver),
-		storage:         future.New[StorageAPIs](),
+		Ctx:         ctx,
+		Logger:      lg,
+		inMemCache:  nil,
+		mgmtClient:  future.New[managementv1.ManagementClient](),
+		adminClient: future.New[cortexadmin.CortexAdminClient](),
+		opsNode:     ops.NewAlertingOpsNode(clusterDriver),
+		storageNode: alertstorage.NewStorageNode(
+			alertstorage.WithLogger(lg),
+		),
 	}
 }
 

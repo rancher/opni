@@ -61,7 +61,7 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 		var amData bytes.Buffer
 		mgmtDNS := "opni-internal"
 		httpPort := "11080"
-		amData, err := shared.DefaultConfig(fmt.Sprintf("http://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
+		amData, err := shared.DefaultAlertManagerConfig(fmt.Sprintf("http://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
 		if err != nil {
 			panic(err)
 		}
@@ -101,7 +101,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 
 		Data: map[string]string{
-			shared.ConfigKey: r.spec.Alerting.RawConfigMap,
+			shared.AlertManagerConfigKey: r.spec.Alerting.RawConfigMap,
 		},
 	}
 
@@ -174,7 +174,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Command: []string{"opni", "alertmanager"},
 							Args: []string{
 								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.spec.Alerting.ClusterPort),
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "debug"),
 								fmt.Sprintf("--log.format=json"),
@@ -228,8 +228,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 									},
 									Items: []corev1.KeyToPath{
 										{
-											Key:  shared.ConfigKey,
-											Path: shared.ConfigKey,
+											Key:  shared.AlertManagerConfigKey,
+											Path: shared.AlertManagerConfigKey,
 										},
 									},
 								},
@@ -304,7 +304,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							// "--storage.path=/opt/bitnami/alertmanager/data"
 							Command: []string{"opni", "alertmanager"},
 							Args: []string{
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "info"),
 								fmt.Sprintf("--log.format=json"),
@@ -351,8 +351,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 									},
 									Items: []corev1.KeyToPath{
 										{
-											Key:  shared.ConfigKey,
-											Path: shared.ConfigKey,
+											Key:  shared.AlertManagerConfigKey,
+											Path: shared.AlertManagerConfigKey,
 										},
 									},
 								},

@@ -87,4 +87,18 @@ service AlertEndpoints{
   rpc DeleteConditionRoutingNode(core.Reference)
       returns (google.protobuf.Empty) {
   }
+
+  // alerting internal use only
+  // If a defined endpoint is changed then change its references in the
+  // routing tree
+  rpc UpdateIndividualEndpointInRoutingNode(common.AttachedEndpoint)
+      returns (google.protobuf.Empty) {
+  }
+
+  // alerting internal use only
+  // If a defined endpoint is deleted then delete it from the routing
+  // tree
+  rpc DeleteIndividualEndpointInRoutingNode(core.Reference)
+      returns (google.protobuf.Empty) {
+  }
 }

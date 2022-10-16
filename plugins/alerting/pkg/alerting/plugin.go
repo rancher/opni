@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"

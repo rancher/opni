@@ -75,9 +75,10 @@ func (a *AlertCondition) Validate() error {
 	if err := a.GetAlertType().Validate(); err != nil {
 		return err
 	}
-	if a.NotificationId != nil {
-		a.GetDetails().Validate()
-	}
+	// TODO : validate attached endpoints
+	//if a.NotificationId != nil {
+	//	a.GetDetails().Validate()
+	//}
 	return nil
 }
 
@@ -172,9 +173,10 @@ func (u *UpdateAlertEndpointRequest) Validate() error {
 }
 
 func (c *RoutingNode) Validate() error {
-	if err := c.GetImplementation().Validate(); err != nil {
-		return err
-	}
+	//if err := c.GetImplementation().Validate(); err != nil {
+	//	return err
+	//}
+	// TODO : validate
 	return nil
 }
 

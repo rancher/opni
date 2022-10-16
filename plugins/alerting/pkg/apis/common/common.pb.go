@@ -285,15 +285,14 @@ type AlertCondition struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name           string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description    string                  `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	Labels         []string                `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
-	Severity       Severity                `protobuf:"varint,4,opt,name=severity,proto3,enum=common.Severity" json:"severity,omitempty"`
-	AlertType      *AlertTypeDetails       `protobuf:"bytes,5,opt,name=alertType,proto3" json:"alertType,omitempty"`
-	NotificationId *string                 `protobuf:"bytes,6,opt,name=notificationId,proto3,oneof" json:"notificationId,omitempty"`
-	Details        *EndpointImplementation `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
+	Name              string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description       string             `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Labels            []string           `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
+	Severity          Severity           `protobuf:"varint,4,opt,name=severity,proto3,enum=common.Severity" json:"severity,omitempty"`
+	AlertType         *AlertTypeDetails  `protobuf:"bytes,5,opt,name=alertType,proto3" json:"alertType,omitempty"`
+	AttachedEndpoints *AttachedEndpoints `protobuf:"bytes,6,opt,name=attachedEndpoints,proto3" json:"attachedEndpoints,omitempty"`
 	// Set & Unset via the silence API
-	Silence *SilenceInfo `protobuf:"bytes,8,opt,name=silence,proto3" json:"silence,omitempty"`
+	Silence *SilenceInfo `protobuf:"bytes,7,opt,name=silence,proto3" json:"silence,omitempty"`
 }
 
 func (x *AlertCondition) Reset() {
@@ -363,16 +362,9 @@ func (x *AlertCondition) GetAlertType() *AlertTypeDetails {
 	return nil
 }
 
-func (x *AlertCondition) GetNotificationId() string {
-	if x != nil && x.NotificationId != nil {
-		return *x.NotificationId
-	}
-	return ""
-}
-
-func (x *AlertCondition) GetDetails() *EndpointImplementation {
+func (x *AlertCondition) GetAttachedEndpoints() *AttachedEndpoints {
 	if x != nil {
-		return x.Details
+		return x.AttachedEndpoints
 	}
 	return nil
 }
@@ -380,6 +372,145 @@ func (x *AlertCondition) GetDetails() *EndpointImplementation {
 func (x *AlertCondition) GetSilence() *SilenceInfo {
 	if x != nil {
 		return x.Silence
+	}
+	return nil
+}
+
+// Empty means no attached endpoints
+type AttachedEndpoints struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Items []*AttachedEndpoint `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	// initial delay before firing the alert (optional) (default=10s)
+	InitialDelay *durationpb.Duration `protobuf:"bytes,2,opt,name=initialDelay,proto3,oneof" json:"initialDelay,omitempty"`
+	// how often to resend alert messages on active alerts (default =10m)
+	RepeatInterval *durationpb.Duration `protobuf:"bytes,3,opt,name=repeatInterval,proto3,oneof" json:"repeatInterval,omitempty"`
+	// How long to wait before sending notifications on new condition that has
+	// already fired recently (default= 10m)
+	ThrottlingDuration *durationpb.Duration `protobuf:"bytes,4,opt,name=throttlingDuration,proto3,oneof" json:"throttlingDuration,omitempty"`
+}
+
+func (x *AttachedEndpoints) Reset() {
+	*x = AttachedEndpoints{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *AttachedEndpoints) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachedEndpoints) ProtoMessage() {}
+
+func (x *AttachedEndpoints) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachedEndpoints.ProtoReflect.Descriptor instead.
+func (*AttachedEndpoints) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AttachedEndpoints) GetItems() []*AttachedEndpoint {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *AttachedEndpoints) GetInitialDelay() *durationpb.Duration {
+	if x != nil {
+		return x.InitialDelay
+	}
+	return nil
+}
+
+func (x *AttachedEndpoints) GetRepeatInterval() *durationpb.Duration {
+	if x != nil {
+		return x.RepeatInterval
+	}
+	return nil
+}
+
+func (x *AttachedEndpoints) GetThrottlingDuration() *durationpb.Duration {
+	if x != nil {
+		return x.ThrottlingDuration
+	}
+	return nil
+}
+
+type AttachedEndpoint struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	NotificationId string                  `protobuf:"bytes,1,opt,name=notificationId,proto3" json:"notificationId,omitempty"`
+	AlertEndpoint  *AlertEndpoint          `protobuf:"bytes,2,opt,name=alertEndpoint,proto3" json:"alertEndpoint,omitempty"`
+	Details        *EndpointImplementation `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+}
+
+func (x *AttachedEndpoint) Reset() {
+	*x = AttachedEndpoint{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *AttachedEndpoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachedEndpoint) ProtoMessage() {}
+
+func (x *AttachedEndpoint) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachedEndpoint.ProtoReflect.Descriptor instead.
+func (*AttachedEndpoint) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *AttachedEndpoint) GetNotificationId() string {
+	if x != nil {
+		return x.NotificationId
+	}
+	return ""
+}
+
+func (x *AttachedEndpoint) GetAlertEndpoint() *AlertEndpoint {
+	if x != nil {
+		return x.AlertEndpoint
+	}
+	return nil
+}
+
+func (x *AttachedEndpoint) GetDetails() *EndpointImplementation {
+	if x != nil {
+		return x.Details
 	}
 	return nil
 }
@@ -395,7 +526,7 @@ type AlertDetailChoicesRequest struct {
 func (x *AlertDetailChoicesRequest) Reset() {
 	*x = AlertDetailChoicesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -408,7 +539,7 @@ func (x *AlertDetailChoicesRequest) String() string {
 func (*AlertDetailChoicesRequest) ProtoMessage() {}
 
 func (x *AlertDetailChoicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +552,7 @@ func (x *AlertDetailChoicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertDetailChoicesRequest.ProtoReflect.Descriptor instead.
 func (*AlertDetailChoicesRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{1}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AlertDetailChoicesRequest) GetAlertType() AlertType {
@@ -442,7 +573,7 @@ type AlertDetailChoicesResponse struct {
 func (x *AlertDetailChoicesResponse) Reset() {
 	*x = AlertDetailChoicesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[2]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -455,7 +586,7 @@ func (x *AlertDetailChoicesResponse) String() string {
 func (*AlertDetailChoicesResponse) ProtoMessage() {}
 
 func (x *AlertDetailChoicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[2]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -468,7 +599,7 @@ func (x *AlertDetailChoicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertDetailChoicesResponse.ProtoReflect.Descriptor instead.
 func (*AlertDetailChoicesResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{2}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AlertDetailChoicesResponse) GetChoices() []*AlertTypeDetails {
@@ -495,7 +626,7 @@ type AlertTypeDetails struct {
 func (x *AlertTypeDetails) Reset() {
 	*x = AlertTypeDetails{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -508,7 +639,7 @@ func (x *AlertTypeDetails) String() string {
 func (*AlertTypeDetails) ProtoMessage() {}
 
 func (x *AlertTypeDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +652,7 @@ func (x *AlertTypeDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertTypeDetails.ProtoReflect.Descriptor instead.
 func (*AlertTypeDetails) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{3}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{5}
 }
 
 func (m *AlertTypeDetails) GetType() isAlertTypeDetails_Type {
@@ -606,7 +737,7 @@ type ListAlertTypeDetails struct {
 func (x *ListAlertTypeDetails) Reset() {
 	*x = ListAlertTypeDetails{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -619,7 +750,7 @@ func (x *ListAlertTypeDetails) String() string {
 func (*ListAlertTypeDetails) ProtoMessage() {}
 
 func (x *ListAlertTypeDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +763,7 @@ func (x *ListAlertTypeDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertTypeDetails.ProtoReflect.Descriptor instead.
 func (*ListAlertTypeDetails) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{4}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{6}
 }
 
 func (m *ListAlertTypeDetails) GetType() isListAlertTypeDetails_Type {
@@ -708,7 +839,7 @@ type AlertConditionSystem struct {
 func (x *AlertConditionSystem) Reset() {
 	*x = AlertConditionSystem{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -721,7 +852,7 @@ func (x *AlertConditionSystem) String() string {
 func (*AlertConditionSystem) ProtoMessage() {}
 
 func (x *AlertConditionSystem) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +865,7 @@ func (x *AlertConditionSystem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionSystem.ProtoReflect.Descriptor instead.
 func (*AlertConditionSystem) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{5}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{7}
 }
 
 type ListAlertConditionSystem struct {
@@ -746,7 +877,7 @@ type ListAlertConditionSystem struct {
 func (x *ListAlertConditionSystem) Reset() {
 	*x = ListAlertConditionSystem{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -759,7 +890,7 @@ func (x *ListAlertConditionSystem) String() string {
 func (*ListAlertConditionSystem) ProtoMessage() {}
 
 func (x *ListAlertConditionSystem) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -772,7 +903,7 @@ func (x *ListAlertConditionSystem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertConditionSystem.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionSystem) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{6}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{8}
 }
 
 type AlertConditionKubeState struct {
@@ -795,7 +926,7 @@ type AlertConditionKubeState struct {
 func (x *AlertConditionKubeState) Reset() {
 	*x = AlertConditionKubeState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[7]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -808,7 +939,7 @@ func (x *AlertConditionKubeState) String() string {
 func (*AlertConditionKubeState) ProtoMessage() {}
 
 func (x *AlertConditionKubeState) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[7]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -821,7 +952,7 @@ func (x *AlertConditionKubeState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionKubeState.ProtoReflect.Descriptor instead.
 func (*AlertConditionKubeState) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{7}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AlertConditionKubeState) GetClusterId() string {
@@ -880,7 +1011,7 @@ type ListAlertConditionKubeState struct {
 func (x *ListAlertConditionKubeState) Reset() {
 	*x = ListAlertConditionKubeState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[8]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -893,7 +1024,7 @@ func (x *ListAlertConditionKubeState) String() string {
 func (*ListAlertConditionKubeState) ProtoMessage() {}
 
 func (x *ListAlertConditionKubeState) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[8]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -906,7 +1037,7 @@ func (x *ListAlertConditionKubeState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertConditionKubeState.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionKubeState) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{8}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListAlertConditionKubeState) GetClusters() map[string]*KubeObjectGroups {
@@ -941,7 +1072,7 @@ type ObjectList struct {
 func (x *ObjectList) Reset() {
 	*x = ObjectList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[9]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -954,7 +1085,7 @@ func (x *ObjectList) String() string {
 func (*ObjectList) ProtoMessage() {}
 
 func (x *ObjectList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[9]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1098,7 @@ func (x *ObjectList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObjectList.ProtoReflect.Descriptor instead.
 func (*ObjectList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{9}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ObjectList) GetObjects() []string {
@@ -988,7 +1119,7 @@ type NamespaceObjects struct {
 func (x *NamespaceObjects) Reset() {
 	*x = NamespaceObjects{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[10]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1001,7 +1132,7 @@ func (x *NamespaceObjects) String() string {
 func (*NamespaceObjects) ProtoMessage() {}
 
 func (x *NamespaceObjects) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[10]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1014,7 +1145,7 @@ func (x *NamespaceObjects) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceObjects.ProtoReflect.Descriptor instead.
 func (*NamespaceObjects) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{10}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *NamespaceObjects) GetNamespaces() map[string]*ObjectList {
@@ -1035,7 +1166,7 @@ type KubeObjectGroups struct {
 func (x *KubeObjectGroups) Reset() {
 	*x = KubeObjectGroups{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[11]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1048,7 +1179,7 @@ func (x *KubeObjectGroups) String() string {
 func (*KubeObjectGroups) ProtoMessage() {}
 
 func (x *KubeObjectGroups) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[11]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1061,7 +1192,7 @@ func (x *KubeObjectGroups) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KubeObjectGroups.ProtoReflect.Descriptor instead.
 func (*KubeObjectGroups) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{11}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *KubeObjectGroups) GetResourceTypes() map[string]*NamespaceObjects {
@@ -1082,7 +1213,7 @@ type ListSelectAlertInfo struct {
 func (x *ListSelectAlertInfo) Reset() {
 	*x = ListSelectAlertInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[12]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1095,7 +1226,7 @@ func (x *ListSelectAlertInfo) String() string {
 func (*ListSelectAlertInfo) ProtoMessage() {}
 
 func (x *ListSelectAlertInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[12]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1108,7 +1239,7 @@ func (x *ListSelectAlertInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSelectAlertInfo.ProtoReflect.Descriptor instead.
 func (*ListSelectAlertInfo) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{12}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListSelectAlertInfo) GetAlertType() AlertType {
@@ -1129,7 +1260,7 @@ type AlertConditionList struct {
 func (x *AlertConditionList) Reset() {
 	*x = AlertConditionList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[13]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1142,7 +1273,7 @@ func (x *AlertConditionList) String() string {
 func (*AlertConditionList) ProtoMessage() {}
 
 func (x *AlertConditionList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[13]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1286,7 @@ func (x *AlertConditionList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionList.ProtoReflect.Descriptor instead.
 func (*AlertConditionList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{13}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AlertConditionList) GetItems() []*AlertConditionWithId {
@@ -1178,7 +1309,7 @@ type AlertConditionComposition struct {
 func (x *AlertConditionComposition) Reset() {
 	*x = AlertConditionComposition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[14]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1191,7 +1322,7 @@ func (x *AlertConditionComposition) String() string {
 func (*AlertConditionComposition) ProtoMessage() {}
 
 func (x *AlertConditionComposition) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[14]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1204,7 +1335,7 @@ func (x *AlertConditionComposition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionComposition.ProtoReflect.Descriptor instead.
 func (*AlertConditionComposition) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{14}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AlertConditionComposition) GetAction() CompositionAction {
@@ -1240,7 +1371,7 @@ type ListAlertConditionComposition struct {
 func (x *ListAlertConditionComposition) Reset() {
 	*x = ListAlertConditionComposition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[15]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1253,7 +1384,7 @@ func (x *ListAlertConditionComposition) String() string {
 func (*ListAlertConditionComposition) ProtoMessage() {}
 
 func (x *ListAlertConditionComposition) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[15]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1266,7 +1397,7 @@ func (x *ListAlertConditionComposition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertConditionComposition.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionComposition) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{15}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListAlertConditionComposition) GetX() []*v1.Reference {
@@ -1297,7 +1428,7 @@ type AlertConditionControlFlow struct {
 func (x *AlertConditionControlFlow) Reset() {
 	*x = AlertConditionControlFlow{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[16]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1310,7 +1441,7 @@ func (x *AlertConditionControlFlow) String() string {
 func (*AlertConditionControlFlow) ProtoMessage() {}
 
 func (x *AlertConditionControlFlow) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[16]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1323,7 +1454,7 @@ func (x *AlertConditionControlFlow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionControlFlow.ProtoReflect.Descriptor instead.
 func (*AlertConditionControlFlow) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{16}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AlertConditionControlFlow) GetAction() ControlFlowAction {
@@ -1367,7 +1498,7 @@ type ListAlertConditionControlFlow struct {
 func (x *ListAlertConditionControlFlow) Reset() {
 	*x = ListAlertConditionControlFlow{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[17]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1380,7 +1511,7 @@ func (x *ListAlertConditionControlFlow) String() string {
 func (*ListAlertConditionControlFlow) ProtoMessage() {}
 
 func (x *ListAlertConditionControlFlow) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[17]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1393,7 +1524,7 @@ func (x *ListAlertConditionControlFlow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertConditionControlFlow.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionControlFlow) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{17}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListAlertConditionControlFlow) GetX() []*v1.Reference {
@@ -1429,7 +1560,7 @@ type AlertConditionWithId struct {
 func (x *AlertConditionWithId) Reset() {
 	*x = AlertConditionWithId{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[18]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1442,7 +1573,7 @@ func (x *AlertConditionWithId) String() string {
 func (*AlertConditionWithId) ProtoMessage() {}
 
 func (x *AlertConditionWithId) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[18]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +1586,7 @@ func (x *AlertConditionWithId) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertConditionWithId.ProtoReflect.Descriptor instead.
 func (*AlertConditionWithId) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{18}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AlertConditionWithId) GetId() *v1.Reference {
@@ -1481,7 +1612,7 @@ type ListAlertConditionRequest struct {
 func (x *ListAlertConditionRequest) Reset() {
 	*x = ListAlertConditionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[19]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1494,7 +1625,7 @@ func (x *ListAlertConditionRequest) String() string {
 func (*ListAlertConditionRequest) ProtoMessage() {}
 
 func (x *ListAlertConditionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[19]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1507,7 +1638,7 @@ func (x *ListAlertConditionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertConditionRequest.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{19}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{21}
 }
 
 type UpdateAlertConditionRequest struct {
@@ -1522,7 +1653,7 @@ type UpdateAlertConditionRequest struct {
 func (x *UpdateAlertConditionRequest) Reset() {
 	*x = UpdateAlertConditionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[20]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1535,7 +1666,7 @@ func (x *UpdateAlertConditionRequest) String() string {
 func (*UpdateAlertConditionRequest) ProtoMessage() {}
 
 func (x *UpdateAlertConditionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[20]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1548,7 +1679,7 @@ func (x *UpdateAlertConditionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertConditionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAlertConditionRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{20}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateAlertConditionRequest) GetId() *v1.Reference {
@@ -1574,7 +1705,7 @@ type PreviewAlertConditionRequest struct {
 func (x *PreviewAlertConditionRequest) Reset() {
 	*x = PreviewAlertConditionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[21]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1587,7 +1718,7 @@ func (x *PreviewAlertConditionRequest) String() string {
 func (*PreviewAlertConditionRequest) ProtoMessage() {}
 
 func (x *PreviewAlertConditionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[21]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1731,7 @@ func (x *PreviewAlertConditionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAlertConditionRequest.ProtoReflect.Descriptor instead.
 func (*PreviewAlertConditionRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{21}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{23}
 }
 
 type PreviewAlertConditionResponse struct {
@@ -1612,7 +1743,7 @@ type PreviewAlertConditionResponse struct {
 func (x *PreviewAlertConditionResponse) Reset() {
 	*x = PreviewAlertConditionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[22]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1625,7 +1756,7 @@ func (x *PreviewAlertConditionResponse) String() string {
 func (*PreviewAlertConditionResponse) ProtoMessage() {}
 
 func (x *PreviewAlertConditionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[22]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1638,7 +1769,7 @@ func (x *PreviewAlertConditionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAlertConditionResponse.ProtoReflect.Descriptor instead.
 func (*PreviewAlertConditionResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{22}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{24}
 }
 
 type SilenceRequest struct {
@@ -1653,7 +1784,7 @@ type SilenceRequest struct {
 func (x *SilenceRequest) Reset() {
 	*x = SilenceRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[23]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1666,7 +1797,7 @@ func (x *SilenceRequest) String() string {
 func (*SilenceRequest) ProtoMessage() {}
 
 func (x *SilenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[23]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1679,7 +1810,7 @@ func (x *SilenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SilenceRequest.ProtoReflect.Descriptor instead.
 func (*SilenceRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{23}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SilenceRequest) GetConditionId() *v1.Reference {
@@ -1709,7 +1840,7 @@ type SilenceInfo struct {
 func (x *SilenceInfo) Reset() {
 	*x = SilenceInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[24]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1722,7 +1853,7 @@ func (x *SilenceInfo) String() string {
 func (*SilenceInfo) ProtoMessage() {}
 
 func (x *SilenceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[24]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1735,7 +1866,7 @@ func (x *SilenceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SilenceInfo.ProtoReflect.Descriptor instead.
 func (*SilenceInfo) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{24}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SilenceInfo) GetSilenceId() string {
@@ -1770,7 +1901,7 @@ type TemplatesResponse struct {
 func (x *TemplatesResponse) Reset() {
 	*x = TemplatesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[25]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1783,7 +1914,7 @@ func (x *TemplatesResponse) String() string {
 func (*TemplatesResponse) ProtoMessage() {}
 
 func (x *TemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[25]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1796,7 +1927,7 @@ func (x *TemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplatesResponse.ProtoReflect.Descriptor instead.
 func (*TemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{25}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TemplatesResponse) GetTemplate() []string {
@@ -1817,7 +1948,7 @@ type AlertStatusResponse struct {
 func (x *AlertStatusResponse) Reset() {
 	*x = AlertStatusResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[26]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1830,7 +1961,7 @@ func (x *AlertStatusResponse) String() string {
 func (*AlertStatusResponse) ProtoMessage() {}
 
 func (x *AlertStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[26]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1843,7 +1974,7 @@ func (x *AlertStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertStatusResponse.ProtoReflect.Descriptor instead.
 func (*AlertStatusResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{26}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AlertStatusResponse) GetState() AlertConditionState {
@@ -1864,7 +1995,7 @@ type AlertForest struct {
 func (x *AlertForest) Reset() {
 	*x = AlertForest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[27]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1877,7 +2008,7 @@ func (x *AlertForest) String() string {
 func (*AlertForest) ProtoMessage() {}
 
 func (x *AlertForest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[27]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1890,7 +2021,7 @@ func (x *AlertForest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertForest.ProtoReflect.Descriptor instead.
 func (*AlertForest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{27}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *AlertForest) GetAction() ControlFlowAction {
@@ -1911,7 +2042,7 @@ type AlertTree struct {
 func (x *AlertTree) Reset() {
 	*x = AlertTree{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[28]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1924,7 +2055,7 @@ func (x *AlertTree) String() string {
 func (*AlertTree) ProtoMessage() {}
 
 func (x *AlertTree) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[28]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1937,7 +2068,7 @@ func (x *AlertTree) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertTree.ProtoReflect.Descriptor instead.
 func (*AlertTree) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{28}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *AlertTree) GetRoot() *AlertTreeNode {
@@ -1963,7 +2094,7 @@ type AlertTreeNode struct {
 func (x *AlertTreeNode) Reset() {
 	*x = AlertTreeNode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1976,7 +2107,7 @@ func (x *AlertTreeNode) String() string {
 func (*AlertTreeNode) ProtoMessage() {}
 
 func (x *AlertTreeNode) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1989,7 +2120,7 @@ func (x *AlertTreeNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertTreeNode.ProtoReflect.Descriptor instead.
 func (*AlertTreeNode) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{29}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{31}
 }
 
 func (m *AlertTreeNode) GetCondtion() isAlertTreeNode_Condtion {
@@ -2039,22 +2170,15 @@ type EndpointImplementation struct {
 	Title string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	// body message of the alert (required)
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	// initial delay before firing the alert (optional) (default=10s)
-	InitialDelay *durationpb.Duration `protobuf:"bytes,3,opt,name=initialDelay,proto3,oneof" json:"initialDelay,omitempty"`
-	// how often to resend alert messages on active alerts (default =10s)
-	RepeatInterval *durationpb.Duration `protobuf:"bytes,4,opt,name=repeatInterval,proto3,oneof" json:"repeatInterval,omitempty"`
-	// How long to wait before sending notifications on new condition that has
-	// already fired recently (default= 10m)
-	ThrottlingDuration *durationpb.Duration `protobuf:"bytes,5,opt,name=throttlingDuration,proto3,oneof" json:"throttlingDuration,omitempty"`
 	// send a notification when the alert is no longer firing? yes/no (default =
 	// no)
-	SendResolved *bool `protobuf:"varint,6,opt,name=sendResolved,proto3,oneof" json:"sendResolved,omitempty"`
+	SendResolved *bool `protobuf:"varint,3,opt,name=sendResolved,proto3,oneof" json:"sendResolved,omitempty"`
 }
 
 func (x *EndpointImplementation) Reset() {
 	*x = EndpointImplementation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2067,7 +2191,7 @@ func (x *EndpointImplementation) String() string {
 func (*EndpointImplementation) ProtoMessage() {}
 
 func (x *EndpointImplementation) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2080,7 +2204,7 @@ func (x *EndpointImplementation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointImplementation.ProtoReflect.Descriptor instead.
 func (*EndpointImplementation) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{30}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *EndpointImplementation) GetTitle() string {
@@ -2097,27 +2221,6 @@ func (x *EndpointImplementation) GetBody() string {
 	return ""
 }
 
-func (x *EndpointImplementation) GetInitialDelay() *durationpb.Duration {
-	if x != nil {
-		return x.InitialDelay
-	}
-	return nil
-}
-
-func (x *EndpointImplementation) GetRepeatInterval() *durationpb.Duration {
-	if x != nil {
-		return x.RepeatInterval
-	}
-	return nil
-}
-
-func (x *EndpointImplementation) GetThrottlingDuration() *durationpb.Duration {
-	if x != nil {
-		return x.ThrottlingDuration
-	}
-	return nil
-}
-
 func (x *EndpointImplementation) GetSendResolved() bool {
 	if x != nil && x.SendResolved != nil {
 		return *x.SendResolved
@@ -2125,22 +2228,19 @@ func (x *EndpointImplementation) GetSendResolved() bool {
 	return false
 }
 
-// TODO: include general configs such as repeat interval, throttling via
-// group_wait, group_interval, etc
 type RoutingNode struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EndpointId     *v1.Reference           `protobuf:"bytes,1,opt,name=endpointId,proto3" json:"endpointId,omitempty"`
-	ConditionId    *v1.Reference           `protobuf:"bytes,2,opt,name=conditionId,proto3" json:"conditionId,omitempty"`
-	Implementation *EndpointImplementation `protobuf:"bytes,3,opt,name=implementation,proto3" json:"implementation,omitempty"`
+	ConditionId       *v1.Reference      `protobuf:"bytes,1,opt,name=conditionId,proto3" json:"conditionId,omitempty"`
+	AttachedEndpoints *AttachedEndpoints `protobuf:"bytes,2,opt,name=attachedEndpoints,proto3" json:"attachedEndpoints,omitempty"`
 }
 
 func (x *RoutingNode) Reset() {
 	*x = RoutingNode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2153,7 +2253,7 @@ func (x *RoutingNode) String() string {
 func (*RoutingNode) ProtoMessage() {}
 
 func (x *RoutingNode) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2166,14 +2266,7 @@ func (x *RoutingNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoutingNode.ProtoReflect.Descriptor instead.
 func (*RoutingNode) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{31}
-}
-
-func (x *RoutingNode) GetEndpointId() *v1.Reference {
-	if x != nil {
-		return x.EndpointId
-	}
-	return nil
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RoutingNode) GetConditionId() *v1.Reference {
@@ -2183,9 +2276,9 @@ func (x *RoutingNode) GetConditionId() *v1.Reference {
 	return nil
 }
 
-func (x *RoutingNode) GetImplementation() *EndpointImplementation {
+func (x *RoutingNode) GetAttachedEndpoints() *AttachedEndpoints {
 	if x != nil {
-		return x.Implementation
+		return x.AttachedEndpoints
 	}
 	return nil
 }
@@ -2199,7 +2292,7 @@ type RoutingRelationships struct {
 func (x *RoutingRelationships) Reset() {
 	*x = RoutingRelationships{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2212,7 +2305,7 @@ func (x *RoutingRelationships) String() string {
 func (*RoutingRelationships) ProtoMessage() {}
 
 func (x *RoutingRelationships) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2225,7 +2318,7 @@ func (x *RoutingRelationships) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoutingRelationships.ProtoReflect.Descriptor instead.
 func (*RoutingRelationships) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{32}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{34}
 }
 
 type AlertEndpoint struct {
@@ -2246,7 +2339,7 @@ type AlertEndpoint struct {
 func (x *AlertEndpoint) Reset() {
 	*x = AlertEndpoint{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2259,7 +2352,7 @@ func (x *AlertEndpoint) String() string {
 func (*AlertEndpoint) ProtoMessage() {}
 
 func (x *AlertEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2272,7 +2365,7 @@ func (x *AlertEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEndpoint.ProtoReflect.Descriptor instead.
 func (*AlertEndpoint) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{33}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *AlertEndpoint) GetName() string {
@@ -2351,7 +2444,7 @@ type SlackEndpoint struct {
 func (x *SlackEndpoint) Reset() {
 	*x = SlackEndpoint{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[34]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2364,7 +2457,7 @@ func (x *SlackEndpoint) String() string {
 func (*SlackEndpoint) ProtoMessage() {}
 
 func (x *SlackEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[34]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2377,7 +2470,7 @@ func (x *SlackEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SlackEndpoint.ProtoReflect.Descriptor instead.
 func (*SlackEndpoint) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{34}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *SlackEndpoint) GetWebhookUrl() string {
@@ -2418,7 +2511,7 @@ type EmailEndpoint struct {
 func (x *EmailEndpoint) Reset() {
 	*x = EmailEndpoint{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2431,7 +2524,7 @@ func (x *EmailEndpoint) String() string {
 func (*EmailEndpoint) ProtoMessage() {}
 
 func (x *EmailEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2444,7 +2537,7 @@ func (x *EmailEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmailEndpoint.ProtoReflect.Descriptor instead.
 func (*EmailEndpoint) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{35}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *EmailEndpoint) GetTo() string {
@@ -2507,7 +2600,7 @@ type WebhookEndpoint struct {
 func (x *WebhookEndpoint) Reset() {
 	*x = WebhookEndpoint{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[36]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2520,7 +2613,7 @@ func (x *WebhookEndpoint) String() string {
 func (*WebhookEndpoint) ProtoMessage() {}
 
 func (x *WebhookEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[36]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2533,7 +2626,7 @@ func (x *WebhookEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookEndpoint.ProtoReflect.Descriptor instead.
 func (*WebhookEndpoint) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{36}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *WebhookEndpoint) GetUrl() string {
@@ -2554,7 +2647,7 @@ type AlertEndpointList struct {
 func (x *AlertEndpointList) Reset() {
 	*x = AlertEndpointList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2567,7 +2660,7 @@ func (x *AlertEndpointList) String() string {
 func (*AlertEndpointList) ProtoMessage() {}
 
 func (x *AlertEndpointList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2580,7 +2673,7 @@ func (x *AlertEndpointList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEndpointList.ProtoReflect.Descriptor instead.
 func (*AlertEndpointList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{37}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AlertEndpointList) GetItems() []*AlertEndpointWithId {
@@ -2602,7 +2695,7 @@ type AlertEndpointWithId struct {
 func (x *AlertEndpointWithId) Reset() {
 	*x = AlertEndpointWithId{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[38]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2615,7 +2708,7 @@ func (x *AlertEndpointWithId) String() string {
 func (*AlertEndpointWithId) ProtoMessage() {}
 
 func (x *AlertEndpointWithId) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[38]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2628,7 +2721,7 @@ func (x *AlertEndpointWithId) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlertEndpointWithId.ProtoReflect.Descriptor instead.
 func (*AlertEndpointWithId) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{38}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AlertEndpointWithId) GetEndpoint() *AlertEndpoint {
@@ -2654,7 +2747,7 @@ type ListAlertEndpointsRequest struct {
 func (x *ListAlertEndpointsRequest) Reset() {
 	*x = ListAlertEndpointsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[39]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[41]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2667,7 +2760,7 @@ func (x *ListAlertEndpointsRequest) String() string {
 func (*ListAlertEndpointsRequest) ProtoMessage() {}
 
 func (x *ListAlertEndpointsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[39]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[41]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2680,7 +2773,7 @@ func (x *ListAlertEndpointsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertEndpointsRequest.ProtoReflect.Descriptor instead.
 func (*ListAlertEndpointsRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{39}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{41}
 }
 
 type UpdateAlertEndpointRequest struct {
@@ -2695,7 +2788,7 @@ type UpdateAlertEndpointRequest struct {
 func (x *UpdateAlertEndpointRequest) Reset() {
 	*x = UpdateAlertEndpointRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[40]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[42]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2708,7 +2801,7 @@ func (x *UpdateAlertEndpointRequest) String() string {
 func (*UpdateAlertEndpointRequest) ProtoMessage() {}
 
 func (x *UpdateAlertEndpointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[40]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[42]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2721,7 +2814,7 @@ func (x *UpdateAlertEndpointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertEndpointRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAlertEndpointRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{40}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UpdateAlertEndpointRequest) GetId() *v1.Reference {
@@ -2750,7 +2843,7 @@ type TestAlertEndpointRequest struct {
 func (x *TestAlertEndpointRequest) Reset() {
 	*x = TestAlertEndpointRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[41]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[43]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2763,7 +2856,7 @@ func (x *TestAlertEndpointRequest) String() string {
 func (*TestAlertEndpointRequest) ProtoMessage() {}
 
 func (x *TestAlertEndpointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[41]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[43]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2776,7 +2869,7 @@ func (x *TestAlertEndpointRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestAlertEndpointRequest.ProtoReflect.Descriptor instead.
 func (*TestAlertEndpointRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{41}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *TestAlertEndpointRequest) GetEndpointInfo() *AlertEndpoint {
@@ -2802,7 +2895,7 @@ type TestAlertEndpointResponse struct {
 func (x *TestAlertEndpointResponse) Reset() {
 	*x = TestAlertEndpointResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[42]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[44]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2815,7 +2908,7 @@ func (x *TestAlertEndpointResponse) String() string {
 func (*TestAlertEndpointResponse) ProtoMessage() {}
 
 func (x *TestAlertEndpointResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[42]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[44]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2828,7 +2921,7 @@ func (x *TestAlertEndpointResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestAlertEndpointResponse.ProtoReflect.Descriptor instead.
 func (*TestAlertEndpointResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{42}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{44}
 }
 
 type ListAlertLogRequest struct {
@@ -2845,7 +2938,7 @@ type ListAlertLogRequest struct {
 func (x *ListAlertLogRequest) Reset() {
 	*x = ListAlertLogRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[43]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[45]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2858,7 +2951,7 @@ func (x *ListAlertLogRequest) String() string {
 func (*ListAlertLogRequest) ProtoMessage() {}
 
 func (x *ListAlertLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[43]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[45]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2871,7 +2964,7 @@ func (x *ListAlertLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertLogRequest.ProtoReflect.Descriptor instead.
 func (*ListAlertLogRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{43}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListAlertLogRequest) GetLabels() []string {
@@ -2914,7 +3007,7 @@ type UpdateAlertLogRequest struct {
 func (x *UpdateAlertLogRequest) Reset() {
 	*x = UpdateAlertLogRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[44]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[46]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2927,7 +3020,7 @@ func (x *UpdateAlertLogRequest) String() string {
 func (*UpdateAlertLogRequest) ProtoMessage() {}
 
 func (x *UpdateAlertLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[44]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[46]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2940,7 +3033,7 @@ func (x *UpdateAlertLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertLogRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAlertLogRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{44}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *UpdateAlertLogRequest) GetId() string {
@@ -2970,7 +3063,7 @@ type InformativeAlertLog struct {
 func (x *InformativeAlertLog) Reset() {
 	*x = InformativeAlertLog{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[45]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2983,7 +3076,7 @@ func (x *InformativeAlertLog) String() string {
 func (*InformativeAlertLog) ProtoMessage() {}
 
 func (x *InformativeAlertLog) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[45]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2996,7 +3089,7 @@ func (x *InformativeAlertLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InformativeAlertLog.ProtoReflect.Descriptor instead.
 func (*InformativeAlertLog) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{45}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *InformativeAlertLog) GetConditionId() *v1.Reference {
@@ -3031,7 +3124,7 @@ type InformativeAlertLogList struct {
 func (x *InformativeAlertLogList) Reset() {
 	*x = InformativeAlertLogList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[46]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[48]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3044,7 +3137,7 @@ func (x *InformativeAlertLogList) String() string {
 func (*InformativeAlertLogList) ProtoMessage() {}
 
 func (x *InformativeAlertLogList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[46]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[48]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3057,7 +3150,7 @@ func (x *InformativeAlertLogList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InformativeAlertLogList.ProtoReflect.Descriptor instead.
 func (*InformativeAlertLogList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{46}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *InformativeAlertLogList) GetItems() []*InformativeAlertLog {
@@ -3079,7 +3172,7 @@ type TriggerAlertsRequest struct {
 func (x *TriggerAlertsRequest) Reset() {
 	*x = TriggerAlertsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[47]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[49]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3092,7 +3185,7 @@ func (x *TriggerAlertsRequest) String() string {
 func (*TriggerAlertsRequest) ProtoMessage() {}
 
 func (x *TriggerAlertsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[47]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[49]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3105,7 +3198,7 @@ func (x *TriggerAlertsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerAlertsRequest.ProtoReflect.Descriptor instead.
 func (*TriggerAlertsRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{47}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *TriggerAlertsRequest) GetConditionId() *v1.Reference {
@@ -3131,7 +3224,7 @@ type TriggerAlertsResponse struct {
 func (x *TriggerAlertsResponse) Reset() {
 	*x = TriggerAlertsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[48]
+		mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[50]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3144,7 +3237,7 @@ func (x *TriggerAlertsResponse) String() string {
 func (*TriggerAlertsResponse) ProtoMessage() {}
 
 func (x *TriggerAlertsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[48]
+	mi := &file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[50]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3157,7 +3250,7 @@ func (x *TriggerAlertsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerAlertsResponse.ProtoReflect.Descriptor instead.
 func (*TriggerAlertsResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{48}
+	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{50}
 }
 
 var File_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto protoreflect.FileDescriptor
@@ -3186,7 +3279,7 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_r
 	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f,
 	0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f,
 	0x72, 0x65, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x22, 0xed, 0x02, 0x0a, 0x0e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
+	0x22, 0xbc, 0x02, 0x0a, 0x0e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
 	0x69, 0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72,
 	0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65,
@@ -3198,17 +3291,47 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_r
 	0x36, 0x0a, 0x09, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x54, 0x79, 0x70, 0x65, 0x18, 0x05, 0x20, 0x01,
 	0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72,
 	0x74, 0x54, 0x79, 0x70, 0x65, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x52, 0x09, 0x61, 0x6c,
-	0x65, 0x72, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x2b, 0x0a, 0x0e, 0x6e, 0x6f, 0x74, 0x69, 0x66,
-	0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x48,
-	0x00, 0x52, 0x0e, 0x6e, 0x6f, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49,
-	0x64, 0x88, 0x01, 0x01, 0x12, 0x38, 0x0a, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x18,
-	0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x45,
-	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x12, 0x2d,
-	0x0a, 0x07, 0x73, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x13, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x53, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65,
-	0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x73, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x42, 0x11, 0x0a,
-	0x0f, 0x5f, 0x6e, 0x6f, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64,
+	0x65, 0x72, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x47, 0x0a, 0x11, 0x61, 0x74, 0x74, 0x61, 0x63,
+	0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x18, 0x06, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x74, 0x74, 0x61,
+	0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x52, 0x11, 0x61,
+	0x74, 0x74, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73,
+	0x12, 0x2d, 0x0a, 0x07, 0x73, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x13, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x53, 0x69, 0x6c, 0x65, 0x6e,
+	0x63, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x73, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x22,
+	0xda, 0x02, 0x0a, 0x11, 0x41, 0x74, 0x74, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70,
+	0x6f, 0x69, 0x6e, 0x74, 0x73, 0x12, 0x2e, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x01,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x74,
+	0x74, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x05,
+	0x69, 0x74, 0x65, 0x6d, 0x73, 0x12, 0x42, 0x0a, 0x0c, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c,
+	0x44, 0x65, 0x6c, 0x61, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x0c, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61,
+	0x6c, 0x44, 0x65, 0x6c, 0x61, 0x79, 0x88, 0x01, 0x01, 0x12, 0x46, 0x0a, 0x0e, 0x72, 0x65, 0x70,
+	0x65, 0x61, 0x74, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x62, 0x75, 0x66, 0x2e, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x01, 0x52, 0x0e,
+	0x72, 0x65, 0x70, 0x65, 0x61, 0x74, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x88, 0x01,
+	0x01, 0x12, 0x4e, 0x0a, 0x12, 0x74, 0x68, 0x72, 0x6f, 0x74, 0x74, 0x6c, 0x69, 0x6e, 0x67, 0x44,
+	0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e,
+	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
+	0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x02, 0x52, 0x12, 0x74, 0x68, 0x72, 0x6f,
+	0x74, 0x74, 0x6c, 0x69, 0x6e, 0x67, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x88, 0x01,
+	0x01, 0x42, 0x0f, 0x0a, 0x0d, 0x5f, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x44, 0x65, 0x6c,
+	0x61, 0x79, 0x42, 0x11, 0x0a, 0x0f, 0x5f, 0x72, 0x65, 0x70, 0x65, 0x61, 0x74, 0x49, 0x6e, 0x74,
+	0x65, 0x72, 0x76, 0x61, 0x6c, 0x42, 0x15, 0x0a, 0x13, 0x5f, 0x74, 0x68, 0x72, 0x6f, 0x74, 0x74,
+	0x6c, 0x69, 0x6e, 0x67, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0xb1, 0x01, 0x0a,
+	0x10, 0x41, 0x74, 0x74, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
+	0x74, 0x12, 0x26, 0x0a, 0x0e, 0x6e, 0x6f, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x6e, 0x6f, 0x74, 0x69, 0x66,
+	0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x3b, 0x0a, 0x0d, 0x61, 0x6c, 0x65,
+	0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45,
+	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x0d, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e,
+	0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x38, 0x0a, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c,
+	0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x2e, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65,
+	0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73,
 	0x22, 0x4c, 0x0a, 0x19, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x43,
 	0x68, 0x6f, 0x69, 0x63, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2f, 0x0a,
 	0x09, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x54, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e,
@@ -3425,196 +3548,175 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_r
 	0x0a, 0x05, 0x72, 0x69, 0x67, 0x68, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e,
 	0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x54, 0x72, 0x65, 0x65,
 	0x4e, 0x6f, 0x64, 0x65, 0x52, 0x05, 0x72, 0x69, 0x67, 0x68, 0x74, 0x42, 0x0a, 0x0a, 0x08, 0x63,
-	0x6f, 0x6e, 0x64, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x93, 0x03, 0x0a, 0x16, 0x45, 0x6e, 0x64, 0x70,
-	0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69,
-	0x6f, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x42, 0x0a, 0x0c,
-	0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x44, 0x65, 0x6c, 0x61, 0x79, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52,
-	0x0c, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x44, 0x65, 0x6c, 0x61, 0x79, 0x88, 0x01, 0x01,
-	0x12, 0x46, 0x0a, 0x0e, 0x72, 0x65, 0x70, 0x65, 0x61, 0x74, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76,
-	0x61, 0x6c, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
-	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75, 0x72, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x48, 0x01, 0x52, 0x0e, 0x72, 0x65, 0x70, 0x65, 0x61, 0x74, 0x49, 0x6e, 0x74,
-	0x65, 0x72, 0x76, 0x61, 0x6c, 0x88, 0x01, 0x01, 0x12, 0x4e, 0x0a, 0x12, 0x74, 0x68, 0x72, 0x6f,
-	0x74, 0x74, 0x6c, 0x69, 0x6e, 0x67, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x05,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48,
-	0x02, 0x52, 0x12, 0x74, 0x68, 0x72, 0x6f, 0x74, 0x74, 0x6c, 0x69, 0x6e, 0x67, 0x44, 0x75, 0x72,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x27, 0x0a, 0x0c, 0x73, 0x65, 0x6e, 0x64,
-	0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x08, 0x48, 0x03,
-	0x52, 0x0c, 0x73, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65, 0x64, 0x88, 0x01,
-	0x01, 0x42, 0x0f, 0x0a, 0x0d, 0x5f, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x44, 0x65, 0x6c,
-	0x61, 0x79, 0x42, 0x11, 0x0a, 0x0f, 0x5f, 0x72, 0x65, 0x70, 0x65, 0x61, 0x74, 0x49, 0x6e, 0x74,
-	0x65, 0x72, 0x76, 0x61, 0x6c, 0x42, 0x15, 0x0a, 0x13, 0x5f, 0x74, 0x68, 0x72, 0x6f, 0x74, 0x74,
-	0x6c, 0x69, 0x6e, 0x67, 0x44, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x0f, 0x0a, 0x0d,
-	0x5f, 0x73, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65, 0x64, 0x22, 0xb9, 0x01,
-	0x0a, 0x0b, 0x52, 0x6f, 0x75, 0x74, 0x69, 0x6e, 0x67, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x2f, 0x0a,
-	0x0a, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
-	0x63, 0x65, 0x52, 0x0a, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x31,
-	0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72,
-	0x65, 0x6e, 0x63, 0x65, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49,
-	0x64, 0x12, 0x46, 0x0a, 0x0e, 0x69, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d,
-	0x6f, 0x6e, 0x2e, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65,
-	0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0e, 0x69, 0x6d, 0x70, 0x6c, 0x65,
-	0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x16, 0x0a, 0x14, 0x52, 0x6f, 0x75,
-	0x74, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x68, 0x69, 0x70,
-	0x73, 0x22, 0xe4, 0x01, 0x0a, 0x0d, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f,
-	0x69, 0x6e, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72,
-	0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65,
-	0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2d, 0x0a, 0x05, 0x73, 0x6c, 0x61,
-	0x63, 0x6b, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
-	0x6e, 0x2e, 0x53, 0x6c, 0x61, 0x63, 0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x48,
-	0x00, 0x52, 0x05, 0x73, 0x6c, 0x61, 0x63, 0x6b, 0x12, 0x2d, 0x0a, 0x05, 0x65, 0x6d, 0x61, 0x69,
-	0x6c, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
-	0x2e, 0x45, 0x6d, 0x61, 0x69, 0x6c, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x48, 0x00,
-	0x52, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x12, 0x33, 0x0a, 0x07, 0x77, 0x65, 0x62, 0x68, 0x6f,
-	0x6f, 0x6b, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
-	0x6e, 0x2e, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
-	0x74, 0x48, 0x00, 0x52, 0x07, 0x77, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x42, 0x0a, 0x0a, 0x08,
-	0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x22, 0x49, 0x0a, 0x0d, 0x53, 0x6c, 0x61, 0x63,
-	0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x77, 0x65, 0x62,
-	0x68, 0x6f, 0x6f, 0x6b, 0x55, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x77,
-	0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x55, 0x72, 0x6c, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x68, 0x61,
-	0x6e, 0x6e, 0x65, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x68, 0x61, 0x6e,
-	0x6e, 0x65, 0x6c, 0x22, 0x9c, 0x03, 0x0a, 0x0d, 0x45, 0x6d, 0x61, 0x69, 0x6c, 0x45, 0x6e, 0x64,
-	0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x74, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x02, 0x74, 0x6f, 0x12, 0x1f, 0x0a, 0x08, 0x73, 0x6d, 0x74, 0x70, 0x46, 0x72, 0x6f,
-	0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x08, 0x73, 0x6d, 0x74, 0x70, 0x46,
-	0x72, 0x6f, 0x6d, 0x88, 0x01, 0x01, 0x12, 0x29, 0x0a, 0x0d, 0x73, 0x6d, 0x74, 0x70, 0x53, 0x6d,
-	0x61, 0x72, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52,
-	0x0d, 0x73, 0x6d, 0x74, 0x70, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x88, 0x01,
-	0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x55, 0x73, 0x65,
-	0x72, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x48, 0x02, 0x52, 0x10, 0x73,
-	0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x55, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x88,
-	0x01, 0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x49, 0x64,
-	0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x48, 0x03, 0x52, 0x10,
-	0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79,
-	0x88, 0x01, 0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x50,
-	0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x48, 0x04, 0x52,
-	0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72,
-	0x64, 0x88, 0x01, 0x01, 0x12, 0x2b, 0x0a, 0x0e, 0x73, 0x6d, 0x74, 0x70, 0x52, 0x65, 0x71, 0x75,
-	0x69, 0x72, 0x65, 0x54, 0x4c, 0x53, 0x18, 0x07, 0x20, 0x01, 0x28, 0x08, 0x48, 0x05, 0x52, 0x0e,
-	0x73, 0x6d, 0x74, 0x70, 0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x54, 0x4c, 0x53, 0x88, 0x01,
-	0x01, 0x42, 0x0b, 0x0a, 0x09, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x46, 0x72, 0x6f, 0x6d, 0x42, 0x10,
-	0x0a, 0x0e, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x48, 0x6f, 0x73, 0x74,
-	0x42, 0x13, 0x0a, 0x11, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x55, 0x73, 0x65,
-	0x72, 0x6e, 0x61, 0x6d, 0x65, 0x42, 0x13, 0x0a, 0x11, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75,
-	0x74, 0x68, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x42, 0x13, 0x0a, 0x11, 0x5f, 0x73,
-	0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x42,
-	0x11, 0x0a, 0x0f, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x54,
-	0x4c, 0x53, 0x22, 0x23, 0x0a, 0x0f, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x45, 0x6e, 0x64,
-	0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x03, 0x75, 0x72, 0x6c, 0x22, 0x46, 0x0a, 0x11, 0x41, 0x6c, 0x65, 0x72, 0x74,
-	0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x05,
-	0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69,
-	0x6e, 0x74, 0x57, 0x69, 0x74, 0x68, 0x49, 0x64, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22,
-	0x69, 0x0a, 0x13, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
-	0x57, 0x69, 0x74, 0x68, 0x49, 0x64, 0x12, 0x31, 0x0a, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69,
-	0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
-	0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52,
-	0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x1f, 0x0a, 0x02, 0x69, 0x64, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66,
-	0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x02, 0x69, 0x64, 0x22, 0x1b, 0x0a, 0x19, 0x4c, 0x69,
-	0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x76, 0x0a, 0x1a, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
-	0x63, 0x65, 0x52, 0x02, 0x69, 0x64, 0x12, 0x37, 0x0a, 0x0b, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x41, 0x6c, 0x65, 0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69,
-	0x6e, 0x74, 0x52, 0x0b, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x22,
-	0x89, 0x01, 0x0a, 0x18, 0x54, 0x65, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64,
-	0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x39, 0x0a, 0x0c,
-	0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72,
-	0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x0c, 0x65, 0x6e, 0x64, 0x70, 0x6f,
-	0x69, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x32, 0x0a, 0x04, 0x69, 0x6d, 0x70, 0x6c, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x45,
-	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x04, 0x69, 0x6d, 0x70, 0x6c, 0x22, 0x1b, 0x0a, 0x19, 0x54,
-	0x65, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xc7, 0x01, 0x0a, 0x13, 0x4c, 0x69, 0x73,
-	0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x16, 0x0a, 0x06, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09,
-	0x52, 0x06, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x6c, 0x69, 0x6d, 0x69,
-	0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x42,
-	0x0a, 0x0e, 0x73, 0x74, 0x61, 0x72, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
-	0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x52, 0x0e, 0x73, 0x74, 0x61, 0x72, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x12, 0x3e, 0x0a, 0x0c, 0x65, 0x6e, 0x64, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
-	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73,
-	0x74, 0x61, 0x6d, 0x70, 0x52, 0x0c, 0x65, 0x6e, 0x64, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x22, 0x59, 0x0a, 0x15, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72,
-	0x74, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x30, 0x0a, 0x0b, 0x55,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x0e, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67,
-	0x52, 0x0b, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x22, 0xa0, 0x01,
-	0x0a, 0x13, 0x49, 0x6e, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x76, 0x65, 0x41, 0x6c, 0x65,
-	0x72, 0x74, 0x4c, 0x6f, 0x67, 0x12, 0x31, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69,
+	0x6f, 0x6e, 0x64, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x7c, 0x0a, 0x16, 0x45, 0x6e, 0x64, 0x70, 0x6f,
+	0x69, 0x6e, 0x74, 0x49, 0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x27, 0x0a, 0x0c, 0x73,
+	0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x08, 0x48, 0x00, 0x52, 0x0c, 0x73, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65,
+	0x64, 0x88, 0x01, 0x01, 0x42, 0x0f, 0x0a, 0x0d, 0x5f, 0x73, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73,
+	0x6f, 0x6c, 0x76, 0x65, 0x64, 0x22, 0x89, 0x01, 0x0a, 0x0b, 0x52, 0x6f, 0x75, 0x74, 0x69, 0x6e,
+	0x67, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x31, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69,
 	0x6f, 0x6e, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72,
 	0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x0b, 0x63, 0x6f, 0x6e,
-	0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x34, 0x0a, 0x09, 0x63, 0x6f, 0x6e, 0x64,
-	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x63, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
-	0x69, 0x6f, 0x6e, 0x52, 0x09, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x20,
-	0x0a, 0x03, 0x6c, 0x6f, 0x67, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f,
-	0x72, 0x65, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52, 0x03, 0x6c, 0x6f, 0x67,
-	0x22, 0x4c, 0x0a, 0x17, 0x49, 0x6e, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x76, 0x65, 0x41,
-	0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x05, 0x69,
-	0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f, 0x6d,
-	0x6d, 0x6f, 0x6e, 0x2e, 0x49, 0x6e, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x69, 0x76, 0x65, 0x41,
-	0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0xda,
-	0x01, 0x0a, 0x14, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69,
-	0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63,
-	0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x0b, 0x63,
-	0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x4f, 0x0a, 0x0b, 0x61, 0x6e,
-	0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32,
-	0x2d, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72,
-	0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x41, 0x6e,
-	0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0b,
-	0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x1a, 0x3e, 0x0a, 0x10, 0x41,
-	0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12,
-	0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65,
-	0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x17, 0x0a, 0x15, 0x54,
-	0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x2a, 0x3a, 0x0a, 0x08, 0x53, 0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79,
-	0x12, 0x08, 0x0a, 0x04, 0x49, 0x4e, 0x46, 0x4f, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x41,
-	0x52, 0x4e, 0x49, 0x4e, 0x47, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x52, 0x52, 0x4f, 0x52,
-	0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x52, 0x49, 0x54, 0x49, 0x43, 0x41, 0x4c, 0x10, 0x03,
-	0x2a, 0x4a, 0x0a, 0x09, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0a, 0x0a,
-	0x06, 0x53, 0x59, 0x53, 0x54, 0x45, 0x4d, 0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x4b, 0x55, 0x42,
-	0x45, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x10, 0x01, 0x12, 0x0f, 0x0a, 0x0b, 0x43, 0x4f, 0x4d,
-	0x50, 0x4f, 0x53, 0x49, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x02, 0x12, 0x10, 0x0a, 0x0c, 0x43, 0x4f,
-	0x4e, 0x54, 0x52, 0x4f, 0x4c, 0x5f, 0x46, 0x4c, 0x4f, 0x57, 0x10, 0x03, 0x2a, 0x24, 0x0a, 0x11,
-	0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x63, 0x74, 0x69, 0x6f,
-	0x6e, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4e, 0x44, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x52,
-	0x10, 0x01, 0x2a, 0x31, 0x0a, 0x11, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x46, 0x6c, 0x6f,
-	0x77, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0b, 0x0a, 0x07, 0x49, 0x46, 0x5f, 0x54, 0x48,
-	0x45, 0x4e, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b, 0x49, 0x46, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x54,
-	0x48, 0x45, 0x4e, 0x10, 0x01, 0x2a, 0x48, 0x0a, 0x13, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f,
-	0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0f, 0x0a, 0x0b,
-	0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x06, 0x0a,
-	0x02, 0x4f, 0x4b, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x46, 0x49, 0x52, 0x49, 0x4e, 0x47, 0x10,
-	0x02, 0x12, 0x0c, 0x0a, 0x08, 0x53, 0x49, 0x4c, 0x45, 0x4e, 0x43, 0x45, 0x44, 0x10, 0x03, 0x42,
-	0x3a, 0x5a, 0x38, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61,
-	0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69,
-	0x6e, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f,
-	0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x47, 0x0a, 0x11, 0x61, 0x74, 0x74, 0x61,
+	0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x74, 0x74,
+	0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x52, 0x11,
+	0x61, 0x74, 0x74, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x73, 0x22, 0x16, 0x0a, 0x14, 0x52, 0x6f, 0x75, 0x74, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x6c, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x68, 0x69, 0x70, 0x73, 0x22, 0xe4, 0x01, 0x0a, 0x0d, 0x41, 0x6c,
+	0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e,
+	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12,
+	0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x2d, 0x0a, 0x05, 0x73, 0x6c, 0x61, 0x63, 0x6b, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x53, 0x6c, 0x61, 0x63, 0x6b, 0x45,
+	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x05, 0x73, 0x6c, 0x61, 0x63, 0x6b,
+	0x12, 0x2d, 0x0a, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x45, 0x6d, 0x61, 0x69, 0x6c, 0x45, 0x6e,
+	0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x12,
+	0x33, 0x0a, 0x07, 0x77, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x17, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f,
+	0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x07, 0x77, 0x65, 0x62,
+	0x68, 0x6f, 0x6f, 0x6b, 0x42, 0x0a, 0x0a, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x22, 0x49, 0x0a, 0x0d, 0x53, 0x6c, 0x61, 0x63, 0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
+	0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x77, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x55, 0x72, 0x6c, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x77, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x55, 0x72,
+	0x6c, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x07, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x22, 0x9c, 0x03, 0x0a, 0x0d,
+	0x45, 0x6d, 0x61, 0x69, 0x6c, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x0e, 0x0a,
+	0x02, 0x74, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x74, 0x6f, 0x12, 0x1f, 0x0a,
+	0x08, 0x73, 0x6d, 0x74, 0x70, 0x46, 0x72, 0x6f, 0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48,
+	0x00, 0x52, 0x08, 0x73, 0x6d, 0x74, 0x70, 0x46, 0x72, 0x6f, 0x6d, 0x88, 0x01, 0x01, 0x12, 0x29,
+	0x0a, 0x0d, 0x73, 0x6d, 0x74, 0x70, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52, 0x0d, 0x73, 0x6d, 0x74, 0x70, 0x53, 0x6d, 0x61,
+	0x72, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x88, 0x01, 0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73, 0x6d, 0x74,
+	0x70, 0x41, 0x75, 0x74, 0x68, 0x55, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x09, 0x48, 0x02, 0x52, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x55,
+	0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x88, 0x01, 0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73, 0x6d,
+	0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x18, 0x05,
+	0x20, 0x01, 0x28, 0x09, 0x48, 0x03, 0x52, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68,
+	0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x88, 0x01, 0x01, 0x12, 0x2f, 0x0a, 0x10, 0x73,
+	0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18,
+	0x06, 0x20, 0x01, 0x28, 0x09, 0x48, 0x04, 0x52, 0x10, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74,
+	0x68, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x88, 0x01, 0x01, 0x12, 0x2b, 0x0a, 0x0e,
+	0x73, 0x6d, 0x74, 0x70, 0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x54, 0x4c, 0x53, 0x18, 0x07,
+	0x20, 0x01, 0x28, 0x08, 0x48, 0x05, 0x52, 0x0e, 0x73, 0x6d, 0x74, 0x70, 0x52, 0x65, 0x71, 0x75,
+	0x69, 0x72, 0x65, 0x54, 0x4c, 0x53, 0x88, 0x01, 0x01, 0x42, 0x0b, 0x0a, 0x09, 0x5f, 0x73, 0x6d,
+	0x74, 0x70, 0x46, 0x72, 0x6f, 0x6d, 0x42, 0x10, 0x0a, 0x0e, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x53,
+	0x6d, 0x61, 0x72, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x42, 0x13, 0x0a, 0x11, 0x5f, 0x73, 0x6d, 0x74,
+	0x70, 0x41, 0x75, 0x74, 0x68, 0x55, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x42, 0x13, 0x0a,
+	0x11, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69,
+	0x74, 0x79, 0x42, 0x13, 0x0a, 0x11, 0x5f, 0x73, 0x6d, 0x74, 0x70, 0x41, 0x75, 0x74, 0x68, 0x50,
+	0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x42, 0x11, 0x0a, 0x0f, 0x5f, 0x73, 0x6d, 0x74, 0x70,
+	0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x54, 0x4c, 0x53, 0x22, 0x23, 0x0a, 0x0f, 0x57, 0x65,
+	0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x10, 0x0a,
+	0x03, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x75, 0x72, 0x6c, 0x22,
+	0x46, 0x0a, 0x11, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x4c, 0x69, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65,
+	0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x57, 0x69, 0x74, 0x68, 0x49, 0x64,
+	0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0x69, 0x0a, 0x13, 0x41, 0x6c, 0x65, 0x72, 0x74,
+	0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x57, 0x69, 0x74, 0x68, 0x49, 0x64, 0x12, 0x31,
+	0x0a, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45,
+	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
+	0x74, 0x12, 0x1f, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e,
+	0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x02,
+	0x69, 0x64, 0x22, 0x1b, 0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45,
+	0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22,
+	0x76, 0x0a, 0x1a, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e,
+	0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a,
+	0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65,
+	0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x02, 0x69, 0x64, 0x12, 0x37,
+	0x0a, 0x0b, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65,
+	0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x0b, 0x75, 0x70, 0x64, 0x61,
+	0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x22, 0x89, 0x01, 0x0a, 0x18, 0x54, 0x65, 0x73, 0x74,
+	0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x39, 0x0a, 0x0c, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x49, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6d,
+	0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e,
+	0x74, 0x52, 0x0c, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x12,
+	0x32, 0x0a, 0x04, 0x69, 0x6d, 0x70, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e,
+	0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x49,
+	0x6d, 0x70, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x04, 0x69,
+	0x6d, 0x70, 0x6c, 0x22, 0x1b, 0x0a, 0x19, 0x54, 0x65, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74,
+	0x45, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0xc7, 0x01, 0x0a, 0x13, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f,
+	0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x6c, 0x61, 0x62, 0x65,
+	0x6c, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x73,
+	0x12, 0x14, 0x0a, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52,
+	0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x12, 0x42, 0x0a, 0x0e, 0x73, 0x74, 0x61, 0x72, 0x74, 0x54,
+	0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
+	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
+	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x0e, 0x73, 0x74, 0x61, 0x72,
+	0x74, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x12, 0x3e, 0x0a, 0x0c, 0x65, 0x6e,
+	0x64, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x0c, 0x65, 0x6e,
+	0x64, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x22, 0x59, 0x0a, 0x15, 0x55, 0x70,
+	0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x02, 0x69, 0x64, 0x12, 0x30, 0x0a, 0x0b, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x6c, 0x65,
+	0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e,
+	0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52, 0x0b, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x41, 0x6c, 0x65, 0x72, 0x74, 0x22, 0xa0, 0x01, 0x0a, 0x13, 0x49, 0x6e, 0x66, 0x6f, 0x72, 0x6d,
+	0x61, 0x74, 0x69, 0x76, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x12, 0x31, 0x0a,
+	0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65,
+	0x6e, 0x63, 0x65, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64,
+	0x12, 0x34, 0x0a, 0x09, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65,
+	0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x63, 0x6f, 0x6e,
+	0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x20, 0x0a, 0x03, 0x6c, 0x6f, 0x67, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74,
+	0x4c, 0x6f, 0x67, 0x52, 0x03, 0x6c, 0x6f, 0x67, 0x22, 0x4c, 0x0a, 0x17, 0x49, 0x6e, 0x66, 0x6f,
+	0x72, 0x6d, 0x61, 0x74, 0x69, 0x76, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x4c,
+	0x69, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x49, 0x6e, 0x66, 0x6f,
+	0x72, 0x6d, 0x61, 0x74, 0x69, 0x76, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x4c, 0x6f, 0x67, 0x52,
+	0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0xda, 0x01, 0x0a, 0x14, 0x54, 0x72, 0x69, 0x67, 0x67,
+	0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x31, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65,
+	0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e,
+	0x49, 0x64, 0x12, 0x4f, 0x0a, 0x0b, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2d, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x2e, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x41, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0b, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x1a, 0x3e, 0x0a, 0x10, 0x41, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
+	0x02, 0x38, 0x01, 0x22, 0x17, 0x0a, 0x15, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x41, 0x6c,
+	0x65, 0x72, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2a, 0x3a, 0x0a, 0x08,
+	0x53, 0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x12, 0x08, 0x0a, 0x04, 0x49, 0x4e, 0x46, 0x4f,
+	0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x41, 0x52, 0x4e, 0x49, 0x4e, 0x47, 0x10, 0x01, 0x12,
+	0x09, 0x0a, 0x05, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x52,
+	0x49, 0x54, 0x49, 0x43, 0x41, 0x4c, 0x10, 0x03, 0x2a, 0x4a, 0x0a, 0x09, 0x41, 0x6c, 0x65, 0x72,
+	0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x59, 0x53, 0x54, 0x45, 0x4d, 0x10,
+	0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x4b, 0x55, 0x42, 0x45, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x10,
+	0x01, 0x12, 0x0f, 0x0a, 0x0b, 0x43, 0x4f, 0x4d, 0x50, 0x4f, 0x53, 0x49, 0x54, 0x49, 0x4f, 0x4e,
+	0x10, 0x02, 0x12, 0x10, 0x0a, 0x0c, 0x43, 0x4f, 0x4e, 0x54, 0x52, 0x4f, 0x4c, 0x5f, 0x46, 0x4c,
+	0x4f, 0x57, 0x10, 0x03, 0x2a, 0x24, 0x0a, 0x11, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x69, 0x74,
+	0x69, 0x6f, 0x6e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4e, 0x44,
+	0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x52, 0x10, 0x01, 0x2a, 0x31, 0x0a, 0x11, 0x43, 0x6f,
+	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x46, 0x6c, 0x6f, 0x77, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12,
+	0x0b, 0x0a, 0x07, 0x49, 0x46, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b,
+	0x49, 0x46, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10, 0x01, 0x2a, 0x48, 0x0a,
+	0x13, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53,
+	0x74, 0x61, 0x74, 0x65, 0x12, 0x0f, 0x0a, 0x0b, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46,
+	0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x4b, 0x10, 0x01, 0x12, 0x0a, 0x0a,
+	0x06, 0x46, 0x49, 0x52, 0x49, 0x4e, 0x47, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x53, 0x49, 0x4c,
+	0x45, 0x4e, 0x43, 0x45, 0x44, 0x10, 0x03, 0x42, 0x3a, 0x5a, 0x38, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70,
+	0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72, 0x74,
+	0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x6d,
+	0x6d, 0x6f, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -3630,7 +3732,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 }
 
 var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_goTypes = []interface{}{
 	(Severity)(0),                         // 0: common.Severity
 	(AlertType)(0),                        // 1: common.AlertType
@@ -3638,144 +3740,148 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_g
 	(ControlFlowAction)(0),                // 3: common.ControlFlowAction
 	(AlertConditionState)(0),              // 4: common.AlertConditionState
 	(*AlertCondition)(nil),                // 5: common.AlertCondition
-	(*AlertDetailChoicesRequest)(nil),     // 6: common.AlertDetailChoicesRequest
-	(*AlertDetailChoicesResponse)(nil),    // 7: common.AlertDetailChoicesResponse
-	(*AlertTypeDetails)(nil),              // 8: common.AlertTypeDetails
-	(*ListAlertTypeDetails)(nil),          // 9: common.ListAlertTypeDetails
-	(*AlertConditionSystem)(nil),          // 10: common.AlertConditionSystem
-	(*ListAlertConditionSystem)(nil),      // 11: common.ListAlertConditionSystem
-	(*AlertConditionKubeState)(nil),       // 12: common.AlertConditionKubeState
-	(*ListAlertConditionKubeState)(nil),   // 13: common.ListAlertConditionKubeState
-	(*ObjectList)(nil),                    // 14: common.ObjectList
-	(*NamespaceObjects)(nil),              // 15: common.NamespaceObjects
-	(*KubeObjectGroups)(nil),              // 16: common.KubeObjectGroups
-	(*ListSelectAlertInfo)(nil),           // 17: common.ListSelectAlertInfo
-	(*AlertConditionList)(nil),            // 18: common.AlertConditionList
-	(*AlertConditionComposition)(nil),     // 19: common.AlertConditionComposition
-	(*ListAlertConditionComposition)(nil), // 20: common.ListAlertConditionComposition
-	(*AlertConditionControlFlow)(nil),     // 21: common.AlertConditionControlFlow
-	(*ListAlertConditionControlFlow)(nil), // 22: common.ListAlertConditionControlFlow
-	(*AlertConditionWithId)(nil),          // 23: common.AlertConditionWithId
-	(*ListAlertConditionRequest)(nil),     // 24: common.ListAlertConditionRequest
-	(*UpdateAlertConditionRequest)(nil),   // 25: common.UpdateAlertConditionRequest
-	(*PreviewAlertConditionRequest)(nil),  // 26: common.PreviewAlertConditionRequest
-	(*PreviewAlertConditionResponse)(nil), // 27: common.PreviewAlertConditionResponse
-	(*SilenceRequest)(nil),                // 28: common.SilenceRequest
-	(*SilenceInfo)(nil),                   // 29: common.SilenceInfo
-	(*TemplatesResponse)(nil),             // 30: common.TemplatesResponse
-	(*AlertStatusResponse)(nil),           // 31: common.AlertStatusResponse
-	(*AlertForest)(nil),                   // 32: common.AlertForest
-	(*AlertTree)(nil),                     // 33: common.AlertTree
-	(*AlertTreeNode)(nil),                 // 34: common.AlertTreeNode
-	(*EndpointImplementation)(nil),        // 35: common.EndpointImplementation
-	(*RoutingNode)(nil),                   // 36: common.RoutingNode
-	(*RoutingRelationships)(nil),          // 37: common.RoutingRelationships
-	(*AlertEndpoint)(nil),                 // 38: common.AlertEndpoint
-	(*SlackEndpoint)(nil),                 // 39: common.SlackEndpoint
-	(*EmailEndpoint)(nil),                 // 40: common.EmailEndpoint
-	(*WebhookEndpoint)(nil),               // 41: common.WebhookEndpoint
-	(*AlertEndpointList)(nil),             // 42: common.AlertEndpointList
-	(*AlertEndpointWithId)(nil),           // 43: common.AlertEndpointWithId
-	(*ListAlertEndpointsRequest)(nil),     // 44: common.ListAlertEndpointsRequest
-	(*UpdateAlertEndpointRequest)(nil),    // 45: common.UpdateAlertEndpointRequest
-	(*TestAlertEndpointRequest)(nil),      // 46: common.TestAlertEndpointRequest
-	(*TestAlertEndpointResponse)(nil),     // 47: common.TestAlertEndpointResponse
-	(*ListAlertLogRequest)(nil),           // 48: common.ListAlertLogRequest
-	(*UpdateAlertLogRequest)(nil),         // 49: common.UpdateAlertLogRequest
-	(*InformativeAlertLog)(nil),           // 50: common.InformativeAlertLog
-	(*InformativeAlertLogList)(nil),       // 51: common.InformativeAlertLogList
-	(*TriggerAlertsRequest)(nil),          // 52: common.TriggerAlertsRequest
-	(*TriggerAlertsResponse)(nil),         // 53: common.TriggerAlertsResponse
-	nil,                                   // 54: common.ListAlertConditionKubeState.ClustersEntry
-	nil,                                   // 55: common.NamespaceObjects.NamespacesEntry
-	nil,                                   // 56: common.KubeObjectGroups.ResourceTypesEntry
-	nil,                                   // 57: common.TriggerAlertsRequest.AnnotationsEntry
-	(*durationpb.Duration)(nil),           // 58: google.protobuf.Duration
-	(*v1.Reference)(nil),                  // 59: core.Reference
-	(*timestamppb.Timestamp)(nil),         // 60: google.protobuf.Timestamp
-	(*v1.AlertLog)(nil),                   // 61: core.AlertLog
+	(*AttachedEndpoints)(nil),             // 6: common.AttachedEndpoints
+	(*AttachedEndpoint)(nil),              // 7: common.AttachedEndpoint
+	(*AlertDetailChoicesRequest)(nil),     // 8: common.AlertDetailChoicesRequest
+	(*AlertDetailChoicesResponse)(nil),    // 9: common.AlertDetailChoicesResponse
+	(*AlertTypeDetails)(nil),              // 10: common.AlertTypeDetails
+	(*ListAlertTypeDetails)(nil),          // 11: common.ListAlertTypeDetails
+	(*AlertConditionSystem)(nil),          // 12: common.AlertConditionSystem
+	(*ListAlertConditionSystem)(nil),      // 13: common.ListAlertConditionSystem
+	(*AlertConditionKubeState)(nil),       // 14: common.AlertConditionKubeState
+	(*ListAlertConditionKubeState)(nil),   // 15: common.ListAlertConditionKubeState
+	(*ObjectList)(nil),                    // 16: common.ObjectList
+	(*NamespaceObjects)(nil),              // 17: common.NamespaceObjects
+	(*KubeObjectGroups)(nil),              // 18: common.KubeObjectGroups
+	(*ListSelectAlertInfo)(nil),           // 19: common.ListSelectAlertInfo
+	(*AlertConditionList)(nil),            // 20: common.AlertConditionList
+	(*AlertConditionComposition)(nil),     // 21: common.AlertConditionComposition
+	(*ListAlertConditionComposition)(nil), // 22: common.ListAlertConditionComposition
+	(*AlertConditionControlFlow)(nil),     // 23: common.AlertConditionControlFlow
+	(*ListAlertConditionControlFlow)(nil), // 24: common.ListAlertConditionControlFlow
+	(*AlertConditionWithId)(nil),          // 25: common.AlertConditionWithId
+	(*ListAlertConditionRequest)(nil),     // 26: common.ListAlertConditionRequest
+	(*UpdateAlertConditionRequest)(nil),   // 27: common.UpdateAlertConditionRequest
+	(*PreviewAlertConditionRequest)(nil),  // 28: common.PreviewAlertConditionRequest
+	(*PreviewAlertConditionResponse)(nil), // 29: common.PreviewAlertConditionResponse
+	(*SilenceRequest)(nil),                // 30: common.SilenceRequest
+	(*SilenceInfo)(nil),                   // 31: common.SilenceInfo
+	(*TemplatesResponse)(nil),             // 32: common.TemplatesResponse
+	(*AlertStatusResponse)(nil),           // 33: common.AlertStatusResponse
+	(*AlertForest)(nil),                   // 34: common.AlertForest
+	(*AlertTree)(nil),                     // 35: common.AlertTree
+	(*AlertTreeNode)(nil),                 // 36: common.AlertTreeNode
+	(*EndpointImplementation)(nil),        // 37: common.EndpointImplementation
+	(*RoutingNode)(nil),                   // 38: common.RoutingNode
+	(*RoutingRelationships)(nil),          // 39: common.RoutingRelationships
+	(*AlertEndpoint)(nil),                 // 40: common.AlertEndpoint
+	(*SlackEndpoint)(nil),                 // 41: common.SlackEndpoint
+	(*EmailEndpoint)(nil),                 // 42: common.EmailEndpoint
+	(*WebhookEndpoint)(nil),               // 43: common.WebhookEndpoint
+	(*AlertEndpointList)(nil),             // 44: common.AlertEndpointList
+	(*AlertEndpointWithId)(nil),           // 45: common.AlertEndpointWithId
+	(*ListAlertEndpointsRequest)(nil),     // 46: common.ListAlertEndpointsRequest
+	(*UpdateAlertEndpointRequest)(nil),    // 47: common.UpdateAlertEndpointRequest
+	(*TestAlertEndpointRequest)(nil),      // 48: common.TestAlertEndpointRequest
+	(*TestAlertEndpointResponse)(nil),     // 49: common.TestAlertEndpointResponse
+	(*ListAlertLogRequest)(nil),           // 50: common.ListAlertLogRequest
+	(*UpdateAlertLogRequest)(nil),         // 51: common.UpdateAlertLogRequest
+	(*InformativeAlertLog)(nil),           // 52: common.InformativeAlertLog
+	(*InformativeAlertLogList)(nil),       // 53: common.InformativeAlertLogList
+	(*TriggerAlertsRequest)(nil),          // 54: common.TriggerAlertsRequest
+	(*TriggerAlertsResponse)(nil),         // 55: common.TriggerAlertsResponse
+	nil,                                   // 56: common.ListAlertConditionKubeState.ClustersEntry
+	nil,                                   // 57: common.NamespaceObjects.NamespacesEntry
+	nil,                                   // 58: common.KubeObjectGroups.ResourceTypesEntry
+	nil,                                   // 59: common.TriggerAlertsRequest.AnnotationsEntry
+	(*durationpb.Duration)(nil),           // 60: google.protobuf.Duration
+	(*v1.Reference)(nil),                  // 61: core.Reference
+	(*timestamppb.Timestamp)(nil),         // 62: google.protobuf.Timestamp
+	(*v1.AlertLog)(nil),                   // 63: core.AlertLog
 }
 var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_depIdxs = []int32{
 	0,  // 0: common.AlertCondition.severity:type_name -> common.Severity
-	8,  // 1: common.AlertCondition.alertType:type_name -> common.AlertTypeDetails
-	35, // 2: common.AlertCondition.details:type_name -> common.EndpointImplementation
-	29, // 3: common.AlertCondition.silence:type_name -> common.SilenceInfo
-	1,  // 4: common.AlertDetailChoicesRequest.alertType:type_name -> common.AlertType
-	8,  // 5: common.AlertDetailChoicesResponse.choices:type_name -> common.AlertTypeDetails
-	10, // 6: common.AlertTypeDetails.system:type_name -> common.AlertConditionSystem
-	12, // 7: common.AlertTypeDetails.kubeState:type_name -> common.AlertConditionKubeState
-	19, // 8: common.AlertTypeDetails.composition:type_name -> common.AlertConditionComposition
-	21, // 9: common.AlertTypeDetails.controlFlow:type_name -> common.AlertConditionControlFlow
-	11, // 10: common.ListAlertTypeDetails.system:type_name -> common.ListAlertConditionSystem
-	13, // 11: common.ListAlertTypeDetails.kubeState:type_name -> common.ListAlertConditionKubeState
-	20, // 12: common.ListAlertTypeDetails.composition:type_name -> common.ListAlertConditionComposition
-	22, // 13: common.ListAlertTypeDetails.controlFlow:type_name -> common.ListAlertConditionControlFlow
-	58, // 14: common.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
-	54, // 15: common.ListAlertConditionKubeState.clusters:type_name -> common.ListAlertConditionKubeState.ClustersEntry
-	58, // 16: common.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
-	55, // 17: common.NamespaceObjects.namespaces:type_name -> common.NamespaceObjects.NamespacesEntry
-	56, // 18: common.KubeObjectGroups.resourceTypes:type_name -> common.KubeObjectGroups.ResourceTypesEntry
-	1,  // 19: common.ListSelectAlertInfo.alertType:type_name -> common.AlertType
-	23, // 20: common.AlertConditionList.items:type_name -> common.AlertConditionWithId
-	2,  // 21: common.AlertConditionComposition.action:type_name -> common.CompositionAction
-	59, // 22: common.AlertConditionComposition.x:type_name -> core.Reference
-	59, // 23: common.AlertConditionComposition.y:type_name -> core.Reference
-	59, // 24: common.ListAlertConditionComposition.x:type_name -> core.Reference
-	59, // 25: common.ListAlertConditionComposition.y:type_name -> core.Reference
-	3,  // 26: common.AlertConditionControlFlow.action:type_name -> common.ControlFlowAction
-	59, // 27: common.AlertConditionControlFlow.x:type_name -> core.Reference
-	59, // 28: common.AlertConditionControlFlow.y:type_name -> core.Reference
-	58, // 29: common.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
-	59, // 30: common.ListAlertConditionControlFlow.x:type_name -> core.Reference
-	59, // 31: common.ListAlertConditionControlFlow.y:type_name -> core.Reference
-	58, // 32: common.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
-	59, // 33: common.AlertConditionWithId.id:type_name -> core.Reference
-	5,  // 34: common.AlertConditionWithId.alertCondition:type_name -> common.AlertCondition
-	59, // 35: common.UpdateAlertConditionRequest.id:type_name -> core.Reference
-	5,  // 36: common.UpdateAlertConditionRequest.updateAlert:type_name -> common.AlertCondition
-	59, // 37: common.SilenceRequest.conditionId:type_name -> core.Reference
-	58, // 38: common.SilenceRequest.duration:type_name -> google.protobuf.Duration
-	60, // 39: common.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
-	60, // 40: common.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
-	4,  // 41: common.AlertStatusResponse.state:type_name -> common.AlertConditionState
-	3,  // 42: common.AlertForest.action:type_name -> common.ControlFlowAction
-	34, // 43: common.AlertTree.root:type_name -> common.AlertTreeNode
-	23, // 44: common.AlertTreeNode.item:type_name -> common.AlertConditionWithId
-	34, // 45: common.AlertTreeNode.left:type_name -> common.AlertTreeNode
-	34, // 46: common.AlertTreeNode.right:type_name -> common.AlertTreeNode
-	58, // 47: common.EndpointImplementation.initialDelay:type_name -> google.protobuf.Duration
-	58, // 48: common.EndpointImplementation.repeatInterval:type_name -> google.protobuf.Duration
-	58, // 49: common.EndpointImplementation.throttlingDuration:type_name -> google.protobuf.Duration
-	59, // 50: common.RoutingNode.endpointId:type_name -> core.Reference
-	59, // 51: common.RoutingNode.conditionId:type_name -> core.Reference
-	35, // 52: common.RoutingNode.implementation:type_name -> common.EndpointImplementation
-	39, // 53: common.AlertEndpoint.slack:type_name -> common.SlackEndpoint
-	40, // 54: common.AlertEndpoint.email:type_name -> common.EmailEndpoint
-	41, // 55: common.AlertEndpoint.webhook:type_name -> common.WebhookEndpoint
-	43, // 56: common.AlertEndpointList.items:type_name -> common.AlertEndpointWithId
-	38, // 57: common.AlertEndpointWithId.endpoint:type_name -> common.AlertEndpoint
-	59, // 58: common.AlertEndpointWithId.id:type_name -> core.Reference
-	59, // 59: common.UpdateAlertEndpointRequest.id:type_name -> core.Reference
-	38, // 60: common.UpdateAlertEndpointRequest.updateAlert:type_name -> common.AlertEndpoint
-	38, // 61: common.TestAlertEndpointRequest.endpointInfo:type_name -> common.AlertEndpoint
-	35, // 62: common.TestAlertEndpointRequest.impl:type_name -> common.EndpointImplementation
-	60, // 63: common.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
-	60, // 64: common.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
-	61, // 65: common.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
-	59, // 66: common.InformativeAlertLog.conditionId:type_name -> core.Reference
-	5,  // 67: common.InformativeAlertLog.condition:type_name -> common.AlertCondition
-	61, // 68: common.InformativeAlertLog.log:type_name -> core.AlertLog
-	50, // 69: common.InformativeAlertLogList.items:type_name -> common.InformativeAlertLog
-	59, // 70: common.TriggerAlertsRequest.conditionId:type_name -> core.Reference
-	57, // 71: common.TriggerAlertsRequest.annotations:type_name -> common.TriggerAlertsRequest.AnnotationsEntry
-	16, // 72: common.ListAlertConditionKubeState.ClustersEntry.value:type_name -> common.KubeObjectGroups
-	14, // 73: common.NamespaceObjects.NamespacesEntry.value:type_name -> common.ObjectList
-	15, // 74: common.KubeObjectGroups.ResourceTypesEntry.value:type_name -> common.NamespaceObjects
-	75, // [75:75] is the sub-list for method output_type
-	75, // [75:75] is the sub-list for method input_type
-	75, // [75:75] is the sub-list for extension type_name
-	75, // [75:75] is the sub-list for extension extendee
-	0,  // [0:75] is the sub-list for field type_name
+	10, // 1: common.AlertCondition.alertType:type_name -> common.AlertTypeDetails
+	6,  // 2: common.AlertCondition.attachedEndpoints:type_name -> common.AttachedEndpoints
+	31, // 3: common.AlertCondition.silence:type_name -> common.SilenceInfo
+	7,  // 4: common.AttachedEndpoints.items:type_name -> common.AttachedEndpoint
+	60, // 5: common.AttachedEndpoints.initialDelay:type_name -> google.protobuf.Duration
+	60, // 6: common.AttachedEndpoints.repeatInterval:type_name -> google.protobuf.Duration
+	60, // 7: common.AttachedEndpoints.throttlingDuration:type_name -> google.protobuf.Duration
+	40, // 8: common.AttachedEndpoint.alertEndpoint:type_name -> common.AlertEndpoint
+	37, // 9: common.AttachedEndpoint.details:type_name -> common.EndpointImplementation
+	1,  // 10: common.AlertDetailChoicesRequest.alertType:type_name -> common.AlertType
+	10, // 11: common.AlertDetailChoicesResponse.choices:type_name -> common.AlertTypeDetails
+	12, // 12: common.AlertTypeDetails.system:type_name -> common.AlertConditionSystem
+	14, // 13: common.AlertTypeDetails.kubeState:type_name -> common.AlertConditionKubeState
+	21, // 14: common.AlertTypeDetails.composition:type_name -> common.AlertConditionComposition
+	23, // 15: common.AlertTypeDetails.controlFlow:type_name -> common.AlertConditionControlFlow
+	13, // 16: common.ListAlertTypeDetails.system:type_name -> common.ListAlertConditionSystem
+	15, // 17: common.ListAlertTypeDetails.kubeState:type_name -> common.ListAlertConditionKubeState
+	22, // 18: common.ListAlertTypeDetails.composition:type_name -> common.ListAlertConditionComposition
+	24, // 19: common.ListAlertTypeDetails.controlFlow:type_name -> common.ListAlertConditionControlFlow
+	60, // 20: common.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
+	56, // 21: common.ListAlertConditionKubeState.clusters:type_name -> common.ListAlertConditionKubeState.ClustersEntry
+	60, // 22: common.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
+	57, // 23: common.NamespaceObjects.namespaces:type_name -> common.NamespaceObjects.NamespacesEntry
+	58, // 24: common.KubeObjectGroups.resourceTypes:type_name -> common.KubeObjectGroups.ResourceTypesEntry
+	1,  // 25: common.ListSelectAlertInfo.alertType:type_name -> common.AlertType
+	25, // 26: common.AlertConditionList.items:type_name -> common.AlertConditionWithId
+	2,  // 27: common.AlertConditionComposition.action:type_name -> common.CompositionAction
+	61, // 28: common.AlertConditionComposition.x:type_name -> core.Reference
+	61, // 29: common.AlertConditionComposition.y:type_name -> core.Reference
+	61, // 30: common.ListAlertConditionComposition.x:type_name -> core.Reference
+	61, // 31: common.ListAlertConditionComposition.y:type_name -> core.Reference
+	3,  // 32: common.AlertConditionControlFlow.action:type_name -> common.ControlFlowAction
+	61, // 33: common.AlertConditionControlFlow.x:type_name -> core.Reference
+	61, // 34: common.AlertConditionControlFlow.y:type_name -> core.Reference
+	60, // 35: common.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
+	61, // 36: common.ListAlertConditionControlFlow.x:type_name -> core.Reference
+	61, // 37: common.ListAlertConditionControlFlow.y:type_name -> core.Reference
+	60, // 38: common.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
+	61, // 39: common.AlertConditionWithId.id:type_name -> core.Reference
+	5,  // 40: common.AlertConditionWithId.alertCondition:type_name -> common.AlertCondition
+	61, // 41: common.UpdateAlertConditionRequest.id:type_name -> core.Reference
+	5,  // 42: common.UpdateAlertConditionRequest.updateAlert:type_name -> common.AlertCondition
+	61, // 43: common.SilenceRequest.conditionId:type_name -> core.Reference
+	60, // 44: common.SilenceRequest.duration:type_name -> google.protobuf.Duration
+	62, // 45: common.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
+	62, // 46: common.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
+	4,  // 47: common.AlertStatusResponse.state:type_name -> common.AlertConditionState
+	3,  // 48: common.AlertForest.action:type_name -> common.ControlFlowAction
+	36, // 49: common.AlertTree.root:type_name -> common.AlertTreeNode
+	25, // 50: common.AlertTreeNode.item:type_name -> common.AlertConditionWithId
+	36, // 51: common.AlertTreeNode.left:type_name -> common.AlertTreeNode
+	36, // 52: common.AlertTreeNode.right:type_name -> common.AlertTreeNode
+	61, // 53: common.RoutingNode.conditionId:type_name -> core.Reference
+	6,  // 54: common.RoutingNode.attachedEndpoints:type_name -> common.AttachedEndpoints
+	41, // 55: common.AlertEndpoint.slack:type_name -> common.SlackEndpoint
+	42, // 56: common.AlertEndpoint.email:type_name -> common.EmailEndpoint
+	43, // 57: common.AlertEndpoint.webhook:type_name -> common.WebhookEndpoint
+	45, // 58: common.AlertEndpointList.items:type_name -> common.AlertEndpointWithId
+	40, // 59: common.AlertEndpointWithId.endpoint:type_name -> common.AlertEndpoint
+	61, // 60: common.AlertEndpointWithId.id:type_name -> core.Reference
+	61, // 61: common.UpdateAlertEndpointRequest.id:type_name -> core.Reference
+	40, // 62: common.UpdateAlertEndpointRequest.updateAlert:type_name -> common.AlertEndpoint
+	40, // 63: common.TestAlertEndpointRequest.endpointInfo:type_name -> common.AlertEndpoint
+	37, // 64: common.TestAlertEndpointRequest.impl:type_name -> common.EndpointImplementation
+	62, // 65: common.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
+	62, // 66: common.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
+	63, // 67: common.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
+	61, // 68: common.InformativeAlertLog.conditionId:type_name -> core.Reference
+	5,  // 69: common.InformativeAlertLog.condition:type_name -> common.AlertCondition
+	63, // 70: common.InformativeAlertLog.log:type_name -> core.AlertLog
+	52, // 71: common.InformativeAlertLogList.items:type_name -> common.InformativeAlertLog
+	61, // 72: common.TriggerAlertsRequest.conditionId:type_name -> core.Reference
+	59, // 73: common.TriggerAlertsRequest.annotations:type_name -> common.TriggerAlertsRequest.AnnotationsEntry
+	18, // 74: common.ListAlertConditionKubeState.ClustersEntry.value:type_name -> common.KubeObjectGroups
+	16, // 75: common.NamespaceObjects.NamespacesEntry.value:type_name -> common.ObjectList
+	17, // 76: common.KubeObjectGroups.ResourceTypesEntry.value:type_name -> common.NamespaceObjects
+	77, // [77:77] is the sub-list for method output_type
+	77, // [77:77] is the sub-list for method input_type
+	77, // [77:77] is the sub-list for extension type_name
+	77, // [77:77] is the sub-list for extension extendee
+	0,  // [0:77] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_init() }
@@ -3797,7 +3903,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertDetailChoicesRequest); i {
+			switch v := v.(*AttachedEndpoints); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3809,7 +3915,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertDetailChoicesResponse); i {
+			switch v := v.(*AttachedEndpoint); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3821,7 +3927,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertTypeDetails); i {
+			switch v := v.(*AlertDetailChoicesRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3833,7 +3939,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertTypeDetails); i {
+			switch v := v.(*AlertDetailChoicesResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3845,7 +3951,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionSystem); i {
+			switch v := v.(*AlertTypeDetails); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3857,7 +3963,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertConditionSystem); i {
+			switch v := v.(*ListAlertTypeDetails); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3869,7 +3975,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionKubeState); i {
+			switch v := v.(*AlertConditionSystem); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3881,7 +3987,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertConditionKubeState); i {
+			switch v := v.(*ListAlertConditionSystem); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3893,7 +3999,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ObjectList); i {
+			switch v := v.(*AlertConditionKubeState); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3905,7 +4011,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NamespaceObjects); i {
+			switch v := v.(*ListAlertConditionKubeState); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3917,7 +4023,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*KubeObjectGroups); i {
+			switch v := v.(*ObjectList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3929,7 +4035,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListSelectAlertInfo); i {
+			switch v := v.(*NamespaceObjects); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3941,7 +4047,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionList); i {
+			switch v := v.(*KubeObjectGroups); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3953,7 +4059,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionComposition); i {
+			switch v := v.(*ListSelectAlertInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3965,7 +4071,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertConditionComposition); i {
+			switch v := v.(*AlertConditionList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3977,7 +4083,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionControlFlow); i {
+			switch v := v.(*AlertConditionComposition); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3989,7 +4095,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertConditionControlFlow); i {
+			switch v := v.(*ListAlertConditionComposition); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4001,7 +4107,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertConditionWithId); i {
+			switch v := v.(*AlertConditionControlFlow); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4013,7 +4119,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertConditionRequest); i {
+			switch v := v.(*ListAlertConditionControlFlow); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4025,7 +4131,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateAlertConditionRequest); i {
+			switch v := v.(*AlertConditionWithId); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4037,7 +4143,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PreviewAlertConditionRequest); i {
+			switch v := v.(*ListAlertConditionRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4049,7 +4155,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PreviewAlertConditionResponse); i {
+			switch v := v.(*UpdateAlertConditionRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4061,7 +4167,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SilenceRequest); i {
+			switch v := v.(*PreviewAlertConditionRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4073,7 +4179,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SilenceInfo); i {
+			switch v := v.(*PreviewAlertConditionResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4085,7 +4191,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TemplatesResponse); i {
+			switch v := v.(*SilenceRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4097,7 +4203,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertStatusResponse); i {
+			switch v := v.(*SilenceInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4109,7 +4215,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertForest); i {
+			switch v := v.(*TemplatesResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4121,7 +4227,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertTree); i {
+			switch v := v.(*AlertStatusResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4133,7 +4239,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertTreeNode); i {
+			switch v := v.(*AlertForest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4145,7 +4251,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EndpointImplementation); i {
+			switch v := v.(*AlertTree); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4157,7 +4263,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RoutingNode); i {
+			switch v := v.(*AlertTreeNode); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4169,7 +4275,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RoutingRelationships); i {
+			switch v := v.(*EndpointImplementation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4181,7 +4287,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertEndpoint); i {
+			switch v := v.(*RoutingNode); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4193,7 +4299,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SlackEndpoint); i {
+			switch v := v.(*RoutingRelationships); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4205,7 +4311,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EmailEndpoint); i {
+			switch v := v.(*AlertEndpoint); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4217,7 +4323,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WebhookEndpoint); i {
+			switch v := v.(*SlackEndpoint); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4229,7 +4335,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertEndpointList); i {
+			switch v := v.(*EmailEndpoint); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4241,7 +4347,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AlertEndpointWithId); i {
+			switch v := v.(*WebhookEndpoint); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4253,7 +4359,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertEndpointsRequest); i {
+			switch v := v.(*AlertEndpointList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4265,7 +4371,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateAlertEndpointRequest); i {
+			switch v := v.(*AlertEndpointWithId); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4277,7 +4383,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TestAlertEndpointRequest); i {
+			switch v := v.(*ListAlertEndpointsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4289,7 +4395,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TestAlertEndpointResponse); i {
+			switch v := v.(*UpdateAlertEndpointRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4301,7 +4407,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListAlertLogRequest); i {
+			switch v := v.(*TestAlertEndpointRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4313,7 +4419,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateAlertLogRequest); i {
+			switch v := v.(*TestAlertEndpointResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4325,7 +4431,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InformativeAlertLog); i {
+			switch v := v.(*ListAlertLogRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4337,7 +4443,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InformativeAlertLogList); i {
+			switch v := v.(*UpdateAlertLogRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4349,7 +4455,7 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TriggerAlertsRequest); i {
+			switch v := v.(*InformativeAlertLog); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -4361,6 +4467,30 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*InformativeAlertLogList); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[49].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TriggerAlertsRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[50].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TriggerAlertsResponse); i {
 			case 0:
 				return &v.state
@@ -4373,36 +4503,36 @@ func file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_
 			}
 		}
 	}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[0].OneofWrappers = []interface{}{}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[3].OneofWrappers = []interface{}{
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[1].OneofWrappers = []interface{}{}
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[5].OneofWrappers = []interface{}{
 		(*AlertTypeDetails_System)(nil),
 		(*AlertTypeDetails_KubeState)(nil),
 		(*AlertTypeDetails_Composition)(nil),
 		(*AlertTypeDetails_ControlFlow)(nil),
 	}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[4].OneofWrappers = []interface{}{
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[6].OneofWrappers = []interface{}{
 		(*ListAlertTypeDetails_System)(nil),
 		(*ListAlertTypeDetails_KubeState)(nil),
 		(*ListAlertTypeDetails_Composition)(nil),
 		(*ListAlertTypeDetails_ControlFlow)(nil),
 	}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[29].OneofWrappers = []interface{}{
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[31].OneofWrappers = []interface{}{
 		(*AlertTreeNode_Item)(nil),
 	}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[30].OneofWrappers = []interface{}{}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[33].OneofWrappers = []interface{}{
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[32].OneofWrappers = []interface{}{}
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35].OneofWrappers = []interface{}{
 		(*AlertEndpoint_Slack)(nil),
 		(*AlertEndpoint_Email)(nil),
 		(*AlertEndpoint_Webhook)(nil),
 	}
-	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[35].OneofWrappers = []interface{}{}
+	file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_msgTypes[37].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDesc,
 			NumEnums:      5,
-			NumMessages:   53,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

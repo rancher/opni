@@ -2,29 +2,72 @@ package routing
 
 import (
 	"fmt"
+	"github.com/rancher/opni/pkg/validation"
 	"net/url"
 	"strings"
 
 	cfg "github.com/prometheus/alertmanager/config"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
 )
 
-func (c *RoutingTree) AppendReceiver(recv *Receiver) {
-	c.Receivers = append(c.Receivers, recv)
+const SlackEndpointInternalId = "slack"
+const EmailEndpointInternalId = "email"
+
+func (r *Receiver) AddEndpoint(
+	alertEndpoint *alertingv1alpha.AlertEndpoint,
+	details *alertingv1alpha.EndpointImplementation) (int, string, error) {
+	if details == nil {
+		return -1, "", validation.Errorf("nil endpoint details")
+	}
+	if s := alertEndpoint.GetSlack(); s != nil {
+		slackCfg, err := NewSlackReceiverNode(s)
+		if err != nil {
+			return -1, "", err
+		}
+		slackCfg, err = WithSlackImplementation(slackCfg, details)
+		if err != nil {
+			return -1, "", err
+		}
+		r.SlackConfigs = append(r.SlackConfigs, slackCfg)
+		return len(r.SlackConfigs) - 1, SlackEndpointInternalId, nil
+	}
+	if e := alertEndpoint.GetEmail(); e != nil {
+		emailCfg, err := NewEmailReceiverNode(e)
+		if err != nil {
+			return -1, "", err
+		}
+		emailCfg, err = WithEmailImplementation(emailCfg, details)
+		if err != nil {
+			return -1, "", err
+		}
+		r.EmailConfigs = append(r.EmailConfigs, emailCfg)
+		return len(r.EmailConfigs) - 1, EmailEndpointInternalId, nil
+	}
+	return -1, "", validation.Errorf("unknown endpoint type : %v", alertEndpoint)
 }
 
-func (c *RoutingTree) GetReceivers() []*Receiver {
-	return c.Receivers
+func (r *RoutingTree) AppendReceiver(recv *Receiver) {
+	r.Receivers = append(r.Receivers, recv)
+}
+
+func (r *RoutingTree) GetReceivers() []*Receiver {
+	return r.Receivers
+}
+
+// NewReceiverBase has to have Name be conditionId
+func NewReceiverBase(conditionId string) *Receiver {
+	return &Receiver{
+		Name: conditionId,
+	}
 }
 
 // Assumptions:
-// - Id is unique among receivers
+// - id is unique among receivers
 // - Receiver Name corresponds with Ids one-to-one
-func (c *RoutingTree) findReceivers(id string) (int, error) {
+func (r *RoutingTree) FindReceivers(id string) (int, error) {
 	foundIdx := -1
-	for idx, r := range c.Receivers {
+	for idx, r := range r.Receivers {
 		if r.Name == id {
 			foundIdx = idx
 			break
@@ -36,131 +79,100 @@ func (c *RoutingTree) findReceivers(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *RoutingTree) UpdateReceiver(id string, recv *Receiver) error {
-	idx, err := c.findReceivers(id)
+func (r *RoutingTree) UpdateReceiver(id string, recv *Receiver) error {
+	idx, err := r.FindReceivers(id)
 	if err != nil {
 		return err
 	}
-	c.Receivers[idx] = recv
+	r.Receivers[idx] = recv
 	return nil
 }
 
-func (c *RoutingTree) DeleteReceiver(id string) error {
-	idx, err := c.findReceivers(id)
+func (r *RoutingTree) DeleteReceiver(conditionId string) error {
+	idx, err := r.FindReceivers(conditionId)
 	if err != nil {
 		return err
 	}
-	c.Receivers = slices.Delete(c.Receivers, idx, idx+1)
+	r.Receivers = slices.Delete(r.Receivers, idx, idx+1)
 	return nil
 }
 
-func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*Receiver, error) {
+func NewSlackReceiverNode(endpoint *alertingv1alpha.SlackEndpoint) (*SlackConfig, error) {
+	if endpoint.WebhookUrl == "" {
+		return nil, validation.Errorf("slack webhook url is empty")
+	}
 	parsedURL, err := url.Parse(endpoint.WebhookUrl)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Receiver{
-		Name: id,
-		SlackConfigs: []*SlackConfig{
-			{
-				APIURL:  parsedURL.String(),
-				Channel: endpoint.Channel,
-			},
-		},
+	if !strings.HasPrefix(endpoint.Channel, "#") {
+		return nil, validation.Errorf("slack channel must start with #")
+	}
+	return &SlackConfig{
+		APIURL:  parsedURL.String(),
+		Channel: endpoint.Channel,
 	}, nil
 }
 
 func WithSlackImplementation(
-	recv *Receiver,
+	slack *SlackConfig,
 	impl *alertingv1alpha.EndpointImplementation,
-) (*Receiver, error) {
-	if recv.SlackConfigs == nil || len(recv.SlackConfigs) == 0 || impl == nil {
-		return nil, shared.AlertingErrMismatchedImplementation
-	}
-	if impl.SendResolved != nil {
-		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
-			VSendResolved: *impl.SendResolved,
+) (*SlackConfig, error) {
+	if def := impl.SendResolved; def != nil {
+		slack.NotifierConfig = cfg.NotifierConfig{
+			VSendResolved: *def,
 		}
 	} else {
-		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+		slack.NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: false,
 		}
 	}
-	recv.SlackConfigs[0].Title = impl.Title
-	recv.SlackConfigs[0].Text = impl.Body
-
-	return recv, nil
+	slack.Title = impl.Title
+	slack.Text = impl.Body
+	return slack, nil
 }
 
-func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*Receiver, error) {
-	resRecv := &Receiver{
-		Name:         id,
-		EmailConfigs: []*EmailConfig{{}},
+func NewEmailReceiverNode(endpoint *alertingv1alpha.EmailEndpoint) (*EmailConfig, error) {
+	email := &EmailConfig{
+		To: endpoint.To,
 	}
-	resRecv.EmailConfigs[0].To = endpoint.To
 	if endpoint.SmtpFrom != nil {
-		resRecv.EmailConfigs[0].From = *endpoint.SmtpFrom
+		email.From = *endpoint.SmtpFrom
 	}
 	if endpoint.SmtpSmartHost != nil {
 		arr := strings.Split(*endpoint.SmtpSmartHost, ":")
-		resRecv.EmailConfigs[0].Smarthost = cfg.HostPort{
+		email.Smarthost = cfg.HostPort{
 			Host: arr[0],
 			Port: arr[1],
 		}
 	} // otherwise is set to global default in reconciler
 	if endpoint.SmtpAuthUsername != nil {
-		resRecv.EmailConfigs[0].AuthUsername = *endpoint.SmtpAuthUsername
+		email.AuthUsername = *endpoint.SmtpAuthUsername
 	}
 	if endpoint.SmtpAuthPassword != nil {
-		resRecv.EmailConfigs[0].AuthPassword = *endpoint.SmtpAuthPassword
+		email.AuthPassword = *endpoint.SmtpAuthPassword
 	}
 	if endpoint.SmtpAuthIdentity != nil {
-		resRecv.EmailConfigs[0].AuthIdentity = *endpoint.SmtpAuthIdentity
+		email.AuthIdentity = *endpoint.SmtpAuthIdentity
 	}
-	resRecv.EmailConfigs[0].RequireTLS = endpoint.SmtpRequireTLS
-	return resRecv, nil
+	return email, nil
 }
 
-func WithEmailImplementation(recv *Receiver, impl *alertingv1alpha.EndpointImplementation) (*Receiver, error) {
-	if recv.EmailConfigs == nil || len(recv.EmailConfigs) == 0 || impl == nil {
-		return nil, shared.AlertingErrMismatchedImplementation
-	}
-	if impl.SendResolved != nil {
-		recv.EmailConfigs[0].NotifierConfig = cfg.NotifierConfig{
+func WithEmailImplementation(email *EmailConfig, impl *alertingv1alpha.EndpointImplementation) (*EmailConfig, error) {
+	if def := impl.SendResolved; def != nil {
+		email.NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: *impl.SendResolved,
 		}
 	} else {
-		recv.EmailConfigs[0].NotifierConfig = cfg.NotifierConfig{
+		email.NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: false,
 		}
 	}
-	if recv.EmailConfigs[0].Headers == nil {
-		recv.EmailConfigs[0].Headers = map[string]string{}
-	}
-	recv.EmailConfigs[0].Headers["Subject"] = impl.Title
-	recv.EmailConfigs[0].HTML = impl.Body
-	return recv, nil
-}
 
-// NewWebhookReceiver creates a new receiver for the webhook endpoint
-func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*Receiver, error) {
-	parsedURL, err := url.Parse(endpoint.Url)
-	if err != nil {
-		return nil, err
+	if email.Headers == nil {
+		email.Headers = make(map[string]string)
 	}
-	// validate the url
-	_, err = url.ParseRequestURI(endpoint.Url)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Receiver{
-		Name: id,
-		WebhookConfigs: []*cfg.WebhookConfig{
-			{
-				URL: &cfg.URL{URL: parsedURL},
-			},
-		},
-	}, nil
+	email.Headers["Subject"] = impl.Title
+	email.HTML = impl.Body
+	return email, nil
 }

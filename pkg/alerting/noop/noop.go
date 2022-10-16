@@ -27,6 +27,14 @@ func NewUnavailableAlertingImplementation(version string) alerting.Provider {
 
 type AlertingNoopV1Alpha struct{}
 
+func (a *AlertingNoopV1Alpha) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *alertingv1alpha.AttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
 func (a *AlertingNoopV1Alpha) HandleCortexWebhook(ctx context.Context, in *structpb.Struct, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }

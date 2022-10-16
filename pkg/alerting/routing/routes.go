@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+	"github.com/rancher/opni/pkg/validation"
 	"time"
 
 	cfg "github.com/prometheus/alertmanager/config"
@@ -11,100 +12,76 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.RoutingNode) *cfg.Route {
-	if req == nil {
-		return route
-	}
-	if req.GetImplementation().GetThrottlingDuration() != nil {
-		dur := model.Duration(req.GetImplementation().GetThrottlingDuration().AsDuration())
-		route.GroupInterval = &dur
-
-	} else {
-		dur := model.Duration(time.Duration(time.Minute * 10))
-		route.GroupInterval = &dur
-	}
-
-	if req.GetImplementation().GetInitialDelay() != nil {
-		dur := model.Duration(req.GetImplementation().GetInitialDelay().AsDuration())
-		route.GroupWait = &dur
-	} else {
-		dur := model.Duration(time.Duration(time.Second * 10))
-		route.GroupWait = &dur
-	}
-
-	if req.GetImplementation().GetRepeatInterval() != nil {
-		dur := model.Duration(req.GetImplementation().GetRepeatInterval().AsDuration())
-		route.RepeatInterval = &dur
-
-	} else {
-		dur := model.Duration(time.Duration(time.Second * 10))
-		route.RepeatInterval = &dur
-	}
-	return route
-}
-
-func (c *RoutingTree) AppendRoute(recv *Receiver, req *alertingv1alpha.RoutingNode) {
-	r := &cfg.Route{
-		Receiver: recv.Name,
+func NewRouteBase(conditionId string) *cfg.Route {
+	return &cfg.Route{
+		Receiver: conditionId,
 		Matchers: cfg.Matchers{
 			{
 				Name:  shared.BackendConditionIdLabel,
-				Value: recv.Name,
+				Value: conditionId,
 			},
 		},
 	}
-	updatedRoute := updateRouteWithRequestInfo(r, req)
-	c.Route.Routes = append(c.Route.Routes, updatedRoute)
 }
 
-func (c *RoutingTree) GetRoutes() []*cfg.Route {
-	return c.Route.Routes
+func UpdateRouteWithGeneralRequestInfo(route *cfg.Route, req *alertingv1alpha.AttachedEndpoints) error {
+	if req == nil {
+		return validation.Errorf("cannot pass in nil request to UpdateRouteWithGeneralRequestInfo")
+	}
+	if dur := req.GetThrottlingDuration(); dur != nil {
+		modeldur := model.Duration(dur.AsDuration())
+		route.GroupInterval = &modeldur
+	} else {
+		modeldur := model.Duration(time.Minute * 10)
+		route.GroupInterval = &modeldur
+	}
+	if delay := req.GetInitialDelay(); delay != nil {
+		dur := model.Duration(delay.AsDuration())
+		route.GroupWait = &dur
+	} else {
+		dur := model.Duration(time.Second * 10)
+		route.GroupWait = &dur
+	}
+	if rInterval := req.GetRepeatInterval(); rInterval != nil {
+		dur := model.Duration(rInterval.AsDuration())
+		route.RepeatInterval = &dur
+	} else {
+		dur := model.Duration(time.Minute * 10)
+		route.RepeatInterval = &dur
+	}
+	return nil
+}
+
+func (r *RoutingTree) AppendRoute(updatedRoute *cfg.Route) {
+	r.Route.Routes = append(r.Route.Routes, updatedRoute)
+}
+
+func (r *RoutingTree) GetRoutes() []*cfg.Route {
+	return r.Route.Routes
 }
 
 // Assumptions:
-// - Id is unique among receivers
+// - id is unique among receivers
 // - Route Name corresponds with Ids one-to-one
-func (c *RoutingTree) findRoutes(id string) (int, error) {
+func (r *RoutingTree) FindRoutes(conditionId string) (int, error) {
 	foundIdx := -1
-	for idx, r := range c.Route.Routes {
-		if r.Receiver == id {
+	for idx, r := range r.Route.Routes {
+		if r.Receiver == conditionId {
 			foundIdx = idx
 			break
 		}
 	}
 	if foundIdx < 0 {
-		return foundIdx, fmt.Errorf("receiver with id %s not found in alertmanager backend", id)
+		return foundIdx, fmt.Errorf("receiver with id %s not found in alertmanager backend", conditionId)
 	}
 	return foundIdx, nil
 }
 
-func (c *RoutingTree) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.RoutingNode) error {
-	if recv == nil {
-		return fmt.Errorf("nil receiver passed to UpdateRoute")
-	}
-	idx, err := c.findRoutes(id)
+func (r *RoutingTree) DeleteRoute(conditionId string) error {
+	idx, err := r.FindRoutes(conditionId)
 	if err != nil {
 		return err
 	}
-	r := &cfg.Route{
-		Receiver: recv.Name,
-		Matchers: cfg.Matchers{
-			{
-				Name:  shared.BackendConditionIdLabel,
-				Value: recv.Name,
-			},
-		},
-	}
-	updatedRoute := updateRouteWithRequestInfo(r, req)
-	c.Route.Routes[idx] = updatedRoute
-	return nil
-}
-
-func (c *RoutingTree) DeleteRoute(id string) error {
-	idx, err := c.findRoutes(id)
-	if err != nil {
-		return err
-	}
-	c.Route.Routes = slices.Delete(c.Route.Routes, idx, idx+1)
+	r.Route.Routes = slices.Delete(r.Route.Routes, idx, idx+1)
 	return nil
 }

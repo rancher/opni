@@ -33,7 +33,8 @@ const (
 const (
 	ConfigMountPath                        = "/etc/config"
 	DataMountPath                          = "/var/lib/alertmanager/data"
-	ConfigKey                              = "alertmanager.yaml"
+	AlertManagerConfigKey                  = "alertmanager.yaml"
+	InternalRoutingConfigKey               = "internal-routing.yaml"
 	OperatorAlertingControllerServiceName  = "opni-alerting-controller"
 	OperatorAlertingClusterNodeServiceName = "opni-alerting"
 	AlertingHookReceiverName               = "opni.hook"
@@ -94,7 +95,7 @@ type DefaultAlertManagerInfo struct {
 	CortexHandlerURL  string
 }
 
-func DefaultConfig(managementUrl string) (bytes.Buffer, error) {
+func DefaultAlertManagerConfig(managementUrl string) (bytes.Buffer, error) {
 	templateToFill := DefaultAlertManager
 	var b bytes.Buffer
 	err := templateToFill.Execute(&b, DefaultAlertManagerInfo{
@@ -108,7 +109,7 @@ func DefaultConfig(managementUrl string) (bytes.Buffer, error) {
 }
 
 func BackendDefaultFile(managementUrl string) error {
-	b, err := DefaultConfig(managementUrl)
+	b, err := DefaultAlertManagerConfig(managementUrl)
 	if err != nil {
 		return err
 	}

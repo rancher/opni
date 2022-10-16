@@ -128,7 +128,7 @@ func (b *K8sEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, opt
 		if err != nil {
 			lg.Warnf("config map with name %s, namespace : %s not found")
 		}
-		if cfgMap.Data[shared.ConfigKey] != string(applyData) {
+		if cfgMap.Data[shared.AlertManagerConfigKey] != string(applyData) {
 			lg.Warn("New config map data does not yet match the expected data, waiting...")
 		} else {
 			lg.Debug("Config map data matches expected data, continuing to reload...")

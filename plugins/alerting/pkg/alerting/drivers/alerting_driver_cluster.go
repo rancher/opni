@@ -129,7 +129,7 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 			Name:      os.Getenv("GATEWAY_NAME"),
 		},
 		gatewayApiVersion: os.Getenv("GATEWAY_API_VERSION"),
-		configKey:         shared.ConfigKey,
+		configKey:         shared.AlertManagerConfigKey,
 	}
 	options.apply(opts...)
 	if options.AlertingOptions == nil {

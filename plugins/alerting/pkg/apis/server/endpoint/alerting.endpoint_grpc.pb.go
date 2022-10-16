@@ -46,6 +46,14 @@ type AlertEndpointsClient interface {
 	// alerting internal use only
 	// conditionMustBePassed in here
 	DeleteConditionRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// alerting internal use only
+	// If a defined endpoint is changed then change its references in the
+	// routing tree
+	UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *common.AttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// alerting internal use only
+	// If a defined endpoint is deleted then delete it from the routing
+	// tree
+	DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type alertEndpointsClient struct {
@@ -146,6 +154,24 @@ func (c *alertEndpointsClient) DeleteConditionRoutingNode(ctx context.Context, i
 	return out, nil
 }
 
+func (c *alertEndpointsClient) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *common.AttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/UpdateIndividualEndpointInRoutingNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertEndpointsClient) DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteIndividualEndpointInRoutingNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertEndpointsServer is the server API for AlertEndpoints service.
 // All implementations must embed UnimplementedAlertEndpointsServer
 // for forward compatibility
@@ -171,6 +197,14 @@ type AlertEndpointsServer interface {
 	// alerting internal use only
 	// conditionMustBePassed in here
 	DeleteConditionRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// alerting internal use only
+	// If a defined endpoint is changed then change its references in the
+	// routing tree
+	UpdateIndividualEndpointInRoutingNode(context.Context, *common.AttachedEndpoint) (*emptypb.Empty, error)
+	// alerting internal use only
+	// If a defined endpoint is deleted then delete it from the routing
+	// tree
+	DeleteIndividualEndpointInRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
 }
 
@@ -207,6 +241,12 @@ func (UnimplementedAlertEndpointsServer) UpdateConditionRoutingNode(context.Cont
 }
 func (UnimplementedAlertEndpointsServer) DeleteConditionRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConditionRoutingNode not implemented")
+}
+func (UnimplementedAlertEndpointsServer) UpdateIndividualEndpointInRoutingNode(context.Context, *common.AttachedEndpoint) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateIndividualEndpointInRoutingNode not implemented")
+}
+func (UnimplementedAlertEndpointsServer) DeleteIndividualEndpointInRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteIndividualEndpointInRoutingNode not implemented")
 }
 func (UnimplementedAlertEndpointsServer) mustEmbedUnimplementedAlertEndpointsServer() {}
 
@@ -401,6 +441,42 @@ func _AlertEndpoints_DeleteConditionRoutingNode_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertEndpoints_UpdateIndividualEndpointInRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(common.AttachedEndpoint)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertEndpointsServer).UpdateIndividualEndpointInRoutingNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.endpoint.AlertEndpoints/UpdateIndividualEndpointInRoutingNode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertEndpointsServer).UpdateIndividualEndpointInRoutingNode(ctx, req.(*common.AttachedEndpoint))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AlertEndpoints_DeleteIndividualEndpointInRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertEndpointsServer).DeleteIndividualEndpointInRoutingNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.endpoint.AlertEndpoints/DeleteIndividualEndpointInRoutingNode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertEndpointsServer).DeleteIndividualEndpointInRoutingNode(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AlertEndpoints_ServiceDesc is the grpc.ServiceDesc for AlertEndpoints service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -447,6 +523,14 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteConditionRoutingNode",
 			Handler:    _AlertEndpoints_DeleteConditionRoutingNode_Handler,
+		},
+		{
+			MethodName: "UpdateIndividualEndpointInRoutingNode",
+			Handler:    _AlertEndpoints_UpdateIndividualEndpointInRoutingNode_Handler,
+		},
+		{
+			MethodName: "DeleteIndividualEndpointInRoutingNode",
+			Handler:    _AlertEndpoints_DeleteIndividualEndpointInRoutingNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

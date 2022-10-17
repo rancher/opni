@@ -89,7 +89,7 @@ func (p *Plugin) DeleteOpensearchCluster(
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 	// Check that it is safe to delete the cluster
-	p.opensearchClient.UnsetClient()
+	p.opensearchManager.UnsetClient()
 
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
 	err := p.k8sClient.List(p.ctx, loggingClusters, client.InNamespace(p.storageNamespace))
@@ -121,7 +121,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
-	go p.opensearchClient.SetClient(p.setOpensearchClient)
+	go p.opensearchManager.SetClient(p.setOpensearchClient)
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,

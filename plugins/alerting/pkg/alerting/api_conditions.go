@@ -24,8 +24,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const conditionPrefix = "/alerting/conditions"
-
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
 	lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
@@ -35,12 +33,44 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
-	_, err := setupCondition(p, lg, ctx, req, newId)
+	_, err := setupCondition(p, lg, ctx, req, newId) //FIXME: subsequent errors should cleanup the created reference
 	if err != nil {
 		return nil, err
 	}
-	if err := setEndpointImplementationIfAvailable(p, lg, ctx, req, newId); err != nil {
-		return nil, err
+
+	if req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0 {
+		// FIXME: temporary solution
+		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+		if err != nil {
+			return nil, err
+		}
+		routingNode := &alertingv1alpha.RoutingNode{
+			ConditionId: &corev1.Reference{Id: newId},
+			FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
+				Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+				InitialDelay:       req.AttachedEndpoints.InitialDelay,
+				RepeatInterval:     req.AttachedEndpoints.RepeatInterval,
+				ThrottlingDuration: req.AttachedEndpoints.ThrottlingDuration,
+				Details:            req.AttachedEndpoints.Details,
+			},
+		}
+		for _, endpointItem := range endpointItems.Items {
+			for _, expectedEndpoint := range req.AttachedEndpoints.Items {
+				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
+					routingNode.FullAttachedEndpoints.Items = append(
+						routingNode.FullAttachedEndpoints.Items,
+						&alertingv1alpha.FullAttachedEndpoint{
+							EndpointId:    endpointItem.Id.Id,
+							AlertEndpoint: endpointItem.Endpoint,
+							Details:       req.AttachedEndpoints.Details,
+						})
+				}
+			}
+		}
+		_, err = p.CreateConditionRoutingNode(ctx, routingNode)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := p.storageNode.CreateConditionStorage(ctx, newId, req); err != nil {
 		return nil, err
@@ -84,26 +114,57 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	if err != nil {
 		return nil, err
 	}
-	existingNotif := func() string {
-		if existing.NotificationId == nil {
-			return "none set"
-		}
-		return *existing.NotificationId
-	}
-	newNotifId := func() string {
-		if req.UpdateAlert.NotificationId == nil {
-			return "none set"
-		}
-		return *req.UpdateAlert.NotificationId
-	}
-	lg.Debugf("Setting endpoint implementation with condition Id %s, existing notification: id %s, new notification id : %s",
-		conditionId, existingNotif(), newNotifId())
-	if err := handleUpdateEndpointImplementation(p, lg, ctx, conditionId, existing, req.UpdateAlert); err != nil {
-		return nil, err
-	}
+
 	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
+	}
+	if req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0 {
+		// FIXME: temporary solution
+		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+		if err != nil {
+			return nil, err
+		}
+		routingNode := &alertingv1alpha.RoutingNode{
+			ConditionId: &corev1.Reference{Id: req.Id.Id},
+			FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
+				Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+				InitialDelay:       req.UpdateAlert.AttachedEndpoints.InitialDelay,
+				RepeatInterval:     req.UpdateAlert.AttachedEndpoints.RepeatInterval,
+				ThrottlingDuration: req.UpdateAlert.AttachedEndpoints.ThrottlingDuration,
+				Details:            req.UpdateAlert.AttachedEndpoints.Details,
+			},
+		}
+		for _, endpointItem := range endpointItems.Items {
+			for _, expectedEndpoint := range req.UpdateAlert.AttachedEndpoints.Items {
+				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
+					routingNode.FullAttachedEndpoints.Items = append(
+						routingNode.FullAttachedEndpoints.Items,
+						&alertingv1alpha.FullAttachedEndpoint{
+							EndpointId:    endpointItem.Id.Id,
+							AlertEndpoint: endpointItem.Endpoint,
+							Details:       req.UpdateAlert.AttachedEndpoints.Details,
+						})
+				}
+			}
+		}
+		if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
+			// existing condition has active endpoints, so we need to update the routing node
+			_, err = p.UpdateConditionRoutingNode(ctx, routingNode)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// existing condition did not have active endpoints so create the routing node
+			_, err = p.CreateConditionRoutingNode(ctx, routingNode)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+	} else if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
+		// new condition has new active endpoints, but old one did
+		_, err = p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: conditionId})
 	}
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels
@@ -124,9 +185,11 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 		return nil, err
 	}
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
-	_, err = p.DeleteConditionRoutingNode(ctx, ref)
-	if err != nil {
-		return nil, err
+	if existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0 {
+		_, err = p.DeleteConditionRoutingNode(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = p.storageNode.DeleteConditionStorage(ctx, ref.Id)
 	if err != nil {

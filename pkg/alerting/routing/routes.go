@@ -24,7 +24,7 @@ func NewRouteBase(conditionId string) *cfg.Route {
 	}
 }
 
-func UpdateRouteWithGeneralRequestInfo(route *cfg.Route, req *alertingv1alpha.AttachedEndpoints) error {
+func UpdateRouteWithGeneralRequestInfo(route *cfg.Route, req *alertingv1alpha.FullAttachedEndpoints) error {
 	if req == nil {
 		return validation.Errorf("cannot pass in nil request to UpdateRouteWithGeneralRequestInfo")
 	}

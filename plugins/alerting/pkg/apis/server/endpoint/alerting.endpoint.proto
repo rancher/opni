@@ -91,7 +91,7 @@ service AlertEndpoints{
   // alerting internal use only
   // If a defined endpoint is changed then change its references in the
   // routing tree
-  rpc UpdateIndividualEndpointInRoutingNode(common.AttachedEndpoint)
+  rpc UpdateIndividualEndpointInRoutingNode(common.FullAttachedEndpoint)
       returns (google.protobuf.Empty) {
   }
 

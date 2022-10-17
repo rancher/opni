@@ -1090,6 +1090,8 @@ spec:
                     type: string
                   rawConfigMap:
                     type: string
+                  rawInternalRouting:
+                    type: string
                   replicas:
                     default: 1
                     format: int32

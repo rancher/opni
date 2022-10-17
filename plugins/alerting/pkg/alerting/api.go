@@ -109,7 +109,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 	if err != nil {
 		return nil, err
 	}
-	notifId := a.NotificationId
+	sendNotif := a.GetAttachedEndpoints()
 
 	// persist with alert log api
 	//FIXME: for now ignore errors in creating alert logs
@@ -126,7 +126,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 			},
 		},
 	})
-	if notifId != nil {
+	if sendNotif != nil {
 		// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
 		err = sendNotificationWithRateLimiting(p, ctx, req)
 		if err != nil {

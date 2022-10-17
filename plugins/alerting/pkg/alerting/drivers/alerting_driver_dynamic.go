@@ -31,6 +31,55 @@ import (
 // Implementation of the AlertingDynamic Server for
 // AlertingManager
 
+var mu = sync.Mutex{}
+
+func (a *AlertingManager) ConfigFromBackend(ctx context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	rawConfig, err := a.Fetch(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+	config, err := routing.NewRoutingTreeFrom(rawConfig.RawAlertManagerConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	internal, err := routing.NewOpniInternalRoutingFrom(rawConfig.RawInternalRouting)
+	if err != nil {
+		return nil, nil, err
+	}
+	return config, internal, nil
+}
+
+func (a *AlertingManager) ApplyConfigToBackend(
+	ctx context.Context,
+	config *routing.RoutingTree,
+	internal *routing.OpniInternalRouting,
+	updatedConditionId string,
+) error {
+	mu.Lock()
+	defer mu.Unlock()
+	rawAlertManagerData, err := config.Marshal()
+	if err != nil {
+		return err
+	}
+	rawInternalRoutingData, err := internal.Marshal()
+	if err != nil {
+		return err
+	}
+	_, err = a.Update(ctx, &alertops.AlertingConfig{
+		RawAlertManagerConfig: string(rawAlertManagerData),
+		RawInternalRouting:    string(rawInternalRoutingData),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = a.Reload(ctx, &alertops.ReloadInfo{
+		UpdatedKey: updatedConditionId,
+	})
+	return nil
+}
+
 func (a *AlertingManager) Fetch(ctx context.Context, _ *emptypb.Empty) (*alertops.AlertingConfig, error) {
 	lg := a.Logger.With("action", "Fetch")
 	name := a.AlertingOptions.ConfigMap
@@ -62,8 +111,18 @@ func (a *AlertingManager) Fetch(ctx context.Context, _ *emptypb.Empty) (*alertop
 			msg,
 		)
 	}
+	if _, ok := cfgMap.Data[a.internalRoutingKey]; !ok {
+		msg := fmt.Sprintf("K8s runtime error, config map : %s key : %s not found",
+			name,
+			a.internalRoutingKey)
+		lg.Error(msg)
+		return nil, shared.WithInternalServerError(
+			msg,
+		)
+	}
 	return &alertops.AlertingConfig{
-		Raw: cfgMap.Data[a.configKey],
+		RawAlertManagerConfig: cfgMap.Data[a.configKey],
+		RawInternalRouting:    cfgMap.Data[a.internalRoutingKey],
 	}, nil
 }
 
@@ -72,7 +131,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	a.configPersistMu.Lock()
 	defer a.configPersistMu.Unlock()
 	cfgStruct := &routing.RoutingTree{}
-	err := cfgStruct.Parse(conf.Raw)
+	err := cfgStruct.Parse(conf.RawAlertManagerConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -87,10 +146,12 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	mutator := func(object client.Object) error {
 		switch gateway := object.(type) {
 		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.RawConfigMap = conf.Raw
+			gateway.Spec.Alerting.RawAlertManagerConfig = conf.RawAlertManagerConfig
+			gateway.Spec.Alerting.RawInternalRouting = conf.RawInternalRouting
 			return nil
 		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.RawConfigMap = conf.Raw
+			gateway.Spec.Alerting.RawAlertManagerConfig = conf.RawAlertManagerConfig
+			gateway.Spec.Alerting.RawInternalRouting = conf.RawInternalRouting
 			return nil
 		default:
 			return fmt.Errorf("unkown gateway type %T", gateway)
@@ -146,6 +207,8 @@ func (a *AlertingManager) GetStatus(ctx context.Context, _ *emptypb.Empty) (*ale
 
 func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.ReloadInfo) (*emptypb.Empty, error) {
 	lg := a.Logger.With("alerting-backend", "k8s", "action", "reload")
+
+	// TODO: FIXME: MEGA FIXME: this reload only implemnts logic for TestEndpoint API
 
 	reloadEndpoints := []string{}
 	// RELOAD the controller!!!

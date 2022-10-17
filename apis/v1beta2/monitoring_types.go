@@ -87,9 +87,10 @@ type AlertingSpec struct {
 	//+kubebuilder:default="200ms"
 	ClusterGossipInterval string `json:"clusterGossipInterval,omitempty"`
 	//+kubebuilder:default="alertmanager-config"
-	ConfigName          string                      `json:"configName,omitempty"`
-	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
-	RawConfigMap        string                      `json:"rawConfigMap,omitempty"`
+	ConfigName            string                      `json:"configName,omitempty"`
+	GatewayVolumeMounts   []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	RawAlertManagerConfig string                      `json:"rawConfigMap,omitempty"`
+	RawInternalRouting    string                      `json:"rawInternalRouting,omitempty"`
 }
 
 type AuthSpec struct {

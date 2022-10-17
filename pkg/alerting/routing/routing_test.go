@@ -15,7 +15,7 @@ import (
 )
 
 type TestAPI struct {
-	E           *alertingv1alpha.AttachedEndpoints
+	E           *alertingv1alpha.FullAttachedEndpoints
 	conditionId string
 	err         error
 }
@@ -49,15 +49,15 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 			from := "bot@google.com"
 			inputs := []TestAPI{
 				{
-					E:           &alertingv1alpha.AttachedEndpoints{},
+					E:           &alertingv1alpha.FullAttachedEndpoints{},
 					conditionId: uuid.New().String(),
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.AttachedEndpoints{
-						Items: []*alertingv1alpha.AttachedEndpoint{
+					E: &alertingv1alpha.FullAttachedEndpoints{
+						Items: []*alertingv1alpha.FullAttachedEndpoint{
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
@@ -68,15 +68,19 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 								},
 							},
 						},
+						Details: &alertingv1alpha.EndpointImplementation{
+							Title: "test1",
+							Body:  "alert body",
+						},
 					},
 					conditionId: uuid.New().String(),
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.AttachedEndpoints{
-						Items: []*alertingv1alpha.AttachedEndpoint{
+					E: &alertingv1alpha.FullAttachedEndpoints{
+						Items: []*alertingv1alpha.FullAttachedEndpoint{
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
@@ -84,21 +88,21 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 										Slack: &alertingv1alpha.SlackEndpoint{},
 									},
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
-									Title: "test1",
-									Body:  "alert body",
-								},
 							},
+						},
+						Details: &alertingv1alpha.EndpointImplementation{
+							Title: "test1",
+							Body:  "alert body",
 						},
 					},
 					conditionId: uuid.New().String(),
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.AttachedEndpoints{
-						Items: []*alertingv1alpha.AttachedEndpoint{
+					E: &alertingv1alpha.FullAttachedEndpoints{
+						Items: []*alertingv1alpha.FullAttachedEndpoint{
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
@@ -115,15 +119,19 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 								},
 							},
 						},
+						Details: &alertingv1alpha.EndpointImplementation{
+							Title: "test1",
+							Body:  "alert body1",
+						},
 					},
 					conditionId: uuid.New().String(),
 					err:         nil,
 				},
 				{
-					E: &alertingv1alpha.AttachedEndpoints{
-						Items: []*alertingv1alpha.AttachedEndpoint{
+					E: &alertingv1alpha.FullAttachedEndpoints{
+						Items: []*alertingv1alpha.FullAttachedEndpoint{
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
@@ -140,7 +148,7 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 								},
 							},
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
 									Name:        "test3",
 									Description: "description body3",
@@ -157,10 +165,10 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 								},
 							},
 							{
-								NotificationId: uuid.New().String(),
+								EndpointId: uuid.New().String(),
 								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
-									Name:        "test3",
-									Description: "description body3",
+									Name:        "test4",
+									Description: "description body4",
 									Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 										Email: &alertingv1alpha.EmailEndpoint{
 											To:       "alexandre.lamarre@suse.com",
@@ -169,12 +177,17 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 									},
 								},
 								Details: &alertingv1alpha.EndpointImplementation{
-									Title: "test3",
-									Body:  "alert body3",
+									Title: "test4",
+									Body:  "alert body4",
 								},
 							},
 						},
+						Details: &alertingv1alpha.EndpointImplementation{
+							Title: "test3",
+							Body:  "alert body3",
+						},
 					},
+
 					conditionId: uuid.New().String(),
 					err:         nil,
 				},

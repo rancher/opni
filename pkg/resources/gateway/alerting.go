@@ -3,6 +3,8 @@ package gateway
 import (
 	"bytes"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/routing"
+	"gopkg.in/yaml.v3"
 	"path"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
@@ -27,7 +29,6 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 	if spec.ClusterPort == 0 {
 		spec.ClusterPort = 9094
 	}
-
 	// resources
 	if spec.Storage == "" {
 		spec.Storage = "500Mi"
@@ -57,7 +58,7 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 	if spec.ConfigName == "" {
 		spec.ConfigName = "alertmanager-config"
 	}
-	if spec.RawConfigMap == "" {
+	if spec.RawAlertManagerConfig == "" {
 		var amData bytes.Buffer
 		mgmtDNS := "opni-internal"
 		httpPort := "11080"
@@ -65,7 +66,15 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 		if err != nil {
 			panic(err)
 		}
-		spec.RawConfigMap = amData.String()
+		spec.RawAlertManagerConfig = amData.String()
+	}
+	if spec.RawInternalRouting == "" {
+		ir := routing.NewDefaultOpniInternalRouting()
+		rtData, err := yaml.Marshal(ir)
+		if err != nil {
+			panic(err)
+		}
+		spec.RawInternalRouting = string(rtData)
 	}
 }
 
@@ -101,7 +110,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 
 		Data: map[string]string{
-			shared.AlertManagerConfigKey: r.spec.Alerting.RawConfigMap,
+			shared.AlertManagerConfigKey:    r.spec.Alerting.RawAlertManagerConfig,
+			shared.InternalRoutingConfigKey: r.spec.Alerting.RawInternalRouting,
 		},
 	}
 
@@ -353,6 +363,10 @@ func (r *Reconciler) alerting() []resources.Resource {
 										{
 											Key:  shared.AlertManagerConfigKey,
 											Path: shared.AlertManagerConfigKey,
+										},
+										{
+											Key:  shared.InternalRoutingConfigKey,
+											Path: shared.InternalRoutingConfigKey,
 										},
 									},
 								},

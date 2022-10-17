@@ -76,7 +76,8 @@ message ReloadInfo{
 }
 
 message AlertingConfig{
-  string raw = 1;
+  string rawAlertManagerConfig = 1;
+  string rawInternalRouting = 2;
 }
 
 message DynamicStatus{

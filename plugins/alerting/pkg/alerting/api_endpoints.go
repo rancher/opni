@@ -2,62 +2,19 @@ package alerting
 
 import (
 	"context"
-	"sync"
-	"time"
-
-	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/routing"
-	"google.golang.org/protobuf/types/known/durationpb"
-
+	"fmt"
 	"github.com/google/uuid"
+	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/validation"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sync"
+	"time"
 )
 
 var locker = sync.Mutex{}
-
-func configFromBackend(p *Plugin, ctx context.Context) (*routing.RoutingTree, error) {
-	locker.Lock()
-	defer locker.Unlock()
-	rawConfig, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	config, err := routing.NewRoutingTreeFrom(rawConfig.Raw)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
-func applyConfigToBackend(
-	p *Plugin,
-	ctx context.Context,
-	config *routing.RoutingTree,
-	updatedConditionId string,
-) error {
-	rawData, err := config.Marshal()
-	if err != nil {
-		return err
-	}
-	_, err = p.opsNode.Update(ctx, &alertops.AlertingConfig{
-		Raw: string(rawData),
-	})
-	if err != nil {
-		return err
-	}
-	_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
-		UpdatedKey: updatedConditionId,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
@@ -115,18 +72,39 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-
 	// - Create dummy Endpoint id
 	dummyConditionId := "test-" + uuid.New().String()
+	dummyEndpointId := "test-" + uuid.New().String()
 	lg.Debugf("dummy id : %s", dummyConditionId)
-	impl := req.GetImpl()
-	impl.InitialDelay = durationpb.New(time.Duration(time.Second * 0))
-	createImpl := &alertingv1alpha.RoutingNode{
-		ConditionId:    &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
-		EndpointId:     &corev1.Reference{Id: ""},               // should never be used
-		Implementation: req.GetImpl(),
+	var typeName string
+	if s := req.EndpointInfo.GetSlack(); s != nil {
+		typeName = "slack"
 	}
-	recv, err := processEndpointDetails(dummyConditionId, createImpl, req.GetEndpointInfo())
+	if e := req.EndpointInfo.GetEmail(); e != nil {
+		typeName = "email"
+	}
+	if typeName == "" {
+		typeName = "unknwon"
+	}
+
+	createImpl := &alertingv1alpha.RoutingNode{
+		ConditionId: &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
+		FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
+			InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
+			Items: []*alertingv1alpha.FullAttachedEndpoint{
+				{
+					EndpointId:    dummyEndpointId,
+					AlertEndpoint: req.EndpointInfo,
+				},
+			},
+			Details: &alertingv1alpha.EndpointImplementation{
+				Title: fmt.Sprintf("Test %s Alert (%s)", typeName, time.Now().Format("2006-01-02T15:04:05 -07:00:00")),
+				Body:  "Opni-alerting is sending you a test alert",
+			},
+		},
+	}
+	// create condition routing node
+	_, err := p.CreateConditionRoutingNode(ctx, createImpl)
 	if err != nil {
 		return nil, err
 	}
@@ -135,20 +113,6 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return nil, err
 	}
-	// interact with pluginBackend
-	config, err := configFromBackend(p, ctx)
-	if err != nil {
-		return nil, err
-	}
-	lg.Debugf("received config from pluginBackend %v", config)
-	config.AppendReceiver(recv)
-	config.AppendRoute(recv, createImpl)
-	err = applyConfigToBackend(p, ctx, config, dummyConditionId)
-	if err != nil {
-		return nil, err
-	}
-	lg.Debug("done reloading")
-	// - Trigger it using httpv2 api
 	var availableEndpoint string
 	status, err := p.opsNode.GetClusterConfiguration(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -159,6 +123,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	} else {
 		availableEndpoint = options.GetWorkerEndpoint()
 	}
+	// trigger it
 	lg.Debug("active workload endpoint :%s", availableEndpoint)
 	alert := &backend.PostableAlert{}
 	alert.WithCondition(dummyConditionId)
@@ -174,9 +139,8 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		return nil, shared.WithInternalServerErrorf("failed to send alert to alertmanager")
 	}
 	lg.Debugf("Got response %s from alertmanager", resp.Status)
-	// We need to check that endpoint is deleted after a certain amount of time
-	// - Delete dummy Endpoint
 	go func() {
+		//TODO: FIXME: retrier backoff
 		time.Sleep(time.Second * 30)
 		// this cannot be done in the same context as the above call, otherwise the deadline will be exceeded
 		if _, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId}); err != nil {
@@ -186,114 +150,64 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	return &alertingv1alpha.TestAlertEndpointResponse{}, nil
 }
 
-func processEndpointDetails(
-	conditionId string,
-	req *alertingv1alpha.RoutingNode,
-	endpointDetails *alertingv1alpha.AlertEndpoint,
-) (*routing.Receiver, error) {
-	if s := endpointDetails.GetSlack(); s != nil {
-		recv, err := routing.NewSlackReceiver(conditionId, s)
-		if err != nil {
-			return nil, err // some validation error
-		}
-		recv, err = routing.WithSlackImplementation(recv, req.Implementation)
-		if err != nil {
-			return nil, err
-		}
-		return recv, nil
-	}
-	if e := endpointDetails.GetEmail(); e != nil {
-		recv, err := routing.NewEmailReceiver(conditionId, e)
-		if err != nil {
-			return nil, err // some validation error
-		}
-		recv, err = routing.WithEmailImplementation(recv, req.Implementation)
-		if err != nil {
-			return nil, err
-		}
-		return recv, nil
-	}
-	return nil, validation.Error("Unhandled endpoint/implementation details")
-}
-
-// Called from CreateAlertCondition
 func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-
-	config, err := configFromBackend(p, ctx)
+	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// get the base which is a notification endpoint
-	endpointDetails, err := p.storageNode.GetEndpointStorage(ctx, req.EndpointId.Id)
+	err = amConfig.CreateRoutingNodeForCondition(
+		req.ConditionId.Id,
+		req.GetFullAttachedEndpoints(),
+		internalConfig,
+	)
 	if err != nil {
 		return nil, err
 	}
-	conditionId := req.ConditionId.Id
-	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
-	if err != nil {
-		return nil, err
-	}
-	config.AppendReceiver(recv)
-	config.AppendRoute(recv, req)
-	err = applyConfigToBackend(p, ctx, config, conditionId)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-// Called from UpdateAlertCondition
 func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
+	// TODO : implement this
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	config, err := configFromBackend(p, ctx)
+	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// get the base which is a notification endpoint
-	endpointDetails, err := p.storageNode.GetEndpointStorage(ctx, req.EndpointId.Id)
+	err = amConfig.UpdateRoutingNodeForCondition(
+		req.ConditionId.Id,
+		req.GetFullAttachedEndpoints(),
+		internalConfig,
+	)
 	if err != nil {
 		return nil, err
 	}
-	conditionId := req.ConditionId.Id
-	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
-	if err != nil {
-		return nil, err
-	}
-	//note: don't need to update routes after this since they hold a ref to the original condition id
-	err = config.UpdateReceiver(conditionId, recv)
-	if err != nil {
-		return nil, err
-	}
-	err = config.UpdateRoute(conditionId, recv, req)
-	if err != nil {
-		return nil, err
-	}
-	err = applyConfigToBackend(p, ctx, config, req.ConditionId.Id)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-// Called from DeleteAlertCondition
 // Id must be a conditionId
 func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	config, err := configFromBackend(p, ctx)
+	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := config.DeleteReceiver(req.Id); err != nil {
+	err = amConfig.DeleteRoutingNodeForCondition(req.Id, internalConfig)
+	if err != nil {
 		return nil, err
 	}
-	if err := config.DeleteRoute(req.Id); err != nil {
-		return nil, err
-	}
-	err = applyConfigToBackend(p, ctx, config, req.Id)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -303,4 +217,38 @@ func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Ref
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1alpha.RoutingRelationships, error) {
 	// TODO : implement this !!!!
 	return nil, nil
+}
+
+func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, attachedEndpoint *alertingv1alpha.FullAttachedEndpoint) (*emptypb.Empty, error) {
+	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = amConfig.UpdateIndividualEndpointNode(attachedEndpoint, internalConfig)
+	if err != nil {
+		return nil, err
+	}
+	//TODO: FIXME: This is a hack to get around the fact that we don't have a conditionId here
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, "")
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, reference *corev1.Reference) (*emptypb.Empty, error) {
+	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = amConfig.DeleteIndividualEndpointNode(reference.Id, internalConfig)
+	if err != nil {
+		return nil, err
+	}
+	//TODO: FIXME: This is a hack to get around the fact that we don't have a conditionId here
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, "")
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }

@@ -68,11 +68,12 @@ func appendError(errors *sharedErrors, err error) {
 }
 
 type AlertingManagerDriverOptions struct {
-	Logger            *zap.SugaredLogger
-	k8sClient         client.Client
-	gatewayRef        types.NamespacedName
-	gatewayApiVersion string
-	configKey         string
+	Logger             *zap.SugaredLogger
+	k8sClient          client.Client
+	gatewayRef         types.NamespacedName
+	gatewayApiVersion  string
+	configKey          string
+	internalRoutingKey string
 	// ! must be mutable, as it needs to be updated on operator changes
 	AlertingOptions *shared.NewAlertingOptions
 	mgmtClient      managementv1.ManagementClient
@@ -128,8 +129,9 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 			Namespace: os.Getenv("POD_NAMESPACE"),
 			Name:      os.Getenv("GATEWAY_NAME"),
 		},
-		gatewayApiVersion: os.Getenv("GATEWAY_API_VERSION"),
-		configKey:         shared.AlertManagerConfigKey,
+		gatewayApiVersion:  os.Getenv("GATEWAY_API_VERSION"),
+		configKey:          shared.AlertManagerConfigKey,
+		internalRoutingKey: shared.InternalRoutingConfigKey,
 	}
 	options.apply(opts...)
 	if options.AlertingOptions == nil {

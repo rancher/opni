@@ -1,8 +1,10 @@
 package drivers
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"sync"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -19,8 +21,20 @@ type ClusterDriver interface {
 	// have this capability enabled. If this function returns an error, the
 	// node will be set to disabled instead, and the error will be logged.
 	ShouldDisableNode(*corev1.Reference) error
+
 	// !! Read only view of alerting options
 	GetRuntimeOptions() (shared.NewAlertingOptions, error)
+	ConfigFromBackend(ctx context.Context) (
+		*routing.RoutingTree,
+		*routing.OpniInternalRouting,
+		error,
+	)
+	ApplyConfigToBackend(
+		ctx context.Context,
+		config *routing.RoutingTree,
+		internal *routing.OpniInternalRouting,
+		updatedConditionId string,
+	) error
 }
 
 var (
@@ -85,6 +99,19 @@ func ResetClusterDrivers() {
 type NoopClusterDriver struct {
 	alertops.UnimplementedAlertingAdminServer
 	alertops.DynamicAlertingServer
+}
+
+func (d *NoopClusterDriver) ConfigFromBackend(ctx context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
+	return nil, nil, fmt.Errorf("no config from backend")
+}
+
+func (d *NoopClusterDriver) ApplyConfigToBackend(
+	ctx context.Context,
+	config *routing.RoutingTree,
+	internal *routing.OpniInternalRouting,
+	updatedConditionId string,
+) error {
+	return fmt.Errorf("nothing to apply to backend")
 }
 
 func (d *NoopClusterDriver) Name() string {

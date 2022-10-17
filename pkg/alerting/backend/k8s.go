@@ -89,7 +89,7 @@ func (b *K8sEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, opt
 		},
 	}
 	mutator := func(gw *v1beta1.Gateway) {
-		gw.Spec.Alerting.RawConfigMap = string(applyData)
+		gw.Spec.Alerting.RawAlertManagerConfig = string(applyData)
 	}
 	objectKey := client.ObjectKeyFromObject(gw)
 	err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {

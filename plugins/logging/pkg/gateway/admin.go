@@ -10,9 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/status"
 	"github.com/lestrrat-go/backoff/v2"
-	"github.com/opensearch-project/opensearch-go"
 	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -22,6 +20,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -47,7 +46,7 @@ const (
 type ClusterStatus int
 
 const (
-	ClusterStatusPending ClusterStatus = iota
+	ClusterStatusPending ClusterStatus = iota + 1
 	ClusterStatusGreen
 	ClusterStatusYellow
 	ClusterStatusRed
@@ -597,7 +596,7 @@ FETCH:
 		InsecureSkipVerify: true,
 	}
 
-	osCfg := opensearch.Config{
+	osCfg := osclient.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://%s.%s:9200", cluster.Spec.General.ServiceName, cluster.Namespace),
 		},
@@ -607,7 +606,7 @@ FETCH:
 		Transport:            transport,
 	}
 
-	osClient, err := opensearch.NewClient(osCfg)
+	osClient, err := osclient.NewClient(osCfg)
 	if err != nil {
 		p.logger.Errorf("failed to create opensearch client: %v", err)
 		panic(err)

@@ -23,20 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	pendingValue = "job pending"
-)
-
-type deleteStatus int
-
-const (
-	deletePending deleteStatus = iota
-	deleteRunning
-	deleteFinished
-	deleteFinishedWithErrors
-	deleteError
-)
-
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 	storageNamespace  string

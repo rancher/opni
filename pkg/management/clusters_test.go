@@ -85,7 +85,6 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 					}
 					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
-					fmt.Println(event.Cluster.Id)
 					cluster, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 						Id: event.Cluster.Id,
 					})

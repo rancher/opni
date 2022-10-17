@@ -138,7 +138,7 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	if len(desc.Streams) > 0 {
 		s.logger.With(
 			zap.String("service", desc.ServiceName),
-		).Fatal("failed to register service: nested streams are currently not supported")
+		).Panic("failed to register service: nested streams are currently not supported")
 	}
 	s.services = append(s.services, util.PackService(desc, impl))
 }

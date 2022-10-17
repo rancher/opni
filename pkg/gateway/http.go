@@ -158,7 +158,7 @@ func NewHTTPServer(
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to load serving cert bundle")
+		).Panic("failed to load serving cert bundle")
 	}
 	srv := &GatewayHTTPServer{
 		router:            router,

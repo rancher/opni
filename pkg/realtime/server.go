@@ -85,7 +85,7 @@ func (rt *RealtimeServer) Start(ctx context.Context) error {
 		if err := http.ListenAndServe(rt.config.MetricsListenAddress, mux); err != nil {
 			rt.logger.With(
 				zap.Error(err),
-			).Fatal("failed to start metrics server")
+			).Panic("failed to start metrics server")
 		}
 	}()
 

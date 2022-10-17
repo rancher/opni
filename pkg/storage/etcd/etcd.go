@@ -79,7 +79,9 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		var err error
 		tlsConfig, err = util.LoadClientMTLSConfig(conf.Certs)
 		if err != nil {
-			lg.Fatal("failed to load client TLS config", zap.Error(err))
+			lg.With(
+				zap.Error(err),
+			).Panic("failed to load client TLS config")
 		}
 	}
 	clientConfig := clientv3.Config{
@@ -92,7 +94,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to create etcd client")
+		).Panic("failed to create etcd client")
 	}
 	lg.With(
 		"endpoints", clientConfig.Endpoints,

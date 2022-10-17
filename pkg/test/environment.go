@@ -1517,7 +1517,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			Kubeconfig: &agentOptions.remoteKubeconfig,
 		})), apis.NewScheme())
 		if err != nil || len(ports) != 1 {
-			Log.Fatal(err)
+			Log.Panic(err)
 		}
 		client, err = clients.NewManagementClient(environment.ctx,
 			clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", ports[0].Local)),
@@ -1590,7 +1590,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			for {
 				rn, err := t.ReadRune()
 				if err != nil {
-					Log.Fatal(err)
+					Log.Panic(err)
 				}
 				handleKey(rn)
 			}
@@ -1604,7 +1604,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				if strings.HasPrefix(cmd, "sleep:") {
 					d, err := time.ParseDuration(strings.TrimPrefix(cmd, "sleep:"))
 					if err != nil {
-						Log.Fatal(err)
+						Log.Panic(err)
 					}
 					time.Sleep(d)
 				} else {

@@ -239,7 +239,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to register management handler")
+		).Panic("failed to register management handler")
 	}
 	m.configureHttpApiExtensions(gwmux)
 	mux.Handle("/", gwmux)

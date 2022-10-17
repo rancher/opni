@@ -75,9 +75,9 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				Endpoint: "localhost:9093",
 				Route:    "/alerts",
 				Verb:     backend.POST,
-			}).WithHttpV2()
+			}).WithAPIV2()
 			Expect(url.Construct()).To(Equal("localhost:9093/api/v2/alerts"))
-			url.WithHttpV1()
+			url.WithAPIV1()
 			Expect(url.Construct()).To(Equal("localhost:9093/api/v1/alerts"))
 		})
 	})

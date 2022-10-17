@@ -72,7 +72,7 @@ service DynamicAlerting {
 }
 
 message ReloadInfo{
-  string updatedKey = 1;
+  string updatedConfig = 1; 
 }
 
 message AlertingConfig{

@@ -3,8 +3,6 @@ package drivers
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"github.com/tidwall/gjson"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
@@ -55,7 +52,6 @@ func (a *AlertingManager) ApplyConfigToBackend(
 	ctx context.Context,
 	config *routing.RoutingTree,
 	internal *routing.OpniInternalRouting,
-	updatedConditionId string,
 ) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -75,8 +71,11 @@ func (a *AlertingManager) ApplyConfigToBackend(
 		return err
 	}
 	_, err = a.Reload(ctx, &alertops.ReloadInfo{
-		UpdatedKey: updatedConditionId,
+		UpdatedConfig: string(rawAlertManagerData),
 	})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -195,7 +194,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 		return nil, err
 	}
 
-	// TODO : check config map is updated before returning
+	// FIXME? consider checking config map is updated before returning
 
 	return &emptypb.Empty{}, nil
 }
@@ -207,8 +206,6 @@ func (a *AlertingManager) GetStatus(ctx context.Context, _ *emptypb.Empty) (*ale
 
 func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.ReloadInfo) (*emptypb.Empty, error) {
 	lg := a.Logger.With("alerting-backend", "k8s", "action", "reload")
-
-	// TODO: FIXME: MEGA FIXME: this reload only implemnts logic for TestEndpoint API
 
 	reloadEndpoints := []string{}
 	// RELOAD the controller!!!
@@ -238,104 +235,40 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 
 	for _, endpoint := range reloadEndpoints {
 		wg.Add(1)
-		endpoint := endpoint
+		endpoint := endpoint //!! must capture in closure
+		pipelineRetrier := backoffv2.Exponential(
+			backoffv2.WithMinInterval(time.Second*2),
+			backoffv2.WithMaxInterval(time.Second*5),
+			backoffv2.WithMaxRetries(3),
+			backoffv2.WithMultiplier(1.2),
+		)
 
 		go func() {
 			defer wg.Done()
-			reloadClient := &backend.AlertManagerAPI{
-				Endpoint: endpoint,
-				Route:    "/-/reload",
-				Verb:     backend.POST,
-			}
-			webClient := &backend.AlertManagerAPI{
-				Endpoint: endpoint,
-				Route:    "/-/ready",
-				Verb:     backend.GET,
-			}
-			receiverClient := (&backend.AlertManagerAPI{
-				Endpoint: endpoint,
-				Route:    "/receivers",
-				Verb:     backend.GET,
-			}).WithHttpV2()
-
-			// reload logic
-			numReloads := 0
-			numNotFound := 0
-
-			retrier := backoffv2.Exponential(
-				backoffv2.WithMaxRetries(10),
-				backoffv2.WithMinInterval(2*time.Second),
-				backoffv2.WithMaxInterval(5*time.Second),
-				backoffv2.WithMultiplier(1.2),
+			pipelineErr := backend.NewApiPipline(
+				ctx,
+				[]*backend.AlertManagerAPI{
+					backend.NewAlertManagerReloadClient(
+						endpoint,
+						ctx,
+						backend.WithExpectClosure(backend.NewExpectStatusOk()),
+					),
+					backend.NewAlertManagerReadyClient(
+						endpoint,
+						ctx,
+						backend.WithExpectClosure(backend.NewExpectStatusOk()),
+					),
+					backend.NewAlertManagerStatusClient(
+						endpoint,
+						ctx,
+						backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig)),
+					),
+				},
+				&pipelineRetrier,
 			)
-			b := retrier.Start(ctx)
-			for backoffv2.Continue(b) { //FIXME: this logic is janky
-				numReloads += 1
-				resp, err := http.Post(reloadClient.ConstructHTTP(), "application/json", nil)
-				if err != nil {
-					lg.Errorf("failed to reload alertmanager %s : %s", reloadClient.Endpoint, err)
-					appendError(errors, err)
-					return
-				}
-				if resp.StatusCode != 200 {
-					msg := fmt.Sprintf("failed to reload alertmanager %s successfully : %s", reloadClient.Endpoint, resp.Status)
-					lg.Errorf(msg)
-					appendError(errors, fmt.Errorf(msg))
-					return
-				}
-				receiverResponse, err := http.Get(receiverClient.ConstructHTTP())
-				if err != nil {
-					msg := fmt.Sprintf("failed to fetch alertmanager receivers manually for %s", receiverClient.Endpoint)
-					lg.Errorf(msg)
-					appendError(errors, err)
-				}
-				if receiverResponse.StatusCode != 200 {
-					msg := fmt.Sprintf("got unexpected receiver for %s", receiverClient.Endpoint)
-					lg.Errorf(msg)
-					appendError(errors, err)
-				}
-
-				body, err := io.ReadAll(receiverResponse.Body)
-				if err != nil {
-					msg := fmt.Sprintf("got unexpected receiver for %s", receiverClient.Endpoint)
-					lg.Errorf(msg)
-					appendError(errors, err)
-				}
-				result := gjson.Get(string(body), "#.name")
-				found := false
-				for _, receiver := range result.Array() {
-					if receiver.String() == reloadInfo.UpdatedKey {
-						found = true
-						break
-					}
-				}
-				if !found {
-					numNotFound += 1
-				} else {
-					break
-				}
-			}
-
-			if numNotFound > 0 {
-				lg.Warnf("Reloaded %s %d times, but receiver not found %d times", reloadClient.Endpoint, numReloads, numNotFound)
-				if numNotFound == 100 {
-					lg.Warnf("Reload likely failed for %s", reloadClient.Endpoint)
-				}
-			}
-			//FIXME: retrier backoff
-			for i := 0; i < 10; i++ {
-				lg.Debugf("Checking alertmanager %s is ready ...", webClient.Endpoint)
-				resp, err := http.Get(webClient.ConstructHTTP())
-				if err == nil {
-					defer resp.Body.Close()
-					if resp.StatusCode == http.StatusOK {
-						lg.Debugf("alertmanager %s is ready ...", webClient.Endpoint)
-						return
-					} else {
-						lg.Warnf("Alert manager %s not ready after reload, retrying...", webClient.Endpoint)
-					}
-				}
-				time.Sleep(time.Second)
+			if pipelineErr != nil {
+				lg.Error(pipelineErr)
+				appendError(errors, pipelineErr)
 			}
 		}()
 	}

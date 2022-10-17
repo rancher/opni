@@ -141,7 +141,7 @@ func GetAlerts(ctx context.Context, endpoint string) (*http.Request, *http.Respo
 		Endpoint: endpoint,
 		Route:    "/alerts",
 		Verb:     "GET",
-	}).WithHttpV2()
+	}).WithAPIV2()
 	req, err := http.NewRequestWithContext(ctx, api.Verb, api.ConstructHTTP(), nil)
 	if err != nil {
 		return req, nil, err
@@ -225,7 +225,7 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 		Endpoint: endpoint,
 		Route:    "/alerts",
 		Verb:     POST,
-	}).WithHttpV2().ConstructHTTP()
+	}).WithAPIV2().ConstructHTTP()
 	b, err := json.Marshal(alerts)
 	if err != nil {
 		return nil, nil, err
@@ -252,7 +252,7 @@ func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence)
 		Endpoint: endpoint,
 		Route:    "/silences",
 		Verb:     POST,
-	}).WithHttpV2().ConstructHTTP()
+	}).WithAPIV2().ConstructHTTP()
 	b, err := json.Marshal(silence)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func DeleteSilence(ctx context.Context, endpoint string, silence *DeletableSilen
 		Endpoint: endpoint,
 		Route:    "/silences/" + silence.SilenceId,
 		Verb:     DELETE,
-	}).WithHttpV2().ConstructHTTP()
+	}).WithAPIV2().ConstructHTTP()
 	req, err := http.NewRequestWithContext(ctx, DELETE, reqUrl, nil)
 	if err != nil {
 		return nil, err

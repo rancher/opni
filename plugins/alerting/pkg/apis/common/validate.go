@@ -173,19 +173,37 @@ func (u *UpdateAlertEndpointRequest) Validate() error {
 }
 
 func (c *RoutingNode) Validate() error {
-	//if err := c.GetImplementation().Validate(); err != nil {
-	//	return err
-	//}
 	// TODO : validate
 	return nil
 }
 
 func (t *TestAlertEndpointRequest) Validate() error {
-	if err := t.GetImpl().Validate(); err != nil {
+	if err := t.GetEndpoint().Validate(); err != nil {
 		return err
 	}
-	if err := t.GetEndpointInfo().Validate(); err != nil {
-		return err
-	}
+	return nil
+}
+
+func (f *FullAttachedEndpoints) Validate() error {
+	// TODO
+
+	// TODO : validate there are no duplicate ids
+	return nil
+}
+
+func (f *FullAttachedEndpoint) Validate() error {
+	// TODO
+	return nil
+}
+
+func (a *AttachedEndpoint) Validate() error {
+	// TODO
+
+	// TODO : validate there are no duplicate ids
+	return nil
+}
+
+func (a *AttachedEndpoints) Validate() error {
+	// TODO
 	return nil
 }

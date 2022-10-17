@@ -31,7 +31,7 @@ func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*
 	return p.storageNode.GetEndpointStorage(ctx, ref.Id)
 }
 
-func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*alertingv1alpha.InvolvedConditions, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -43,7 +43,16 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	// if the endpoint is involved in any conditions
 	// get conditions involved, get their endpoint details
 	involvedConditions := allRelationships.InvolvedConditionsForEndpoint(req.Id.Id)
+	refList := []*corev1.Reference{}
 	if len(involvedConditions) > 0 {
+		for _, condId := range involvedConditions {
+			refList = append(refList, &corev1.Reference{Id: condId})
+		}
+		if !req.ForceUpdate {
+			return &alertingv1alpha.InvolvedConditions{
+				Items: refList,
+			}, nil
+		}
 		_, err := p.UpdateIndividualEndpointInRoutingNode(ctx, &alertingv1alpha.FullAttachedEndpoint{
 			EndpointId:    req.Id.Id,
 			AlertEndpoint: req.UpdateAlert,
@@ -55,7 +64,9 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return &alertingv1alpha.InvolvedConditions{
+		Items: refList,
+	}, nil
 }
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
@@ -77,11 +88,43 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	return &alertingv1alpha.AlertEndpointList{Items: items}, nil
 }
 
-func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	if err := p.storageNode.DeleteEndpointStorage(ctx, ref.Id); err != nil {
+func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1alpha.DeleteAlertEndpointRequest) (*alertingv1alpha.InvolvedConditions, error) {
+	_, err := p.GetAlertEndpoint(ctx, req.Id)
+	if err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+
+	// List relationships
+	allRelationships, err := p.ListRoutingRelationships(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	// if the endpoint is involved in any conditions
+	// get conditions involved, get their endpoint details
+	involvedConditions := allRelationships.InvolvedConditionsForEndpoint(req.Id.Id)
+	refList := []*corev1.Reference{}
+	if len(involvedConditions) > 0 {
+		for _, condId := range involvedConditions {
+			refList = append(refList, &corev1.Reference{Id: condId})
+		}
+		if !req.ForceDelete {
+			return &alertingv1alpha.InvolvedConditions{
+				Items: refList,
+			}, nil
+		}
+		_, err := p.DeleteIndividualEndpointInRoutingNode(ctx, req.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := p.storageNode.DeleteEndpointStorage(ctx, req.Id.Id); err != nil {
+		return nil, err
+	}
+
+	return &alertingv1alpha.InvolvedConditions{
+		Items: refList,
+	}, nil
 }
 
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {

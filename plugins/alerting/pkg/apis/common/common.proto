@@ -101,6 +101,7 @@ enum AlertConditionState {
   SILENCED = 3;
 }
 
+// enum will map to an object of available choices
 message AlertDetailChoicesRequest {
   AlertType alertType = 1;
 }
@@ -129,6 +130,10 @@ message ListAlertTypeDetails {
   }
 }
 
+message InvolvedConditions {
+  repeated core.Reference items = 1;
+}
+
 // Reserved for opni-alerting internal use
 message AlertConditionSystem {}
 
@@ -147,7 +152,7 @@ message AlertConditionKubeState {
   google.protobuf.Duration for = 6;
 }
 
-// cluster --> resourceType --> namespace --> resourceName
+// clusters --> resourceType --> namespace --> resourceName
 message ListAlertConditionKubeState {
   map<string, KubeObjectGroups> clusters = 1;
   repeated string states = 2;
@@ -210,10 +215,6 @@ message UpdateAlertConditionRequest {
   AlertCondition updateAlert = 2;
 }
 
-message PreviewAlertConditionRequest {}
-
-message PreviewAlertConditionResponse {}
-
 message SilenceRequest {
   core.Reference conditionId = 1;
   google.protobuf.Duration duration = 2;
@@ -225,28 +226,8 @@ message SilenceInfo {
   google.protobuf.Timestamp endsAt = 3;
 }
 
-message TemplatesResponse {
-  repeated string template = 1;
-}
-
 message AlertStatusResponse {
   AlertConditionState state = 1;
-}
-
-message AlertForest {
-  ControlFlowAction action = 1;
-}
-
-message AlertTree {
-  AlertTreeNode root = 1;
-}
-
-message AlertTreeNode {
-  oneof condtion {
-    AlertConditionWithId item = 1;
-  }
-  AlertTreeNode left = 2;
-  AlertTreeNode right = 3;
 }
 
 // ------------------ ENDPOINT ------------------
@@ -259,33 +240,26 @@ message EndpointImplementation {
   // send a notification when the alert is no longer firing? yes/no (default =
   // no)
   optional bool sendResolved = 3;
-
-//  // initial delay before firing the alert (optional) (default=10s)
-//  optional google.protobuf.Duration initialDelay = 3;
-//  // how often to resend alert messages on active alerts (default =10s)
-//  optional google.protobuf.Duration repeatInterval = 4;
-//  // How long to wait before sending notifications on new condition that has
-//  // already fired recently (default= 10m)
-//  optional google.protobuf.Duration throttlingDuration = 5;
-//  // send a notification when the alert is no longer firing? yes/no (default =
-//  // no)
-//  optional bool sendResolved = 6;
 }
 
+// opni-alerting internal use
 message RoutingNode {
   core.Reference conditionId = 1;
   FullAttachedEndpoints fullAttachedEndpoints = 2;
 }
 
+// opni-alerting internal use
 message EndpointMetadata {
   int32 position = 1;
   string endpointType = 2;
 }
 
+// opni-alerting internal use
 message EndpointRoutingMap {
   map<string, EndpointMetadata> endpoints = 1;
 }
 
+// opni-alerting internal use
 message RoutingRelationships {
   map<string, EndpointRoutingMap> conditions = 1;
 }
@@ -296,7 +270,6 @@ message AlertEndpoint {
   oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;
-//    WebhookEndpoint webhook = 7;
   }
 }
 
@@ -322,11 +295,6 @@ message EmailEndpoint {
   optional bool smtpRequireTLS = 7;
 }
 
-
-message WebhookEndpoint {
-  string url = 1;
-}
-
 message AlertEndpointList {
   repeated AlertEndpointWithId items = 1;
 }
@@ -337,15 +305,24 @@ message AlertEndpointWithId {
 }
 
 message ListAlertEndpointsRequest {}
+
 message UpdateAlertEndpointRequest {
-  core.Reference id = 1;
-  AlertEndpoint updateAlert = 2;
+  bool forceUpdate = 1;
+  core.Reference id = 2;
+  AlertEndpoint updateAlert = 3;
+}
+
+message DeleteAlertEndpointRequest {
+  bool  forceDelete = 1;
+  core.Reference id = 2;
+
 }
 
 message TestAlertEndpointRequest {
   AlertEndpoint endpoint = 1;
 }
 
+// will contain details in a future iteration
 message TestAlertEndpointResponse {}
 
 // ------------------ LOG ------------------
@@ -372,9 +349,11 @@ message InformativeAlertLogList {
   repeated InformativeAlertLog items = 1;
 }
 
+// opni-alerting internal use
 message TriggerAlertsRequest {
   core.Reference conditionId = 1;
   map<string, string> annotations = 2;
 }
 
+// opni-alerting internal use
 message TriggerAlertsResponse {}

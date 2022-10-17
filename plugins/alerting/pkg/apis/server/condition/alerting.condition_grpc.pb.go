@@ -31,10 +31,7 @@ type AlertConditionsClient interface {
 	UpdateAlertCondition(ctx context.Context, in *common.UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListAlertConditionChoices(ctx context.Context, in *common.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*common.ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListAvailableTemplatesForType(ctx context.Context, in *common.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*common.TemplatesResponse, error)
 	AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertStatusResponse, error)
-	// unimplemented
-	PreviewAlertCondition(ctx context.Context, in *common.PreviewAlertConditionRequest, opts ...grpc.CallOption) (*common.PreviewAlertConditionResponse, error)
 	ActivateSilence(ctx context.Context, in *common.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -102,27 +99,9 @@ func (c *alertConditionsClient) DeleteAlertCondition(ctx context.Context, in *v1
 	return out, nil
 }
 
-func (c *alertConditionsClient) ListAvailableTemplatesForType(ctx context.Context, in *common.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*common.TemplatesResponse, error) {
-	out := new(common.TemplatesResponse)
-	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/ListAvailableTemplatesForType", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *alertConditionsClient) AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertStatusResponse, error) {
 	out := new(common.AlertStatusResponse)
 	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/AlertConditionStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *alertConditionsClient) PreviewAlertCondition(ctx context.Context, in *common.PreviewAlertConditionRequest, opts ...grpc.CallOption) (*common.PreviewAlertConditionResponse, error) {
-	out := new(common.PreviewAlertConditionResponse)
-	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/PreviewAlertCondition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,10 +136,7 @@ type AlertConditionsServer interface {
 	UpdateAlertCondition(context.Context, *common.UpdateAlertConditionRequest) (*emptypb.Empty, error)
 	ListAlertConditionChoices(context.Context, *common.AlertDetailChoicesRequest) (*common.ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	ListAvailableTemplatesForType(context.Context, *common.AlertDetailChoicesRequest) (*common.TemplatesResponse, error)
 	AlertConditionStatus(context.Context, *v1.Reference) (*common.AlertStatusResponse, error)
-	// unimplemented
-	PreviewAlertCondition(context.Context, *common.PreviewAlertConditionRequest) (*common.PreviewAlertConditionResponse, error)
 	ActivateSilence(context.Context, *common.SilenceRequest) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -189,14 +165,8 @@ func (UnimplementedAlertConditionsServer) ListAlertConditionChoices(context.Cont
 func (UnimplementedAlertConditionsServer) DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertCondition not implemented")
 }
-func (UnimplementedAlertConditionsServer) ListAvailableTemplatesForType(context.Context, *common.AlertDetailChoicesRequest) (*common.TemplatesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListAvailableTemplatesForType not implemented")
-}
 func (UnimplementedAlertConditionsServer) AlertConditionStatus(context.Context, *v1.Reference) (*common.AlertStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AlertConditionStatus not implemented")
-}
-func (UnimplementedAlertConditionsServer) PreviewAlertCondition(context.Context, *common.PreviewAlertConditionRequest) (*common.PreviewAlertConditionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PreviewAlertCondition not implemented")
 }
 func (UnimplementedAlertConditionsServer) ActivateSilence(context.Context, *common.SilenceRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateSilence not implemented")
@@ -325,24 +295,6 @@ func _AlertConditions_DeleteAlertCondition_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertConditions_ListAvailableTemplatesForType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.AlertDetailChoicesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertConditionsServer).ListAvailableTemplatesForType(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.condition.AlertConditions/ListAvailableTemplatesForType",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).ListAvailableTemplatesForType(ctx, req.(*common.AlertDetailChoicesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
@@ -357,24 +309,6 @@ func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertConditionsServer).AlertConditionStatus(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AlertConditions_PreviewAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.PreviewAlertConditionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertConditionsServer).PreviewAlertCondition(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.condition.AlertConditions/PreviewAlertCondition",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).PreviewAlertCondition(ctx, req.(*common.PreviewAlertConditionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -447,16 +381,8 @@ var AlertConditions_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AlertConditions_DeleteAlertCondition_Handler,
 		},
 		{
-			MethodName: "ListAvailableTemplatesForType",
-			Handler:    _AlertConditions_ListAvailableTemplatesForType_Handler,
-		},
-		{
 			MethodName: "AlertConditionStatus",
 			Handler:    _AlertConditions_AlertConditionStatus_Handler,
-		},
-		{
-			MethodName: "PreviewAlertCondition",
-			Handler:    _AlertConditions_PreviewAlertCondition_Handler,
 		},
 		{
 			MethodName: "ActivateSilence",

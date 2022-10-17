@@ -187,8 +187,12 @@ func local_request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, mar
 
 }
 
+var (
+	filter_AlertEndpoints_DeleteAlertEndpoint_0 = &utilities.DoubleArray{Encoding: map[string]int{"id": 0}, Base: []int{1, 2, 2, 0}, Check: []int{0, 1, 2, 3}}
+)
+
 func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq common.DeleteAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -198,14 +202,21 @@ func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler
 		_   = err
 	)
 
-	val, ok = pathParams["id"]
+	val, ok = pathParams["id.id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id.id")
 	}
 
-	protoReq.Id, err = runtime.String(val)
+	err = runtime.PopulateFieldFromPath(&protoReq, "id.id", val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id.id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertEndpoints_DeleteAlertEndpoint_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := client.DeleteAlertEndpoint(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -214,7 +225,7 @@ func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler
 }
 
 func local_request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq common.DeleteAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -224,14 +235,21 @@ func local_request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, mar
 		_   = err
 	)
 
-	val, ok = pathParams["id"]
+	val, ok = pathParams["id.id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id.id")
 	}
 
-	protoReq.Id, err = runtime.String(val)
+	err = runtime.PopulateFieldFromPath(&protoReq, "id.id", val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id.id", err)
+	}
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertEndpoints_DeleteAlertEndpoint_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	msg, err := server.DeleteAlertEndpoint(ctx, &protoReq)
@@ -387,7 +405,7 @@ func RegisterAlertEndpointsHandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/delete/{id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/delete/{id.id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -564,7 +582,7 @@ func RegisterAlertEndpointsHandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/delete/{id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/delete/{id.id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -614,7 +632,7 @@ var (
 
 	pattern_AlertEndpoints_UpdateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"configure"}, ""))
 
-	pattern_AlertEndpoints_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"delete", "id"}, ""))
+	pattern_AlertEndpoints_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"delete", "id.id"}, ""))
 
 	pattern_AlertEndpoints_TestAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"test"}, ""))
 )

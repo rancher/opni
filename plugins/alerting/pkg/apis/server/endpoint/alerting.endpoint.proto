@@ -39,17 +39,26 @@ service AlertEndpoints{
     };
   }
 
+  // when forceUpdate = false, 
+  // returns a list of conditions this would affect (if none, applies the update)
+  // when forceUpdate = true, 
+  //  updates everything without warning
   rpc UpdateAlertEndpoint(common.UpdateAlertEndpointRequest)
-      returns (google.protobuf.Empty) {
+      returns (common.InvolvedConditions) {
     option (google.api.http) = {
       put : "/configure"
       body : "*"
     };
   }
 
-  rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
+  // when forceDelete = false,
+  // returns a list of conditions this would affect (if none, applies the delete)
+  // when forceDelete = true
+  // deletes and applies the consequences of those changes to everything without warning
+  rpc DeleteAlertEndpoint(common.DeleteAlertEndpointRequest) 
+  returns (common.InvolvedConditions) {
     option (google.api.http) = {
-      post : "/delete/{id}"
+      post : "/delete/{id.id}"
     };
   }
 
@@ -60,7 +69,8 @@ service AlertEndpoints{
       body : "*"
     };
   }
-
+  
+  // alerting internal use only
   rpc ListRoutingRelationships(google.protobuf.Empty) 
       returns (common.RoutingRelationships) {
   }

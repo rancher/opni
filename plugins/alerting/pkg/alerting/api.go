@@ -11,8 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"go.uber.org/zap"
 
-	"github.com/rancher/opni/pkg/alerting/templates"
-
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -134,12 +132,4 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		}
 	}
 	return &alertingv1alpha.TriggerAlertsResponse{}, nil
-}
-
-func (p *Plugin) ListAvailableTemplatesForType(ctx context.Context, request *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.TemplatesResponse, error) {
-	details := alertingv1alpha.EnumConditionToImplementation[alertingv1alpha.AlertType_SYSTEM]
-
-	return &alertingv1alpha.TemplatesResponse{
-		Template: templates.StrSliceAsTemplates(details.ListTemplates()),
-	}, nil
 }

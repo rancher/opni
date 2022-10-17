@@ -39,9 +39,9 @@ func (a *AlertingNoopV1Alpha) HandleCortexWebhook(ctx context.Context, in *struc
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) ListAvailableTemplatesForType(ctx context.Context, in *alertingv1alpha.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*alertingv1alpha.TemplatesResponse, error) {
-	return nil, shared.AlertingErrNotImplementedNOOP
-}
+// func (a *AlertingNoopV1Alpha) ListAvailableTemplatesForType(ctx context.Context, in *alertingv1alpha.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*alertingv1alpha.TemplatesResponse, error) {
+// 	return nil, shared.AlertingErrNotImplementedNOOP
+// }
 
 func (a *AlertingNoopV1Alpha) CreateAlertLog(ctx context.Context, event *corev1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
@@ -76,22 +76,23 @@ func (a *AlertingNoopV1Alpha) UpdateAlertCondition(ctx context.Context, req *ale
 func (a *AlertingNoopV1Alpha) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
-func (a *AlertingNoopV1Alpha) PreviewAlertCondition(ctx context.Context, req *alertingv1alpha.PreviewAlertConditionRequest, opts ...grpc.CallOption) (*alertingv1alpha.PreviewAlertConditionResponse, error) {
-	return nil, shared.AlertingErrNotImplementedNOOP
-}
+
+//	func (a *AlertingNoopV1Alpha) PreviewAlertCondition(ctx context.Context, req *alertingv1alpha.PreviewAlertConditionRequest, opts ...grpc.CallOption) (*alertingv1alpha.PreviewAlertConditionResponse, error) {
+//		return nil, shared.AlertingErrNotImplementedNOOP
+//	}
 func (a *AlertingNoopV1Alpha) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 func (a *AlertingNoopV1Alpha) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*alertingv1alpha.AlertEndpoint, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
-func (a *AlertingNoopV1Alpha) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*alertingv1alpha.InvolvedConditions, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 func (a *AlertingNoopV1Alpha) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*alertingv1alpha.AlertEndpointList, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
-func (a *AlertingNoopV1Alpha) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) DeleteAlertEndpoint(ctx context.Context, req *alertingv1alpha.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*alertingv1alpha.InvolvedConditions, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 func (a *AlertingNoopV1Alpha) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest, opts ...grpc.CallOption) (*alertingv1alpha.TestAlertEndpointResponse, error) {

@@ -28,9 +28,19 @@ type AlertEndpointsClient interface {
 	CreateAlertEndpoint(ctx context.Context, in *common.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertEndpoint, error)
 	ListAlertEndpoints(ctx context.Context, in *common.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*common.AlertEndpointList, error)
-	UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	DeleteAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// when forceUpdate = false,
+	// returns a list of conditions this would affect (if none, applies the update)
+	// when forceUpdate = true,
+	//
+	//	updates everything without warning
+	UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error)
+	// when forceDelete = false,
+	// returns a list of conditions this would affect (if none, applies the delete)
+	// when forceDelete = true
+	// deletes and applies the consequences of those changes to everything without warning
+	DeleteAlertEndpoint(ctx context.Context, in *common.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error)
 	TestAlertEndpoint(ctx context.Context, in *common.TestAlertEndpointRequest, opts ...grpc.CallOption) (*common.TestAlertEndpointResponse, error)
+	// alerting internal use only
 	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*common.RoutingRelationships, error)
 	// alerting internal use only
 	// creates a node in the alertmanager config to be routed to
@@ -91,8 +101,8 @@ func (c *alertEndpointsClient) ListAlertEndpoints(ctx context.Context, in *commo
 	return out, nil
 }
 
-func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error) {
+	out := new(common.InvolvedConditions)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/UpdateAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -100,8 +110,8 @@ func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *comm
 	return out, nil
 }
 
-func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *common.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error) {
+	out := new(common.InvolvedConditions)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -179,9 +189,19 @@ type AlertEndpointsServer interface {
 	CreateAlertEndpoint(context.Context, *common.AlertEndpoint) (*emptypb.Empty, error)
 	GetAlertEndpoint(context.Context, *v1.Reference) (*common.AlertEndpoint, error)
 	ListAlertEndpoints(context.Context, *common.ListAlertEndpointsRequest) (*common.AlertEndpointList, error)
-	UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*emptypb.Empty, error)
-	DeleteAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// when forceUpdate = false,
+	// returns a list of conditions this would affect (if none, applies the update)
+	// when forceUpdate = true,
+	//
+	//	updates everything without warning
+	UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*common.InvolvedConditions, error)
+	// when forceDelete = false,
+	// returns a list of conditions this would affect (if none, applies the delete)
+	// when forceDelete = true
+	// deletes and applies the consequences of those changes to everything without warning
+	DeleteAlertEndpoint(context.Context, *common.DeleteAlertEndpointRequest) (*common.InvolvedConditions, error)
 	TestAlertEndpoint(context.Context, *common.TestAlertEndpointRequest) (*common.TestAlertEndpointResponse, error)
+	// alerting internal use only
 	ListRoutingRelationships(context.Context, *emptypb.Empty) (*common.RoutingRelationships, error)
 	// alerting internal use only
 	// creates a node in the alertmanager config to be routed to
@@ -221,10 +241,10 @@ func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v1.R
 func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *common.ListAlertEndpointsRequest) (*common.AlertEndpointList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEndpoints not implemented")
 }
-func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*common.InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *common.DeleteAlertEndpointRequest) (*common.InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
 }
 func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *common.TestAlertEndpointRequest) (*common.TestAlertEndpointResponse, error) {
@@ -334,7 +354,7 @@ func _AlertEndpoints_UpdateAlertEndpoint_Handler(srv interface{}, ctx context.Co
 }
 
 func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(common.DeleteAlertEndpointRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -346,7 +366,7 @@ func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).DeleteAlertEndpoint(ctx, req.(*v1.Reference))
+		return srv.(AlertEndpointsServer).DeleteAlertEndpoint(ctx, req.(*common.DeleteAlertEndpointRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

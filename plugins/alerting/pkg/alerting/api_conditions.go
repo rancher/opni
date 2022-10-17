@@ -198,18 +198,6 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) PreviewAlertCondition(ctx context.Context,
-	req *alertingv1alpha.PreviewAlertConditionRequest) (*alertingv1alpha.PreviewAlertConditionResponse, error) {
-	// Create alert condition
-
-	// measure status
-
-	// Delete alert condition
-
-	// return status
-	return nil, shared.AlertingErrNotImplemented
-}
-
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
 	//FIXME: requires changes to the way we post conditions when notification id is nil
 	lg := p.Logger.With("handler", "AlertConditionStatus")

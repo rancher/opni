@@ -48,7 +48,7 @@ func DoDelete(
 ) (*emptypb.Empty, error) {
 	alertingMutex.Lock()
 	defer alertingMutex.Unlock()
-	return p.DeleteAlertEndpoint(ctx, req)
+	return p.DeleteAlertCondition(ctx, req)
 }
 
 func DoTrigger(

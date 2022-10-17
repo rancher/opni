@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/rancher/opni/pkg/alerting/condition"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,7 +32,6 @@ import (
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -47,13 +48,12 @@ var (
 )
 
 type GatewayHTTPServer struct {
-	router         *gin.Engine
-	conf           *v1beta1.GatewayConfigSpec
-	logger         *zap.SugaredLogger
-	tlsConfig      *tls.Config
-	metricsHandler *MetricsEndpointHandler
-	pprofHandler   *PprofEndpointHandler
-	tracer         trace.Tracer
+	router            *gin.Engine
+	conf              *v1beta1.GatewayConfigSpec
+	logger            *zap.SugaredLogger
+	tlsConfig         *tls.Config
+	metricsRouter     *gin.Engine
+	metricsRegisterer prometheus.Registerer
 
 	routesMu             sync.Mutex
 	reservedPrefixRoutes []string
@@ -79,10 +79,6 @@ func NewHTTPServer(
 			httpRequestsTotal.Inc()
 		},
 	)
-
-	router.GET("/healthz", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
 
 	handlerName := cfg.Alerting.ManagementHookHandler
 	// request body will be in the form of AM webhook payload :
@@ -144,6 +140,20 @@ func NewHTTPServer(
 		c.JSON(http.StatusOK, nil)
 	})
 
+	metricsRouter := gin.New()
+	metricsRouter.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	if cfg.Profiling.Path != "" {
+		pprof.Register(metricsRouter, cfg.Profiling.Path)
+	} else {
+		pprof.Register(metricsRouter)
+	}
+
+	metricsHandler := NewMetricsEndpointHandler(cfg.Metrics)
+	metricsRouter.GET(cfg.Metrics.GetPath(), gin.WrapH(metricsHandler.Handler()))
+
 	tlsConfig, _, err := loadTLSConfig(cfg)
 	if err != nil {
 		lg.With(
@@ -151,21 +161,21 @@ func NewHTTPServer(
 		).Fatal("failed to load serving cert bundle")
 	}
 	srv := &GatewayHTTPServer{
-		router:         router,
-		conf:           cfg,
-		logger:         lg,
-		tlsConfig:      tlsConfig,
-		metricsHandler: NewMetricsEndpointHandler(cfg.Metrics),
-		pprofHandler:   NewPprofEndpointHandler(cfg.Profiling),
+		router:            router,
+		conf:              cfg,
+		logger:            lg,
+		tlsConfig:         tlsConfig,
+		metricsRouter:     metricsRouter,
+		metricsRegisterer: metricsHandler.reg,
 		reservedPrefixRoutes: []string{
 			cfg.Metrics.GetPath(),
 			"/healthz",
 		},
 	}
 
-	srv.metricsHandler.MustRegister(apiCollectors...)
+	srv.metricsRegisterer.MustRegister(apiCollectors...)
 	pl.Hook(hooks.OnLoad(func(p types.MetricsPlugin) {
-		srv.metricsHandler.MustRegister(p)
+		srv.metricsRegisterer.MustRegister(p)
 	}))
 
 	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {
@@ -193,8 +203,11 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 		return err
 	}
 
+	metricsListener, err := net.Listen("tcp4", s.conf.MetricsListenAddress)
+
 	lg.With(
-		"address", listener.Addr().String(),
+		"api", listener.Addr().String(),
+		"metrics", metricsListener.Addr().String(),
 	).Info("gateway HTTP server starting")
 
 	ctx, ca := context.WithCancel(ctx)
@@ -204,17 +217,10 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 	})
 
 	e2 := lo.Async(func() error {
-		return s.metricsHandler.ListenAndServe(ctx)
+		return util.ServeHandler(ctx, s.metricsRouter.Handler(), metricsListener)
 	})
 
-	e3 := lo.Async(func() error {
-		if s.conf.Profiling.Enabled {
-			return s.pprofHandler.ListenAndServe(ctx)
-		}
-		return nil
-	})
-
-	return util.WaitAll(ctx, ca, e1, e2, e3)
+	return util.WaitAll(ctx, ca, e1, e2)
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(

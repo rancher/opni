@@ -103,7 +103,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	p.configureAlertmanager(router, fwds, mws)
 	p.configureRuler(router, fwds, mws)
 	p.configureQueryFrontend(router, fwds, mws)
-	pprof.Register(router, "/api/plugin/pprof")
+	pprof.Register(router, "/debug/plugin_metrics/pprof")
 }
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {

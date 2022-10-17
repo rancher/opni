@@ -2040,11 +2040,9 @@ spec:
                 type: array
               profiling:
                 properties:
-                  enabled:
-                    type: boolean
-                  port:
-                    default: 8087
-                    type: integer
+                  path:
+                    default: /debug/pprof
+                    type: string
                 type: object
               serviceAnnotations:
                 additionalProperties:

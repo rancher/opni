@@ -641,11 +641,9 @@ func (e *Environment) startRealtimeServer() {
 	}
 
 	srv, err := realtime.NewServer(&v1beta1.RealtimeServerSpec{
+		MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.RTMetrics),
 		ManagementClient: v1beta1.ManagementClientSpec{
 			Address: fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC),
-		},
-		Metrics: v1beta1.MetricsSpec{
-			Port: e.ports.RTMetrics,
 		},
 	})
 	if err != nil {
@@ -938,15 +936,13 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			Kind:       "GatewayConfig",
 		},
 		Spec: v1beta1.GatewayConfigSpec{
-			HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayHTTP),
-			GRPCListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+			HTTPListenAddress:    fmt.Sprintf("localhost:%d", e.ports.GatewayHTTP),
+			GRPCListenAddress:    fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementWeb),
-			},
-			Metrics: v1beta1.MetricsSpec{
-				Port: e.ports.GatewayMetrics,
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{

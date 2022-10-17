@@ -72,12 +72,12 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow", "dep
 				HaveMatchingContainer(And(
 					HaveImage("rancher/opni:latest"),
 					HavePorts(
-						"http",
-						"metrics",
-						"management-grpc",
-						"management-http",
-						"management-web",
-						"noauth",
+						"http", 8080,
+						"metrics", 8086,
+						"management-grpc", 11090,
+						"management-http", 11080,
+						"management-web", 12080,
+						"noauth", 4000,
 					),
 					HaveVolumeMounts(
 						"config",
@@ -127,12 +127,13 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow", "dep
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"http",
-					"management-grpc",
-					"management-http",
+					"http", 8080,
+					"metrics", 8086,
+					"management-grpc", 11090,
+					"management-http", 11080,
 				),
 				Not(HavePorts(
-					"management-web",
+					"management-web", 12080,
 				)),
 				HaveType(corev1.ServiceTypeClusterIP),
 			))
@@ -144,7 +145,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow", "dep
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"web",
+					"web", 12080,
 				),
 				HaveType(corev1.ServiceTypeClusterIP),
 			))

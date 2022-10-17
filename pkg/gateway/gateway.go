@@ -363,7 +363,7 @@ func (g *Gateway) WatchClusterHealthStatus(ctx context.Context, ref *corev1.Refe
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
-	g.httpServer.metricsHandler.MustRegister(collector)
+	g.httpServer.metricsRegisterer.MustRegister(collector)
 }
 
 func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {

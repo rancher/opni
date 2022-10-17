@@ -56,7 +56,7 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handlePushRequest)
-	pprof.Register(router, "/api/plugin/pprof")
+	pprof.Register(router, "/debug/plugin_metrics/pprof")
 }
 
 func (s *HttpServer) handlePushRequest(c *gin.Context) {

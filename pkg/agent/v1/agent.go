@@ -110,9 +110,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	router := gin.New()
 	router.Use(logger.GinLogger(lg), gin.Recovery())
-	if conf.Spec.Profiling {
-		pprof.Register(router)
-	}
+	pprof.Register(router)
 
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)

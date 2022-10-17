@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"syscall"
 
 	"github.com/hashicorp/go-plugin"
@@ -74,12 +73,6 @@ func BuildAgentV2Cmd() *cobra.Command {
 				agentConfig = config
 			}); !ok {
 				agentlg.Fatal("no agent config found in config file")
-			}
-
-			if agentConfig.Spec.Profiling {
-				fmt.Fprintln(os.Stderr, chalk.Yellow.Color("Profiling is enabled. This should only be used for debugging purposes."))
-				runtime.SetBlockProfileRate(10000)
-				runtime.SetMutexProfileFraction(100)
 			}
 
 			bootstrapper, err := configureBootstrapV2(agentConfig, agentlg)

@@ -2,7 +2,6 @@ package realtime
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,21 +75,16 @@ func (rt *RealtimeServer) Start(ctx context.Context) error {
 
 	reg := prometheus.NewRegistry()
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+	mux.Handle(rt.config.Metrics.GetPath(), promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		Registry: reg,
 	}))
 	go func() {
-		port := 8080
-		if rt.config.Metrics.Port != 0 {
-			port = rt.config.Metrics.Port
-		}
 		rt.logger.With(
-			"port", port,
+			"address", rt.config.MetricsListenAddress,
 		).Info("starting metrics server")
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
+		if err := http.ListenAndServe(rt.config.MetricsListenAddress, mux); err != nil {
 			rt.logger.With(
 				zap.Error(err),
-				zap.String("address", fmt.Sprintf(":%d", port)),
 			).Fatal("failed to start metrics server")
 		}
 	}()

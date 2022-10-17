@@ -39,11 +39,16 @@ func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
 	return ports, nil
 }
 
-func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) {
+func (r *Reconciler) internalContainerPorts() ([]corev1.ContainerPort, error) {
 	ports := []corev1.ContainerPort{
 		{
 			Name:          "http",
 			ContainerPort: 8080,
+			Protocol:      corev1.ProtocolTCP,
+		},
+		{
+			Name:          "metrics",
+			ContainerPort: 8086,
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}

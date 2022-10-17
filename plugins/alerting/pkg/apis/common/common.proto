@@ -277,8 +277,17 @@ message RoutingNode {
   FullAttachedEndpoints fullAttachedEndpoints = 2;
 }
 
+message EndpointMetadata {
+  int32 position = 1;
+  string endpointType = 2;
+}
+
+message EndpointRoutingMap {
+  map<string, EndpointMetadata> endpoints = 1;
+}
+
 message RoutingRelationships {
-  // TODO 
+  map<string, EndpointRoutingMap> conditions = 1;
 }
 
 message AlertEndpoint {
@@ -334,8 +343,7 @@ message UpdateAlertEndpointRequest {
 }
 
 message TestAlertEndpointRequest {
-  AlertEndpoint endpointInfo = 1;
-  EndpointImplementation impl = 2;
+  AlertEndpoint endpoint = 1;
 }
 
 message TestAlertEndpointResponse {}

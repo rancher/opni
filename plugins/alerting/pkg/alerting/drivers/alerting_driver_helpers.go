@@ -7,11 +7,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,35 +113,12 @@ func (a *AlertingManager) visitNewAlertingOptions(toUpdate *shared.NewAlertingOp
 	a.alertingOptionsMu.Lock()
 	defer a.alertingOptionsMu.Unlock()
 
-	cfg, err := a.mgmtClient.GetConfig(context.Background(),
-		&emptypb.Empty{}, grpc.WaitForReady(true))
-	if err != nil {
-		a.Logger.With(
-			"err", err,
-		).Error("Failed to get mgmnt config")
-		return err
-	}
-	objectList, err := machinery.LoadDocuments(cfg.Documents)
-	if err != nil {
-		a.Logger.With(
-			"err", err,
-		).Error("failed to load config")
-		return err
-	}
-	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		opt := shared.NewAlertingOptions{
-			Namespace:             config.Spec.Alerting.Namespace,
-			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
-			WorkerNodePort:        config.Spec.Alerting.WorkerPort,
-			WorkerStatefulSet:     config.Spec.Alerting.WorkerStatefulSet,
-			ControllerNodeService: config.Spec.Alerting.ControllerNodeService,
-			ControllerNodePort:    config.Spec.Alerting.ControllerNodePort,
-			ControllerClusterPort: config.Spec.Alerting.ControllerClusterPort,
-			ConfigMap:             config.Spec.Alerting.ConfigMap,
-			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
-		}
-		toUpdate = &opt
-	})
+	// FIXME: dynamically  visiting config no longer works,
+	// but since we hardcode these in the operator anyways
+	// this will work for now
+	toUpdate.ControllerClusterPort = 9094
+	toUpdate.ControllerNodePort = 9093
+	toUpdate.WorkerNodePort = 9093
 	a.Logger.Debug("Visiting the gateway config succesfully yields the new alerting options %v", toUpdate)
 	return nil
 }

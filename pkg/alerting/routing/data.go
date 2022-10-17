@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+
 	cfg "github.com/prometheus/alertmanager/config"
 	"gopkg.in/yaml.v3"
 )
@@ -16,6 +17,19 @@ type OpniInternalRouting struct {
 	Content map[string]map[string]*OpniRoutingMetadata `yaml:"inline,omitempty" json:"inline,omitempty"`
 }
 
+func (o *OpniInternalRouting) DeepCopy() (*OpniInternalRouting, error) {
+	data, err := yaml.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	newOpniInternalRouting := &OpniInternalRouting{}
+	err = yaml.Unmarshal(data, newOpniInternalRouting)
+	if err != nil {
+		return nil, err
+	}
+	return newOpniInternalRouting, nil
+}
+
 // RoutingTree
 //
 // When creating a new receiver (routingNode), our assumption is that name == conditionId
@@ -27,13 +41,29 @@ type OpniInternalRouting struct {
 // - package mismatched versions with prometheus/common
 // - override marshalling of secrets that prevents us from putting them into a secret
 //
-// RoutingTree must always marshal to AlertManager's config, otherwise backend will reject it
+// # RoutingTree must always marshal to AlertManager's config, otherwise backend will reject it
+//
+// We also assume that EndpointImplementation will have the same config for each receiver for the same
+// condition ID
 type RoutingTree struct {
 	Global       *GlobalConfig      `yaml:"global,omitempty" json:"global,omitempty"`
 	Route        *cfg.Route         `yaml:"route,omitempty" json:"route,omitempty"`
 	InhibitRules []*cfg.InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
 	Receivers    []*Receiver        `yaml:"receivers,omitempty" json:"receivers,omitempty"`
 	Templates    []string           `yaml:"templates" json:"templates"`
+}
+
+func (r *RoutingTree) DeepCopy() (*RoutingTree, error) {
+	data, err := yaml.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+	newRoutingTree := &RoutingTree{}
+	err = yaml.Unmarshal(data, newRoutingTree)
+	if err != nil {
+		return nil, err
+	}
+	return newRoutingTree, nil
 }
 
 func (r *RoutingTree) Parse(data string) error {

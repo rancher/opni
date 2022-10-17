@@ -188,7 +188,7 @@ func (b *K8sEndpointBackend) Reload(ctx context.Context, lg *zap.SugaredLogger, 
 				Endpoint: endpoint,
 				Route:    "/receivers",
 				Verb:     GET,
-			}).WithHttpV2()
+			}).WithAPIV2()
 
 			// reload logic
 			numReloads := 0

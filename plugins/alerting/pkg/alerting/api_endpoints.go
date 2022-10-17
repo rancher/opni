@@ -3,18 +3,18 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"sync"
-	"time"
 )
-
-var locker = sync.Mutex{}
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
@@ -34,6 +34,23 @@ func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
+	}
+	// List relationships
+	allRelationships, err := p.ListRoutingRelationships(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	// if the endpoint is involved in any conditions
+	// get conditions involved, get their endpoint details
+	involvedConditions := allRelationships.InvolvedConditionsForEndpoint(req.Id.Id)
+	if len(involvedConditions) > 0 {
+		_, err := p.UpdateIndividualEndpointInRoutingNode(ctx, &alertingv1alpha.FullAttachedEndpoint{
+			EndpointId:    req.Id.Id,
+			AlertEndpoint: req.UpdateAlert,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.UpdateAlert); err != nil {
 		return nil, err
@@ -77,10 +94,10 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	dummyEndpointId := "test-" + uuid.New().String()
 	lg.Debugf("dummy id : %s", dummyConditionId)
 	var typeName string
-	if s := req.EndpointInfo.GetSlack(); s != nil {
+	if s := req.Endpoint.GetSlack(); s != nil {
 		typeName = "slack"
 	}
-	if e := req.EndpointInfo.GetEmail(); e != nil {
+	if e := req.Endpoint.GetEmail(); e != nil {
 		typeName = "email"
 	}
 	if typeName == "" {
@@ -94,7 +111,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 			Items: []*alertingv1alpha.FullAttachedEndpoint{
 				{
 					EndpointId:    dummyEndpointId,
-					AlertEndpoint: req.EndpointInfo,
+					AlertEndpoint: req.Endpoint,
 				},
 			},
 			Details: &alertingv1alpha.EndpointImplementation{
@@ -166,7 +183,7 @@ func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1
 	if err != nil {
 		return nil, err
 	}
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.ConditionId.Id)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +191,6 @@ func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1
 }
 
 func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
-	// TODO : implement this
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -190,7 +206,7 @@ func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1
 	if err != nil {
 		return nil, err
 	}
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.ConditionId.Id)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +223,7 @@ func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Ref
 	if err != nil {
 		return nil, err
 	}
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, req.Id)
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +231,26 @@ func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Ref
 }
 
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1alpha.RoutingRelationships, error) {
-	// TODO : implement this !!!!
-	return nil, nil
+	_, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conditions := make(map[string]*alertingv1alpha.EndpointRoutingMap)
+	for conditionId, endpointMap := range internalConfig.Content {
+		conditions[conditionId] = &alertingv1alpha.EndpointRoutingMap{
+			Endpoints: make(map[string]*alertingv1alpha.EndpointMetadata),
+		}
+		for endpointId, metadata := range endpointMap {
+			conditions[conditionId].Endpoints[endpointId] = &alertingv1alpha.EndpointMetadata{
+				Position:     int32(*metadata.Position),
+				EndpointType: metadata.EndpointType,
+			}
+		}
+	}
+
+	return &alertingv1alpha.RoutingRelationships{
+		Conditions: conditions,
+	}, nil
 }
 
 func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, attachedEndpoint *alertingv1alpha.FullAttachedEndpoint) (*emptypb.Empty, error) {
@@ -228,27 +262,84 @@ func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, atta
 	if err != nil {
 		return nil, err
 	}
-	//TODO: FIXME: This is a hack to get around the fact that we don't have a conditionId here
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, "")
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
+// FIXME: errors in this function can result in mismatched information
 func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, reference *corev1.Reference) (*emptypb.Empty, error) {
+	lg := p.Logger.With("action", "DeleteIndividualEndpointInRoutingNode")
+	deleteEndpointId := reference.Id
 	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	err = amConfig.DeleteIndividualEndpointNode(reference.Id, internalConfig)
+	internalConfigCopy, err := internalConfig.DeepCopy()
 	if err != nil {
 		return nil, err
 	}
-	//TODO: FIXME: This is a hack to get around the fact that we don't have a conditionId here
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig, "")
+
+	_, err = amConfig.DeleteIndividualEndpointNode(deleteEndpointId, internalConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	involvedConditions := []string{}
+	for conditionId, endpointMap := range internalConfigCopy.Content {
+		for endpointId := range endpointMap {
+			if endpointId == deleteEndpointId {
+				involvedConditions = append(involvedConditions, conditionId)
+			}
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	for _, conditionId := range involvedConditions {
+		conditionId := conditionId
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			alertCondition, err := p.GetAlertCondition(ctx, &corev1.Reference{
+				Id: conditionId,
+			})
+			if err != nil { //FIXME: should flag this as a hard reset to the AM/ internal config
+				lg.Error(err)
+				return
+			}
+			var idxToDelete int
+			for idx, endpoint := range alertCondition.AttachedEndpoints.Items {
+				if endpoint.EndpointId == deleteEndpointId {
+					idxToDelete = idx
+					break
+				}
+			}
+			alertCondition.AttachedEndpoints.Items = slices.Delete(
+				alertCondition.AttachedEndpoints.Items,
+				idxToDelete,
+				idxToDelete+1,
+			)
+			_, err = p.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+				Id: &corev1.Reference{
+					Id: conditionId,
+				},
+				UpdateAlert: alertCondition,
+			})
+			if err != nil {
+				lg.Error(err)
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+
 	return &emptypb.Empty{}, nil
 }

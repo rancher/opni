@@ -2,8 +2,9 @@ package ops
 
 import (
 	"context"
-	"github.com/rancher/opni/pkg/alerting/routing"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/routing"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
@@ -162,7 +163,6 @@ func (a *AlertingOpsNode) ApplyConfigToBackend(
 	ctx context.Context,
 	config *routing.RoutingTree,
 	internal *routing.OpniInternalRouting,
-	updatedConditionId string,
 ) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
@@ -170,5 +170,5 @@ func (a *AlertingOpsNode) ApplyConfigToBackend(
 	if err != nil {
 		return err
 	}
-	return driver.ApplyConfigToBackend(ctx, config, internal, updatedConditionId)
+	return driver.ApplyConfigToBackend(ctx, config, internal)
 }

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/routing"
 	"sync"
+
+	"github.com/rancher/opni/pkg/alerting/routing"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -33,7 +34,6 @@ type ClusterDriver interface {
 		ctx context.Context,
 		config *routing.RoutingTree,
 		internal *routing.OpniInternalRouting,
-		updatedConditionId string,
 	) error
 }
 
@@ -109,7 +109,6 @@ func (d *NoopClusterDriver) ApplyConfigToBackend(
 	ctx context.Context,
 	config *routing.RoutingTree,
 	internal *routing.OpniInternalRouting,
-	updatedConditionId string,
 ) error {
 	return fmt.Errorf("nothing to apply to backend")
 }

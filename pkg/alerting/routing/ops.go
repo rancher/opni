@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
 )
@@ -100,6 +101,7 @@ type TraversalOp struct {
 	conditionId  string
 	endpointType string
 	position     int
+	details      *alertingv1alpha.EndpointImplementation
 }
 
 // UpdateIndividualEndpointNode
@@ -109,6 +111,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 	req *alertingv1alpha.FullAttachedEndpoint,
 	internalRouting *OpniInternalRouting,
 ) error {
+	//FIXME: temporary solution
 	toTraverse := []TraversalOp{}
 	newEndpointTypeFunc := func() string {
 		if s := req.GetAlertEndpoint().GetSlack(); s != nil {
@@ -126,10 +129,16 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 	for conditionId, routingMap := range internalRouting.Content {
 		for endpointId, metadata := range routingMap {
 			if endpointId == req.EndpointId {
+				details, err := r.ExtractImplementationDetails(conditionId, metadata.EndpointType, *metadata.Position)
+				if err != nil {
+					return err
+				}
+
 				toTraverse = append(toTraverse, TraversalOp{
 					conditionId:  conditionId,
 					endpointType: metadata.EndpointType,
 					position:     *metadata.Position,
+					details:      details,
 				})
 			}
 		}
@@ -150,7 +159,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 				if err != nil {
 					return err
 				}
-				slackCfg, err = WithSlackImplementation(slackCfg, req.GetDetails())
+				slackCfg, err = WithSlackImplementation(slackCfg, toTraverseItem.details)
 				if err != nil {
 					return err
 				}
@@ -160,7 +169,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 				if err != nil {
 					return err
 				}
-				emailCfg, err = WithEmailImplementation(emailCfg, req.GetDetails())
+				emailCfg, err = WithEmailImplementation(emailCfg, toTraverseItem.details)
 				if err != nil {
 					return err
 				}
@@ -187,12 +196,18 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 			}
 			switch toTraverseItem.endpointType {
 			case SlackEndpointInternalId:
-				slices.Delete(r.Receivers[recvPos].SlackConfigs, toTraverseItem.position, toTraverseItem.position+1)
+				r.Receivers[recvPos].SlackConfigs = slices.Delete(
+					r.Receivers[recvPos].SlackConfigs,
+					toTraverseItem.position,
+					toTraverseItem.position+1)
 			case EmailEndpointInternalId:
-				slices.Delete(r.Receivers[recvPos].EmailConfigs, toTraverseItem.position, toTraverseItem.position+1)
+				r.Receivers[recvPos].EmailConfigs = slices.Delete(
+					r.Receivers[recvPos].EmailConfigs,
+					toTraverseItem.position,
+					toTraverseItem.position+1)
 			}
 
-			newPos, newType, err := r.Receivers[recvPos].AddEndpoint(req.GetAlertEndpoint(), req.GetDetails())
+			newPos, newType, err := r.Receivers[recvPos].AddEndpoint(req.GetAlertEndpoint(), toTraverseItem.details)
 			if err != nil {
 				return err
 			}
@@ -208,12 +223,15 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 	return nil
 }
 
+// DeleteIndividualEndpointNode
+//
+// Returns a list of deleted conditions (if deleting this endpoint means they no longer have)
 func (r *RoutingTree) DeleteIndividualEndpointNode(
 	notificationId string,
 	internalRouting *OpniInternalRouting,
-) error {
+) ([]string, error) {
+	//FIXME: temporary solution
 	toTraverse := []TraversalOp{}
-
 	for conditionId, routingMap := range internalRouting.Content {
 		for endpointId, metadata := range routingMap {
 			if endpointId == notificationId {
@@ -228,7 +246,7 @@ func (r *RoutingTree) DeleteIndividualEndpointNode(
 	for _, toTraverseItem := range toTraverse {
 		err := internalRouting.RemoveEndpoint(toTraverseItem.conditionId, notificationId)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, metadata := range internalRouting.Content[toTraverseItem.conditionId] {
 			if metadata.EndpointType == toTraverseItem.endpointType && *metadata.Position > toTraverseItem.position {
@@ -238,14 +256,38 @@ func (r *RoutingTree) DeleteIndividualEndpointNode(
 		// add with correct config while updating internal routing
 		recvPos, err := r.FindReceivers(toTraverseItem.conditionId)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		switch toTraverseItem.endpointType {
 		case SlackEndpointInternalId:
-			slices.Delete(r.Receivers[recvPos].SlackConfigs, toTraverseItem.position, toTraverseItem.position+1)
+			r.Receivers[recvPos].SlackConfigs = slices.Delete(
+				r.Receivers[recvPos].SlackConfigs,
+				toTraverseItem.position,
+				toTraverseItem.position+1)
 		case EmailEndpointInternalId:
-			slices.Delete(r.Receivers[recvPos].EmailConfigs, toTraverseItem.position, toTraverseItem.position+1)
+			r.Receivers[recvPos].EmailConfigs = slices.Delete(
+				r.Receivers[recvPos].EmailConfigs,
+				toTraverseItem.position,
+				toTraverseItem.position+1)
 		}
 	}
-	return nil
+	// clean up
+	toDelete := []string{}
+	for _, receiver := range r.Receivers {
+		if receiver.IsEmpty() {
+			// matches the conditionId
+			toDelete = append(toDelete, receiver.Name)
+		}
+	}
+	for _, conditionId := range toDelete {
+		err := r.DeleteReceiver(conditionId)
+		if err != nil {
+			return nil, err
+		}
+		err = r.DeleteRoute(conditionId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return toDelete, nil
 }

@@ -2,9 +2,10 @@ package routing
 
 import (
 	"fmt"
-	"github.com/rancher/opni/pkg/validation"
 	"net/url"
 	"strings"
+
+	"github.com/rancher/opni/pkg/validation"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
@@ -175,4 +176,43 @@ func WithEmailImplementation(email *EmailConfig, impl *alertingv1alpha.EndpointI
 	email.Headers["Subject"] = impl.Title
 	email.HTML = impl.Body
 	return email, nil
+}
+
+// does the opposite of WithXXXXImplementation
+func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType string, position int) (*alertingv1alpha.EndpointImplementation, error) {
+	// find the condition Id receiver
+	recvIdx, err := r.FindReceivers(conditionId)
+	if err != nil {
+		return nil, err
+	}
+
+	switch endpointType {
+	case SlackEndpointInternalId:
+		return &alertingv1alpha.EndpointImplementation{
+			Title:        r.Receivers[recvIdx].SlackConfigs[position].Title,
+			Body:         r.Receivers[recvIdx].SlackConfigs[position].Text,
+			SendResolved: &r.Receivers[recvIdx].SlackConfigs[position].VSendResolved,
+		}, nil
+	case EmailEndpointInternalId:
+		return &alertingv1alpha.EndpointImplementation{
+			Title:        r.Receivers[recvIdx].EmailConfigs[position].Headers["Subject"],
+			Body:         r.Receivers[recvIdx].EmailConfigs[position].HTML,
+			SendResolved: &r.Receivers[recvIdx].EmailConfigs[position].VSendResolved,
+		}, nil
+	default:
+		return nil, validation.Errorf("unknown endpoint type %s", endpointType)
+	}
+}
+
+func (r *Receiver) IsEmpty() bool {
+	return len(r.EmailConfigs) == 0 &&
+		len(r.SlackConfigs) == 0 &&
+		len(r.WebhookConfigs) == 0 &&
+		len(r.PagerdutyConfigs) == 0 &&
+		len(r.OpsGenieConfigs) == 0 &&
+		len(r.VictorOpsConfigs) == 0 &&
+		len(r.PushoverConfigs) == 0 &&
+		len(r.WechatConfigs) == 0 &&
+		len(r.TelegramConfigs) == 0 &&
+		len(r.SNSConfigs) == 0
 }

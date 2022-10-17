@@ -101,3 +101,16 @@ func (a *AlertConditionComposition) ListTemplates() []string {
 func (a *AlertConditionControlFlow) ListTemplates() []string {
 	return []string{}
 }
+
+func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
+	res := []string{}
+	for conditionId, endpointMap := range r.GetConditions() {
+		for endpoint := range endpointMap.GetEndpoints() {
+			if endpoint == endpointId {
+				res = append(res, conditionId)
+				break
+			}
+		}
+	}
+	return res
+}

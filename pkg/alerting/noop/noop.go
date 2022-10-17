@@ -27,7 +27,7 @@ func NewUnavailableAlertingImplementation(version string) alerting.Provider {
 
 type AlertingNoopV1Alpha struct{}
 
-func (a *AlertingNoopV1Alpha) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *alertingv1alpha.AttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *alertingv1alpha.FullAttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 

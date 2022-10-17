@@ -12,7 +12,7 @@ import (
 // Modifies the internalRouting struct in place
 func (r *RoutingTree) CreateRoutingNodeForCondition(
 	conditionId string,
-	endpoints *alertingv1alpha.AttachedEndpoints,
+	endpoints *alertingv1alpha.FullAttachedEndpoints,
 	internalRouting *OpniInternalRouting,
 ) error {
 	if endpoints.GetItems() == nil || len(endpoints.GetItems()) == 0 {
@@ -25,7 +25,7 @@ func (r *RoutingTree) CreateRoutingNodeForCondition(
 	}
 	recv := NewReceiverBase(conditionId)
 	for _, endpoint := range endpoints.GetItems() {
-		endpointId, alertEndpoint, details := endpoint.NotificationId, endpoint.GetAlertEndpoint(), endpoint.Details
+		endpointId, alertEndpoint, details := endpoint.EndpointId, endpoint.GetAlertEndpoint(), endpoints.Details
 		pos, eType, err := recv.AddEndpoint(alertEndpoint, details)
 		if err != nil {
 			return err
@@ -45,7 +45,7 @@ func (r *RoutingTree) CreateRoutingNodeForCondition(
 
 func (r *RoutingTree) UpdateRoutingNodeForCondition(
 	conditionId string,
-	endpoints *alertingv1alpha.AttachedEndpoints,
+	endpoints *alertingv1alpha.FullAttachedEndpoints,
 	internalRouting *OpniInternalRouting,
 ) error {
 	err := internalRouting.RemoveCondition(conditionId)
@@ -63,7 +63,7 @@ func (r *RoutingTree) UpdateRoutingNodeForCondition(
 	}
 	recv := NewReceiverBase(conditionId)
 	for _, endpoint := range endpoints.GetItems() {
-		endpointId, alertEndpoint, details := endpoint.NotificationId, endpoint.GetAlertEndpoint(), endpoint.Details
+		endpointId, alertEndpoint, details := endpoint.EndpointId, endpoint.GetAlertEndpoint(), endpoints.Details
 		pos, eType, err := recv.AddEndpoint(alertEndpoint, details)
 		if err != nil {
 			return err
@@ -106,7 +106,7 @@ type TraversalOp struct {
 //
 // req contains the new updated details
 func (r *RoutingTree) UpdateIndividualEndpointNode(
-	req *alertingv1alpha.AttachedEndpoint,
+	req *alertingv1alpha.FullAttachedEndpoint,
 	internalRouting *OpniInternalRouting,
 ) error {
 	toTraverse := []TraversalOp{}
@@ -125,7 +125,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 	}
 	for conditionId, routingMap := range internalRouting.Content {
 		for endpointId, metadata := range routingMap {
-			if endpointId == req.NotificationId {
+			if endpointId == req.EndpointId {
 				toTraverse = append(toTraverse, TraversalOp{
 					conditionId:  conditionId,
 					endpointType: metadata.EndpointType,
@@ -135,7 +135,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 		}
 	}
 	if len(toTraverse) == 0 {
-		return fmt.Errorf("no endpoint found with id %s", req.NotificationId)
+		return fmt.Errorf("no endpoint found with id %s", req.EndpointId)
 	}
 	// update in place
 	if newEndpointType == toTraverse[0].endpointType {
@@ -171,7 +171,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 		// delete re-add, and re-index all  routes with the same type with pos > oldPos
 		for _, toTraverseItem := range toTraverse {
 			// delete & re-index existing internal routing
-			err := internalRouting.RemoveEndpoint(toTraverseItem.conditionId, req.NotificationId)
+			err := internalRouting.RemoveEndpoint(toTraverseItem.conditionId, req.EndpointId)
 			if err != nil {
 				return err
 			}
@@ -196,7 +196,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 			if err != nil {
 				return err
 			}
-			err = internalRouting.Add(toTraverseItem.conditionId, req.NotificationId, OpniRoutingMetadata{
+			err = internalRouting.Add(toTraverseItem.conditionId, req.EndpointId, OpniRoutingMetadata{
 				EndpointType: newType,
 				Position:     &newPos,
 			})

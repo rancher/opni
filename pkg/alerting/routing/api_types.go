@@ -256,22 +256,22 @@ func parseURL(s string) (*cfg.URL, error) {
 	return &cfg.URL{URL: u}, nil
 }
 
-func (c *RoutingTree) SetDefaultSMTPServer() {
+func (r *RoutingTree) SetDefaultSMTPServer() {
 	defConfig := DefaultGlobalConfig()
-	c.Global = &defConfig
-	c.Global.SMTPSmarthost = cfg.HostPort{Port: fmt.Sprintf("%d", DefaultSMTPServerPort)}
+	r.Global = &defConfig
+	r.Global.SMTPSmarthost = cfg.HostPort{Port: fmt.Sprintf("%d", DefaultSMTPServerPort)}
 }
 
-func (c *RoutingTree) SetDefaultSMTPFrom() {
-	c.Global.SMTPFrom = "alerting@opni.io"
+func (r *RoutingTree) SetDefaultSMTPFrom() {
+	r.Global.SMTPFrom = "alerting@opni.io"
 }
 
-func (c *RoutingTree) UnsetSMTPServer() {
-	c.Global.SMTPRequireTLS = false
-	c.Global.SMTPFrom = ""
-	c.Global.SMTPSmarthost = cfg.HostPort{}
-	c.Global.SMTPHello = ""
-	c.Global.SMTPAuthUsername = ""
-	c.Global.SMTPAuthPassword = ""
-	c.Global.SMTPAuthSecret = ""
+func (r *RoutingTree) UnsetSMTPServer() {
+	r.Global.SMTPRequireTLS = false
+	r.Global.SMTPFrom = ""
+	r.Global.SMTPSmarthost = cfg.HostPort{}
+	r.Global.SMTPHello = ""
+	r.Global.SMTPAuthUsername = ""
+	r.Global.SMTPAuthPassword = ""
+	r.Global.SMTPAuthSecret = ""
 }

@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -145,4 +146,29 @@ func (a *AlertingOpsNode) GetRuntimeOptions(ctx context.Context) (shared.NewAler
 		return shared.NewAlertingOptions{}, err
 	}
 	return driver.GetRuntimeOptions()
+}
+
+func (a *AlertingOpsNode) ConfigFromBackend(ctx context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	return driver.ConfigFromBackend(ctx)
+}
+
+func (a *AlertingOpsNode) ApplyConfigToBackend(
+	ctx context.Context,
+	config *routing.RoutingTree,
+	internal *routing.OpniInternalRouting,
+	updatedConditionId string,
+) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	defer cancel()
+	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	return driver.ApplyConfigToBackend(ctx, config, internal, updatedConditionId)
 }

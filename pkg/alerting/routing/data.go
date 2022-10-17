@@ -58,6 +58,24 @@ func NewDefaultOpniInternalRouting() *OpniInternalRouting {
 	return &OpniInternalRouting{}
 }
 
+func (o *OpniInternalRouting) Parse(data string) error {
+	return yaml.Unmarshal([]byte(data), o)
+}
+
+func (o *OpniInternalRouting) Marshal() ([]byte, error) {
+	data, err := yaml.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func NewOpniInternalRoutingFrom(raw string) (*OpniInternalRouting, error) {
+	c := &OpniInternalRouting{}
+	err := c.Parse(raw)
+	return c, err
+}
+
 func (o *OpniInternalRouting) Add(
 	conditionId string,
 	endpointId string,

@@ -34,7 +34,8 @@ type AlertingSpec struct {
 	ClusterGossipInterval string                      `json:"clusterGossipInterval,omitempty"`
 	ConfigName            string                      `json:"configName,omitempty"`
 	GatewayVolumeMounts   []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
-	RawConfigMap          string                      `json:"rawConfigMap,omitempty"`
+	RawAlertManagerConfig string                      `json:"rawConfigMap,omitempty"`
+	RawInternalRouting    string                      `json:"rawInternalRouting,omitempty"`
 }
 
 type StorageBackendType string

@@ -177,20 +177,17 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 						//   MinBackoff:        30ms
 						//   MaxBackoff:        5s
 						//
-						// Default target max bandwidth: (500 samples * 200 shards) * 10 requests/s = 1M samples/s
-						// Capacity goal should be ~600k samples max
+						// Default target max bandwidth: 500 samples * 200 shards * 10 requests/shard/s = 1M samples/s
+						// Capacity goal should be 600k samples
 						//
-						// Larger payloads at reduced frequency will be much more efficient
-						// when dealing with many nodes. Keep the same max bandwidth, but
+						// Larger payloads at reduced frequency may be more efficient when
+						// dealing with many nodes. Keep the same max bandwidth, but
 						// increase the payload size.
-						//
-						// Unfortunately there is no way to _dynamically_ tune these parameters
-						// without restarting the prometheus agent (todo: investigate)
 						QueueConfig: &monitoringcoreosv1.QueueConfig{
-							MaxShards:         10,
+							MaxShards:         20,
 							MinShards:         1,
-							MaxSamplesPerSend: 5000,  // (1000 samples * 10 shards) * 10 requests/s = 1M samples/s
-							Capacity:          25000, // 5000+1000 samples * 100 shards = 600k samples
+							MaxSamplesPerSend: 5000,  // 5000 samples * 20 shards * 10 requests/shard/s = 1M samples/s
+							Capacity:          25000, // 30000 samples * 20 shards = 600k samples
 							BatchSendDeadline: "4s",  // reduce slightly to offset increased buffer size
 							RetryOnRateLimit:  true,
 						},

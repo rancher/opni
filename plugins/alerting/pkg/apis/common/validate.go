@@ -75,10 +75,11 @@ func (a *AlertCondition) Validate() error {
 	if err := a.GetAlertType().Validate(); err != nil {
 		return err
 	}
-	// TODO : validate attached endpoints
-	//if a.NotificationId != nil {
-	//	a.GetDetails().Validate()
-	//}
+	if a.AttachedEndpoints != nil {
+		if err := a.AttachedEndpoints.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -97,6 +98,12 @@ func (l *ListAlertConditionRequest) Validate() error {
 }
 
 func (u *UpdateAlertConditionRequest) Validate() error {
+	if u.Id == nil {
+		return validation.Error("Id must be set")
+	}
+	if u.Id.Id == "" {
+		return validation.Error("Id must be set")
+	}
 	if err := u.GetUpdateAlert().Validate(); err != nil {
 		return err
 	}
@@ -173,7 +180,15 @@ func (u *UpdateAlertEndpointRequest) Validate() error {
 }
 
 func (c *RoutingNode) Validate() error {
-	// TODO : validate
+	if c.ConditionId == nil {
+		return validation.Error("ConditionId must be set")
+	}
+	if c.FullAttachedEndpoints == nil {
+		return validation.Error("FullAttachedEndpoints must be set")
+	}
+	if err := c.FullAttachedEndpoints.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -185,25 +200,68 @@ func (t *TestAlertEndpointRequest) Validate() error {
 }
 
 func (f *FullAttachedEndpoints) Validate() error {
-	// TODO
-
-	// TODO : validate there are no duplicate ids
+	if f.Details == nil {
+		return validation.Error("Details must be set")
+	}
+	if err := f.GetDetails().Validate(); err != nil {
+		return err
+	}
+	cache := map[string]struct{}{}
+	for _, endpoint := range f.GetItems() {
+		if _, ok := cache[endpoint.EndpointId]; ok {
+			return validation.Errorf("Duplicate endpoint %s", endpoint.EndpointId)
+		}
+		cache[endpoint.EndpointId] = struct{}{}
+		if err := endpoint.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (f *FullAttachedEndpoint) Validate() error {
-	// TODO
+	if f.EndpointId == "" {
+		return validation.Error("EndpointId must be set")
+	}
+	if f.Details == nil {
+		return validation.Error("")
+	}
+	if err := f.GetDetails().Validate(); err != nil {
+		return err
+	}
+	if f.AlertEndpoint == nil {
+		return validation.Error("AlertEndpoint must be set")
+	}
+	if err := f.GetAlertEndpoint().Validate(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (a *AttachedEndpoint) Validate() error {
-	// TODO
-
-	// TODO : validate there are no duplicate ids
+	if a.EndpointId == "" {
+		return validation.Error("attachedEndpoint endpoint id must be set")
+	}
 	return nil
 }
 
 func (a *AttachedEndpoints) Validate() error {
-	// TODO
+	if a.Details == nil {
+		return validation.Error("attachedEndpoints details must be set")
+	}
+	if err := a.GetDetails().Validate(); err != nil {
+		return err
+	}
+	cache := map[string]struct{}{}
+	for _, item := range a.GetItems() {
+		if _, ok := cache[item.EndpointId]; ok {
+			return validation.Error("duplicate endpoint id in request")
+		}
+		cache[item.EndpointId] = struct{}{}
+		if err := item.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }

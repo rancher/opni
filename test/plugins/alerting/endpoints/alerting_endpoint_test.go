@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/bucket"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
@@ -292,72 +291,72 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		})
 
 		XIt("Should be able to create endpoint implementations", func() {
-			var slack *alertingv1alpha.AlertEndpointWithId
-			var email *alertingv1alpha.AlertEndpointWithId
-			existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
-				&alertingv1alpha.ListAlertEndpointsRequest{})
-			Expect(err).To(Succeed())
-			Expect(existing.Items).NotTo(HaveLen(0))
-			for _, item := range existing.Items {
-				if item.Endpoint.GetSlack() != nil {
-					slack = item
-				} else if item.Endpoint.GetEmail() != nil {
-					email = item
-				}
-			}
-			Expect(slack).NotTo(BeNil())
-			Expect(email).NotTo(BeNil())
+			// var slack *alertingv1alpha.AlertEndpointWithId
+			// var email *alertingv1alpha.AlertEndpointWithId
+			// existing, err := alertingEndpointClient.ListAlertEndpoints(ctx,
+			// 	&alertingv1alpha.ListAlertEndpointsRequest{})
+			// Expect(err).To(Succeed())
+			// Expect(existing.Items).NotTo(HaveLen(0))
+			// for _, item := range existing.Items {
+			// 	if item.Endpoint.GetSlack() != nil {
+			// 		slack = item
+			// 	} else if item.Endpoint.GetEmail() != nil {
+			// 		email = item
+			// 	}
+			// }
+			// Expect(slack).NotTo(BeNil())
+			// Expect(email).NotTo(BeNil())
 
-			curConfigData := curConfig()
-			Expect(curConfigData.Receivers).NotTo(BeNil())
-			Expect(curConfigData.Receivers).To(HaveLen(1))
+			// curConfigData := curConfig()
+			// Expect(curConfigData.Receivers).NotTo(BeNil())
+			// Expect(curConfigData.Receivers).To(HaveLen(1))
 
-			Expect(err).To(Succeed())
-			Expect(curConfigData.Receivers).To(HaveLen(1))
+			// Expect(err).To(Succeed())
+			// Expect(curConfigData.Receivers).To(HaveLen(1))
 
-			_, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
-				&alertingv1alpha.CreateImplementation{
-					EndpointId: slack.Id,
-					ConditionId: &corev1.Reference{
-						Id: idsToCreate["slack"],
-					},
-					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "slack endpoint",
-						Body:  "hello world",
-					},
-				},
-			)
+			// _, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
+			// 	&alertingv1alpha.CreateImplementation{
+			// 		EndpointId: slack.Id,
+			// 		ConditionId: &corev1.Reference{
+			// 			Id: idsToCreate["slack"],
+			// 		},
+			// 		Implementation: &alertingv1alpha.EndpointImplementation{
+			// 			Title: "slack endpoint",
+			// 			Body:  "hello world",
+			// 		},
+			// 	},
+			// )
 
-			Expect(err).To(Succeed())
-			Expect(curConfig().Receivers).To(HaveLen(2))
-			foundSlack := false
-			for _, recv := range curConfig().Receivers {
-				if recv.Name == idsToCreate["slack"] {
-					Expect(recv.SlackConfigs).To(HaveLen(1))
-					Expect(recv.SlackConfigs[0].Channel).To(Equal(slack.Endpoint.GetSlack().Channel))
-					Expect(recv.SlackConfigs[0].APIURL).To(Equal(slack.Endpoint.GetSlack().GetWebhookUrl()))
-					foundSlack = true
-				}
-			}
-			Expect(foundSlack).To(BeTrue())
-			// check configuration
+			// Expect(err).To(Succeed())
+			// Expect(curConfig().Receivers).To(HaveLen(2))
+			// foundSlack := false
+			// for _, recv := range curConfig().Receivers {
+			// 	if recv.Name == idsToCreate["slack"] {
+			// 		Expect(recv.SlackConfigs).To(HaveLen(1))
+			// 		Expect(recv.SlackConfigs[0].Channel).To(Equal(slack.Endpoint.GetSlack().Channel))
+			// 		Expect(recv.SlackConfigs[0].APIURL).To(Equal(slack.Endpoint.GetSlack().GetWebhookUrl()))
+			// 		foundSlack = true
+			// 	}
+			// }
+			// Expect(foundSlack).To(BeTrue())
+			// // check configuration
 
-			emailContent := "Email message content [CI]"
-			_, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
-				&alertingv1alpha.CreateImplementation{
-					EndpointId: email.Id,
-					ConditionId: &corev1.Reference{
-						Id: idsToCreate["email"],
-					},
-					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "asasas",
-						Body:  emailContent,
-					},
-				},
-			)
-			Expect(err).To(Succeed())
-			configMap := curConfig().Receivers
-			Expect(configMap).To(HaveLen(3))
+			// emailContent := "Email message content [CI]"
+			// _, err = alertingEndpointClient.CreateEndpointImplementation(ctx,
+			// 	&alertingv1alpha.CreateImplementation{
+			// 		EndpointId: email.Id,
+			// 		ConditionId: &corev1.Reference{
+			// 			Id: idsToCreate["email"],
+			// 		},
+			// 		Implementation: &alertingv1alpha.EndpointImplementation{
+			// 			Title: "asasas",
+			// 			Body:  emailContent,
+			// 		},
+			// 	},
+			// )
+			// Expect(err).To(Succeed())
+			// configMap := curConfig().Receivers
+			// Expect(configMap).To(HaveLen(3))
 		})
 
 		XIt("Should be able to update endpoint implementations", func() {
@@ -379,37 +378,37 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(curConfig().Receivers).To(HaveLen(3))
 
 			// for an alert condition, update slack to email notification
-			newEmailMsg := "Email message content [CI]"
-			_, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
-				&alertingv1alpha.CreateImplementation{
-					EndpointId: email.Id,
-					ConditionId: &corev1.Reference{
-						Id: idsToCreate["slack"],
-					},
-					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "email endpoint",
-						Body:  newEmailMsg,
-					},
-				},
-			)
-			Expect(err).To(Succeed())
+			// newEmailMsg := "Email message content [CI]"
+			// _, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
+			// 	&alertingv1alpha.CreateImplementation{
+			// 		EndpointId: email.Id,
+			// 		ConditionId: &corev1.Reference{
+			// 			Id: idsToCreate["slack"],
+			// 		},
+			// 		Implementation: &alertingv1alpha.EndpointImplementation{
+			// 			Title: "email endpoint",
+			// 			Body:  newEmailMsg,
+			// 		},
+			// 	},
+			// )
+			// Expect(err).To(Succeed())
 
-			// for an alert condition, update email to slack notification
-			_, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
-				&alertingv1alpha.CreateImplementation{
-					EndpointId: slack.Id,
-					ConditionId: &corev1.Reference{
-						Id: idsToCreate["email"],
-					},
-					Implementation: &alertingv1alpha.EndpointImplementation{
+			// // for an alert condition, update email to slack notification
+			// _, err = alertingEndpointClient.UpdateEndpointImplementation(ctx,
+			// 	&alertingv1alpha.CreateImplementation{
+			// 		EndpointId: slack.Id,
+			// 		ConditionId: &corev1.Reference{
+			// 			Id: idsToCreate["email"],
+			// 		},
+			// 		Implementation: &alertingv1alpha.EndpointImplementation{
 
-						Title: " new title",
-						Body:  " new body",
-					},
-				},
-			)
+			// 			Title: " new title",
+			// 			Body:  " new body",
+			// 		},
+			// 	},
+			// )
 
-			Expect(err).To(Succeed())
+			// Expect(err).To(Succeed())
 		})
 
 		XIt("Should be able to delete endpoint implementations", func() {

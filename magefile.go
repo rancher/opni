@@ -352,9 +352,10 @@ func init() {
 				GetVersion: getKubectlVersion,
 			},
 			testbin.Binary{
-				Name:    "node_exporter",
-				Version: "1.4.0",
-				URL:     "https://github.com/prometheus/node_exporter/releases/download/v{{.Version}}/node_exporter-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+				Name:       "node_exporter",
+				Version:    "1.4.0",
+				URL:        "https://github.com/prometheus/node_exporter/releases/download/v{{.Version}}/node_exporter-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+				GetVersion: func(string) string { return "1.4.0" },
 			},
 		)
 	}

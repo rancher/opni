@@ -471,47 +471,47 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 		})
 
 		XIt("Should be able to send slack notifications when the condition fails", func() {
-			Expect(testConditionImplementationReference).NotTo(BeNil())
-			Expect(slackId).NotTo(BeNil())
-			_, err := alertingConditionClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
-				Id: testConditionImplementationReference.Id,
-				UpdateAlert: &alertingv1alpha.AlertCondition{
-					Name:           testConditionImplementationReference.AlertCondition.Name,
-					Labels:         testConditionImplementationReference.AlertCondition.Labels,
-					Description:    testConditionImplementationReference.AlertCondition.Description,
-					Severity:       testConditionImplementationReference.AlertCondition.Severity,
-					AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
-					NotificationId: &slackId.Id,
-					Details: &alertingv1alpha.EndpointImplementation{
-						Title: "test",
-						Body:  "runtime information about alert",
-					},
-				},
-			})
-			Expect(err).To(Succeed())
+			// Expect(testConditionImplementationReference).NotTo(BeNil())
+			// Expect(slackId).NotTo(BeNil())
+			// _, err := alertingConditionClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+			// 	Id: testConditionImplementationReference.Id,
+			// 	UpdateAlert: &alertingv1alpha.AlertCondition{
+			// 		Name:           testConditionImplementationReference.AlertCondition.Name,
+			// 		Labels:         testConditionImplementationReference.AlertCondition.Labels,
+			// 		Description:    testConditionImplementationReference.AlertCondition.Description,
+			// 		Severity:       testConditionImplementationReference.AlertCondition.Severity,
+			// 		AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
+			// 		NotificationId: &slackId.Id,
+			// 		Details: &alertingv1alpha.EndpointImplementation{
+			// 			Title: "test",
+			// 			Body:  "runtime information about alert",
+			// 		},
+			// 	},
+			// })
+			// Expect(err).To(Succeed())
 		})
 
 		XIt("Should be able to send email notifications when the condition fails", func() {
-			Expect(testConditionImplementationReference).NotTo(BeNil())
-			e := emailId
-			fmt.Println(e)
-			Expect(emailId).NotTo(BeNil())
-			_, err := alertingConditionClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
-				Id: testConditionImplementationReference.Id,
-				UpdateAlert: &alertingv1alpha.AlertCondition{
-					Name:           testConditionImplementationReference.AlertCondition.Name,
-					Labels:         testConditionImplementationReference.AlertCondition.Labels,
-					Description:    testConditionImplementationReference.AlertCondition.Description,
-					Severity:       testConditionImplementationReference.AlertCondition.Severity,
-					AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
-					NotificationId: &emailId.Id,
-					Details: &alertingv1alpha.EndpointImplementation{
-						Title: "test",
-						Body:  "runtime information about alert",
-					},
-				},
-			})
-			Expect(err).To(Succeed())
+			// Expect(testConditionImplementationReference).NotTo(BeNil())
+			// e := emailId
+			// fmt.Println(e)
+			// Expect(emailId).NotTo(BeNil())
+			// _, err := alertingConditionClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+			// 	Id: testConditionImplementationReference.Id,
+			// 	UpdateAlert: &alertingv1alpha.AlertCondition{
+			// 		Name:           testConditionImplementationReference.AlertCondition.Name,
+			// 		Labels:         testConditionImplementationReference.AlertCondition.Labels,
+			// 		Description:    testConditionImplementationReference.AlertCondition.Description,
+			// 		Severity:       testConditionImplementationReference.AlertCondition.Severity,
+			// 		AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
+			// 		NotificationId: &emailId.Id,
+			// 		Details: &alertingv1alpha.EndpointImplementation{
+			// 			Title: "test",
+			// 			Body:  "runtime information about alert",
+			// 		},
+			// 	},
+			// })
+			// Expect(err).To(Succeed())
 		})
 	})
 })

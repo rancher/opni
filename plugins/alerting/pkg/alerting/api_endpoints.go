@@ -125,6 +125,16 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		// FIXME: retrier backoff?
+		go func() {
+			_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: dummyConditionId})
+			if err != nil {
+				lg.Errorf("failed to delete dummy condition node : %v", err)
+			}
+		}()
+
+	}()
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
@@ -156,14 +166,6 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		return nil, shared.WithInternalServerErrorf("failed to send alert to alertmanager")
 	}
 	lg.Debugf("Got response %s from alertmanager", resp.Status)
-	go func() {
-		//TODO: FIXME: retrier backoff
-		time.Sleep(time.Second * 30)
-		// this cannot be done in the same context as the above call, otherwise the deadline will be exceeded
-		if _, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId}); err != nil {
-			lg.Errorf("delete test implementation failed with %s", err.Error())
-		}
-	}()
 	return &alertingv1alpha.TestAlertEndpointResponse{}, nil
 }
 
@@ -310,7 +312,7 @@ func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, refe
 			alertCondition, err := p.GetAlertCondition(ctx, &corev1.Reference{
 				Id: conditionId,
 			})
-			if err != nil { //FIXME: should flag this as a hard reset to the AM/ internal config
+			if err != nil { //FIXME: should flag all subsequent errors as a hard reset to the AM/ internal config
 				lg.Error(err)
 				return
 			}

@@ -251,24 +251,27 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 					backend.NewAlertManagerReloadClient(
 						endpoint,
 						ctx,
+						backend.WithRetrier(pipelineRetrier),
 						backend.WithExpectClosure(backend.NewExpectStatusOk()),
 					),
 					backend.NewAlertManagerReadyClient(
 						endpoint,
 						ctx,
+						backend.WithRetrier(pipelineRetrier),
 						backend.WithExpectClosure(backend.NewExpectStatusOk()),
 					),
 					backend.NewAlertManagerStatusClient(
 						endpoint,
 						ctx,
-						backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig)),
+						backend.WithRetrier(pipelineRetrier),
+						backend.WithExpectClosure(backend.NewExpectStatusOk()),
 					),
 				},
 				&pipelineRetrier,
 			)
 			if pipelineErr != nil {
 				lg.Error(pipelineErr)
-				appendError(errors, pipelineErr)
+				appendError(errors, fmt.Errorf("pipeline error for %s : %s", endpoint, pipelineErr))
 			}
 		}()
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
@@ -111,12 +112,17 @@ type AlertManagerAPI struct {
 func (a *AlertManagerAPI) DoRequest() error {
 	if a.backoff != nil {
 		b := (*a.backoff).Start(a.ctx)
+		lastRetrierError := fmt.Errorf("unknwon error")
+		numRetries := 0
 		for backoffv2.Continue(b) {
 			if err := a.doRequest(); err == nil {
 				return nil
+			} else {
+				lastRetrierError = err
 			}
+			numRetries += 1
 		}
-		return fmt.Errorf("failed to complete request after retrier timeout")
+		return fmt.Errorf("failed to complete request after retrier timeout (%d retries) : %s", numRetries, lastRetrierError)
 	} else {
 		return a.doRequest()
 	}
@@ -124,9 +130,6 @@ func (a *AlertManagerAPI) DoRequest() error {
 
 func (a *AlertManagerAPI) doRequest() error {
 	lg := a.logger.With("action", "DoRequest")
-	if a.backoff != nil {
-
-	}
 	req, err := http.NewRequestWithContext(
 		a.ctx,
 		a.Verb,
@@ -186,6 +189,7 @@ func NewAlertManagerReloadClient(endpoint string, ctx context.Context, opts ...A
 		Endpoint:               endpoint,
 		Route:                  "/-/reload",
 		Verb:                   POST,
+		ctx:                    ctx,
 	}
 }
 
@@ -193,9 +197,11 @@ func NewAlertManagerReadyClient(endpoint string, ctx context.Context, opts ...Al
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return &AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/-/ready",
-		Verb:     GET,
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/-/ready",
+		Verb:                   GET,
+		ctx:                    ctx,
 	}
 }
 
@@ -203,9 +209,11 @@ func NewAlertManagerReceiversClient(endpoint string, ctx context.Context, opts .
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/receivers",
-		Verb:     GET,
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/receivers",
+		Verb:                   GET,
+		ctx:                    ctx,
 	}).WithAPIV2()
 }
 
@@ -213,9 +221,11 @@ func NewAlertManagerStatusClient(endpoint string, ctx context.Context, opts ...A
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/status",
-		Verb:     GET,
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/status",
+		Verb:                   GET,
+		ctx:                    ctx,
 	}).WithAPIV2()
 }
 
@@ -251,7 +261,8 @@ func NewExpectStatusOk() func(*http.Response) error {
 	}
 }
 
-func NewExpectConfigEqual(newConfig string) func(*http.Response) error {
+// FIXME: there has to be a way to do this that will work
+func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 	// newConfig := newConfig
 	return func(resp *http.Response) error {
 		if resp.StatusCode != http.StatusOK {
@@ -266,8 +277,27 @@ func NewExpectConfigEqual(newConfig string) func(*http.Response) error {
 		if !result.Exists() {
 			return fmt.Errorf("config.original not found in response body")
 		}
-		if result.String() != newConfig {
-			return fmt.Errorf("config that should have been applied does not match")
+		r1 := &routing.RoutingTree{}
+		r2 := &routing.RoutingTree{}
+		lg := logger.NewForPlugin().Named("alerting")
+		err = r1.Parse(result.String())
+		if err != nil {
+			return err
+		} else {
+			lg.Debug("%v", r1)
+		}
+		err = r2.Parse(expectedConfig)
+		if err != nil {
+			return err
+		} else {
+			lg.Debug("%v", r2)
+		}
+		// cannot compare entire structs since AlertManager does invisble maintenance on the config
+		if !reflect.DeepEqual(r1.Receivers, r2.Receivers) {
+			return fmt.Errorf("current alertmanager receivers differ from expected receivers")
+		}
+		if !reflect.DeepEqual(r1.Route, r2.Route) {
+			return fmt.Errorf("current alertmanager route differ from expected route")
 		}
 		return nil
 	}
@@ -279,12 +309,17 @@ func NewApiPipline(ctx context.Context, apis []*AlertManagerAPI, chainRetrier *b
 		return newApiPipeline(apis)
 	} else {
 		b := (*chainRetrier).Start(ctx)
+		lastRetrierError := fmt.Errorf("unkown error")
+		numRetries := 0
 		for backoffv2.Continue(b) {
 			if err := newApiPipeline(apis); err == nil {
 				return nil
+			} else {
+				lastRetrierError = err
 			}
+			numRetries += 1
 		}
-		return fmt.Errorf("api pipeline failed with backoff retrier timeout")
+		return fmt.Errorf("api pipeline failed with backoff retrier timeout (%d retries) : %s", numRetries, lastRetrierError)
 	}
 }
 

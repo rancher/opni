@@ -27,6 +27,15 @@ const (
 	DeleteError
 )
 
+type ClusterStatus int
+
+const (
+	ClusterStatusGreen = iota
+	ClusterStatusYellow
+	ClusterStatusRed
+	ClusterStatusError
+)
+
 type Manager struct {
 	*loggingutil.AsyncOpensearchClient
 

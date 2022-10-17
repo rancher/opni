@@ -29,6 +29,7 @@ type LoggingAdminClient interface {
 	UpgradeAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpgradeAvailableResponse, error)
 	DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetStorageClasses(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StorageClassResponse, error)
+	GetOpensearchStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
 }
 
 type loggingAdminClient struct {
@@ -93,6 +94,15 @@ func (c *loggingAdminClient) GetStorageClasses(ctx context.Context, in *emptypb.
 	return out, nil
 }
 
+func (c *loggingAdminClient) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error) {
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, "/loggingadmin.LoggingAdmin/GetOpensearchStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LoggingAdminServer is the server API for LoggingAdmin service.
 // All implementations must embed UnimplementedLoggingAdminServer
 // for forward compatibility
@@ -103,6 +113,7 @@ type LoggingAdminServer interface {
 	UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error)
 	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetStorageClasses(context.Context, *emptypb.Empty) (*StorageClassResponse, error)
+	GetOpensearchStatus(context.Context, *emptypb.Empty) (*StatusResponse, error)
 	mustEmbedUnimplementedLoggingAdminServer()
 }
 
@@ -127,6 +138,9 @@ func (UnimplementedLoggingAdminServer) DoUpgrade(context.Context, *emptypb.Empty
 }
 func (UnimplementedLoggingAdminServer) GetStorageClasses(context.Context, *emptypb.Empty) (*StorageClassResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStorageClasses not implemented")
+}
+func (UnimplementedLoggingAdminServer) GetOpensearchStatus(context.Context, *emptypb.Empty) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOpensearchStatus not implemented")
 }
 func (UnimplementedLoggingAdminServer) mustEmbedUnimplementedLoggingAdminServer() {}
 
@@ -249,6 +263,24 @@ func _LoggingAdmin_GetStorageClasses_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LoggingAdmin_GetOpensearchStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoggingAdminServer).GetOpensearchStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/loggingadmin.LoggingAdmin/GetOpensearchStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoggingAdminServer).GetOpensearchStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LoggingAdmin_ServiceDesc is the grpc.ServiceDesc for LoggingAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -279,6 +311,10 @@ var LoggingAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetStorageClasses",
 			Handler:    _LoggingAdmin_GetStorageClasses_Handler,
+		},
+		{
+			MethodName: "GetOpensearchStatus",
+			Handler:    _LoggingAdmin_GetOpensearchStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

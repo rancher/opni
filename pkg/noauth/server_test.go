@@ -3,7 +3,6 @@ package noauth_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +29,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 			TestBin: "../../testbin/bin",
 		}
 		Expect(env.Start()).To(Succeed())
+		DeferCleanup(env.Stop)
 
 		client := env.NewManagementClient()
 		client.CreateRole(context.Background(), &corev1.Role{
@@ -61,15 +61,8 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 			Logger:                test.Log,
 		})
 		ctx, ca := context.WithCancel(waitctx.Background())
-		go func() {
-			defer GinkgoRecover()
-			err := srv.ListenAndServe(ctx)
-			Expect(err).To(Or(BeNil(), MatchError(context.Canceled)))
-		}()
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx, 5*time.Second)
-		})
+		go srv.ListenAndServe(ctx)
+		DeferCleanup(ca)
 	})
 	var accessCode string
 	var accessToken string
@@ -81,12 +74,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		srv := http.Server{
 			Addr: fmt.Sprintf("localhost:%d", ports[1]),
 		}
-		go func() {
-			defer GinkgoRecover()
-			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				panic(err)
-			}
-		}()
+		go srv.ListenAndServe()
 		defer srv.Close()
 
 		Eventually(func() error {

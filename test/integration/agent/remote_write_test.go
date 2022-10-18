@@ -25,6 +25,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 			TestBin: "../../../testbin/bin",
 		}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 

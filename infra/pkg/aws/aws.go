@@ -57,13 +57,13 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	}
 
 	grafanaFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		if !conf.NoIdInDnsNames {
+		if conf.UseIdInDnsNames {
 			return fmt.Sprintf("grafana.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
 		}
 		return fmt.Sprintf("grafana.%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
 	gatewayFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		if !conf.NoIdInDnsNames {
+		if conf.UseIdInDnsNames {
 			return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
 		}
 		return fmt.Sprintf("%s.%s", conf.NamePrefix, idZoneName[1])

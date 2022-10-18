@@ -134,7 +134,7 @@ ai:
     internal: {}
 
 opni-prometheus-crd:
-  enabled: true
+  enabled: true # set to false if `opni-agent.kube-prometheus-stack.enabled` is true
 
 opni-agent:
   enabled: true

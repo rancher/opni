@@ -8,6 +8,18 @@ template:
     opni:namePrefix:
       description: "Deployment Name"
       default: opni
+    opni:cluster.nodeGroupDesiredSize:
+      description: "Desired number of nodes in the cluster"
+      default: 3
+    opni:cluster.nodeGroupMaxSize:
+      description: "Maximum number of nodes in the cluster"
+      default: 3
+    opni:cluster.nodeGroupMinSize:
+      description: "Minimum number of nodes in the cluster"
+      default: 3
+    opni:cluster.nodeInstanceType:
+      description: "Instance type for worker nodes"
+      default: r6a.xlarge
     opni:zoneID:
       description: "AWS Route53 Zone ID"
     aws:region:

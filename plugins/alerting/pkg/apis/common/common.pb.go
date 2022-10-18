@@ -1015,11 +1015,15 @@ func (x *InvolvedConditions) GetItems() []*v1.Reference {
 	return nil
 }
 
-// Reserved for opni-alerting internal use
 type AlertConditionSystem struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	// same as clusterId
+	ClusterId *v1.Reference `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
+	// after how long should we alert on disconnect?
+	Timeout *durationpb.Duration `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
 }
 
 func (x *AlertConditionSystem) Reset() {
@@ -1054,10 +1058,27 @@ func (*AlertConditionSystem) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{10}
 }
 
+func (x *AlertConditionSystem) GetClusterId() *v1.Reference {
+	if x != nil {
+		return x.ClusterId
+	}
+	return nil
+}
+
+func (x *AlertConditionSystem) GetTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.Timeout
+	}
+	return nil
+}
+
 type ListAlertConditionSystem struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	// clusters we can apply this to
+	AgentIds []string `protobuf:"bytes,1,rep,name=agentIds,proto3" json:"agentIds,omitempty"`
 }
 
 func (x *ListAlertConditionSystem) Reset() {
@@ -1090,6 +1111,13 @@ func (x *ListAlertConditionSystem) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListAlertConditionSystem.ProtoReflect.Descriptor instead.
 func (*ListAlertConditionSystem) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListAlertConditionSystem) GetAgentIds() []string {
+	if x != nil {
+		return x.AgentIds
+	}
+	return nil
 }
 
 type AlertConditionKubeState struct {
@@ -3414,10 +3442,18 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_r
 	0x64, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x25, 0x0a, 0x05, 0x69,
 	0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72,
 	0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x05, 0x69, 0x74, 0x65,
-	0x6d, 0x73, 0x22, 0x16, 0x0a, 0x14, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69,
-	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x22, 0x1a, 0x0a, 0x18, 0x4c, 0x69,
-	0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e,
-	0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x22, 0xd8, 0x01, 0x0a, 0x17, 0x41, 0x6c, 0x65, 0x72, 0x74,
+	0x6d, 0x73, 0x22, 0x7a, 0x0a, 0x14, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69,
+	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x12, 0x2d, 0x0a, 0x09, 0x63, 0x6c,
+	0x75, 0x73, 0x74, 0x65, 0x72, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e,
+	0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x52, 0x09,
+	0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x49, 0x64, 0x12, 0x33, 0x0a, 0x07, 0x74, 0x69, 0x6d,
+	0x65, 0x6f, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67, 0x6f, 0x6f,
+	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44, 0x75, 0x72,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74, 0x22, 0x36,
+	0x0a, 0x18, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69,
+	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x12, 0x1a, 0x0a, 0x08, 0x61, 0x67,
+	0x65, 0x6e, 0x74, 0x49, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x61, 0x67,
+	0x65, 0x6e, 0x74, 0x49, 0x64, 0x73, 0x22, 0xd8, 0x01, 0x0a, 0x17, 0x41, 0x6c, 0x65, 0x72, 0x74,
 	0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x4b, 0x75, 0x62, 0x65, 0x53, 0x74, 0x61,
 	0x74, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x49, 0x64, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x49, 0x64,
@@ -3864,66 +3900,68 @@ var file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_d
 	25, // 24: common.ListAlertTypeDetails.composition:type_name -> common.ListAlertConditionComposition
 	27, // 25: common.ListAlertTypeDetails.controlFlow:type_name -> common.ListAlertConditionControlFlow
 	62, // 26: common.InvolvedConditions.items:type_name -> core.Reference
-	61, // 27: common.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
-	55, // 28: common.ListAlertConditionKubeState.clusters:type_name -> common.ListAlertConditionKubeState.ClustersEntry
-	61, // 29: common.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
-	56, // 30: common.NamespaceObjects.namespaces:type_name -> common.NamespaceObjects.NamespacesEntry
-	57, // 31: common.KubeObjectGroups.resourceTypes:type_name -> common.KubeObjectGroups.ResourceTypesEntry
-	1,  // 32: common.ListSelectAlertInfo.alertType:type_name -> common.AlertType
-	28, // 33: common.AlertConditionList.items:type_name -> common.AlertConditionWithId
-	2,  // 34: common.AlertConditionComposition.action:type_name -> common.CompositionAction
-	62, // 35: common.AlertConditionComposition.x:type_name -> core.Reference
-	62, // 36: common.AlertConditionComposition.y:type_name -> core.Reference
-	62, // 37: common.ListAlertConditionComposition.x:type_name -> core.Reference
-	62, // 38: common.ListAlertConditionComposition.y:type_name -> core.Reference
-	3,  // 39: common.AlertConditionControlFlow.action:type_name -> common.ControlFlowAction
-	62, // 40: common.AlertConditionControlFlow.x:type_name -> core.Reference
-	62, // 41: common.AlertConditionControlFlow.y:type_name -> core.Reference
-	61, // 42: common.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
-	62, // 43: common.ListAlertConditionControlFlow.x:type_name -> core.Reference
-	62, // 44: common.ListAlertConditionControlFlow.y:type_name -> core.Reference
-	61, // 45: common.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
-	62, // 46: common.AlertConditionWithId.id:type_name -> core.Reference
-	5,  // 47: common.AlertConditionWithId.alertCondition:type_name -> common.AlertCondition
-	62, // 48: common.UpdateAlertConditionRequest.id:type_name -> core.Reference
-	5,  // 49: common.UpdateAlertConditionRequest.updateAlert:type_name -> common.AlertCondition
-	62, // 50: common.SilenceRequest.conditionId:type_name -> core.Reference
-	61, // 51: common.SilenceRequest.duration:type_name -> google.protobuf.Duration
-	63, // 52: common.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
-	63, // 53: common.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
-	4,  // 54: common.AlertStatusResponse.state:type_name -> common.AlertConditionState
-	62, // 55: common.RoutingNode.conditionId:type_name -> core.Reference
-	6,  // 56: common.RoutingNode.fullAttachedEndpoints:type_name -> common.FullAttachedEndpoints
-	58, // 57: common.EndpointRoutingMap.endpoints:type_name -> common.EndpointRoutingMap.EndpointsEntry
-	59, // 58: common.RoutingRelationships.conditions:type_name -> common.RoutingRelationships.ConditionsEntry
-	40, // 59: common.AlertEndpoint.slack:type_name -> common.SlackEndpoint
-	41, // 60: common.AlertEndpoint.email:type_name -> common.EmailEndpoint
-	43, // 61: common.AlertEndpointList.items:type_name -> common.AlertEndpointWithId
-	39, // 62: common.AlertEndpointWithId.endpoint:type_name -> common.AlertEndpoint
-	62, // 63: common.AlertEndpointWithId.id:type_name -> core.Reference
-	62, // 64: common.UpdateAlertEndpointRequest.id:type_name -> core.Reference
-	39, // 65: common.UpdateAlertEndpointRequest.updateAlert:type_name -> common.AlertEndpoint
-	62, // 66: common.DeleteAlertEndpointRequest.id:type_name -> core.Reference
-	39, // 67: common.TestAlertEndpointRequest.endpoint:type_name -> common.AlertEndpoint
-	63, // 68: common.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
-	63, // 69: common.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
-	64, // 70: common.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
-	62, // 71: common.InformativeAlertLog.conditionId:type_name -> core.Reference
-	5,  // 72: common.InformativeAlertLog.condition:type_name -> common.AlertCondition
-	64, // 73: common.InformativeAlertLog.log:type_name -> core.AlertLog
-	51, // 74: common.InformativeAlertLogList.items:type_name -> common.InformativeAlertLog
-	62, // 75: common.TriggerAlertsRequest.conditionId:type_name -> core.Reference
-	60, // 76: common.TriggerAlertsRequest.annotations:type_name -> common.TriggerAlertsRequest.AnnotationsEntry
-	21, // 77: common.ListAlertConditionKubeState.ClustersEntry.value:type_name -> common.KubeObjectGroups
-	19, // 78: common.NamespaceObjects.NamespacesEntry.value:type_name -> common.ObjectList
-	20, // 79: common.KubeObjectGroups.ResourceTypesEntry.value:type_name -> common.NamespaceObjects
-	36, // 80: common.EndpointRoutingMap.EndpointsEntry.value:type_name -> common.EndpointMetadata
-	37, // 81: common.RoutingRelationships.ConditionsEntry.value:type_name -> common.EndpointRoutingMap
-	82, // [82:82] is the sub-list for method output_type
-	82, // [82:82] is the sub-list for method input_type
-	82, // [82:82] is the sub-list for extension type_name
-	82, // [82:82] is the sub-list for extension extendee
-	0,  // [0:82] is the sub-list for field type_name
+	62, // 27: common.AlertConditionSystem.clusterId:type_name -> core.Reference
+	61, // 28: common.AlertConditionSystem.timeout:type_name -> google.protobuf.Duration
+	61, // 29: common.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
+	55, // 30: common.ListAlertConditionKubeState.clusters:type_name -> common.ListAlertConditionKubeState.ClustersEntry
+	61, // 31: common.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
+	56, // 32: common.NamespaceObjects.namespaces:type_name -> common.NamespaceObjects.NamespacesEntry
+	57, // 33: common.KubeObjectGroups.resourceTypes:type_name -> common.KubeObjectGroups.ResourceTypesEntry
+	1,  // 34: common.ListSelectAlertInfo.alertType:type_name -> common.AlertType
+	28, // 35: common.AlertConditionList.items:type_name -> common.AlertConditionWithId
+	2,  // 36: common.AlertConditionComposition.action:type_name -> common.CompositionAction
+	62, // 37: common.AlertConditionComposition.x:type_name -> core.Reference
+	62, // 38: common.AlertConditionComposition.y:type_name -> core.Reference
+	62, // 39: common.ListAlertConditionComposition.x:type_name -> core.Reference
+	62, // 40: common.ListAlertConditionComposition.y:type_name -> core.Reference
+	3,  // 41: common.AlertConditionControlFlow.action:type_name -> common.ControlFlowAction
+	62, // 42: common.AlertConditionControlFlow.x:type_name -> core.Reference
+	62, // 43: common.AlertConditionControlFlow.y:type_name -> core.Reference
+	61, // 44: common.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
+	62, // 45: common.ListAlertConditionControlFlow.x:type_name -> core.Reference
+	62, // 46: common.ListAlertConditionControlFlow.y:type_name -> core.Reference
+	61, // 47: common.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
+	62, // 48: common.AlertConditionWithId.id:type_name -> core.Reference
+	5,  // 49: common.AlertConditionWithId.alertCondition:type_name -> common.AlertCondition
+	62, // 50: common.UpdateAlertConditionRequest.id:type_name -> core.Reference
+	5,  // 51: common.UpdateAlertConditionRequest.updateAlert:type_name -> common.AlertCondition
+	62, // 52: common.SilenceRequest.conditionId:type_name -> core.Reference
+	61, // 53: common.SilenceRequest.duration:type_name -> google.protobuf.Duration
+	63, // 54: common.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
+	63, // 55: common.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
+	4,  // 56: common.AlertStatusResponse.state:type_name -> common.AlertConditionState
+	62, // 57: common.RoutingNode.conditionId:type_name -> core.Reference
+	6,  // 58: common.RoutingNode.fullAttachedEndpoints:type_name -> common.FullAttachedEndpoints
+	58, // 59: common.EndpointRoutingMap.endpoints:type_name -> common.EndpointRoutingMap.EndpointsEntry
+	59, // 60: common.RoutingRelationships.conditions:type_name -> common.RoutingRelationships.ConditionsEntry
+	40, // 61: common.AlertEndpoint.slack:type_name -> common.SlackEndpoint
+	41, // 62: common.AlertEndpoint.email:type_name -> common.EmailEndpoint
+	43, // 63: common.AlertEndpointList.items:type_name -> common.AlertEndpointWithId
+	39, // 64: common.AlertEndpointWithId.endpoint:type_name -> common.AlertEndpoint
+	62, // 65: common.AlertEndpointWithId.id:type_name -> core.Reference
+	62, // 66: common.UpdateAlertEndpointRequest.id:type_name -> core.Reference
+	39, // 67: common.UpdateAlertEndpointRequest.updateAlert:type_name -> common.AlertEndpoint
+	62, // 68: common.DeleteAlertEndpointRequest.id:type_name -> core.Reference
+	39, // 69: common.TestAlertEndpointRequest.endpoint:type_name -> common.AlertEndpoint
+	63, // 70: common.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
+	63, // 71: common.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
+	64, // 72: common.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
+	62, // 73: common.InformativeAlertLog.conditionId:type_name -> core.Reference
+	5,  // 74: common.InformativeAlertLog.condition:type_name -> common.AlertCondition
+	64, // 75: common.InformativeAlertLog.log:type_name -> core.AlertLog
+	51, // 76: common.InformativeAlertLogList.items:type_name -> common.InformativeAlertLog
+	62, // 77: common.TriggerAlertsRequest.conditionId:type_name -> core.Reference
+	60, // 78: common.TriggerAlertsRequest.annotations:type_name -> common.TriggerAlertsRequest.AnnotationsEntry
+	21, // 79: common.ListAlertConditionKubeState.ClustersEntry.value:type_name -> common.KubeObjectGroups
+	19, // 80: common.NamespaceObjects.NamespacesEntry.value:type_name -> common.ObjectList
+	20, // 81: common.KubeObjectGroups.ResourceTypesEntry.value:type_name -> common.NamespaceObjects
+	36, // 82: common.EndpointRoutingMap.EndpointsEntry.value:type_name -> common.EndpointMetadata
+	37, // 83: common.RoutingRelationships.ConditionsEntry.value:type_name -> common.EndpointRoutingMap
+	84, // [84:84] is the sub-list for method output_type
+	84, // [84:84] is the sub-list for method input_type
+	84, // [84:84] is the sub-list for extension type_name
+	84, // [84:84] is the sub-list for extension extendee
+	0,  // [0:84] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_plugins_alerting_pkg_apis_common_common_proto_init() }

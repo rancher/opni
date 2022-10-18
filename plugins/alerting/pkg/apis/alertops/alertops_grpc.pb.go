@@ -257,7 +257,6 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 type DynamicAlertingClient interface {
 	Fetch(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingConfig, error)
 	Update(ctx context.Context, in *AlertingConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DynamicStatus, error)
 	Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -287,15 +286,6 @@ func (c *dynamicAlertingClient) Update(ctx context.Context, in *AlertingConfig, 
 	return out, nil
 }
 
-func (c *dynamicAlertingClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DynamicStatus, error) {
-	out := new(DynamicStatus)
-	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/GetStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *dynamicAlertingClient) Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Reload", in, out, opts...)
@@ -311,7 +301,6 @@ func (c *dynamicAlertingClient) Reload(ctx context.Context, in *ReloadInfo, opts
 type DynamicAlertingServer interface {
 	Fetch(context.Context, *emptypb.Empty) (*AlertingConfig, error)
 	Update(context.Context, *AlertingConfig) (*emptypb.Empty, error)
-	GetStatus(context.Context, *emptypb.Empty) (*DynamicStatus, error)
 	Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error)
 	mustEmbedUnimplementedDynamicAlertingServer()
 }
@@ -325,9 +314,6 @@ func (UnimplementedDynamicAlertingServer) Fetch(context.Context, *emptypb.Empty)
 }
 func (UnimplementedDynamicAlertingServer) Update(context.Context, *AlertingConfig) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
-}
-func (UnimplementedDynamicAlertingServer) GetStatus(context.Context, *emptypb.Empty) (*DynamicStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
 }
 func (UnimplementedDynamicAlertingServer) Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reload not implemented")
@@ -381,24 +367,6 @@ func _DynamicAlerting_Update_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DynamicAlerting_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DynamicAlertingServer).GetStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.ops.DynamicAlerting/GetStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DynamicAlertingServer).GetStatus(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _DynamicAlerting_Reload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReloadInfo)
 	if err := dec(in); err != nil {
@@ -431,10 +399,6 @@ var DynamicAlerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Update",
 			Handler:    _DynamicAlerting_Update_Handler,
-		},
-		{
-			MethodName: "GetStatus",
-			Handler:    _DynamicAlerting_GetStatus_Handler,
 		},
 		{
 			MethodName: "Reload",

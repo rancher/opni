@@ -147,6 +147,11 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		typeName = "unknwon"
 	}
 
+	details := &alertingv1alpha.EndpointImplementation{
+		Title: fmt.Sprintf("Test Alert - %s (%s)", typeName, time.Now().Format("2006-01-02T15:04:05 -07:00:00")),
+		Body:  "Opni-alerting is sending you a test alert",
+	}
+
 	createImpl := &alertingv1alpha.RoutingNode{
 		ConditionId: &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
 		FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
@@ -155,12 +160,10 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 				{
 					EndpointId:    dummyEndpointId,
 					AlertEndpoint: req.Endpoint,
+					Details:       details,
 				},
 			},
-			Details: &alertingv1alpha.EndpointImplementation{
-				Title: fmt.Sprintf("Test %s Alert (%s)", typeName, time.Now().Format("2006-01-02T15:04:05 -07:00:00")),
-				Body:  "Opni-alerting is sending you a test alert",
-			},
+			Details: details,
 		},
 	}
 	// create condition routing node
@@ -171,7 +174,8 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	defer func() {
 		// FIXME: retrier backoff?
 		go func() {
-			_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: dummyConditionId})
+			// can't use request context here because it will be cancelled
+			_, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId})
 			if err != nil {
 				lg.Errorf("failed to delete dummy condition node : %v", err)
 			}

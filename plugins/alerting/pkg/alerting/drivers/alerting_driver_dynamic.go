@@ -199,11 +199,6 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingManager) GetStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.DynamicStatus, error) {
-	// check it has been reloaded succesfully and is running
-	return nil, nil
-}
-
 func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.ReloadInfo) (*emptypb.Empty, error) {
 	lg := a.Logger.With("alerting-backend", "k8s", "action", "reload")
 

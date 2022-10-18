@@ -2,12 +2,12 @@ package alerting
 
 import (
 	"context"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/validation"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/tidwall/gjson"
@@ -19,7 +19,7 @@ func handleChoicesByType(
 	req *alertingv1alpha.AlertDetailChoicesRequest,
 ) (*alertingv1alpha.ListAlertTypeDetails, error) {
 	if req.GetAlertType() == alertingv1alpha.AlertType_SYSTEM {
-		return nil, validation.Error("System alerts are not supported to be created via the dashboard")
+		return fetchAgentInfo(p, ctx)
 	}
 	if req.GetAlertType() == alertingv1alpha.AlertType_KUBE_STATE {
 		return fetchKubeStateInfo(p, ctx)
@@ -28,6 +28,30 @@ func handleChoicesByType(
 }
 func clusterHasKubeStateMetrics(adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
 	return true
+}
+
+func fetchAgentInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAlertTypeDetails, error) {
+	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	resSystem := &alertingv1alpha.ListAlertConditionSystem{
+		AgentIds: []string{},
+	}
+	for _, cl := range clusters.Items {
+		resSystem.AgentIds = append(resSystem.AgentIds, cl.Id)
+	}
+	return &alertingv1alpha.ListAlertTypeDetails{
+		Type: &alertingv1alpha.ListAlertTypeDetails_System{
+			System: resSystem,
+		},
+	}, nil
 }
 
 func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAlertTypeDetails, error) {

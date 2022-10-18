@@ -134,10 +134,17 @@ message InvolvedConditions {
   repeated core.Reference items = 1;
 }
 
-// Reserved for opni-alerting internal use
-message AlertConditionSystem {}
+message AlertConditionSystem {
+  // same as clusterId
+  core.Reference clusterId = 1;
+  // after how long should we alert on disconnect?
+  google.protobuf.Duration timeout = 2;
+}
 
-message ListAlertConditionSystem {}
+message ListAlertConditionSystem {
+  // clusters we can apply this to
+  repeated string agentIds = 1;
+}
 
 message AlertConditionKubeState {
   string clusterId = 1;

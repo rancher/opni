@@ -58,12 +58,6 @@ service DynamicAlerting {
     };
   }
 
-  rpc GetStatus(google.protobuf.Empty) returns (DynamicStatus) {
-    option (google.api.http) = {
-      get: "/status"
-    };
-  }
-
   rpc Reload(ReloadInfo) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/reload"
@@ -78,16 +72,6 @@ message ReloadInfo{
 message AlertingConfig{
   string rawAlertManagerConfig = 1;
   string rawInternalRouting = 2;
-}
-
-message DynamicStatus{
-  DynamicState state = 1;
-}
-
-enum DynamicState {
-  DyanmicUnknown = 0;
-  DynamicUpdating = 1;
-  Ready = 2;
 }
 
 enum InstallState {

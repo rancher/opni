@@ -109,16 +109,6 @@ func (a *AlertingOpsNode) Fetch(ctx context.Context, _ *emptypb.Empty) (*alertop
 	return driver.Fetch(ctx, &emptypb.Empty{})
 }
 
-func (a *AlertingOpsNode) GetStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.DynamicStatus, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return driver.GetStatus(ctx, &emptypb.Empty{})
-}
-
 func (a *AlertingOpsNode) Update(ctx context.Context, config *alertops.AlertingConfig) (*emptypb.Empty, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()

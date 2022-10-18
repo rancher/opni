@@ -59,6 +59,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 
 		p.configureAlertManagerConfiguration(
+			p.Ctx,
 			drivers.WithLogger(p.Logger.Named("alerting-manager")),
 			drivers.WithAlertingOptions(&opt),
 			drivers.WithManagementClient(client),

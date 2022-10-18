@@ -224,7 +224,7 @@ func (f *FullAttachedEndpoint) Validate() error {
 		return validation.Error("EndpointId must be set")
 	}
 	if f.Details == nil {
-		return validation.Error("")
+		return validation.Error("Details must be set")
 	}
 	if err := f.GetDetails().Validate(); err != nil {
 		return err

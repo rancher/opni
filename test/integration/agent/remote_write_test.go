@@ -59,7 +59,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 					return nil
 				}
 				return fmt.Errorf("waiting for remote write pending condition")
-			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+			}, 2*time.Minute, 500*time.Millisecond).Should(Succeed())
 
 			environment.StartPrometheus(port)
 
@@ -77,7 +77,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 					return fmt.Errorf("not ready: %v", hs.GetHealth().GetConditions())
 				}
 				return nil
-			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+			}, 2*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
 })

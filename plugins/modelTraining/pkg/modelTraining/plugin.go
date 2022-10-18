@@ -15,14 +15,14 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/model_training/pkg/apis/model_training"
+	"github.com/rancher/opni/plugins/modelTraining/pkg/apis/modelTraining"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ModelTrainingPlugin struct {
-	model_training.UnsafeModelTrainingServer
+	modelTraining.UnsafeModelTrainingServer
 	system.UnimplementedSystemPluginClient
 	ctx            context.Context
 	Logger         *zap.SugaredLogger
@@ -51,8 +51,14 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	for _, ext := range list.Items {
 		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
-	nc, _ := newNatsConnection()
-	mgr, _ := nc.JetStream()
+	nc, err := newNatsConnection()
+	if err != nil {
+		os.Exit(1)
+	}
+	mgr, err := nc.JetStream()
+	if err != nil {
+		os.Exit(1)
+	}
 	keyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      "os-workload-aggregation",
 		Description: "Storing aggregation of workload logs from Opensearch.",
@@ -60,18 +66,18 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	if err != nil {
 		os.Exit(1)
 	}
+	s.natsConnection.Set(nc)
+	s.kv.Set(keyValue)
 	client, err := newOpensearchConnection()
 	if err != nil {
 		os.Exit(1)
 	}
-	s.natsConnection.Set(nc)
-	s.kv.Set(keyValue)
 	s.osClient.Set(client)
 	go s.run_aggregation()
 
 }
 
-var _ model_training.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
+var _ modelTraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -83,6 +89,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&model_training.ModelTraining_ServiceDesc, p)))
+		managementext.NewPlugin(util.PackService(&modelTraining.ModelTraining_ServiceDesc, p)))
 	return scheme
 }

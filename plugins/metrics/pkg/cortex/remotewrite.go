@@ -95,24 +95,6 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 		return nil, status.New(codes.Code(resp.StatusCode), string(msg)).Err() // match cortex logic
 	}
 	return &emptypb.Empty{}, nil
-
-	// writeReq := &cortexpb.WriteRequest{}
-	// buf, err := snappy.Decode(nil, payload.Contents)
-	// if err != nil {
-	// 	return nil, status.Errorf(codes.InvalidArgument, "failed to decode payload: %v", err)
-	// }
-	// if err := writeReq.Unmarshal(buf); err != nil {
-	// 	return nil, status.Errorf(codes.InvalidArgument, "failed to unmarshal decompressed payload: %v", err)
-	// }
-	// ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, clusterId))
-	// if err != nil {
-	// 	return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
-	// }
-	// _, err = f.CortexClientSet.Distributor().Push(ctx, writeReq)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &emptypb.Empty{}, nil
 }
 
 func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {

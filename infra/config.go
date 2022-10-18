@@ -15,7 +15,7 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	config.GetObject(ctx, "opni:cluster", &clusterConfig)
 	tags := map[string]string{}
 	config.GetObject(ctx, "opni:tags", &tags)
-	noIdInDnsNames := config.GetBool(ctx, "opni:noIdInDnsNames")
+	useIdInDnsNames := config.GetBool(ctx, "opni:useIdInDnsNames")
 	clusterConfig.LoadDefaults()
 
 	var cloud, imageRepo, imageTag, minimalImageTag string
@@ -51,7 +51,7 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 		UseLocalCharts:  useLocalCharts,
 		Cluster:         clusterConfig,
 		Tags:            tags,
-		NoIdInDnsNames:  noIdInDnsNames,
+		UseIdInDnsNames: useIdInDnsNames,
 	}
 	conf.LoadDefaults()
 	return conf
@@ -70,7 +70,7 @@ type Config struct {
 	KubePrometheusEnabled bool              `json:"kubePrometheusEnabled"`
 	Cluster               ClusterConfig     `json:"cluster"`
 	Tags                  map[string]string `json:"tags"`
-	NoIdInDnsNames        bool              `json:"noIdInDnsNames"`
+	UseIdInDnsNames       bool              `json:"useIdInDnsNames"`
 }
 
 type ClusterConfig struct {
@@ -101,15 +101,15 @@ func (c *Config) LoadDefaults() {
 
 func (c *ClusterConfig) LoadDefaults() {
 	if c.NodeInstanceType == "" {
-		c.NodeInstanceType = "t3.large"
+		c.NodeInstanceType = "r6a.xlarge"
 	}
 	if c.NodeGroupMinSize == 0 {
-		c.NodeGroupMinSize = 2
+		c.NodeGroupMinSize = 3
 	}
 	if c.NodeGroupMaxSize == 0 {
 		c.NodeGroupMaxSize = 3
 	}
 	if c.NodeGroupDesiredSize == 0 {
-		c.NodeGroupDesiredSize = 2
+		c.NodeGroupDesiredSize = 3
 	}
 }

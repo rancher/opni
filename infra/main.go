@@ -70,7 +70,7 @@ func run(ctx *Context) (runErr error) {
 		NodeGroupDesiredSize: conf.Cluster.NodeGroupDesiredSize,
 		ZoneID:               conf.ZoneID,
 		Tags:                 tags,
-		NoIdInDnsNames:       conf.NoIdInDnsNames,
+		UseIdInDnsNames:      conf.UseIdInDnsNames,
 	})
 	if err != nil {
 		return err

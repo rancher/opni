@@ -4,15 +4,16 @@ config:
   aws:skipRequestingAccountId: "true"
   opni:cloud: aws
   opni:cluster:
-    nodeGroupDesiredSize: 2
+    nodeGroupDesiredSize: 3
     nodeGroupMaxSize: 3
-    nodeGroupMinSize: 2
-    nodeInstanceType: t3.xlarge
+    nodeGroupMinSize: 3
+    nodeInstanceType: r6a.xlarge
   opni:imageRepo: rancher/opni
   opni:imageTag: main
   opni:namePrefix: opni-e2e-test
   opni:useLocalCharts: "true"
+  opni:useIdInDnsNames: "true"
   opni:zoneID:
     secure: AAABAEgKAveQVLuL3+ZeK4BI7td1AWO5Oojkr/eScHxNIr2OPoI4H61WGPnmOQ==
   pulumi:disable-default-providers:
-  - kubernetes
+    - kubernetes

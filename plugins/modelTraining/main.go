@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	"github.com/rancher/opni/plugins/model_training/pkg/model_training"
+	model_training "github.com/rancher/opni/plugins/modelTraining/pkg/modelTraining"
 )
 
 func main() {

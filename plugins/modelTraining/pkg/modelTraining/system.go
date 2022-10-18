@@ -37,15 +37,15 @@ func newNatsConnection() (*nats.Conn, error) {
 }
 
 func newOpensearchConnection() (*opensearch.Client, error) {
-	ES_ENDPOINT := "https://opni-opensearch-svc.opni-cluster-system.svc:9200"
-	ES_USERNAME := "admin"
-	ES_PASSWORD := "admin"
+	esEndpoint := "https://opni-opensearch-svc.opni-cluster-system.svc:9200"
+	esUsername := "admin"
+	esPassword := "admin"
 	return opensearch.NewClient(opensearch.Config{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
-		Addresses: []string{ES_ENDPOINT},
-		Username:  ES_USERNAME,
-		Password:  ES_PASSWORD,
+		Addresses: []string{esEndpoint},
+		Username:  esUsername,
+		Password:  esPassword,
 	})
 }

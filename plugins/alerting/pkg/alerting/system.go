@@ -5,9 +5,12 @@ import (
 	"os"
 	"time"
 
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
 	lru "github.com/hashicorp/golang-lru"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -70,7 +73,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	var err error
+	var (
+		nc  *nats.Conn
+		err error
+	)
 	p.inMemCache, err = lru.New(AlertingLogCacheSize)
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
@@ -81,6 +87,22 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			Endpoints:  system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
 		}),
 	)
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(0),
+		backoffv2.WithMinInterval(5*time.Second),
+		backoffv2.WithMaxInterval(1*time.Minute),
+		backoffv2.WithMultiplier(1.1),
+	)
+	b := retrier.Start(p.Ctx)
+	for backoffv2.Continue(b) {
+		nc, err = p.newNatsConnection()
+		if err == nil {
+			break
+		}
+		p.Logger.Error("failed to connect to nats, retrying")
+	}
+	p.natsConn.Set(nc)
 	<-p.Ctx.Done()
 }
 
@@ -88,15 +110,26 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	go func() {
 		for {
 			breakOut := false
-			cc, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
+			ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
 			if err != nil {
+				p.Logger.Errorf("alerting failed to get cortex admin client conn %s", err)
 				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
 				UnregisterDatasource(shared.MonitoringDatasource)
 			} else {
-				adminClient := cortexadmin.NewCortexAdminClient(cc)
+				adminClient := cortexadmin.NewCortexAdminClient(ccCortexAdmin)
 				p.adminClient.Set(adminClient)
 				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.Logger))
 			}
+
+			ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
+			if err != nil {
+				p.Logger.Errorf("alerting failed to get cortex ops client conn %s", err)
+				p.cortexOpsClient = future.New[cortexops.CortexOpsClient]()
+			} else {
+				opsClient := cortexops.NewCortexOpsClient(ccCortexOps)
+				p.cortexOpsClient.Set(opsClient)
+			}
+
 			select {
 			case <-p.Ctx.Done():
 				breakOut = true

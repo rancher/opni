@@ -2,10 +2,13 @@ package alerting
 
 import (
 	"context"
+
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"go.uber.org/zap"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -42,8 +45,10 @@ type Plugin struct {
 	opsNode     *ops.AlertingOpsNode
 	storageNode *alertstorage.StorageNode
 
-	mgmtClient  future.Future[managementv1.ManagementClient]
-	adminClient future.Future[cortexadmin.CortexAdminClient]
+	mgmtClient      future.Future[managementv1.ManagementClient]
+	adminClient     future.Future[cortexadmin.CortexAdminClient]
+	cortexOpsClient future.Future[cortexops.CortexOpsClient]
+	natsConn        future.Future[*nats.Conn]
 }
 
 type StorageAPIs struct {
@@ -55,15 +60,18 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
 	clusterDriver := future.New[drivers.ClusterDriver]()
 	return &Plugin{
-		Ctx:         ctx,
-		Logger:      lg,
-		inMemCache:  nil,
-		mgmtClient:  future.New[managementv1.ManagementClient](),
-		adminClient: future.New[cortexadmin.CortexAdminClient](),
-		opsNode:     ops.NewAlertingOpsNode(clusterDriver),
+		Ctx:        ctx,
+		Logger:     lg,
+		inMemCache: nil,
+
+		opsNode: ops.NewAlertingOpsNode(clusterDriver),
 		storageNode: alertstorage.NewStorageNode(
 			alertstorage.WithLogger(lg),
 		),
+		mgmtClient:      future.New[managementv1.ManagementClient](),
+		adminClient:     future.New[cortexadmin.CortexAdminClient](),
+		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
+		natsConn:        future.New[*nats.Conn](),
 	}
 }
 

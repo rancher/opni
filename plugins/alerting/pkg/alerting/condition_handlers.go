@@ -19,6 +19,10 @@ import (
 
 func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
+		err := handleSystemAlertCreation(p, lg, ctx, s, newConditionId)
+		if err != nil {
+			return nil, err
+		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
@@ -43,6 +47,10 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		return err
 	}
 	return shared.AlertingErrNotImplemented
+}
+
+func handleSystemAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1alpha.AlertConditionSystem, newId string) error {
+	return nil
 }
 
 func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1alpha.AlertConditionKubeState, newId string) error {

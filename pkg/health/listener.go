@@ -2,24 +2,20 @@ package health
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	agentv1 "github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/alerting"
-	"github.com/rancher/opni/pkg/alerting/condition"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -34,21 +30,16 @@ type Listener struct {
 	incomingHealthUpdates   map[string]chan HealthUpdate
 	closed                  chan struct{}
 	sem                     *semaphore.Weighted
-	AlertProvider           *alerting.Provider
-	alertToggle             chan struct{}
-	alertTickerDuration     time.Duration
-	alertCondition          *alertingv1alpha.AlertCondition
+	jetstream               nats.JetStreamContext
 }
 
 type ListenerOptions struct {
-	alertProvider  *alerting.Provider
-	alertToggle    chan struct{}
-	tickerDuration time.Duration
-	alertCondition *alertingv1alpha.AlertCondition
 	interval       time.Duration
 	maxJitter      time.Duration
 	maxConnections int64
 	updateQueueCap int
+	asyncNats      func(ctx context.Context) (nats.JetStreamContext, error)
+	connectCtx     context.Context
 }
 
 type ListenerOption func(*ListenerOptions)
@@ -85,33 +76,15 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
-func WithAlertToggle() ListenerOption {
+func WithAyncNATSConnection() ListenerOption {
 	return func(o *ListenerOptions) {
-		o.alertToggle = make(chan struct{})
+		o.asyncNats = acquireAlertingNatsConnection
 	}
 }
 
-func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
-	_, isSet := os.LookupEnv(shared.LocalBackendEnvToggle)
-	if isSet {
-		return func(o *ListenerOptions) {
-			o.tickerDuration = time.Second * 60
-		}
-	}
+func WithConnectCtx(ctx context.Context) ListenerOption {
 	return func(o *ListenerOptions) {
-		o.tickerDuration = timeout
-	}
-}
-
-func WithDefaultAlertCondition() ListenerOption {
-	return func(o *ListenerOptions) {
-		o.alertCondition = condition.OpniDisconnect
-	}
-}
-
-func WithAlertProvider(alertProvider *alerting.Provider) ListenerOption {
-	return func(o *ListenerOptions) {
-		o.alertProvider = alertProvider
+		o.connectCtx = ctx
 	}
 }
 
@@ -122,16 +95,16 @@ func NewListener(opts ...ListenerOption) *Listener {
 		maxJitter:      30 * time.Second,
 		updateQueueCap: 1000,
 		maxConnections: math.MaxInt64,
+		connectCtx:     context.TODO(),
+		asyncNats: func(ctx context.Context) (nats.JetStreamContext, error) {
+			return nil, nil
+		},
 	}
 	options.apply(opts...)
 	if options.maxJitter > options.interval {
 		options.maxJitter = options.interval
 	}
-	return &Listener{
-		AlertProvider:         options.alertProvider,
-		alertToggle:           options.alertToggle,
-		alertCondition:        options.alertCondition,
-		alertTickerDuration:   options.tickerDuration,
+	l := &Listener{
 		ListenerOptions:       options,
 		statusUpdate:          make(chan StatusUpdate, options.updateQueueCap),
 		healthUpdate:          make(chan HealthUpdate, options.updateQueueCap),
@@ -140,6 +113,13 @@ func NewListener(opts ...ListenerOption) *Listener {
 		closed:                make(chan struct{}),
 		sem:                   semaphore.NewWeighted(options.maxConnections),
 	}
+	go func() { // set jetstream connection when its found
+		nc, err := options.asyncNats(options.connectCtx)
+		if err == nil {
+			l.jetstream = nc
+		}
+	}()
+	return l
 }
 
 func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientSet) {
@@ -156,11 +136,6 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer l.sem.Release(1) // 5th
 
 	id := cluster.StreamAuthorizedID(ctx)
-
-	// if we are setting an alert condition for disconnections
-	if l.alertProvider != nil {
-		l.AlertDisconnectLoop(id)
-	}
 
 	l.idLocksMu.Lock()
 	var clientLock *sync.Mutex
@@ -265,76 +240,6 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	}
 }
 
-func (l *Listener) AlertDisconnectLoop(agentId string) {
-	ctx := context.Background()
-	if l.alertToggle == nil {
-		l.alertToggle = make(chan struct{})
-	}
-	if l.alertCondition == nil {
-		l.alertCondition = condition.OpniDisconnect
-	}
-
-	// prevent data race
-	alertConditionTemplateCopy := proto.Clone(l.alertCondition).(*alertingv1alpha.AlertCondition)
-
-	// Eventually replace with templates : Waiting on AlertManager Routes backend
-	alertConditionTemplateCopy.Name = strings.Replace(
-		l.alertCondition.Name,
-		"{{ .agentId }}",
-		agentId, -1)
-	alertConditionTemplateCopy.Description = strings.Replace(
-		alertConditionTemplateCopy.Description,
-		"{{ .agentId }}",
-		agentId, -1)
-
-	alertConditionTemplateCopy.Description = strings.Replace(
-		alertConditionTemplateCopy.Description, "{{ .timeout }}",
-		l.alertTickerDuration.String(), -1)
-
-	go func() {
-		id, err := (*l.alertProvider).CreateAlertCondition(ctx, alertConditionTemplateCopy)
-		retryOnFailure := time.NewTicker(time.Second)
-		defer retryOnFailure.Stop()
-		for err != nil {
-			select {
-			case <-retryOnFailure.C:
-				retryOnFailure.Reset(time.Second)
-				id, err = alerting.DoCreate(*l.alertProvider, ctx, alertConditionTemplateCopy)
-			case <-l.closed:
-				return
-			}
-		}
-		if l.alertTickerDuration <= 0 {
-			l.alertTickerDuration = time.Second * 60
-		}
-		ticker := time.NewTicker(l.alertTickerDuration)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C: // received no message from agent in the entire duration
-				_, err = alerting.DoTrigger(*l.alertProvider, ctx, &alertingv1alpha.TriggerAlertsRequest{
-					ConditionId: id,
-				})
-				if err != nil {
-					ticker.Reset(time.Second) // retry trigger more often
-				} else {
-					ticker.Reset(l.alertTickerDuration)
-				}
-
-			case <-l.alertToggle: // received a message from agent
-				ticker.Reset(l.alertTickerDuration)
-
-			case <-l.closed: // listener is closed, stop
-				go func() {
-					alerting.DoDelete(*l.alertProvider, ctx, id)
-				}()
-				return
-			}
-		}
-	}()
-}
-
 func (l *Listener) StatusC() chan StatusUpdate {
 	return l.statusUpdate
 }
@@ -368,9 +273,21 @@ func (l *Listener) UpdateHealth(ctx context.Context, req *corev1.Health) (*empty
 	defer l.incomingHealthUpdatesMu.RUnlock()
 
 	if ch, ok := l.incomingHealthUpdates[id]; ok {
-		ch <- HealthUpdate{
+		h := HealthUpdate{
 			ID:     id,
 			Health: util.ProtoClone(req),
+		}
+		ch <- h
+		//
+		if l.jetstream != nil {
+			hBytes, err := json.Marshal(h)
+			if err != nil {
+				return nil, err
+			}
+			_, err = l.jetstream.Publish(shared.AgentDisconnectStream, hBytes)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

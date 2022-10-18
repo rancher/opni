@@ -40,6 +40,11 @@ service LoggingAdmin {
             get: "/logging/storageclasses"
         };
     }
+    rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
+        option (google.api.http) = {
+            get: "/logging/status"
+        };
+    }
 }
 
 message OpensearchCluster {
@@ -95,4 +100,9 @@ message ResourceRequirements {
 message ComputeResourceQuantities {
     string CPU = 1;
     string Memory = 2;
+}
+
+message StatusResponse {
+    int32 status = 1;
+    string details = 2;
 }

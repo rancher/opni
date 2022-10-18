@@ -39,7 +39,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -60,7 +60,7 @@ type Plugin struct {
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
-	opensearchClient    *loggingutil.AsyncOpensearchClient
+	opensearchManager   opensearchdata.Manager
 	manageFlag          featureflags.FeatureFlag
 	logging             backend.LoggingBackend
 }
@@ -161,8 +161,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
-		opensearchClient:    loggingutil.NewAsyncOpensearchClient(),
-		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
+		opensearchManager: *opensearchdata.NewManager(
+			lg.Named("opensearch-manager"),
+		),
+		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -231,7 +233,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		p.manageFlag = p.featureOverride
 	}
 
-	go p.opensearchClient.SetClient(p.setOpensearchClient)
+	go p.opensearchManager.SetClient(p.setOpensearchClient)
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))

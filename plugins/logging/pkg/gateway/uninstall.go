@@ -2,13 +2,10 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
-	"github.com/nats-io/nats.go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -17,41 +14,22 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
+	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	pendingValue = "job pending"
-)
-
-type deleteStatus int
-
-const (
-	deletePending deleteStatus = iota
-	deleteRunning
-	deleteFinished
-	deleteFinishedWithErrors
-	deleteError
-)
-
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
-	storageNamespace string
-	kv               nats.KeyValue
-	opensearchClient *loggingutil.AsyncOpensearchClient
-	natsConnection   *nats.Conn
-	k8sClient        client.Client
-	storageBackend   future.Future[storage.Backend]
-	logger           *zap.SugaredLogger
+	storageNamespace  string
+	opensearchManager opensearchdata.Manager
+	k8sClient         client.Client
+	storageBackend    future.Future[storage.Backend]
+	logger            *zap.SugaredLogger
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
@@ -62,12 +40,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 
 	if md.DeleteStoredData {
 		ti.AddLogEntry(zapcore.WarnLevel, "Will delete opensearch data")
-		err := a.getPendingDeleteBucket()
-		if err != nil {
-			ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
-			return err
-		}
-		if err := a.doClusterDataDelete(ctx, ti.TaskId()); err != nil {
+		if err := a.opensearchManager.DoClusterDataDelete(ctx, ti.TaskId()); err != nil {
 			ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 			return err
 		}
@@ -88,21 +61,21 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 				ti.AddLogEntry(zapcore.WarnLevel, "Uninstall canceled, logging data is still being deleted")
 				return ctx.Err()
 			case <-b.Next():
-				status, err := a.deleteTaskStatus(ctx, ti.TaskId())
+				status, err := a.opensearchManager.DeleteTaskStatus(ctx, ti.TaskId())
 				if err != nil {
 					ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 					continue
 				}
 				switch status {
-				case deletePending:
-					if err := a.doClusterDataDelete(ctx, ti.TaskId()); err != nil {
+				case opensearchdata.DeletePending:
+					if err := a.opensearchManager.DoClusterDataDelete(ctx, ti.TaskId()); err != nil {
 						ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 						continue
 					}
-				case deleteFinishedWithErrors:
+				case opensearchdata.DeleteFinishedWithErrors:
 					ti.AddLogEntry(zapcore.WarnLevel, "some log entries not deleted")
 					break RETRY
-				case deleteFinished:
+				case opensearchdata.DeleteFinished:
 					ti.AddLogEntry(zapcore.InfoLevel, "Logging data deleted successfully")
 					break RETRY
 				}
@@ -201,155 +174,4 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 	}
 
 	return a.k8sClient.Delete(ctx, secret)
-}
-
-func (a *UninstallTaskRunner) getPendingDeleteBucket() error {
-	mgr, err := a.natsConnection.JetStream()
-	if err != nil {
-		return err
-	}
-
-	a.kv, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "pending-delete",
-		Description: "track pending deletes",
-	})
-	return err
-}
-
-func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string) error {
-	a.opensearchClient.WaitForInit()
-	a.opensearchClient.Lock()
-	defer a.opensearchClient.Unlock()
-
-	var createNewJob bool
-	idExists, err := a.keyExists(id)
-	if err != nil {
-		return nil
-	}
-
-	if idExists {
-		entry, err := a.kv.Get(id)
-		if err != nil {
-			return nil
-		}
-		createNewJob = string(entry.Value()) == pendingValue
-	} else {
-		createNewJob = true
-	}
-
-	query, _ := sjson.Set("", `query.term.cluster_id`, id)
-	if createNewJob {
-		if idExists {
-			_, err = a.kv.PutString(id, pendingValue)
-		} else {
-			_, err = a.kv.Create(id, []byte(pendingValue))
-		}
-		if err != nil {
-			return err
-		}
-
-		resp, err := a.opensearchClient.Client.DeleteByQuery(
-			[]string{
-				"logs",
-			},
-			strings.NewReader(query),
-			a.opensearchClient.Client.DeleteByQuery.WithWaitForCompletion(false),
-			a.opensearchClient.Client.DeleteByQuery.WithRefresh(true),
-			a.opensearchClient.Client.DeleteByQuery.WithSearchType("dfs_query_then_fetch"),
-			a.opensearchClient.Client.DeleteByQuery.WithContext(ctx),
-		)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-
-		if resp.IsError() {
-			return loggingerrors.ErrOpensearchRequestFailed(resp.String())
-		}
-
-		respString := util.ReadString(resp.Body)
-		taskID := gjson.Get(respString, "task").String()
-		a.logger.Debugf("opensearch taskID is :%s", taskID)
-		_, err = a.kv.PutString(id, taskID)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a *UninstallTaskRunner) keyExists(keyToCheck string) (bool, error) {
-	keys, err := a.kv.Keys()
-	if err != nil {
-		if errors.Is(err, nats.ErrNoKeysFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	for _, key := range keys {
-		if key == keyToCheck {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (deleteStatus, error) {
-	a.opensearchClient.WaitForInit()
-	a.opensearchClient.Lock()
-	defer a.opensearchClient.Unlock()
-
-	idExists, err := a.keyExists(id)
-	if err != nil {
-		return deleteError, err
-	}
-	// If ID doesn't exist in KV set task to finished with errors
-	if !idExists {
-		a.logger.Warn("could not find cluster id in KV store")
-		return deleteFinishedWithErrors, nil
-	}
-
-	value, err := a.kv.Get(id)
-	if err != nil {
-		return deleteError, err
-	}
-
-	taskID := string(value.Value())
-
-	if taskID == pendingValue {
-		a.logger.Debug("kv status is pending")
-		return deletePending, nil
-	}
-
-	resp, err := a.opensearchClient.Client.Tasks.Get(
-		taskID,
-		a.opensearchClient.Client.Tasks.Get.WithContext(ctx),
-	)
-	if err != nil {
-		return deleteError, err
-	}
-	defer resp.Body.Close()
-
-	if resp.IsError() {
-		return deleteError, loggingerrors.ErrOpensearchRequestFailed(resp.String())
-	}
-
-	body := util.ReadString(resp.Body)
-
-	if !gjson.Get(body, "completed").Bool() {
-		a.logger.Debug(body)
-		return deleteRunning, nil
-	}
-
-	if len(gjson.Get(body, "response.failures").Array()) > 0 {
-		return deleteFinishedWithErrors, nil
-	}
-
-	err = a.kv.Delete(id)
-	if err != nil {
-		return deleteError, err
-	}
-
-	return deleteFinished, nil
 }

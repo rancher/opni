@@ -11,14 +11,16 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
-	"github.com/opensearch-project/opensearch-go"
 	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
+	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/samber/lo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -40,6 +42,33 @@ const (
 	opensearchVersion = "1.3.3"
 	defaultRepo       = "docker.io/rancher"
 )
+
+type ClusterStatus int
+
+const (
+	ClusterStatusPending ClusterStatus = iota + 1
+	ClusterStatusGreen
+	ClusterStatusYellow
+	ClusterStatusRed
+	ClusterStatusError
+)
+
+func ClusterStatusDescription(s ClusterStatus) string {
+	switch s {
+	case ClusterStatusPending:
+		return "Opensearch cluster is initializing"
+	case ClusterStatusGreen:
+		return "Opensearch cluster is green"
+	case ClusterStatusYellow:
+		return "Opensearch cluster is yellow"
+	case ClusterStatusRed:
+		return "Opensearch cluster is red"
+	case ClusterStatusError:
+		return "Error fetching status from Opensearch cluster"
+	default:
+		return "unknown status"
+	}
+}
 
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
@@ -89,7 +118,7 @@ func (p *Plugin) DeleteOpensearchCluster(
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 	// Check that it is safe to delete the cluster
-	p.opensearchClient.UnsetClient()
+	p.opensearchManager.UnsetClient()
 
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
 	err := p.k8sClient.List(p.ctx, loggingClusters, client.InNamespace(p.storageNamespace))
@@ -121,7 +150,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
-	go p.opensearchClient.SetClient(p.setOpensearchClient)
+	go p.opensearchManager.SetClient(p.setOpensearchClient)
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,
@@ -298,6 +327,54 @@ func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*log
 
 	return &loggingadmin.StorageClassResponse{
 		StorageClasses: storageClassNames,
+	}, nil
+}
+
+func (p *Plugin) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
+	if err := p.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      p.opensearchCluster.Name,
+		Namespace: p.opensearchCluster.Namespace,
+	}, &loggingv1beta1.OpniOpensearch{}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			p.logger.Info("opensearch cluster does not exist")
+			return nil, status.Error(codes.NotFound, "unable to list cluster status")
+		}
+		return nil, err
+	}
+
+	cluster := &opsterv1.OpenSearchCluster{}
+	if err := p.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      p.opensearchCluster.Name,
+		Namespace: p.opensearchCluster.Namespace,
+	}, cluster); err != nil {
+		return nil, err
+	}
+
+	status := ClusterStatus(-1)
+
+	if !cluster.Status.Initialized {
+		status = ClusterStatusPending
+		return &loggingadmin.StatusResponse{
+			Status:  int32(status),
+			Details: ClusterStatusDescription(status),
+		}, nil
+	}
+
+	statusResp := p.opensearchManager.GetClusterStatus()
+	switch statusResp {
+	case opensearchdata.ClusterStatusGreen:
+		status = ClusterStatusGreen
+	case opensearchdata.ClusterStatusYellow:
+		status = ClusterStatusYellow
+	case opensearchdata.ClusterStatusRed:
+		status = ClusterStatusRed
+	case opensearchdata.ClusterStatusError:
+		status = ClusterStatusError
+	}
+
+	return &loggingadmin.StatusResponse{
+		Status:  int32(status),
+		Details: ClusterStatusDescription(status),
 	}, nil
 }
 
@@ -519,7 +596,7 @@ FETCH:
 		InsecureSkipVerify: true,
 	}
 
-	osCfg := opensearch.Config{
+	osCfg := osclient.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://%s.%s:9200", cluster.Spec.General.ServiceName, cluster.Namespace),
 		},
@@ -529,7 +606,7 @@ FETCH:
 		Transport:            transport,
 	}
 
-	osClient, err := opensearch.NewClient(osCfg)
+	osClient, err := osclient.NewClient(osCfg)
 	if err != nil {
 		p.logger.Errorf("failed to create opensearch client: %v", err)
 		panic(err)

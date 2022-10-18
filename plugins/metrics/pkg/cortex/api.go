@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"os"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -102,6 +103,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	p.configureAlertmanager(router, fwds, mws)
 	p.configureRuler(router, fwds, mws)
 	p.configureQueryFrontend(router, fwds, mws)
+	pprof.Register(router, "/debug/plugin_metrics/pprof")
 }
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {

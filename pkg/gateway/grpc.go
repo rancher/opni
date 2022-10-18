@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"net"
+	"runtime"
 	"sync"
 	"time"
 
@@ -85,6 +86,10 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
+		grpc.ReadBufferSize(0),
+		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
+		grpc.InitialConnWindowSize(64*1024*1024), // 64MB
+		grpc.InitialWindowSize(64*1024*1024),     // 64MB
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	s.servicesMu.Lock()

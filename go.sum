@@ -1887,12 +1887,10 @@ github.com/kralicky/ragu v1.0.0-rc3 h1:auI0G5WcLcBC18gQABjpykvEbzEt2xStQsC6dxuva
 github.com/kralicky/ragu v1.0.0-rc3/go.mod h1:upcZm+aSNq1ngZDshp85T4tDG8rhfO9Ak66sY/4bI2g=
 github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a h1:RfpqOGzhMSF0OWvI8AqYxlvhuVZ72EQiYu9ClM89bKg=
 github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a/go.mod h1:qp6R4XKeuJk2j8nHke4Y9rBEpc2HkCjXR/gssL3OpOU=
-github.com/kralicky/totem v1.1.0-rc4.0.20221012015347-f752584b0e56 h1:a8QJIHYV09HSfYQPUOMEqV2JWrZ0VwoqoY4oVioB/T0=
-github.com/kralicky/totem v1.1.0-rc4.0.20221012015347-f752584b0e56/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
-github.com/kralicky/totem v1.1.0-rc5 h1:z8a2GXQsGpA2wd5whmu81Ivxs/5Czxx87YYwNMcJEDU=
-github.com/kralicky/totem v1.1.0-rc5/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
-github.com/kralicky/totem v1.1.0-rc6 h1:x3BH1GrdFuVbFnBAuIifpzX9VUQjagz/atlbX31XSeY=
-github.com/kralicky/totem v1.1.0-rc6/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
+github.com/kralicky/totem v1.1.0-rc6.0.20221015041849-acb5d4c633f2 h1:eEMfmOPb9Y37ZSar9KR7nzMhSC4mqbUdFSQVB4F308c=
+github.com/kralicky/totem v1.1.0-rc6.0.20221015041849-acb5d4c633f2/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
+github.com/kralicky/totem v1.1.0-rc7 h1:/ubi2n0mcM/+1zbok8Td8GXh2W6mlEQb9lbdsHvwjJ4=
+github.com/kralicky/totem v1.1.0-rc7/go.mod h1:l6wZ22m0hEIBML+HE0qJTwqAZMg9m9qpbRC2tCZNtqg=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db h1:OhMQACnkI4y5uEciBkaVGzPFpS/5LkPT1uHnOv84Fcw=
@@ -2823,6 +2821,7 @@ github.com/urfave/cli v1.22.2/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 github.com/urfave/cli v1.22.4/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/urfave/cli v1.22.5/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
+github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.0.1/go.mod h1:UQGH1tvbgY+Nz5t2n7tXsz52dQxojPUpymEIMZ47gx8=
 github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=

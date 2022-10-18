@@ -60,7 +60,6 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				ControllerClusterPort: r.spec.Alerting.ClusterPort,
 				ConfigMap:             "alertmanager-config",
 			},
-			Profiling: r.spec.Profiling,
 		},
 	}
 	gatewayConf.Spec.SetDefaults()

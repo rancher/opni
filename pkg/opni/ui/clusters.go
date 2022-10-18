@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -174,6 +175,7 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for k, v := range t.cluster.GetMetadata().GetLabels() {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		}
+		sort.Strings(labels)
 		capabilities := []string{}
 		for _, c := range t.cluster.GetCapabilities() {
 			if c.DeletionTimestamp == nil {

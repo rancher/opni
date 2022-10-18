@@ -11,8 +11,10 @@ type RealtimeServerConfig struct {
 }
 
 type RealtimeServerSpec struct {
-	Metrics          MetricsSpec          `json:"metrics,omitempty"`
-	ManagementClient ManagementClientSpec `json:"managementClient,omitempty"`
+	//+kubebuilder:default=":8086"
+	MetricsListenAddress string               `json:"metricsListenAddress,omitempty"`
+	Metrics              MetricsSpec          `json:"metrics,omitempty"`
+	ManagementClient     ManagementClientSpec `json:"managementClient,omitempty"`
 }
 
 type ManagementClientSpec struct {

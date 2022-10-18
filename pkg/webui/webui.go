@@ -113,7 +113,7 @@ func (ws *WebUIServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		lg.With(
 			"url", opniApiAddr,
 			"error", err,
-		).Fatal("failed to parse management API URL")
+		).Panic("failed to parse management API URL")
 		return err
 	}
 	mux.HandleFunc("/opni-api/", func(rw http.ResponseWriter, r *http.Request) {

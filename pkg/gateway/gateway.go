@@ -115,7 +115,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to parse listen address")
+		).Panic("failed to parse listen address")
 	}
 	capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
 		Address: conf.Spec.Hostname,
@@ -175,7 +175,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to load TLS config")
+		).Panic("failed to load TLS config")
 	}
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl, &options.alerting)
@@ -189,7 +189,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to create cluster auth")
+		).Panic("failed to create cluster auth")
 	}
 
 	// set up plugin manifest server
@@ -363,7 +363,7 @@ func (g *Gateway) WatchClusterHealthStatus(ctx context.Context, ref *corev1.Refe
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
-	g.httpServer.metricsHandler.MustRegister(collector)
+	g.httpServer.metricsRegisterer.MustRegister(collector)
 }
 
 func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {

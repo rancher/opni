@@ -39,7 +39,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 		r.coreGW.Status.ServiceName = publicSvc.Name
 	}
 
-	internalPorts, err := r.managementContainerPorts()
+	internalPorts, err := r.internalContainerPorts()
 	if err != nil {
 		return nil, err
 	}

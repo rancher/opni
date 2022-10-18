@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 
 	"github.com/go-logr/zapr"
@@ -273,12 +272,6 @@ func runMonitoringAgent(ctx context.Context, agentlg logger.ExtendedSugaredLogge
 	objects.Visit(func(config *v1beta1.AgentConfig) {
 		agentConfig = config
 	})
-
-	if agentConfig.Spec.Profiling {
-		fmt.Fprintln(os.Stderr, chalk.Yellow.Color("Profiling is enabled. This should only be used for debugging purposes."))
-		runtime.SetBlockProfileRate(10000)
-		runtime.SetMutexProfileFraction(100)
-	}
 
 	bootstrapper, err := configureBootstrap(agentConfig, agentlg)
 

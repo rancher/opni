@@ -15,6 +15,8 @@ type GatewayConfigSpec struct {
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 	//+kubebuilder:default=":9090"
 	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	//+kubebuilder:default=":8086"
+	MetricsListenAddress string `json:"metricsListenAddress,omitempty"`
 	//+kubebuilder:default="localhost"
 	Hostname       string         `json:"hostname,omitempty"`
 	Metrics        MetricsSpec    `json:"metrics,omitempty"`
@@ -47,28 +49,25 @@ type AlertingSpec struct {
 }
 
 type MetricsSpec struct {
-	//+kubebuilder:default=8086
-	Port int `json:"port,omitempty"`
 	//+kubebuilder:default="/metrics"
 	Path string `json:"path,omitempty"`
 }
 
 type ProfilingSpec struct {
-	Enabled bool `json:"enabled,omitempty"`
-	//+kubebuilder:default=8087
-	Port int `json:"port,omitempty"`
-}
-
-func (s MetricsSpec) GetPort() int {
-	if s.Port == 0 {
-		return 8086
-	}
-	return s.Port
+	//+kubebuilder:default=/debug/pprof
+	Path string `json:"path,omitempty"`
 }
 
 func (s MetricsSpec) GetPath() string {
 	if s.Path == "" {
 		return "/metrics"
+	}
+	return s.Path
+}
+
+func (s ProfilingSpec) GetPath() string {
+	if s.Path == "" {
+		return "/debug/pprof"
 	}
 	return s.Path
 }
@@ -226,14 +225,11 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.GRPCListenAddress == "" {
 		s.GRPCListenAddress = ":9090"
 	}
+	if s.MetricsListenAddress == "" {
+		s.MetricsListenAddress = ":8086"
+	}
 	if s.Hostname == "" {
 		s.Hostname = "localhost"
-	}
-	if s.Metrics.Port == 0 {
-		s.Metrics.Port = 8086
-	}
-	if s.Profiling.Port == 0 {
-		s.Profiling.Port = 8087
 	}
 	if s.Cortex.Distributor.HTTPAddress == "" {
 		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"

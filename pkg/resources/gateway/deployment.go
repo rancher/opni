@@ -18,7 +18,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	internalPorts, err := r.managementContainerPorts()
+	internalPorts, err := r.internalContainerPorts()
 	if err != nil {
 		return nil, err
 	}
@@ -101,18 +101,12 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 									MountPath: "/run/etcd/certs/server",
 								},
 							},
-							Ports: append(append(append([]corev1.ContainerPort{
-								{
-									Name:          "metrics",
-									ContainerPort: 8086,
-								},
-							}, publicPorts...), internalPorts...), adminDashboardPorts...),
+							Ports: append(append(publicPorts, internalPorts...), adminDashboardPorts...),
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.FromString("http"),
-										Scheme: corev1.URISchemeHTTPS,
+										Path: "/healthz",
+										Port: intstr.FromString("metrics"),
 									},
 								},
 								TimeoutSeconds:   1,
@@ -123,9 +117,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.FromString("http"),
-										Scheme: corev1.URISchemeHTTPS,
+										Path: "/healthz",
+										Port: intstr.FromString("metrics"),
 									},
 								},
 								TimeoutSeconds:   1,
@@ -136,9 +129,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							StartupProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.FromString("http"),
-										Scheme: corev1.URISchemeHTTPS,
+										Path: "/healthz",
+										Port: intstr.FromString("metrics"),
 									},
 								},
 								TimeoutSeconds:   1,

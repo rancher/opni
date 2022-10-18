@@ -32,7 +32,6 @@ require (
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/go-test/deep v1.0.8
-	github.com/gogo/status v1.1.0
 	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
@@ -58,7 +57,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
 	github.com/kralicky/ragu v1.0.0-rc3
 	github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a
-	github.com/kralicky/totem v1.1.0-rc6
+	github.com/kralicky/totem v1.1.0-rc7
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8
@@ -98,6 +97,7 @@ require (
 	github.com/tidwall/gjson v1.14.2
 	github.com/tidwall/sjson v1.2.4
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
+	github.com/valyala/bytebufferpool v1.0.0
 	github.com/weaveworks/common v0.0.0-20220927162600-d0a1a93a15be
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
@@ -264,6 +264,7 @@ require (
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/gogo/status v1.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
 	github.com/golang-migrate/migrate/v4 v4.7.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect

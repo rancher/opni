@@ -146,6 +146,24 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			},
 		},
 	}
+	nodeViewerBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   fmt.Sprintf("opni-node-viewer-%s", r.name),
+			Labels: resources.NewGatewayLabels(),
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "opni-node-viewer",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccount.Name,
+				Namespace: r.namespace,
+			},
+		},
+	}
 
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -175,5 +193,6 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 		resources.Present(role),
 		resources.Present(roleBinding),
 		resources.Present(clusterRoleBinding),
+		resources.Present(nodeViewerBinding),
 	}, nil
 }

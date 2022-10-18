@@ -54,7 +54,7 @@ func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 		var err error
 		list, err = api.APIExtensions(context.Background(), &emptypb.Empty{})
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 		if len(list.Items) == 0 {
 			time.Sleep(500 * time.Millisecond)

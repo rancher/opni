@@ -26,6 +26,7 @@ deploy/examples/gpu/vgpu.yaml
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
+pkg/resources/monitoring/dashboards/vendor
 
 /report.json
 /cover.out

@@ -23,6 +23,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cenkalti/backoff"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 
@@ -89,6 +92,7 @@ var collectorWriteSync sync.Mutex
 
 type servicePorts struct {
 	Etcd            int
+	Jetstream       int
 	GatewayGRPC     int
 	GatewayHTTP     int
 	GatewayMetrics  int
@@ -136,6 +140,7 @@ type Environment struct {
 
 type EnvironmentOptions struct {
 	enableEtcd                bool
+	enableJetstream           bool
 	enableGateway             bool
 	enableCortex              bool
 	enableRealtimeServer      bool
@@ -158,6 +163,12 @@ func (o *EnvironmentOptions) apply(opts ...EnvironmentOption) {
 func WithEnableEtcd(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableEtcd = enable
+	}
+}
+
+func WithEnableJetstream(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableJetstream = enable
 	}
 }
 
@@ -219,6 +230,7 @@ func defaultAgentVersion() string {
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:           true,
+		enableJetstream:      false,
 		enableGateway:        true,
 		enableCortex:         true,
 		enableRealtimeServer: true,
@@ -244,7 +256,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(11)
+	ports, err := freeport.GetFreePorts(12)
 	if err != nil {
 		panic(err)
 	}
@@ -260,6 +272,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		CortexHTTP:      ports[8],
 		TestEnvironment: ports[9],
 		RTMetrics:       ports[10],
+		Jetstream:       ports[11],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -331,6 +344,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return err
 		}
 	}
+	if options.enableJetstream {
+		if err := os.Mkdir(path.Join(e.tempDir, "jetstream"), 0700); err != nil {
+			return err
+		}
+		if err := os.Mkdir(path.Join(e.tempDir, "jetstream-seed"), 0700); err != nil {
+			return err
+		}
+	}
 	if options.enableCortex {
 		cortexTempDir := path.Join(e.tempDir, "cortex")
 		if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
@@ -363,6 +384,9 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		} else {
 			e.startEtcd()
 		}
+	}
+	if options.enableJetstream {
+		e.startJetstream()
 	}
 	if options.enableCortex {
 		if options.delayStartCortex != nil && options.enableCortexClusterDriver {
@@ -518,6 +542,111 @@ func (e *Environment) initCtx() {
 	e.once.Do(func() {
 		e.ctx, e.cancel = context.WithCancel(waitctx.Background())
 	})
+}
+
+func (e *Environment) startJetstream() {
+	if !e.enableJetstream {
+		e.Logger.Panic("jetstream disabled")
+	}
+	lg := e.Logger
+	// set up keys
+	user, err := nkeys.CreateUser()
+	if err != nil {
+		lg.Error(err)
+	}
+	seed, err := user.Seed()
+	if err != nil {
+		lg.Error(err)
+	}
+	publicKey, err := user.PublicKey()
+	if err != nil {
+		lg.Error(err)
+	}
+	t := template.Must(template.New("jetstream").Parse(`
+	authorization : {
+		users : [
+			{ nkey : {{.PublicKey}} }
+		]
+	}
+	`))
+	var b bytes.Buffer
+	t.Execute(&b, map[string]string{
+		"PublicKey": publicKey,
+	})
+	conf := filepath.Join(e.tempDir, "jetstream.conf")
+	err = os.WriteFile(conf, b.Bytes(), 0644)
+	if err != nil {
+		panic(err)
+	}
+	lg.Debugf("jetstream port is %d", e.ports.Jetstream)
+	defaultArgs := []string{
+		"--jetstream",
+		fmt.Sprintf("--config=%s", conf),
+		fmt.Sprintf("--auth=%s", seed),
+		fmt.Sprintf("--store_dir=%s", path.Join(e.tempDir, "jetstream")),
+		fmt.Sprintf("--port=%d", e.ports.Jetstream),
+	}
+	jetstreamBin := path.Join(e.TestBin, "nats-server")
+	cmd := exec.CommandContext(e.ctx, jetstreamBin, defaultArgs...)
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	os.Setenv("NATS_SERVER_URL", fmt.Sprintf("http://localhost:%d", e.ports.Jetstream))
+	authConfigFile := path.Join(e.tempDir, "jetstream-seed", "nats-auth.conf")
+	err = os.WriteFile(authConfigFile, []byte(seed), 0644)
+	if err != nil {
+		panic("failed to write jetstream auth config")
+	}
+	os.Setenv("NKEY_SEED_FILENAME", authConfigFile)
+	lg.Info("Waiting for jetstream to start...")
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
+	for e.ctx.Err() == nil {
+		natsURL := os.Getenv("NATS_SERVER_URL")
+		natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
+
+		opt, err := nats.NkeyOptionFromSeed(natsSeedPath)
+		if err != nil {
+			panic(err)
+
+		}
+		retryBackoff := backoff.NewExponentialBackOff()
+		time.Sleep(time.Second)
+		if nc, err := nats.Connect(
+			natsURL,
+			opt,
+			nats.MaxReconnects(-1),
+			nats.CustomReconnectDelay(
+				func(i int) time.Duration {
+					if i == 1 {
+						retryBackoff.Reset()
+					}
+					return retryBackoff.NextBackOff()
+				},
+			),
+			nats.DisconnectErrHandler(
+				func(nc *nats.Conn, err error) {
+					lg.With(
+						"err", err,
+					).Warn("nats disconnected")
+				},
+			),
+		); err == nil {
+			defer nc.Close()
+			break
+		} else {
+			lg.Error(err)
+		}
+		time.Sleep(time.Second)
+	}
+	lg.Info("Jetstream started")
 }
 
 func (e *Environment) startEtcd() {
@@ -891,7 +1020,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
-func simulateObject(kPort int) {
+func (e *Environment) simulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}
 	namespace := namespaces[rand.Intn(len(namespaces))]
@@ -917,11 +1046,11 @@ func simulateObject(kPort int) {
 	go func() {
 		resp, err := client.Do(req)
 		if err != nil {
-			panic(err)
+			e.Logger.Error("got error from mock kube metrics api : ", zap.Error(err))
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+			e.Logger.Error("got response code %d from mock kube metrics api", resp.StatusCode)
 		}
 	}()
 }
@@ -1501,7 +1630,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
 	//TODO: simulate a bunch of random objects
 	for i := 0; i < 100; i++ {
-		simulateObject(kPort)
+		environment.simulateKubeObject(kPort)
 	}
 
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)

@@ -81,7 +81,7 @@ service AlertConditions {
 
   rpc Timeline(common.TimelineRequest) returns (common.TimelineResponse) {
     option (google.api.http) = {
-      get : "/timeline"
+      post : "/timeline"
     };
   }
 

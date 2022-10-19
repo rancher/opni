@@ -40,7 +40,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	// 	return nil, err
 	// }
 
-	if req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0 {
+	if !(req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0) {
 		// FIXME: temporary solution
 		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 		if err != nil {
@@ -121,7 +121,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	// if err != nil {
 	// 	return nil, err
 	// }
-	if req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0 {
+	if !(req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0) {
 		// FIXME: temporary solution
 		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 		if err != nil {
@@ -187,7 +187,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	// 	return nil, err
 	// }
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
-	if existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0 {
+	if !(existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0) {
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)
 		if err != nil {
 			return nil, err
@@ -201,7 +201,6 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 }
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
-	//FIXME: requires changes to the way we post conditions when notification id is nil
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 
@@ -408,8 +407,6 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1alpha.TimelineRequ
 				Type:  t,
 			})
 		}
-
 	}
-
 	return resp, nil
 }

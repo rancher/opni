@@ -4,17 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/rancher/opni/pkg/alerting/backend"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"go.uber.org/zap"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const postableAlertRoute = "/api/v1/alerts"
@@ -109,21 +105,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 	}
 	sendNotif := a.GetAttachedEndpoints()
 
-	// persist with alert log api
-	//FIXME: for now ignore errors in creating alert logs
-	_, _ = p.CreateAlertLog(ctx, &corev1.AlertLog{
-		ConditionId: req.ConditionId,
-		Timestamp: &timestamppb.Timestamp{
-			Seconds: time.Now().Unix(),
-		},
-		Metadata: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"Info": structpb.NewStringValue(a.Description),
-				//TODO : convert severity grpc enum to string
-				"Severity": structpb.NewStringValue("Severe"),
-			},
-		},
-	})
+	// TODO : log triggers in the future
+
 	if sendNotif != nil {
 		// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
 		err = sendNotificationWithRateLimiting(p, ctx, req)

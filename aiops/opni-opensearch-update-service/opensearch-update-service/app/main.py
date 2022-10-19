@@ -161,22 +161,6 @@ async def update_logs(es, df):
                     logging.info("Elasticsearch connection error")
                     es = await setup_es_connection()
 
-async def wait_for_index():
-    es = await setup_es_connection()
-    while True:
-        try:
-            exists = await es.indices.exists("opni-normal-intervals")
-            if exists:
-                break
-            else:
-                logging.info("waiting for opni-normal-intervals index")
-                time.sleep(2)
-
-        except TransportError as exception:
-            logging.info(f"Error in es indices {exception}")
-            if exception.status_code == "N/A":
-                logging.info("Elasticsearch connection error")
-                es = await setup_es_connection()
 
 async def init_nats():
     from opni_nats import NatsWrapper

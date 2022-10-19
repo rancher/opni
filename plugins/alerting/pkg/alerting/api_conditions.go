@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/rancher/opni/pkg/alerting/backend"
@@ -25,7 +27,7 @@ import (
 )
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
-	lg := p.Logger.With("Handler", "CreateAlertCondition")
+	// lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -33,10 +35,10 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
-	_, err := setupCondition(p, lg, ctx, req, newId) //FIXME: subsequent errors should cleanup the created reference
-	if err != nil {
-		return nil, err
-	}
+	// _, err := setupCondition(p, lg, ctx, req, newId) //FIXME: subsequent errors should cleanup the created reference
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	if req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0 {
 		// FIXME: temporary solution
@@ -115,10 +117,10 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, err
 	}
 
-	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
-	if err != nil {
-		return nil, err
-	}
+	// _, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0 {
 		// FIXME: temporary solution
 		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
@@ -181,9 +183,9 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
-		return nil, err
-	}
+	// if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
+	// 	return nil, err
+	// }
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
 	if existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0 {
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)
@@ -365,4 +367,49 @@ func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1a
 		return nil, err
 	}
 	return handleChoicesByType(p, ctx, req)
+}
+
+func (p *Plugin) Timeline(ctx context.Context, req *alertingv1alpha.TimelineRequest) (*alertingv1alpha.TimelineResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	ids, conditions, err := p.storageNode.ListWithKeyConditionStorage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := &alertingv1alpha.TimelineResponse{
+		Items: make(map[string]*alertingv1alpha.ActiveWindows),
+	}
+	for idx := range conditions {
+		resp.Items[ids[idx]] = &alertingv1alpha.ActiveWindows{
+			Windows: make([]*alertingv1alpha.ActiveWindow, 0),
+		}
+		numWindows := rand.Intn(10) + 1
+		for i := 0; i < numWindows; i++ {
+			startTime := time.Now()
+			startTime.Add(-time.Duration(rand.Int31n(24)+1) * time.Hour)
+			endTime := time.Now()
+			endTime.Add(-time.Duration(rand.Int31n(24)+1) * time.Hour)
+			if endTime.UnixNano() < startTime.UnixNano() {
+				temp := startTime
+				startTime = endTime
+				endTime = temp
+			}
+			typeRandom := rand.Intn(4)
+			var t alertingv1alpha.TimelineType
+			if typeRandom == 0 {
+				t = alertingv1alpha.TimelineType_Timeline_Silenced
+			} else {
+				t = alertingv1alpha.TimelineType_Timeline_Alerting
+			}
+			resp.Items[ids[idx]].Windows = append(resp.Items[ids[idx]].Windows, &alertingv1alpha.ActiveWindow{
+				Start: timestamppb.New(startTime),
+				End:   timestamppb.New(endTime),
+				Type:  t,
+			})
+		}
+
+	}
+
+	return resp, nil
 }

@@ -35,6 +35,7 @@ type AlertConditionsClient interface {
 	ActivateSilence(ctx context.Context, in *common.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Timeline(ctx context.Context, in *common.TimelineRequest, opts ...grpc.CallOption) (*common.TimelineResponse, error)
 }
 
 type alertConditionsClient struct {
@@ -126,6 +127,15 @@ func (c *alertConditionsClient) DeactivateSilence(ctx context.Context, in *v1.Re
 	return out, nil
 }
 
+func (c *alertConditionsClient) Timeline(ctx context.Context, in *common.TimelineRequest, opts ...grpc.CallOption) (*common.TimelineResponse, error) {
+	out := new(common.TimelineResponse)
+	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/Timeline", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertConditionsServer is the server API for AlertConditions service.
 // All implementations must embed UnimplementedAlertConditionsServer
 // for forward compatibility
@@ -140,6 +150,7 @@ type AlertConditionsServer interface {
 	ActivateSilence(context.Context, *common.SilenceRequest) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	Timeline(context.Context, *common.TimelineRequest) (*common.TimelineResponse, error)
 	mustEmbedUnimplementedAlertConditionsServer()
 }
 
@@ -173,6 +184,9 @@ func (UnimplementedAlertConditionsServer) ActivateSilence(context.Context, *comm
 }
 func (UnimplementedAlertConditionsServer) DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeactivateSilence not implemented")
+}
+func (UnimplementedAlertConditionsServer) Timeline(context.Context, *common.TimelineRequest) (*common.TimelineResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Timeline not implemented")
 }
 func (UnimplementedAlertConditionsServer) mustEmbedUnimplementedAlertConditionsServer() {}
 
@@ -349,6 +363,24 @@ func _AlertConditions_DeactivateSilence_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertConditions_Timeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(common.TimelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertConditionsServer).Timeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.condition.AlertConditions/Timeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertConditionsServer).Timeline(ctx, req.(*common.TimelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AlertConditions_ServiceDesc is the grpc.ServiceDesc for AlertConditions service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -391,6 +423,10 @@ var AlertConditions_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeactivateSilence",
 			Handler:    _AlertConditions_DeactivateSilence_Handler,
+		},
+		{
+			MethodName: "Timeline",
+			Handler:    _AlertConditions_Timeline_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

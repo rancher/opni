@@ -79,6 +79,12 @@ service AlertConditions {
     };
   }
 
+  rpc Timeline(common.TimelineRequest) returns (common.TimelineResponse) {
+    option (google.api.http) = {
+      get : "/timeline"
+    };
+  }
+
   // unimplemented in 0.6 / 0.6.1
   // rpc ListAvailableTemplatesForType(common.AlertDetailChoicesRequest)
   //     returns (common.TemplatesResponse) {

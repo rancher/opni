@@ -364,3 +364,33 @@ message TriggerAlertsRequest {
 
 // opni-alerting internal use
 message TriggerAlertsResponse {}
+
+
+enum TimelineType {
+  // do not show, backend error 
+  Timeline_Unknown = 0;
+  // red
+  Timeline_Alerting = 1;
+  // blue?
+  Timeline_Silenced = 2;
+}
+
+// query for status timeline page
+message TimelineRequest {
+  google.protobuf.Duration lookbackWindow = 1;
+}
+
+// maps conditionId => list of active windows
+message TimelineResponse {
+  map<string, ActiveWindows> items = 1;
+}
+
+message ActiveWindow {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  TimelineType type = 3;
+}
+
+message ActiveWindows {
+  repeated ActiveWindow windows = 1;
+}

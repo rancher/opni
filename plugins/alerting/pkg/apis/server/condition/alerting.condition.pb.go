@@ -60,7 +60,7 @@ var file_github_com_rancher_opni_plugins_pkg_apis_server_condition_alerting_cond
 	0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72, 0x74,
 	0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x6d,
 	0x6d, 0x6f, 0x6e, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x32, 0xdf, 0x06, 0x0a, 0x0f, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
+	0x32, 0xb1, 0x07, 0x0a, 0x0f, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
 	0x69, 0x6f, 0x6e, 0x73, 0x12, 0x56, 0x0a, 0x14, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x41, 0x6c,
 	0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x16, 0x2e, 0x63,
 	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69,
@@ -114,11 +114,16 @@ var file_github_com_rancher_opni_plugins_pkg_apis_server_condition_alerting_cond
 	0x63, 0x65, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x16, 0x82, 0xd3, 0xe4, 0x93,
 	0x02, 0x10, 0x2a, 0x0e, 0x2f, 0x73, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x73, 0x2f, 0x7b, 0x69,
-	0x64, 0x7d, 0x42, 0x3b, 0x5a, 0x39, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c,
-	0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x73,
-	0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x64, 0x7d, 0x12, 0x50, 0x0a, 0x08, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x12, 0x17,
+	0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x11, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0b, 0x12, 0x09, 0x2f, 0x74, 0x69, 0x6d, 0x65,
+	0x6c, 0x69, 0x6e, 0x65, 0x42, 0x3b, 0x5a, 0x39, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f,
+	0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73,
+	0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x63, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f,
+	0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var file_github_com_rancher_opni_plugins_pkg_apis_server_condition_alerting_condition_proto_goTypes = []interface{}{
@@ -128,35 +133,39 @@ var file_github_com_rancher_opni_plugins_pkg_apis_server_condition_alerting_cond
 	(*common.UpdateAlertConditionRequest)(nil), // 3: common.UpdateAlertConditionRequest
 	(*common.AlertDetailChoicesRequest)(nil),   // 4: common.AlertDetailChoicesRequest
 	(*common.SilenceRequest)(nil),              // 5: common.SilenceRequest
-	(*common.AlertConditionList)(nil),          // 6: common.AlertConditionList
-	(*emptypb.Empty)(nil),                      // 7: google.protobuf.Empty
-	(*common.ListAlertTypeDetails)(nil),        // 8: common.ListAlertTypeDetails
-	(*common.AlertStatusResponse)(nil),         // 9: common.AlertStatusResponse
+	(*common.TimelineRequest)(nil),             // 6: common.TimelineRequest
+	(*common.AlertConditionList)(nil),          // 7: common.AlertConditionList
+	(*emptypb.Empty)(nil),                      // 8: google.protobuf.Empty
+	(*common.ListAlertTypeDetails)(nil),        // 9: common.ListAlertTypeDetails
+	(*common.AlertStatusResponse)(nil),         // 10: common.AlertStatusResponse
+	(*common.TimelineResponse)(nil),            // 11: common.TimelineResponse
 }
 var file_github_com_rancher_opni_plugins_pkg_apis_server_condition_alerting_condition_proto_depIdxs = []int32{
-	0, // 0: alerting.condition.AlertConditions.CreateAlertCondition:input_type -> common.AlertCondition
-	1, // 1: alerting.condition.AlertConditions.GetAlertCondition:input_type -> core.Reference
-	2, // 2: alerting.condition.AlertConditions.ListAlertConditions:input_type -> common.ListAlertConditionRequest
-	3, // 3: alerting.condition.AlertConditions.UpdateAlertCondition:input_type -> common.UpdateAlertConditionRequest
-	4, // 4: alerting.condition.AlertConditions.ListAlertConditionChoices:input_type -> common.AlertDetailChoicesRequest
-	1, // 5: alerting.condition.AlertConditions.DeleteAlertCondition:input_type -> core.Reference
-	1, // 6: alerting.condition.AlertConditions.AlertConditionStatus:input_type -> core.Reference
-	5, // 7: alerting.condition.AlertConditions.ActivateSilence:input_type -> common.SilenceRequest
-	1, // 8: alerting.condition.AlertConditions.DeactivateSilence:input_type -> core.Reference
-	1, // 9: alerting.condition.AlertConditions.CreateAlertCondition:output_type -> core.Reference
-	0, // 10: alerting.condition.AlertConditions.GetAlertCondition:output_type -> common.AlertCondition
-	6, // 11: alerting.condition.AlertConditions.ListAlertConditions:output_type -> common.AlertConditionList
-	7, // 12: alerting.condition.AlertConditions.UpdateAlertCondition:output_type -> google.protobuf.Empty
-	8, // 13: alerting.condition.AlertConditions.ListAlertConditionChoices:output_type -> common.ListAlertTypeDetails
-	7, // 14: alerting.condition.AlertConditions.DeleteAlertCondition:output_type -> google.protobuf.Empty
-	9, // 15: alerting.condition.AlertConditions.AlertConditionStatus:output_type -> common.AlertStatusResponse
-	7, // 16: alerting.condition.AlertConditions.ActivateSilence:output_type -> google.protobuf.Empty
-	7, // 17: alerting.condition.AlertConditions.DeactivateSilence:output_type -> google.protobuf.Empty
-	9, // [9:18] is the sub-list for method output_type
-	0, // [0:9] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: alerting.condition.AlertConditions.CreateAlertCondition:input_type -> common.AlertCondition
+	1,  // 1: alerting.condition.AlertConditions.GetAlertCondition:input_type -> core.Reference
+	2,  // 2: alerting.condition.AlertConditions.ListAlertConditions:input_type -> common.ListAlertConditionRequest
+	3,  // 3: alerting.condition.AlertConditions.UpdateAlertCondition:input_type -> common.UpdateAlertConditionRequest
+	4,  // 4: alerting.condition.AlertConditions.ListAlertConditionChoices:input_type -> common.AlertDetailChoicesRequest
+	1,  // 5: alerting.condition.AlertConditions.DeleteAlertCondition:input_type -> core.Reference
+	1,  // 6: alerting.condition.AlertConditions.AlertConditionStatus:input_type -> core.Reference
+	5,  // 7: alerting.condition.AlertConditions.ActivateSilence:input_type -> common.SilenceRequest
+	1,  // 8: alerting.condition.AlertConditions.DeactivateSilence:input_type -> core.Reference
+	6,  // 9: alerting.condition.AlertConditions.Timeline:input_type -> common.TimelineRequest
+	1,  // 10: alerting.condition.AlertConditions.CreateAlertCondition:output_type -> core.Reference
+	0,  // 11: alerting.condition.AlertConditions.GetAlertCondition:output_type -> common.AlertCondition
+	7,  // 12: alerting.condition.AlertConditions.ListAlertConditions:output_type -> common.AlertConditionList
+	8,  // 13: alerting.condition.AlertConditions.UpdateAlertCondition:output_type -> google.protobuf.Empty
+	9,  // 14: alerting.condition.AlertConditions.ListAlertConditionChoices:output_type -> common.ListAlertTypeDetails
+	8,  // 15: alerting.condition.AlertConditions.DeleteAlertCondition:output_type -> google.protobuf.Empty
+	10, // 16: alerting.condition.AlertConditions.AlertConditionStatus:output_type -> common.AlertStatusResponse
+	8,  // 17: alerting.condition.AlertConditions.ActivateSilence:output_type -> google.protobuf.Empty
+	8,  // 18: alerting.condition.AlertConditions.DeactivateSilence:output_type -> google.protobuf.Empty
+	11, // 19: alerting.condition.AlertConditions.Timeline:output_type -> common.TimelineResponse
+	10, // [10:20] is the sub-list for method output_type
+	0,  // [0:10] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() {

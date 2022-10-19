@@ -265,3 +265,13 @@ func (a *AttachedEndpoints) Validate() error {
 	}
 	return nil
 }
+
+func (t *TimelineRequest) Validate() error {
+	if t.GetLookbackWindow() == nil {
+		return validation.Error("lookbackWindow must be set")
+	}
+	if t.GetLookbackWindow().GetSeconds() == 0 {
+		return validation.Error("lookbackWindow must have a non zero time")
+	}
+	return nil
+}

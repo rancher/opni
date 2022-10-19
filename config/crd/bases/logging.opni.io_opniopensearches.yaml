@@ -614,6 +614,8 @@ spec:
                     - replicas
                     - version
                     type: object
+                  imageOverride:
+                    type: string
                   nodePools:
                     items:
                       properties:

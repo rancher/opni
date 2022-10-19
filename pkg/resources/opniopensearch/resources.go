@@ -50,8 +50,13 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		Spec: opsterv1.ClusterSpec{
 			General: opsterv1.GeneralConfig{
 				ImageSpec: &opsterv1.ImageSpec{
-					Image:           &image,
 					ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
+					Image: func() *string {
+						if r.instance.Spec.OpensearchSettings.ImageOverride != nil {
+							return r.instance.Spec.OpensearchSettings.ImageOverride
+						}
+						return &image
+					}(),
 				},
 				Version:          r.instance.Spec.OpensearchVersion,
 				ServiceName:      fmt.Sprintf("%s-opensearch-svc", r.instance.Name),

@@ -224,6 +224,15 @@ func getVersion(binary string) string {
 	return strings.Split(strings.Split(version, "\n")[0], " ")[2]
 }
 
+func getJetstreamVersion(binary string) string {
+	output, err := sh.Output(binary, "--version")
+	if err != nil {
+		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
+	}
+	fmt.Println(output)
+	return strings.Split(output, " ")[1][1:]
+}
+
 func getKubeVersion(binary string) string {
 	version, err := sh.Output(binary, "--version")
 	if err != nil {
@@ -330,6 +339,12 @@ func init() {
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},
+		{
+			Name:       "nats-server",
+			Version:    "2.9.3",
+			URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-linux-amd64.tar.gz",
+			GetVersion: getJetstreamVersion,
+		},
 	}
 	if runtime.GOOS == "linux" {
 		testbin.Config.Binaries = append(testbin.Config.Binaries,
@@ -354,7 +369,6 @@ func init() {
 		)
 	}
 }
-
 func ProtobufGo() error {
 	out, err := ragu.GenerateCode(ragu.DefaultGenerators(),
 		"pkg/**/*.proto",

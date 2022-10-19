@@ -56,7 +56,7 @@ require (
 	github.com/kralicky/grpc-gateway/v2 v2.11.3
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
 	github.com/kralicky/ragu v1.0.0-rc3
-	github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a
+	github.com/kralicky/spellbook v0.0.0-20221019184719-a1c3a541291d
 	github.com/kralicky/totem v1.1.0-rc7
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208

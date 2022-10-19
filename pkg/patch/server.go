@@ -288,10 +288,16 @@ func PatchWith(
 			case v1.PatchOp_UPDATE:
 				if info.GetIsPatch() { // patch received from gateway
 					lg.Info("patching plugin")
+					// existingPluginFile, err := os.Open(fullPluginPath)
+					// if err != nil {
+					// 	return err
+					// }
+					// bufReader := bufio.NewReader(existingPluginFile)
 					existingData, err := os.ReadFile(fullPluginPath)
 					if err != nil {
 						return err
 					}
+					// TODO : use a streaming patcher
 					patchResult, err := ApplyPatch(existingData, receivedData)
 					if err != nil {
 						return err
@@ -319,6 +325,7 @@ func PatchWith(
 						go func() {
 							defer backgroundTasks.Done()
 							lg.Info("computing patch")
+							// TODO : use a streaming patcher
 							patch, err := GeneratePatch(existingData, receivedData)
 							if err != nil {
 								lg.With(

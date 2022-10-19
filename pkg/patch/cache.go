@@ -63,6 +63,16 @@ func (c *InMemoryCache) Put(pluginName, oldRevision, newRevision string, patch [
 	return nil
 }
 
+// writes in place the result to the patchf io.Writer
+func GenerateIOStreamPatch(oldBin io.Reader, newBin io.Reader, patchf io.Writer) error {
+	return bsdiff.Reader(oldBin, newBin, patchf)
+}
+
+// writes in place the result to the newBin io.Writer
+func ApplyIOStreamPatch(oldBin io.Reader, patchf io.Reader, newBin io.Writer) error {
+	return bspatch.Reader(oldBin, newBin, patchf)
+}
+
 func GeneratePatch(outdatedBytes, newestBytes []byte) ([]byte, error) {
 	// BSDIFF4 patch
 	patch, err := bsdiff.Bytes(outdatedBytes, newestBytes)

@@ -115,7 +115,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	} else {
 		policies = append(policies, opniDrainModelStatusPolicy)
 		policies = append(policies, opniMetricPolicy)
-		policies = append(policies, opniLogTemplatePolicy)
 	}
 	for _, policy := range policies {
 		err = r.osReconciler.ReconcileISM(policy)
@@ -129,7 +128,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	templates := []esapiext.IndexTemplateSpec{
 		drainStatusTemplate,
 		opniMetricTemplate,
-		logTemplate,
 	}
 
 	for _, template := range templates {
@@ -144,7 +142,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	prefixes := map[string]string{
 		drainStatusIndexPrefix: drainStatusIndexAlias,
 		metricIndexPrefix:      metricIndexAlias,
-		logTemplateIndexPrefix: logTemplateIndexAlias,
 	}
 
 	for prefix, alias := range prefixes {

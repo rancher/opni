@@ -342,7 +342,7 @@ func init() {
 		{
 			Name:       "nats-server",
 			Version:    "2.9.3",
-			URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-linux-amd64.tar.gz",
+			URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getJetstreamVersion,
 		},
 	}

@@ -1020,7 +1020,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
-func simulateObject(kPort int) {
+func (e *Environment) simulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}
 	namespace := namespaces[rand.Intn(len(namespaces))]
@@ -1034,7 +1034,7 @@ func simulateObject(kPort int) {
 	}
 	req, err := http.NewRequest("GET", queryUrl, nil)
 	if err != nil {
-		// panic(err)
+		panic(err)
 	}
 	values := url.Values{}
 	values.Set("obj", sampleObject)
@@ -1046,11 +1046,11 @@ func simulateObject(kPort int) {
 	go func() {
 		resp, err := client.Do(req)
 		if err != nil {
-			panic(err)
+			e.Logger.Error("got error from mock kube metrics api : ", zap.Error(err))
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+			e.Logger.Error("got response code %d from mock kube metrics api", resp.StatusCode)
 		}
 	}()
 }
@@ -1630,7 +1630,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
 	//TODO: simulate a bunch of random objects
 	for i := 0; i < 100; i++ {
-		simulateObject(kPort)
+		environment.simulateKubeObject(kPort)
 	}
 
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)

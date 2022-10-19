@@ -230,7 +230,7 @@ func defaultAgentVersion() string {
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:           true,
-		enableJetstream:      true,
+		enableJetstream:      false,
 		enableGateway:        true,
 		enableCortex:         true,
 		enableRealtimeServer: true,

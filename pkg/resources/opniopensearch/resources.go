@@ -37,7 +37,9 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 	}
 
 	image := fmt.Sprintf(
-		"amartyarancher/opni-ingest-plugin-amartya:%s",
+		"%s/opensearch:%s-%s",
+		r.instance.Spec.ImageRepo,
+		r.instance.Spec.OpensearchVersion,
 		version,
 	)
 	cluster := &opsterv1.OpenSearchCluster{

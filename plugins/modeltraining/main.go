@@ -8,14 +8,14 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	model_training "github.com/rancher/opni/plugins/modelTraining/pkg/modelTraining"
+	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining"
 )
 
 func main() {
 	tracing.Configure("plugin_model_training")
 	gin.SetMode(gin.ReleaseMode)
 	ctx, ca := context.WithCancel(waitctx.Background())
-	plugins.Serve(model_training.Scheme(ctx))
+	plugins.Serve(modeltraining.Scheme(ctx))
 	ca()
 	waitctx.Wait(ctx, 5*time.Second)
 }

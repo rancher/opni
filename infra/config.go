@@ -12,6 +12,8 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	namePrefix := config.Require(ctx, "opni:namePrefix")
 	zoneID := config.Require(ctx, "opni:zoneID")
 	useLocalCharts := config.GetBool(ctx, "opni:useLocalCharts")
+	chartsRepo := config.Get(ctx, "opni:chartsRepo")
+	chartVersion := config.Get(ctx, "opni:chartVersion")
 	config.GetObject(ctx, "opni:cluster", &clusterConfig)
 	tags := map[string]string{}
 	config.GetObject(ctx, "opni:tags", &tags)
@@ -49,6 +51,8 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 		ImageTag:        imageTag,
 		MinimalImageTag: minimalImageTag,
 		UseLocalCharts:  useLocalCharts,
+		ChartsRepo:      chartsRepo,
+		ChartVersion:    chartVersion,
 		Cluster:         clusterConfig,
 		Tags:            tags,
 		UseIdInDnsNames: useIdInDnsNames,
@@ -58,19 +62,18 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 }
 
 type Config struct {
-	NamePrefix            string            `json:"namePrefix"`
-	ZoneID                string            `json:"zoneID"`
-	Cloud                 string            `json:"cloud"`
-	ImageRepo             string            `json:"imageRepo"`
-	ImageTag              string            `json:"imageTag"`
-	MinimalImageTag       string            `json:"minimalImageTag"`
-	UseLocalCharts        bool              `json:"useLocalCharts"`
-	ChartsRepo            string            `json:"chartsRepo"`
-	ChartVersion          string            `json:"chartVersion"`
-	KubePrometheusEnabled bool              `json:"kubePrometheusEnabled"`
-	Cluster               ClusterConfig     `json:"cluster"`
-	Tags                  map[string]string `json:"tags"`
-	UseIdInDnsNames       bool              `json:"useIdInDnsNames"`
+	NamePrefix      string            `json:"namePrefix"`
+	ZoneID          string            `json:"zoneID"`
+	Cloud           string            `json:"cloud"`
+	ImageRepo       string            `json:"imageRepo"`
+	ImageTag        string            `json:"imageTag"`
+	MinimalImageTag string            `json:"minimalImageTag"`
+	UseLocalCharts  bool              `json:"useLocalCharts"`
+	ChartsRepo      string            `json:"chartsRepo"`
+	ChartVersion    string            `json:"chartVersion"`
+	Cluster         ClusterConfig     `json:"cluster"`
+	Tags            map[string]string `json:"tags"`
+	UseIdInDnsNames bool              `json:"useIdInDnsNames"`
 }
 
 type ClusterConfig struct {

@@ -2,14 +2,19 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/rancher/opni/infra/pkg/resources"
 
 	. "github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pkg/errors"
+	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/acm"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/cognito"
+	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/config"
+	eksapi "github.com/pulumi/pulumi-aws/sdk/v5/go/aws/eks"
+	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/route53"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-awsx/sdk/go/awsx/ec2"
@@ -39,10 +44,70 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 		ClusterTags:              ToStringMap(conf.Tags),
 		ClusterSecurityGroupTags: ToStringMap(conf.Tags),
 		NodeSecurityGroupTags:    ToStringMap(conf.Tags),
+		CreateOidcProvider:       BoolPtr(true),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+
+	id, err := aws.GetCallerIdentity(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	rolePolicyDocument := cluster.EksCluster.Identities().Index(Int(0)).Oidcs().Index(Int(0)).Issuer().Elem().ApplyT(func(issuerUrl string) string {
+		region := config.GetRegion(ctx)
+		accessKey := id.AccountId
+
+		oidcId := strings.TrimPrefix(issuerUrl, fmt.Sprintf("https://oidc.eks.%s.amazonaws.com/id/", region))
+		return fmt.Sprintf(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::%[3]s:oidc-provider/oidc.eks.%[2]s.amazonaws.com/id/%[1]s"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.%[2]s.amazonaws.com/id/%[1]s:aud": "sts.amazonaws.com",
+          "oidc.eks.%[2]s.amazonaws.com/id/%[1]s:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+        }
+      }
+    }
+  ]
+}`[1:], oidcId, region, accessKey)
+	})
+
+	role, err := iam.NewRole(ctx, "ebs-csi-driver-role", &iam.RoleArgs{
+		Name:             String("AmazonEKS_EBS_CSI_DriverRole"),
+		AssumeRolePolicy: rolePolicyDocument,
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	_, err = iam.NewRolePolicyAttachment(ctx, "ebs-csi-driver-role-policy-attachment", &iam.RolePolicyAttachmentArgs{
+		PolicyArn: String("arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"),
+		Role:      role.Name,
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	_, err = eksapi.NewAddon(ctx, "aws-ebs-csi-driver", &eksapi.AddonArgs{
+		AddonName:             String("aws-ebs-csi-driver"),
+		AddonVersion:          String("v1.11.4-eksbuild.1"),
+		ClusterName:           cluster.EksCluster.Name(),
+		Tags:                  ToStringMap(conf.Tags),
+		ServiceAccountRoleArn: role.Arn,
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &eksResources{
 		Cluster: cluster,
 	}, nil

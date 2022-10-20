@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.28.1-devel
 // 	protoc        v1.0.0
-// source: github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining/modelTraining.proto
+// source: github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining/modeltraining.proto
 
 package modeltraining
 
@@ -36,7 +36,7 @@ type GPUInfo struct {
 func (x *GPUInfo) Reset() {
 	*x = GPUInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[0]
+		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -49,7 +49,7 @@ func (x *GPUInfo) String() string {
 func (*GPUInfo) ProtoMessage() {}
 
 func (x *GPUInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[0]
+	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *GPUInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPUInfo.ProtoReflect.Descriptor instead.
 func (*GPUInfo) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescGZIP(), []int{0}
+	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GPUInfo) GetName() string {
@@ -97,7 +97,7 @@ type GPUInfoList struct {
 func (x *GPUInfoList) Reset() {
 	*x = GPUInfoList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[1]
+		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -110,7 +110,7 @@ func (x *GPUInfoList) String() string {
 func (*GPUInfoList) ProtoMessage() {}
 
 func (x *GPUInfoList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[1]
+	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -123,7 +123,7 @@ func (x *GPUInfoList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPUInfoList.ProtoReflect.Descriptor instead.
 func (*GPUInfoList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescGZIP(), []int{1}
+	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GPUInfoList) GetList() []*GPUInfo {
@@ -147,7 +147,7 @@ type WorkloadResponse struct {
 func (x *WorkloadResponse) Reset() {
 	*x = WorkloadResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[2]
+		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -160,7 +160,7 @@ func (x *WorkloadResponse) String() string {
 func (*WorkloadResponse) ProtoMessage() {}
 
 func (x *WorkloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[2]
+	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -173,7 +173,7 @@ func (x *WorkloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkloadResponse.ProtoReflect.Descriptor instead.
 func (*WorkloadResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescGZIP(), []int{2}
+	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WorkloadResponse) GetClusterId() string {
@@ -215,7 +215,7 @@ type WorkloadsList struct {
 func (x *WorkloadsList) Reset() {
 	*x = WorkloadsList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[3]
+		mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -228,7 +228,7 @@ func (x *WorkloadsList) String() string {
 func (*WorkloadsList) ProtoMessage() {}
 
 func (x *WorkloadsList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[3]
+	mi := &file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -241,7 +241,7 @@ func (x *WorkloadsList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkloadsList.ProtoReflect.Descriptor instead.
 func (*WorkloadsList) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescGZIP(), []int{3}
+	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *WorkloadsList) GetList() []*WorkloadResponse {
@@ -251,14 +251,14 @@ func (x *WorkloadsList) GetList() []*WorkloadResponse {
 	return nil
 }
 
-var File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto protoreflect.FileDescriptor
+var File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto protoreflect.FileDescriptor
 
-var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDesc = []byte{
+var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDesc = []byte{
 	0x0a, 0x53, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e,
 	0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e,
 	0x73, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x74, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x2f,
 	0x70, 0x6b, 0x67, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x74, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e,
-	0x67, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x54, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x2e,
+	0x67, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x74, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0d, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x74, 0x72, 0x61, 0x69,
 	0x6e, 0x69, 0x6e, 0x67, 0x1a, 0x33, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
 	0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b,
@@ -329,19 +329,19 @@ var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTr
 }
 
 var (
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescOnce sync.Once
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescData = file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDesc
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescOnce sync.Once
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescData = file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDesc
 )
 
-func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescGZIP() []byte {
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescOnce.Do(func() {
-		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescData)
+func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescGZIP() []byte {
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescOnce.Do(func() {
+		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescData)
 	})
-	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDescData
+	return file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDescData
 }
 
-var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_goTypes = []interface{}{
+var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_goTypes = []interface{}{
 	(*GPUInfo)(nil),          // 0: modeltraining.GPUInfo
 	(*GPUInfoList)(nil),      // 1: modeltraining.GPUInfoList
 	(*WorkloadResponse)(nil), // 2: modeltraining.WorkloadResponse
@@ -349,7 +349,7 @@ var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTr
 	(*v1.Reference)(nil),     // 4: core.Reference
 	(*emptypb.Empty)(nil),    // 5: google.protobuf.Empty
 }
-var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_depIdxs = []int32{
+var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_depIdxs = []int32{
 	0, // 0: modeltraining.GPUInfoList.list:type_name -> modeltraining.GPUInfo
 	2, // 1: modeltraining.WorkloadsList.list:type_name -> modeltraining.WorkloadResponse
 	3, // 2: modeltraining.ModelTraining.TrainModel:input_type -> modeltraining.WorkloadsList
@@ -370,14 +370,14 @@ var file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTr
 }
 
 func init() {
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_init()
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_init()
 }
-func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_init() {
-	if File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto != nil {
+func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_init() {
+	if File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GPUInfo); i {
 			case 0:
 				return &v.state
@@ -389,7 +389,7 @@ func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelT
 				return nil
 			}
 		}
-		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GPUInfoList); i {
 			case 0:
 				return &v.state
@@ -401,7 +401,7 @@ func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelT
 				return nil
 			}
 		}
-		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*WorkloadResponse); i {
 			case 0:
 				return &v.state
@@ -413,7 +413,7 @@ func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelT
 				return nil
 			}
 		}
-		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*WorkloadsList); i {
 			case 0:
 				return &v.state
@@ -430,18 +430,18 @@ func file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelT
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDesc,
+			RawDescriptor: file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_goTypes,
-		DependencyIndexes: file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_depIdxs,
-		MessageInfos:      file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_msgTypes,
+		GoTypes:           file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_goTypes,
+		DependencyIndexes: file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_depIdxs,
+		MessageInfos:      file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_msgTypes,
 	}.Build()
-	File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto = out.File
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_rawDesc = nil
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_goTypes = nil
-	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modelTraining_proto_depIdxs = nil
+	File_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto = out.File
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_rawDesc = nil
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_goTypes = nil
+	file_github_com_rancher_opni_plugins_modeltraining_pkg_modeltraining_modeltraining_proto_depIdxs = nil
 }

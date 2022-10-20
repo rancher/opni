@@ -1,4 +1,4 @@
-package model_training
+package modeltraining
 
 import (
 	"context"
@@ -82,7 +82,7 @@ var _ modelTraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ModelTrainingPlugin{
-		Logger:         logger.NewPluginLogger().Named("model_training"),
+		Logger:         logger.NewPluginLogger().Named("modeltraining"),
 		natsConnection: future.New[*nats.Conn](),
 		kv:             future.New[nats.KeyValue](),
 		osClient:       future.New[*opensearch.Client](),

@@ -1,4 +1,4 @@
-package model_training
+package modeltraining
 
 import (
 	"crypto/tls"

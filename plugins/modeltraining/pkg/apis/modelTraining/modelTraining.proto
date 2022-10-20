@@ -1,10 +1,10 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/modelTraining/pkg/modelTraining";
+option go_package = "github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
 
-package modelTraining;
+package modeltraining;
 
 service ModelTraining {
   rpc TrainModel(WorkloadsList) returns (core.Reference) {

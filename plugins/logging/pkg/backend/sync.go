@@ -73,9 +73,13 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	b.nodeStatusMu.RLock()
 	defer b.nodeStatusMu.RUnlock()
 
-	err = b.ClusterDriver.SetClusterStatus(ctx, id, enabled)
-	if err != nil {
-		return nil, err
+	if enabled {
+		err = b.ClusterDriver.SetClusterStatus(ctx, id, enabled)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		b.ClusterDriver.SetSyncTime()
 	}
 
 	var osConf *node.OpensearchConfig

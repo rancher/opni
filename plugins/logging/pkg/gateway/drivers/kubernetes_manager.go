@@ -29,6 +29,8 @@ import (
 
 type KubernetesManagerDriver struct {
 	KubernetesManagerDriverOptions
+
+	ephemeralSyncTime time.Time
 }
 
 type KubernetesManagerDriverOptions struct {
@@ -89,6 +91,7 @@ func NewKubernetesManagerDriver(opts ...KubernetesManagerDriverOption) (*Kuberne
 	}
 	return &KubernetesManagerDriver{
 		KubernetesManagerDriverOptions: options,
+		ephemeralSyncTime:              time.Now(),
 	}, nil
 }
 
@@ -241,6 +244,13 @@ func (d *KubernetesManagerDriver) GetClusterStatus(ctx context.Context, id strin
 		return nil, errors.ErrListingClustersFaled(err)
 	}
 
+	if len(loggingClusterList.Items) == 0 {
+		return &capabilityv1.NodeCapabilityStatus{
+			Enabled:  false,
+			LastSync: timestamppb.New(d.ephemeralSyncTime),
+		}, nil
+	}
+
 	if len(loggingClusterList.Items) != 1 {
 		return nil, errors.ErrInvalidList
 	}
@@ -249,4 +259,8 @@ func (d *KubernetesManagerDriver) GetClusterStatus(ctx context.Context, id strin
 		Enabled:  loggingClusterList.Items[0].Spec.Enabled,
 		LastSync: timestamppb.New(loggingClusterList.Items[0].Spec.LastSync.Time),
 	}, nil
+}
+
+func (d *KubernetesManagerDriver) SetSyncTime() {
+	d.ephemeralSyncTime = time.Now()
 }

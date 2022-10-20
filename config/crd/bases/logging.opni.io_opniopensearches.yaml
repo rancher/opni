@@ -1209,6 +1209,8 @@ spec:
                 type: array
               opensearchVersion:
                 type: string
+              passwordGenerated:
+                type: boolean
               state:
                 type: string
               version:

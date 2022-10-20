@@ -22,6 +22,7 @@ func NewAlertingDisconnectStream(mgr nats.JetStreamContext) error {
 			Subjects:  []string{AgentDisconnectStreamSubjects},
 			Retention: nats.LimitsPolicy,
 			MaxAge:    1 * time.Hour,
+			MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
 		})
 		if err != nil {
 			return err

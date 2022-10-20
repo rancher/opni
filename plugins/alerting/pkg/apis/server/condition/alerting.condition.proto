@@ -84,21 +84,4 @@ service AlertConditions {
       post : "/timeline"
     };
   }
-
-  // unimplemented in 0.6 / 0.6.1
-  // rpc ListAvailableTemplatesForType(common.AlertDetailChoicesRequest)
-  //     returns (common.TemplatesResponse) {
-  //   option (google.api.http) = {
-  //     post : "/templatevars"
-  //   };
-  // }
-
-  // unimplemented in 0.6 / 0.6.1
-  // rpc PreviewAlertCondition(common.PreviewAlertConditionRequest)
-  //     returns (common.PreviewAlertConditionResponse) {
-  //   option (google.api.http) = {
-  //     post : "/preview"
-  //     body : "*"
-  //   };
-  // }
 }

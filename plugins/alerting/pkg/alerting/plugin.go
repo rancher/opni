@@ -2,7 +2,7 @@ package alerting
 
 import (
 	"context"
-	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -37,9 +37,8 @@ type Plugin struct {
 	log.UnsafeAlertLogsServer
 	trigger.UnsafeAlertingServer
 
-	Ctx        context.Context
-	Logger     *zap.SugaredLogger
-	inMemCache *lru.Cache
+	Ctx    context.Context
+	Logger *zap.SugaredLogger
 
 	opsNode     *ops.AlertingOpsNode
 	msgNode     *messaging.MessagingNode
@@ -60,12 +59,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
 	clusterDriver := future.New[drivers.ClusterDriver]()
 	p := &Plugin{
-		Ctx:        ctx,
-		Logger:     lg,
-		inMemCache: nil,
+		Ctx:    ctx,
+		Logger: lg,
 
 		opsNode: ops.NewAlertingOpsNode(clusterDriver),
-		msgNode: messaging.NewMessagingNode(future.New[*nats.Conn]()),
+		msgNode: messaging.NewMessagingNode(),
 		storageNode: alertstorage.NewStorageNode(
 			alertstorage.WithLogger(lg),
 		),
@@ -96,10 +94,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 			util.PackService(
 				&endpoint.AlertEndpoints_ServiceDesc,
-				p,
-			),
-			util.PackService(
-				&log.AlertLogs_ServiceDesc,
 				p,
 			),
 			util.PackService(

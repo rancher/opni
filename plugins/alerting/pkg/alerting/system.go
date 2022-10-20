@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
-	lru "github.com/hashicorp/golang-lru"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -77,10 +76,6 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		nc  *nats.Conn
 		err error
 	)
-	p.inMemCache, err = lru.New(AlertingLogCacheSize)
-	if err != nil {
-		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
-	}
 	p.storageNode = alertstorage.NewStorageNode(
 		alertstorage.WithStorage(&alertstorage.StorageAPIs{
 			Conditions:           system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
@@ -118,7 +113,27 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		panic(err)
 	}
 	p.storageNode.SetSystemTrackerStorage(kv)
+	// spawn a reindexing task
+	go func() {
+		p.restartAgentDisconnectTrackers()
+	}()
 	<-p.Ctx.Done()
+}
+
+func (p *Plugin) restartAgentDisconnectTrackers() {
+	lg := p.Logger.With("re-indexing", "agent-disconnect-trackers")
+	ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)
+	if err != nil {
+		lg.With("err", err).Error("failed to list alert conditions")
+		return
+	}
+	for i, id := range ids {
+		if s := conds[i].GetAlertType().GetSystem(); s != nil {
+			caFu := p.onSystemConditionCreate(id, s)
+			p.msgNode.AddSystemConfigListener(id, caFu)
+		}
+	}
+	lg.Info("re-indexing complete")
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {

@@ -3,9 +3,6 @@ package messaging
 import (
 	"context"
 	"sync"
-
-	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/util/future"
 )
 
 type MessagingNode struct {
@@ -15,7 +12,7 @@ type MessagingNode struct {
 	conditionMu sync.Mutex
 }
 
-func NewMessagingNode(newNatsConn future.Future[*nats.Conn]) *MessagingNode {
+func NewMessagingNode() *MessagingNode {
 	return &MessagingNode{
 		systemConditionUpdateListeners: make(map[string]context.CancelFunc),
 	}

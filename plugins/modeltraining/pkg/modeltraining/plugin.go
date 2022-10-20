@@ -15,14 +15,14 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/modelTraining/pkg/apis/modelTraining"
+	"github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ModelTrainingPlugin struct {
-	modelTraining.UnsafeModelTrainingServer
+	modeltraining.UnsafeModelTrainingServer
 	system.UnimplementedSystemPluginClient
 	ctx            context.Context
 	Logger         *zap.SugaredLogger
@@ -77,7 +77,7 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 
 }
 
-var _ modelTraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
+var _ modeltraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -89,6 +89,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&modelTraining.ModelTraining_ServiceDesc, p)))
+		managementext.NewPlugin(util.PackService(&modeltraining.ModelTraining_ServiceDesc, p)))
 	return scheme
 }

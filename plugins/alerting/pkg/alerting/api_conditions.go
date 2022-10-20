@@ -27,7 +27,7 @@ import (
 )
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
-	// lg := p.Logger.With("Handler", "CreateAlertCondition")
+	lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -35,10 +35,10 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
-	// _, err := setupCondition(p, lg, ctx, req, newId) //FIXME: subsequent errors should cleanup the created reference
-	// if err != nil {
-	// 	return nil, err
-	// }
+	_, err := setupCondition(p, lg, ctx, req, newId)
+	if err != nil {
+		return nil, err
+	}
 
 	if !(req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0) {
 		// FIXME: temporary solution
@@ -117,12 +117,11 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, err
 	}
 
-	// _, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
+	if err != nil {
+		return nil, err
+	}
 	if !(req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0) {
-		// FIXME: temporary solution
 		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 		if err != nil {
 			return nil, err
@@ -183,9 +182,9 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	// if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
-	// 	return nil, err
-	// }
+	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
+		return nil, err
+	}
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
 	if !(existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0) {
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)

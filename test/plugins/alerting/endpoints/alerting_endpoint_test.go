@@ -276,8 +276,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(found.Endpoint.GetSlack().Channel).To(Equal(slackChannel))
 			Expect(found.Endpoint.GetSlack().WebhookUrl).To(Equal(slackApiUrl))
 
-			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, some.Id)
-			Expect(err).To(Succeed())
+			// _, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, some.Id)
+			// Expect(err).To(Succeed())
 			newestNewestItems, err := alertingEndpointClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 			Expect(err).To(Succeed())
 			var missing *alertingv1alpha.AlertEndpointWithId
@@ -428,10 +428,10 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(slack).NotTo(BeNil())
 			Expect(email).NotTo(BeNil())
 			Expect(curConfig().Receivers).To(HaveLen(3))
-			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, slack.Id)
-			Expect(err).To(Succeed())
-			_, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, email.Id)
-			Expect(err).To(Succeed())
+			// _, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, slack.Id)
+			// Expect(err).To(Succeed())
+			// _, err = alertingEndpointClient.DeleteAlertEndpoint(ctx, email.Id)
+			// Expect(err).To(Succeed())
 
 			newItems, err := alertingEndpointClient.ListAlertEndpoints(ctx,
 				&alertingv1alpha.ListAlertEndpointsRequest{},

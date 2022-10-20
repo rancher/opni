@@ -41,15 +41,6 @@ const (
 	AlertingCortexHookHandler              = "/management/alerting/cortexHandler"
 )
 
-// Jetstream streams
-const (
-	AgentDisconnectStream = "opni.alerting.agent"
-)
-
-func NewAgentDisconnectStream(conditionId string) string {
-	return fmt.Sprintf("%s.%s", AgentDisconnectStream, conditionId)
-}
-
 var (
 	PublicLabels        = map[string]string{}
 	PublicServiceLabels = map[string]string{}

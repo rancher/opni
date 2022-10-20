@@ -178,11 +178,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpc.ChainUnaryInterceptor(interceptor),
 	)
 
-	// TODO : alert on agent disconnected
-	// TODO : with jetstream
 	// set up stream server
 	listener := health.NewListener(
-	// TODO : jetstream
+		health.WithAsyncNATSConnection(),
+		health.WithConnectCtx(ctx),
 	)
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	sync := NewSyncRequester(lg)

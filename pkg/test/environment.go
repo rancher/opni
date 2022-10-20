@@ -89,6 +89,8 @@ import (
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 var collectorWriteSync sync.Mutex
+var agentList map[string]context.CancelFunc = make(map[string]context.CancelFunc)
+var agentListMu sync.Mutex
 
 type servicePorts struct {
 	Etcd            int
@@ -230,7 +232,7 @@ func defaultAgentVersion() string {
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:           true,
-		enableJetstream:      false,
+		enableJetstream:      true,
 		enableGateway:        true,
 		enableCortex:         true,
 		enableRealtimeServer: true,
@@ -1020,6 +1022,62 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
+func (e *Environment) StartAgentDisconnectServer(ctx context.Context) int {
+	var dPort int
+	if port := os.Getenv("AGENT_DISCONNECT_PORT"); port == "" {
+		gPort, err := freeport.GetFreePort()
+		if err != nil {
+			panic(err)
+		}
+		dPort = gPort
+	} else {
+		gPort, err := strconv.Atoi(port)
+		if err != nil {
+			panic(err)
+		}
+		dPort = gPort
+	}
+
+	setDisconnect := func(w http.ResponseWriter, r *http.Request) {
+		agentListMu.Lock()
+		defer agentListMu.Unlock()
+		agent := r.URL.Query().Get("agent")
+		if agent == "" {
+			e.Logger.Error("agent not specified")
+			return
+		}
+		if _, ok := agentList[agent]; !ok {
+			e.Logger.Error("could not find agent to disconnect")
+			return
+		}
+		agentList[agent]()
+		delete(agentList, agent)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/disconnect", setDisconnect)
+
+	disconnectServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", dPort),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := disconnectServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
+		defer disconnectServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		}
+	})
+	return dPort
+}
+
 func (e *Environment) simulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}
@@ -1047,6 +1105,7 @@ func (e *Environment) simulateKubeObject(kPort int) {
 		resp, err := client.Do(req)
 		if err != nil {
 			e.Logger.Error("got error from mock kube metrics api : ", zap.Error(err))
+			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -1422,8 +1481,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					TrustStrategy: strategy,
 				}))
 		case "v2":
+			ctx, cancel := context.WithCancel(options.ctx)
 			pl := plugins.NewPluginLoader()
-			a, err = agentv2.New(options.ctx, agentConfig,
+			a, err = agentv2.New(ctx, agentConfig,
 				agentv2.WithBootstrapper(&bootstrap.ClientConfigV2{
 					Token:         bt,
 					Endpoint:      gatewayAddress,
@@ -1432,6 +1492,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				agentv2.WithUnmanagedPluginLoader(pl),
 			)
 			LoadPlugins(pl, pluginmeta.ModeAgent)
+			agentListMu.Lock()
+			agentList[id] = cancel
+			agentListMu.Unlock()
 		default:
 			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)
 			return
@@ -1628,7 +1691,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
-	//TODO: simulate a bunch of random objects
+	dPort := environment.StartAgentDisconnectServer(context.Background())
+	Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), dPort)
 	for i := 0; i < 100; i++ {
 		environment.simulateKubeObject(kPort)
 	}

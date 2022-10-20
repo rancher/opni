@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
@@ -17,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
@@ -83,26 +83,41 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	}
 	p.storageNode = alertstorage.NewStorageNode(
 		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions: system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
-			Endpoints:  system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
+			Conditions:           system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
+			Endpoints:            system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
+			SystemTrackerStorage: future.New[nats.KeyValue](),
 		}),
 	)
 
-	retrier := backoffv2.Exponential(
-		backoffv2.WithMaxRetries(0),
-		backoffv2.WithMinInterval(5*time.Second),
-		backoffv2.WithMaxInterval(1*time.Minute),
-		backoffv2.WithMultiplier(1.1),
+	nc, err = natsutil.AcquireNATSConnection(
+		p.Ctx,
+		natsutil.WithLogger(p.Logger),
+		natsutil.WithNatsOptions([]nats.Option{
+			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
+				if s != nil {
+					p.Logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
+				} else {
+					p.Logger.Warn("nats : async error outside subscription")
+				}
+			}),
+		}),
 	)
-	b := retrier.Start(p.Ctx)
-	for backoffv2.Continue(b) {
-		nc, err = p.newNatsConnection()
-		if err == nil {
-			break
-		}
-		p.Logger.Error("failed to connect to nats, retrying")
+	if err != nil {
+		p.Logger.With("err", err).Error("fatal error connecting to NATs")
 	}
 	p.natsConn.Set(nc)
+	mgr, err := p.natsConn.Get().JetStream()
+	if err != nil {
+		panic(err)
+	}
+	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.AgentDisconnectBucket,
+		Description: "track system agent status updates",
+	})
+	if err != nil {
+		panic(err)
+	}
+	p.storageNode.SetSystemTrackerStorage(kv)
 	<-p.Ctx.Done()
 }
 

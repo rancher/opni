@@ -2,9 +2,12 @@ package alertstorage
 
 import (
 	"context"
+	"encoding/json"
 	"path"
+	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
@@ -19,12 +22,21 @@ const endpointPrefix = "/alerting/endpoints"
 type StorageAPIs struct {
 	Conditions storage.KeyValueStoreT[*alertingv1alpha.AlertCondition]
 	Endpoints  storage.KeyValueStoreT[*alertingv1alpha.AlertEndpoint]
+	// key : conditionId
+	// value  : AgentTracker
+	SystemTrackerStorage future.Future[nats.KeyValue]
 }
 
 // Responsible for anything related to persistent storage
 // external to AlertManager
 type StorageNode struct {
 	*StorageNodeOptions
+	agentTrackerMu sync.Mutex
+}
+type StorageNodeOptions struct {
+	Logger  *zap.SugaredLogger
+	timeout time.Duration
+	storage future.Future[*StorageAPIs]
 }
 
 func NewStorageNode(opts ...StorageNodeOption) *StorageNode {
@@ -37,14 +49,12 @@ func NewStorageNode(opts ...StorageNodeOption) *StorageNode {
 		options.Logger = logger.NewPluginLogger().Named("alerting-storage-node")
 	}
 	return &StorageNode{
-		options,
+		StorageNodeOptions: options,
 	}
 }
 
-type StorageNodeOptions struct {
-	Logger  *zap.SugaredLogger
-	timeout time.Duration
-	storage future.Future[*StorageAPIs]
+func (s *StorageNode) SetSystemTrackerStorage(kv nats.KeyValue) {
+	s.storage.Get().SystemTrackerStorage.Set(kv)
 }
 
 type StorageNodeOption func(*StorageNodeOptions)
@@ -224,4 +234,137 @@ func (s *StorageNode) DeleteEndpointStorage(ctx context.Context, endpointId stri
 		return shared.WithNotFoundErrorf("condition to delete '%s' not found : %s", endpointId, err)
 	}
 	return storage.Endpoints.Delete(ctx, path.Join(endpointPrefix, endpointId))
+}
+
+func (s *StorageNode) CreateAgentIncidentTracker(ctx context.Context, conditionId string, initialValue AgentIncidentStep) error {
+	t := AgentIncident{
+		ConditionId: conditionId,
+		Steps:       []*AgentIncidentStep{&initialValue},
+	}
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(t)
+	if err != nil {
+		return err
+	}
+	_, err = sts.Create(conditionId, data)
+	return err
+}
+
+func (s *StorageNode) GetAgentIncidentTracker(ctx context.Context, conditionId string) (*AgentIncident, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	entry, err := sts.Get(conditionId)
+	if err != nil {
+		return nil, err
+	}
+	var st AgentIncident
+	err = json.Unmarshal(entry.Value(), &st)
+	if err != nil {
+		return nil, err
+	}
+	return &st, nil
+}
+
+func (s *StorageNode) ListAgentIncidentTrackers(ctx context.Context) ([]AgentIncident, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := sts.Keys()
+	if err != nil {
+		return nil, err
+	}
+	res := make([]AgentIncident, 0)
+	for _, id := range ids {
+		entry, err := sts.Get(id)
+		if err != nil {
+			return nil, err
+		}
+		var st AgentIncident
+		err = json.Unmarshal(entry.Value(), &st)
+		if err != nil {
+			continue
+		}
+		res = append(res, st)
+	}
+	return res, nil
+}
+
+func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId string, updateValue AgentIncidentStep) error {
+	s.agentTrackerMu.Lock()
+	defer s.agentTrackerMu.Unlock()
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	var agentEntry nats.KeyValueEntry
+	entry, err := sts.Get(conditionId)
+	if err != nil {
+		err := s.CreateAgentIncidentTracker(ctx, conditionId, updateValue)
+		if err != nil {
+			return err
+		}
+		entry, err := sts.Get(conditionId)
+		if err != nil {
+			return err
+		}
+		agentEntry = entry
+	} else {
+		agentEntry = entry
+	}
+	var st AgentIncident
+	err = json.Unmarshal(agentEntry.Value(), &st)
+	if err != nil {
+		return err
+	}
+	st.Steps = append(st.Steps, &updateValue)
+	data, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	_, err = sts.Put(conditionId, data)
+	return err
+}
+
+func (s *StorageNode) DeleteAgentIncidentTracker(ctx context.Context, conditionId string) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	return sts.Delete(conditionId)
 }

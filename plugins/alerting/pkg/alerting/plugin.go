@@ -2,8 +2,7 @@ package alerting
 
 import (
 	"context"
-	"time"
-
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -12,8 +11,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"go.uber.org/zap"
-
-	lru "github.com/hashicorp/golang-lru"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -78,29 +75,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
 	}
-	// TODO : restore all system conditions to load the active goroutines/channels back into memory
 	return p
-}
-
-func (p *Plugin) onSystemConditionUpdate(ctx context.Context, condition *alertingv1alpha.AlertCondition) {
-	lg := p.Logger.With("onSystemConditionUpdate", condition.Name)
-	lg.Debugf("received condition update: %v", condition)
-	if s := condition.GetAlertType().GetSystem(); s == nil {
-		lg.Error("non system-alert type condition received in system condition update")
-	}
-	for {
-		ctxCa, cancel := context.WithTimeout(ctx, time.Second*10)
-		defer cancel() // in case we exit early shouldn't leak the context
-		nc, err := p.natsConn.GetContext(ctxCa)
-		if err != nil {
-			lg.Errorw("failed to get nats connection", "error", err)
-			cancel()
-			continue
-		}
-		defer nc.Close()
-		// TODO : acquire jetstream stream
-
-	}
 }
 
 var _ endpoint.AlertEndpointsServer = (*Plugin)(nil)

@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Listener struct {
@@ -76,9 +77,9 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
-func WithAyncNATSConnection() ListenerOption {
+func WithAsyncNATSConnection() ListenerOption {
 	return func(o *ListenerOptions) {
-		o.asyncNats = acquireAlertingNatsConnection
+		o.asyncNats = jetstreamCtx
 	}
 }
 
@@ -122,6 +123,33 @@ func NewListener(opts ...ListenerOption) *Listener {
 	return l
 }
 
+func (l *Listener) publishStatus(id string, connected bool) {
+	s := StatusUpdate{
+		ID: id,
+		Status: &corev1.Status{
+			Connected: connected,
+			Timestamp: timestamppb.Now(),
+		},
+	}
+	l.statusUpdate <- s
+	l.publishToJetstream(id, s)
+}
+
+// expects a JSON marshallable object
+func (l *Listener) publishToJetstream(agentId string, msg interface{}) {
+	if l.jetstream == nil {
+		return
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+	_, err = l.jetstream.PublishAsync(shared.NewAgentDisconnectSubject(agentId), data)
+	if err != nil {
+		return
+	}
+}
+
 func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientSet) {
 	// if the listener is closed, exit immediately
 	select {
@@ -163,23 +191,13 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 		l.incomingHealthUpdatesMu.Unlock()
 	}()
 
-	l.statusUpdate <- StatusUpdate{
-		ID: id,
-		Status: &corev1.Status{
-			Connected: true,
-		},
-	}
+	l.publishStatus(id, true)
 	defer func() { // 2nd
 		l.healthUpdate <- HealthUpdate{
 			ID:     id,
 			Health: &corev1.Health{},
 		}
-		l.statusUpdate <- StatusUpdate{
-			ID: id,
-			Status: &corev1.Status{
-				Connected: false,
-			},
-		}
+		l.publishStatus(id, false)
 	}()
 	curHealth, err := clientset.GetHealth(ctx, &emptypb.Empty{})
 	if err == nil {

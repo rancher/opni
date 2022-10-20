@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/rancher/opni/pkg/alerting/backend"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"go.uber.org/zap"
@@ -46,20 +47,22 @@ func constructAlerts(conditionId string, annotations map[string]string) []*backe
 	return alertsArr
 }
 
-func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, alertsArr []*backend.PostableAlert) error {
-	_, resp, err := backend.PostAlert(ctx, options.GetWorkerEndpoint(), alertsArr)
+func dispatchAlert(p *Plugin, ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, alertsArr []*backend.PostableAlert) error {
+	var availableEndpoint string
+	status, err := p.opsNode.GetClusterConfiguration(ctx, &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+	if status.NumReplicas == 1 { // exactly one that is the controller
+		availableEndpoint = options.GetControllerEndpoint()
+	} else {
+		availableEndpoint = options.GetWorkerEndpoint()
+	}
+	_, resp, err := backend.PostAlert(ctx, availableEndpoint, alertsArr)
 	if err != nil {
 		lg.With("handler", "PostAlert").Error(err)
 		return err
 	}
-	// FIXME reimplement
-	// for i := 0; i < amRetries; i++ {
-	// 	resp, err = http.DefaultClient.Do(req)
-	// 	if err != nil {
-	// 		lg.With("handler", "PostAlert").Error(err)
-	// 		return err
-	// 	}
-	// }
 	if resp.StatusCode != http.StatusOK {
 		lg.With("handler", "PostAlert").Error(fmt.Sprintf("Unexpected response: %s", resp.Status))
 		return fmt.Errorf("failed to send trigger alert in alertmanager: %d", resp.StatusCode)
@@ -72,7 +75,7 @@ func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alert
 	// check for rate limiting
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
-		lg.Error(fmt.Sprintf("failed to load alerting options in required time : %s", err))
+		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return err
 	}
 	//FIXME: uncomment for now
@@ -89,7 +92,7 @@ func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alert
 	lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, options.GetWorkerEndpoint()))
 
 	// send dispatch request
-	return dispatchAlert(ctx, lg, options, alertsArr)
+	return dispatchAlert(p, ctx, lg, options, alertsArr)
 }
 
 // --- Trigger ---

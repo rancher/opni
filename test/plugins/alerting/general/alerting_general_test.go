@@ -13,9 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/templates"
 	"github.com/rancher/opni/pkg/test"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
 func ManualReloadEndpointBackend(
@@ -145,20 +143,20 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 		})
 	})
 
-	When("The user wants to list available runtime information", func() {
-		XIt("Should list available runtime information they can use in alert descriptions", func() {
-			for _, enumValue := range alertingv1alpha.AlertType_value {
-				_, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{
-					AlertType: alertingv1alpha.AlertType(enumValue),
-				})
-				Expect(err).NotTo(HaveOccurred())
-			}
+	// When("The user wants to list available runtime information", func() {
+	// 	XIt("Should list available runtime information they can use in alert descriptions", func() {
+	// 		for _, enumValue := range alertingv1alpha.AlertType_value {
+	// 			_, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{
+	// 				AlertType: alertingv1alpha.AlertType(enumValue),
+	// 			})
+	// 			Expect(err).NotTo(HaveOccurred())
+	// 		}
 
-			resp, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{AlertType: alertingv1alpha.AlertType_SYSTEM})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Template).To(ConsistOf(templates.StrSliceAsTemplates([]string{"agentId", "timeout"})))
-		})
-	})
+	// 		resp, err := alertingConditionClient.ListAvailableTemplatesForType(ctx, &alertingv1alpha.AlertDetailChoicesRequest{AlertType: alertingv1alpha.AlertType_SYSTEM})
+	// 		Expect(err).NotTo(HaveOccurred())
+	// 		Expect(resp.Template).To(ConsistOf(templates.StrSliceAsTemplates([]string{"agentId", "timeout"})))
+	// 	})
+	// })
 
 	// integration tests for endpoints
 	When("When opni alerting dispatches to an endpoint implementation", func() {

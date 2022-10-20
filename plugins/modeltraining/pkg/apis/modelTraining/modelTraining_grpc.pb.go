@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/modelTraining/pkg/modelTraining/modelTraining.proto
+// source: github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining/modelTraining.proto
 
-package modelTraining
+package modeltraining
 
 import (
 	context "context"
@@ -41,7 +41,7 @@ func NewModelTrainingClient(cc grpc.ClientConnInterface) ModelTrainingClient {
 
 func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadsList, opts ...grpc.CallOption) (*v1.Reference, error) {
 	out := new(v1.Reference)
-	err := c.cc.Invoke(ctx, "/modelTraining.ModelTraining/TrainModel", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/TrainModel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadsList,
 
 func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error) {
 	out := new(WorkloadsList)
-	err := c.cc.Invoke(ctx, "/modelTraining.ModelTraining/WorkloadLogCount", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/WorkloadLogCount", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Refer
 
 func (c *modelTrainingClient) ModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error) {
 	out := new(v1.Reference)
-	err := c.cc.Invoke(ctx, "/modelTraining.ModelTraining/ModelStatus", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/ModelStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (c *modelTrainingClient) ModelStatus(ctx context.Context, in *emptypb.Empty
 
 func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error) {
 	out := new(WorkloadsList)
-	err := c.cc.Invoke(ctx, "/modelTraining.ModelTraining/ModelTrainingParameters", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/ModelTrainingParameters", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *e
 
 func (c *modelTrainingClient) GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error) {
 	out := new(GPUInfoList)
-	err := c.cc.Invoke(ctx, "/modelTraining.ModelTraining/GpuPresentCluster", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/GpuPresentCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modelTraining.ModelTraining/TrainModel",
+		FullMethod: "/modeltraining.ModelTraining/TrainModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).TrainModel(ctx, req.(*WorkloadsList))
@@ -156,7 +156,7 @@ func _ModelTraining_WorkloadLogCount_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modelTraining.ModelTraining/WorkloadLogCount",
+		FullMethod: "/modeltraining.ModelTraining/WorkloadLogCount",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).WorkloadLogCount(ctx, req.(*v1.Reference))
@@ -174,7 +174,7 @@ func _ModelTraining_ModelStatus_Handler(srv interface{}, ctx context.Context, de
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modelTraining.ModelTraining/ModelStatus",
+		FullMethod: "/modeltraining.ModelTraining/ModelStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).ModelStatus(ctx, req.(*emptypb.Empty))
@@ -192,7 +192,7 @@ func _ModelTraining_ModelTrainingParameters_Handler(srv interface{}, ctx context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modelTraining.ModelTraining/ModelTrainingParameters",
+		FullMethod: "/modeltraining.ModelTraining/ModelTrainingParameters",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).ModelTrainingParameters(ctx, req.(*emptypb.Empty))
@@ -210,7 +210,7 @@ func _ModelTraining_GpuPresentCluster_Handler(srv interface{}, ctx context.Conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modelTraining.ModelTraining/GpuPresentCluster",
+		FullMethod: "/modeltraining.ModelTraining/GpuPresentCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).GpuPresentCluster(ctx, req.(*emptypb.Empty))
@@ -222,7 +222,7 @@ func _ModelTraining_GpuPresentCluster_Handler(srv interface{}, ctx context.Conte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ModelTraining_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "modelTraining.ModelTraining",
+	ServiceName: "modeltraining.ModelTraining",
 	HandlerType: (*ModelTrainingServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -247,5 +247,5 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/modelTraining/pkg/modelTraining/modelTraining.proto",
+	Metadata: "github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining/modelTraining.proto",
 }

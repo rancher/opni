@@ -1,4 +1,4 @@
-package model_training
+package modeltraining
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	util "github.com/rancher/opni/pkg/util/k8sutil"
-	modelTraining "github.com/rancher/opni/plugins/modelTraining/pkg/apis/modelTraining"
+	modelTraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
 )

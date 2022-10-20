@@ -1,18 +1,21 @@
 package util
 
 import (
-	"math/rand"
-	"time"
+	"crypto/rand"
+	"math/big"
 )
 
 func GenerateRandomString(length int) []byte {
-	rand.Seed(time.Now().UnixNano())
 	chars := []byte("BCDFGHJKLMNPQRSTVWXZ" +
 		"bcdfghjklmnpqrstvwxz" +
 		"0123456789")
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		index, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			panic(err)
+		}
+		b[i] = chars[index.Int64()]
 	}
 	return b
 }

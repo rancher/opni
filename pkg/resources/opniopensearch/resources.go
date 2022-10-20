@@ -3,7 +3,7 @@ package opniopensearch
 import (
 	"bytes"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -42,6 +42,17 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		r.instance.Spec.OpensearchVersion,
 		version,
 	)
+
+	newSecurity := r.instance.Spec.OpensearchSettings.Security.DeepCopy()
+	newSecurity.Config = &opsterv1.SecurityConfig{
+		SecurityconfigSecret: corev1.LocalObjectReference{
+			Name: fmt.Sprintf("%s-securityconfig", r.instance.Name),
+		},
+		AdminCredentialsSecret: corev1.LocalObjectReference{
+			Name: fmt.Sprintf("%s-internal-auth", r.instance.Name),
+		},
+	}
+
 	cluster := &opsterv1.OpenSearchCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Name,
@@ -88,7 +99,7 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 				}(),
 			},
 			NodePools:  r.instance.Spec.NodePools,
-			Security:   r.instance.Spec.OpensearchSettings.Security,
+			Security:   newSecurity,
 			Dashboards: r.instance.Spec.Dashboards,
 		},
 	}

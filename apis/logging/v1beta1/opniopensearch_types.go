@@ -32,6 +32,7 @@ type OpniOpensearchStatus struct {
 	State             OpniOpensearchState `json:"state,omitempty"`
 	OpensearchVersion *string             `json:"opensearchVersion,omitempty"`
 	Version           *string             `json:"version,omitempty"`
+	PasswordGenerated bool                `json:"passwordGenerated,omitempty"`
 }
 
 type OpniOpensearchSpec struct {

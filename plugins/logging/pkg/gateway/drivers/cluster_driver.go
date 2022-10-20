@@ -27,6 +27,7 @@ type ClusterDriver interface {
 	GetInstallStatus(context.Context) InstallState
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)
+	SetSyncTime()
 }
 
 var (

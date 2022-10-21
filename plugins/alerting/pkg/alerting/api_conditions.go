@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/backend"

@@ -13,7 +13,7 @@ func jetstreamCtx(ctx context.Context) (nats.JetStreamContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	mgr, err := nc.JetStream()
+	mgr, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
 	if err != nil {
 		return nil, err
 	}

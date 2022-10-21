@@ -32,6 +32,7 @@ type Listener struct {
 	closed                  chan struct{}
 	sem                     *semaphore.Weighted
 	jetstream               nats.JetStreamContext
+	jetstreamMu             sync.RWMutex
 }
 
 type ListenerOptions struct {
@@ -117,7 +118,9 @@ func NewListener(opts ...ListenerOption) *Listener {
 	go func() { // set jetstream connection when its found
 		nc, err := options.asyncNats(options.connectCtx)
 		if err == nil {
+			l.jetstreamMu.Lock()
 			l.jetstream = nc
+			l.jetstreamMu.Unlock()
 		}
 	}()
 	return l
@@ -137,6 +140,8 @@ func (l *Listener) publishStatus(id string, connected bool) {
 
 // expects a JSON marshallable object
 func (l *Listener) publishToJetstream(agentId string, msg interface{}) {
+	l.jetstreamMu.RLock()
+	defer l.jetstreamMu.RUnlock()
 	if l.jetstream == nil {
 		return
 	}

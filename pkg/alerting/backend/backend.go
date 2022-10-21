@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,10 +11,10 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"time"
 
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/alerting/routing"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -26,13 +27,6 @@ const (
 	v2     = "/api/v2"
 	v1     = "/api/v1"
 )
-
-type RuntimeEndpointBackend interface {
-	Fetch(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string) (string, error)
-	Put(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string, data *routing.RoutingTree) error
-	Reload(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, key string) error
-	Port() int
-}
 
 type AlertManagerApiOptions struct {
 	client        *http.Client
@@ -97,6 +91,48 @@ func WithURLValues(values url.Values) AlertManagerApiOption {
 func WithLogger(logger *zap.SugaredLogger) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		o.logger = logger
+	}
+}
+
+// providing a silence id here indicates we are updating an existing silence
+func WithPostSilenceBody(conditionId string, duration time.Duration, silenceId *string) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		p := &PostableSilence{}
+		p.WithCondition(conditionId)
+		p.WithDuration(duration)
+		if err := p.Must(); err != nil {
+			panic(fmt.Errorf("malformed silence body :%s", err))
+		}
+		if silenceId != nil {
+			p.WithSilenceId(*silenceId)
+		}
+		b, err := json.Marshal(p)
+		if err != nil {
+			panic(fmt.Errorf("malformed silence body :%s", err))
+		}
+		o.body = strings.NewReader(string(b))
+	}
+}
+
+func WithPostAlertBody(conditionId string, annotations map[string]string) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		var alertsArr []*PostableAlert
+		alert := &PostableAlert{}
+		alert.WithCondition(conditionId)
+		for annotationName, annotationValue := range annotations {
+			alert.WithRuntimeInfo(annotationName, annotationValue)
+		}
+		alertsArr = append(alertsArr, alert)
+		for _, alert := range alertsArr {
+			if err := alert.Must(); err != nil {
+				panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+			}
+		}
+		b, err := json.Marshal(alertsArr)
+		if err != nil {
+			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+		}
+		o.body = strings.NewReader(string(b))
 	}
 }
 
@@ -225,6 +261,68 @@ func NewAlertManagerStatusClient(endpoint string, ctx context.Context, opts ...A
 		Endpoint:               endpoint,
 		Route:                  "/status",
 		Verb:                   GET,
+		ctx:                    ctx,
+	}).WithAPIV2()
+}
+
+func NewAlertManagerGetAlertsClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return (&AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/alerts",
+		Verb:                   GET,
+		ctx:                    ctx,
+	}).WithAPIV2()
+}
+
+func NewAlertManagerPostAlertClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return (&AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/alerts",
+		Verb:                   POST,
+		ctx:                    ctx,
+	}).WithAPIV2()
+}
+func NewAlertManagerPostSilenceClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return (&AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/silence",
+		Verb:                   POST,
+		ctx:                    ctx,
+	}).WithAPIV2()
+}
+
+func NewAlertManagerGetSilenceClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return (&AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  "/silence",
+		Verb:                   GET,
+		ctx:                    ctx,
+	}).WithAPIV2()
+}
+
+func NewAlertManagerDeleteSilenceClient(endpoint, silenceId string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	if silenceId == "" {
+		panic("silenceId cannot be empty")
+	}
+	return (&AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Route:                  fmt.Sprintf("/silence/%s", silenceId),
+		Verb:                   DELETE,
 		ctx:                    ctx,
 	}).WithAPIV2()
 }

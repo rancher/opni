@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
@@ -187,32 +186,20 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return nil, err
 	}
-	var availableEndpoint string
-	status, err := p.opsNode.GetClusterConfiguration(ctx, &emptypb.Empty{})
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if status.NumReplicas == 1 { // exactly one that is the controller
-		availableEndpoint = options.GetControllerEndpoint()
-	} else {
-		availableEndpoint = options.GetWorkerEndpoint()
-	}
-	// trigger it
-	lg.Debug("active workload endpoint :%s", availableEndpoint)
-	alert := &backend.PostableAlert{}
-	alert.WithCondition(dummyConditionId)
-	var alerts []*backend.PostableAlert
-	alerts = append(alerts, alert)
-	lg.Debugf("sending alert to alertmanager : %v, %v", alert.Annotations, alert.Labels)
-	_, resp, err := backend.PostAlert(context.Background(), availableEndpoint, alerts)
+	apiNode := backend.NewAlertManagerPostAlertClient(
+		availableEndpoint,
+		ctx,
+		backend.WithLogger(lg),
+		backend.WithPostAlertBody(dummyConditionId, nil),
+	)
+	err = apiNode.DoRequest()
 	if err != nil {
-		lg.Errorf("Error while posting alert : %s", err)
-		return nil, err
+		lg.Errorf("Failed to post alert to alertmanager : %s", err)
 	}
-	if resp.StatusCode != 200 {
-		return nil, shared.WithInternalServerErrorf("failed to send alert to alertmanager")
-	}
-	lg.Debugf("Got response %s from alertmanager", resp.Status)
 	return &alertingv1alpha.TestAlertEndpointResponse{}, nil
 }
 

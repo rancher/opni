@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -217,27 +216,33 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		lg.Errorf("Failed to get alerting options : %s", err)
 		return nil, err
 	}
-	_, resp, err := backend.GetAlerts(ctx, options.GetWorkerEndpoint())
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
 	if err != nil {
-		lg.Errorf("failed to get alerts : %s", err)
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			lg.Errorf("failed to close body : %s", err)
-		}
-	}(resp.Body)
-	b, err := ioutil.ReadAll(resp.Body)
+	var result gjson.Result
+	apiNode := backend.NewAlertManagerGetAlertsClient(
+		availableEndpoint,
+		ctx,
+		backend.WithLogger(lg),
+		backend.WithExpectClosure(func(resp *http.Response) error {
+
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				lg.Errorf("failed to read body : %s", err)
+				return err
+			}
+			result = gjson.Get(string(b), "")
+			return nil
+		}),
+	)
+	err = apiNode.DoRequest()
 	if err != nil {
-		lg.Errorf("failed to read body : %s", err)
 		return nil, err
 	}
-	result := gjson.Get(string(b), "")
 	if !result.Exists() {
 		return defaultState, nil
 	}
-
 	for _, alert := range result.Array() {
 		receiverName := gjson.Get(alert.String(), "receiver.name")
 		if receiverName.String() == ref.Id {
@@ -266,7 +271,6 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
@@ -275,42 +279,37 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if err != nil {
 		return nil, err
 	}
-	silence := &backend.PostableSilence{}
-	silence.WithCondition(req.ConditionId.Id)
-	silence.WithDuration(req.Duration.AsDuration())
-	if existing.Silence != nil { // the case where we are updating an existing silence
-		silence.WithSilenceId(existing.Silence.SilenceId)
-	}
-	resp, err := backend.PostSilence(ctx, options.GetControllerEndpoint(), silence)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		// if resp.StatusCode == http.StatusNotFound { // update failed
-		// 	TODO specific shared.Err for status not found
-		// }
-		return nil, fmt.Errorf("failed to activate silence: %s", resp.Status)
+	var silenceID *string
+	if existing.Silence != nil {
+		silenceID = &existing.Silence.SilenceId
 	}
 	respSilence := &backend.PostSilencesResponse{}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			p.Logger.Error(fmt.Sprintf("Failed to close response body %s", err))
-		}
-	}(resp.Body)
-	if err := json.NewDecoder(resp.Body).Decode(respSilence); err != nil {
+	apiNode := backend.NewAlertManagerPostSilenceClient(
+		availableEndpoint,
+		ctx,
+		backend.WithLogger(p.Logger),
+		backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
+		backend.WithExpectClosure(func(resp *http.Response) error {
+			if resp.StatusCode != 200 {
+				return fmt.Errorf("failed to create silence : %s", resp.Status)
+			}
+			return json.NewDecoder(resp.Body).Decode(respSilence)
+		}),
+	)
+	err = apiNode.DoRequest()
+	if err != nil {
+		p.Logger.Errorf("failed to post silence : %s", err)
 		return nil, err
 	}
-	// update existing proto with the silence info
 	newCondition := util.ProtoClone(existing)
-	newCondition.Silence = &alertingv1alpha.SilenceInfo{
+	newCondition.Silence = &alertingv1alpha.SilenceInfo{ // not exact, butno one will notice
 		SilenceId: respSilence.GetSilenceId(),
-		StartsAt: &timestamppb.Timestamp{
-			Seconds: silence.StartsAt.Unix(),
-		},
-		EndsAt: &timestamppb.Timestamp{
-			Seconds: silence.EndsAt.Unix(),
-		},
+		StartsAt:  timestamppb.Now(),
+		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
 	proto.Merge(existing, newCondition)
@@ -336,16 +335,20 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", req.Id)
 	}
-	silence := &backend.DeletableSilence{
-		SilenceId: existing.Silence.SilenceId,
-	}
-	resp, err := backend.DeleteSilence(ctx, options.GetControllerEndpoint(), silence)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to deactivate silence: %s", resp.Status)
+	apiNode := backend.NewAlertManagerDeleteSilenceClient(
+		availableEndpoint,
+		existing.Silence.SilenceId,
+		ctx)
+	err = apiNode.DoRequest()
+	if err != nil {
+		p.Logger.Errorf("failed to delete silence : %s", err)
+		return nil, err
 	}
+
 	// update existing proto with the silence info
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil

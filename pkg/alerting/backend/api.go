@@ -1,17 +1,7 @@
 package backend
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"time"
 )
 
@@ -60,22 +50,6 @@ type Matcher struct {
 	Value   string `json:"value"`
 	IsRegex bool   `json:"isRegex"`
 	IsEqual *bool  `json:"isEqual,omitempty"`
-}
-
-// DeletableSilence fills in api path `"/silence/{silenceID}"`
-type DeletableSilence struct {
-	SilenceId string
-}
-
-func (d *DeletableSilence) WithSilenceId(silenceId string) {
-	d.SilenceId = silenceId
-}
-
-func (d *DeletableSilence) Must() error {
-	if d.SilenceId == "" {
-		return fmt.Errorf("missing silenceId")
-	}
-	return nil
 }
 
 // PostableSilence struct for PostableSilence
@@ -134,157 +108,4 @@ func (p *PostableSilence) Must() error {
 		return fmt.Errorf("missing PostableSilence.EndsAt")
 	}
 	return nil
-}
-
-func GetAlerts(ctx context.Context, endpoint string) (*http.Request, *http.Response, error) {
-	api := (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/alerts",
-		Verb:     "GET",
-	}).WithAPIV2()
-	req, err := http.NewRequestWithContext(ctx, api.Verb, api.ConstructHTTP(), nil)
-	if err != nil {
-		return req, nil, err
-	}
-	req.Header.Add("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return req, nil, err
-	}
-	return req, resp, nil
-}
-
-// stop/panic on 400
-// retry on 404/429 & 500
-// returns nil when we indicate nothing more should be done
-func OnRetryResponse(req *http.Request, resp *http.Response) (*http.Response, error) {
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusAccepted:
-		// do something
-		return resp, nil
-	case http.StatusBadRequest:
-		// panic?
-		panic(fmt.Sprintf("%v", req))
-	case http.StatusNotFound, http.StatusTooManyRequests, http.StatusInternalServerError:
-		return http.DefaultClient.Do(req)
-	}
-	panic(fmt.Sprintf("%v", req))
-}
-
-// IsRateLimited assumes the http response status code is checked and validated
-func IsRateLimited(conditionId string, resp *http.Response, lg *zap.SugaredLogger) (bool, error) {
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			//FIXME
-		}
-	}(resp.Body)
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
-	}
-	statusArr := gjson.Get(string(body), "#.status")
-	labelsArr := gjson.Get(string(body), "#.labels")
-
-	if !statusArr.Exists() || !labelsArr.Exists() {
-		return false, nil // indicates an empty response (either nil or empty)
-	}
-	for index, alert := range statusArr.Array() {
-		conditionIdPath := labelsArr.Array()[index].Get(shared.BackendConditionIdLabel)
-		if !conditionIdPath.Exists() {
-			lg.Warnf("missing condition id label '%s' in alert", shared.BackendConditionIdLabel)
-			continue
-		}
-		curConditionId := conditionIdPath.String()
-		if curConditionId == conditionId {
-			alertState := alert.Get("state").String()
-			switch alertState {
-			case models.AlertStatusStateActive:
-				return true, nil
-			case models.AlertStatusStateSuppressed:
-				return true, nil
-			case models.AlertStatusStateUnprocessed:
-				return false, nil
-			default:
-				return false, nil
-			}
-		}
-	}
-	// if not found in AM alerts treat it as unfired => not rate limited
-	return false, nil
-}
-
-func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Request, *http.Response, error) {
-	for _, alert := range alerts {
-		if err := alert.Must(); err != nil {
-			panic(err)
-		}
-	}
-	hclient := &http.Client{}
-	reqUrl := (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/alerts",
-		Verb:     POST,
-	}).WithAPIV2().ConstructHTTP()
-	b, err := json.Marshal(alerts)
-	if err != nil {
-		return nil, nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
-	if err != nil {
-		return req, nil, err
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
-	resp, err := hclient.Do(req)
-	if err != nil {
-		return req, nil, err
-	}
-	return req, resp, nil
-}
-
-func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence) (*http.Response, error) {
-	if err := silence.Must(); err != nil {
-		panic(err)
-	}
-	hclient := &http.Client{}
-	reqUrl := (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/silences",
-		Verb:     POST,
-	}).WithAPIV2().ConstructHTTP()
-	b, err := json.Marshal(silence)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hclient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func DeleteSilence(ctx context.Context, endpoint string, silence *DeletableSilence) (*http.Response, error) {
-	if err := silence.Must(); err != nil {
-		return nil, shared.WithInternalServerErrorf("%s", err)
-	}
-	hclient := &http.Client{}
-	reqUrl := (&AlertManagerAPI{
-		Endpoint: endpoint,
-		Route:    "/silences/" + silence.SilenceId,
-		Verb:     DELETE,
-	}).WithAPIV2().ConstructHTTP()
-	req, err := http.NewRequestWithContext(ctx, DELETE, reqUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hclient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
 }

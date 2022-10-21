@@ -162,3 +162,17 @@ func (a *AlertingOpsNode) ApplyConfigToBackend(
 	}
 	return driver.ApplyConfigToBackend(ctx, config, internal)
 }
+
+func (a *AlertingOpsNode) GetAvailableEndpoint(ctx context.Context, options shared.NewAlertingOptions) (string, error) {
+	var availableEndpoint string
+	status, err := a.GetClusterConfiguration(ctx, &emptypb.Empty{})
+	if err != nil {
+		return "", err
+	}
+	if status.NumReplicas == 1 { // exactly one that is the controller
+		availableEndpoint = options.GetControllerEndpoint()
+	} else {
+		availableEndpoint = options.GetWorkerEndpoint()
+	}
+	return availableEndpoint, nil
+}

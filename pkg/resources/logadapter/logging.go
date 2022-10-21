@@ -209,7 +209,7 @@ func BuildK3SConfig(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
 			}
 			fluentBitK3sTemplate.Execute(&buffer, copy)
 		} else {
@@ -227,7 +227,7 @@ func BuildK3SConfig(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(adapter.Spec),
 			}
 			fluentBitK3sTemplate.Execute(&buffer, copy)
 		} else {
@@ -455,7 +455,7 @@ func BuildRKEConfig(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
 			}
 			fluentBitRKETemplate.Execute(&buffer, copy)
 		} else {
@@ -475,7 +475,7 @@ func BuildRKEConfig(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(adapter.Spec),
 			}
 			fluentBitRKETemplate.Execute(&buffer, copy)
 		} else {
@@ -751,7 +751,7 @@ func BuildRKE2Config(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
 			}
 			fluentBitRKE2Template.Execute(&buffer, copy)
 		} else {
@@ -773,7 +773,7 @@ func BuildRKE2Config(instance interface{}) *corev1.ConfigMap {
 		if adapter.Spec.OpniCluster == nil {
 			copy := adapter.DeepCopy()
 			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
-				Namespace: "opni-system",
+				Namespace: controlNamespace(adapter.Spec),
 			}
 			fluentBitRKE2Template.Execute(&buffer, copy)
 		} else {

@@ -150,6 +150,7 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 							object.Spec.OpensearchVersion,
 							object.Spec.Version,
 						)),
+						ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 					},
 					Version:          object.Spec.Version,
 					ServiceName:      fmt.Sprintf("%s-opensearch-svc", object.Name),

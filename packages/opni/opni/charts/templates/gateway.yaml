@@ -21,15 +21,8 @@ spec:
   {{- end }}
   {{- with .Values.gateway.auth }}
   auth:
-    provider: {{ .provider }}
-    {{- if eq .provider "openid" }}
-    openid: {{ toYaml .openid | nindent 6 }}
-    {{- end }}
+    {{ toYaml . | nindent 4 }}
   {{- end}}
-    {{- if eq .Values.gateway.auth.provider "noauth" }}
-    noauth:
-      grafanaHostname: {{ .Values.monitoring.grafana.hostname }}
-    {{- end }}
   {{- with .Values.nodeSelector }}
   nodeSelector:
     {{- toYaml . | nindent 4 }}

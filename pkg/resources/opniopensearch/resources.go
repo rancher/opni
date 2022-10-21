@@ -8,6 +8,7 @@ import (
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +50,8 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		Spec: opsterv1.ClusterSpec{
 			General: opsterv1.GeneralConfig{
 				ImageSpec: &opsterv1.ImageSpec{
-					Image: &image,
+					Image:           &image,
+					ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 				},
 				Version:          r.instance.Spec.OpensearchVersion,
 				ServiceName:      fmt.Sprintf("%s-opensearch-svc", r.instance.Name),

@@ -93,16 +93,16 @@ async def receive_template_data(queue):
     es = await setup_es_connection()
     while True:
         df = await queue.get()
-        await update_template_data(es, df)
+        await update_template_data(es, df, queue)
 
 
 async def receive_logs(queue):
     es = await setup_es_connection()
     while True:
         df = await queue.get()
-        await update_logs(es, df)
+        await update_logs(es, df, queue)
 
-async def update_template_data(es, df):
+async def update_template_data(es, df, queue):
     try:
         async for ok, result in async_streaming_bulk(
                 es,
@@ -116,11 +116,12 @@ async def update_template_data(es, df):
                 logging.error("failed to {} document {}".format())
     except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
         logging.error(
-            "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
+            "Failed to index data. Re-adding to queue"
         )
         logging.error(exception)
+        await queue.put(df)
 
-async def update_logs(es, df):
+async def update_logs(es, df, queue):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
     model_keywords_dict = {"drain":  ["_id", "masked_log", "template_matched","template_cluster_id","inference_model", "anomaly_level"],
                           "opnilog":  ["_id", "masked_log", "anomaly_level", "template_matched","template_cluster_id","opnilog_confidence", "inference_model"]}
@@ -138,7 +139,7 @@ async def update_logs(es, df):
                             anomaly_level_df[model_keywords_dict[model_name]],
                             "logs",
                         ),
-                        max_retries=1,
+                        max_retries=5,
                         initial_backoff=1,
                         request_timeout=5,
                 ):
@@ -147,9 +148,10 @@ async def update_logs(es, df):
                         logging.error("failed to {} document {}".format())
             except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
                 logging.error(
-                    "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
+                    "Failed to index data. Re-adding to queue"
                 )
                 logging.error(exception)
+                await queue.put(anomaly_level_df[model_keywords_dict[model_name]])
 
 
 async def init_nats():

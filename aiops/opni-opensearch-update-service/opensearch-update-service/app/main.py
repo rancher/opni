@@ -119,11 +119,6 @@ async def update_template_data(es, df):
             "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
         )
         logging.error(exception)
-    except TransportError as exception:
-        logging.info(f"Error in async_streaming_bulk {exception}")
-        if exception.status_code == "N/A":
-            logging.info("Elasticsearch connection error")
-            es = await setup_es_connection()
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
@@ -155,11 +150,6 @@ async def update_logs(es, df):
                     "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
                 )
                 logging.error(exception)
-            except TransportError as exception:
-                logging.info(f"Error in async_streaming_bulk {exception}")
-                if exception.status_code == "N/A":
-                    logging.info("Elasticsearch connection error")
-                    es = await setup_es_connection()
 
 
 async def init_nats():

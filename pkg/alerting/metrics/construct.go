@@ -98,6 +98,10 @@ func (a *AlertingRule) Build(id string) (*rulefmt.Rule, error) {
 	return promRule, nil
 }
 
+func WithSloId(sloId, alertType, suffix string) string {
+	return fmt.Sprintf("%s-%s%s", sloId, alertType, suffix)
+}
+
 // Pretty simple durations for prometheus.
 func timeDurationToModelDuration(t time.Duration) model.Duration {
 	return model.Duration(t)

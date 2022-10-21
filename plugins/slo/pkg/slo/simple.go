@@ -3,6 +3,7 @@ package slo
 import (
 	"bytes"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/metrics"
 	"os"
 	"strings"
 	"text/template"
@@ -637,16 +638,25 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	})
 
 	// note: second two are expected to be the alerting rules
-	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Alert:  "slo_alert_page",
+	arPage := metrics.AlertingRule{
 		Expr:   exprPage.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
-	})
-	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Alert:  "slo_alert_ticket",
+	}
+	arTicket := metrics.AlertingRule{
 		Expr:   exprTicket.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "ticket"}, s.userLabels),
-	})
+	}
+	arPageRule, err := arPage.Build(metrics.WithSloId(s.GetId(), "page", AlertRuleSuffix))
+	if err != nil {
+		panic(err)
+	}
+
+	arTicketRule, err := arTicket.Build(metrics.WithSloId(s.GetId(), "ticket", AlertRuleSuffix))
+	if err != nil {
+		panic(err)
+	}
+	ralerting.Rules = append(ralerting.Rules, *arPageRule)
+	ralerting.Rules = append(ralerting.Rules, *arTicketRule)
 	return ralerting
 }
 

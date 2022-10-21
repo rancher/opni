@@ -2,6 +2,7 @@ package slo
 
 import (
 	"context"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"os"
 	"time"
 
@@ -57,7 +58,10 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 		os.Exit(1)
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
+	alertingEndpointClient := endpoint.NewAlertEndpointsClient(cc)
+
 	p.adminClient.Set(adminClient)
+	p.alertEndpointClient.Set(alertingEndpointClient)
 	RegisterDatasource(
 		shared.MonitoringDatasource,
 		NewSLOMonitoringStore(p, p.logger),

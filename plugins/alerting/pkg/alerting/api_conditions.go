@@ -189,7 +189,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 		return nil, err
 	}
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
-	if !(existing.AttachedEndpoints == nil || len(existing.AttachedEndpoints.Items) == 0) {
+	if common.ShouldDeleteRoutingNode(nil, existing.AttachedEndpoints) {
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)
 		if err != nil {
 			return nil, err

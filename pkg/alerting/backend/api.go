@@ -2,6 +2,8 @@ package backend
 
 import (
 	"fmt"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"time"
 
 	"github.com/go-openapi/strfmt"
@@ -202,4 +204,36 @@ func (p *PostableSilence) Must() error {
 		return fmt.Errorf("missing PostableSilence.EndsAt")
 	}
 	return nil
+}
+
+func ConvertEndpointIdsToRoutingNode(
+	endpointList *alertingv1alpha.AlertEndpointList,
+	req *alertingv1alpha.AttachedEndpoints,
+	conditionId string,
+
+) (*alertingv1alpha.RoutingNode, error) {
+	routingNode := &alertingv1alpha.RoutingNode{
+		ConditionId: &corev1.Reference{Id: conditionId},
+		FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
+			Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+			InitialDelay:       req.InitialDelay,
+			RepeatInterval:     req.RepeatInterval,
+			ThrottlingDuration: req.ThrottlingDuration,
+			Details:            req.Details,
+		},
+	}
+	for _, endpointItem := range endpointList.Items {
+		for _, expectedEndpoint := range req.Items {
+			if endpointItem.Id.Id == expectedEndpoint.EndpointId {
+				routingNode.FullAttachedEndpoints.Items = append(
+					routingNode.FullAttachedEndpoints.Items,
+					&alertingv1alpha.FullAttachedEndpoint{
+						EndpointId:    endpointItem.Id.Id,
+						AlertEndpoint: endpointItem.Endpoint,
+						Details:       req.Details,
+					})
+			}
+		}
+	}
+	return routingNode, nil
 }

@@ -260,7 +260,6 @@ func (l *LocalManager) InstallCluster(ctx context.Context, empty *emptypb.Empty)
 		return &emptypb.Empty{}, nil
 	}
 	l.NumReplicas = 1
-	// TODO: set cluster configuration to defaults
 	l.enabled = true
 	l.ClusterSettleTimeout = "1m0s"
 	l.ClusterGossipInterval = "200ms"

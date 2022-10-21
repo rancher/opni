@@ -173,6 +173,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	defer func() {
 		// FIXME: retrier backoff?
 		go func() {
+			time.Sleep(time.Second * 30)
 			// can't use request context here because it will be cancelled
 			_, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId})
 			if err != nil {
@@ -195,11 +196,20 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		ctx,
 		backend.WithLogger(lg),
 		backend.WithPostAlertBody(dummyConditionId, nil),
+		backend.WithDefaultRetrier(),
+		// 422 means the alert was actually sent, and AM throtlling is in effect
+		backend.WithExpectClosure(backend.NewExpectStatusCodes([]int{200, 422})),
 	)
-	err = apiNode.DoRequest()
-	if err != nil {
-		lg.Errorf("Failed to post alert to alertmanager : %s", err)
+	// need to trigger multiple alerts here, a reload can cause a context.Cancel()
+	// to any pending post requests, resulting in the alert never being sent
+	for i := 0; i < 5; i++ {
+		err = apiNode.DoRequest()
+		if err != nil {
+			lg.Errorf("Failed to post alert to alertmanager : %s", err)
+		}
+		time.Sleep(time.Second * 1)
 	}
+
 	return &alertingv1alpha.TestAlertEndpointResponse{}, nil
 }
 
@@ -305,7 +315,8 @@ func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, atta
 	return &emptypb.Empty{}, nil
 }
 
-// FIXME: errors in this function can result in mismatched information
+// FIXME: errors in this function can result in mismatched information,
+// will be fixed when we move to a fully virtualize config
 func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, reference *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.Logger.With("action", "DeleteIndividualEndpointInRoutingNode")
 	deleteEndpointId := reference.Id

@@ -32,6 +32,9 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		if err != nil {
 			return nil, err
 		}
+		// FIXME: submitting this during a reload can lead to a context.Cancel
+		// on this post operation, however its unclear if this would lead to actual
+		// problems in this function
 		apiNode := backend.NewAlertManagerPostAlertClient(
 			availableEndpoint,
 			ctx,

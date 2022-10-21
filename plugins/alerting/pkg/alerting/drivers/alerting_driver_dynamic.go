@@ -259,7 +259,7 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 						endpoint,
 						ctx,
 						backend.WithRetrier(pipelineRetrier),
-						backend.WithExpectClosure(backend.NewExpectStatusOk()),
+						backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig)),
 					),
 				},
 				&pipelineRetrier,

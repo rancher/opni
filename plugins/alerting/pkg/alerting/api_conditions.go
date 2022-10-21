@@ -226,7 +226,9 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		ctx,
 		backend.WithLogger(lg),
 		backend.WithExpectClosure(func(resp *http.Response) error {
-
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+			}
 			b, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				lg.Errorf("failed to read body : %s", err)
@@ -294,7 +296,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 		backend.WithLogger(p.Logger),
 		backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
 		backend.WithExpectClosure(func(resp *http.Response) error {
-			if resp.StatusCode != 200 {
+			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("failed to create silence : %s", resp.Status)
 			}
 			return json.NewDecoder(resp.Body).Decode(respSilence)
@@ -342,7 +344,10 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	apiNode := backend.NewAlertManagerDeleteSilenceClient(
 		availableEndpoint,
 		existing.Silence.SilenceId,
-		ctx)
+		ctx,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(backend.NewExpectStatusOk()),
+	)
 	err = apiNode.DoRequest()
 	if err != nil {
 		p.Logger.Errorf("failed to delete silence : %s", err)

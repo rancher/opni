@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"reflect"
 	"strings"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -67,6 +67,18 @@ func WithHttpClient(client *http.Client) AlertManagerApiOption {
 func WithRetrier(retrier backoffv2.Policy) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		o.backoff = &retrier
+	}
+}
+
+func WithDefaultRetrier() AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		b := backoffv2.Exponential(
+			backoffv2.WithMinInterval(time.Second*2),
+			backoffv2.WithMaxInterval(time.Second*5),
+			backoffv2.WithMaxRetries(4),
+			backoffv2.WithMultiplier(1.2),
+		)
+		o.backoff = &b
 	}
 }
 
@@ -359,7 +371,15 @@ func NewExpectStatusOk() func(*http.Response) error {
 	}
 }
 
-// FIXME: there has to be a way to do this that will work
+func NewExpectStatusCodes(expectedCodes []int) func(*http.Response) error {
+	return func(resp *http.Response) error {
+		if !slices.Contains(expectedCodes, resp.StatusCode) {
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		}
+		return nil
+	}
+}
+
 func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 	// newConfig := newConfig
 	return func(resp *http.Response) error {
@@ -390,14 +410,10 @@ func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 		} else {
 			lg.Debug("%v", r2)
 		}
-		// cannot compare entire structs since AlertManager does invisble maintenance on the config
-		if !reflect.DeepEqual(r1.Receivers, r2.Receivers) {
-			return fmt.Errorf("current alertmanager receivers differ from expected receivers")
+		if r1 != r2 { // this comparison is good enough for our purposes
+			return nil
 		}
-		if !reflect.DeepEqual(r1.Route, r2.Route) {
-			return fmt.Errorf("current alertmanager route differ from expected route")
-		}
-		return nil
+		return fmt.Errorf("config.original not equal to expected config")
 	}
 }
 

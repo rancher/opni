@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/tidwall/gjson"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -220,7 +218,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	var result gjson.Result
+	respAlertGroup := &backend.AlertGroup{}
 	apiNode := backend.NewAlertManagerGetAlertsClient(
 		availableEndpoint,
 		ctx,
@@ -229,40 +227,41 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
 			}
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				lg.Errorf("failed to read body : %s", err)
-				return err
-			}
-			result = gjson.Get(string(b), "")
-			return nil
+
+			return json.NewDecoder(resp.Body).Decode(respAlertGroup)
 		}),
 	)
 	err = apiNode.DoRequest()
 	if err != nil {
 		return nil, err
 	}
-	if !result.Exists() {
-		return defaultState, nil
+	if respAlertGroup == nil {
+		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
-	for _, alert := range result.Array() {
-		receiverName := gjson.Get(alert.String(), "receiver.name")
-		if receiverName.String() == ref.Id {
-			state := gjson.Get(alert.String(), "status.state")
-			switch state.String() {
-			case models.AlertStatusStateActive:
-				return &alertingv1alpha.AlertStatusResponse{
-					State: alertingv1alpha.AlertConditionState_FIRING,
-				}, nil
-			case models.AlertStatusStateSuppressed:
-				return &alertingv1alpha.AlertStatusResponse{
-					State: alertingv1alpha.AlertConditionState_SILENCED,
-				}, nil
+	for _, alert := range respAlertGroup.Alerts {
+		for _, recv := range alert.Receivers {
+			if recv.Name == nil {
+				continue
+			}
+			if *recv.Name == ref.Id {
+				if alert.Status.State == nil { // pretend everything is ok
+					return defaultState, nil
+				}
+				switch *alert.Status.State {
+				case models.AlertStatusStateActive:
+					return &alertingv1alpha.AlertStatusResponse{
+						State: alertingv1alpha.AlertConditionState_FIRING,
+					}, nil
+				case models.AlertStatusStateSuppressed:
+					return &alertingv1alpha.AlertStatusResponse{
+						State: alertingv1alpha.AlertConditionState_SILENCED,
+					}, nil
+				case models.AlertStatusStateUnprocessed:
+					fallthrough
+				default:
+					return defaultState, nil
+				}
 
-			case models.AlertStatusStateUnprocessed:
-				return defaultState, nil
-			default:
-				return defaultState, nil
 			}
 		}
 	}

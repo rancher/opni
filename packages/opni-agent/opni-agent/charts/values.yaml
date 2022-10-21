@@ -98,7 +98,7 @@ bootstrapInCluster:
   managementAddress: ""
 
 kube-prometheus-stack:
-  enabled: false
+  enabled: true
   grafana:
     enabled: false # disable the default Grafana deployment
   prometheus:

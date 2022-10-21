@@ -36,7 +36,7 @@ questions:
         required: true
         label: "Issuer URL"
         valid_chars: 'https:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
-      - variable: gateway.auth.openid.discovery.identifyingClaim
+      - variable: gateway.auth.openid.identifyingClaim
         show_if: "gateway.auth.provider=openid"
         group: "Auth Settings"
         default: "sub"

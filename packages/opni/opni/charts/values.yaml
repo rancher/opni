@@ -70,6 +70,7 @@ global:
     systemDefaultRegistry: ""
 
 kube-prometheus-stack:
+  enabled: true
   grafana:
     enabled: false # disable the default Grafana deployment
   prometheus:

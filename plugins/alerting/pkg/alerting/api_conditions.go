@@ -218,7 +218,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	respAlertGroup := &backend.AlertGroup{}
+	respAlertGroup := []backend.GettableAlert{}
 	apiNode := backend.NewAlertManagerGetAlertsClient(
 		availableEndpoint,
 		ctx,
@@ -228,7 +228,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
 			}
 
-			return json.NewDecoder(resp.Body).Decode(respAlertGroup)
+			return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
 		}),
 	)
 	err = apiNode.DoRequest()
@@ -238,7 +238,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	if respAlertGroup == nil {
 		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
-	for _, alert := range respAlertGroup.Alerts {
+	for _, alert := range respAlertGroup {
 		for _, recv := range alert.Receivers {
 			if recv.Name == nil {
 				continue

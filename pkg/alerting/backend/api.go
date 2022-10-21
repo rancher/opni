@@ -174,7 +174,7 @@ func (p *PostableSilence) WithCondition(conditionId string) {
 	if p.Matchers == nil {
 		p.Matchers = make([]Matcher, 0)
 	}
-	p.Matchers = append(p.Matchers, Matcher{Name: conditionId})
+	p.Matchers = append(p.Matchers, Matcher{Name: "conditionId", Value: conditionId})
 }
 
 func (p *PostableSilence) WithDuration(dur time.Duration) {

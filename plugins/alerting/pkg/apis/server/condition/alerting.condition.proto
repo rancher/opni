@@ -66,6 +66,7 @@ service AlertConditions {
     };
   }
 
+  //  can only active silence when alert is in firing state (limitation of alertmanager)
   rpc ActivateSilence(common.SilenceRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/silences"

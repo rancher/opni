@@ -40,6 +40,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 			ctx,
 			backend.WithLogger(lg),
 			backend.WithExpectClosure(backend.NewExpectStatusOk()),
+			backend.WithPostAlertBody(req.ConditionId.Id, req.Annotations),
 		)
 		err = apiNode.DoRequest()
 		if err != nil {

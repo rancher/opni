@@ -110,6 +110,8 @@ func WithLogger(logger *zap.SugaredLogger) AlertManagerApiOption {
 func WithPostSilenceBody(conditionId string, duration time.Duration, silenceId *string) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		p := &PostableSilence{}
+		p.CreatedBy = "opni admin"
+		p.Comment = "silence created by opni admin"
 		p.WithCondition(conditionId)
 		p.WithDuration(duration)
 		if err := p.Must(); err != nil {
@@ -204,6 +206,7 @@ func (a *AlertManagerAPI) doRequest() error {
 		)
 		return err
 	}
+	defer resp.Body.Close()
 	if err := a.expectClosure(resp); err != nil {
 		lg.Error(
 			zap.Error(err),
@@ -306,7 +309,7 @@ func NewAlertManagerPostSilenceClient(endpoint string, ctx context.Context, opts
 	return (&AlertManagerAPI{
 		AlertManagerApiOptions: options,
 		Endpoint:               endpoint,
-		Route:                  "/silence",
+		Route:                  "/silences",
 		Verb:                   POST,
 		ctx:                    ctx,
 	}).WithAPIV2()
@@ -318,7 +321,7 @@ func NewAlertManagerGetSilenceClient(endpoint string, ctx context.Context, opts 
 	return (&AlertManagerAPI{
 		AlertManagerApiOptions: options,
 		Endpoint:               endpoint,
-		Route:                  "/silence",
+		Route:                  "/silences",
 		Verb:                   GET,
 		ctx:                    ctx,
 	}).WithAPIV2()
@@ -333,7 +336,7 @@ func NewAlertManagerDeleteSilenceClient(endpoint, silenceId string, ctx context.
 	return (&AlertManagerAPI{
 		AlertManagerApiOptions: options,
 		Endpoint:               endpoint,
-		Route:                  fmt.Sprintf("/silence/%s", silenceId),
+		Route:                  fmt.Sprintf("/silences/%s", silenceId),
 		Verb:                   DELETE,
 		ctx:                    ctx,
 	}).WithAPIV2()

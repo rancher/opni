@@ -1,8 +1,11 @@
 # Multi Cluster Observability with AIOps 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![codecov](https://codecov.io/gh/rancher/opni/branch/main/graph/badge.svg?token=9TYXGQ54FM)](https://codecov.io/gh/rancher/opni)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rancher/opni-monitoring)](https://goreportcard.com/report/github.com/rancher/opni-monitoring)
+
 [![](https://get.pulumi.com/new/button.svg)](https://app.pulumi.com/new?template=https://github.com/rancher/opni)
 
-The three pillars of observability are ***logs, metrics and traces***.
+Observability data comes in the form of ***logs, metrics and traces***.
 The collection and storage of observability data is handled by observability backends and agents.
 AIOps helps makes sense of this observability data.
 [Opni](https://opni.io/) comes with all these nuts and bolts and can be used to self monitor a single cluster or be a centralized observability data sink for multiple clusters.

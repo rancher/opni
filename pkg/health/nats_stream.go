@@ -9,7 +9,9 @@ import (
 )
 
 func jetstreamCtx(ctx context.Context) (nats.JetStreamContext, error) {
-	nc, err := natsutil.AcquireNATSConnection(ctx)
+	nc, err := natsutil.AcquireNATSConnection(
+		ctx,
+		natsutil.WithCreateStreams(shared.NewAlertingDisconnectStream()))
 	if err != nil {
 		return nil, err
 	}
@@ -17,6 +19,5 @@ func jetstreamCtx(ctx context.Context) (nats.JetStreamContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	shared.NewAlertingDisconnectStream(mgr)
 	return mgr, nil
 }

@@ -67,6 +67,13 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			drivers.WithManagementClient(client),
 		)
 	})
+	go func() {
+		p.watchGlobalCluster(client)
+	}()
+
+	go func() {
+		p.watchGlobalClusterHealthStatus(client)
+	}()
 	<-p.Ctx.Done()
 }
 

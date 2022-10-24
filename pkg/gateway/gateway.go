@@ -179,10 +179,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 
 	// set up stream server
-	listener := health.NewListener(
-		health.WithAsyncNATSConnection(),
-		health.WithConnectCtx(ctx),
-	)
+	listener := health.NewListener()
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	sync := NewSyncRequester(lg)
 	// set up agent connection handlers

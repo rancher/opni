@@ -2,15 +2,12 @@ package health
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	agentv1 "github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -31,8 +28,6 @@ type Listener struct {
 	incomingHealthUpdates   map[string]chan HealthUpdate
 	closed                  chan struct{}
 	sem                     *semaphore.Weighted
-	jetstream               nats.JetStreamContext
-	jetstreamMu             sync.RWMutex
 }
 
 type ListenerOptions struct {
@@ -40,8 +35,6 @@ type ListenerOptions struct {
 	maxJitter      time.Duration
 	maxConnections int64
 	updateQueueCap int
-	asyncNats      func(ctx context.Context) (nats.JetStreamContext, error)
-	connectCtx     context.Context
 }
 
 type ListenerOption func(*ListenerOptions)
@@ -78,18 +71,6 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
-func WithAsyncNATSConnection() ListenerOption {
-	return func(o *ListenerOptions) {
-		o.asyncNats = jetstreamCtx
-	}
-}
-
-func WithConnectCtx(ctx context.Context) ListenerOption {
-	return func(o *ListenerOptions) {
-		o.connectCtx = ctx
-	}
-}
-
 func NewListener(opts ...ListenerOption) *Listener {
 	options := ListenerOptions{
 		// poll slowly, health updates are also sent on demand by the agent
@@ -97,10 +78,6 @@ func NewListener(opts ...ListenerOption) *Listener {
 		maxJitter:      30 * time.Second,
 		updateQueueCap: 1000,
 		maxConnections: math.MaxInt64,
-		connectCtx:     context.TODO(),
-		asyncNats: func(ctx context.Context) (nats.JetStreamContext, error) {
-			return nil, nil
-		},
 	}
 	options.apply(opts...)
 	if options.maxJitter > options.interval {
@@ -115,14 +92,6 @@ func NewListener(opts ...ListenerOption) *Listener {
 		closed:                make(chan struct{}),
 		sem:                   semaphore.NewWeighted(options.maxConnections),
 	}
-	go func() { // set jetstream connection when its found
-		nc, err := options.asyncNats(options.connectCtx)
-		if err == nil {
-			l.jetstreamMu.Lock()
-			l.jetstream = nc
-			l.jetstreamMu.Unlock()
-		}
-	}()
 	return l
 }
 
@@ -135,24 +104,6 @@ func (l *Listener) publishStatus(id string, connected bool) {
 		},
 	}
 	l.statusUpdate <- s
-	l.publishToJetstream(id, s)
-}
-
-// expects a JSON marshallable object
-func (l *Listener) publishToJetstream(agentId string, msg interface{}) {
-	l.jetstreamMu.RLock()
-	defer l.jetstreamMu.RUnlock()
-	if l.jetstream == nil {
-		return
-	}
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return
-	}
-	_, err = l.jetstream.PublishAsync(shared.NewAgentDisconnectSubject(agentId), data)
-	if err != nil {
-		return
-	}
 }
 
 func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientSet) {
@@ -301,17 +252,6 @@ func (l *Listener) UpdateHealth(ctx context.Context, req *corev1.Health) (*empty
 			Health: util.ProtoClone(req),
 		}
 		ch <- h
-		//
-		if l.jetstream != nil {
-			hBytes, err := json.Marshal(h)
-			if err != nil {
-				return nil, err
-			}
-			_, err = l.jetstream.Publish(shared.AgentDisconnectStream, hBytes)
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	return &emptypb.Empty{}, nil

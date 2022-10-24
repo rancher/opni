@@ -32,6 +32,7 @@ type AlertConditionsClient interface {
 	ListAlertConditionChoices(ctx context.Context, in *common.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*common.ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertStatusResponse, error)
+	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(ctx context.Context, in *common.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -147,6 +148,7 @@ type AlertConditionsServer interface {
 	ListAlertConditionChoices(context.Context, *common.AlertDetailChoicesRequest) (*common.ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	AlertConditionStatus(context.Context, *v1.Reference) (*common.AlertStatusResponse, error)
+	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(context.Context, *common.SilenceRequest) (*emptypb.Empty, error)
 	// id corresponds to conditionId
 	DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error)

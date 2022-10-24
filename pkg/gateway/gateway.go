@@ -358,8 +358,8 @@ func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthS
 }
 
 // Implements management.HealthStatusDataSource
-func (g *Gateway) WatchClusterHealthStatus(ctx context.Context, ref *corev1.Reference) <-chan *corev1.HealthStatus {
-	return g.statusQuerier.WatchHealthStatus(ctx, ref.Id)
+func (g *Gateway) WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus {
+	return g.statusQuerier.WatchHealthStatus(ctx)
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {

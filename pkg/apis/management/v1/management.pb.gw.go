@@ -425,24 +425,15 @@ func local_request_Management_GetClusterHealthStatus_0(ctx context.Context, mars
 }
 
 func request_Management_WatchClusterHealthStatus_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (Management_WatchClusterHealthStatusClient, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
 	}
-
-	protoReq.Id, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	stream, err := client.WatchClusterHealthStatus(ctx, &protoReq)
@@ -2475,7 +2466,7 @@ func RegisterManagementHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/management.Management/WatchClusterHealthStatus", runtime.WithHTTPPathPattern("/management/clusters/{id}/health/watch"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/management.Management/WatchClusterHealthStatus", runtime.WithHTTPPathPattern("/management/clusters/health/watch"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -2977,7 +2968,7 @@ var (
 
 	pattern_Management_GetClusterHealthStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"management", "clusters", "id", "health"}, ""))
 
-	pattern_Management_WatchClusterHealthStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3, 2, 4}, []string{"management", "clusters", "id", "health", "watch"}, ""))
+	pattern_Management_WatchClusterHealthStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"management", "clusters", "health", "watch"}, ""))
 
 	pattern_Management_EditCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"management", "clusters", "cluster.id"}, ""))
 

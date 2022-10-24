@@ -20,7 +20,7 @@ type HealthStatusUpdater interface {
 
 type HealthStatusQuerier interface {
 	GetHealthStatus(id string) *corev1.HealthStatus
-	WatchHealthStatus(ctx context.Context, id string) <-chan *corev1.HealthStatus
+	WatchHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus
 }
 
 type StatusUpdate struct {

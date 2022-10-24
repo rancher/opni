@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (m *Server) GetClusterHealthStatus(
@@ -25,18 +26,14 @@ func (m *Server) GetClusterHealthStatus(
 }
 
 func (m *Server) WatchClusterHealthStatus(
-	ref *corev1.Reference,
+	_ *emptypb.Empty,
 	stream managementv1.Management_WatchClusterHealthStatusServer,
 ) error {
 	if m.healthStatusDataSource == nil {
 		return status.Error(codes.Unavailable, "health API not configured")
 	}
 
-	if err := validation.Validate(ref); err != nil {
-		return err
-	}
-
-	healthStatusC := m.healthStatusDataSource.WatchClusterHealthStatus(stream.Context(), ref)
+	healthStatusC := m.healthStatusDataSource.WatchClusterHealthStatus(stream.Context())
 	for {
 		select {
 		case <-stream.Context().Done():

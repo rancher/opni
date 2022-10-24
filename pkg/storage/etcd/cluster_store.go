@@ -58,10 +58,10 @@ func (e *EtcdStore) ListClusters(
 	clusters := &corev1.ClusterList{
 		Items: []*corev1.Cluster{},
 	}
-	selectorPredicate := storage.ClusterSelector{
+	selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
 		LabelSelector: matchLabels,
 		MatchOptions:  matchOptions,
-	}.Predicate()
+	})
 
 	for _, kv := range resp.Kvs {
 		cluster := &corev1.Cluster{}

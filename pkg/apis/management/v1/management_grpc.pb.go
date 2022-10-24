@@ -35,7 +35,7 @@ type ManagementClient interface {
 	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	GetCluster(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Cluster, error)
 	GetClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.HealthStatus, error)
-	WatchClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error)
+	WatchClusterHealthStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error)
 	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -182,7 +182,7 @@ func (c *managementClient) GetClusterHealthStatus(ctx context.Context, in *v1.Re
 	return out, nil
 }
 
-func (c *managementClient) WatchClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error) {
+func (c *managementClient) WatchClusterHealthStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error) {
 	stream, err := c.cc.NewStream(ctx, &Management_ServiceDesc.Streams[1], "/management.Management/WatchClusterHealthStatus", opts...)
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func (c *managementClient) WatchClusterHealthStatus(ctx context.Context, in *v1.
 }
 
 type Management_WatchClusterHealthStatusClient interface {
-	Recv() (*v1.HealthStatus, error)
+	Recv() (*v1.ClusterHealthStatus, error)
 	grpc.ClientStream
 }
 
@@ -206,8 +206,8 @@ type managementWatchClusterHealthStatusClient struct {
 	grpc.ClientStream
 }
 
-func (x *managementWatchClusterHealthStatusClient) Recv() (*v1.HealthStatus, error) {
-	m := new(v1.HealthStatus)
+func (x *managementWatchClusterHealthStatusClient) Recv() (*v1.ClusterHealthStatus, error) {
+	m := new(v1.ClusterHealthStatus)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -418,7 +418,7 @@ type ManagementServer interface {
 	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	GetCluster(context.Context, *v1.Reference) (*v1.Cluster, error)
 	GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error)
-	WatchClusterHealthStatus(*v1.Reference, Management_WatchClusterHealthStatusServer) error
+	WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error
 	EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error)
 	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
 	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -479,7 +479,7 @@ func (UnimplementedManagementServer) GetCluster(context.Context, *v1.Reference) 
 func (UnimplementedManagementServer) GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterHealthStatus not implemented")
 }
-func (UnimplementedManagementServer) WatchClusterHealthStatus(*v1.Reference, Management_WatchClusterHealthStatusServer) error {
+func (UnimplementedManagementServer) WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method WatchClusterHealthStatus not implemented")
 }
 func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error) {
@@ -742,7 +742,7 @@ func _Management_GetClusterHealthStatus_Handler(srv interface{}, ctx context.Con
 }
 
 func _Management_WatchClusterHealthStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(v1.Reference)
+	m := new(emptypb.Empty)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
@@ -750,7 +750,7 @@ func _Management_WatchClusterHealthStatus_Handler(srv interface{}, stream grpc.S
 }
 
 type Management_WatchClusterHealthStatusServer interface {
-	Send(*v1.HealthStatus) error
+	Send(*v1.ClusterHealthStatus) error
 	grpc.ServerStream
 }
 
@@ -758,7 +758,7 @@ type managementWatchClusterHealthStatusServer struct {
 	grpc.ServerStream
 }
 
-func (x *managementWatchClusterHealthStatusServer) Send(m *v1.HealthStatus) error {
+func (x *managementWatchClusterHealthStatusServer) Send(m *v1.ClusterHealthStatus) error {
 	return x.ServerStream.SendMsg(m)
 }
 

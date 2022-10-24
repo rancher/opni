@@ -41,7 +41,7 @@ var _ = Describe("Selection", Label("unit"), func() {
 		Entry(nil, selector(matchExprs("bar DoesNotExist", "bar Exists")), cluster("c1", "bar", "quux"), false),
 		Entry(nil, selector(matchExprs("bar DoesNotExist", "bar Exists")), cluster("c1", "foo", "quux"), false),
 	}
-	DescribeTable("Label Selector", func(selector storage.ClusterSelector, c *corev1.Cluster, expected bool) {
-		Expect(selector.Predicate()(c)).To(Equal(expected))
+	DescribeTable("Label Selector", func(selector *corev1.ClusterSelector, c *corev1.Cluster, expected bool) {
+		Expect(storage.NewSelectorPredicate(selector)(c)).To(Equal(expected))
 	}, entries)
 })

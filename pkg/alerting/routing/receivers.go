@@ -5,10 +5,11 @@ import (
 	"net/url"
 	"strings"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+
 	"github.com/rancher/opni/pkg/validation"
 
 	cfg "github.com/prometheus/alertmanager/config"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
 )
 
@@ -16,8 +17,8 @@ const SlackEndpointInternalId = "slack"
 const EmailEndpointInternalId = "email"
 
 func (r *Receiver) AddEndpoint(
-	alertEndpoint *alertingv1alpha.AlertEndpoint,
-	details *alertingv1alpha.EndpointImplementation) (int, string, error) {
+	alertEndpoint *alertingv1.AlertEndpoint,
+	details *alertingv1.EndpointImplementation) (int, string, error) {
 	if details == nil {
 		return -1, "", validation.Errorf("nil endpoint details")
 	}
@@ -98,7 +99,7 @@ func (r *RoutingTree) DeleteReceiver(conditionId string) error {
 	return nil
 }
 
-func NewSlackReceiverNode(endpoint *alertingv1alpha.SlackEndpoint) (*SlackConfig, error) {
+func NewSlackReceiverNode(endpoint *alertingv1.SlackEndpoint) (*SlackConfig, error) {
 	if endpoint.WebhookUrl == "" {
 		return nil, validation.Errorf("slack webhook url is empty")
 	}
@@ -117,7 +118,7 @@ func NewSlackReceiverNode(endpoint *alertingv1alpha.SlackEndpoint) (*SlackConfig
 
 func WithSlackImplementation(
 	slack *SlackConfig,
-	impl *alertingv1alpha.EndpointImplementation,
+	impl *alertingv1.EndpointImplementation,
 ) (*SlackConfig, error) {
 	if def := impl.SendResolved; def != nil {
 		slack.NotifierConfig = cfg.NotifierConfig{
@@ -133,7 +134,7 @@ func WithSlackImplementation(
 	return slack, nil
 }
 
-func NewEmailReceiverNode(endpoint *alertingv1alpha.EmailEndpoint) (*EmailConfig, error) {
+func NewEmailReceiverNode(endpoint *alertingv1.EmailEndpoint) (*EmailConfig, error) {
 	email := &EmailConfig{
 		To: endpoint.To,
 	}
@@ -159,7 +160,7 @@ func NewEmailReceiverNode(endpoint *alertingv1alpha.EmailEndpoint) (*EmailConfig
 	return email, nil
 }
 
-func WithEmailImplementation(email *EmailConfig, impl *alertingv1alpha.EndpointImplementation) (*EmailConfig, error) {
+func WithEmailImplementation(email *EmailConfig, impl *alertingv1.EndpointImplementation) (*EmailConfig, error) {
 	if def := impl.SendResolved; def != nil {
 		email.NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: *impl.SendResolved,
@@ -179,7 +180,7 @@ func WithEmailImplementation(email *EmailConfig, impl *alertingv1alpha.EndpointI
 }
 
 // does the opposite of WithXXXXImplementation
-func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType string, position int) (*alertingv1alpha.EndpointImplementation, error) {
+func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType string, position int) (*alertingv1.EndpointImplementation, error) {
 	// find the condition Id receiver
 	recvIdx, err := r.FindReceivers(conditionId)
 	if err != nil {
@@ -188,13 +189,13 @@ func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType str
 
 	switch endpointType {
 	case SlackEndpointInternalId:
-		return &alertingv1alpha.EndpointImplementation{
+		return &alertingv1.EndpointImplementation{
 			Title:        r.Receivers[recvIdx].SlackConfigs[position].Title,
 			Body:         r.Receivers[recvIdx].SlackConfigs[position].Text,
 			SendResolved: &r.Receivers[recvIdx].SlackConfigs[position].VSendResolved,
 		}, nil
 	case EmailEndpointInternalId:
-		return &alertingv1alpha.EndpointImplementation{
+		return &alertingv1.EndpointImplementation{
 			Title:        r.Receivers[recvIdx].EmailConfigs[position].Headers["Subject"],
 			Body:         r.Receivers[recvIdx].EmailConfigs[position].HTML,
 			SendResolved: &r.Receivers[recvIdx].EmailConfigs[position].VSendResolved,

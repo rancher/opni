@@ -2,13 +2,14 @@ package routing
 
 import (
 	"fmt"
-	"github.com/rancher/opni/pkg/validation"
 	"time"
+
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/validation"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
 )
 
@@ -24,7 +25,7 @@ func NewRouteBase(conditionId string) *cfg.Route {
 	}
 }
 
-func UpdateRouteWithGeneralRequestInfo(route *cfg.Route, req *alertingv1alpha.FullAttachedEndpoints) error {
+func UpdateRouteWithGeneralRequestInfo(route *cfg.Route, req *alertingv1.FullAttachedEndpoints) error {
 	if req == nil {
 		return validation.Errorf("cannot pass in nil request to UpdateRouteWithGeneralRequestInfo")
 	}

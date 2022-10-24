@@ -5,8 +5,8 @@ import (
 
 	"github.com/prometheus/alertmanager/notify/webhook"
 	"github.com/prometheus/alertmanager/template"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/tidwall/gjson"
 )
 
@@ -31,12 +31,12 @@ func NewSimpleMockAlertManagerPayloadFromAnnotations(ann map[string]string) *Moc
 
 var RequiredCortexWebhookAnnotationIdentifiers = []string{"conditionId"}
 
-var OpniDisconnect *alertingv1alpha.AlertCondition = &alertingv1alpha.AlertCondition{
+var OpniDisconnect *alertingv1.AlertCondition = &alertingv1.AlertCondition{
 	Name:        "Disconnected Opni Agent {{ .agentId }} ",
 	Description: "Opni agent {{ .agentId }} has been disconnected for more than {{ .timeout }}",
 	Labels:      []string{"opni", "agent", "system"},
-	Severity:    alertingv1alpha.Severity_CRITICAL,
-	AlertType:   &alertingv1alpha.AlertTypeDetails{Type: &alertingv1alpha.AlertTypeDetails_System{}},
+	Severity:    alertingv1.Severity_CRITICAL,
+	AlertType:   &alertingv1.AlertTypeDetails{Type: &alertingv1.AlertTypeDetails_System{}},
 }
 
 func ParseCortexPayloadBytes(inputPayload []byte) ([]gjson.Result, error) {
@@ -65,9 +65,9 @@ func ParseCortexPayloadBytes(inputPayload []byte) ([]gjson.Result, error) {
 	return alertArr.Array(), nil
 }
 
-func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1alpha.TriggerAlertsRequest, []error) {
+func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1.TriggerAlertsRequest, []error) {
 	var errors []error
-	var opniRequests []*alertingv1alpha.TriggerAlertsRequest
+	var opniRequests []*alertingv1.TriggerAlertsRequest
 	for _, annotation := range annotations {
 		resAnnotations := make(map[string]string)
 		result := annotation.Map()
@@ -78,7 +78,7 @@ func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1a
 			continue
 		}
 		anyFailed := false
-		res := &alertingv1alpha.TriggerAlertsRequest{}
+		res := &alertingv1.TriggerAlertsRequest{}
 
 		for _, identifier := range RequiredCortexWebhookAnnotationIdentifiers {
 			if _, ok := result[identifier]; !ok {

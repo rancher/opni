@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/common";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -12,7 +12,7 @@ import "google/rpc/status.proto";
 
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
-package common;
+package alerting;
 
 // ------------------ CONDITION ------------------
 

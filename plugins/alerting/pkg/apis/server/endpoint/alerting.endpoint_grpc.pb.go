@@ -8,8 +8,8 @@ package endpoint
 
 import (
 	context "context"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
-	common "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	v1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	v11 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -25,45 +25,45 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertEndpointsClient interface {
-	CreateAlertEndpoint(ctx context.Context, in *common.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertEndpoint, error)
-	ListAlertEndpoints(ctx context.Context, in *common.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*common.AlertEndpointList, error)
+	CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetAlertEndpoint(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*v1.AlertEndpoint, error)
+	ListAlertEndpoints(ctx context.Context, in *v1.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*v1.AlertEndpointList, error)
 	// when forceUpdate = false,
 	// returns a list of conditions this would affect (if none, applies the update)
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
-	UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error)
+	UpdateAlertEndpoint(ctx context.Context, in *v1.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error)
 	// when forceDelete = false,
 	// returns a list of conditions this would affect (if none, applies the delete)
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
-	DeleteAlertEndpoint(ctx context.Context, in *common.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error)
-	TestAlertEndpoint(ctx context.Context, in *common.TestAlertEndpointRequest, opts ...grpc.CallOption) (*common.TestAlertEndpointResponse, error)
+	DeleteAlertEndpoint(ctx context.Context, in *v1.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error)
+	TestAlertEndpoint(ctx context.Context, in *v1.TestAlertEndpointRequest, opts ...grpc.CallOption) (*v1.TestAlertEndpointResponse, error)
 	// alerting internal use only
-	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*common.RoutingRelationships, error)
+	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoutingRelationships, error)
 	// alerting internal use only
 	// creates a node in the alertmanager config to be routed to
 	// by the conditionId
 	// it uses the endpoint id to fetch the implementation type
 	// and attaches the remaining details to that endpoint
-	CreateConditionRoutingNode(ctx context.Context, in *common.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateConditionRoutingNode(ctx context.Context, in *v1.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
 	// updates a node in the alertmanager config to be routed to
 	// by the conditionId
 	// it uses the endpoint id to fetch (&update if necessary)
-	UpdateConditionRoutingNode(ctx context.Context, in *common.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateConditionRoutingNode(ctx context.Context, in *v1.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
 	// conditionMustBePassed in here
-	DeleteConditionRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteConditionRoutingNode(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
 	// If a defined endpoint is changed then change its references in the
 	// routing tree
-	UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *common.FullAttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *v1.FullAttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
 	// If a defined endpoint is deleted then delete it from the routing
 	// tree
-	DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type alertEndpointsClient struct {
@@ -74,7 +74,7 @@ func NewAlertEndpointsClient(cc grpc.ClientConnInterface) AlertEndpointsClient {
 	return &alertEndpointsClient{cc}
 }
 
-func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *common.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/CreateAlertEndpoint", in, out, opts...)
 	if err != nil {
@@ -83,8 +83,8 @@ func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *comm
 	return out, nil
 }
 
-func (c *alertEndpointsClient) GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*common.AlertEndpoint, error) {
-	out := new(common.AlertEndpoint)
+func (c *alertEndpointsClient) GetAlertEndpoint(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*v1.AlertEndpoint, error) {
+	out := new(v1.AlertEndpoint)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/GetAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func (c *alertEndpointsClient) GetAlertEndpoint(ctx context.Context, in *v1.Refe
 	return out, nil
 }
 
-func (c *alertEndpointsClient) ListAlertEndpoints(ctx context.Context, in *common.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*common.AlertEndpointList, error) {
-	out := new(common.AlertEndpointList)
+func (c *alertEndpointsClient) ListAlertEndpoints(ctx context.Context, in *v1.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*v1.AlertEndpointList, error) {
+	out := new(v1.AlertEndpointList)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/ListAlertEndpoints", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -101,8 +101,8 @@ func (c *alertEndpointsClient) ListAlertEndpoints(ctx context.Context, in *commo
 	return out, nil
 }
 
-func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *common.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error) {
-	out := new(common.InvolvedConditions)
+func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *v1.UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error) {
+	out := new(v1.InvolvedConditions)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/UpdateAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -110,8 +110,8 @@ func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *comm
 	return out, nil
 }
 
-func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *common.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*common.InvolvedConditions, error) {
-	out := new(common.InvolvedConditions)
+func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *v1.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error) {
+	out := new(v1.InvolvedConditions)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -119,8 +119,8 @@ func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *comm
 	return out, nil
 }
 
-func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *common.TestAlertEndpointRequest, opts ...grpc.CallOption) (*common.TestAlertEndpointResponse, error) {
-	out := new(common.TestAlertEndpointResponse)
+func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *v1.TestAlertEndpointRequest, opts ...grpc.CallOption) (*v1.TestAlertEndpointResponse, error) {
+	out := new(v1.TestAlertEndpointResponse)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/TestAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -128,8 +128,8 @@ func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *common
 	return out, nil
 }
 
-func (c *alertEndpointsClient) ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*common.RoutingRelationships, error) {
-	out := new(common.RoutingRelationships)
+func (c *alertEndpointsClient) ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoutingRelationships, error) {
+	out := new(v1.RoutingRelationships)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/ListRoutingRelationships", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (c *alertEndpointsClient) ListRoutingRelationships(ctx context.Context, in 
 	return out, nil
 }
 
-func (c *alertEndpointsClient) CreateConditionRoutingNode(ctx context.Context, in *common.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) CreateConditionRoutingNode(ctx context.Context, in *v1.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/CreateConditionRoutingNode", in, out, opts...)
 	if err != nil {
@@ -146,7 +146,7 @@ func (c *alertEndpointsClient) CreateConditionRoutingNode(ctx context.Context, i
 	return out, nil
 }
 
-func (c *alertEndpointsClient) UpdateConditionRoutingNode(ctx context.Context, in *common.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) UpdateConditionRoutingNode(ctx context.Context, in *v1.RoutingNode, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/UpdateConditionRoutingNode", in, out, opts...)
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *alertEndpointsClient) UpdateConditionRoutingNode(ctx context.Context, i
 	return out, nil
 }
 
-func (c *alertEndpointsClient) DeleteConditionRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) DeleteConditionRoutingNode(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteConditionRoutingNode", in, out, opts...)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *alertEndpointsClient) DeleteConditionRoutingNode(ctx context.Context, i
 	return out, nil
 }
 
-func (c *alertEndpointsClient) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *common.FullAttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) UpdateIndividualEndpointInRoutingNode(ctx context.Context, in *v1.FullAttachedEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/UpdateIndividualEndpointInRoutingNode", in, out, opts...)
 	if err != nil {
@@ -173,7 +173,7 @@ func (c *alertEndpointsClient) UpdateIndividualEndpointInRoutingNode(ctx context
 	return out, nil
 }
 
-func (c *alertEndpointsClient) DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertEndpointsClient) DeleteIndividualEndpointInRoutingNode(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteIndividualEndpointInRoutingNode", in, out, opts...)
 	if err != nil {
@@ -186,45 +186,45 @@ func (c *alertEndpointsClient) DeleteIndividualEndpointInRoutingNode(ctx context
 // All implementations must embed UnimplementedAlertEndpointsServer
 // for forward compatibility
 type AlertEndpointsServer interface {
-	CreateAlertEndpoint(context.Context, *common.AlertEndpoint) (*emptypb.Empty, error)
-	GetAlertEndpoint(context.Context, *v1.Reference) (*common.AlertEndpoint, error)
-	ListAlertEndpoints(context.Context, *common.ListAlertEndpointsRequest) (*common.AlertEndpointList, error)
+	CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*emptypb.Empty, error)
+	GetAlertEndpoint(context.Context, *v11.Reference) (*v1.AlertEndpoint, error)
+	ListAlertEndpoints(context.Context, *v1.ListAlertEndpointsRequest) (*v1.AlertEndpointList, error)
 	// when forceUpdate = false,
 	// returns a list of conditions this would affect (if none, applies the update)
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
-	UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*common.InvolvedConditions, error)
+	UpdateAlertEndpoint(context.Context, *v1.UpdateAlertEndpointRequest) (*v1.InvolvedConditions, error)
 	// when forceDelete = false,
 	// returns a list of conditions this would affect (if none, applies the delete)
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
-	DeleteAlertEndpoint(context.Context, *common.DeleteAlertEndpointRequest) (*common.InvolvedConditions, error)
-	TestAlertEndpoint(context.Context, *common.TestAlertEndpointRequest) (*common.TestAlertEndpointResponse, error)
+	DeleteAlertEndpoint(context.Context, *v1.DeleteAlertEndpointRequest) (*v1.InvolvedConditions, error)
+	TestAlertEndpoint(context.Context, *v1.TestAlertEndpointRequest) (*v1.TestAlertEndpointResponse, error)
 	// alerting internal use only
-	ListRoutingRelationships(context.Context, *emptypb.Empty) (*common.RoutingRelationships, error)
+	ListRoutingRelationships(context.Context, *emptypb.Empty) (*v1.RoutingRelationships, error)
 	// alerting internal use only
 	// creates a node in the alertmanager config to be routed to
 	// by the conditionId
 	// it uses the endpoint id to fetch the implementation type
 	// and attaches the remaining details to that endpoint
-	CreateConditionRoutingNode(context.Context, *common.RoutingNode) (*emptypb.Empty, error)
+	CreateConditionRoutingNode(context.Context, *v1.RoutingNode) (*emptypb.Empty, error)
 	// alerting internal use only
 	// updates a node in the alertmanager config to be routed to
 	// by the conditionId
 	// it uses the endpoint id to fetch (&update if necessary)
-	UpdateConditionRoutingNode(context.Context, *common.RoutingNode) (*emptypb.Empty, error)
+	UpdateConditionRoutingNode(context.Context, *v1.RoutingNode) (*emptypb.Empty, error)
 	// alerting internal use only
 	// conditionMustBePassed in here
-	DeleteConditionRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	DeleteConditionRoutingNode(context.Context, *v11.Reference) (*emptypb.Empty, error)
 	// alerting internal use only
 	// If a defined endpoint is changed then change its references in the
 	// routing tree
-	UpdateIndividualEndpointInRoutingNode(context.Context, *common.FullAttachedEndpoint) (*emptypb.Empty, error)
+	UpdateIndividualEndpointInRoutingNode(context.Context, *v1.FullAttachedEndpoint) (*emptypb.Empty, error)
 	// alerting internal use only
 	// If a defined endpoint is deleted then delete it from the routing
 	// tree
-	DeleteIndividualEndpointInRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	DeleteIndividualEndpointInRoutingNode(context.Context, *v11.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
 }
 
@@ -232,40 +232,40 @@ type AlertEndpointsServer interface {
 type UnimplementedAlertEndpointsServer struct {
 }
 
-func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *common.AlertEndpoint) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v1.Reference) (*common.AlertEndpoint, error) {
+func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v11.Reference) (*v1.AlertEndpoint, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *common.ListAlertEndpointsRequest) (*common.AlertEndpointList, error) {
+func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *v1.ListAlertEndpointsRequest) (*v1.AlertEndpointList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEndpoints not implemented")
 }
-func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *common.UpdateAlertEndpointRequest) (*common.InvolvedConditions, error) {
+func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *v1.UpdateAlertEndpointRequest) (*v1.InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *common.DeleteAlertEndpointRequest) (*common.InvolvedConditions, error) {
+func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *v1.DeleteAlertEndpointRequest) (*v1.InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *common.TestAlertEndpointRequest) (*common.TestAlertEndpointResponse, error) {
+func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *v1.TestAlertEndpointRequest) (*v1.TestAlertEndpointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) ListRoutingRelationships(context.Context, *emptypb.Empty) (*common.RoutingRelationships, error) {
+func (UnimplementedAlertEndpointsServer) ListRoutingRelationships(context.Context, *emptypb.Empty) (*v1.RoutingRelationships, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoutingRelationships not implemented")
 }
-func (UnimplementedAlertEndpointsServer) CreateConditionRoutingNode(context.Context, *common.RoutingNode) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) CreateConditionRoutingNode(context.Context, *v1.RoutingNode) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateConditionRoutingNode not implemented")
 }
-func (UnimplementedAlertEndpointsServer) UpdateConditionRoutingNode(context.Context, *common.RoutingNode) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) UpdateConditionRoutingNode(context.Context, *v1.RoutingNode) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateConditionRoutingNode not implemented")
 }
-func (UnimplementedAlertEndpointsServer) DeleteConditionRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) DeleteConditionRoutingNode(context.Context, *v11.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConditionRoutingNode not implemented")
 }
-func (UnimplementedAlertEndpointsServer) UpdateIndividualEndpointInRoutingNode(context.Context, *common.FullAttachedEndpoint) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) UpdateIndividualEndpointInRoutingNode(context.Context, *v1.FullAttachedEndpoint) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateIndividualEndpointInRoutingNode not implemented")
 }
-func (UnimplementedAlertEndpointsServer) DeleteIndividualEndpointInRoutingNode(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) DeleteIndividualEndpointInRoutingNode(context.Context, *v11.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteIndividualEndpointInRoutingNode not implemented")
 }
 func (UnimplementedAlertEndpointsServer) mustEmbedUnimplementedAlertEndpointsServer() {}
@@ -282,7 +282,7 @@ func RegisterAlertEndpointsServer(s grpc.ServiceRegistrar, srv AlertEndpointsSer
 }
 
 func _AlertEndpoints_CreateAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.AlertEndpoint)
+	in := new(v1.AlertEndpoint)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -294,13 +294,13 @@ func _AlertEndpoints_CreateAlertEndpoint_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/alerting.endpoint.AlertEndpoints/CreateAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).CreateAlertEndpoint(ctx, req.(*common.AlertEndpoint))
+		return srv.(AlertEndpointsServer).CreateAlertEndpoint(ctx, req.(*v1.AlertEndpoint))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_GetAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(v11.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -312,13 +312,13 @@ func _AlertEndpoints_GetAlertEndpoint_Handler(srv interface{}, ctx context.Conte
 		FullMethod: "/alerting.endpoint.AlertEndpoints/GetAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).GetAlertEndpoint(ctx, req.(*v1.Reference))
+		return srv.(AlertEndpointsServer).GetAlertEndpoint(ctx, req.(*v11.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_ListAlertEndpoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.ListAlertEndpointsRequest)
+	in := new(v1.ListAlertEndpointsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -330,13 +330,13 @@ func _AlertEndpoints_ListAlertEndpoints_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/alerting.endpoint.AlertEndpoints/ListAlertEndpoints",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).ListAlertEndpoints(ctx, req.(*common.ListAlertEndpointsRequest))
+		return srv.(AlertEndpointsServer).ListAlertEndpoints(ctx, req.(*v1.ListAlertEndpointsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_UpdateAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.UpdateAlertEndpointRequest)
+	in := new(v1.UpdateAlertEndpointRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -348,13 +348,13 @@ func _AlertEndpoints_UpdateAlertEndpoint_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/alerting.endpoint.AlertEndpoints/UpdateAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).UpdateAlertEndpoint(ctx, req.(*common.UpdateAlertEndpointRequest))
+		return srv.(AlertEndpointsServer).UpdateAlertEndpoint(ctx, req.(*v1.UpdateAlertEndpointRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.DeleteAlertEndpointRequest)
+	in := new(v1.DeleteAlertEndpointRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -366,13 +366,13 @@ func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).DeleteAlertEndpoint(ctx, req.(*common.DeleteAlertEndpointRequest))
+		return srv.(AlertEndpointsServer).DeleteAlertEndpoint(ctx, req.(*v1.DeleteAlertEndpointRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.TestAlertEndpointRequest)
+	in := new(v1.TestAlertEndpointRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -384,7 +384,7 @@ func _AlertEndpoints_TestAlertEndpoint_Handler(srv interface{}, ctx context.Cont
 		FullMethod: "/alerting.endpoint.AlertEndpoints/TestAlertEndpoint",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).TestAlertEndpoint(ctx, req.(*common.TestAlertEndpointRequest))
+		return srv.(AlertEndpointsServer).TestAlertEndpoint(ctx, req.(*v1.TestAlertEndpointRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -408,7 +408,7 @@ func _AlertEndpoints_ListRoutingRelationships_Handler(srv interface{}, ctx conte
 }
 
 func _AlertEndpoints_CreateConditionRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.RoutingNode)
+	in := new(v1.RoutingNode)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -420,13 +420,13 @@ func _AlertEndpoints_CreateConditionRoutingNode_Handler(srv interface{}, ctx con
 		FullMethod: "/alerting.endpoint.AlertEndpoints/CreateConditionRoutingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).CreateConditionRoutingNode(ctx, req.(*common.RoutingNode))
+		return srv.(AlertEndpointsServer).CreateConditionRoutingNode(ctx, req.(*v1.RoutingNode))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_UpdateConditionRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.RoutingNode)
+	in := new(v1.RoutingNode)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -438,13 +438,13 @@ func _AlertEndpoints_UpdateConditionRoutingNode_Handler(srv interface{}, ctx con
 		FullMethod: "/alerting.endpoint.AlertEndpoints/UpdateConditionRoutingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).UpdateConditionRoutingNode(ctx, req.(*common.RoutingNode))
+		return srv.(AlertEndpointsServer).UpdateConditionRoutingNode(ctx, req.(*v1.RoutingNode))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_DeleteConditionRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(v11.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -456,13 +456,13 @@ func _AlertEndpoints_DeleteConditionRoutingNode_Handler(srv interface{}, ctx con
 		FullMethod: "/alerting.endpoint.AlertEndpoints/DeleteConditionRoutingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).DeleteConditionRoutingNode(ctx, req.(*v1.Reference))
+		return srv.(AlertEndpointsServer).DeleteConditionRoutingNode(ctx, req.(*v11.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_UpdateIndividualEndpointInRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.FullAttachedEndpoint)
+	in := new(v1.FullAttachedEndpoint)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -474,13 +474,13 @@ func _AlertEndpoints_UpdateIndividualEndpointInRoutingNode_Handler(srv interface
 		FullMethod: "/alerting.endpoint.AlertEndpoints/UpdateIndividualEndpointInRoutingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).UpdateIndividualEndpointInRoutingNode(ctx, req.(*common.FullAttachedEndpoint))
+		return srv.(AlertEndpointsServer).UpdateIndividualEndpointInRoutingNode(ctx, req.(*v1.FullAttachedEndpoint))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertEndpoints_DeleteIndividualEndpointInRoutingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(v11.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func _AlertEndpoints_DeleteIndividualEndpointInRoutingNode_Handler(srv interface
 		FullMethod: "/alerting.endpoint.AlertEndpoints/DeleteIndividualEndpointInRoutingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).DeleteIndividualEndpointInRoutingNode(ctx, req.(*v1.Reference))
+		return srv.(AlertEndpointsServer).DeleteIndividualEndpointInRoutingNode(ctx, req.(*v11.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }

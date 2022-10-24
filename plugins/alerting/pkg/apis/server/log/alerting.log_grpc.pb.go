@@ -8,8 +8,8 @@ package log
 
 import (
 	context "context"
+	v11 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
-	common "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -27,7 +27,7 @@ const _ = grpc.SupportPackageIsVersion7
 type AlertLogsClient interface {
 	// alerting internal use only
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListAlertLogs(ctx context.Context, in *common.ListAlertLogRequest, opts ...grpc.CallOption) (*common.InformativeAlertLogList, error)
+	ListAlertLogs(ctx context.Context, in *v11.ListAlertLogRequest, opts ...grpc.CallOption) (*v11.InformativeAlertLogList, error)
 }
 
 type alertLogsClient struct {
@@ -47,8 +47,8 @@ func (c *alertLogsClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, o
 	return out, nil
 }
 
-func (c *alertLogsClient) ListAlertLogs(ctx context.Context, in *common.ListAlertLogRequest, opts ...grpc.CallOption) (*common.InformativeAlertLogList, error) {
-	out := new(common.InformativeAlertLogList)
+func (c *alertLogsClient) ListAlertLogs(ctx context.Context, in *v11.ListAlertLogRequest, opts ...grpc.CallOption) (*v11.InformativeAlertLogList, error) {
+	out := new(v11.InformativeAlertLogList)
 	err := c.cc.Invoke(ctx, "/alerting.log.AlertLogs/ListAlertLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (c *alertLogsClient) ListAlertLogs(ctx context.Context, in *common.ListAler
 type AlertLogsServer interface {
 	// alerting internal use only
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
-	ListAlertLogs(context.Context, *common.ListAlertLogRequest) (*common.InformativeAlertLogList, error)
+	ListAlertLogs(context.Context, *v11.ListAlertLogRequest) (*v11.InformativeAlertLogList, error)
 	mustEmbedUnimplementedAlertLogsServer()
 }
 
@@ -73,7 +73,7 @@ type UnimplementedAlertLogsServer struct {
 func (UnimplementedAlertLogsServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
-func (UnimplementedAlertLogsServer) ListAlertLogs(context.Context, *common.ListAlertLogRequest) (*common.InformativeAlertLogList, error) {
+func (UnimplementedAlertLogsServer) ListAlertLogs(context.Context, *v11.ListAlertLogRequest) (*v11.InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
 }
 func (UnimplementedAlertLogsServer) mustEmbedUnimplementedAlertLogsServer() {}
@@ -108,7 +108,7 @@ func _AlertLogs_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _AlertLogs_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.ListAlertLogRequest)
+	in := new(v11.ListAlertLogRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func _AlertLogs_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/alerting.log.AlertLogs/ListAlertLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertLogsServer).ListAlertLogs(ctx, req.(*common.ListAlertLogRequest))
+		return srv.(AlertLogsServer).ListAlertLogs(ctx, req.(*v11.ListAlertLogRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

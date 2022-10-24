@@ -11,7 +11,7 @@ import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
 package alerting;
 
@@ -19,7 +19,7 @@ service Alerting {
   // ------- Trigger Alerts -------
 
   // opni internal use
-  rpc TriggerAlerts(common.TriggerAlertsRequest) returns (common.TriggerAlertsResponse) {
+  rpc TriggerAlerts(alerting.TriggerAlertsRequest) returns (alerting.TriggerAlertsResponse) {
     option (google.api.http) = {
       post : "/trigger"
       body : "*"

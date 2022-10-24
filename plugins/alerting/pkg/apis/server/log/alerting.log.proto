@@ -10,7 +10,7 @@ import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
 package alerting.log;
 
@@ -20,7 +20,7 @@ service AlertLogs {
   // alerting internal use only
   rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {}
 
-  rpc ListAlertLogs(common.ListAlertLogRequest) returns (common.InformativeAlertLogList) {
+  rpc ListAlertLogs(alerting.ListAlertLogRequest) returns (alerting.InformativeAlertLogList) {
     option (google.api.http) = {
       get : "/events"
     };

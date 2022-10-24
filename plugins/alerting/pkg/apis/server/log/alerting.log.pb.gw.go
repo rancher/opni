@@ -15,7 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	v1_0 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -37,7 +37,7 @@ var (
 )
 
 func request_AlertLogs_ListAlertLogs_0(ctx context.Context, marshaler runtime.Marshaler, client AlertLogsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertLogRequest
+	var protoReq v1_0.ListAlertLogRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -53,7 +53,7 @@ func request_AlertLogs_ListAlertLogs_0(ctx context.Context, marshaler runtime.Ma
 }
 
 func local_request_AlertLogs_ListAlertLogs_0(ctx context.Context, marshaler runtime.Marshaler, server AlertLogsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertLogRequest
+	var protoReq v1_0.ListAlertLogRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {

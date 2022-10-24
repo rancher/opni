@@ -3,7 +3,7 @@ package routing
 import (
 	"fmt"
 
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"golang.org/x/exp/slices"
 )
 
@@ -13,7 +13,7 @@ import (
 // Modifies the internalRouting struct in place
 func (r *RoutingTree) CreateRoutingNodeForCondition(
 	conditionId string,
-	endpoints *alertingv1alpha.FullAttachedEndpoints,
+	endpoints *alertingv1.FullAttachedEndpoints,
 	internalRouting *OpniInternalRouting,
 ) error {
 	if endpoints.GetItems() == nil || len(endpoints.GetItems()) == 0 {
@@ -46,7 +46,7 @@ func (r *RoutingTree) CreateRoutingNodeForCondition(
 
 func (r *RoutingTree) UpdateRoutingNodeForCondition(
 	conditionId string,
-	endpoints *alertingv1alpha.FullAttachedEndpoints,
+	endpoints *alertingv1.FullAttachedEndpoints,
 	internalRouting *OpniInternalRouting,
 ) error {
 	err := internalRouting.RemoveCondition(conditionId)
@@ -101,14 +101,14 @@ type TraversalOp struct {
 	conditionId  string
 	endpointType string
 	position     int
-	details      *alertingv1alpha.EndpointImplementation
+	details      *alertingv1.EndpointImplementation
 }
 
 // UpdateIndividualEndpointNode
 //
 // req contains the new updated details
 func (r *RoutingTree) UpdateIndividualEndpointNode(
-	req *alertingv1alpha.FullAttachedEndpoint,
+	req *alertingv1.FullAttachedEndpoint,
 	internalRouting *OpniInternalRouting,
 ) error {
 	//FIXME: temporary solution

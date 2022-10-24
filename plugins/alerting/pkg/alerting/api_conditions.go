@@ -17,18 +17,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
+func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
 	lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	if err := alertingv1alpha.DetailsHasImplementation(req.GetAlertType()); err != nil {
+	if err := alertingv1.DetailsHasImplementation(req.GetAlertType()); err != nil {
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
@@ -39,14 +39,14 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 
 	if !(req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0) {
 		// FIXME: temporary solution
-		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 		if err != nil {
 			return nil, err
 		}
-		routingNode := &alertingv1alpha.RoutingNode{
+		routingNode := &alertingv1.RoutingNode{
 			ConditionId: &corev1.Reference{Id: newId},
-			FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
-				Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+			FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
+				Items:              []*alertingv1.FullAttachedEndpoint{},
 				InitialDelay:       req.AttachedEndpoints.InitialDelay,
 				RepeatInterval:     req.AttachedEndpoints.RepeatInterval,
 				ThrottlingDuration: req.AttachedEndpoints.ThrottlingDuration,
@@ -58,7 +58,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
 					routingNode.FullAttachedEndpoints.Items = append(
 						routingNode.FullAttachedEndpoints.Items,
-						&alertingv1alpha.FullAttachedEndpoint{
+						&alertingv1.FullAttachedEndpoint{
 							EndpointId:    endpointItem.Id.Id,
 							AlertEndpoint: endpointItem.Endpoint,
 							Details:       req.AttachedEndpoints.Details,
@@ -77,11 +77,11 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	return &corev1.Reference{Id: newId}, nil
 }
 
-func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {
+func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
 	return p.storageNode.GetConditionStorage(ctx, ref.Id)
 }
 
-func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error) {
+func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -90,9 +90,9 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 		return nil, err
 	}
 
-	res := &alertingv1alpha.AlertConditionList{}
+	res := &alertingv1.AlertConditionList{}
 	for i := range keys {
-		res.Items = append(res.Items, &alertingv1alpha.AlertConditionWithId{
+		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
 			Id:             &corev1.Reference{Id: keys[i]},
 			AlertCondition: items[i],
 		})
@@ -101,7 +101,7 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 }
 
 // req.Id is the condition id reference
-func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -119,14 +119,14 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, err
 	}
 	if !(req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0) {
-		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 		if err != nil {
 			return nil, err
 		}
-		routingNode := &alertingv1alpha.RoutingNode{
+		routingNode := &alertingv1.RoutingNode{
 			ConditionId: &corev1.Reference{Id: req.Id.Id},
-			FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
-				Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+			FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
+				Items:              []*alertingv1.FullAttachedEndpoint{},
 				InitialDelay:       req.UpdateAlert.AttachedEndpoints.InitialDelay,
 				RepeatInterval:     req.UpdateAlert.AttachedEndpoints.RepeatInterval,
 				ThrottlingDuration: req.UpdateAlert.AttachedEndpoints.ThrottlingDuration,
@@ -138,7 +138,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
 					routingNode.FullAttachedEndpoints.Items = append(
 						routingNode.FullAttachedEndpoints.Items,
-						&alertingv1alpha.FullAttachedEndpoint{
+						&alertingv1.FullAttachedEndpoint{
 							EndpointId:    endpointItem.Id.Id,
 							AlertEndpoint: endpointItem.Endpoint,
 							Details:       req.UpdateAlert.AttachedEndpoints.Details,
@@ -196,7 +196,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
+func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 
@@ -206,8 +206,8 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		return nil, shared.WithNotFoundErrorf("%s", err)
 	}
 
-	defaultState := &alertingv1alpha.AlertStatusResponse{
-		State: alertingv1alpha.AlertConditionState_OK,
+	defaultState := &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_OK,
 	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
@@ -248,12 +248,12 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 				}
 				switch *alert.Status.State {
 				case models.AlertStatusStateActive:
-					return &alertingv1alpha.AlertStatusResponse{
-						State: alertingv1alpha.AlertConditionState_FIRING,
+					return &alertingv1.AlertStatusResponse{
+						State: alertingv1.AlertConditionState_FIRING,
 					}, nil
 				case models.AlertStatusStateSuppressed:
-					return &alertingv1alpha.AlertStatusResponse{
-						State: alertingv1alpha.AlertConditionState_SILENCED,
+					return &alertingv1.AlertStatusResponse{
+						State: alertingv1.AlertConditionState_SILENCED,
 					}, nil
 				case models.AlertStatusStateUnprocessed:
 					fallthrough
@@ -267,7 +267,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	return defaultState, nil
 }
 
-func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.SilenceRequest) (*emptypb.Empty, error) {
+func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceRequest) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 		return nil, err
 	}
 	newCondition := util.ProtoClone(existing)
-	newCondition.Silence = &alertingv1alpha.SilenceInfo{ // not exact, butno one will notice
+	newCondition.Silence = &alertingv1.SilenceInfo{ // not exact, butno one will notice
 		SilenceId: respSilence.GetSilenceId(),
 		StartsAt:  timestamppb.Now(),
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
@@ -361,17 +361,17 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.ListAlertTypeDetails, error) {
+func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1.AlertDetailChoicesRequest) (*alertingv1.ListAlertTypeDetails, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	if err := alertingv1alpha.EnumHasImplementation(req.GetAlertType()); err != nil {
+	if err := alertingv1.EnumHasImplementation(req.GetAlertType()); err != nil {
 		return nil, err
 	}
 	return handleChoicesByType(p, ctx, req)
 }
 
-func (p *Plugin) Timeline(ctx context.Context, req *alertingv1alpha.TimelineRequest) (*alertingv1alpha.TimelineResponse, error) {
+func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) (*alertingv1.TimelineResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -379,12 +379,12 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1alpha.TimelineRequ
 	if err != nil {
 		return nil, err
 	}
-	resp := &alertingv1alpha.TimelineResponse{
-		Items: make(map[string]*alertingv1alpha.ActiveWindows),
+	resp := &alertingv1.TimelineResponse{
+		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
 	for idx := range conditions {
-		resp.Items[ids[idx]] = &alertingv1alpha.ActiveWindows{
-			Windows: make([]*alertingv1alpha.ActiveWindow, 0),
+		resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+			Windows: make([]*alertingv1.ActiveWindow, 0),
 		}
 		numWindows := rand.Intn(10) + 1
 		for i := 0; i < numWindows; i++ {
@@ -398,13 +398,13 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1alpha.TimelineRequ
 				endTime = temp
 			}
 			typeRandom := rand.Intn(4)
-			var t alertingv1alpha.TimelineType
+			var t alertingv1.TimelineType
 			if typeRandom == 0 {
-				t = alertingv1alpha.TimelineType_Timeline_Silenced
+				t = alertingv1.TimelineType_Timeline_Silenced
 			} else {
-				t = alertingv1alpha.TimelineType_Timeline_Alerting
+				t = alertingv1.TimelineType_Timeline_Alerting
 			}
-			resp.Items[ids[idx]].Windows = append(resp.Items[ids[idx]].Windows, &alertingv1alpha.ActiveWindow{
+			resp.Items[ids[idx]].Windows = append(resp.Items[ids[idx]].Windows, &alertingv1.ActiveWindow{
 				Start: timestamppb.New(startTime),
 				End:   timestamppb.New(endTime),
 				Type:  t,

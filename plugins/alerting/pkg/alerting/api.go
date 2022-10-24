@@ -4,13 +4,12 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/alerting/backend"
-
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
 // --- Trigger ---
 
-func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
+func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
 	lg := p.Logger.With("Handler", "TriggerAlerts")
 	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
 	lg.Debugf("Received alert annotations : %s", req.Annotations)
@@ -47,5 +46,5 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 			return nil, err
 		}
 	}
-	return &alertingv1alpha.TriggerAlertsResponse{}, nil
+	return &alertingv1.TriggerAlertsResponse{}, nil
 }

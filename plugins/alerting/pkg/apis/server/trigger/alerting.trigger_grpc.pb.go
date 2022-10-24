@@ -8,7 +8,7 @@ package trigger
 
 import (
 	context "context"
-	common "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
+	v1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -24,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertingClient interface {
 	// opni internal use
-	TriggerAlerts(ctx context.Context, in *common.TriggerAlertsRequest, opts ...grpc.CallOption) (*common.TriggerAlertsResponse, error)
+	TriggerAlerts(ctx context.Context, in *v1.TriggerAlertsRequest, opts ...grpc.CallOption) (*v1.TriggerAlertsResponse, error)
 }
 
 type alertingClient struct {
@@ -35,8 +35,8 @@ func NewAlertingClient(cc grpc.ClientConnInterface) AlertingClient {
 	return &alertingClient{cc}
 }
 
-func (c *alertingClient) TriggerAlerts(ctx context.Context, in *common.TriggerAlertsRequest, opts ...grpc.CallOption) (*common.TriggerAlertsResponse, error) {
-	out := new(common.TriggerAlertsResponse)
+func (c *alertingClient) TriggerAlerts(ctx context.Context, in *v1.TriggerAlertsRequest, opts ...grpc.CallOption) (*v1.TriggerAlertsResponse, error) {
+	out := new(v1.TriggerAlertsResponse)
 	err := c.cc.Invoke(ctx, "/alerting.Alerting/TriggerAlerts", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (c *alertingClient) TriggerAlerts(ctx context.Context, in *common.TriggerAl
 // for forward compatibility
 type AlertingServer interface {
 	// opni internal use
-	TriggerAlerts(context.Context, *common.TriggerAlertsRequest) (*common.TriggerAlertsResponse, error)
+	TriggerAlerts(context.Context, *v1.TriggerAlertsRequest) (*v1.TriggerAlertsResponse, error)
 	mustEmbedUnimplementedAlertingServer()
 }
 
@@ -57,7 +57,7 @@ type AlertingServer interface {
 type UnimplementedAlertingServer struct {
 }
 
-func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *common.TriggerAlertsRequest) (*common.TriggerAlertsResponse, error) {
+func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *v1.TriggerAlertsRequest) (*v1.TriggerAlertsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerAlerts not implemented")
 }
 func (UnimplementedAlertingServer) mustEmbedUnimplementedAlertingServer() {}
@@ -74,7 +74,7 @@ func RegisterAlertingServer(s grpc.ServiceRegistrar, srv AlertingServer) {
 }
 
 func _Alerting_TriggerAlerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.TriggerAlertsRequest)
+	in := new(v1.TriggerAlertsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func _Alerting_TriggerAlerts_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/alerting.Alerting/TriggerAlerts",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).TriggerAlerts(ctx, req.(*common.TriggerAlertsRequest))
+		return srv.(AlertingServer).TriggerAlerts(ctx, req.(*v1.TriggerAlertsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

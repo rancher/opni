@@ -12,34 +12,34 @@ import "google/rpc/status.proto";
 
 
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
 package alerting.condition;
 
 // -------- CRUD for alerting conditions -------
 service AlertConditions {
-    rpc CreateAlertCondition(common.AlertCondition) returns (core.Reference) {
+    rpc CreateAlertCondition(alerting.AlertCondition) returns (core.Reference) {
     option (google.api.http) = {
       post : "/configure"
       body : "*"
     };
   }
 
-  rpc GetAlertCondition(core.Reference) returns (common.AlertCondition) {
+  rpc GetAlertCondition(core.Reference) returns (alerting.AlertCondition) {
     option (google.api.http) = {
       post : "/list/{id}"
       body : "*"
     };
   }
 
-  rpc ListAlertConditions(common.ListAlertConditionRequest)
-      returns (common.AlertConditionList) {
+  rpc ListAlertConditions(alerting.ListAlertConditionRequest)
+      returns (alerting.AlertConditionList) {
     option (google.api.http) = {
       get : "/list"
     };
   }
 
-  rpc UpdateAlertCondition(common.UpdateAlertConditionRequest)
+  rpc UpdateAlertCondition(alerting.UpdateAlertConditionRequest)
       returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put : "/configure"
@@ -47,8 +47,8 @@ service AlertConditions {
     };
   }
 
-  rpc ListAlertConditionChoices(common.AlertDetailChoicesRequest)
-      returns (common.ListAlertTypeDetails) {
+  rpc ListAlertConditionChoices(alerting.AlertDetailChoicesRequest)
+      returns (alerting.ListAlertTypeDetails) {
       option (google.api.http) = {
         post : "/choices"
     };
@@ -60,14 +60,14 @@ service AlertConditions {
     };
   }
 
-  rpc AlertConditionStatus(core.Reference) returns (common.AlertStatusResponse) {
+  rpc AlertConditionStatus(core.Reference) returns (alerting.AlertStatusResponse) {
     option (google.api.http) = {
       post : "/status/{id}"
     };
   }
 
   //  can only active silence when alert is in firing state (limitation of alertmanager)
-  rpc ActivateSilence(common.SilenceRequest) returns (google.protobuf.Empty) {
+  rpc ActivateSilence(alerting.SilenceRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/silences"
       body : "*"
@@ -80,7 +80,7 @@ service AlertConditions {
     };
   }
 
-  rpc Timeline(common.TimelineRequest) returns (common.TimelineResponse) {
+  rpc Timeline(alerting.TimelineRequest) returns (alerting.TimelineResponse) {
     option (google.api.http) = {
       post : "/timeline"
     };

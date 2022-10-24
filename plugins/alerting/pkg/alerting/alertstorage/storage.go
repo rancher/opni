@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"go.uber.org/zap"
 )
 
@@ -20,8 +20,8 @@ const conditionPrefix = "/alerting/conditions"
 const endpointPrefix = "/alerting/endpoints"
 
 type StorageAPIs struct {
-	Conditions storage.KeyValueStoreT[*alertingv1alpha.AlertCondition]
-	Endpoints  storage.KeyValueStoreT[*alertingv1alpha.AlertEndpoint]
+	Conditions storage.KeyValueStoreT[*alertingv1.AlertCondition]
+	Endpoints  storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
 	// key : conditionId
 	// value  : AgentTracker
 	SystemTrackerStorage future.Future[nats.KeyValue]
@@ -84,7 +84,7 @@ func (s *StorageNodeOptions) apply(opts ...StorageNodeOption) {
 	}
 }
 
-func (s *StorageNode) CreateConditionStorage(ctx context.Context, conditionId string, condition *alertingv1alpha.AlertCondition) error {
+func (s *StorageNode) CreateConditionStorage(ctx context.Context, conditionId string, condition *alertingv1.AlertCondition) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -94,7 +94,7 @@ func (s *StorageNode) CreateConditionStorage(ctx context.Context, conditionId st
 	return storage.Conditions.Put(ctx, path.Join(conditionPrefix, conditionId), condition)
 }
 
-func (s *StorageNode) GetConditionStorage(ctx context.Context, conditionId string) (*alertingv1alpha.AlertCondition, error) {
+func (s *StorageNode) GetConditionStorage(ctx context.Context, conditionId string) (*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -104,7 +104,7 @@ func (s *StorageNode) GetConditionStorage(ctx context.Context, conditionId strin
 	return storage.Conditions.Get(ctx, path.Join(conditionPrefix, conditionId))
 }
 
-func (s *StorageNode) ListConditionStorage(ctx context.Context) ([]*alertingv1alpha.AlertCondition, error) {
+func (s *StorageNode) ListConditionStorage(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -118,7 +118,7 @@ func (s *StorageNode) ListConditionStorage(ctx context.Context) ([]*alertingv1al
 	return items, nil
 }
 
-func (s *StorageNode) ListWithKeyConditionStorage(ctx context.Context) ([]string, []*alertingv1alpha.AlertCondition, error) {
+func (s *StorageNode) ListWithKeyConditionStorage(ctx context.Context) ([]string, []*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -132,7 +132,7 @@ func (s *StorageNode) ListWithKeyConditionStorage(ctx context.Context) ([]string
 	return keys, items, nil
 }
 
-func (s *StorageNode) UpdateConditionStorage(ctx context.Context, conditionId string, newCondition *alertingv1alpha.AlertCondition) error {
+func (s *StorageNode) UpdateConditionStorage(ctx context.Context, conditionId string, newCondition *alertingv1.AlertCondition) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -160,7 +160,7 @@ func (s *StorageNode) DeleteConditionStorage(ctx context.Context, conditionId st
 	return storage.Conditions.Delete(ctx, path.Join(conditionPrefix, conditionId))
 }
 
-func (s *StorageNode) CreateEndpointsStorage(ctx context.Context, endpointId string, endpoint *alertingv1alpha.AlertEndpoint) error {
+func (s *StorageNode) CreateEndpointsStorage(ctx context.Context, endpointId string, endpoint *alertingv1.AlertEndpoint) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -170,7 +170,7 @@ func (s *StorageNode) CreateEndpointsStorage(ctx context.Context, endpointId str
 	return storage.Endpoints.Put(ctx, path.Join(endpointPrefix, endpointId), endpoint)
 }
 
-func (s *StorageNode) GetEndpointStorage(ctx context.Context, endpointId string) (*alertingv1alpha.AlertEndpoint, error) {
+func (s *StorageNode) GetEndpointStorage(ctx context.Context, endpointId string) (*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -180,7 +180,7 @@ func (s *StorageNode) GetEndpointStorage(ctx context.Context, endpointId string)
 	return storage.Endpoints.Get(ctx, path.Join(endpointPrefix, endpointId))
 }
 
-func (s *StorageNode) ListEndpointStorage(ctx context.Context) ([]*alertingv1alpha.AlertEndpoint, error) {
+func (s *StorageNode) ListEndpointStorage(ctx context.Context) ([]*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -194,7 +194,7 @@ func (s *StorageNode) ListEndpointStorage(ctx context.Context) ([]*alertingv1alp
 	return items, nil
 }
 
-func (s *StorageNode) ListWithKeyEndpointStorage(ctx context.Context) ([]string, []*alertingv1alpha.AlertEndpoint, error) {
+func (s *StorageNode) ListWithKeyEndpointStorage(ctx context.Context) ([]string, []*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -208,7 +208,7 @@ func (s *StorageNode) ListWithKeyEndpointStorage(ctx context.Context) ([]string,
 	return keys, items, nil
 }
 
-func (s *StorageNode) UpdateEndpointStorage(ctx context.Context, endpointId string, newEndpoint *alertingv1alpha.AlertEndpoint) error {
+func (s *StorageNode) UpdateEndpointStorage(ctx context.Context, endpointId string, newEndpoint *alertingv1.AlertEndpoint) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)

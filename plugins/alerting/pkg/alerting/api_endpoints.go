@@ -8,14 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/backend"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
+func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertEndpoint) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -26,11 +26,11 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.A
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
+func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertEndpoint, error) {
 	return p.storageNode.GetEndpointStorage(ctx, ref.Id)
 }
 
-func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*alertingv1alpha.InvolvedConditions, error) {
+func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -48,11 +48,11 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 			refList = append(refList, &corev1.Reference{Id: condId})
 		}
 		if !req.ForceUpdate {
-			return &alertingv1alpha.InvolvedConditions{
+			return &alertingv1.InvolvedConditions{
 				Items: refList,
 			}, nil
 		}
-		_, err := p.UpdateIndividualEndpointInRoutingNode(ctx, &alertingv1alpha.FullAttachedEndpoint{
+		_, err := p.UpdateIndividualEndpointInRoutingNode(ctx, &alertingv1.FullAttachedEndpoint{
 			EndpointId:    req.Id.Id,
 			AlertEndpoint: req.UpdateAlert,
 		})
@@ -63,13 +63,13 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	return &alertingv1alpha.InvolvedConditions{
+	return &alertingv1.InvolvedConditions{
 		Items: refList,
 	}, nil
 }
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
-	req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
+	req *alertingv1.ListAlertEndpointsRequest) (*alertingv1.AlertEndpointList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -77,17 +77,17 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	items := []*alertingv1alpha.AlertEndpointWithId{}
+	items := []*alertingv1.AlertEndpointWithId{}
 	for idx := range ids {
-		items = append(items, &alertingv1alpha.AlertEndpointWithId{
+		items = append(items, &alertingv1.AlertEndpointWithId{
 			Id:       &corev1.Reference{Id: ids[idx]},
 			Endpoint: endpoints[idx],
 		})
 	}
-	return &alertingv1alpha.AlertEndpointList{Items: items}, nil
+	return &alertingv1.AlertEndpointList{Items: items}, nil
 }
 
-func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1alpha.DeleteAlertEndpointRequest) (*alertingv1alpha.InvolvedConditions, error) {
+func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.DeleteAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
 	_, err := p.GetAlertEndpoint(ctx, req.Id)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1alpha.D
 			refList = append(refList, &corev1.Reference{Id: condId})
 		}
 		if !req.ForceDelete {
-			return &alertingv1alpha.InvolvedConditions{
+			return &alertingv1.InvolvedConditions{
 				Items: refList,
 			}, nil
 		}
@@ -121,12 +121,12 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1alpha.D
 		return nil, err
 	}
 
-	return &alertingv1alpha.InvolvedConditions{
+	return &alertingv1.InvolvedConditions{
 		Items: refList,
 	}, nil
 }
 
-func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
+func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAlertEndpointRequest) (*alertingv1.TestAlertEndpointResponse, error) {
 	lg := p.Logger.With("Handler", "TestAlertEndpoint")
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -146,16 +146,16 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		typeName = "unknwon"
 	}
 
-	details := &alertingv1alpha.EndpointImplementation{
+	details := &alertingv1.EndpointImplementation{
 		Title: fmt.Sprintf("Test Alert - %s (%s)", typeName, time.Now().Format("2006-01-02T15:04:05 -07:00:00")),
 		Body:  "Opni-alerting is sending you a test alert",
 	}
 
-	createImpl := &alertingv1alpha.RoutingNode{
+	createImpl := &alertingv1.RoutingNode{
 		ConditionId: &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
-		FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
+		FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
 			InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
-			Items: []*alertingv1alpha.FullAttachedEndpoint{
+			Items: []*alertingv1.FullAttachedEndpoint{
 				{
 					EndpointId:    dummyEndpointId,
 					AlertEndpoint: req.Endpoint,
@@ -208,10 +208,10 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		time.Sleep(time.Second * 1)
 	}
 
-	return &alertingv1alpha.TestAlertEndpointResponse{}, nil
+	return &alertingv1.TestAlertEndpointResponse{}, nil
 }
 
-func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
+func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1.RoutingNode) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1alpha.RoutingNode) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1.RoutingNode) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -274,30 +274,30 @@ func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Ref
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1alpha.RoutingRelationships, error) {
+func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.RoutingRelationships, error) {
 	_, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	conditions := make(map[string]*alertingv1alpha.EndpointRoutingMap)
+	conditions := make(map[string]*alertingv1.EndpointRoutingMap)
 	for conditionId, endpointMap := range internalConfig.Content {
-		conditions[conditionId] = &alertingv1alpha.EndpointRoutingMap{
-			Endpoints: make(map[string]*alertingv1alpha.EndpointMetadata),
+		conditions[conditionId] = &alertingv1.EndpointRoutingMap{
+			Endpoints: make(map[string]*alertingv1.EndpointMetadata),
 		}
 		for endpointId, metadata := range endpointMap {
-			conditions[conditionId].Endpoints[endpointId] = &alertingv1alpha.EndpointMetadata{
+			conditions[conditionId].Endpoints[endpointId] = &alertingv1.EndpointMetadata{
 				Position:     int32(*metadata.Position),
 				EndpointType: metadata.EndpointType,
 			}
 		}
 	}
 
-	return &alertingv1alpha.RoutingRelationships{
+	return &alertingv1.RoutingRelationships{
 		Conditions: conditions,
 	}, nil
 }
 
-func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, attachedEndpoint *alertingv1alpha.FullAttachedEndpoint) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, attachedEndpoint *alertingv1.FullAttachedEndpoint) (*emptypb.Empty, error) {
 	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
@@ -371,7 +371,7 @@ func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, refe
 				idxToDelete,
 				idxToDelete+1,
 			)
-			_, err = p.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+			_, err = p.UpdateAlertCondition(ctx, &alertingv1.UpdateAlertConditionRequest{
 				Id: &corev1.Reference{
 					Id: conditionId,
 				},

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
@@ -34,7 +34,7 @@ func IsNil(p *Provider) bool {
 func DoCreate(
 	p Provider,
 	ctx context.Context,
-	req *alertingv1alpha.AlertCondition,
+	req *alertingv1.AlertCondition,
 ) (*corev1.Reference, error) {
 	alertingMutex.Lock()
 	defer alertingMutex.Unlock()
@@ -54,8 +54,8 @@ func DoDelete(
 func DoTrigger(
 	p Provider,
 	ctx context.Context,
-	req *alertingv1alpha.TriggerAlertsRequest,
-) (*alertingv1alpha.TriggerAlertsResponse, error) {
+	req *alertingv1.TriggerAlertsRequest,
+) (*alertingv1.TriggerAlertsResponse, error) {
 	alertingMutex.Lock()
 	defer alertingMutex.Unlock()
 	return p.TriggerAlerts(ctx, req)

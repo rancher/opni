@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -18,7 +19,6 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -85,8 +85,8 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	)
 	p.storageNode = alertstorage.NewStorageNode(
 		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions:           system.NewKVStoreClient[*alertingv1alpha.AlertCondition](client),
-			Endpoints:            system.NewKVStoreClient[*alertingv1alpha.AlertEndpoint](client),
+			Conditions:           system.NewKVStoreClient[*alertingv1.AlertCondition](client),
+			Endpoints:            system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
 			SystemTrackerStorage: future.New[nats.KeyValue](),
 		}),
 	)

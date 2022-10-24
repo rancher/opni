@@ -2,20 +2,21 @@ package routing_test
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
-	"time"
 )
 
 type TestAPI struct {
-	E           *alertingv1alpha.FullAttachedEndpoints
+	E           *alertingv1.FullAttachedEndpoints
 	conditionId string
 	err         error
 }
@@ -49,26 +50,26 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 			from := "bot@google.com"
 			inputs := []TestAPI{
 				{
-					E:           &alertingv1alpha.FullAttachedEndpoints{},
+					E:           &alertingv1.FullAttachedEndpoints{},
 					conditionId: uuid.New().String(),
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.FullAttachedEndpoints{
-						Items: []*alertingv1alpha.FullAttachedEndpoint{
+					E: &alertingv1.FullAttachedEndpoints{
+						Items: []*alertingv1.FullAttachedEndpoint{
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
+								Details: &alertingv1.EndpointImplementation{
 									Title: "test1",
 									Body:  "alert body",
 								},
 							},
 						},
-						Details: &alertingv1alpha.EndpointImplementation{
+						Details: &alertingv1.EndpointImplementation{
 							Title: "test1",
 							Body:  "alert body",
 						},
@@ -77,20 +78,20 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.FullAttachedEndpoints{
-						Items: []*alertingv1alpha.FullAttachedEndpoint{
+					E: &alertingv1.FullAttachedEndpoints{
+						Items: []*alertingv1.FullAttachedEndpoint{
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
-									Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
-										Slack: &alertingv1alpha.SlackEndpoint{},
+									Endpoint: &alertingv1.AlertEndpoint_Slack{
+										Slack: &alertingv1.SlackEndpoint{},
 									},
 								},
 							},
 						},
-						Details: &alertingv1alpha.EndpointImplementation{
+						Details: &alertingv1.EndpointImplementation{
 							Title: "test1",
 							Body:  "alert body",
 						},
@@ -99,27 +100,27 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 					err:         fmt.Errorf(""),
 				},
 				{
-					E: &alertingv1alpha.FullAttachedEndpoints{
-						Items: []*alertingv1alpha.FullAttachedEndpoint{
+					E: &alertingv1.FullAttachedEndpoints{
+						Items: []*alertingv1.FullAttachedEndpoint{
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
-									Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
-										Slack: &alertingv1alpha.SlackEndpoint{
+									Endpoint: &alertingv1.AlertEndpoint_Slack{
+										Slack: &alertingv1.SlackEndpoint{
 											WebhookUrl: "http://localhost:8080",
 											Channel:    "#cool",
 										},
 									},
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
+								Details: &alertingv1.EndpointImplementation{
 									Title: "test1",
 									Body:  "alert body",
 								},
 							},
 						},
-						Details: &alertingv1alpha.EndpointImplementation{
+						Details: &alertingv1.EndpointImplementation{
 							Title: "test1",
 							Body:  "alert body1",
 						},
@@ -128,61 +129,61 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 					err:         nil,
 				},
 				{
-					E: &alertingv1alpha.FullAttachedEndpoints{
-						Items: []*alertingv1alpha.FullAttachedEndpoint{
+					E: &alertingv1.FullAttachedEndpoints{
+						Items: []*alertingv1.FullAttachedEndpoint{
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test1",
 									Description: "description body",
-									Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
-										Slack: &alertingv1alpha.SlackEndpoint{
+									Endpoint: &alertingv1.AlertEndpoint_Slack{
+										Slack: &alertingv1.SlackEndpoint{
 											WebhookUrl: "http://localhost:8080",
 											Channel:    "#cool2",
 										},
 									},
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
+								Details: &alertingv1.EndpointImplementation{
 									Title: "test2",
 									Body:  "alert body2",
 								},
 							},
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test3",
 									Description: "description body3",
-									Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
-										Slack: &alertingv1alpha.SlackEndpoint{
+									Endpoint: &alertingv1.AlertEndpoint_Slack{
+										Slack: &alertingv1.SlackEndpoint{
 											WebhookUrl: "http://localhost:8080",
 											Channel:    "#cool3",
 										},
 									},
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
+								Details: &alertingv1.EndpointImplementation{
 									Title: "test3",
 									Body:  "alert body3",
 								},
 							},
 							{
 								EndpointId: uuid.New().String(),
-								AlertEndpoint: &alertingv1alpha.AlertEndpoint{
+								AlertEndpoint: &alertingv1.AlertEndpoint{
 									Name:        "test4",
 									Description: "description body4",
-									Endpoint: &alertingv1alpha.AlertEndpoint_Email{
-										Email: &alertingv1alpha.EmailEndpoint{
+									Endpoint: &alertingv1.AlertEndpoint_Email{
+										Email: &alertingv1.EmailEndpoint{
 											To:       "alexandre.lamarre@suse.com",
 											SmtpFrom: &from,
 										},
 									},
 								},
-								Details: &alertingv1alpha.EndpointImplementation{
+								Details: &alertingv1.EndpointImplementation{
 									Title: "test4",
 									Body:  "alert body4",
 								},
 							},
 						},
-						Details: &alertingv1alpha.EndpointImplementation{
+						Details: &alertingv1.EndpointImplementation{
 							Title: "test3",
 							Body:  "alert body3",
 						},

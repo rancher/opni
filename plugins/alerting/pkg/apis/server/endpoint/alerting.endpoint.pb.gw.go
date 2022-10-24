@@ -15,8 +15,8 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
+	v1_0 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -34,7 +34,7 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 func request_AlertEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertEndpoint
+	var protoReq v1_0.AlertEndpoint
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -51,7 +51,7 @@ func request_AlertEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler
 }
 
 func local_request_AlertEndpoints_CreateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertEndpoint
+	var protoReq v1_0.AlertEndpoint
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -136,7 +136,7 @@ func local_request_AlertEndpoints_GetAlertEndpoint_0(ctx context.Context, marsha
 }
 
 func request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertEndpointsRequest
+	var protoReq v1_0.ListAlertEndpointsRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := client.ListAlertEndpoints(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -145,7 +145,7 @@ func request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler 
 }
 
 func local_request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertEndpointsRequest
+	var protoReq v1_0.ListAlertEndpointsRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := server.ListAlertEndpoints(ctx, &protoReq)
@@ -154,7 +154,7 @@ func local_request_AlertEndpoints_ListAlertEndpoints_0(ctx context.Context, mars
 }
 
 func request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.UpdateAlertEndpointRequest
+	var protoReq v1_0.UpdateAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -171,7 +171,7 @@ func request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler
 }
 
 func local_request_AlertEndpoints_UpdateAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.UpdateAlertEndpointRequest
+	var protoReq v1_0.UpdateAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -192,7 +192,7 @@ var (
 )
 
 func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.DeleteAlertEndpointRequest
+	var protoReq v1_0.DeleteAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -225,7 +225,7 @@ func request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler
 }
 
 func local_request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.DeleteAlertEndpointRequest
+	var protoReq v1_0.DeleteAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -258,7 +258,7 @@ func local_request_AlertEndpoints_DeleteAlertEndpoint_0(ctx context.Context, mar
 }
 
 func request_AlertEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, client AlertEndpointsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.TestAlertEndpointRequest
+	var protoReq v1_0.TestAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -275,7 +275,7 @@ func request_AlertEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler r
 }
 
 func local_request_AlertEndpoints_TestAlertEndpoint_0(ctx context.Context, marshaler runtime.Marshaler, server AlertEndpointsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.TestAlertEndpointRequest
+	var protoReq v1_0.TestAlertEndpointRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

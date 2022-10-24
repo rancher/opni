@@ -20,12 +20,12 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
-func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, newConditionId string) (*corev1.Reference, error) {
+func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
 		err := handleSystemAlertCreation(p, lg, ctx, s, newConditionId)
 		if err != nil {
@@ -43,7 +43,7 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
+func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
 	if s := req.GetAlertType().GetSystem(); s != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
@@ -63,7 +63,7 @@ func handleSystemAlertCreation(
 	p *Plugin,
 	lg *zap.SugaredLogger,
 	ctx context.Context,
-	k *alertingv1alpha.AlertConditionSystem,
+	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 ) error {
 	caFunc := p.onSystemConditionCreate(newConditionId, k)
@@ -71,7 +71,7 @@ func handleSystemAlertCreation(
 	return nil
 }
 
-func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1alpha.AlertConditionKubeState, newId string) error {
+func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1.AlertConditionKubeState, newId string) error {
 	baseKubeRule, err := metrics.NewKubeStateRule(
 		k.GetObjectType(),
 		k.GetObjectName(),
@@ -102,7 +102,7 @@ func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Conte
 	return nil
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1alpha.AlertConditionSystem) context.CancelFunc {
+func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -167,8 +167,9 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 				return
 			case <-ticker.C:
 				st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
-				if err != nil {
+				if err != nil || st == nil {
 					lg.Error(err)
+					continue
 				}
 				if len(st.Steps) == 0 {
 					panic("no system alert condition steps")
@@ -177,7 +178,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 				if !a.Status.Connected {
 					interval := timestamppb.Now().AsTime().Sub(a.Status.Timestamp.AsTime())
 					if interval > condition.GetTimeout().AsDuration() {
-						_, err := p.TriggerAlerts(jsCtx, &alertingv1alpha.TriggerAlertsRequest{
+						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
 							ConditionId: &corev1.Reference{Id: conditionId},
 							Annotations: map[string]string{
 								shared.BackendConditionIdLabel: conditionId,

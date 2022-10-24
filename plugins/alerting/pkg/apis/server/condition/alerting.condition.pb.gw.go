@@ -15,8 +15,8 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
+	v1_0 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -34,7 +34,7 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 func request_AlertConditions_CreateAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertCondition
+	var protoReq v1_0.AlertCondition
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -51,7 +51,7 @@ func request_AlertConditions_CreateAlertCondition_0(ctx context.Context, marshal
 }
 
 func local_request_AlertConditions_CreateAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertCondition
+	var protoReq v1_0.AlertCondition
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -136,7 +136,7 @@ func local_request_AlertConditions_GetAlertCondition_0(ctx context.Context, mars
 }
 
 func request_AlertConditions_ListAlertConditions_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertConditionRequest
+	var protoReq v1_0.ListAlertConditionRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := client.ListAlertConditions(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -145,7 +145,7 @@ func request_AlertConditions_ListAlertConditions_0(ctx context.Context, marshale
 }
 
 func local_request_AlertConditions_ListAlertConditions_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.ListAlertConditionRequest
+	var protoReq v1_0.ListAlertConditionRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := server.ListAlertConditions(ctx, &protoReq)
@@ -154,7 +154,7 @@ func local_request_AlertConditions_ListAlertConditions_0(ctx context.Context, ma
 }
 
 func request_AlertConditions_UpdateAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.UpdateAlertConditionRequest
+	var protoReq v1_0.UpdateAlertConditionRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -171,7 +171,7 @@ func request_AlertConditions_UpdateAlertCondition_0(ctx context.Context, marshal
 }
 
 func local_request_AlertConditions_UpdateAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.UpdateAlertConditionRequest
+	var protoReq v1_0.UpdateAlertConditionRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -192,7 +192,7 @@ var (
 )
 
 func request_AlertConditions_ListAlertConditionChoices_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertDetailChoicesRequest
+	var protoReq v1_0.AlertDetailChoicesRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -208,7 +208,7 @@ func request_AlertConditions_ListAlertConditionChoices_0(ctx context.Context, ma
 }
 
 func local_request_AlertConditions_ListAlertConditionChoices_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.AlertDetailChoicesRequest
+	var protoReq v1_0.AlertDetailChoicesRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -312,7 +312,7 @@ func local_request_AlertConditions_AlertConditionStatus_0(ctx context.Context, m
 }
 
 func request_AlertConditions_ActivateSilence_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.SilenceRequest
+	var protoReq v1_0.SilenceRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -329,7 +329,7 @@ func request_AlertConditions_ActivateSilence_0(ctx context.Context, marshaler ru
 }
 
 func local_request_AlertConditions_ActivateSilence_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.SilenceRequest
+	var protoReq v1_0.SilenceRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -402,7 +402,7 @@ var (
 )
 
 func request_AlertConditions_Timeline_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.TimelineRequest
+	var protoReq v1_0.TimelineRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -418,7 +418,7 @@ func request_AlertConditions_Timeline_0(ctx context.Context, marshaler runtime.M
 }
 
 func local_request_AlertConditions_Timeline_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq common.TimelineRequest
+	var protoReq v1_0.TimelineRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {

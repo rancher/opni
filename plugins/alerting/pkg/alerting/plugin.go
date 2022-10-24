@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"go.uber.org/zap"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
@@ -51,8 +51,8 @@ type Plugin struct {
 }
 
 type StorageAPIs struct {
-	Conditions    storage.KeyValueStoreT[*alertingv1alpha.AlertCondition]
-	AlertEndpoint storage.KeyValueStoreT[*alertingv1alpha.AlertEndpoint]
+	Conditions    storage.KeyValueStoreT[*alertingv1.AlertCondition]
+	AlertEndpoint storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

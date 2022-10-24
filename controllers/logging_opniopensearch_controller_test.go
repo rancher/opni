@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
@@ -176,8 +177,20 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 					},
 				},
 			))
-			Expect(cluster.Spec.Dashboards).Should(Equal(object.Spec.Dashboards))
-			Expect(cluster.Spec.NodePools).Should(Equal(object.Spec.NodePools))
+			Expect(cluster.Spec.Dashboards).To(Equal(object.Spec.Dashboards))
+			Expect(cluster.Spec.NodePools).To(Equal(object.Spec.NodePools))
+
+			By("checking the auth configuration is added")
+			security := object.Spec.OpensearchSettings.Security.DeepCopy()
+			security.Config = &opsterv1.SecurityConfig{
+				SecurityconfigSecret: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-securityconfig", object.Name),
+				},
+				AdminCredentialsSecret: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-internal-auth", object.Name),
+				},
+			}
+			Expect(cluster.Spec.Security).To(Equal(security))
 		})
 		It("should create a nats configmap", func() {
 			Eventually(Object(&corev1.ConfigMap{
@@ -188,6 +201,53 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 			})).Should(ExistAnd(
 				HaveOwner(object),
 			))
+		})
+		It("should create a securityconfig secret", func() {
+			Eventually(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-securityconfig", object.Name),
+					Namespace: testNs,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(object),
+				HaveData("internal_users.yml", func(d string) bool {
+					return strings.Contains(d, "internalopni:")
+				}),
+			))
+		})
+		It("should create an auth secret", func() {
+			Eventually(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-internal-auth", object.Name),
+					Namespace: testNs,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(object),
+				HaveData("username", "internalopni", "password", nil),
+			))
+		})
+	})
+	When("overriding the image", func() {
+		It("should update successfully", func() {
+			updateObject(object, func(c *loggingv1beta1.OpniOpensearch) {
+				c.Spec.OpensearchSettings.ImageOverride = lo.ToPtr("example.com/override:latest")
+			})
+		})
+		It("should update opensearch", func() {
+			Eventually(func() bool {
+				cluster := &opsterv1.OpenSearchCluster{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      object.Name,
+					Namespace: testNs,
+				}, cluster)
+				if err != nil {
+					return false
+				}
+				if cluster.Spec.General.Image == nil {
+					return false
+				}
+				return *cluster.Spec.General.Image == "example.com/override:latest"
+			}).Should(BeTrue())
 		})
 	})
 })

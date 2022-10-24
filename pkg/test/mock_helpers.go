@@ -168,10 +168,10 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 			mu.Lock()
 			defer mu.Unlock()
 			clusterList := &corev1.ClusterList{}
-			selectorPredicate := storage.ClusterSelector{
+			selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
 				LabelSelector: matchLabels,
 				MatchOptions:  matchOptions,
-			}.Predicate()
+			})
 			for _, cluster := range clusters {
 				if selectorPredicate(cluster) {
 					clusterList.Items = append(clusterList.Items, cluster)

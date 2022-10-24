@@ -8,6 +8,8 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -24,10 +26,6 @@ type Ref[T any] struct {
 	V *T
 	R *corev1.Reference
 }
-
-type (
-	HealthStatusUpdateEvent = Ref[corev1.HealthStatus]
-)
 
 type keymap struct {
 	table.KeyMap
@@ -68,11 +66,12 @@ type clusterData struct {
 }
 
 type ClusterListModel struct {
-	rows   []clusterData
-	t      table.Model
-	help   help.Model
-	keymap help.KeyMap
-	width  int
+	rows                 []clusterData
+	lateJoinHealthStatus map[string]*corev1.HealthStatus
+	t                    table.Model
+	help                 help.Model
+	keymap               help.KeyMap
+	width                int
 }
 
 func NewClusterListModel() ClusterListModel {
@@ -113,6 +112,7 @@ func NewClusterListModel() ClusterListModel {
 			KeyMap: table.DefaultKeyMap(),
 			Quit:   key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		},
+		lateJoinHealthStatus: make(map[string]*corev1.HealthStatus),
 	}
 }
 
@@ -133,8 +133,13 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *managementv1.WatchEvent:
 		switch msg.GetType() {
 		case managementv1.WatchEventType_Created:
+			healthStatus, ok := m.lateJoinHealthStatus[msg.GetCluster().GetId()]
+			if ok {
+				delete(m.lateJoinHealthStatus, msg.GetCluster().GetId())
+			}
 			m.rows = append(m.rows, clusterData{
-				cluster: msg.GetCluster(),
+				cluster:      msg.GetCluster(),
+				healthStatus: healthStatus,
 			})
 		case managementv1.WatchEventType_Updated:
 			for i, row := range m.rows {
@@ -152,20 +157,25 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-	case HealthStatusUpdateEvent:
-		if msg.R == nil || msg.V == nil {
+	case *corev1.ClusterHealthStatus:
+		if msg.Cluster == nil || msg.HealthStatus == nil {
 			return m, nil
 		}
+		found := false
 		for i, r := range m.rows {
-			if r.cluster.Id == msg.R.GetId() {
+			if r.cluster.Id == msg.Cluster.GetId() {
 				if r.healthStatus != nil && r.healthStatus.Health != nil {
-					if r.healthStatus.Health.NewerThan(msg.V.Health) {
+					if r.healthStatus.Health.NewerThan(msg.HealthStatus.Health) {
 						continue
 					}
 				}
-				m.rows[i].healthStatus = msg.V
+				m.rows[i].healthStatus = msg.HealthStatus
+				found = true
 				break
 			}
+		}
+		if !found {
+			m.lateJoinHealthStatus[msg.Cluster.GetId()] = msg.HealthStatus
 		}
 	}
 
@@ -219,50 +229,36 @@ type ClusterListWatcher struct {
 }
 
 func (w *ClusterListWatcher) Run(ctx context.Context) error {
-	stream, err := w.Client.WatchClusters(ctx, &managementv1.WatchClustersRequest{})
+	clusterStream, err := w.Client.WatchClusters(ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
 		return err
 	}
-	cancelMap := map[string]context.CancelFunc{}
-	for {
-		msg, err := stream.Recv()
-		if err != nil {
-			w.Messages <- tea.Quit()
-			return err
-		}
-		switch msg.GetType() {
-		case managementv1.WatchEventType_Created:
-			ref := msg.GetCluster().Reference()
-			if ca, ok := cancelMap[ref.GetId()]; ok {
-				ca()
-				delete(cancelMap, ref.GetId())
-			}
-			ctx, ca := context.WithCancel(ctx)
-			stream, err := w.Client.WatchClusterHealthStatus(ctx, ref)
+	statusStream, err := w.Client.WatchClusterHealthStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		for {
+			msg, err := clusterStream.Recv()
 			if err != nil {
-				ca()
 				w.Messages <- tea.Quit()
 				return err
 			}
-			cancelMap[ref.GetId()] = ca
-			go func() {
-				for {
-					msg, err := stream.Recv()
-					if err != nil {
-						w.Messages <- HealthStatusUpdateEvent{R: ref, V: nil}
-						return
-					}
-					w.Messages <- HealthStatusUpdateEvent{R: ref, V: msg}
-				}
-			}()
-		case managementv1.WatchEventType_Deleted:
-			ref := msg.GetCluster()
-			if ca, ok := cancelMap[ref.GetId()]; ok {
-				ca()
-				delete(cancelMap, ref.GetId())
-			}
+			w.Messages <- msg
 		}
+	})
+	group.Go(func() error {
+		for {
+			msg, err := statusStream.Recv()
+			if err != nil {
+				w.Messages <- tea.Quit()
+				return err
+			}
+			w.Messages <- msg
+		}
+	})
 
-		w.Messages <- msg
-	}
+	return group.Wait()
 }

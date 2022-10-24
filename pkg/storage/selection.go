@@ -4,24 +4,18 @@ import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 type SelectorPredicate func(*corev1.Cluster) bool
 
-type ClusterSelector struct {
-	ClusterIDs    []string
-	LabelSelector *corev1.LabelSelector
-	MatchOptions  corev1.MatchOptions
-}
-
-func (p ClusterSelector) Predicate() SelectorPredicate {
-	emptyLabelSelector := p.LabelSelector.IsEmpty()
-	if emptyLabelSelector && len(p.ClusterIDs) == 0 {
+func NewSelectorPredicate(s *corev1.ClusterSelector) SelectorPredicate {
+	emptyLabelSelector := s.LabelSelector.IsEmpty()
+	if emptyLabelSelector && len(s.ClusterIDs) == 0 {
 		switch {
-		case p.MatchOptions&corev1.MatchOptions_EmptySelectorMatchesNone != 0:
+		case s.MatchOptions&corev1.MatchOptions_EmptySelectorMatchesNone != 0:
 			return func(cluster *corev1.Cluster) bool { return false }
 		default:
 			return func(c *corev1.Cluster) bool { return true }
 		}
 	}
 	idSet := map[string]struct{}{}
-	for _, id := range p.ClusterIDs {
+	for _, id := range s.ClusterIDs {
 		idSet[id] = struct{}{}
 	}
 	return func(c *corev1.Cluster) bool {
@@ -32,7 +26,7 @@ func (p ClusterSelector) Predicate() SelectorPredicate {
 		if emptyLabelSelector {
 			return false
 		}
-		return labelSelectorMatches(p.LabelSelector, c.GetMetadata().GetLabels())
+		return labelSelectorMatches(s.LabelSelector, c.GetMetadata().GetLabels())
 	}
 }
 

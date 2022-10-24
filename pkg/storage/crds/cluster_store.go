@@ -98,10 +98,10 @@ func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSe
 	if err != nil {
 		return nil, err
 	}
-	selectorPredicate := storage.ClusterSelector{
+	selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
 		LabelSelector: matchLabels,
 		MatchOptions:  matchOptions,
-	}.Predicate()
+	})
 	clusters := &corev1.ClusterList{
 		Items: make([]*corev1.Cluster, 0, len(list.Items)),
 	}

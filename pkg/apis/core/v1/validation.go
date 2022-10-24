@@ -56,6 +56,20 @@ func (r *LabelSelectorRequirement) Validate() error {
 	return nil
 }
 
+func (s *ClusterSelector) Validate() error {
+	for _, clusterID := range s.ClusterIDs {
+		if err := validation.ValidateID(clusterID); err != nil {
+			return err
+		}
+	}
+	if s.LabelSelector != nil {
+		if err := s.LabelSelector.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *Role) Validate() error {
 	if r.Id == "" {
 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")

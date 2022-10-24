@@ -58,7 +58,7 @@ type CapabilitiesDataSource interface {
 
 type HealthStatusDataSource interface {
 	GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error)
-	WatchClusterHealthStatus(ctx context.Context, ref *corev1.Reference) <-chan *corev1.HealthStatus
+	WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus
 }
 
 type apiExtension struct {

@@ -87,7 +87,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			for i := 0; i < 5; i++ {
 				create(map[string]string{"testing": "bar"})
 			}
-			sel := storage.ClusterSelector{
+			sel := &corev1.ClusterSelector{
 				LabelSelector: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"testing": "foo",
@@ -98,9 +98,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
-				Expect(sel.Predicate()(cluster)).To(BeTrue())
+				Expect(storage.NewSelectorPredicate(sel)(cluster)).To(BeTrue())
 			}
-			sel = storage.ClusterSelector{
+			sel = &corev1.ClusterSelector{
 				LabelSelector: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"testing": "bar",
@@ -111,7 +111,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
-				Expect(sel.Predicate()(cluster)).To(BeTrue())
+				Expect(storage.NewSelectorPredicate(sel)(cluster)).To(BeTrue())
 			}
 		})
 		It("should respect match options", func() {

@@ -158,9 +158,52 @@
             "type": "string",
             "enum": [
               "Default",
+              "EmptySelectorMatchesAll",
               "EmptySelectorMatchesNone"
             ],
             "default": "Default"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/health/watch": {
+      "post": {
+        "operationId": "Management_WatchClusterHealthStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/coreClusterHealthStatus"
+                },
+                "error": {
+                  "$ref": "#/definitions/googlerpcStatus"
+                }
+              },
+              "title": "Stream result of coreClusterHealthStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
           }
         ],
         "tags": [
@@ -398,45 +441,6 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/coreHealthStatus"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "Management"
-        ]
-      }
-    },
-    "/management/clusters/{id}/health/watch": {
-      "post": {
-        "operationId": "Management_WatchClusterHealthStatus",
-        "responses": {
-          "200": {
-            "description": "A successful response.(streaming responses)",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "result": {
-                  "$ref": "#/definitions/coreHealthStatus"
-                },
-                "error": {
-                  "$ref": "#/definitions/googlerpcStatus"
-                }
-              },
-              "title": "Stream result of coreHealthStatus"
             }
           },
           "default": {
@@ -1261,6 +1265,17 @@
         }
       }
     },
+    "coreClusterHealthStatus": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "healthStatus": {
+          "$ref": "#/definitions/coreHealthStatus"
+        }
+      }
+    },
     "coreClusterList": {
       "type": "object",
       "properties": {
@@ -1382,6 +1397,7 @@
       "type": "string",
       "enum": [
         "Default",
+        "EmptySelectorMatchesAll",
         "EmptySelectorMatchesNone"
       ],
       "default": "Default"

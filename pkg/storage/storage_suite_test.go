@@ -29,7 +29,7 @@ func cluster(id string, labels ...string) *corev1.Cluster {
 	return cluster
 }
 
-func selector(idsOrSelectorOrOptions ...interface{}) storage.ClusterSelector {
+func selector(idsOrSelectorOrOptions ...interface{}) *corev1.ClusterSelector {
 	var ids []string
 	var selector *corev1.LabelSelector
 	var options corev1.MatchOptions
@@ -45,7 +45,7 @@ func selector(idsOrSelectorOrOptions ...interface{}) storage.ClusterSelector {
 			options |= value
 		}
 	}
-	return storage.ClusterSelector{
+	return &corev1.ClusterSelector{
 		ClusterIDs:    ids,
 		LabelSelector: selector,
 		MatchOptions:  options,

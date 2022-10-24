@@ -65,8 +65,16 @@ message LabelSelectorRequirement {
 }
 
 enum MatchOptions {
+  option allow_alias = true;
   Default = 0;
+  EmptySelectorMatchesAll = 0;
   EmptySelectorMatchesNone = 1;
+}
+
+message ClusterSelector {
+  repeated string clusterIDs = 1;
+  LabelSelector labelSelector = 2;
+  MatchOptions matchOptions = 3;
 }
 
 message Role {
@@ -127,6 +135,21 @@ message Health {
 message HealthStatus {
   Health health = 1;
   Status status = 2;
+}
+
+message ClusterHealth {
+  Reference cluster = 1;
+  Health health = 2;
+}
+
+message ClusterStatus {
+  Reference cluster = 1;
+  Status status = 2;
+}
+
+message ClusterHealthStatus {
+  Reference cluster = 1;
+  HealthStatus healthStatus = 2;
 }
 
 message AlertLog {

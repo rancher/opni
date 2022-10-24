@@ -79,9 +79,10 @@ service Management {
       get: "/management/clusters/{id}/health"
     };
   }
-  rpc WatchClusterHealthStatus(core.Reference) returns (stream core.HealthStatus) {
+  rpc WatchClusterHealthStatus(google.protobuf.Empty) returns (stream core.ClusterHealthStatus) {
     option (google.api.http) = {
-      post: "/management/clusters/{id}/health/watch"
+      post: "/management/clusters/health/watch"
+      body: "*"
     };
   }
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {

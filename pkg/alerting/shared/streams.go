@@ -14,21 +14,14 @@ const (
 	AgentDisconnectBucket         = "opni-alerting-agent-bucket"
 )
 
-// blocking
-func NewAlertingDisconnectStream(mgr nats.JetStreamContext) error {
-	if alertingStream, _ := mgr.StreamInfo(AgentDisconnectStream); alertingStream == nil {
-		_, err := mgr.AddStream(&nats.StreamConfig{
-			Name:      AgentDisconnectStream,
-			Subjects:  []string{AgentDisconnectStreamSubjects},
-			Retention: nats.LimitsPolicy,
-			MaxAge:    1 * time.Hour,
-			MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
-		})
-		if err != nil {
-			return err
-		}
+func NewAlertingDisconnectStream() *nats.StreamConfig {
+	return &nats.StreamConfig{
+		Name:      AgentDisconnectStream,
+		Subjects:  []string{AgentDisconnectStreamSubjects},
+		Retention: nats.LimitsPolicy,
+		MaxAge:    1 * time.Hour,
+		MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
 	}
-	return nil
 }
 
 func NewAgentDisconnectSubject(agentId string) string {

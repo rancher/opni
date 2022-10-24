@@ -16,6 +16,7 @@ type natsAcquireOptions struct {
 	lg       *zap.SugaredLogger
 	retrier  backoffv2.Policy
 	natsOpts []nats.Option
+	streams  []*nats.StreamConfig
 }
 
 func (o *natsAcquireOptions) apply(opts ...natsAcquireOption) {
@@ -41,6 +42,12 @@ func WithLogger(lg *zap.SugaredLogger) natsAcquireOption {
 func WithRetrier(retrier backoffv2.Policy) natsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.retrier = retrier
+	}
+}
+
+func WithCreateStreams(streamNames ...*nats.StreamConfig) natsAcquireOption {
+	return func(o *natsAcquireOptions) {
+		o.streams = streamNames
 	}
 }
 
@@ -103,6 +110,18 @@ func AcquireNATSConnection(ctx context.Context, opts ...natsAcquireOption) (*nat
 		}
 		options.lg.With("error", err).Warn("failed to connect to nats server, retrying")
 	}
+	mgr, err := nc.JetStream()
+	if err == nil {
+		for _, stream := range options.streams {
+			err = NewPersistentStream(mgr, stream)
+			if err != nil {
+				options.lg.Error(err)
+			}
+		}
+	} else {
+		options.lg.Error(err)
+	}
+
 	return nc, err
 }
 
@@ -139,4 +158,14 @@ func newNatsConnection(lg *zap.SugaredLogger, options ...nats.Option) (*nats.Con
 		natsURL,
 		defaultOps...,
 	)
+}
+
+func NewPersistentStream(mgr nats.JetStreamContext, streamConfig *nats.StreamConfig) error {
+	if stream, _ := mgr.StreamInfo(streamConfig.Name); stream == nil {
+		_, err := mgr.AddStream(streamConfig)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

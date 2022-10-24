@@ -21,6 +21,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 )
 
@@ -116,9 +117,9 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 				lg.Error("failed to get jetstream context")
 				continue
 			}
-			err = shared.NewAlertingDisconnectStream(js)
+			err = natsutil.NewPersistentStream(js, shared.NewAlertingDisconnectStream())
 			if err != nil {
-				lg.Errorf("alerting disconnect stream does not exist $s", err)
+				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
 				continue
 			}
 			agentId := condition.GetClusterId().Id

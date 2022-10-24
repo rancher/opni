@@ -107,7 +107,7 @@ func (r *Reconciler) allInOneStatefulSets() []*appsv1.StatefulSet {
 				},
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("2Gi"),
+						corev1.ResourceStorage: resource.MustParse("64Gi"), // TODO: Make this configurable
 					},
 				},
 			},

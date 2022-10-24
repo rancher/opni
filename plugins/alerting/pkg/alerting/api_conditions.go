@@ -220,8 +220,8 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	}
 	respAlertGroup := []backend.GettableAlert{}
 	apiNode := backend.NewAlertManagerGetAlertsClient(
-		availableEndpoint,
 		ctx,
+		availableEndpoint,
 		backend.WithLogger(lg),
 		backend.WithExpectClosure(func(resp *http.Response) error {
 			if resp.StatusCode != http.StatusOK {
@@ -229,8 +229,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 			}
 
 			return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
-		}),
-	)
+		}))
 	err = apiNode.DoRequest()
 	if err != nil {
 		return nil, err
@@ -290,8 +289,8 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	}
 	respSilence := &backend.PostSilencesResponse{}
 	apiNode := backend.NewAlertManagerPostSilenceClient(
-		availableEndpoint,
 		ctx,
+		availableEndpoint,
 		backend.WithLogger(p.Logger),
 		backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
 		backend.WithExpectClosure(func(resp *http.Response) error {
@@ -299,8 +298,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 				return fmt.Errorf("failed to create silence : %s", resp.Status)
 			}
 			return json.NewDecoder(resp.Body).Decode(respSilence)
-		}),
-	)
+		}))
 	err = apiNode.DoRequest()
 	if err != nil {
 		p.Logger.Errorf("failed to post silence : %s", err)
@@ -341,12 +339,11 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 		return nil, err
 	}
 	apiNode := backend.NewAlertManagerDeleteSilenceClient(
+		ctx,
 		availableEndpoint,
 		existing.Silence.SilenceId,
-		ctx,
 		backend.WithLogger(p.Logger),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-	)
+		backend.WithExpectClosure(backend.NewExpectStatusOk()))
 	err = apiNode.DoRequest()
 	if err != nil {
 		p.Logger.Errorf("failed to delete silence : %s", err)

@@ -192,14 +192,12 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 		return nil, err
 	}
 	apiNode := backend.NewAlertManagerPostAlertClient(
-		availableEndpoint,
 		ctx,
+		availableEndpoint,
 		backend.WithLogger(lg),
 		backend.WithPostAlertBody(dummyConditionId, nil),
 		backend.WithDefaultRetrier(),
-		// 422 means the alert was actually sent, and AM throtlling is in effect
-		backend.WithExpectClosure(backend.NewExpectStatusCodes([]int{200, 422})),
-	)
+		backend.WithExpectClosure(backend.NewExpectStatusCodes([]int{200, 422})))
 	// need to trigger multiple alerts here, a reload can cause a context.Cancel()
 	// to any pending post requests, resulting in the alert never being sent
 	for i := 0; i < 5; i++ {

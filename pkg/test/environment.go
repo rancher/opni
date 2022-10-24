@@ -105,6 +105,7 @@ type servicePorts struct {
 	CortexHTTP      int
 	TestEnvironment int
 	RTMetrics       int
+	DisconnectPort  int
 }
 
 type RunningAgent struct {
@@ -152,6 +153,7 @@ type EnvironmentOptions struct {
 	defaultAgentOpts          []StartAgentOption
 	agentIdSeed               int64
 	defaultAgentVersion       string
+	enableDisconnectServer    bool
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -171,6 +173,12 @@ func WithEnableEtcd(enable bool) EnvironmentOption {
 func WithEnableJetstream(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableJetstream = enable
+	}
+}
+
+func WithEnableDisconnectServer(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableDisconnectServer = enable
 	}
 }
 
@@ -231,13 +239,14 @@ func defaultAgentVersion() string {
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
-		enableEtcd:           true,
-		enableJetstream:      true,
-		enableGateway:        true,
-		enableCortex:         true,
-		enableRealtimeServer: true,
-		agentIdSeed:          time.Now().UnixNano(),
-		defaultAgentVersion:  defaultAgentVersion(),
+		enableEtcd:             true,
+		enableJetstream:        true,
+		enableGateway:          true,
+		enableCortex:           true,
+		enableDisconnectServer: true,
+		enableRealtimeServer:   true,
+		agentIdSeed:            time.Now().UnixNano(),
+		defaultAgentVersion:    defaultAgentVersion(),
 	}
 	options.apply(opts...)
 
@@ -258,7 +267,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(12)
+	ports, err := freeport.GetFreePorts(13)
 	if err != nil {
 		panic(err)
 	}
@@ -275,6 +284,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		TestEnvironment: ports[9],
 		RTMetrics:       ports[10],
 		Jetstream:       ports[11],
+		DisconnectPort:  ports[12],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -336,6 +346,12 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			panic(err)
 		}
 	}
+	if portNum, ok := os.LookupEnv("AGENT_DISCONNECT_PORT"); ok {
+		e.ports.DisconnectPort, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	e.tempDir, err = os.MkdirTemp("", "opni-test-*")
 	if err != nil {
@@ -389,6 +405,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	if options.enableJetstream {
 		e.startJetstream()
+	}
+
+	if options.enableDisconnectServer {
+		e.StartAgentDisconnectServer()
 	}
 	if options.enableCortex {
 		if options.delayStartCortex != nil && options.enableCortexClusterDriver {
@@ -1022,22 +1042,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
-func (e *Environment) StartAgentDisconnectServer(ctx context.Context) int {
-	var dPort int
-	if port := os.Getenv("AGENT_DISCONNECT_PORT"); port == "" {
-		gPort, err := freeport.GetFreePort()
-		if err != nil {
-			panic(err)
-		}
-		dPort = gPort
-	} else {
-		gPort, err := strconv.Atoi(port)
-		if err != nil {
-			panic(err)
-		}
-		dPort = gPort
-	}
-
+func (e *Environment) StartAgentDisconnectServer() {
 	setDisconnect := func(w http.ResponseWriter, r *http.Request) {
 		agentListMu.Lock()
 		defer agentListMu.Unlock()
@@ -1057,7 +1062,7 @@ func (e *Environment) StartAgentDisconnectServer(ctx context.Context) int {
 	mux.HandleFunc("/disconnect", setDisconnect)
 
 	disconnectServer := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", dPort),
+		Addr:           fmt.Sprintf("127.0.0.1:%d", e.ports.DisconnectPort),
 		Handler:        mux,
 		ReadTimeout:    1 * time.Second,
 		WriteTimeout:   1 * time.Second,
@@ -1075,7 +1080,7 @@ func (e *Environment) StartAgentDisconnectServer(ctx context.Context) int {
 		case <-e.ctx.Done():
 		}
 	})
-	return dPort
+	Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), e.ports.DisconnectPort)
 }
 
 func (e *Environment) simulateKubeObject(kPort int) {
@@ -1691,12 +1696,9 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
-	dPort := environment.StartAgentDisconnectServer(context.Background())
-	Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), dPort)
 	for i := 0; i < 100; i++ {
 		environment.simulateKubeObject(kPort)
 	}
-
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient

@@ -243,24 +243,9 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 			pipelineErr := backend.NewApiPipline(
 				ctx,
 				[]*backend.AlertManagerAPI{
-					backend.NewAlertManagerReloadClient(
-						endpoint,
-						ctx,
-						backend.WithRetrier(pipelineRetrier),
-						backend.WithExpectClosure(backend.NewExpectStatusOk()),
-					),
-					backend.NewAlertManagerReadyClient(
-						endpoint,
-						ctx,
-						backend.WithRetrier(pipelineRetrier),
-						backend.WithExpectClosure(backend.NewExpectStatusOk()),
-					),
-					backend.NewAlertManagerStatusClient(
-						endpoint,
-						ctx,
-						backend.WithRetrier(pipelineRetrier),
-						backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig)),
-					),
+					backend.NewAlertManagerReloadClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
+					backend.NewAlertManagerReadyClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
+					backend.NewAlertManagerStatusClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig))),
 				},
 				&pipelineRetrier,
 			)

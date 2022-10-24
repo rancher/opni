@@ -11,34 +11,34 @@ package alerting.ops;
 // The AlertingAdmin service controls meta-operations for
 // deploying, connecting & configuring AlertManager in the upstream environment
 service AlertingAdmin {
-    rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
-        option (google.api.http) = {
-          get: "/configuration"
-        };
-      }
-      // Install/Uninstall the alerting cluster by setting enabled=true/false
-      rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-          post: "/configure"
-          body: "*"
-        };
-      }
-      rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
-        option (google.api.http) = {
-          get: "/status"
-        };
-      }
+  rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
+    option (google.api.http) = {
+      get: "/configuration"
+    };
+  }
+  // Install/Uninstall the alerting cluster by setting enabled=true/false
+  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/configure"
+      body: "*"
+    };
+  }
+  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  }
 
-      rpc InstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-          post: "/install"
-        };
-      }
-      rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-          post: "/uninstall"
-        };
-      }
+  rpc InstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/install"
+    };
+  }
+  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/uninstall"
+    };
+  }
 }
 
 // !! opni alerting internal only server

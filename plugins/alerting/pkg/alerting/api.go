@@ -36,8 +36,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		// on this post operation, however its unclear if this would lead to actual
 		// problems in this function
 		apiNode := backend.NewAlertManagerPostAlertClient(
-			availableEndpoint,
 			ctx,
+			availableEndpoint,
 			backend.WithLogger(lg),
 			backend.WithExpectClosure(backend.NewExpectStatusOk()),
 			backend.WithPostAlertBody(req.ConditionId.Id, req.Annotations),

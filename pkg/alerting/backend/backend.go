@@ -232,7 +232,7 @@ func (a *AlertManagerAPI) WithAPIV1() *AlertManagerAPI {
 	return a
 }
 
-func NewAlertManagerReloadClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerReloadClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return &AlertManagerAPI{
@@ -244,7 +244,7 @@ func NewAlertManagerReloadClient(endpoint string, ctx context.Context, opts ...A
 	}
 }
 
-func NewAlertManagerReadyClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerReadyClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return &AlertManagerAPI{
@@ -256,7 +256,7 @@ func NewAlertManagerReadyClient(endpoint string, ctx context.Context, opts ...Al
 	}
 }
 
-func NewAlertManagerReceiversClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerReceiversClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -268,7 +268,7 @@ func NewAlertManagerReceiversClient(endpoint string, ctx context.Context, opts .
 	}).WithAPIV2()
 }
 
-func NewAlertManagerStatusClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerStatusClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -280,7 +280,7 @@ func NewAlertManagerStatusClient(endpoint string, ctx context.Context, opts ...A
 	}).WithAPIV2()
 }
 
-func NewAlertManagerGetAlertsClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerGetAlertsClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -292,7 +292,7 @@ func NewAlertManagerGetAlertsClient(endpoint string, ctx context.Context, opts .
 	}).WithAPIV2()
 }
 
-func NewAlertManagerPostAlertClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerPostAlertClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -303,7 +303,7 @@ func NewAlertManagerPostAlertClient(endpoint string, ctx context.Context, opts .
 		ctx:                    ctx,
 	}).WithAPIV2()
 }
-func NewAlertManagerPostSilenceClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerPostSilenceClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -315,7 +315,7 @@ func NewAlertManagerPostSilenceClient(endpoint string, ctx context.Context, opts
 	}).WithAPIV2()
 }
 
-func NewAlertManagerGetSilenceClient(endpoint string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerGetSilenceClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return (&AlertManagerAPI{
@@ -327,7 +327,7 @@ func NewAlertManagerGetSilenceClient(endpoint string, ctx context.Context, opts 
 	}).WithAPIV2()
 }
 
-func NewAlertManagerDeleteSilenceClient(endpoint, silenceId string, ctx context.Context, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewAlertManagerDeleteSilenceClient(ctx context.Context, endpoint, silenceId string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	if silenceId == "" {

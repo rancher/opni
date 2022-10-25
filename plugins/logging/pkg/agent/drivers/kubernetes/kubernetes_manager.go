@@ -177,24 +177,29 @@ BACKOFF:
 }
 
 func (m *KubernetesManagerDriver) buildAuthSecret(config *node.OpensearchConfig) *corev1.Secret {
-	return &corev1.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: m.namespace,
 		},
-		StringData: map[string]string{
-			secretKey: config.Password,
-		},
 	}
+	if config != nil {
+		secret.StringData = map[string]string{
+			secretKey: config.Password,
+		}
+	}
+	return secret
 }
 
 func (m *KubernetesManagerDriver) buildDataPrepper(config *node.OpensearchConfig) *opniloggingv1beta1.DataPrepper {
-	return &opniloggingv1beta1.DataPrepper{
+	dataPrepper := &opniloggingv1beta1.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataPrepperName,
 			Namespace: m.namespace,
 		},
-		Spec: opniloggingv1beta1.DataPrepperSpec{
+	}
+	if config != nil {
+		dataPrepper.Spec = opniloggingv1beta1.DataPrepperSpec{
 			Username: config.Username,
 			PasswordFrom: &corev1.SecretKeySelector{
 				Key: secretKey,
@@ -209,8 +214,9 @@ func (m *KubernetesManagerDriver) buildDataPrepper(config *node.OpensearchConfig
 			ClusterID:     m.clusterID,
 			EnableTracing: true,
 			Version:       dataPrepperVersion,
-		},
+		}
 	}
+	return dataPrepper
 }
 
 func (m *KubernetesManagerDriver) buildOpniClusterOutput() *loggingv1beta1.ClusterOutput {

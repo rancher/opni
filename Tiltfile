@@ -4,7 +4,7 @@ load('ext://namespace', 'namespace_create')
 
 set_team('52cc75cc-c4ed-462f-8ea7-a543d398a381')
 
-version = '0.6.0-rc1'
+version = '0.6.0-dev1'
 config.define_string_list('allowedContexts')
 config.define_string_list('opniChartValues')
 config.define_string('defaultRegistry')

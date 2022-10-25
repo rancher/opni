@@ -33,12 +33,6 @@ pkg/resources/monitoring/dashboards/vendor
 /cover.profile
 **/*.tgz
 
-docs/public/
-docs/resources/
-docs/node_modules/
-docs/tech-doc-hugo
-docs/*.sw?
-docs/.hugo_build.lock
 web/dist/
 
 # Chart builds

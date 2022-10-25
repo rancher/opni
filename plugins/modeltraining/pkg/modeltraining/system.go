@@ -88,9 +88,7 @@ func getOpensearchEndpoint() string {
 
 func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
 	esEndpoint := getOpensearchEndpoint()
-	s.Logger.Debug(esEndpoint)
 	esUsername, esPassword := getOpensearchCredentials(s.ctx)
-	s.Logger.Debug(esUsername)
 
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),

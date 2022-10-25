@@ -75,12 +75,12 @@ func (ct *defaultConditionTracker) Set(key string, value ConditionStatus, reason
 		if v != value {
 			lg.Info("condition changed")
 		}
-	} else {
+	} else if v != value {
 		lg.Info("condition set")
+		ct.conditions.Store(key, value)
+		ct.modTime.Store(time.Now())
+		ct.notifyListeners()
 	}
-	ct.conditions.Store(key, value)
-	ct.modTime.Store(time.Now())
-	ct.notifyListeners()
 }
 
 func (ct *defaultConditionTracker) Clear(key string, reason ...string) {

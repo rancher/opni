@@ -59,7 +59,7 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 	}
 	clusterAggregationResults, ok := resultsStorage.ByCluster[in.Id]
 	if !ok {
-		return nil, nil
+		return &modeltraining.WorkloadsList{}, nil
 	}
 	workloadsList := modeltraining.WorkloadsList{}
 	workloadArray := make([]*modeltraining.WorkloadResponse, 0)

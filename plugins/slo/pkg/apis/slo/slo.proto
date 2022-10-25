@@ -8,7 +8,7 @@ import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/rpc/status.proto";
-import  "github.com/rancher/opni/plugins/alerting/pkg/apis/common/common.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
 package slo;
 
@@ -178,7 +178,7 @@ message ServiceLevelObjective {
   google.protobuf.Duration budgetingInterval = 10; // budgeting interval should be between 1m and 60m
   Target target = 11;
   repeated Label labels = 12;
-  common.AttachedEndpoints attachedEndpoints = 13;
+  alerting.AttachedEndpoints attachedEndpoints = 13;
 }
 
 message CreateSLORequest {

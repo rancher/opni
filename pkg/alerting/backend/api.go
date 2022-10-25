@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"time"
-
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	alertingv1alpha "github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 
 	"github.com/go-openapi/strfmt"
 )
@@ -210,15 +208,15 @@ func (p *PostableSilence) Must() error {
 }
 
 func ConvertEndpointIdsToRoutingNode(
-	endpointList *alertingv1alpha.AlertEndpointList,
-	req *alertingv1alpha.AttachedEndpoints,
+	endpointList *alertingv1.AlertEndpointList,
+	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 
-) (*alertingv1alpha.RoutingNode, error) {
-	routingNode := &alertingv1alpha.RoutingNode{
+) (*alertingv1.RoutingNode, error) {
+	routingNode := &alertingv1.RoutingNode{
 		ConditionId: &corev1.Reference{Id: conditionId},
-		FullAttachedEndpoints: &alertingv1alpha.FullAttachedEndpoints{
-			Items:              []*alertingv1alpha.FullAttachedEndpoint{},
+		FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
+			Items:              []*alertingv1.FullAttachedEndpoint{},
 			InitialDelay:       req.InitialDelay,
 			RepeatInterval:     req.RepeatInterval,
 			ThrottlingDuration: req.ThrottlingDuration,
@@ -230,7 +228,7 @@ func ConvertEndpointIdsToRoutingNode(
 			if endpointItem.Id.Id == expectedEndpoint.EndpointId {
 				routingNode.FullAttachedEndpoints.Items = append(
 					routingNode.FullAttachedEndpoints.Items,
-					&alertingv1alpha.FullAttachedEndpoint{
+					&alertingv1.FullAttachedEndpoint{
 						EndpointId:    endpointItem.Id.Id,
 						AlertEndpoint: endpointItem.Endpoint,
 						Details:       req.Details,

@@ -3,7 +3,6 @@ package slo
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"strconv"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -41,7 +41,7 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	}
 	for _, rule := range ralerting.Rules {
 		ae := req.Slo.AttachedEndpoints
-		if rule.Alert != "" && common.ShouldCreateRoutingNode(ae, nil) {
+		if rule.Alert != "" && alertingv1.ShouldCreateRoutingNode(ae, nil) {
 			err := createRoutingNode(s.p, s.ctx, ae, rule.Alert)
 			if err != nil {
 				s.p.logger.Errorf("creating routing node failed %s", err)
@@ -71,17 +71,17 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 		newAE := existing.SLO.AttachedEndpoints
 		oldAe := incomingSLO.SLO.AttachedEndpoints
 		if rule.Alert != "" {
-			if common.ShouldCreateRoutingNode(newAE, oldAe) {
+			if alertingv1.ShouldCreateRoutingNode(newAE, oldAe) {
 				err := createRoutingNode(s.p, s.ctx, newAE, rule.Alert)
 				if err != nil {
 					s.p.logger.Errorf("creating routing node failed %s", err)
 				}
-			} else if common.ShouldUpdateRoutingNode(newAE, oldAe) {
+			} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAe) {
 				err := updateRoutingNode(s.p, s.ctx, newAE, rule.Alert)
 				if err != nil {
 					s.p.logger.Errorf("updating routing node failed %s", err)
 				}
-			} else if common.ShouldDeleteRoutingNode(newAE, oldAe) {
+			} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAe) {
 				err := deleteRoutingNode(s.p, s.ctx, rule.Alert)
 				if err != nil {
 					s.p.logger.Errorf("deleting routing node failed %s", err)

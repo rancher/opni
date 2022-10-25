@@ -3,10 +3,11 @@ package slo
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/backend"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 	"emperror.dev/errors"
 
@@ -23,14 +24,14 @@ import (
 
 var instantMaskDisabled = true
 
-func createRoutingNode(p *Plugin, ctx context.Context, req *common.AttachedEndpoints, alertId string) error {
+func createRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedEndpoints, alertId string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFunc()
 	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &common.ListAlertEndpointsRequest{})
+	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}
@@ -46,14 +47,14 @@ func createRoutingNode(p *Plugin, ctx context.Context, req *common.AttachedEndpo
 	return nil
 }
 
-func updateRoutingNode(p *Plugin, ctx context.Context, req *common.AttachedEndpoints, alertId string) error {
+func updateRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedEndpoints, alertId string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFunc()
 	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &common.ListAlertEndpointsRequest{})
+	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}

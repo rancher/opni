@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/common"
-
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/backend"
@@ -191,7 +189,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 		return nil, err
 	}
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
-	if common.ShouldDeleteRoutingNode(nil, existing.AttachedEndpoints) {
+	if alertingv1.ShouldDeleteRoutingNode(nil, existing.AttachedEndpoints) {
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)
 		if err != nil {
 			return nil, err

@@ -1,0 +1,397 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "google/rpc/status.proto";
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
+package alerting;
+
+// ------------------ CONDITION ------------------
+
+enum Severity {
+  INFO = 0;
+  WARNING = 1;
+  ERROR = 2;
+  CRITICAL = 3;
+}
+
+message AlertCondition {
+  string name = 1;
+  string description = 2;
+  repeated string labels = 3;
+  Severity severity = 4;
+  AlertTypeDetails alertType = 5;
+
+  AttachedEndpoints attachedEndpoints = 6;
+  // Set & Unset via the silence API
+  SilenceInfo silence = 7;
+  // bool smoothing = 8;
+  // https://github.com/rancher/opni-metrics-service/blob/main/metric-forecasting/metric_anomaly_detector.py#L154
+  // bool anomalyDetection = 9;
+}
+
+message FullAttachedEndpoints {
+  repeated FullAttachedEndpoint items = 1;
+  // initial delay before firing the alert (optional) (default=10s)
+  optional google.protobuf.Duration initialDelay = 2;
+  // how often to resend alert messages on active alerts (default =10m)
+  optional google.protobuf.Duration repeatInterval = 3;
+  // How long to wait before sending notifications on new condition that has
+  // already fired recently (default= 10m)
+  optional google.protobuf.Duration throttlingDuration = 4;
+  EndpointImplementation details = 5;
+}
+
+message FullAttachedEndpoint{
+  string endpointId = 1;
+  AlertEndpoint alertEndpoint = 2;
+  EndpointImplementation details = 3;
+}
+
+// Empty means no attached endpoints
+message AttachedEndpoints {
+  repeated AttachedEndpoint items = 1;
+  // initial delay before firing the alert (optional) (default=10s)
+  optional google.protobuf.Duration initialDelay = 2;
+  // how often to resend alert messages on active alerts (default =10m)
+  optional google.protobuf.Duration repeatInterval = 3;
+  // How long to wait before sending notifications on new condition that has
+  // already fired recently (default= 10m)
+  optional google.protobuf.Duration throttlingDuration = 4;
+  EndpointImplementation details = 5;
+}
+
+message AttachedEndpoint {
+  string endpointId = 1;
+}
+
+enum AlertType {
+  // Reserved for opni-alerting internal use
+  SYSTEM = 0;
+  // Ready for UI use
+  KUBE_STATE = 1;
+  // Unimplemented
+  COMPOSITION = 2;
+  // Unimplemented
+  CONTROL_FLOW = 3;
+}
+
+enum CompositionAction {
+  AND = 0;
+  OR = 1;
+}
+
+enum ControlFlowAction {
+  IF_THEN = 0;
+  IF_NOT_THEN = 1;
+}
+
+enum AlertConditionState {
+  UNSPECIFIED = 0;
+  OK = 1;
+  FIRING = 2;
+  SILENCED = 3;
+}
+
+// enum will map to an object of available choices
+message AlertDetailChoicesRequest {
+  AlertType alertType = 1;
+}
+
+message AlertDetailChoicesResponse {
+  repeated AlertTypeDetails choices = 1;
+}
+
+message AlertTypeDetails {
+  oneof type {
+    // agent disconnect : golden signal -> errors
+    AlertConditionSystem system = 1;
+    // kube state : golden signal -> errors
+    AlertConditionKubeState kubeState = 2;
+    AlertConditionComposition composition = 3;
+    AlertConditionControlFlow controlFlow = 4;
+  }
+}
+
+message ListAlertTypeDetails {
+  oneof type {
+    ListAlertConditionSystem system = 1;
+    ListAlertConditionKubeState kubeState = 2;
+    ListAlertConditionComposition composition = 3;
+    ListAlertConditionControlFlow controlFlow = 4;
+  }
+}
+
+message InvolvedConditions {
+  repeated core.Reference items = 1;
+}
+
+message AlertConditionSystem {
+  // same as clusterId
+  core.Reference clusterId = 1;
+  // after how long should we alert on disconnect?
+  google.protobuf.Duration timeout = 2;
+}
+
+message ListAlertConditionSystem {
+  // clusters we can apply this to
+  repeated string agentIds = 1;
+}
+
+// Requires kube state metrics, otherwise the list of choices will be empty
+message AlertConditionKubeState {
+  string clusterId = 1;
+  // must be one of the listed kube objects
+  string objectType = 2;
+  // kubernetes object name
+  string objectName = 3;
+  // kubernetes namespace
+  string namespace = 4;
+  // must be one of the listed kube states
+  string state = 5;
+  google.protobuf.Duration for = 6;
+}
+
+// clusters --> resourceType --> namespace --> resourceName
+message ListAlertConditionKubeState {
+  map<string, KubeObjectGroups> clusters = 1;
+  repeated string states = 2;
+  repeated google.protobuf.Duration fors = 3;
+}
+
+message ObjectList {
+  repeated string objects = 1;
+}
+
+message NamespaceObjects {
+  map<string, ObjectList> namespaces = 1;
+}
+
+message KubeObjectGroups {
+  map<string, NamespaceObjects> resourceTypes = 1;
+}
+
+message ListSelectAlertInfo {
+  AlertType alertType = 1;
+}
+
+message AlertConditionList {
+  repeated AlertConditionWithId items = 1;
+}
+
+message AlertConditionComposition {
+  CompositionAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
+}
+
+message ListAlertConditionComposition {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+}
+
+message AlertConditionControlFlow {
+  ControlFlowAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
+  google.protobuf.Duration for = 4;
+}
+
+message ListAlertConditionControlFlow {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+  repeated google.protobuf.Duration fors = 3;
+}
+
+message AlertConditionWithId {
+  core.Reference id = 1;
+  AlertCondition alertCondition = 2;
+}
+
+message ListAlertConditionRequest {}
+
+message UpdateAlertConditionRequest {
+  core.Reference id = 1;
+  AlertCondition updateAlert = 2;
+}
+
+message SilenceRequest {
+  core.Reference conditionId = 1;
+  google.protobuf.Duration duration = 2;
+}
+
+message SilenceInfo {
+  string silenceId = 1;
+  google.protobuf.Timestamp startsAt = 2;
+  google.protobuf.Timestamp endsAt = 3;
+}
+
+message AlertStatusResponse {
+  AlertConditionState state = 1;
+}
+
+// ------------------ ENDPOINT ------------------
+
+message EndpointImplementation {
+  // title of the alert (required)
+  string title = 1;
+  // body message of the alert (required)
+  string body = 2;
+  // send a notification when the alert is no longer firing? yes/no (default =
+  // no)
+  optional bool sendResolved = 3;
+}
+
+// opni-alerting internal use
+message RoutingNode {
+  core.Reference conditionId = 1;
+  FullAttachedEndpoints fullAttachedEndpoints = 2;
+}
+
+// opni-alerting internal use
+message EndpointMetadata {
+  int32 position = 1;
+  string endpointType = 2;
+}
+
+// opni-alerting internal use
+message EndpointRoutingMap {
+  map<string, EndpointMetadata> endpoints = 1;
+}
+
+// opni-alerting internal use
+message RoutingRelationships {
+  map<string, EndpointRoutingMap> conditions = 1;
+}
+
+message AlertEndpoint {
+  string name = 1;
+  string description = 2;
+  oneof endpoint {
+    SlackEndpoint slack = 4;
+    EmailEndpoint email = 5;
+  }
+}
+
+message SlackEndpoint {
+  string webhookUrl = 1;
+  string channel = 2;
+}
+
+message EmailEndpoint {
+  // email recipient
+  string to = 1;
+  // smtp server sender email
+  optional string smtpFrom = 2;
+  // smtp server host & port
+  optional string smtpSmartHost = 3;
+  // smtp server username
+  optional string smtpAuthUsername = 4;
+  // smtp server identity
+  optional string smtpAuthIdentity = 5;
+  // smtp server password
+  optional string smtpAuthPassword = 6;
+  // does SMTP require TSL : yes or no
+  optional bool smtpRequireTLS = 7;
+}
+
+message AlertEndpointList {
+  repeated AlertEndpointWithId items = 1;
+}
+
+message AlertEndpointWithId {
+  AlertEndpoint endpoint = 1;
+  core.Reference id = 2;
+}
+
+message ListAlertEndpointsRequest {}
+
+message UpdateAlertEndpointRequest {
+  bool forceUpdate = 1;
+  core.Reference id = 2;
+  AlertEndpoint updateAlert = 3;
+}
+
+message DeleteAlertEndpointRequest {
+  bool  forceDelete = 1;
+  core.Reference id = 2;
+
+}
+
+message TestAlertEndpointRequest {
+  AlertEndpoint endpoint = 1;
+}
+
+// will contain details in a future iteration
+message TestAlertEndpointResponse {}
+
+// ------------------ LOG ------------------
+
+message ListAlertLogRequest {
+  repeated string labels = 1;
+  uint64 limit = 2;
+  google.protobuf.Timestamp startTimestamp = 3;
+  google.protobuf.Timestamp endTimestamp = 4;
+}
+
+message UpdateAlertLogRequest {
+  string id = 1;
+  core.AlertLog UpdateAlert = 2;
+}
+
+message InformativeAlertLog {
+  core.Reference conditionId = 1;
+  AlertCondition condition = 2;
+  core.AlertLog log = 3;
+}
+
+message InformativeAlertLogList {
+  repeated InformativeAlertLog items = 1;
+}
+
+// opni-alerting internal use
+message TriggerAlertsRequest {
+  core.Reference conditionId = 1;
+  map<string, string> annotations = 2;
+}
+
+// opni-alerting internal use
+message TriggerAlertsResponse {}
+
+
+enum TimelineType {
+  // do not show, backend error 
+  Timeline_Unknown = 0;
+  // red
+  Timeline_Alerting = 1;
+  // blue?
+  Timeline_Silenced = 2;
+}
+
+// query for status timeline page
+message TimelineRequest {
+  google.protobuf.Duration lookbackWindow = 1;
+}
+
+// maps conditionId => list of active windows
+message TimelineResponse {
+  map<string, ActiveWindows> items = 1;
+}
+
+message ActiveWindow {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  TimelineType type = 3;
+}
+
+message ActiveWindows {
+  repeated ActiveWindow windows = 1;
+}

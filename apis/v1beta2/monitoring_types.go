@@ -63,6 +63,7 @@ func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
 	return g.ServiceType
 }
 
+// v1beta2 Spec
 type AlertingSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 	//+kubebuilder:default=9093
@@ -73,10 +74,23 @@ type AlertingSpec struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
 	Storage string `json:"storage,omitempty"`
+	//+kubebuilder:default="500m"
+	CPU string `json:"cpu,omitempty"`
+	//+kubebuilder:default="200Mi"
+	Memory string `json:"memory,omitempty"`
+	//+kubebuilder:default=1
+	Replicas int32 `json:"replicas,omitempty"`
+	//+kubebuilder:default="1m0s"
+	ClusterSettleTimeout string `json:"clusterSettleTimeout,omitempty"`
+	//+kubebuilder:default="1m0s"
+	ClusterPushPullInterval string `json:"clusterPushPullInterval,omitempty"`
+	//+kubebuilder:default="200ms"
+	ClusterGossipInterval string `json:"clusterGossipInterval,omitempty"`
 	//+kubebuilder:default="alertmanager-config"
-	ConfigName          string                      `json:"configName,omitempty"`
-	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
-	RawConfigMap        string                      `json:"rawConfigMap,omitempty"`
+	ConfigName            string                      `json:"configName,omitempty"`
+	GatewayVolumeMounts   []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	RawAlertManagerConfig string                      `json:"rawConfigMap,omitempty"`
+	RawInternalRouting    string                      `json:"rawInternalRouting,omitempty"`
 }
 
 type AuthSpec struct {

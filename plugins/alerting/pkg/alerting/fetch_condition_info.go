@@ -2,13 +2,13 @@ package alerting
 
 import (
 	"context"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/tidwall/gjson"
 )
@@ -16,12 +16,12 @@ import (
 func handleChoicesByType(
 	p *Plugin,
 	ctx context.Context,
-	req *alertingv1alpha.AlertDetailChoicesRequest,
-) (*alertingv1alpha.ListAlertTypeDetails, error) {
-	if req.GetAlertType() == alertingv1alpha.AlertType_SYSTEM {
-		return nil, validation.Error("System alerts are not supported to be created via the dashboard")
+	req *alertingv1.AlertDetailChoicesRequest,
+) (*alertingv1.ListAlertTypeDetails, error) {
+	if req.GetAlertType() == alertingv1.AlertType_SYSTEM {
+		return fetchAgentInfo(p, ctx)
 	}
-	if req.GetAlertType() == alertingv1alpha.AlertType_KUBE_STATE {
+	if req.GetAlertType() == alertingv1.AlertType_KUBE_STATE {
 		return fetchKubeStateInfo(p, ctx)
 	}
 	return nil, shared.AlertingErrNotImplemented
@@ -30,11 +30,35 @@ func clusterHasKubeStateMetrics(adminClient cortexadmin.CortexAdminClient, cl *c
 	return true
 }
 
-func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAlertTypeDetails, error) {
+func fetchAgentInfo(p *Plugin, ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	resSystem := &alertingv1.ListAlertConditionSystem{
+		AgentIds: []string{},
+	}
+	for _, cl := range clusters.Items {
+		resSystem.AgentIds = append(resSystem.AgentIds, cl.Id)
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_System{
+			System: resSystem,
+		},
+	}, nil
+}
+
+func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	lg := p.Logger.With("handler", "fetchKubeStateInfo")
-	resKubeState := &alertingv1alpha.ListAlertConditionKubeState{
-		ClusterToObjects: map[string]*alertingv1alpha.KubeObjectGroups{},
-		States:           metrics.KubeStates,
+	resKubeState := &alertingv1.ListAlertConditionKubeState{
+		Clusters: map[string]*alertingv1.KubeObjectGroups{},
+		States:   metrics.KubeStates,
 	}
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
@@ -86,36 +110,36 @@ func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAl
 					lg.Warnf("Failed to find object name for series %s", seriesInfo)
 					continue
 				}
-				if _, ok := resKubeState.ClusterToObjects[cl.Id]; !ok {
-					resKubeState.ClusterToObjects[cl.Id] = &alertingv1alpha.KubeObjectGroups{
-						ObjectTypeToNamespaces: map[string]*alertingv1alpha.NamespaceObjects{},
+				if _, ok := resKubeState.Clusters[cl.Id]; !ok {
+					resKubeState.Clusters[cl.Id] = &alertingv1.KubeObjectGroups{
+						ResourceTypes: map[string]*alertingv1.NamespaceObjects{},
 					}
 				}
-				if _, ok := resKubeState.ClusterToObjects[cl.Id].
-					ObjectTypeToNamespaces[objType]; !ok {
-					resKubeState.ClusterToObjects[cl.Id].
-						ObjectTypeToNamespaces[objType] = &alertingv1alpha.NamespaceObjects{
-						NamespaceToObjectList: map[string]*alertingv1alpha.ObjectList{},
+				if _, ok := resKubeState.Clusters[cl.Id].
+					ResourceTypes[objType]; !ok {
+					resKubeState.Clusters[cl.Id].
+						ResourceTypes[objType] = &alertingv1.NamespaceObjects{
+						Namespaces: map[string]*alertingv1.ObjectList{},
 					}
 				}
-				if _, ok := resKubeState.ClusterToObjects[cl.Id].
-					ObjectTypeToNamespaces[objType].
-					NamespaceToObjectList[namespace]; !ok {
-					resKubeState.ClusterToObjects[cl.Id].
-						ObjectTypeToNamespaces[objType].
-						NamespaceToObjectList[namespace] = &alertingv1alpha.ObjectList{
+				if _, ok := resKubeState.Clusters[cl.Id].
+					ResourceTypes[objType].
+					Namespaces[namespace]; !ok {
+					resKubeState.Clusters[cl.Id].
+						ResourceTypes[objType].
+						Namespaces[namespace] = &alertingv1.ObjectList{
 						Objects: []string{},
 					}
 				}
-				resKubeState.ClusterToObjects[cl.Id].
-					ObjectTypeToNamespaces[objType].
-					NamespaceToObjectList[namespace].Objects = append(
-					resKubeState.ClusterToObjects[cl.Id].ObjectTypeToNamespaces[objType].NamespaceToObjectList[namespace].Objects, objName.String())
+				resKubeState.Clusters[cl.Id].
+					ResourceTypes[objType].
+					Namespaces[namespace].Objects = append(
+					resKubeState.Clusters[cl.Id].ResourceTypes[objType].Namespaces[namespace].Objects, objName.String())
 			}
 		}
 	}
-	return &alertingv1alpha.ListAlertTypeDetails{
-		Type: &alertingv1alpha.ListAlertTypeDetails_KubeState{
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_KubeState{
 			KubeState: resKubeState,
 		},
 	}, nil

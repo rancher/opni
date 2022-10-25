@@ -5,20 +5,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	util "github.com/rancher/opni/pkg/util/k8sutil"
-
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
-	lru "github.com/hashicorp/golang-lru"
-	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -59,74 +59,115 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			opt.ControllerNodeService = "http://localhost"
 
 		}
-		p.AlertingOptions.Set(opt)
+
+		p.configureAlertManagerConfiguration(
+			p.Ctx,
+			drivers.WithLogger(p.Logger.Named("alerting-manager")),
+			drivers.WithAlertingOptions(&opt),
+			drivers.WithManagementClient(client),
+		)
 	})
+	go func() {
+		p.watchGlobalCluster(client)
+	}()
+
+	go func() {
+		p.watchGlobalClusterHealthStatus(client)
+	}()
 	<-p.Ctx.Done()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	var err error
-	p.inMemCache, err = lru.New(AlertingLogCacheSize)
+	var (
+		nc  *nats.Conn
+		err error
+	)
+	p.storageNode = alertstorage.NewStorageNode(
+		alertstorage.WithStorage(&alertstorage.StorageAPIs{
+			Conditions:           system.NewKVStoreClient[*alertingv1.AlertCondition](client),
+			Endpoints:            system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
+			SystemTrackerStorage: future.New[nats.KeyValue](),
+		}),
+	)
+
+	nc, err = natsutil.AcquireNATSConnection(
+		p.Ctx,
+		natsutil.WithLogger(p.Logger),
+		natsutil.WithNatsOptions([]nats.Option{
+			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
+				if s != nil {
+					p.Logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
+				} else {
+					p.Logger.Warn("nats : async error outside subscription")
+				}
+			}),
+		}),
+	)
 	if err != nil {
-		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
+		p.Logger.With("err", err).Error("fatal error connecting to NATs")
 	}
-	if os.Getenv(shared.LocalBackendEnvToggle) != "" { // test mode
-		b := &backend.LocalEndpointBackend{
-			ConfigFilePath: shared.LocalAlertManagerPath,
-		}
-		go func() {
-			// FIXME: management url is not correct
-			err := shared.BackendDefaultFile("http://localhost:5001")
-			if err != nil {
-				panic(err)
-			}
-			b.Start(p.Ctx, p.Logger)
-			peb := b.Port()
-			opt := p.AlertingOptions.Get()
-			opt.WorkerNodesService = "http://localhost"
-			opt.ControllerNodeService = "http://localhost"
-			opt.WorkerNodePort = peb
-			opt.ControllerNodePort = peb
-			opt.ControllerClusterPort = peb
-			p.endpointBackend.Set(b)
-
-			p.AlertingOptions = future.New[shared.NewAlertingOptions]()
-			p.AlertingOptions.Set(opt)
-		}()
-	} else { // production mode
-		client, err := util.NewK8sClient(util.ClientOptions{
-			Scheme: apis.NewScheme(),
-		})
-		if err != nil {
-			// causes integration test to crash
-			// panic(err)
-		}
-		p.endpointBackend.Set(&backend.K8sEndpointBackend{
-			Client: client,
-		})
+	p.natsConn.Set(nc)
+	mgr, err := p.natsConn.Get().JetStream()
+	if err != nil {
+		panic(err)
 	}
-
-	p.storage.Set(StorageAPIs{
-		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](client),
-		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
+	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.AgentDisconnectBucket,
+		Description: "track system agent status updates",
+		Storage:     nats.FileStorage,
 	})
+	if err != nil {
+		panic(err)
+	}
+	p.storageNode.SetSystemTrackerStorage(kv)
+	// spawn a reindexing task
+	go func() {
+		p.restartAgentDisconnectTrackers()
+	}()
 	<-p.Ctx.Done()
+}
+
+func (p *Plugin) restartAgentDisconnectTrackers() {
+	lg := p.Logger.With("re-indexing", "agent-disconnect-trackers")
+	ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)
+	if err != nil {
+		lg.With("err", err).Error("failed to list alert conditions")
+		return
+	}
+	for i, id := range ids {
+		if s := conds[i].GetAlertType().GetSystem(); s != nil {
+			caFu := p.onSystemConditionCreate(id, s)
+			p.msgNode.AddSystemConfigListener(id, caFu)
+		}
+	}
+	lg.Info("re-indexing complete")
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	go func() {
 		for {
 			breakOut := false
-			cc, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
+			ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
 			if err != nil {
+				p.Logger.Errorf("alerting failed to get cortex admin client conn %s", err)
 				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
 				UnregisterDatasource(shared.MonitoringDatasource)
 			} else {
-				adminClient := cortexadmin.NewCortexAdminClient(cc)
+				adminClient := cortexadmin.NewCortexAdminClient(ccCortexAdmin)
 				p.adminClient.Set(adminClient)
 				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.Logger))
 			}
+
+			ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
+			if err != nil {
+				p.Logger.Errorf("alerting failed to get cortex ops client conn %s", err)
+				p.cortexOpsClient = future.New[cortexops.CortexOpsClient]()
+			} else {
+				opsClient := cortexops.NewCortexOpsClient(ccCortexOps)
+				p.cortexOpsClient.Set(opsClient)
+			}
+
 			select {
 			case <-p.Ctx.Done():
 				breakOut = true

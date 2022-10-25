@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/rancher/opni/pkg/patch"
 
@@ -21,10 +20,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/rancher/opni/pkg/alerting"
-	"github.com/rancher/opni/pkg/alerting/noop"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -42,7 +37,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
@@ -68,7 +62,6 @@ type Gateway struct {
 
 type GatewayOptions struct {
 	lifecycler config.Lifecycler
-	alerting   alerting.Provider
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -85,17 +78,9 @@ func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	}
 }
 
-func WithAlerting(alerting alerting.Provider) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.alerting = alerting
-	}
-}
-
 func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.LoaderInterface, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{conf}),
-		// set as noop until alerting plugin becomes available
-		alerting: noop.NewUnavailableAlertingImplementation(shared.AlertingV1Alpha),
 	}
 	options.apply(opts...)
 
@@ -157,19 +142,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		go p.ServeKeyValueStore(store)
 	}))
 
-	pl.Hook(hooks.OnLoadMC(
-		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-			client := apiextensions.NewManagementAPIExtensionClient(cc)
-			descs, err := client.Descriptors(ctx, &emptypb.Empty{})
-			if err == nil {
-				for _, desc := range descs.Items {
-					if desc.GetName() == "Alerting" {
-						options.alerting = alertingv1alpha.NewAlertingClient(cc)
-					}
-				}
-			}
-		}))
-
 	// set up http server
 	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {
@@ -178,7 +150,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to load TLS config")
 	}
 
-	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl, &options.alerting)
+	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
 	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey,
 		cluster.WithExcludeGRPCMethodsFromAuth(
@@ -207,13 +179,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 
 	// set up stream server
-	listener := health.NewListener(
-		health.WithAlertProvider(&options.alerting),
-		health.WithDefaultAlertCondition(),
-		health.WithAlertToggle(),
-		health.WithDisconnectTimeout(time.Second*60),
-	)
-	listener.AlertProvider = &options.alerting
+	listener := health.NewListener()
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	sync := NewSyncRequester(lg)
 	// set up agent connection handlers

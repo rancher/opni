@@ -89,20 +89,24 @@ import (
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 var collectorWriteSync sync.Mutex
+var agentList map[string]context.CancelFunc = make(map[string]context.CancelFunc)
+var agentListMu sync.Mutex
 
 type servicePorts struct {
-	Etcd            int
-	Jetstream       int
-	GatewayGRPC     int
-	GatewayHTTP     int
-	GatewayMetrics  int
-	ManagementGRPC  int
-	ManagementHTTP  int
-	ManagementWeb   int
-	CortexGRPC      int
-	CortexHTTP      int
-	TestEnvironment int
-	RTMetrics       int
+	Etcd             int
+	Jetstream        int
+	GatewayGRPC      int
+	GatewayHTTP      int
+	GatewayMetrics   int
+	ManagementGRPC   int
+	ManagementHTTP   int
+	ManagementWeb    int
+	CortexGRPC       int
+	CortexHTTP       int
+	TestEnvironment  int
+	RTMetrics        int
+	DisconnectPort   int
+	NodeExporterPort int
 }
 
 type RunningAgent struct {
@@ -150,6 +154,8 @@ type EnvironmentOptions struct {
 	defaultAgentOpts          []StartAgentOption
 	agentIdSeed               int64
 	defaultAgentVersion       string
+	enableDisconnectServer    bool
+	enableNodeExporter        bool
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -169,6 +175,12 @@ func WithEnableEtcd(enable bool) EnvironmentOption {
 func WithEnableJetstream(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableJetstream = enable
+	}
+}
+
+func WithEnableDisconnectServer(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableDisconnectServer = enable
 	}
 }
 
@@ -220,6 +232,12 @@ func WithEnableCortexClusterDriver(enable bool) EnvironmentOption {
 	}
 }
 
+func WithEnableNodeExporter(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableNodeExporter = enable
+	}
+}
+
 func defaultAgentVersion() string {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_AGENT_VERSION"); ok {
 		return v
@@ -229,13 +247,15 @@ func defaultAgentVersion() string {
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
-		enableEtcd:           true,
-		enableJetstream:      false,
-		enableGateway:        true,
-		enableCortex:         true,
-		enableRealtimeServer: true,
-		agentIdSeed:          time.Now().UnixNano(),
-		defaultAgentVersion:  defaultAgentVersion(),
+		enableEtcd:             true,
+		enableJetstream:        true,
+		enableNodeExporter:     false,
+		enableGateway:          true,
+		enableCortex:           true,
+		enableDisconnectServer: true,
+		enableRealtimeServer:   true,
+		agentIdSeed:            time.Now().UnixNano(),
+		defaultAgentVersion:    defaultAgentVersion(),
 	}
 	options.apply(opts...)
 
@@ -256,23 +276,25 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(12)
+	ports, err := freeport.GetFreePorts(14)
 	if err != nil {
 		panic(err)
 	}
 	e.ports = servicePorts{
-		Etcd:            ports[0],
-		GatewayGRPC:     ports[1],
-		GatewayHTTP:     ports[2],
-		GatewayMetrics:  ports[3],
-		ManagementGRPC:  ports[4],
-		ManagementHTTP:  ports[5],
-		ManagementWeb:   ports[6],
-		CortexGRPC:      ports[7],
-		CortexHTTP:      ports[8],
-		TestEnvironment: ports[9],
-		RTMetrics:       ports[10],
-		Jetstream:       ports[11],
+		Etcd:             ports[0],
+		GatewayGRPC:      ports[1],
+		GatewayHTTP:      ports[2],
+		GatewayMetrics:   ports[3],
+		ManagementGRPC:   ports[4],
+		ManagementHTTP:   ports[5],
+		ManagementWeb:    ports[6],
+		CortexGRPC:       ports[7],
+		CortexHTTP:       ports[8],
+		TestEnvironment:  ports[9],
+		RTMetrics:        ports[10],
+		Jetstream:        ports[11],
+		DisconnectPort:   ports[12],
+		NodeExporterPort: ports[13],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -334,6 +356,18 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			panic(err)
 		}
 	}
+	if portNum, ok := os.LookupEnv("AGENT_DISCONNECT_PORT"); ok {
+		e.ports.DisconnectPort, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("NODE_EXPORTER_PORT"); ok {
+		e.ports.NodeExporterPort, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	e.tempDir, err = os.MkdirTemp("", "opni-test-*")
 	if err != nil {
@@ -388,6 +422,15 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if options.enableJetstream {
 		e.startJetstream()
 	}
+
+	if options.enableDisconnectServer {
+		e.StartAgentDisconnectServer()
+	}
+
+	if options.enableNodeExporter {
+		e.StartNodeExporter()
+	}
+
 	if options.enableCortex {
 		if options.delayStartCortex != nil && options.enableCortexClusterDriver {
 			return fmt.Errorf("cannot specify both delayStartCortex and enableCortexClusterDriver")
@@ -1020,6 +1063,78 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
+func (e *Environment) StartAgentDisconnectServer() {
+	setDisconnect := func(w http.ResponseWriter, r *http.Request) {
+		agentListMu.Lock()
+		defer agentListMu.Unlock()
+		agent := r.URL.Query().Get("agent")
+		if agent == "" {
+			e.Logger.Error("agent not specified")
+			return
+		}
+		if _, ok := agentList[agent]; !ok {
+			e.Logger.Error("could not find agent to disconnect")
+			return
+		}
+		agentList[agent]()
+		delete(agentList, agent)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/disconnect", setDisconnect)
+
+	disconnectServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", e.ports.DisconnectPort),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := disconnectServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
+		defer disconnectServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		}
+	})
+	Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), e.ports.DisconnectPort)
+}
+
+func (e *Environment) StartNodeExporter() {
+	nodeExporterBin := path.Join(e.TestBin, "node_exporter")
+	defaultArgs := []string{
+		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", e.ports.NodeExporterPort),
+		"--log.level=error",
+	}
+	cmd := exec.CommandContext(e.ctx, nodeExporterBin, defaultArgs...)
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
+			panic(err)
+		}
+	}
+	e.Logger.Info("Waiting for node_exporter to start...")
+	for e.ctx.Err() == nil {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", e.ports.NodeExporterPort))
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", e.ports.NodeExporterPort)).Info("Node exporter started")
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
+}
+
 func (e *Environment) simulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}
@@ -1047,6 +1162,7 @@ func (e *Environment) simulateKubeObject(kPort int) {
 		resp, err := client.Do(req)
 		if err != nil {
 			e.Logger.Error("got error from mock kube metrics api : ", zap.Error(err))
+			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -1422,8 +1538,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					TrustStrategy: strategy,
 				}))
 		case "v2":
+			ctx, cancel := context.WithCancel(options.ctx)
 			pl := plugins.NewPluginLoader()
-			a, err = agentv2.New(options.ctx, agentConfig,
+			a, err = agentv2.New(ctx, agentConfig,
 				agentv2.WithBootstrapper(&bootstrap.ClientConfigV2{
 					Token:         bt,
 					Endpoint:      gatewayAddress,
@@ -1432,6 +1549,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				agentv2.WithUnmanagedPluginLoader(pl),
 			)
 			LoadPlugins(pl, pluginmeta.ModeAgent)
+			agentListMu.Lock()
+			agentList[id] = cancel
+			agentListMu.Unlock()
 		default:
 			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)
 			return
@@ -1628,11 +1748,9 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
-	//TODO: simulate a bunch of random objects
 	for i := 0; i < 100; i++ {
 		environment.simulateKubeObject(kPort)
 	}
-
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient

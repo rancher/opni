@@ -4,23 +4,17 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
 	agentv1 "github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/alerting"
-	"github.com/rancher/opni/pkg/alerting/condition"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Listener struct {
@@ -34,17 +28,9 @@ type Listener struct {
 	incomingHealthUpdates   map[string]chan HealthUpdate
 	closed                  chan struct{}
 	sem                     *semaphore.Weighted
-	AlertProvider           *alerting.Provider
-	alertToggle             chan struct{}
-	alertTickerDuration     time.Duration
-	alertCondition          *alertingv1alpha.AlertCondition
 }
 
 type ListenerOptions struct {
-	alertProvider  *alerting.Provider
-	alertToggle    chan struct{}
-	tickerDuration time.Duration
-	alertCondition *alertingv1alpha.AlertCondition
 	interval       time.Duration
 	maxJitter      time.Duration
 	maxConnections int64
@@ -85,36 +71,6 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
-func WithAlertToggle() ListenerOption {
-	return func(o *ListenerOptions) {
-		o.alertToggle = make(chan struct{})
-	}
-}
-
-func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
-	_, isSet := os.LookupEnv(shared.LocalBackendEnvToggle)
-	if isSet {
-		return func(o *ListenerOptions) {
-			o.tickerDuration = time.Second * 60
-		}
-	}
-	return func(o *ListenerOptions) {
-		o.tickerDuration = timeout
-	}
-}
-
-func WithDefaultAlertCondition() ListenerOption {
-	return func(o *ListenerOptions) {
-		o.alertCondition = condition.OpniDisconnect
-	}
-}
-
-func WithAlertProvider(alertProvider *alerting.Provider) ListenerOption {
-	return func(o *ListenerOptions) {
-		o.alertProvider = alertProvider
-	}
-}
-
 func NewListener(opts ...ListenerOption) *Listener {
 	options := ListenerOptions{
 		// poll slowly, health updates are also sent on demand by the agent
@@ -127,11 +83,7 @@ func NewListener(opts ...ListenerOption) *Listener {
 	if options.maxJitter > options.interval {
 		options.maxJitter = options.interval
 	}
-	return &Listener{
-		AlertProvider:         options.alertProvider,
-		alertToggle:           options.alertToggle,
-		alertCondition:        options.alertCondition,
-		alertTickerDuration:   options.tickerDuration,
+	l := &Listener{
 		ListenerOptions:       options,
 		statusUpdate:          make(chan StatusUpdate, options.updateQueueCap),
 		healthUpdate:          make(chan HealthUpdate, options.updateQueueCap),
@@ -140,6 +92,18 @@ func NewListener(opts ...ListenerOption) *Listener {
 		closed:                make(chan struct{}),
 		sem:                   semaphore.NewWeighted(options.maxConnections),
 	}
+	return l
+}
+
+func (l *Listener) publishStatus(id string, connected bool) {
+	s := StatusUpdate{
+		ID: id,
+		Status: &corev1.Status{
+			Connected: connected,
+			Timestamp: timestamppb.Now(),
+		},
+	}
+	l.statusUpdate <- s
 }
 
 func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientSet) {
@@ -156,11 +120,6 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer l.sem.Release(1) // 5th
 
 	id := cluster.StreamAuthorizedID(ctx)
-
-	// if we are setting an alert condition for disconnections
-	if l.alertProvider != nil {
-		l.AlertDisconnectLoop(id)
-	}
 
 	l.idLocksMu.Lock()
 	var clientLock *sync.Mutex
@@ -188,23 +147,13 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 		l.incomingHealthUpdatesMu.Unlock()
 	}()
 
-	l.statusUpdate <- StatusUpdate{
-		ID: id,
-		Status: &corev1.Status{
-			Connected: true,
-		},
-	}
+	l.publishStatus(id, true)
 	defer func() { // 2nd
 		l.healthUpdate <- HealthUpdate{
 			ID:     id,
 			Health: &corev1.Health{},
 		}
-		l.statusUpdate <- StatusUpdate{
-			ID: id,
-			Status: &corev1.Status{
-				Connected: false,
-			},
-		}
+		l.publishStatus(id, false)
 	}()
 	curHealth, err := clientset.GetHealth(ctx, &emptypb.Empty{})
 	if err == nil {
@@ -265,76 +214,6 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	}
 }
 
-func (l *Listener) AlertDisconnectLoop(agentId string) {
-	ctx := context.Background()
-	if l.alertToggle == nil {
-		l.alertToggle = make(chan struct{})
-	}
-	if l.alertCondition == nil {
-		l.alertCondition = condition.OpniDisconnect
-	}
-
-	// prevent data race
-	alertConditionTemplateCopy := proto.Clone(l.alertCondition).(*alertingv1alpha.AlertCondition)
-
-	// Eventually replace with templates : Waiting on AlertManager Routes backend
-	alertConditionTemplateCopy.Name = strings.Replace(
-		l.alertCondition.Name,
-		"{{ .agentId }}",
-		agentId, -1)
-	alertConditionTemplateCopy.Description = strings.Replace(
-		alertConditionTemplateCopy.Description,
-		"{{ .agentId }}",
-		agentId, -1)
-
-	alertConditionTemplateCopy.Description = strings.Replace(
-		alertConditionTemplateCopy.Description, "{{ .timeout }}",
-		l.alertTickerDuration.String(), -1)
-
-	go func() {
-		id, err := (*l.alertProvider).CreateAlertCondition(ctx, alertConditionTemplateCopy)
-		retryOnFailure := time.NewTicker(time.Second)
-		defer retryOnFailure.Stop()
-		for err != nil {
-			select {
-			case <-retryOnFailure.C:
-				retryOnFailure.Reset(time.Second)
-				id, err = alerting.DoCreate(*l.alertProvider, ctx, alertConditionTemplateCopy)
-			case <-l.closed:
-				return
-			}
-		}
-		if l.alertTickerDuration <= 0 {
-			l.alertTickerDuration = time.Second * 60
-		}
-		ticker := time.NewTicker(l.alertTickerDuration)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C: // received no message from agent in the entire duration
-				_, err = alerting.DoTrigger(*l.alertProvider, ctx, &alertingv1alpha.TriggerAlertsRequest{
-					ConditionId: id,
-				})
-				if err != nil {
-					ticker.Reset(time.Second) // retry trigger more often
-				} else {
-					ticker.Reset(l.alertTickerDuration)
-				}
-
-			case <-l.alertToggle: // received a message from agent
-				ticker.Reset(l.alertTickerDuration)
-
-			case <-l.closed: // listener is closed, stop
-				go func() {
-					alerting.DoDelete(*l.alertProvider, ctx, id)
-				}()
-				return
-			}
-		}
-	}()
-}
-
 func (l *Listener) StatusC() chan StatusUpdate {
 	return l.statusUpdate
 }
@@ -368,10 +247,11 @@ func (l *Listener) UpdateHealth(ctx context.Context, req *corev1.Health) (*empty
 	defer l.incomingHealthUpdatesMu.RUnlock()
 
 	if ch, ok := l.incomingHealthUpdates[id]; ok {
-		ch <- HealthUpdate{
+		h := HealthUpdate{
 			ID:     id,
 			Health: util.ProtoClone(req),
 		}
+		ch <- h
 	}
 
 	return &emptypb.Empty{}, nil

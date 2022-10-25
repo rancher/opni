@@ -1,0 +1,29 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/pkg/apis/trigger";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "google/rpc/status.proto";
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+
+package alerting;
+
+service Alerting {
+  // ------- Trigger Alerts -------
+
+  // opni internal use
+  rpc TriggerAlerts(alerting.TriggerAlertsRequest) returns (alerting.TriggerAlertsResponse) {
+    option (google.api.http) = {
+      post : "/trigger"
+      body : "*"
+    };
+  }
+}
+

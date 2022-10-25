@@ -4,7 +4,7 @@ import (
 	"fmt"
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/template"
-	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"go.uber.org/zap"
 	"time"
 )
@@ -39,7 +39,7 @@ func ValidateIncomingConfig(fileContent string, lg *zap.SugaredLogger) error {
 }
 
 // ReconcileInvalidState : tries to fix detected errors in Alertmanager
-func ReconcileInvalidState(newConfig *config.ConfigMapData, incoming error) error {
+func ReconcileInvalidState(newConfig *routing.RoutingTree, incoming error) error {
 	if incoming == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func ReconcileInvalidState(newConfig *config.ConfigMapData, incoming error) erro
 	return nil
 }
 
-func ReconcileInvalidStateLoop(timeout time.Duration, newConfig *config.ConfigMapData, lg *zap.SugaredLogger) error {
+func ReconcileInvalidStateLoop(timeout time.Duration, newConfig *routing.RoutingTree, lg *zap.SugaredLogger) error {
 	timeoutTicker := time.NewTicker(timeout)
 	var lastSetError error
 	for {

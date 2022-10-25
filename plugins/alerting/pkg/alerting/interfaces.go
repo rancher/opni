@@ -2,15 +2,16 @@ package alerting
 
 import (
 	"context"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	"sync"
+
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"sync"
 )
 
-var AlertingBackends = map[alertingv1alpha.AlertType]AlertTypeBackend{}
+var AlertingBackends = map[alertingv1.AlertType]AlertTypeBackend{}
 
 var mu sync.Mutex
 var datasourceToAlertingCapability map[string]AlertingStore = make(map[string]AlertingStore)
@@ -35,8 +36,8 @@ type AlertTypeBackend interface {
 	ListTemplates() []TemplateInfo
 	// ListChoices List choices for values to be filled in
 	ListChoices() error
-	Create(p *Plugin, req alertingv1alpha.AlertCondition) (*corev1.Reference, error)
-	Update(p *Plugin, req alertingv1alpha.AlertConditionWithId) (*emptypb.Empty, error)
+	Create(p *Plugin, req alertingv1.AlertCondition) (*corev1.Reference, error)
+	Update(p *Plugin, req alertingv1.AlertConditionWithId) (*emptypb.Empty, error)
 	Delete(p *Plugin, req *corev1.Reference) (*emptypb.Empty, error)
 
 	WithCurrentRequest(req proto.Message, ctx context.Context) AlertTypeBackend

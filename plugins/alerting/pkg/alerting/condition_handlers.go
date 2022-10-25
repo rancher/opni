@@ -6,6 +6,15 @@ package alerting
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"sync"
+	"time"
+
+	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -13,85 +22,17 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/validation"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 )
 
-func setEndpointImplementationIfAvailable(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) error {
-	lg = lg.With("function", "setEndpointImplementationIfAvailable")
-	if req.NotificationId != nil { // create the endpoint implementation
-		lg.Debug("creating notification implementation")
-		if req.Details == nil {
-			return validation.Error("alerting notification details must be set if you specify a notification target")
-		}
-		if _, err := p.GetAlertEndpoint(ctx, &corev1.Reference{Id: *req.NotificationId}); err != nil {
-			lg.Error(err)
-			return err
-		}
-
-		_, err := p.CreateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
-			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
-			ConditionId:    &corev1.Reference{Id: newId},
-			Implementation: req.Details,
-		})
-		if err != nil {
-			lg.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
-func updateEndpointImplemetation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
-	lg = lg.With("function", "updateEndpointImplemetation")
-	if req.NotificationId != nil { // create the endpoint implementation
-		lg.Debugf("updating notification with id : %s", req.NotificationId)
-		if req.Details == nil {
-			return validation.Error("alerting notification details must be set")
-		}
-		if _, err := p.GetAlertEndpoint(ctx, &corev1.Reference{Id: *req.NotificationId}); err != nil {
-			lg.Error(err)
-			return err
-		}
-
-		_, err := p.UpdateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
-			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
-			ConditionId:    &corev1.Reference{Id: id},
-			Implementation: req.Details,
-		})
-		if err != nil {
-			lg.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
-func handleUpdateEndpointImplementation(
-	p *Plugin,
-	lg *zap.SugaredLogger,
-	ctx context.Context,
-	conditionId string,
-	existing *alertingv1alpha.AlertCondition,
-	new *alertingv1alpha.AlertCondition,
-) error {
-	lg = lg.With("function", "handleUpdateEndpointImplementation")
-	lg.Debugf("handling update endpoint implementation on condition id %s", conditionId)
-	if existing.NotificationId != nil { // delete implementation
-		// !!! must pass in the existing condition id
-		lg.Debug("previous implementation set, removing...")
-		_, err := p.DeleteEndpointImplementation(ctx, &corev1.Reference{Id: conditionId})
-		return err
-	} else {
-		lg.Debug("no previous implementation set")
-	}
-	lg.Debug("updating implementation")
-	return setEndpointImplementationIfAvailable(p, lg, ctx, new, conditionId)
-}
-
-func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, newConditionId string) (*corev1.Reference, error) {
+func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
+		err := handleSystemAlertCreation(p, lg, ctx, s, newConditionId)
+		if err != nil {
+			return nil, err
+		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
@@ -104,8 +45,10 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
+func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
 	if s := req.GetAlertType().GetSystem(); s != nil {
+		p.msgNode.RemoveConfigListener(id)
+		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
 		return nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
@@ -118,7 +61,34 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 	return shared.AlertingErrNotImplemented
 }
 
-func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1alpha.AlertConditionKubeState, newId string) error {
+func handleSystemAlertCreation(
+	p *Plugin,
+	lg *zap.SugaredLogger,
+	ctx context.Context,
+	k *alertingv1.AlertConditionSystem,
+	newConditionId string,
+) error {
+	_, err := p.storageNode.GetAgentIncidentTracker(ctx, newConditionId)
+	if errors.Is(err, nats.ErrKeyNotFound) {
+		p.storageNode.CreateAgentIncidentTracker(ctx, newConditionId, alertstorage.AgentIncidentStep{
+			StatusUpdate: health.StatusUpdate{
+				ID: k.GetClusterId().Id,
+				Status: &corev1.Status{
+					Timestamp: nil,
+					Connected: true,
+				},
+			},
+			AlertFiring: false,
+		})
+	} else if err != nil {
+		return err
+	}
+	caFunc := p.onSystemConditionCreate(newConditionId, k)
+	p.msgNode.AddSystemConfigListener(newConditionId, caFunc)
+	return nil
+}
+
+func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1.AlertConditionKubeState, newId string) error {
 	baseKubeRule, err := metrics.NewKubeStateRule(
 		k.GetObjectType(),
 		k.GetObjectName(),
@@ -147,4 +117,127 @@ func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Conte
 		return err
 	}
 	return nil
+}
+
+func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {
+	lg := p.Logger.With("onSystemConditionCreate", conditionId)
+	lg.Debugf("received condition update: %v", condition)
+	jsCtx, cancel := context.WithCancel(p.Ctx)
+	var firingLock sync.RWMutex
+	currentlyFiring := false
+
+	// spawn async subscription stream
+	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
+		for {
+			nc := p.natsConn.Get()
+			js, err := nc.JetStream()
+			if err != nil {
+				lg.Error("failed to get jetstream context")
+				continue
+			}
+			err = natsutil.NewPersistentStream(js, shared.NewAlertingDisconnectStream())
+			if err != nil {
+				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
+				continue
+			}
+			agentId := condition.GetClusterId().Id
+			msgCh := make(chan *nats.Msg, 32)
+			sub, err := js.ChanSubscribe(shared.NewAgentDisconnectSubject(agentId), msgCh)
+			if err != nil {
+				lg.Errorf("failed to chan subscribe %s", err)
+			}
+			defer sub.Unsubscribe()
+			if err != nil {
+				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
+				continue
+			}
+			for {
+				select {
+				case <-p.Ctx.Done():
+					return
+				case <-jsCtx.Done():
+					return
+				case msg := <-msgCh:
+					var status health.StatusUpdate
+					err := json.Unmarshal(msg.Data, &status)
+					if err != nil {
+						lg.Error(err)
+					}
+					firingLock.RLock()
+					err = p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+						StatusUpdate: status,
+						AlertFiring:  currentlyFiring,
+					})
+					if err != nil {
+						lg.Error(err)
+					}
+					firingLock.RUnlock()
+				}
+			}
+		}
+	}()
+	// spawn a watcher for the incidents
+	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
+		ticker := time.NewTicker(time.Second * 10)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-p.Ctx.Done():
+				return
+			case <-jsCtx.Done():
+				return
+			case <-ticker.C:
+				st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
+				if err != nil || st == nil {
+					lg.Warn(err)
+					continue
+				}
+				if len(st.Steps) == 0 {
+					panic("no system alert condition steps")
+				}
+				a := st.Steps[len(st.Steps)-1]
+				if a.Status.Timestamp == nil {
+					continue
+				}
+				if !a.Status.Connected {
+					interval := timestamppb.Now().AsTime().Sub(a.Status.Timestamp.AsTime())
+					if interval > condition.GetTimeout().AsDuration() {
+						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
+							ConditionId: &corev1.Reference{Id: conditionId},
+							Annotations: map[string]string{
+								shared.BackendConditionIdLabel: conditionId,
+							},
+						})
+						if err != nil {
+							lg.Error(err)
+						}
+						firingLock.Lock()
+						currentlyFiring = true
+						firingLock.Unlock() // in case Updating the incident tracker takes a while, but we still want to process incoming messages
+						firingLock.RLock()
+						p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+							StatusUpdate: a.StatusUpdate, // must copy old timestamp
+							AlertFiring:  currentlyFiring,
+						})
+						firingLock.RUnlock()
+					} else {
+						currentlyFiring = false
+					}
+				} else if a.Status.Connected && currentlyFiring {
+					firingLock.Lock()
+					currentlyFiring = false
+					firingLock.Unlock()
+					firingLock.RLock()
+					p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+						StatusUpdate: a.StatusUpdate, // must copy old timestamp
+						AlertFiring:  currentlyFiring,
+					})
+					firingLock.RUnlock()
+				}
+			}
+		}
+	}()
+	return cancel
 }

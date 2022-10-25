@@ -19,8 +19,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/alerting"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
@@ -64,7 +62,6 @@ func NewHTTPServer(
 	cfg *v1beta1.GatewayConfigSpec,
 	lg *zap.SugaredLogger,
 	pl plugins.LoaderInterface,
-	alertProvider *alerting.Provider, // need pointer to interface so that it updates to correct impl on change
 ) *GatewayHTTPServer {
 	lg = lg.Named("http")
 
@@ -88,11 +85,8 @@ func NewHTTPServer(
 	//    Webhooks are assumed to respond with 2xx response codes on a successful
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
+	// TODO : FIXME, this won't be used until webhook receiver is re-implemented
 	router.POST(handlerName, func(c *gin.Context) {
-		if alerting.IsNil(alertProvider) {
-			c.Status(http.StatusConflict)
-			return
-		}
 		b, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			lg.With("handler", handlerName).Error(
@@ -118,10 +112,7 @@ func NewHTTPServer(
 		}
 		var anyErrors []error
 		for _, opniAlertingRequest := range opniAlertingRequests {
-			resp, err := alerting.DoTrigger(*alertProvider, ctx, opniAlertingRequest)
-			if err != nil && err != shared.AlertingErrNotImplementedNOOP {
-				anyErrors = append(anyErrors, err)
-			}
+			resp := "no response requested"
 			lg.With("handler", handlerName).Debug(
 				fmt.Sprintf("opni alering request : %s and response %s", opniAlertingRequest, resp),
 			)

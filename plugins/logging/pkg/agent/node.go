@@ -148,6 +148,12 @@ func (m *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {
 
 	m.config = config
 
+	if !m.config.Enabled && len(m.config.Conditions) > 0 {
+		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
+	} else {
+		m.conditions.Clear(health.CondBackend)
+	}
+
 	for _, ch := range m.listeners {
 		clone := util.ProtoClone(config)
 		select {

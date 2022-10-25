@@ -3,6 +3,7 @@ package alertstorage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const conditionPrefix = "/alerting/conditions"
@@ -282,6 +285,49 @@ func (s *StorageNode) GetAgentIncidentTracker(ctx context.Context, conditionId s
 	return &st, nil
 }
 
+func (s *StorageNode) GetActiveWindowsFromAgentIncidentTracker(
+	ctx context.Context,
+	conditionId string,
+	start,
+	end *timestamppb.Timestamp,
+) ([]*alertingv1.ActiveWindow, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	incident, err := s.GetAgentIncidentTracker(ctxTimeout, conditionId)
+	if err != nil {
+		return nil, err
+	}
+	res := []*alertingv1.ActiveWindow{}
+	if len(incident.Steps) == 0 {
+		return res, nil
+	}
+	risingEdge := true
+	for _, step := range incident.Steps {
+		if step.Status.Timestamp == nil {
+			continue
+		}
+		if step.AlertFiring && risingEdge {
+			res = append(res, &alertingv1.ActiveWindow{
+				Start: step.Status.Timestamp,
+				End:   timestamppb.Now(), // overwritten if it is found later
+				Type:  alertingv1.TimelineType_Timeline_Alerting,
+			})
+			risingEdge = false
+		} else if !step.AlertFiring && !risingEdge {
+			res[len(res)-1].End = step.Status.Timestamp
+			risingEdge = true
+		}
+	}
+	pruneIdx := 0
+	for _, window := range res {
+		if window.End.AsTime().Before(start.AsTime()) {
+			pruneIdx++
+		}
+	}
+	res = slices.Delete(res, 0, pruneIdx)
+	return res, nil
+}
+
 func (s *StorageNode) ListAgentIncidentTrackers(ctx context.Context) ([]AgentIncident, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
@@ -328,7 +374,7 @@ func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId
 	}
 	var agentEntry nats.KeyValueEntry
 	entry, err := sts.Get(conditionId)
-	if err != nil {
+	if errors.Is(err, nats.ErrKeyNotFound) {
 		err := s.CreateAgentIncidentTracker(ctx, conditionId, updateValue)
 		if err != nil {
 			return err
@@ -338,16 +384,22 @@ func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId
 			return err
 		}
 		agentEntry = entry
+	} else if err != nil {
+		return err
 	} else {
 		agentEntry = entry
 	}
-	var st AgentIncident
-	err = json.Unmarshal(agentEntry.Value(), &st)
+	var prev AgentIncident
+	err = json.Unmarshal(agentEntry.Value(), &prev)
 	if err != nil {
 		return err
 	}
-	st.Steps = append(st.Steps, &updateValue)
-	data, err := json.Marshal(st)
+	if prev.isEquivalentState(updateValue) { // prevent filling up K,V with duplicate states
+		return nil
+	}
+
+	prev.Steps = append(prev.Steps, &updateValue)
+	data, err := json.Marshal(prev)
 	if err != nil {
 		return err
 	}

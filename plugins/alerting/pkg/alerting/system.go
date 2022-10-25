@@ -115,6 +115,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      shared.AgentDisconnectBucket,
 		Description: "track system agent status updates",
+		Storage:     nats.FileStorage,
 	})
 	if err != nil {
 		panic(err)

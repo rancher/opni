@@ -146,6 +146,7 @@ message ListAlertConditionSystem {
   repeated string agentIds = 1;
 }
 
+// Requires kube state metrics, otherwise the list of choices will be empty
 message AlertConditionKubeState {
   string clusterId = 1;
   // must be one of the listed kube objects

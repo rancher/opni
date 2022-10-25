@@ -7,6 +7,8 @@ package alerting
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -66,6 +68,21 @@ func handleSystemAlertCreation(
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 ) error {
+	_, err := p.storageNode.GetAgentIncidentTracker(ctx, newConditionId)
+	if errors.Is(err, nats.ErrKeyNotFound) {
+		p.storageNode.CreateAgentIncidentTracker(ctx, newConditionId, alertstorage.AgentIncidentStep{
+			StatusUpdate: health.StatusUpdate{
+				ID: k.GetClusterId().Id,
+				Status: &corev1.Status{
+					Timestamp: nil,
+					Connected: true,
+				},
+			},
+			AlertFiring: false,
+		})
+	} else if err != nil {
+		return err
+	}
 	caFunc := p.onSystemConditionCreate(newConditionId, k)
 	p.msgNode.AddSystemConfigListener(newConditionId, caFunc)
 	return nil
@@ -106,6 +123,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
+	var firingLock sync.RWMutex
+	currentlyFiring := false
 
 	// spawn async subscription stream
 	go func() {
@@ -145,17 +164,21 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 					if err != nil {
 						lg.Error(err)
 					}
-					p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+					firingLock.RLock()
+					err = p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
 						StatusUpdate: status,
-						AlertFiring:  false,
+						AlertFiring:  currentlyFiring,
 					})
+					if err != nil {
+						lg.Error(err)
+					}
+					firingLock.RUnlock()
 				}
 			}
 		}
 	}()
 	// spawn a watcher for the incidents
 	go func() {
-		currentlyFiring := false
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		ticker := time.NewTicker(time.Second * 10)
 		defer ticker.Stop()
@@ -168,13 +191,16 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 			case <-ticker.C:
 				st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
 				if err != nil || st == nil {
-					lg.Error(err)
+					lg.Warn(err)
 					continue
 				}
 				if len(st.Steps) == 0 {
 					panic("no system alert condition steps")
 				}
 				a := st.Steps[len(st.Steps)-1]
+				if a.Status.Timestamp == nil {
+					continue
+				}
 				if !a.Status.Connected {
 					interval := timestamppb.Now().AsTime().Sub(a.Status.Timestamp.AsTime())
 					if interval > condition.GetTimeout().AsDuration() {
@@ -187,20 +213,28 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 						if err != nil {
 							lg.Error(err)
 						}
+						firingLock.Lock()
+						currentlyFiring = true
+						firingLock.Unlock() // in case Updating the incident tracker takes a while, but we still want to process incoming messages
+						firingLock.RLock()
 						p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
 							StatusUpdate: a.StatusUpdate, // must copy old timestamp
-							AlertFiring:  true,
+							AlertFiring:  currentlyFiring,
 						})
-						currentlyFiring = true
+						firingLock.RUnlock()
 					} else {
 						currentlyFiring = false
 					}
 				} else if a.Status.Connected && currentlyFiring {
+					firingLock.Lock()
+					currentlyFiring = false
+					firingLock.Unlock()
+					firingLock.RLock()
 					p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
 						StatusUpdate: a.StatusUpdate, // must copy old timestamp
-						AlertFiring:  false,
+						AlertFiring:  currentlyFiring,
 					})
-					currentlyFiring = false
+					firingLock.RUnlock()
 				}
 			}
 		}

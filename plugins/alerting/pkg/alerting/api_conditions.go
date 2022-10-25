@@ -4,15 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
+	"google.golang.org/genproto/googleapis/rpc/code"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/uuid"
@@ -382,34 +388,102 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	resp := &alertingv1.TimelineResponse{
 		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
-	for idx := range conditions {
-		resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+	requiresCortex := false
+	for idx, id := range ids {
+		if k := conditions[idx].GetAlertType().GetKubeState(); k != nil {
+			requiresCortex = true
+		}
+		resp.Items[id] = &alertingv1.ActiveWindows{
 			Windows: make([]*alertingv1.ActiveWindow, 0),
 		}
-		numWindows := rand.Intn(10) + 1
-		for i := 0; i < numWindows; i++ {
-			startTime := time.Now()
-			startTime.Add(-time.Duration(rand.Int31n(24)+1) * time.Hour)
-			endTime := time.Now()
-			endTime.Add(-time.Duration(rand.Int31n(24)+1) * time.Hour)
-			if endTime.UnixNano() < startTime.UnixNano() {
-				temp := startTime
-				startTime = endTime
-				endTime = temp
-			}
-			typeRandom := rand.Intn(4)
-			var t alertingv1.TimelineType
-			if typeRandom == 0 {
-				t = alertingv1.TimelineType_Timeline_Silenced
-			} else {
-				t = alertingv1.TimelineType_Timeline_Alerting
-			}
-			resp.Items[ids[idx]].Windows = append(resp.Items[ids[idx]].Windows, &alertingv1.ActiveWindow{
-				Start: timestamppb.New(startTime),
-				End:   timestamppb.New(endTime),
-				Type:  t,
-			})
-		}
 	}
+
+	var cortexAdminClient cortexadmin.CortexAdminClient
+	if requiresCortex {
+		ctxCa, cancel := context.WithCancel(ctx)
+		defer cancel()
+		adminClient, err := p.adminClient.GetContext(ctxCa)
+		if err != nil {
+			return nil, util.StatusError(codes.Code(code.Code_FAILED_PRECONDITION))
+		}
+		cortexAdminClient = adminClient
+	}
+
+	start := timestamppb.New(time.Now().Add(-req.LookbackWindow.AsDuration()))
+	end := timestamppb.Now()
+	cortexStep := durationpb.New(req.LookbackWindow.AsDuration() / 500)
+	var wg sync.WaitGroup
+	var addMu sync.Mutex
+	for idx := range conditions {
+		idx := idx // capture in closure
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			condition := conditions[idx]
+			if s := condition.GetAlertType().GetSystem(); s != nil {
+				// check system tracker
+				activeWindows, err := p.storageNode.GetActiveWindowsFromAgentIncidentTracker(ctx, ids[idx], start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}
+				addMu.Unlock()
+			} else if k := condition.GetAlertType().GetKubeState(); k != nil {
+				// do the raw quer
+				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
+					Start: start,
+					End:   end,
+					Step:  cortexStep,
+				})
+				if err != nil {
+					p.Logger.Errorf("failed to query range : %s", err)
+					return
+				}
+				rawBytes := qr.Data
+				qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+				if err != nil {
+					p.Logger.Errorf("failed to unmarshal prometheus response : %s", err)
+					return
+				}
+				dataMatrix, err := qres.GetMatrix()
+				if err != nil {
+					p.Logger.Errorf("failed to get matrix : %s", err)
+					return
+				}
+				isRising := true
+				isFiring := func(v model.SampleValue) bool {
+					return v > 0
+				}
+				activeWindows := alertingv1.ActiveWindows{
+					Windows: make([]*alertingv1.ActiveWindow, 0),
+				}
+				for _, row := range *dataMatrix {
+					for _, rowValue := range row.Values {
+						ts := time.Unix(rowValue.Timestamp.Unix(), 0)
+						if !isFiring(rowValue.Value) && isRising {
+							activeWindows.Windows = append(activeWindows.Windows, &alertingv1.ActiveWindow{
+								Start: timestamppb.New(ts),
+								End:   end,
+								Type:  alertingv1.TimelineType_Timeline_Alerting,
+							})
+							isRising = false
+						} else if isFiring(rowValue.Value) && !isRising {
+							activeWindows.Windows[len(activeWindows.Windows)].End = timestamppb.New(ts)
+							isRising = true
+						}
+					}
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &activeWindows
+				addMu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
 	return resp, nil
 }

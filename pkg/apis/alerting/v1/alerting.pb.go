@@ -1172,6 +1172,7 @@ func (x *ListAlertConditionSystem) GetAgentIds() []string {
 	return nil
 }
 
+// Requires kube state metrics, otherwise the list of choices will be empty
 type AlertConditionKubeState struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

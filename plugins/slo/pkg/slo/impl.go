@@ -11,6 +11,7 @@ import (
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -35,7 +36,19 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
 	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, req.GetSlo().GetClusterId(), &ruleId, toApply)
-	return &corev1.Reference{Id: slo.GetId()}, err
+	if err != nil {
+		return nil, err
+	}
+	for _, rule := range ralerting.Rules {
+		ae := req.Slo.AttachedEndpoints
+		if rule.Alert != "" && alertingv1.ShouldCreateRoutingNode(ae, nil) {
+			err := createRoutingNode(s.p, s.ctx, ae, rule.Alert)
+			if err != nil {
+				s.p.logger.Errorf("creating routing node failed %s", err)
+			}
+		}
+	}
+	return &corev1.Reference{Id: slo.GetId()}, nil
 }
 
 func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error) {
@@ -54,6 +67,28 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 				err))
 		}
 	}
+	for _, rule := range ralerting.Rules {
+		newAE := existing.SLO.AttachedEndpoints
+		oldAe := incomingSLO.SLO.AttachedEndpoints
+		if rule.Alert != "" {
+			if alertingv1.ShouldCreateRoutingNode(newAE, oldAe) {
+				err := createRoutingNode(s.p, s.ctx, newAE, rule.Alert)
+				if err != nil {
+					s.p.logger.Errorf("creating routing node failed %s", err)
+				}
+			} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAe) {
+				err := updateRoutingNode(s.p, s.ctx, newAE, rule.Alert)
+				if err != nil {
+					s.p.logger.Errorf("updating routing node failed %s", err)
+				}
+			} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAe) {
+				err := deleteRoutingNode(s.p, s.ctx, rule.Alert)
+				if err != nil {
+					s.p.logger.Errorf("deleting routing node failed %s", err)
+				}
+			}
+		}
+	}
 	return incomingSLO, err
 }
 
@@ -61,17 +96,39 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	id, clusterId := existing.Id, existing.SLO.ClusterId
 	//err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, s.lg)
 	errArr := []error{}
-	toApply := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
+	slo := SLODataToStruct(existing)
+	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
+	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	for _, ruleName := range toApply {
-		err := deleteCortexSLORules(
-			s.p,
-			s.p.logger,
-			s.ctx,
-			clusterId,
-			ruleName,
-		)
-		if err != nil {
-			errArr = append(errArr, err)
+		for _, rule := range ruleName.Rules {
+			if rule.Alert != "" {
+				err := deleteRoutingNode(s.p, s.ctx, rule.Alert)
+				if err != nil {
+					s.p.logger.Errorf("deleting routing node failed %s", err)
+				}
+				err = deleteCortexSLORules(
+					s.p,
+					s.p.logger,
+					s.ctx,
+					clusterId,
+					rule.Alert,
+				)
+				if err != nil {
+					errArr = append(errArr, err)
+				}
+			}
+			if rule.Record != "" {
+				err := deleteCortexSLORules(
+					s.p,
+					s.p.logger,
+					s.ctx,
+					clusterId,
+					rule.Record,
+				)
+				if err != nil {
+					errArr = append(errArr, err)
+				}
+			}
 		}
 	}
 	err := createGrafanaSLOMask(s.p, s.ctx, clusterId, id)

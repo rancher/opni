@@ -2,6 +2,7 @@ package slo
 
 import (
 	"context"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 
 	"go.uber.org/zap"
 
@@ -20,11 +21,14 @@ import (
 type Plugin struct {
 	sloapi.UnsafeSLOServer
 	system.UnimplementedSystemPluginClient
-	ctx         context.Context
-	logger      *zap.SugaredLogger
-	storage     future.Future[StorageAPIs]
-	mgmtClient  future.Future[managementv1.ManagementClient]
-	adminClient future.Future[cortexadmin.CortexAdminClient]
+
+	ctx    context.Context
+	logger *zap.SugaredLogger
+
+	storage             future.Future[StorageAPIs]
+	mgmtClient          future.Future[managementv1.ManagementClient]
+	adminClient         future.Future[cortexadmin.CortexAdminClient]
+	alertEndpointClient future.Future[endpoint.AlertEndpointsClient]
 }
 
 type StorageAPIs struct {
@@ -35,11 +39,12 @@ type StorageAPIs struct {
 
 func NewPlugin(ctx context.Context) *Plugin {
 	return &Plugin{
-		ctx:         ctx,
-		logger:      logger.NewPluginLogger().Named("slo"),
-		storage:     future.New[StorageAPIs](),
-		mgmtClient:  future.New[managementv1.ManagementClient](),
-		adminClient: future.New[cortexadmin.CortexAdminClient](),
+		ctx:                 ctx,
+		logger:              logger.NewPluginLogger().Named("slo"),
+		storage:             future.New[StorageAPIs](),
+		mgmtClient:          future.New[managementv1.ManagementClient](),
+		adminClient:         future.New[cortexadmin.CortexAdminClient](),
+		alertEndpointClient: future.New[endpoint.AlertEndpointsClient](),
 	}
 }
 

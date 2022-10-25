@@ -56,6 +56,11 @@ func (slo *ServiceLevelObjective) Validate() error {
 	if interval.AsDuration() < time.Minute || interval.AsDuration() > time.Hour {
 		return validation.Error("budgetingInterval must be between 1 minute and 1 hour")
 	}
+	if slo.AttachedEndpoints != nil && len(slo.AttachedEndpoints.Items) > 0 {
+		if err := slo.AttachedEndpoints.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

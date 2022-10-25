@@ -82,7 +82,6 @@ func (a *AlertTypeDetails) ListTemplates() []string {
 	}
 	panic("No templates returned for alert type")
 }
-
 func (a *AlertConditionSystem) ListTemplates() []string {
 	return []string{
 		"agentId",
@@ -113,4 +112,30 @@ func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) 
 		}
 	}
 	return res
+}
+
+func ShouldCreateRoutingNode(new, old *AttachedEndpoints) bool {
+	// only create if we go from having no endpoints to having some
+	if new == nil || len(new.Items) == 0 {
+		return false
+	} else if (old == nil || len(old.Items) == 0) && new != nil && len(new.Items) > 0 {
+		return true
+	}
+	return false // should update pre-existing routing-node
+}
+
+func ShouldUpdateRoutingNode(new, old *AttachedEndpoints) bool {
+	// only update if both are specified
+	if new != nil && len(new.Items) > 0 && old != nil && len(old.Items) > 0 {
+		return true
+	}
+	return false
+}
+
+func ShouldDeleteRoutingNode(new, old *AttachedEndpoints) bool {
+	// only delete if we go from having endpoints to having none
+	if (new == nil || len(new.Items) > 0) && old != nil && len(old.Items) > 0 {
+		return true
+	}
+	return false
 }

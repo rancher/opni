@@ -3,17 +3,16 @@ package modeltraining
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/rancher/opni/apis"
-	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/resources"
 	util "github.com/rancher/opni/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cenkalti/backoff"
@@ -77,34 +76,21 @@ func getOpensearchCredentials(ctx context.Context) (username string, password st
 	return username, password
 }
 
-func getOpensearchEndpoint(ctx context.Context) string {
-	opnimgmt := &loggingv1beta1.OpniOpensearch{}
-	k8sClient, err := util.NewK8sClient(util.ClientOptions{Scheme: apis.NewScheme()})
-	if err != nil {
-		return "https://opni-opensearch-svc.opni-cluster-system.svc:9200"
-	}
+func getOpensearchEndpoint() string {
+
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
 		namespace = "opni-cluster-system"
 	}
-	if err := k8sClient.Get(ctx, types.NamespacedName{
-		Name:      "opni",
-		Namespace: namespace,
-	}, opnimgmt); err != nil {
-		return ""
-	}
-
-	return opnimgmt.Spec.ExternalURL
+	endpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", namespace)
+	return endpoint
 }
 
-func newOpensearchConnection(ctx context.Context) (*opensearch.Client, error) {
-	/*
-		esEndpoint := "https://opni-opensearch-svc.opni-cluster-system.svc:9200"
-		esUsername := "admin"
-		esPassword := "admin"
-	*/
-	esEndpoint := getOpensearchEndpoint(ctx)
-	esUsername, esPassword := getOpensearchCredentials(ctx)
+func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
+	esEndpoint := getOpensearchEndpoint()
+	s.Logger.Debug(esEndpoint)
+	esUsername, esPassword := getOpensearchCredentials(s.ctx)
+	s.Logger.Debug(esUsername)
 
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
@@ -112,7 +98,7 @@ func newOpensearchConnection(ctx context.Context) (*opensearch.Client, error) {
 		backoffv2.WithMaxInterval(1*time.Minute),
 		backoffv2.WithMultiplier(1.1),
 	)
-	b := retrier.Start(ctx)
+	b := retrier.Start(s.ctx)
 	var (
 		client *opensearch.Client
 	)

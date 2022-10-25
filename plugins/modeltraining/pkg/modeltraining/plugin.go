@@ -3,7 +3,6 @@ package modeltraining
 import (
 	"context"
 	"log"
-	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -53,24 +52,25 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	}
 	nc, err := newNatsConnection()
 	if err != nil {
-		os.Exit(1)
+		lg.Error(err)
 	}
+	lg.Debug("Connected to Nats")
 	mgr, err := nc.JetStream()
 	if err != nil {
-		os.Exit(1)
+		lg.Error(err)
 	}
 	keyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      "os-workload-aggregation",
 		Description: "Storing aggregation of workload logs from Opensearch.",
 	})
 	if err != nil {
-		os.Exit(1)
+		lg.Error(err)
 	}
 	s.natsConnection.Set(nc)
 	s.kv.Set(keyValue)
-	client, err := newOpensearchConnection(s.ctx)
+	client, err := s.newOpensearchConnection()
 	if err != nil {
-		os.Exit(1)
+		lg.Error(err)
 	}
 	s.osClient.Set(client)
 	go s.run_aggregation()
@@ -83,6 +83,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ModelTrainingPlugin{
 		Logger:         logger.NewPluginLogger().Named("modeltraining"),
+		ctx:            ctx,
 		natsConnection: future.New[*nats.Conn](),
 		kv:             future.New[nats.KeyValue](),
 		osClient:       future.New[*opensearch.Client](),

@@ -112,7 +112,6 @@ func NewEventCollector(
 	return &EventCollector{
 		EventCollectorOptions: options,
 		clientset:             clientset,
-		queue:                 workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		informer:              informer,
 		logger:                logger,
 		namespace:             namespace,
@@ -133,6 +132,7 @@ func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
 			return
 		}
 		c.state.stopCh = make(chan struct{})
+		c.queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		go func() {
 			err := c.run(c.state.stopCh)
 			if err != nil {
@@ -149,6 +149,7 @@ func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
 
 	if c.state.running {
 		close(c.state.stopCh)
+		c.queue.ShutDown()
 		c.state.running = false
 	}
 
@@ -207,6 +208,7 @@ func (c *EventCollector) enqueueEvent(obj interface{}) {
 func (c *EventCollector) processNextItem() bool {
 	event, shutdown := c.queue.Get()
 	if shutdown {
+		c.logger.Info("queue shutdown, halting event shipping")
 		return false
 	}
 	defer c.queue.Done(event)

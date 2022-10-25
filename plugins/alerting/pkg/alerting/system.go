@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -137,8 +138,17 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 	}
 	for i, id := range ids {
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
-			caFu := p.onSystemConditionCreate(id, s)
-			p.msgNode.AddSystemConfigListener(id, caFu)
+			// this checks that we won't crash when importing existing conditions from versions < 0.6
+			if s.GetClusterId() != nil && s.GetTimeout() != nil {
+				caFu := p.onSystemConditionCreate(id, s)
+				p.msgNode.AddSystemConfigListener(id, caFu)
+			} else {
+				// delete invalid conditions that won't do anything
+				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})
+				if err != nil {
+					lg.With("err", err).Error("failed to delete invalid condition")
+				}
+			}
 		}
 	}
 	lg.Info("re-indexing complete")

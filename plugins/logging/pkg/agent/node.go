@@ -11,6 +11,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"go.uber.org/zap"
@@ -34,10 +35,10 @@ type LoggingNode struct {
 	config   *node.LoggingCapabilityConfig
 
 	listeners  []chan<- *node.LoggingCapabilityConfig
-	conditions ConditionTracker
+	conditions health.ConditionTracker
 }
 
-func NewLoggingNode(ct ConditionTracker, lg *zap.SugaredLogger) *LoggingNode {
+func NewLoggingNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *LoggingNode {
 	return &LoggingNode{
 		logger:     lg,
 		conditions: ct,
@@ -114,7 +115,7 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 	defer l.clientMu.RUnlock()
 
 	if l.client == nil {
-		l.conditions.Set(CondConfigSync, StatusPending, "no client, skipping sync")
+		l.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
 		return
 	}
 
@@ -126,7 +127,7 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 
 	if err != nil {
 		err := fmt.Errorf("error syncing logging node: %w", err)
-		l.conditions.Set(CondConfigSync, StatusFailure, err.Error())
+		l.conditions.Set(health.CondConfigSync, health.StatusFailure, err.Error())
 		return
 	}
 
@@ -138,7 +139,7 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 		l.updateConfig(syncResp.GetUpdatedConfig())
 	}
 
-	l.conditions.Clear(CondConfigSync)
+	l.conditions.Clear(health.CondConfigSync)
 }
 
 func (m *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {

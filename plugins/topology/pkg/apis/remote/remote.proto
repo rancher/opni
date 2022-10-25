@@ -1,0 +1,30 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/remote";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
+
+package remote.topology;
+
+service RemoteTopology {
+    rpc Push(Payload) returns (google.protobuf.Empty);
+    rpc SyncTopology(Payload) returns (google.protobuf.Empty);
+}
+
+message Payload {
+    TopologyGraph graph = 1;
+}
+
+
+//FIXME: copied from orchestrator.proto due to duplicate symbol bug
+message TopologyGraph {
+    core.Reference id = 1;
+    bytes data = 2;
+    GraphRepr repr = 3;
+}
+
+enum GraphRepr {
+    None = 0;
+    KubectlGraph = 1; 
+}

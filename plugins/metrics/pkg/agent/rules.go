@@ -9,6 +9,7 @@ import (
 
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/notifier"
@@ -22,10 +23,10 @@ type RuleStreamer struct {
 	logger              *zap.SugaredLogger
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
-	conditions          ConditionTracker
+	conditions          health.ConditionTracker
 }
 
-func NewRuleStreamer(ct ConditionTracker, lg *zap.SugaredLogger) *RuleStreamer {
+func NewRuleStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *RuleStreamer {
 	return &RuleStreamer{
 		logger:     lg,
 		conditions: ct,
@@ -39,7 +40,7 @@ func (s *RuleStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient
 }
 
 func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error {
-	s.conditions.Set(CondRuleSync, StatusPending, "")
+	s.conditions.Set(CondRuleSync, health.StatusPending, "")
 	defer s.conditions.Clear(CondRuleSync)
 
 	lg := s.logger
@@ -82,7 +83,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 						ca()
 					}
 					if err != nil {
-						s.conditions.Set(CondRuleSync, StatusFailure, err.Error())
+						s.conditions.Set(CondRuleSync, health.StatusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),

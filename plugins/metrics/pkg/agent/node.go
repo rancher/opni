@@ -11,6 +11,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
@@ -40,10 +41,10 @@ type MetricsNode struct {
 	config   *node.MetricsCapabilityConfig
 
 	listeners  []chan<- *node.MetricsCapabilityConfig
-	conditions ConditionTracker
+	conditions health.ConditionTracker
 }
 
-func NewMetricsNode(ct ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
+func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
 		logger:     lg,
 		conditions: ct,
@@ -151,7 +152,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	defer m.nodeClientMu.RUnlock()
 
 	if m.nodeClient == nil {
-		m.conditions.Set(CondConfigSync, StatusPending, "no client, skipping sync")
+		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
 		return
 	}
 
@@ -163,7 +164,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 	if err != nil {
 		err := fmt.Errorf("error syncing metrics node: %w", err)
-		m.conditions.Set(CondConfigSync, StatusFailure, err.Error())
+		m.conditions.Set(health.CondConfigSync, health.StatusFailure, err.Error())
 		return
 	}
 
@@ -175,7 +176,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 		m.updateConfig(syncResp.UpdatedConfig)
 	}
 
-	m.conditions.Clear(CondConfigSync)
+	m.conditions.Clear(health.CondConfigSync)
 }
 
 func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
@@ -185,9 +186,9 @@ func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
 	m.config = config
 
 	if !m.config.Enabled && len(m.config.Conditions) > 0 {
-		m.conditions.Set(CondBackend, StatusDisabled, strings.Join(m.config.Conditions, ", "))
+		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
 	} else {
-		m.conditions.Clear(CondBackend)
+		m.conditions.Clear(health.CondBackend)
 	}
 
 	for _, ch := range m.listeners {

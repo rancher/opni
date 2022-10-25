@@ -5,7 +5,7 @@ import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 
-package node;
+package node.metrics;
 
 // The NodeMetricsCapability service serves implementation-specific config
 // for metrics capability nodes.

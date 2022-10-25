@@ -35,7 +35,7 @@ func NewNodeLoggingCapabilityClient(cc grpc.ClientConnInterface) NodeLoggingCapa
 
 func (c *nodeLoggingCapabilityClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*SyncResponse, error) {
 	out := new(SyncResponse)
-	err := c.cc.Invoke(ctx, "/loggingnode.NodeLoggingCapability/Sync", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/node.logging.NodeLoggingCapability/Sync", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _NodeLoggingCapability_Sync_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/loggingnode.NodeLoggingCapability/Sync",
+		FullMethod: "/node.logging.NodeLoggingCapability/Sync",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodeLoggingCapabilityServer).Sync(ctx, req.(*SyncRequest))
@@ -92,7 +92,7 @@ func _NodeLoggingCapability_Sync_Handler(srv interface{}, ctx context.Context, d
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var NodeLoggingCapability_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "loggingnode.NodeLoggingCapability",
+	ServiceName: "node.logging.NodeLoggingCapability",
 	HandlerType: (*NodeLoggingCapabilityServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

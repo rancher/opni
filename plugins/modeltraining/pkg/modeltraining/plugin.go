@@ -68,7 +68,7 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	}
 	s.natsConnection.Set(nc)
 	s.kv.Set(keyValue)
-	client, err := newOpensearchConnection()
+	client, err := newOpensearchConnection(s.ctx)
 	if err != nil {
 		os.Exit(1)
 	}

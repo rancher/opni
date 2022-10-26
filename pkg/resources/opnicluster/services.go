@@ -35,12 +35,13 @@ import (
 func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 	return []resources.Resource{
 		r.nulogHyperparameters,
-		//r.inferenceDeployment,
+		r.inferenceDeployment,
 		r.drainDeployment,
+		r.workloadDrainDeployment,
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
-		//r.gpuCtrlDeployment,
+		r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
 		r.metricsServiceMonitor,
@@ -664,6 +665,32 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 		corev1.EnvVar{
 			Name:  "FAIL_KEYWORDS",
 			Value: "fail,error,missing,unable",
+		})
+	s3EnvVars := r.s3EnvVars()
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
+	if r.spec.S3.DrainS3Bucket != "" {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "S3_BUCKET",
+				Value: r.spec.S3.DrainS3Bucket,
+			})
+	}
+	deployment.Spec.Replicas = r.spec.Services.Drain.Replicas
+	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
+}
+
+func (r *Reconciler) pretrainedDrainDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.DrainService)
+	// temporary
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{
+			Name:  "FAIL_KEYWORDS",
+			Value: "fail,error,missing,unable",
+		})
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{
+			Name:  "IS_PRETRAINED_SERVICE",
+			Value: "false",
 		})
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)

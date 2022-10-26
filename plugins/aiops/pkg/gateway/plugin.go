@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"context"
@@ -14,12 +14,12 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ModelTrainingPlugin struct {
+type AIOpsPlugin struct {
 	modeltraining.UnsafeModelTrainingServer
 	system.UnimplementedSystemPluginClient
 	ctx            context.Context
@@ -30,7 +30,7 @@ type ModelTrainingPlugin struct {
 	kv             future.Future[nats.KeyValue]
 }
 
-func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient) {
+func (s *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
 	lg := s.Logger
 	nc, err := newNatsConnection()
 	if err != nil {
@@ -65,12 +65,11 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	<-s.ctx.Done()
 }
 
-var _ modeltraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)
+var _ modeltraining.ModelTrainingServer = (*AIOpsPlugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
-
-	p := &ModelTrainingPlugin{
+	p := &AIOpsPlugin{
 		Logger:         logger.NewPluginLogger().Named("modeltraining"),
 		ctx:            ctx,
 		k8sClient:      future.New[client.Client](),

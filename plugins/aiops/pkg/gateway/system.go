@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"crypto/tls"
@@ -42,7 +42,7 @@ func newNatsConnection() (*nats.Conn, error) {
 	)
 }
 
-func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
+func (s *AIOpsPlugin) newOpensearchConnection() (*opensearch.Client, error) {
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
 		namespace = "opni-cluster-system"

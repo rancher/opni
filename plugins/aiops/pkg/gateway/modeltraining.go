@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
+	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
 )
 
-func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadsList) (*corev1.Reference, error) {
+func (c *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadsList) (*corev1.Reference, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.List {
 		clusterId := item.ClusterId
@@ -46,7 +46,7 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	return &res, nil
 }
 
-func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadsList, error) {
+func (c *AIOpsPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadsList, error) {
 	result, err := c.kv.Get().Get("aggregation")
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 	return &workloadsList, nil
 }
 
-func (c *ModelTrainingPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty) (*corev1.Reference, error) {
+func (c *AIOpsPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty) (*corev1.Reference, error) {
 	b := []byte("model_status")
 	msg, err := c.natsConnection.Get().Request("model_status", b, time.Minute)
 	if err != nil {
@@ -82,7 +82,7 @@ func (c *ModelTrainingPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty
 	return &res, nil
 }
 
-func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.WorkloadsList, error) {
+func (c *AIOpsPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.WorkloadsList, error) {
 	b := []byte("model_training_parameters")
 	msg, err := c.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 	return &trainingParameters, nil
 }
 
-func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
+func (c *AIOpsPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 
 	nodes := &k8scorev1.NodeList{}
 	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {

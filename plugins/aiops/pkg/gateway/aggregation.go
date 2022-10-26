@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"bytes"
@@ -73,7 +73,7 @@ func (a *Aggregations) Add(bucket Bucket) {
 	}
 }
 
-func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
+func (s *AIOpsPlugin) aggregateWorkloadLogs() {
 	request := map[string]any{
 		"size": 0,
 		"query": map[string]any{
@@ -172,7 +172,7 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 	s.Logger.Info("Updated aggregation of deployments to Jetstream.")
 }
 
-func (s *ModelTrainingPlugin) runAggregation() {
+func (s *AIOpsPlugin) runAggregation() {
 	t := time.NewTicker(30 * time.Second)
 	for {
 		select {

@@ -2,27 +2,43 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/kubectl/pkg/util/templates"
 )
 
 var (
-	OpniComponents = &templates.CommandGroup{
-		Message: "Opni Components:",
+	OpniComponents = &cobra.Group{
+		ID:    "opni-components",
+		Title: "Opni Components:",
 	}
-	ManagementAPI = &templates.CommandGroup{
-		Message: "Management API:",
+	ManagementAPI = &cobra.Group{
+		ID:    "management-api",
+		Title: "Management API:",
 	}
-	PluginAPIs = &templates.CommandGroup{
-		Message: "Plugin APIs:",
+	PluginAPIs = &cobra.Group{
+		ID:    "plugin-apis",
+		Title: "Plugin APIs:",
 	}
-	Utilities = &templates.CommandGroup{
-		Message: "Utilities:",
+	Utilities = &cobra.Group{
+		ID:    "utilities",
+		Title: "Utilities:",
 	}
-	Debug = &templates.CommandGroup{
-		Message: "Debug:",
+	Debug = &cobra.Group{
+		ID:    "debug",
+		Title: "Debug:",
+	}
+	AllGroups = []*cobra.Group{
+		OpniComponents,
+		ManagementAPI,
+		PluginAPIs,
+		Utilities,
+		Debug,
 	}
 )
 
-func AddCommandsToGroup(group *templates.CommandGroup, cmds ...*cobra.Command) {
-	group.Commands = append(group.Commands, cmds...)
+var AllCommands []*cobra.Command
+
+func AddCommandsToGroup(group *cobra.Group, cmds ...*cobra.Command) {
+	for _, cmd := range cmds {
+		cmd.GroupID = group.ID
+	}
+	AllCommands = append(AllCommands, cmds...)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/ttacon/chalk"
-	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/spf13/cobra"
 )
@@ -20,21 +19,15 @@ func BuildRootCmd() *cobra.Command {
 		Long:         chalk.ResetColor.Color(logger.AsciiLogo()),
 		SilenceUsage: true,
 	}
-	rootCmd.PersistentFlags().BoolVar(&common.DisableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
 
-	groups := templates.CommandGroups{
-		*commands.OpniComponents,
-		*commands.ManagementAPI,
-		*commands.PluginAPIs,
-		*commands.Utilities,
-		*commands.Debug,
-	}
+	rootCmd.AddGroup(commands.AllGroups...)
+	rootCmd.AddCommand(commands.AllCommands...)
 
-	groups.Add(rootCmd)
 	rootCmd.AddCommand(commands.CompletionCmd)
 	rootCmd.AddCommand(commands.BuildVersionCmd())
-	fe := templates.ActsAsRootCommand(rootCmd, nil, groups...)
-	fe.ExposeFlags(rootCmd, "disable-usage")
+
+	rootCmd.PersistentFlags().BoolVar(&common.DisableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
+	rootCmd.PersistentFlags().StringP("address", "a", "", "Management API address (default: auto-detect)")
 
 	return rootCmd
 }

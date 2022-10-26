@@ -18,7 +18,6 @@ var managementListenAddress string
 var lg = logger.New()
 
 func ConfigureManagementCommand(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringP("address", "a", "", "Management API address (default: auto-detect)")
 	if cmd.PersistentPreRunE == nil {
 		cmd.PersistentPreRunE = managementPreRunE
 	} else {
@@ -31,7 +30,7 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 	}
 }
 
-func managementPreRunE(cmd *cobra.Command, args []string) error {
+func managementPreRunE(cmd *cobra.Command, _ []string) error {
 	tracing.Configure("cli")
 	address := cmd.Flag("address").Value.String()
 	if address == "" {

@@ -7,18 +7,33 @@ import (
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	util "github.com/rancher/opni/pkg/util/k8sutil"
 	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
 )
 
+type ModelTrainingParameters struct {
+	ByCluster map[string]*ClusterParameters `json:",inline,omitEmpty"`
+}
+
+type ClusterParameters struct {
+	ByNamespace map[string]*NamespaceParameters `json:",inline,omitEmpty"`
+}
+
+type NamespaceParameters struct {
+	ByDeployment map[string]*Deployment `json:",inline,omitEmpty"`
+}
+
+type Deployment struct {
+	DeploymentName string `json:",inline,omitEmpty"`
+}
+
 func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadsList) (*corev1.Reference, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
-	for idx := 0; idx < len(in.List); idx++ {
-		clusterId := in.List[idx].ClusterId
-		namespaceName := in.List[idx].Namespace
-		deploymentName := in.List[idx].Deployment
+	for _, item := range in.List {
+		clusterId := item.ClusterId
+		namespaceName := item.Namespace
+		deploymentName := item.Deployment
 		_, clusterFound := modelTrainingParameters[clusterId]
 		if clusterFound {
 			_, namespaceFound := modelTrainingParameters[clusterId][namespaceName]
@@ -65,8 +80,8 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 	workloadArray := make([]*modeltraining.WorkloadResponse, 0)
 	for namespaceName, deployments := range clusterAggregationResults.ByNamespace {
 		for deploymentName, count := range deployments.ByDeployment {
-			workload_aggregation := modeltraining.WorkloadResponse{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, Count: int64(count.Count)}
-			workloadArray = append(workloadArray, &workload_aggregation)
+			workloadAggregation := modeltraining.WorkloadResponse{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, Count: int64(count.Count)}
+			workloadArray = append(workloadArray, &workloadAggregation)
 		}
 	}
 	workloadsList.List = workloadArray
@@ -91,19 +106,19 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 	}
 	trainingParameters := modeltraining.WorkloadsList{}
 	parametersArray := make([]*modeltraining.WorkloadResponse, 0)
-	var results_storage = map[string]map[string][]string{}
-	if err := json.Unmarshal(msg.Data, &results_storage); err != nil {
+	var resultsStorage = map[string]map[string][]string{}
+	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
 		return nil, err
 	}
-	for clusterName, namespaces := range results_storage {
+	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {
 			if deployments == nil {
 				c.Logger.Error("Unexpected nil deployment for array.")
 				continue
 			}
-			for deployment_idx := range deployments {
-				deployment_data := modeltraining.WorkloadResponse{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deployment_idx]}
-				parametersArray = append(parametersArray, &deployment_data)
+			for deploymentIdx := range deployments {
+				deploymentData := modeltraining.WorkloadResponse{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
+				parametersArray = append(parametersArray, &deploymentData)
 			}
 		}
 	}
@@ -112,12 +127,9 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 }
 
 func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
-	client, err := util.NewK8sClient(util.ClientOptions{})
-	if err != nil {
-		return nil, err
-	}
+
 	nodes := &k8scorev1.NodeList{}
-	if err := client.List(ctx, nodes); err != nil {
+	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
 		return nil, err
 	}
 	returnedData := modeltraining.GPUInfoList{}

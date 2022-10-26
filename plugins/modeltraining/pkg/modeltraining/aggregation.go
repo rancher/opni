@@ -71,99 +71,114 @@ func (a *Aggregations) Add(bucket Bucket) {
 	}
 }
 
-func (s *ModelTrainingPlugin) run_aggregation() {
+func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
+	request := map[string]any{
+		"size": 0,
+		"query": map[string]any{
+			"bool": map[string]any{
+				"must": []map[string]any{
+					{
+						"match": map[string]any{
+							"log_type": "workload",
+						},
+					},
+					{
+						"regexp": map[string]any{
+							"kubernetes.namespace_name.keyword": ".+",
+						},
+					},
+					{
+						"regexp": map[string]any{
+							"deployment.keyword": ".+",
+						},
+					},
+				},
+			},
+		},
+		"aggs": map[string]any{
+			"bucket": map[string]any{
+				"composite": map[string]any{
+					"size": 4,
+					"sources": []map[string]any{
+						{
+							"cluster_id": map[string]any{
+								"terms": map[string]any{
+									"field": "cluster_id",
+								},
+							},
+						},
+						{
+							"namespace_name": map[string]any{
+								"terms": map[string]any{
+									"field": "kubernetes.namespace_name.keyword",
+								},
+							},
+						},
+						{
+							"deployment_name": map[string]any{
+								"terms": map[string]any{
+									"field": "deployment.keyword",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resultAgg := newAggregations()
 	for {
-		request := map[string]interface{}{
-			"size": 0,
-			"query": map[string]interface{}{
-				"bool": map[string]interface{}{
-					"must": []map[string]interface{}{
-						{
-							"match": map[string]interface{}{
-								"log_type": "workload",
-							},
-						},
-						{
-							"regexp": map[string]interface{}{
-								"kubernetes.namespace_name.keyword": ".+",
-							},
-						},
-						{
-							"regexp": map[string]interface{}{
-								"deployment.keyword": ".+",
-							},
-						},
-					},
-				},
-			},
-			"aggs": map[string]interface{}{
-				"bucket": map[string]interface{}{
-					"composite": map[string]interface{}{
-						"size": 4,
-						"sources": []map[string]interface{}{
-							{
-								"cluster_id": map[string]interface{}{
-									"terms": map[string]interface{}{
-										"field": "cluster_id",
-									},
-								},
-							},
-							{
-								"namespace_name": map[string]interface{}{
-									"terms": map[string]interface{}{
-										"field": "kubernetes.namespace_name.keyword",
-									},
-								},
-							},
-							{
-								"deployment_name": map[string]interface{}{
-									"terms": map[string]interface{}{
-										"field": "deployment.keyword",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		resultAgg := newAggregations()
-		for {
-			var buf bytes.Buffer
-			//var r map[string]interface{}
-			if err := json.NewEncoder(&buf).Encode(request); err != nil {
-				log.Fatalf("Error getting response: %s", err)
+		var buf bytes.Buffer
+		if err := json.NewEncoder(&buf).Encode(request); err != nil {
+			log.Fatalf("Error: Unable to encode request: %s", err)
 
-			}
-			res, err := s.osClient.Get().Search(
-				s.osClient.Get().Search.WithContext(context.Background()),
-				s.osClient.Get().Search.WithIndex("logs"),
-				s.osClient.Get().Search.WithBody(&buf),
-				s.osClient.Get().Search.WithTrackTotalHits(true),
-				s.osClient.Get().Search.WithPretty(),
-			)
-			if err != nil {
-				log.Fatalf("Error getting response: %s", err)
-			}
-			defer res.Body.Close()
-			var result SearchResponse
-			if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-				log.Fatalf("Error parsing the response body: %s", err)
-			}
-			for _, b := range result.Aggregations.Bucket.Buckets {
-				resultAgg.Add(b)
-			}
-			after_key := result.Aggregations.Bucket.AfterKey
-			if after_key != nil {
-				((request["aggs"].(map[string]interface{})["bucket"]).(map[string]interface{})["composite"]).(map[string]interface{})["after"] = after_key
-			} else {
-				break
-			}
 		}
-		aggregated_results, _ := json.Marshal(resultAgg)
-		bytes_aggregation := []byte(aggregated_results)
-		s.kv.Get().Put("aggregation", bytes_aggregation)
-		s.Logger.Info("Updated aggregation of deployments to Jetstream.")
-		time.Sleep(30 * time.Second)
+		res, err := s.osClient.Get().Search(
+			s.osClient.Get().Search.WithContext(context.Background()),
+			s.osClient.Get().Search.WithIndex("logs"),
+			s.osClient.Get().Search.WithBody(&buf),
+			s.osClient.Get().Search.WithTrackTotalHits(true),
+			s.osClient.Get().Search.WithPretty(),
+		)
+		if err != nil {
+			s.Logger.Fatalf("Unable to connect to Opensearch %s", err)
+		}
+		defer res.Body.Close()
+		if res.IsError() {
+			s.Logger.Fatalf("Error: %s", res.String())
+		}
+		var result SearchResponse
+		if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+			s.Logger.Fatalf("Error parsing the response body: %s", err)
+		}
+		for _, b := range result.Aggregations.Bucket.Buckets {
+			resultAgg.Add(b)
+		}
+		afterKey := result.Aggregations.Bucket.AfterKey
+		if afterKey != nil {
+			((request["aggs"].(map[string]any)["bucket"]).(map[string]any)["composite"]).(map[string]any)["after"] = afterKey
+		} else {
+			break
+		}
+	}
+	aggregatedResults, err := json.Marshal(resultAgg)
+	if err != nil {
+		s.Logger.Fatalf("Error: %s", err)
+	}
+	bytesAggregation := []byte(aggregatedResults)
+	s.kv.Get().Put("aggregation", bytesAggregation)
+	s.Logger.Info("Updated aggregation of deployments to Jetstream.")
+}
+
+func (s *ModelTrainingPlugin) runAggregation() {
+	t := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-t.C:
+			s.aggregateWorkloadLogs()
+		case <-s.ctx.Done():
+			t.Stop()
+			return
+		}
 	}
 }

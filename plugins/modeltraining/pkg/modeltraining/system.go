@@ -1,24 +1,20 @@
 package modeltraining
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/resources"
-	util "github.com/rancher/opni/pkg/util/k8sutil"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/cenkalti/backoff"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	opsterv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 )
 
 func newNatsConnection() (*nats.Conn, error) {
@@ -46,50 +42,12 @@ func newNatsConnection() (*nats.Conn, error) {
 	)
 }
 
-func getOpensearchCredentials(ctx context.Context) (username string, password string) {
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return "admin", "admin"
-	}
-	labels := map[string]string{
-		resources.OpniClusterID: id,
-	}
-	k8sClient, err := util.NewK8sClient(util.ClientOptions{Scheme: apis.NewScheme()})
-	if err != nil {
-		return "admin", "admin"
-	}
-	secrets := &corev1.SecretList{}
-	namespace, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		namespace = "opni-cluster-system"
-	}
-	if err := k8sClient.List(ctx, secrets, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
-		return "admin", "admin"
-	}
-
-	if len(secrets.Items) != 1 {
-		return "admin", "admin"
-	}
-
-	username = secrets.Items[0].Name
-	password = string(secrets.Items[0].Data["password"])
-	return username, password
-}
-
-func getOpensearchEndpoint() string {
-
-	namespace, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		namespace = "opni-cluster-system"
-	}
-	endpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", namespace)
-	return endpoint
-}
-
 func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
-	esEndpoint := getOpensearchEndpoint()
-	esUsername, esPassword := getOpensearchCredentials(s.ctx)
-
+	namespace, ok := os.LookupEnv("POD_NAMESPACE")
+	if !ok {
+		namespace = "opni-cluster-system"
+	}
+	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", namespace)
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
 		backoffv2.WithMinInterval(5*time.Second),
@@ -97,22 +55,39 @@ func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, err
 		backoffv2.WithMultiplier(1.1),
 	)
 	b := retrier.Start(s.ctx)
-	var (
-		client *opensearch.Client
-	)
-	for backoffv2.Continue(b) {
-		osClient, err := opensearch.NewClient(opensearch.Config{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-			Addresses: []string{esEndpoint},
-			Username:  esUsername,
-			Password:  esPassword,
-		})
-		if err == nil {
-			client = osClient
-			break
+	cluster := &opsterv1.OpenSearchCluster{}
+FETCH:
+	for {
+		select {
+		case <-b.Done():
+			s.Logger.Warn("plugin context cancelled before Opensearch object created")
+		case <-b.Next():
+			err := s.k8sClient.Get().Get(s.ctx, types.NamespacedName{
+				Name:      "opni",
+				Namespace: namespace,
+			}, cluster)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					s.Logger.Info("waiting for k8s object")
+					continue
+				}
+				s.Logger.Errorf("failed to check k8s object: %v", err)
+				continue
+			}
+			break FETCH
 		}
 	}
-	return client, nil
+	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient.Get(), cluster)
+	if err != nil {
+		return nil, err
+	}
+	osClient, err := opensearch.NewClient(opensearch.Config{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Addresses: []string{esEndpoint},
+		Username:  esUsername,
+		Password:  esPassword,
+	})
+	return osClient, err
 }

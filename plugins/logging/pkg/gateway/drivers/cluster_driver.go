@@ -8,6 +8,7 @@ import (
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/samber/lo"
 )
 
 type InstallState int
@@ -77,6 +78,13 @@ func GetClusterDriver(name string) (ClusterDriver, error) {
 		return nil, fmt.Errorf("driver not found")
 	}
 	return driver, nil
+}
+
+func ListClusterDrivers() []string {
+	lock.Lock()
+	defer lock.Unlock()
+
+	return lo.Keys(clusterDrivers)
 }
 
 func ResetClusterDrivers() {

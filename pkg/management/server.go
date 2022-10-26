@@ -286,13 +286,45 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*managementv1
 	return resp, nil
 }
 
-func (m *Server) ListCapabilities(ctx context.Context, _ *emptypb.Empty) (*managementv1.CapabilityList, error) {
+func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*managementv1.CapabilityList, error) {
 	if m.capabilitiesDataSource == nil {
 		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
 	}
 
+	clusters, err := m.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int32)
+	for _, cluster := range clusters.Items {
+		for _, cap := range cluster.GetCapabilities() {
+			counts[cap.Name]++
+		}
+	}
+
+	names := m.capabilitiesDataSource.CapabilitiesStore().List()
+	var items []*managementv1.CapabilityInfo
+	for _, name := range names {
+		capability, err := m.capabilitiesDataSource.CapabilitiesStore().Get(name)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		details, err := capability.Info(ctx, in)
+		if err != nil {
+			m.logger.With(
+				zap.Error(err),
+				zap.String("capability", name),
+			).Error("failed to fetch capability details")
+			continue
+		}
+		items = append(items, &managementv1.CapabilityInfo{
+			Details:   details,
+			NodeCount: counts[name],
+		})
+	}
+
 	return &managementv1.CapabilityList{
-		Items: m.capabilitiesDataSource.CapabilitiesStore().List(),
+		Items: items,
 	}, nil
 }
 

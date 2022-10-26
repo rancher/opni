@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
+	drivers "github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -58,9 +59,11 @@ func (m *LoggingNode) SetClient(client node.NodeLoggingCapabilityClient) {
 	go m.doSync(context.Background())
 }
 
-func (m *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
-	return &capabilityv1.InfoResponse{
-		CapabilityName: wellknown.CapabilityLogs,
+func (m *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityLogs,
+		Source:  "plugin_logging",
+		Drivers: drivers.ListNodeDrivers(),
 	}, nil
 }
 

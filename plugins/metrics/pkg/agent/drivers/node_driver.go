@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/samber/lo"
 )
 
 type MetricsNodeDriver interface {
@@ -53,6 +54,13 @@ func GetNodeDriver(name string) (MetricsNodeDriver, error) {
 		return nil, fmt.Errorf("driver not found")
 	}
 	return driver, nil
+}
+
+func ListNodeDrivers() []string {
+	lock.Lock()
+	defer lock.Unlock()
+
+	return lo.Keys(nodeDrivers)
 }
 
 func ResetNodeDrivers() {

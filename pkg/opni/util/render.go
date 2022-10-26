@@ -216,9 +216,14 @@ func RenderAccessMatrix(am AccessMatrix) string {
 func RenderCapabilityList(list *managementv1.CapabilityList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME"})
+	w.AppendHeader(table.Row{"NAME", "SOURCE", "DRIVERS", "CLUSTERS"})
 	for _, c := range list.Items {
-		w.AppendRow(table.Row{c})
+		w.AppendRow(table.Row{
+			c.GetDetails().GetName(),
+			c.GetDetails().GetSource(),
+			strings.Join(c.GetDetails().GetDrivers(), ","),
+			c.GetNodeCount(),
+		})
 	}
 	return w.Render()
 }

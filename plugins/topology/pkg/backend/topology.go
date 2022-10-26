@@ -71,10 +71,17 @@ func (t *TopologyBackend) Initialize(conf TopologyBackendConfig) {
 	})
 }
 
-func (t *TopologyBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+func (t *TopologyBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	// !! Info must never block
-	return &capabilityv1.InfoResponse{
-		CapabilityName: wellknown.CapabilityTopology,
+	var drivers []string
+	if t.Initialized() {
+		drivers = append(drivers, t.ClusterDriver.Name())
+	}
+
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityTopology,
+		Source:  "plugin_topology",
+		Drivers: drivers,
 	}, nil
 }
 

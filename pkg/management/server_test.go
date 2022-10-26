@@ -92,7 +92,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(list.Items).To(HaveLen(2))
 		found := [2]bool{}
-		for _, cap := range list.Items {
+		for _, cap := range list.Names() {
 			switch cap {
 			case "capability1":
 				found[0] = true

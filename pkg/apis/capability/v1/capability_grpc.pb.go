@@ -25,7 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BackendClient interface {
 	// Returns info about the backend, including capability name
-	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InfoResponse, error)
+	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error)
 	// Deprecated: Do not use.
 	// Returns an error if installing the capability would fail.
 	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -58,8 +58,8 @@ func NewBackendClient(cc grpc.ClientConnInterface) BackendClient {
 	return &backendClient{cc}
 }
 
-func (c *backendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InfoResponse, error) {
-	out := new(InfoResponse)
+func (c *backendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error) {
+	out := new(Details)
 	err := c.cc.Invoke(ctx, "/capability.Backend/Info", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty
 // for forward compatibility
 type BackendServer interface {
 	// Returns info about the backend, including capability name
-	Info(context.Context, *emptypb.Empty) (*InfoResponse, error)
+	Info(context.Context, *emptypb.Empty) (*Details, error)
 	// Deprecated: Do not use.
 	// Returns an error if installing the capability would fail.
 	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
@@ -167,7 +167,7 @@ type BackendServer interface {
 type UnimplementedBackendServer struct {
 }
 
-func (UnimplementedBackendServer) Info(context.Context, *emptypb.Empty) (*InfoResponse, error) {
+func (UnimplementedBackendServer) Info(context.Context, *emptypb.Empty) (*Details, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
 }
 func (UnimplementedBackendServer) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {

@@ -7,3 +7,11 @@ func (gc *GatewayConfig) YAMLDocuments() [][]byte {
 	}
 	return docs
 }
+
+func (cl *CapabilityList) Names() []string {
+	names := []string{}
+	for _, c := range cl.Items {
+		names = append(names, c.Details.Name)
+	}
+	return names
+}

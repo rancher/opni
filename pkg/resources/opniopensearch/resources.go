@@ -43,8 +43,8 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		version,
 	)
 
-	newSecurity := r.instance.Spec.OpensearchSettings.Security.DeepCopy()
-	newSecurity.Config = &opsterv1.SecurityConfig{
+	updatedSecurityConfig := r.instance.Spec.OpensearchSettings.Security.DeepCopy()
+	updatedSecurityConfig.Config = &opsterv1.SecurityConfig{
 		SecurityconfigSecret: corev1.LocalObjectReference{
 			Name: fmt.Sprintf("%s-securityconfig", r.instance.Name),
 		},
@@ -99,7 +99,7 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 				}(),
 			},
 			NodePools:  r.instance.Spec.NodePools,
-			Security:   newSecurity,
+			Security:   updatedSecurityConfig,
 			Dashboards: r.instance.Spec.Dashboards,
 		},
 	}

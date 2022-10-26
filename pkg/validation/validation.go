@@ -13,6 +13,7 @@ var (
 
 	ErrMissingRequiredField = Error("missing required field")
 	ErrInvalidValue         = Error("invalid value")
+	ErrDuplicate            = Error("duplicate value in list")
 	ErrReadOnlyField        = Error("field is read-only")
 	ErrInvalidLabelName     = Errorf("label names %s, and %s", nameConstraint, lengthConstraint(64))
 	ErrInvalidLabelValue    = Errorf("label values %s, and %s", nameConstraint, lengthConstraint(64))

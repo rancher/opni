@@ -21,6 +21,7 @@ func BuildTokensCmd() *cobra.Command {
 	tokensCmd.AddCommand(BuildTokensCreateCmd())
 	tokensCmd.AddCommand(BuildTokensRevokeCmd())
 	tokensCmd.AddCommand(BuildTokensListCmd())
+	tokensCmd.AddCommand(BuildTokensGetCmd())
 	ConfigureManagementCommand(tokensCmd)
 	return tokensCmd
 }
@@ -58,9 +59,12 @@ func BuildTokensCreateCmd() *cobra.Command {
 
 func BuildTokensRevokeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "revoke <token>",
+		Use:   "revoke <token-id> [token-id]...",
 		Short: "Revoke a bootstrap token",
 		Args:  cobra.MinimumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeBootstrapTokens(cmd, args, toComplete)
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, token := range args {
 				_, err := mgmtClient.RevokeBootstrapToken(cmd.Context(),
@@ -92,9 +96,12 @@ func BuildTokensListCmd() *cobra.Command {
 
 func BuildTokensGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <token-id>...",
+		Use:   "get <token-id> [token-id]...",
 		Short: "get bootstrap tokens",
 		Args:  cobra.MinimumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeBootstrapTokens(cmd, args, toComplete)
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			tokenList := []*corev1.BootstrapToken{}
 			for _, id := range args {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/samber/lo"
 )
 
 func (c *Cluster) Validate() error {
@@ -62,6 +63,9 @@ func (s *ClusterSelector) Validate() error {
 			return err
 		}
 	}
+	if len(lo.Uniq(s.ClusterIDs)) != len(s.ClusterIDs) {
+		return fmt.Errorf("%w: %s", validation.ErrDuplicate, "clusterIDs")
+	}
 	if s.LabelSelector != nil {
 		if err := s.LabelSelector.Validate(); err != nil {
 			return err
@@ -81,6 +85,9 @@ func (r *Role) Validate() error {
 		if err := validation.ValidateID(clusterID); err != nil {
 			return fmt.Errorf("%w: %q", err, clusterID)
 		}
+	}
+	if len(lo.Uniq(r.ClusterIDs)) != len(r.ClusterIDs) {
+		return fmt.Errorf("%w: %s", validation.ErrDuplicate, "clusterIDs")
 	}
 	if r.MatchLabels != nil {
 		if err := r.MatchLabels.Validate(); err != nil {

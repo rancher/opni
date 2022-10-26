@@ -61,6 +61,12 @@ func BuildCapabilityInstallCmd() *cobra.Command {
 		Use:   "install <capability-name> <cluster-id> [cluster-id ...]",
 		Short: "Install a capability on one or more clusters",
 		Args:  cobra.MinimumNArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeCapability(cmd, args, toComplete)
+			}
+			return completeClusters(cmd, args[1:], toComplete, filterDoesNotHaveCapability(args[0]))
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, clusterID := range args[1:] {
 				resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
@@ -99,7 +105,13 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <capability-name> <cluster-id> [cluster-id ...]",
 		Short: "Uninstall a capability from one or more clusters",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.MinimumNArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeCapability(cmd, args, toComplete, filterNodeCountNonZero)
+			}
+			return completeClusters(cmd, args[1:], toComplete, filterHasCapability(args[0]))
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, clusterID := range args[1:] {
 				_, err := mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
@@ -138,6 +150,17 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 		Use:   "cancel-uninstall <capability-name> <cluster-id>",
 		Short: "Cancel an in-progress uninstall of a capability",
 		Args:  cobra.ExactArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeCapability(cmd, args, toComplete, filterNodeCountNonZero)
+			}
+			return completeClusters(cmd, args[1:], toComplete, filterHasCapability(args[0]), func(c *corev1.Cluster) bool {
+				for _, cap := range c.GetCapabilities() {
+					return cap.DeletionTimestamp != nil
+				}
+				return false
+			})
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := mgmtClient.CancelCapabilityUninstall(cmd.Context(), &managementv1.CapabilityUninstallCancelRequest{
 				Name: args[0],
@@ -166,6 +189,12 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 		Use:   "status <capability-name> <cluster-id>",
 		Short: "Show the status of a capability, or the status of an in-progress uninstall operation",
 		Args:  cobra.ExactArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeCapability(cmd, args, toComplete, filterNodeCountNonZero)
+			}
+			return completeClusters(cmd, args[1:], toComplete, filterHasCapability(args[0]))
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
 				Id: args[1],

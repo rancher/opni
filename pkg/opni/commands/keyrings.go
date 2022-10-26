@@ -37,6 +37,9 @@ func BuildKeyringsGetCmd() *cobra.Command {
 		Use:   "get <cluster-id>",
 		Short: "get keyring data for a cluster",
 		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeClusters(cmd, args, toComplete)
+		},
 		PreRun: func(*cobra.Command, []string) {
 			logger.DefaultLogLevel.SetLevel(zapcore.WarnLevel)
 		},

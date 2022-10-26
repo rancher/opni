@@ -17,13 +17,13 @@ type PatchInfo struct {
 	OldHash   string
 }
 
-type TODOList struct {
+type PatchList struct {
 	// pluginPath to  operation
 	Items map[string]PatchInfo
 }
 
-func (m *ManifestMetadataList) LeftJoinOn(other *ManifestMetadataList) (*TODOList, error) {
-	res := &TODOList{
+func (m *ManifestMetadataList) LeftJoinOn(other *ManifestMetadataList) (*PatchList, error) {
+	res := &PatchList{
 		Items: make(map[string]PatchInfo),
 	}
 	for otherPath, _ := range other.Items {

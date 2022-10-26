@@ -415,18 +415,18 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataL
 	// read local plugins on disk here
 	localManifests, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hit an error getting filesystem plugins based on config %s", err)
 	}
 
 	patchList, err := manifestClient.SendManifestsOrKnownPatch(ctx, localManifests, grpc.UseCompressor("zstd"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hit an error requesting plugins/patches from gateway %s", err)
 	}
 	a.Logger.Info("received patch manifest from gateway")
 
 	done, err := patch.PatchWith(ctx, a.config.Plugins, patchList, a.Logger, manifestClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("hit an error patching agent's plugins : %s", err)
 	}
 
 	go func() {
@@ -437,7 +437,7 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataL
 	// read local manifests again
 	localManifests, err = patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("filesystem plugins sanity check failed after patching : %s", err)
 	}
 
 	return localManifests, nil

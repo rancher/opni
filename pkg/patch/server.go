@@ -1,6 +1,7 @@
 package patch
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -109,8 +110,10 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 
 	ops, err := ourManifestMetadata.LeftJoinOn(theirManifestMetadata)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to reconcile which manifests the gateway should send : %s", err)
 	}
+	f.Logger.Debug("%v manifests to send", ops)
+
 	res := &v1.ManifestList{
 		Manifests: make(map[string]*v1.CompressedManifest),
 	}
@@ -127,10 +130,11 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 					NewHash: op.NewHash,
 				},
 			}
-		} else {
+		} else { // no known patch
+			// FIXME: ? think about doing this in parallel
 			data, err := os.ReadFile(op.OurPath)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not read a requested plugin in path '%s' : %s", op.OurPath, err)
 			}
 			// if there are no pending requests for an agent to upload this patch, ask this agent to upload it
 			key := f.patchCache.Key(pluginName, op.OldHash, op.NewHash)
@@ -288,45 +292,46 @@ func PatchWith(
 			case v1.PatchOp_UPDATE:
 				if info.GetIsPatch() { // patch received from gateway
 					lg.Info("patching plugin")
-					// existingPluginFile, err := os.Open(fullPluginPath)
-					// if err != nil {
-					// 	return err
-					// }
-					// bufReader := bufio.NewReader(existingPluginFile)
-					existingData, err := os.ReadFile(fullPluginPath)
+					existingDataReader, err := os.Open(fullPluginPath) //FIXME: close this
+					if err != nil {
+						return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
+					}
+					var patchResult bytes.Buffer
+					err = ApplyIOStreamPatch(existingDataReader, bytes.NewReader(receivedData), &patchResult)
 					if err != nil {
 						return err
 					}
-					// TODO : use a streaming patcher
-					patchResult, err := ApplyPatch(existingData, receivedData)
-					if err != nil {
-						return err
-					}
-					err = os.WriteFile(fullPluginPath, patchResult, 0755)
+					existingDataReader.Close()
+					err = os.WriteFile(fullPluginPath, patchResult.Bytes(), 0755)
 					if err != nil {
 						return err
 					}
 				} else { // whole file received from gateway
 					lg.Info("updating plugin")
-					existingData, err := os.ReadFile(fullPluginPath)
-					if err != nil {
-						return err
-					}
-
-					err = os.WriteFile(fullPluginPath, receivedData, 0755)
-					if err != nil {
-						return err
-					}
 					if info.RequestPatchUpload {
+						existingDataReader, err := os.Open(fullPluginPath)
+						if err != nil {
+							return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
+						}
 						lg.Info("gateway requested patch upload for plugin")
 						oldHash := v.GetDataAndInfo().GetOldHash()
 						newHash := v.GetDataAndInfo().GetNewHash()
 						backgroundTasks.Add(1)
 						go func() {
-							defer backgroundTasks.Done()
+							defer func() {
+								existingDataReader.Close()
+								backgroundTasks.Done()
+								// FIXME: this isn't great
+								err = os.WriteFile(fullPluginPath, receivedData, 0755)
+								if err != nil {
+									lg.Errorf("Could not write patched plugin binary: %s", err)
+									return
+								}
+								backgroundTasks.Done()
+							}()
 							lg.Info("computing patch")
-							// TODO : use a streaming patcher
-							patch, err := GeneratePatch(existingData, receivedData)
+							var patch bytes.Buffer
+							err := GenerateIOStreamPatch(existingDataReader, bytes.NewReader(receivedData), &patch)
 							if err != nil {
 								lg.With(
 									zap.Error(err),
@@ -338,7 +343,7 @@ func PatchWith(
 								PluginName: pluginBaseName,
 								OldHash:    oldHash,
 								NewHash:    newHash,
-								Patch:      patch,
+								Patch:      patch.Bytes(),
 							})
 							if err != nil {
 								lg.With(
@@ -346,6 +351,11 @@ func PatchWith(
 								).Error("failed to upload patch")
 							}
 						}()
+					} else { // go ahead and annihilate the old file
+						err := os.WriteFile(fullPluginPath, receivedData, 0755)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			case v1.PatchOp_REMOVE:

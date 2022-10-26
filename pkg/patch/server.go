@@ -1,6 +1,7 @@
 package patch
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -11,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mmap/mmap"
 	"github.com/hashicorp/go-plugin"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -305,16 +305,18 @@ func PatchWith(
 			case controlv1.PatchOp_UPDATE:
 				if info.GetIsPatch() { // patch received from gateway
 					lg.Infof("patching plugin with known patch revision: %s -> ", info.GetOldHash(), info.GetNewHash())
-					existingDataReader, err := os.Open(fullPluginPath)
+					outdatedRawBytes, err := os.ReadFile(fullPluginPath)
 					if err != nil {
 						return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
 					}
+					outdatedBufferedReader := bufio.NewReader(bytes.NewReader(outdatedRawBytes))
+					newBufferedReader := bufio.NewReader(bytes.NewReader(receivedData))
+
 					var patchResult bytes.Buffer
-					err = ApplyIOStreamPatch(existingDataReader, bytes.NewReader(receivedData), &patchResult)
+					err = ApplyIOStreamPatch(outdatedBufferedReader, newBufferedReader, &patchResult)
 					if err != nil {
 						return err
 					}
-					existingDataReader.Close()
 					err = os.WriteFile(fullPluginPath, patchResult.Bytes(), 0755)
 					if err != nil {
 						return err
@@ -322,27 +324,27 @@ func PatchWith(
 				} else { // whole file received from gateway
 					lg.Info("updating plugin without known patch")
 					if info.RequestPatchUpload {
-						copyOutdatedReader, err := mmap.OpenFile(fullPluginPath, mmap.Read)
+						outdatedPluginBytes, err := os.ReadFile(fullPluginPath)
 						if err != nil {
-							return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
+							return fmt.Errorf("could not open the plugin '%s' : %s", fullPluginPath, err)
 						}
 						err = os.WriteFile(fullPluginPath, receivedData, 0755)
 						if err != nil {
-							return fmt.Errorf("could not write to the found plugin binary : %s", err)
+							return fmt.Errorf("could not write to the the plugin '%s' : %s", fullPluginPath, err)
 						}
-
+						outdatedBufferedReader := bufio.NewReader(bytes.NewBuffer(outdatedPluginBytes))
+						newBufferedReader := bufio.NewReader(bytes.NewBuffer(receivedData))
 						lg.Info("gateway requested patch upload for plugin : %s", fullPluginPath)
 						oldHash := v.GetDataAndInfo().GetOldHash()
 						newHash := v.GetDataAndInfo().GetNewHash()
 						backgroundTasks.Add(1)
 						go func() {
 							defer func() {
-								copyOutdatedReader.Close()
 								backgroundTasks.Done()
 							}()
 							lg.Info("computing patch")
 							var patch bytes.Buffer
-							err := GenerateIOStreamPatch(copyOutdatedReader, bytes.NewReader(receivedData), &patch)
+							err := GenerateIOStreamPatch(outdatedBufferedReader, newBufferedReader, &patch)
 							if err != nil {
 								lg.With(
 									zap.Error(err),

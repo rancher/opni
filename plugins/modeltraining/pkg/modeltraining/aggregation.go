@@ -50,7 +50,9 @@ type DeploymentLogCount struct {
 }
 
 func newAggregations() *Aggregations {
-	return &Aggregations{ByCluster: make(map[string]*ClusterAggregation)}
+	return &Aggregations{
+		ByCluster: make(map[string]*ClusterAggregation),
+	}
 }
 
 func (a *Aggregations) Add(bucket Bucket) {

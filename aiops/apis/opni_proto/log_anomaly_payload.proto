@@ -15,6 +15,10 @@ message Payload {
   int64 template_cluster_id = 8;
   string inference_model = 9;
   float opnilog_confidence = 10;
+  string pod_name = 11;
+  string namespace_name = 12;
+  string deployment = 13;
+  string service = 14;
 }
 
 message PayloadList {

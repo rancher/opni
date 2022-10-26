@@ -1,239 +1,206 @@
 package cluster_test
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
-	"net/http"
-	"strings"
-	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/util"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 )
 
-func bodyStr(body io.ReadCloser) string {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(body)
-	return buf.String()
+func doPingPong(tc testgrpc.StreamServiceClient) error {
+	stream, err := tc.Stream(context.Background())
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(&testgrpc.StreamRequest{
+		Request: "hello",
+	}); err != nil {
+		return err
+	}
+	reply, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	if reply.Response != "hello" {
+		return fmt.Errorf("Got reply %q, want %q", reply.Response, "hello")
+	}
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+	if _, err := stream.Recv(); err != io.EOF {
+		return err
+	}
+	return nil
 }
 
 var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
-	var router *gin.Engine
 	var ctrl *gomock.Controller
-	var addr string
-	newRequest := func(method string, target string, body io.Reader) *http.Request {
-		return util.Must(http.NewRequest(method, "http://"+addr+target, body))
+	var interceptor grpc.StreamServerInterceptor
+	var server *grpc.Server
+	var broker storage.KeyringStoreBroker
+	testServer := &testgrpc.StreamServer{
+		ServerHandler: func(stream testgrpc.StreamService_StreamServer) error {
+			defer GinkgoRecover()
+			Expect(cluster.StreamAuthorizedID(stream.Context())).To(Equal("foo"))
+			Expect(cluster.StreamAuthorizedKeys(stream.Context())).NotTo(BeNil())
+			req, err := stream.Recv()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(req.Request).To(Equal("hello"))
+			Expect(stream.Send(&testgrpc.StreamResponse{
+				Response: "hello",
+			})).NotTo(HaveOccurred())
+
+			outgoingCtx := cluster.AuthorizedOutgoingContext(stream.Context())
+			Expect(cluster.AuthorizedIDFromIncomingContext(outgoingCtx)).To(BeEmpty())
+			Expect(cluster.AuthorizedIDFromIncomingContext(context.Background())).To(BeEmpty())
+			outgoingMetadata, ok := metadata.FromOutgoingContext(outgoingCtx)
+			Expect(ok).To(BeTrue())
+			Expect(outgoingMetadata.Get(string(cluster.ClusterIDKey))).To(ConsistOf("foo"))
+			incomingContext := metadata.NewIncomingContext(context.Background(), outgoingMetadata)
+			authIncoming, ok := cluster.AuthorizedIDFromIncomingContext(incomingContext)
+			Expect(ok).To(BeTrue())
+			Expect(authIncoming).To(Equal("foo"))
+
+			return nil
+		},
 	}
+	var listener *bufconn.Listener
 	BeforeAll(func() {
 		ctrl = gomock.NewController(GinkgoT())
+		broker = test.NewTestKeyringStoreBroker(ctrl)
+		mw, err := cluster.New(context.Background(), broker, "X-Test")
+		Expect(err).NotTo(HaveOccurred())
+		interceptor = mw.StreamServerInterceptor()
+		server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(interceptor))
+		testgrpc.RegisterStreamServiceServer(server, testServer)
+		listener = bufconn.Listen(1024 * 1024)
+		go server.Serve(listener)
+
+		DeferCleanup(listener.Close)
 	})
-	Context("invalid auth headers", func() {
-		BeforeAll(func() {
-			router = gin.New()
-			broker := test.NewTestKeyringStoreBroker(ctrl)
-			cm, err := cluster.New(context.Background(), broker, "X-Test")
+	It("should succeed", func() {
+		broker.KeyringStore("gateway", &v1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
+		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return listener.Dial()
+		}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.NewClientStreamInterceptor("foo", testSharedKeys)))
+		Expect(err).NotTo(HaveOccurred())
+		defer cc.Close()
+
+		client := testgrpc.NewStreamServiceClient(cc)
+		Expect(doPingPong(client)).To(Succeed())
+	})
+	When("a keyring is not found for the agent id", func() {
+		It("should fail", func() {
+			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.NewClientStreamInterceptor("nonexistent", testSharedKeys)))
 			Expect(err).NotTo(HaveOccurred())
-			router.Use(cm.Handle)
-			router.POST("/", func(c *gin.Context) {
-				c.Status(http.StatusOK)
-			})
-			listener, err := net.Listen("tcp4", ":0")
+			defer cc.Close()
+
+			client := testgrpc.NewStreamServiceClient(cc)
+			err = doPingPong(client)
+			Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
+		})
+	})
+	When("the agent sends the wrong nonce in its response", func() {
+		It("should fail", func() {
+			broker.KeyringStore("gateway", &v1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
+			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				clientStream, err := streamer(ctx, desc, cc, method, opts...)
+				if err != nil {
+					return clientStream, err
+				}
+				challenge := &corev1.Challenge{}
+				err = clientStream.RecvMsg(challenge)
+				if err != nil {
+					return nil, err
+				}
+				nonce := uuid.New()
+				mac, err := b2mac.New512([]byte("foo"), nonce, []byte(method), testSharedKeys.ClientKey)
+				if err != nil {
+					return nil, err
+				}
+				authHeader, err := b2mac.EncodeAuthHeader([]byte("foo"), nonce, mac)
+				if err != nil {
+					return nil, err
+				}
+				err = clientStream.SendMsg(&corev1.ChallengeResponse{
+					Authorization: authHeader,
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				return clientStream, err
+			}))
 			Expect(err).NotTo(HaveOccurred())
+			defer cc.Close()
 
-			go router.RunListener(listener)
-			addr = listener.Addr().String()
-			for {
-				_, err := http.Get("http://" + addr)
-				if err == nil {
-					break
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-			DeferCleanup(listener.Close)
-		})
-		When("no auth header is provided", func() {
-			It("should return http 400", func() {
-				resp, err := http.DefaultClient.Do(newRequest(http.MethodPost, "/", nil))
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-			})
-		})
-		When("the auth header has the wrong type", func() {
-			It("should return http 400", func() {
-				req := newRequest(http.MethodPost, "/", nil)
-				req.Header.Set("Authorization", "foo")
-				resp, err := http.DefaultClient.Do(req)
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-			})
-		})
-		When("the auth mac is malformed", func() {
-			It("should return http 400", func() {
-				req := newRequest(http.MethodPost, "/", nil)
-				req.Header.Set("Authorization", "MAC foo")
-				resp, err := http.DefaultClient.Do(req)
-				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
-				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-			})
+			client := testgrpc.NewStreamServiceClient(cc)
+			err = doPingPong(client)
+			Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 		})
 	})
-	When("a well-formed auth header is provided", func() {
-		var handler test.KeyringStoreHandler
-		Context("invalid requests", func() {
-			JustBeforeEach(func() {
-				router = gin.New()
-				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
-				cm, err := cluster.New(context.Background(), broker, "X-Test")
-				Expect(err).NotTo(HaveOccurred())
-				router.Use(cm.Handle)
-				router.POST("/", func(c *gin.Context) {
-					c.Status(http.StatusOK)
-				})
-				listener, err := net.Listen("tcp4", ":0")
-				Expect(err).NotTo(HaveOccurred())
-
-				go router.RunListener(listener)
-				addr = listener.Addr().String()
-				for {
-					_, err := http.Get("http://" + addr)
-					if err == nil {
-						break
-					}
-					time.Sleep(10 * time.Millisecond)
+	When("the agent sends the wrong mac in its response", func() {
+		It("should fail", func() {
+			broker.KeyringStore("gateway", &v1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
+			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				clientStream, err := streamer(ctx, desc, cc, method, opts...)
+				if err != nil {
+					return clientStream, err
 				}
-				DeferCleanup(func() {
-					listener.Close()
-					handler = nil
-				})
-			})
-
-			When("the keyring does not exist in the cluster's keyring store", func() {
-				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-						Id: "does-not-exist",
-					})
-					handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-						return store
-					}
-				})
-				It("should return http 401", func() {
-					req := newRequest(http.MethodPost, "/", nil)
-					req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-					resp, err := http.DefaultClient.Do(req)
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-				})
-			})
-
-			When("the keyring exists in the cluster's keyring store", func() {
-				When("the keyring is missing the required key", func() {
-					BeforeEach(func() {
-						store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-							Id: "cluster-1",
-						})
-						store.Put(context.Background(), keyring.New())
-						handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-							return store
-						}
-					})
-					It("should return an internal server error", func() {
-						req := newRequest(http.MethodPost, "/", nil)
-						req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-						resp, err := http.DefaultClient.Do(req)
-						Expect(err).NotTo(HaveOccurred())
-						defer resp.Body.Close()
-						Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
-					})
-				})
-				When("the request MAC does not match the request body", func() {
-					BeforeEach(func() {
-						store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-							Id: "cluster-1",
-						})
-						store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-						handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-							return store
-						}
-					})
-					It("should return http 401", func() {
-						req := newRequest(http.MethodPost, "/", strings.NewReader("not-matching"))
-						req.Header.Set("Authorization", validAuthHeader("cluster-1", "Not_Matching"))
-						resp, err := http.DefaultClient.Do(req)
-						Expect(err).NotTo(HaveOccurred())
-						defer resp.Body.Close()
-						Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-					})
-				})
-			})
-		})
-		Context("valid requests", func() {
-			JustBeforeEach(func() {
-				router = gin.New()
-				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
-				cm, err := cluster.New(context.Background(), broker, "X-Test")
-				Expect(err).NotTo(HaveOccurred())
-				router.Use(cm.Handle)
-				router.POST("/", func(c *gin.Context) {
-					defer GinkgoRecover()
-					Expect(cluster.AuthorizedID(c)).To(Equal("cluster-1"))
-					Expect(cluster.AuthorizedKeys(c)).NotTo(BeNil())
-					c.Status(http.StatusOK)
-				})
-				listener, err := net.Listen("tcp4", ":0")
-				Expect(err).NotTo(HaveOccurred())
-
-				go router.RunListener(listener)
-				addr = listener.Addr().String()
-
-				for {
-					_, err := http.DefaultClient.Get("http://" + addr)
-					if err == nil {
-						break
-					}
-					time.Sleep(10 * time.Millisecond)
+				challenge := &corev1.Challenge{}
+				err = clientStream.RecvMsg(challenge)
+				if err != nil {
+					return nil, err
 				}
-				DeferCleanup(listener.Close)
-			})
+				nonce := util.Must(uuid.FromBytes(challenge.Nonce))
+				mac, err := b2mac.New512([]byte("foo"), nonce, []byte(method), []byte("wrong"))
+				if err != nil {
+					return nil, err
+				}
+				authHeader, err := b2mac.EncodeAuthHeader([]byte("foo"), nonce, mac)
+				if err != nil {
+					return nil, err
+				}
+				err = clientStream.SendMsg(&corev1.ChallengeResponse{
+					Authorization: authHeader,
+				})
+				if err != nil {
+					return nil, err
+				}
 
-			When("the request MAC matches the request body", func() {
-				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-						Id: "cluster-1",
-					})
-					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
-						if ref.Id == "cluster-1" {
-							return store
-						}
-						return nil // fall back to default handler
-					}
-				})
-				It("should return http 200", func() {
-					req := newRequest(http.MethodPost, "/", strings.NewReader("payload"))
-					req.Header.Set("Authorization", validAuthHeader("cluster-1", "payload"))
-					resp, err := http.DefaultClient.Do(req)
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-					Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				})
-			})
+				return clientStream, err
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			defer cc.Close()
+
+			client := testgrpc.NewStreamServiceClient(cc)
+			err = doPingPong(client)
+			Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 		})
-	})
-	Context("Stream Interceptor", func() {
-
 	})
 })

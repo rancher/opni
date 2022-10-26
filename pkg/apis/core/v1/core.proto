@@ -207,3 +207,11 @@ message LogEntry {
   int32 level = 2;
   google.protobuf.Timestamp timestamp = 3;
 }
+
+message Challenge {
+  bytes nonce = 1;
+}
+
+message ChallengeResponse {
+  string authorization = 1;
+}

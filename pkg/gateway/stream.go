@@ -32,20 +32,17 @@ type StreamServer struct {
 	services     []util.ServicePack[any]
 	remotesMu    sync.Mutex
 	remotes      []remote
-	interceptor  grpc.UnaryServerInterceptor
 }
 
 func NewStreamServer(
 	handler ConnectionHandler,
 	clusterStore storage.ClusterStore,
-	interceptor grpc.UnaryServerInterceptor,
 	lg *zap.SugaredLogger,
 ) *StreamServer {
 	return &StreamServer{
 		logger:       lg.Named("grpc"),
 		handler:      handler,
 		clusterStore: clusterStore,
-		interceptor:  interceptor,
 	}
 }
 

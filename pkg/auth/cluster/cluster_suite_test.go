@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -13,9 +14,11 @@ import (
 )
 
 var (
+	testSharedKeys   *keyring.SharedKeys
 	testServerKey    ed25519.PrivateKey
 	testClientKey    ed25519.PrivateKey
 	invalidKey       ed25519.PrivateKey
+	testKeyring      keyring.Keyring
 	testSharedSecret []byte
 )
 
@@ -35,29 +38,32 @@ var _ = BeforeSuite(func() {
 	if err != nil {
 		panic(err)
 	}
-	sharedKeys := keyring.NewSharedKeys(sec)
-	testServerKey = sharedKeys.ServerKey
-	testClientKey = sharedKeys.ClientKey
+	testSharedKeys = keyring.NewSharedKeys(sec)
+	testServerKey = testSharedKeys.ServerKey
+	testClientKey = testSharedKeys.ClientKey
 	testSharedSecret = sec
 
+	testKeyring = keyring.New(testSharedKeys)
 	_, invalidKey, err = ed25519.GenerateKey(nil)
 	if err != nil {
 		panic(err)
 	}
 })
 
-func validAuthHeader[T, U string | []byte](id T, payload U) string {
-	str, err := b2mac.NewEncodedHeader([]byte(id), []byte(payload), testClientKey)
+func validAuthHeader[T, U string | []byte](id T, payload U) (uuid.UUID, string) {
+	nonce := uuid.New()
+	str, err := b2mac.NewEncodedHeader([]byte(id), nonce, []byte(payload), testClientKey)
 	if err != nil {
 		panic(err)
 	}
-	return str
+	return nonce, str
 }
 
-func invalidAuthHeader[T, U string | []byte](id T, payload U) string {
-	str, err := b2mac.NewEncodedHeader([]byte(id), []byte(payload), invalidKey)
+func invalidAuthHeader[T, U string | []byte](id T, payload U) (uuid.UUID, string) {
+	nonce := uuid.New()
+	str, err := b2mac.NewEncodedHeader([]byte(id), nonce, []byte(payload), invalidKey)
 	if err != nil {
 		panic(err)
 	}
-	return str
+	return nonce, str
 }

@@ -152,12 +152,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
-	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey,
-		cluster.WithExcludeGRPCMethodsFromAuth(
-			"/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth",
-			"/bootstrap.v2.Bootstrap/Join", "/bootstrap.v2.Bootstrap/Auth",
-		),
-	)
+	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey) // cluster.WithExcludeGRPCMethodsFromAuth(
+	// 	"/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth",
+	// 	"/bootstrap.v2.Bootstrap/Join", "/bootstrap.v2.Bootstrap/Auth",
+	// ),
+
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -168,14 +167,12 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
 
 	// set up grpc server
-	interceptor := clusterAuth.UnaryServerInterceptor()
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(
 			clusterAuth.StreamServerInterceptor(),
 			manifest.StreamServerInterceptor(),
 		),
-		grpc.ChainUnaryInterceptor(interceptor),
 	)
 
 	// set up stream server
@@ -185,7 +182,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	// set up agent connection handlers
 	agentHandler := MultiConnectionHandler(listener, sync)
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
+	streamSvc := NewStreamServer(agentHandler, storageBackend, lg)
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
@@ -214,8 +211,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	bootstrapv2.RegisterBootstrapServer(grpcServer, bootstrapServerV2)
 
 	//set up unary plugins
-	unarySvc := NewUnaryService()
-	unarySvc.RegisterUnaryPlugins(ctx, grpcServer, pl)
+	// unarySvc := NewUnaryService()
+	// unarySvc.RegisterUnaryPlugins(ctx, grpcServer, pl)
 
 	g := &Gateway{
 		GatewayOptions:  options,

@@ -23,10 +23,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/logger"
-	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -236,10 +234,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	go p.opensearchManager.SetClient(p.setOpensearchClient)
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
-	// deprecated
-	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 
 	if restconfig != nil && p.manageFlag != nil && p.manageFlag.IsEnabled() {

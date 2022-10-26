@@ -13,13 +13,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 
 	"github.com/kralicky/totem"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/auth"
-	"github.com/rancher/opni/pkg/b2mac"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -124,38 +122,10 @@ func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name
 }
 
 func dial(ctx context.Context, address, id string, sharedKeys *keyring.SharedKeys, tlsConfig *tls.Config) (*grpc.ClientConn, error) {
-	streamInt := func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		nonce, mac, err := b2mac.New512([]byte(id), []byte(method), sharedKeys.ClientKey)
-		if err != nil {
-			return nil, err
-		}
-		authHeader, err := b2mac.EncodeAuthHeader([]byte(id), nonce, mac)
-		if err != nil {
-			return nil, err
-		}
-
-		ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
-		return streamer(ctx, desc, cc, method, opts...)
-	}
-
-	unaryInt := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		nonce, mac, err := b2mac.New512([]byte(id), []byte(method), sharedKeys.ClientKey)
-		if err != nil {
-			return err
-		}
-		authHeader, err := b2mac.EncodeAuthHeader([]byte(id), nonce, mac)
-		if err != nil {
-			return err
-		}
-
-		ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-
 	return grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), streamInt),
-		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), unaryInt),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), cluster.NewClientStreamInterceptor(id, sharedKeys)),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithDefaultCallOptions(
 			grpc.WaitForReady(true),
 			grpc.MaxCallSendMsgSize(math.MaxInt32),

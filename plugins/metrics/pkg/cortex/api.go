@@ -11,7 +11,6 @@ import (
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
-	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -29,9 +28,8 @@ type forwarders struct {
 }
 
 type middlewares struct {
-	RBAC    gin.HandlerFunc
-	Auth    gin.HandlerFunc
-	Cluster gin.HandlerFunc
+	RBAC gin.HandlerFunc
+	Auth gin.HandlerFunc
 }
 
 type HttpApiServer struct {
@@ -77,13 +75,6 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 		).Error("auth provider not found")
 		os.Exit(1)
 	}
-	clusterMiddleware, err := cluster.New(p.PluginContext, p.StorageBackend, orgIDCodec.Key())
-	if err != nil {
-		p.Logger.With(
-			"err", err,
-		).Error("failed to set up cluster middleware")
-		os.Exit(1)
-	}
 
 	fwds := &forwarders{
 		QueryFrontend: fwd.To(p.Config.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("query-frontend")),
@@ -92,9 +83,8 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	}
 
 	mws := &middlewares{
-		RBAC:    rbacMiddleware,
-		Auth:    authMiddleware.(auth.HTTPMiddleware).Handle,
-		Cluster: clusterMiddleware.Handle,
+		RBAC: rbacMiddleware,
+		Auth: authMiddleware.(auth.HTTPMiddleware).Handle,
 	}
 
 	router.GET("/ready", fwds.QueryFrontend)

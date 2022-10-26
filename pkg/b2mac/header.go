@@ -83,8 +83,8 @@ func DecodeAuthHeader(header string) (id []byte, nonce uuid.UUID, mac []byte, er
 	return
 }
 
-func NewEncodedHeader(id []byte, payload []byte, key ed25519.PrivateKey) (string, error) {
-	nonce, mac, err := New512(id, payload, key)
+func NewEncodedHeader(id []byte, nonce uuid.UUID, payload []byte, key ed25519.PrivateKey) (string, error) {
+	mac, err := New512(id, nonce, payload, key)
 	if err != nil {
 		return "", err
 	}

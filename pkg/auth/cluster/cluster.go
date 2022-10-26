@@ -2,11 +2,11 @@ package cluster
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 type (
@@ -34,37 +33,15 @@ const (
 )
 
 type ClusterMiddleware struct {
-	ClusterMiddlewareOptions
 	keyringStoreBroker storage.KeyringStoreBroker
 	fakeKeyringStore   storage.KeyringStore
 	headerKey          string
-	authJoinMethod     string
 	logger             *zap.SugaredLogger
-}
-
-type ClusterMiddlewareOptions struct {
-	grpcExcludeAuthMethods []string
-}
-
-type ClusterMiddlewareOption func(*ClusterMiddlewareOptions)
-
-func (o *ClusterMiddlewareOptions) apply(opts ...ClusterMiddlewareOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithExcludeGRPCMethodsFromAuth(methods ...string) ClusterMiddlewareOption {
-	return func(o *ClusterMiddlewareOptions) {
-		o.grpcExcludeAuthMethods = methods
-	}
 }
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
 
-func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey string, opts ...ClusterMiddlewareOption) (*ClusterMiddleware, error) {
-	options := ClusterMiddlewareOptions{}
-	options.apply(opts...)
+func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMiddleware, error) {
 	lg := logger.New(
 		logger.WithSampling(&zap.SamplingConfig{
 			Initial:    1,
@@ -77,11 +54,10 @@ func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey
 	}
 
 	return &ClusterMiddleware{
-		ClusterMiddlewareOptions: options,
-		keyringStoreBroker:       keyringStore,
-		fakeKeyringStore:         fakeKeyringStore,
-		headerKey:                headerKey,
-		logger:                   lg,
+		keyringStoreBroker: keyringStore,
+		fakeKeyringStore:   fakeKeyringStore,
+		headerKey:          headerKey,
+		logger:             lg,
 	}, nil
 }
 
@@ -138,53 +114,6 @@ func initFakeKeyring(
 	return store, nil
 }
 
-func (m *ClusterMiddleware) methodInExcludeList(method string) bool {
-	for _, excludeMethod := range m.grpcExcludeAuthMethods {
-		if method == excludeMethod {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *ClusterMiddleware) Handle(c *gin.Context) {
-	lg := m.logger
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		lg.Debug("unauthorized: authorization header required")
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	body, err := c.GetRawData()
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	code, clusterID, sharedKeys := m.VerifyKeyring(authHeader, body)
-	if code != http.StatusOK {
-		c.AbortWithStatus(code)
-		return
-	}
-
-	c.Header(m.headerKey, clusterID)
-	c.Set(string(SharedKeysKey), sharedKeys)
-	c.Set(string(ClusterIDKey), string(clusterID))
-}
-
-func AuthorizedKeys(c *gin.Context) *keyring.SharedKeys {
-	value, exists := c.Get(string(SharedKeysKey))
-	if !exists {
-		return nil
-	}
-	return value.(*keyring.SharedKeys)
-}
-
-func AuthorizedID(c *gin.Context) string {
-	return c.GetString(string(ClusterIDKey))
-}
-
 func StreamAuthorizedKeys(ctx context.Context) *keyring.SharedKeys {
 	return ctx.Value(SharedKeysKey).(*keyring.SharedKeys)
 }
@@ -211,27 +140,20 @@ func AuthorizedIDFromIncomingContext(ctx context.Context) (string, bool) {
 
 func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		md, ok := metadata.FromIncomingContext(ss.Context())
-		if !ok {
-			return grpc.Errorf(codes.InvalidArgument, "no metadata in context")
+		nonce := uuid.New()
+		if err := ss.SendMsg(&corev1.Challenge{
+			Nonce: nonce[:],
+		}); err != nil {
+			return grpc.Errorf(codes.Aborted, "failed to send challenge: %v", err)
 		}
-		authHeader := md.Get(m.headerKey)
-		if len(authHeader) > 0 && authHeader[0] == "" {
-			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
+		challengeResponse := &corev1.ChallengeResponse{}
+		if err := ss.RecvMsg(challengeResponse); err != nil {
+			return grpc.Errorf(codes.Aborted, "failed to receive challenge response: %v", err)
 		}
 
-		code, clusterID, sharedKeys := m.VerifyKeyring(authHeader[0], []byte(info.FullMethod))
-
-		switch code {
-		case http.StatusOK:
-		case http.StatusUnauthorized:
-			return status.Error(codes.Unauthenticated, http.StatusText(code))
-		case http.StatusBadRequest:
-			return status.Error(codes.InvalidArgument, http.StatusText(code))
-		case http.StatusInternalServerError:
-			return status.Error(codes.Internal, http.StatusText(code))
-		default:
-			return status.Error(codes.Unknown, http.StatusText(code))
+		clusterID, sharedKeys, err := m.VerifyKeyring(challengeResponse.Authorization, nonce, []byte(info.FullMethod))
+		if err != nil {
+			return err
 		}
 
 		ctx := context.WithValue(ss.Context(), SharedKeysKey, sharedKeys)
@@ -244,57 +166,15 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 	}
 }
 
-func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		m.logger.Debugf("handling auth for %s", info.FullMethod)
-		if m.methodInExcludeList(info.FullMethod) {
-			m.logger.Debug("skipping auth for join method")
-			return handler(ctx, req)
-		}
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			err = grpc.Errorf(codes.InvalidArgument, "no metadata in context")
-			return
-		}
-		authHeader := md.Get(m.headerKey)
-		if len(authHeader) == 0 {
-			err = grpc.Errorf(codes.InvalidArgument, "no auth header in metadata: %+v", md)
-			return
-		}
-		if len(authHeader) > 0 && authHeader[0] == "" {
-			err = grpc.Errorf(codes.InvalidArgument, "authorization header required")
-			return
-		}
-
-		code, clusterID, sharedKeys := m.VerifyKeyring(authHeader[0], []byte(info.FullMethod))
-
-		switch code {
-		case http.StatusOK:
-		case http.StatusUnauthorized:
-			err = status.Error(codes.Unauthenticated, http.StatusText(code))
-			return
-		case http.StatusBadRequest:
-			err = status.Error(codes.InvalidArgument, http.StatusText(code))
-			return
-		case http.StatusInternalServerError:
-			err = status.Error(codes.Internal, http.StatusText(code))
-			return
-		default:
-			err = status.Error(codes.Unknown, http.StatusText(code))
-			return
-		}
-
-		ctx = context.WithValue(ctx, SharedKeysKey, sharedKeys)
-		ctx = context.WithValue(ctx, ClusterIDKey, string(clusterID))
-		return handler(ctx, req)
-	}
-}
-
-func (m *ClusterMiddleware) VerifyKeyring(authHeader string, msgBody []byte) (int, string, *keyring.SharedKeys) {
+func (m *ClusterMiddleware) VerifyKeyring(authHeader string, expectedNonce uuid.UUID, msgBody []byte) (string, *keyring.SharedKeys, error) {
 	lg := m.logger
 	clusterID, nonce, mac, err := b2mac.DecodeAuthHeader(authHeader)
 	if err != nil {
-		return http.StatusBadRequest, "", nil
+		return "", nil, util.StatusError(codes.InvalidArgument)
+	}
+	if subtle.ConstantTimeCompare(nonce[:], expectedNonce[:]) != 1 {
+		lg.Debugf("unauthorized: mismatched nonce in auth header")
+		return "", nil, util.StatusError(codes.Unauthenticated)
 	}
 	id := &corev1.Reference{
 		Id: string(clusterID),
@@ -310,21 +190,54 @@ func (m *ClusterMiddleware) VerifyKeyring(authHeader string, msgBody []byte) (in
 			}
 		}); !ok {
 			lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
-			return http.StatusInternalServerError, "", nil
+			return "", nil, util.StatusError(codes.Internal)
 		}
 		if !authorized {
 			lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
-			return http.StatusUnauthorized, "", nil
+			return "", nil, util.StatusError(codes.Unauthenticated)
 		}
-		return http.StatusOK, string(clusterID), sharedKeys
+		return string(clusterID), sharedKeys, nil
 	}
 	kr, err := m.fakeKeyringStore.Get(context.Background())
 	if err != nil {
 		lg.Errorf("failed to get fake keyring: %v", err)
-		return http.StatusInternalServerError, "", nil
+		return "", nil, util.StatusError(codes.Internal)
 	}
 	kr.Try(func(shared *keyring.SharedKeys) {
 		b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
 	})
-	return http.StatusUnauthorized, "", nil
+	return "", nil, util.StatusError(codes.Unauthenticated)
+}
+
+func NewClientStreamInterceptor(id string, sharedKeys *keyring.SharedKeys) grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		clientStream, err := streamer(ctx, desc, cc, method, opts...)
+		if err != nil {
+			return clientStream, err
+		}
+		challenge := &corev1.Challenge{}
+		err = clientStream.RecvMsg(challenge)
+		if err != nil {
+			return nil, err
+		}
+		var nonce uuid.UUID
+		if err := nonce.UnmarshalBinary(challenge.Nonce); err != nil {
+			return nil, err
+		}
+		mac, err := b2mac.New512([]byte(id), nonce, []byte(method), sharedKeys.ClientKey)
+		if err != nil {
+			return nil, err
+		}
+		authHeader, err := b2mac.EncodeAuthHeader([]byte(id), nonce, mac)
+		if err != nil {
+			return nil, err
+		}
+		err = clientStream.SendMsg(&corev1.ChallengeResponse{
+			Authorization: authHeader,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return clientStream, err
+	}
 }

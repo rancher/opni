@@ -379,10 +379,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 	}
 	if options.enableJetstream {
-		if err := os.Mkdir(path.Join(e.tempDir, "jetstream"), 0700); err != nil {
+		if err := os.MkdirAll(path.Join(e.tempDir, "jetstream/data"), 0700); err != nil {
 			return err
 		}
-		if err := os.Mkdir(path.Join(e.tempDir, "jetstream-seed"), 0700); err != nil {
+		if err := os.MkdirAll(path.Join(e.tempDir, "jetstream/seed"), 0700); err != nil {
 			return err
 		}
 	}
@@ -616,17 +616,16 @@ func (e *Environment) startJetstream() {
 	t.Execute(&b, map[string]string{
 		"PublicKey": publicKey,
 	})
-	conf := filepath.Join(e.tempDir, "jetstream.conf")
+	conf := filepath.Join(e.tempDir, "jetstream", "jetstream.conf")
 	err = os.WriteFile(conf, b.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}
-	lg.Debugf("jetstream port is %d", e.ports.Jetstream)
 	defaultArgs := []string{
 		"--jetstream",
 		fmt.Sprintf("--config=%s", conf),
 		fmt.Sprintf("--auth=%s", seed),
-		fmt.Sprintf("--store_dir=%s", path.Join(e.tempDir, "jetstream")),
+		fmt.Sprintf("--store_dir=%s", path.Join(e.tempDir, "jetstream", "data")),
 		fmt.Sprintf("--port=%d", e.ports.Jetstream),
 	}
 	jetstreamBin := path.Join(e.TestBin, "nats-server")
@@ -640,7 +639,7 @@ func (e *Environment) startJetstream() {
 		}
 	}
 	os.Setenv("NATS_SERVER_URL", fmt.Sprintf("http://localhost:%d", e.ports.Jetstream))
-	authConfigFile := path.Join(e.tempDir, "jetstream-seed", "nats-auth.conf")
+	authConfigFile := path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf")
 	err = os.WriteFile(authConfigFile, []byte(seed), 0644)
 	if err != nil {
 		panic("failed to write jetstream auth config")

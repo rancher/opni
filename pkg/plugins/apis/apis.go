@@ -3,10 +3,8 @@ package apis
 
 import (
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	_ "github.com/rancher/opni/pkg/plugins/apis/capability"
 	_ "github.com/rancher/opni/pkg/plugins/apis/health"
 	_ "github.com/rancher/opni/pkg/plugins/apis/metrics"

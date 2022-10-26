@@ -12,22 +12,6 @@ import (
 	k8scorev1 "k8s.io/api/core/v1"
 )
 
-type ModelTrainingParameters struct {
-	ByCluster map[string]*ClusterParameters `json:",inline,omitEmpty"`
-}
-
-type ClusterParameters struct {
-	ByNamespace map[string]*NamespaceParameters `json:",inline,omitEmpty"`
-}
-
-type NamespaceParameters struct {
-	ByDeployment map[string]*Deployment `json:",inline,omitEmpty"`
-}
-
-type Deployment struct {
-	DeploymentName string `json:",inline,omitEmpty"`
-}
-
 func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadsList) (*corev1.Reference, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.List {

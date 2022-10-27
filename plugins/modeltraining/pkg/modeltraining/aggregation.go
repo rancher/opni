@@ -2,7 +2,6 @@ package modeltraining
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"log"
 	"time"
@@ -136,7 +135,7 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 
 		}
 		res, err := s.osClient.Get().Search(
-			s.osClient.Get().Search.WithContext(context.Background()),
+			s.osClient.Get().Search.WithContext(s.ctx),
 			s.osClient.Get().Search.WithIndex("logs"),
 			s.osClient.Get().Search.WithBody(&buf),
 			s.osClient.Get().Search.WithTrackTotalHits(true),

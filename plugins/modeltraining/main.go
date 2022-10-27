@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	tracing.Configure("plugin_model_training")
+	tracing.Configure("plugin_modeltraining")
 	gin.SetMode(gin.ReleaseMode)
 	ctx, ca := context.WithCancel(waitctx.Background())
 	plugins.Serve(modeltraining.Scheme(ctx))

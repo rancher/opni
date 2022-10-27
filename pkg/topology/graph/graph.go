@@ -1,20 +1,28 @@
 package graph
 
 import (
+	"bytes"
+
+	"github.com/rancher/opni/pkg/topology/serialization"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/steveteuber/kubectl-graph/pkg/graph"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	// Import to initialize client auth plugins
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 )
 
-func Run(f cmdutil.Factory) (*graph.Graph, error) {
-	// config, err := f.ToRESTConfig()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	clientSet, err := f.KubernetesClientSet()
+func NewRuntimeFactory() cmdutil.Factory {
+	return cmdutil.NewFactory(&genericclioptions.ConfigFlags{})
+}
+
+// panics if run outside a kubernetes cluster LOL
+func TraverseTopology(f cmdutil.Factory) (*graph.Graph, error) {
+	clientSet, err := kubernetes.NewForConfig(util.Must(rest.InClusterConfig()))
 	if err != nil {
 		return nil, err
 	}
@@ -22,6 +30,7 @@ func Run(f cmdutil.Factory) (*graph.Graph, error) {
 	r := f.NewBuilder().
 		Unstructured().
 		NamespaceParam("").DefaultNamespace().AllNamespaces(true).
+		//FIXME: reimplement these at a later date
 		// FilenameParam(o.ExplicitNamespace, &o.FilenameOptions).
 		// LabelSelectorParam(o.LabelSelector).
 		// FieldSelectorParam(o.FieldSelector).
@@ -50,4 +59,15 @@ func Run(f cmdutil.Factory) (*graph.Graph, error) {
 		return nil, err
 	}
 	return graph, nil
+}
+
+func RenderKubectlGraphTopology(g graph.Graph) (bytes.Buffer, error) {
+	var b bytes.Buffer
+	err := serialization.Templates.ExecuteTemplate(&b, "graphviz_default.tmpl", g)
+	if err != nil {
+		return b, err
+	}
+
+	// TODO (Topology)
+	return b, nil
 }

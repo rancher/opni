@@ -19,7 +19,7 @@ message Payload {
 
 //FIXME: copied from orchestrator.proto due to duplicate symbol bug
 message TopologyGraph {
-    core.Reference id = 1;
+    core.Reference clusterId = 1;
     bytes data = 2;
     GraphRepr repr = 3;
 }

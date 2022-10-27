@@ -8,8 +8,15 @@ to stream to.
 */
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
 
+	"github.com/nats-io/nats.go"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/slo/shared"
+	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/remote"
 	"go.uber.org/zap"
@@ -19,11 +26,14 @@ import (
 
 type TopologyRemoteWriteConfig struct {
 	Logger *zap.SugaredLogger
+	Nc     *nats.Conn
 }
 
 type TopologyRemoteWriter struct {
 	remote.UnsafeRemoteTopologyServer
 	TopologyRemoteWriteConfig
+
+	topologyObjectStore nats.ObjectStore
 
 	util.Initializer
 }
@@ -32,8 +42,26 @@ var _ remote.RemoteTopologyServer = (*TopologyRemoteWriter)(nil)
 
 func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
 	t.InitOnce(func() {
-		// TODO(topology) : initialization code goes here
+		objStore, err := store.NewTopologyObjectStore(conf.Nc)
+		if err != nil {
+			conf.Logger.With("error", err).Error("failed to initialize topology object store")
+			os.Exit(1)
+		}
+		t.topologyObjectStore = objStore
 	})
+}
+
+func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr remote.GraphRepr) *nats.ObjectMeta {
+	return &nats.ObjectMeta{
+		Name: store.NewClusterKey(clusterId),
+		Description: fmt.Sprintf(
+			"topology for cluster %s, in representation form %s",
+			clusterId.GetId(),
+			repr.String()),
+		Headers: nats.Header{
+			store.ReprHeaderKey: []string{repr.String()},
+		},
+	}
 }
 
 func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *remote.Payload) (*emptypb.Empty, error) {
@@ -41,8 +69,15 @@ func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *remote.Payload
 		return nil, util.StatusError(codes.Unavailable)
 	}
 
-	// TODO(topology) : implement me
-	return nil, nil
+	info, err := t.topologyObjectStore.Put(
+		t.objectDef(payload.Graph.ClusterId, payload.Graph.Repr),
+		bytes.NewReader(payload.Graph.Data),
+	)
+	if err != nil {
+		return nil, err
+	}
+	t.Logger.With("info", info).Debug("successfully pushed topology data")
+	return &emptypb.Empty{}, nil
 }
 
 func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *remote.Payload) (*emptypb.Empty, error) {
@@ -52,5 +87,5 @@ func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *remote
 
 	// TODO(topology) : implement me
 
-	return nil, nil
+	return nil, shared.WithUnimplementedError("method not implemented")
 }

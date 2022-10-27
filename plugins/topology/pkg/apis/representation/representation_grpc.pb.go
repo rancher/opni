@@ -12,7 +12,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,9 +23,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TopologyRepresentationClient interface {
+	// opni internal use
 	GetGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*TopologyGraph, error)
-	StoreGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	RenderGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*GraphHtml, error)
+	// cluster id  --> kubernetes graph SVG
+	RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*GraphSVG, error)
 }
 
 type topologyRepresentationClient struct {
@@ -46,17 +46,8 @@ func (c *topologyRepresentationClient) GetGraph(ctx context.Context, in *v1.Refe
 	return out, nil
 }
 
-func (c *topologyRepresentationClient) StoreGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/representation.TopologyRepresentation/StoreGraph", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *TopologyGraph, opts ...grpc.CallOption) (*GraphHtml, error) {
-	out := new(GraphHtml)
+func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*GraphSVG, error) {
+	out := new(GraphSVG)
 	err := c.cc.Invoke(ctx, "/representation.TopologyRepresentation/RenderGraph", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -68,9 +59,10 @@ func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *Topo
 // All implementations must embed UnimplementedTopologyRepresentationServer
 // for forward compatibility
 type TopologyRepresentationServer interface {
+	// opni internal use
 	GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error)
-	StoreGraph(context.Context, *TopologyGraph) (*emptypb.Empty, error)
-	RenderGraph(context.Context, *TopologyGraph) (*GraphHtml, error)
+	// cluster id  --> kubernetes graph SVG
+	RenderGraph(context.Context, *v1.Reference) (*GraphSVG, error)
 	mustEmbedUnimplementedTopologyRepresentationServer()
 }
 
@@ -81,10 +73,7 @@ type UnimplementedTopologyRepresentationServer struct {
 func (UnimplementedTopologyRepresentationServer) GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGraph not implemented")
 }
-func (UnimplementedTopologyRepresentationServer) StoreGraph(context.Context, *TopologyGraph) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StoreGraph not implemented")
-}
-func (UnimplementedTopologyRepresentationServer) RenderGraph(context.Context, *TopologyGraph) (*GraphHtml, error) {
+func (UnimplementedTopologyRepresentationServer) RenderGraph(context.Context, *v1.Reference) (*GraphSVG, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderGraph not implemented")
 }
 func (UnimplementedTopologyRepresentationServer) mustEmbedUnimplementedTopologyRepresentationServer() {
@@ -119,26 +108,8 @@ func _TopologyRepresentation_GetGraph_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TopologyRepresentation_StoreGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TopologyGraph)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TopologyRepresentationServer).StoreGraph(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/representation.TopologyRepresentation/StoreGraph",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopologyRepresentationServer).StoreGraph(ctx, req.(*TopologyGraph))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _TopologyRepresentation_RenderGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TopologyGraph)
+	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -150,7 +121,7 @@ func _TopologyRepresentation_RenderGraph_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/representation.TopologyRepresentation/RenderGraph",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TopologyRepresentationServer).RenderGraph(ctx, req.(*TopologyGraph))
+		return srv.(TopologyRepresentationServer).RenderGraph(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -165,10 +136,6 @@ var TopologyRepresentation_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGraph",
 			Handler:    _TopologyRepresentation_GetGraph_Handler,
-		},
-		{
-			MethodName: "StoreGraph",
-			Handler:    _TopologyRepresentation_StoreGraph_Handler,
 		},
 		{
 			MethodName: "RenderGraph",

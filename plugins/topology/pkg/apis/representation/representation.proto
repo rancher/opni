@@ -9,20 +9,11 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 package representation;
 
 service TopologyRepresentation {
-    rpc GetGraph(core.Reference) returns (TopologyGraph) {
-        option(google.api.http) = {
-            get: "/topology/object/{id}"
-        };
-    }
+    // opni internal use
+    rpc GetGraph(core.Reference) returns (TopologyGraph) {}
 
-    rpc StoreGraph(TopologyGraph) returns (google.protobuf.Empty) {
-        option(google.api.http) = {
-            post: "/topology/object"
-            body: "*"
-        };
-    }
-
-    rpc RenderGraph(TopologyGraph) returns (GraphHtml)  {
+    // cluster id  --> kubernetes graph SVG
+    rpc RenderGraph(core.Reference) returns (GraphSVG)  {
         option(google.api.http) = {
             post: "/topology/render"
             body: "*"
@@ -42,6 +33,6 @@ enum GraphRepr {
     KubectlGraph = 1; 
 }
 
-message GraphHtml {
-    string html = 1;
+message GraphSVG {
+    string rawSVG = 1;
 }

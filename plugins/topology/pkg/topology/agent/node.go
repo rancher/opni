@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/status"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -15,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/status"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"

@@ -84,6 +84,9 @@ func (f *future[T]) GetContext(ctx context.Context) (_ T, err error) {
 	return f.object, nil
 }
 
+func Wait1[T any](f1 Future[T], callback func(T)) {
+	go func() { callback(f1.Get()) }()
+}
 func Wait2[T, U any](f1 Future[T], f2 Future[U], callback func(T, U)) {
 	go func() { callback(f1.Get(), f2.Get()) }()
 }

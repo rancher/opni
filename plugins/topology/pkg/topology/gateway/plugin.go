@@ -64,9 +64,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 		clusterDriver:       future.New[drivers.ClusterDriver](),
 		topologyBackend:     backend.TopologyBackend{},
 	}
-
-	p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{
-		Logger: p.logger.Named("remote-write-server"),
+	future.Wait1(p.nc, func(nc *nats.Conn) {
+		p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{
+			Logger: p.logger.Named("remote-write-server"),
+			Nc:     nc,
+		})
 	})
 
 	future.Wait2(p.storageBackend, p.uninstallController,

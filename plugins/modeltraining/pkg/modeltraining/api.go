@@ -12,9 +12,9 @@ import (
 	k8scorev1 "k8s.io/api/core/v1"
 )
 
-func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadsList) (*corev1.Reference, error) {
+func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadInfoList) (*corev1.Reference, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
-	for _, item := range in.List {
+	for _, item := range in.Items {
 		clusterId := item.ClusterId
 		namespaceName := item.Namespace
 		deploymentName := item.Deployment
@@ -46,7 +46,7 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	return &res, nil
 }
 
-func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadsList, error) {
+func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadInfoList, error) {
 	result, err := c.kv.Get().Get("aggregation")
 	if err != nil {
 		return nil, err
@@ -58,18 +58,18 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 	}
 	clusterAggregationResults, ok := resultsStorage.ByCluster[in.Id]
 	if !ok {
-		return &modeltraining.WorkloadsList{}, nil
+		return &modeltraining.WorkloadInfoList{}, nil
 	}
-	workloadsList := modeltraining.WorkloadsList{}
-	workloadArray := make([]*modeltraining.WorkloadResponse, 0)
+	workloadArray := make([]*modeltraining.WorkloadInfo, 0)
 	for namespaceName, deployments := range clusterAggregationResults.ByNamespace {
 		for deploymentName, count := range deployments.ByDeployment {
-			workloadAggregation := modeltraining.WorkloadResponse{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, Count: int64(count.Count)}
+			workloadAggregation := modeltraining.WorkloadInfo{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, LogCount: int64(count.Count)}
 			workloadArray = append(workloadArray, &workloadAggregation)
 		}
 	}
-	workloadsList.List = workloadArray
-	return &workloadsList, nil
+	return &modeltraining.WorkloadInfoList{
+		Items: workloadArray,
+	}, nil
 }
 
 func (c *ModelTrainingPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty) (*corev1.Reference, error) {
@@ -82,14 +82,13 @@ func (c *ModelTrainingPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty
 	return &res, nil
 }
 
-func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.WorkloadsList, error) {
+func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.WorkloadInfoList, error) {
 	b := []byte("model_training_parameters")
 	msg, err := c.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
 		return nil, err
 	}
-	trainingParameters := modeltraining.WorkloadsList{}
-	parametersArray := make([]*modeltraining.WorkloadResponse, 0)
+	parametersArray := make([]*modeltraining.WorkloadInfo, 0)
 	var resultsStorage = map[string]map[string][]string{}
 	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
 		return nil, err
@@ -101,13 +100,14 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 				continue
 			}
 			for deploymentIdx := range deployments {
-				deploymentData := modeltraining.WorkloadResponse{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
+				deploymentData := modeltraining.WorkloadInfo{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
 				parametersArray = append(parametersArray, &deploymentData)
 			}
 		}
 	}
-	trainingParameters.List = parametersArray
-	return &trainingParameters, nil
+	return &modeltraining.WorkloadInfoList{
+		Items: parametersArray,
+	}, nil
 }
 
 func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
@@ -116,7 +116,6 @@ func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb
 	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
 		return nil, err
 	}
-	returnedData := modeltraining.GPUInfoList{}
 	gpuInfoArray := make([]*modeltraining.GPUInfo, 0)
 
 	for _, node := range nodes.Items {
@@ -130,7 +129,6 @@ func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb
 			}
 		}
 	}
-	returnedData.Items = gpuInfoArray
 	return &modeltraining.GPUInfoList{
 		Items: gpuInfoArray,
 	}, nil

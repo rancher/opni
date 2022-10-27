@@ -34,7 +34,7 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 func request_ModelTraining_TrainModel_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WorkloadsList
+	var protoReq WorkloadInfoList
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -51,7 +51,7 @@ func request_ModelTraining_TrainModel_0(ctx context.Context, marshaler runtime.M
 }
 
 func local_request_ModelTraining_TrainModel_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WorkloadsList
+	var protoReq WorkloadInfoList
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

@@ -7,13 +7,13 @@ import "google/api/annotations.proto";
 package modeltraining;
 
 service ModelTraining {
-  rpc TrainModel(WorkloadsList) returns (core.Reference) {
+  rpc TrainModel(WorkloadInfoList) returns (core.Reference) {
     option (google.api.http) = {
       post: "/trainModel"
       body: "*"
     };
   }
-  rpc WorkloadLogCount(core.Reference) returns (WorkloadsList) {
+  rpc WorkloadLogCount(core.Reference) returns (WorkloadInfoList) {
     option (google.api.http) = {
       post: "/workloadLogCount/{id}"
     };
@@ -23,7 +23,7 @@ service ModelTraining {
       get: "/modelStatus"
     };
   }
-  rpc ModelTrainingParameters(google.protobuf.Empty) returns (WorkloadsList) {
+  rpc ModelTrainingParameters(google.protobuf.Empty) returns (WorkloadInfoList) {
     option (google.api.http) = {
       get: "/modelTrainingParameters"
     };
@@ -45,13 +45,13 @@ message GPUInfoList {
   repeated GPUInfo items = 1;
 }
 
-message WorkloadResponse {
+message WorkloadInfo {
   string clusterId = 1;
   string namespace = 2;
   string deployment = 3;
-  int64 count = 4;
+  int64 logCount = 4;
 }
 
-message WorkloadsList {
-  repeated WorkloadResponse list = 1;
+message WorkloadInfoList {
+  repeated WorkloadInfo items = 1;
 }

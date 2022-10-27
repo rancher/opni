@@ -24,10 +24,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModelTrainingClient interface {
-	TrainModel(ctx context.Context, in *WorkloadsList, opts ...grpc.CallOption) (*v1.Reference, error)
-	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error)
+	TrainModel(ctx context.Context, in *WorkloadInfoList, opts ...grpc.CallOption) (*v1.Reference, error)
+	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadInfoList, error)
 	ModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Reference, error)
-	ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error)
+	ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadInfoList, error)
 	GpuPresentCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error)
 }
 
@@ -39,7 +39,7 @@ func NewModelTrainingClient(cc grpc.ClientConnInterface) ModelTrainingClient {
 	return &modelTrainingClient{cc}
 }
 
-func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadsList, opts ...grpc.CallOption) (*v1.Reference, error) {
+func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadInfoList, opts ...grpc.CallOption) (*v1.Reference, error) {
 	out := new(v1.Reference)
 	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/TrainModel", in, out, opts...)
 	if err != nil {
@@ -48,8 +48,8 @@ func (c *modelTrainingClient) TrainModel(ctx context.Context, in *WorkloadsList,
 	return out, nil
 }
 
-func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error) {
-	out := new(WorkloadsList)
+func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadInfoList, error) {
+	out := new(WorkloadInfoList)
 	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/WorkloadLogCount", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -66,8 +66,8 @@ func (c *modelTrainingClient) ModelStatus(ctx context.Context, in *emptypb.Empty
 	return out, nil
 }
 
-func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadsList, error) {
-	out := new(WorkloadsList)
+func (c *modelTrainingClient) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*WorkloadInfoList, error) {
+	out := new(WorkloadInfoList)
 	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/ModelTrainingParameters", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -88,10 +88,10 @@ func (c *modelTrainingClient) GpuPresentCluster(ctx context.Context, in *emptypb
 // All implementations must embed UnimplementedModelTrainingServer
 // for forward compatibility
 type ModelTrainingServer interface {
-	TrainModel(context.Context, *WorkloadsList) (*v1.Reference, error)
-	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error)
+	TrainModel(context.Context, *WorkloadInfoList) (*v1.Reference, error)
+	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadInfoList, error)
 	ModelStatus(context.Context, *emptypb.Empty) (*v1.Reference, error)
-	ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error)
+	ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadInfoList, error)
 	GpuPresentCluster(context.Context, *emptypb.Empty) (*GPUInfoList, error)
 	mustEmbedUnimplementedModelTrainingServer()
 }
@@ -100,16 +100,16 @@ type ModelTrainingServer interface {
 type UnimplementedModelTrainingServer struct {
 }
 
-func (UnimplementedModelTrainingServer) TrainModel(context.Context, *WorkloadsList) (*v1.Reference, error) {
+func (UnimplementedModelTrainingServer) TrainModel(context.Context, *WorkloadInfoList) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TrainModel not implemented")
 }
-func (UnimplementedModelTrainingServer) WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error) {
+func (UnimplementedModelTrainingServer) WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WorkloadLogCount not implemented")
 }
 func (UnimplementedModelTrainingServer) ModelStatus(context.Context, *emptypb.Empty) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModelStatus not implemented")
 }
-func (UnimplementedModelTrainingServer) ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadsList, error) {
+func (UnimplementedModelTrainingServer) ModelTrainingParameters(context.Context, *emptypb.Empty) (*WorkloadInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModelTrainingParameters not implemented")
 }
 func (UnimplementedModelTrainingServer) GpuPresentCluster(context.Context, *emptypb.Empty) (*GPUInfoList, error) {
@@ -129,7 +129,7 @@ func RegisterModelTrainingServer(s grpc.ServiceRegistrar, srv ModelTrainingServe
 }
 
 func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(WorkloadsList)
+	in := new(WorkloadInfoList)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/modeltraining.ModelTraining/TrainModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ModelTrainingServer).TrainModel(ctx, req.(*WorkloadsList))
+		return srv.(ModelTrainingServer).TrainModel(ctx, req.(*WorkloadInfoList))
 	}
 	return interceptor(ctx, in, info, handler)
 }

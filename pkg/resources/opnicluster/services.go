@@ -36,12 +36,12 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 	return []resources.Resource{
 		r.nulogHyperparameters,
 		r.inferenceDeployment,
-		r.drainDeployment,
+		r.pretrainedDrainDeployment,
 		r.workloadDrainDeployment,
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
-		r.gpuCtrlDeployment,
+		//r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
 		r.metricsServiceMonitor,
@@ -658,8 +658,8 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 	return deployment, deploymentState(r.spec.Services.Inference.Enabled), nil
 }
 
-func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.DrainService)
+func (r *Reconciler) pretrainedDrainDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.PretrainedDrainService)
 	// temporary
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 		corev1.EnvVar{
@@ -679,8 +679,8 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
 }
 
-func (r *Reconciler) pretrainedDrainDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.DrainService)
+func (r *Reconciler) workloadDrainDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.WorkloadDrainService)
 	// temporary
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 		corev1.EnvVar{
@@ -703,6 +703,18 @@ func (r *Reconciler) pretrainedDrainDeployment() (runtime.Object, reconciler.Des
 	}
 	deployment.Spec.Replicas = r.spec.Services.Drain.Replicas
 	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
+}
+func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
+
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{
+			Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
+			Value: "0",
+		})
+	s3EnvVars := r.s3EnvVars()
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
+	return deployment, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {

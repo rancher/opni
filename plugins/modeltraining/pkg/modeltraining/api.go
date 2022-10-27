@@ -72,23 +72,24 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) ModelStatus(ctx context.Context, in *emptypb.Empty) (*corev1.Reference, error) {
+func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelStatus, error) {
 	b := []byte("model_status")
 	msg, err := c.natsConnection.Get().Request("model_status", b, time.Minute)
 	if err != nil {
 		return nil, err
 	}
-	res := corev1.Reference{Id: string(msg.Data)}
-	return &res, nil
+	return &modeltraining.ModelStatus{
+		Status: string(msg.Data),
+	}, nil
 }
 
-func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.WorkloadInfoList, error) {
+func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
 	b := []byte("model_training_parameters")
 	msg, err := c.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
 		return nil, err
 	}
-	parametersArray := make([]*modeltraining.WorkloadInfo, 0)
+	parametersArray := make([]*modeltraining.ModelTrainingParameters, 0)
 	var resultsStorage = map[string]map[string][]string{}
 	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
 		return nil, err
@@ -100,12 +101,12 @@ func (c *ModelTrainingPlugin) ModelTrainingParameters(ctx context.Context, in *e
 				continue
 			}
 			for deploymentIdx := range deployments {
-				deploymentData := modeltraining.WorkloadInfo{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
+				deploymentData := modeltraining.ModelTrainingParameters{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
 				parametersArray = append(parametersArray, &deploymentData)
 			}
 		}
 	}
-	return &modeltraining.WorkloadInfoList{
+	return &modeltraining.ModelTrainingParametersList{
 		Items: parametersArray,
 	}, nil
 }

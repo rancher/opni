@@ -18,14 +18,14 @@ service ModelTraining {
       post: "/workloadLogCount/{id}"
     };
   }
-  rpc ModelStatus(google.protobuf.Empty) returns (core.Reference) {
+  rpc GetModelStatus(google.protobuf.Empty) returns (ModelStatus) {
     option (google.api.http) = {
-      get: "/modelStatus"
+      get: "/model/status"
     };
   }
-  rpc ModelTrainingParameters(google.protobuf.Empty) returns (WorkloadInfoList) {
+  rpc GetModelTrainingParameters(google.protobuf.Empty) returns (ModelTrainingParametersList) {
     option (google.api.http) = {
-      get: "/modelTrainingParameters"
+      get: "/model/training_parameters"
     };
   }
   rpc GpuPresentCluster(google.protobuf.Empty) returns (GPUInfoList) {
@@ -43,6 +43,20 @@ message GPUInfo {
 
 message GPUInfoList {
   repeated GPUInfo items = 1;
+}
+
+message ModelStatus {
+  string status = 1;
+}
+
+message ModelTrainingParameters {
+  string clusterId = 1;
+  string namespace = 2;
+  string deployment = 3;
+}
+
+message ModelTrainingParametersList {
+  repeated ModelTrainingParameters items = 1;
 }
 
 message WorkloadInfo {

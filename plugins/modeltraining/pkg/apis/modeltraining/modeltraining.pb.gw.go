@@ -119,38 +119,38 @@ func local_request_ModelTraining_WorkloadLogCount_0(ctx context.Context, marshal
 
 }
 
-func request_ModelTraining_ModelStatus_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ModelTraining_GetModelStatus_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := client.ModelStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetModelStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ModelTraining_ModelStatus_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ModelTraining_GetModelStatus_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := server.ModelStatus(ctx, &protoReq)
+	msg, err := server.GetModelStatus(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_ModelTraining_ModelTrainingParameters_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_ModelTraining_GetModelTrainingParameters_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := client.ModelTrainingParameters(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetModelTrainingParameters(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ModelTraining_ModelTrainingParameters_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_ModelTraining_GetModelTrainingParameters_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq emptypb.Empty
 	var metadata runtime.ServerMetadata
 
-	msg, err := server.ModelTrainingParameters(ctx, &protoReq)
+	msg, err := server.GetModelTrainingParameters(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -229,7 +229,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_ModelTraining_ModelStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_GetModelStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -237,12 +237,12 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/modeltraining.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/modelStatus"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/modeltraining.ModelTraining/GetModelStatus", runtime.WithHTTPPathPattern("/model/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ModelTraining_ModelStatus_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ModelTraining_GetModelStatus_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -250,11 +250,11 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_ModelTraining_ModelStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_GetModelStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_ModelTraining_ModelTrainingParameters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_GetModelTrainingParameters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -262,12 +262,12 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/modeltraining.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/modelTrainingParameters"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/modeltraining.ModelTraining/GetModelTrainingParameters", runtime.WithHTTPPathPattern("/model/training_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ModelTraining_ModelTrainingParameters_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ModelTraining_GetModelTrainingParameters_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -275,7 +275,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_ModelTraining_ModelTrainingParameters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_GetModelTrainingParameters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -389,47 +389,47 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_ModelTraining_ModelStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_GetModelStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/modeltraining.ModelTraining/ModelStatus", runtime.WithHTTPPathPattern("/modelStatus"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/modeltraining.ModelTraining/GetModelStatus", runtime.WithHTTPPathPattern("/model/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ModelTraining_ModelStatus_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ModelTraining_GetModelStatus_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ModelTraining_ModelStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_GetModelStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_ModelTraining_ModelTrainingParameters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_GetModelTrainingParameters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/modeltraining.ModelTraining/ModelTrainingParameters", runtime.WithHTTPPathPattern("/modelTrainingParameters"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/modeltraining.ModelTraining/GetModelTrainingParameters", runtime.WithHTTPPathPattern("/model/training_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ModelTraining_ModelTrainingParameters_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ModelTraining_GetModelTrainingParameters_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ModelTraining_ModelTrainingParameters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_GetModelTrainingParameters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -463,9 +463,9 @@ var (
 
 	pattern_ModelTraining_WorkloadLogCount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"workloadLogCount", "id"}, ""))
 
-	pattern_ModelTraining_ModelStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"modelStatus"}, ""))
+	pattern_ModelTraining_GetModelStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"model", "status"}, ""))
 
-	pattern_ModelTraining_ModelTrainingParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"modelTrainingParameters"}, ""))
+	pattern_ModelTraining_GetModelTrainingParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"model", "training_parameters"}, ""))
 
 	pattern_ModelTraining_GpuPresentCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"gpuPresentCluster"}, ""))
 )
@@ -475,9 +475,9 @@ var (
 
 	forward_ModelTraining_WorkloadLogCount_0 = runtime.ForwardResponseMessage
 
-	forward_ModelTraining_ModelStatus_0 = runtime.ForwardResponseMessage
+	forward_ModelTraining_GetModelStatus_0 = runtime.ForwardResponseMessage
 
-	forward_ModelTraining_ModelTrainingParameters_0 = runtime.ForwardResponseMessage
+	forward_ModelTraining_GetModelTrainingParameters_0 = runtime.ForwardResponseMessage
 
 	forward_ModelTraining_GpuPresentCluster_0 = runtime.ForwardResponseMessage
 )

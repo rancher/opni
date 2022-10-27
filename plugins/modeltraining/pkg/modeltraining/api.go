@@ -8,11 +8,14 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.WorkloadInfoList) (*corev1.Reference, error) {
+func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.Items {
 		clusterId := item.ClusterId
@@ -35,39 +38,39 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	}
 	jsonParameters, err := json.Marshal(modelTrainingParameters)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "Failed to marshal model training parameters: %v", err)
 	}
-	jsonBytes := []byte(jsonParameters)
-	msg, err := c.natsConnection.Get().Request("train_model", jsonBytes, time.Minute)
+	msg, err := c.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "Failed to train model: %v", err)
 	}
-	res := corev1.Reference{Id: string(msg.Data)}
-	return &res, nil
+	return &modeltraining.ModelTrainingResponse{
+		Response: string(msg.Data),
+	}, nil
 }
 
-func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadInfoList, error) {
+func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
 	result, err := c.kv.Get().Get("aggregation")
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %s", err)
 	}
 	jsonRes := result.Value()
 	var resultsStorage = Aggregations{}
 	if err := json.Unmarshal(jsonRes, &resultsStorage); err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal workload aggregation from Jetstream: %s", err)
 	}
 	clusterAggregationResults, ok := resultsStorage.ByCluster[in.Id]
 	if !ok {
-		return &modeltraining.WorkloadInfoList{}, nil
+		return &modeltraining.WorkloadAggregationList{}, nil
 	}
-	workloadArray := make([]*modeltraining.WorkloadInfo, 0)
+	workloadArray := make([]*modeltraining.WorkloadAggregation, 0)
 	for namespaceName, deployments := range clusterAggregationResults.ByNamespace {
 		for deploymentName, count := range deployments.ByDeployment {
-			workloadAggregation := modeltraining.WorkloadInfo{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, LogCount: int64(count.Count)}
+			workloadAggregation := modeltraining.WorkloadAggregation{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, LogCount: int64(count.Count)}
 			workloadArray = append(workloadArray, &workloadAggregation)
 		}
 	}
-	return &modeltraining.WorkloadInfoList{
+	return &modeltraining.WorkloadAggregationList{
 		Items: workloadArray,
 	}, nil
 }
@@ -76,7 +79,7 @@ func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Em
 	b := []byte("model_status")
 	msg, err := c.natsConnection.Get().Request("model_status", b, time.Minute)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
 	return &modeltraining.ModelStatus{
 		Status: string(msg.Data),
@@ -87,12 +90,12 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	b := []byte("model_training_parameters")
 	msg, err := c.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %s", err)
 	}
 	parametersArray := make([]*modeltraining.ModelTrainingParameters, 0)
 	var resultsStorage = map[string]map[string][]string{}
 	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JSON: %s", err)
 	}
 	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {
@@ -111,11 +114,15 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
+func (c *ModelTrainingPlugin) ClusterGPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 
 	nodes := &k8scorev1.NodeList{}
 	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
-		return nil, err
+		if k8serrors.IsNotFound(err) {
+			return nil, status.Errorf(codes.NotFound, "Failed to find nodes: %s", err)
+		} else {
+			return nil, status.Errorf(codes.Internal, "Failed to get nodes: %v", err)
+		}
 	}
 	gpuInfoArray := make([]*modeltraining.GPUInfo, 0)
 

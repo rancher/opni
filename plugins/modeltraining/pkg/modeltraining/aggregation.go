@@ -3,7 +3,6 @@ package modeltraining
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"time"
 )
 
@@ -131,8 +130,8 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 	for {
 		var buf bytes.Buffer
 		if err := json.NewEncoder(&buf).Encode(request); err != nil {
-			log.Fatalf("Error: Unable to encode request: %s", err)
-
+			s.Logger.Errorf("Error: Unable to encode request: %s", err)
+			return
 		}
 		res, err := s.osClient.Get().Search(
 			s.osClient.Get().Search.WithContext(s.ctx),
@@ -142,15 +141,18 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 			s.osClient.Get().Search.WithPretty(),
 		)
 		if err != nil {
-			s.Logger.Fatalf("Unable to connect to Opensearch %s", err)
+			s.Logger.Errorf("Unable to connect to Opensearch %s", err)
+			return
 		}
 		defer res.Body.Close()
 		if res.IsError() {
-			s.Logger.Fatalf("Error: %s", res.String())
+			s.Logger.Errorf("Error: %s", res.String())
+			return
 		}
 		var result SearchResponse
 		if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-			s.Logger.Fatalf("Error parsing the response body: %s", err)
+			s.Logger.Errorf("Error parsing the response body: %s", err)
+			return
 		}
 		for _, b := range result.Aggregations.Bucket.Buckets {
 			resultAgg.Add(b)
@@ -164,7 +166,8 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 	}
 	aggregatedResults, err := json.Marshal(resultAgg)
 	if err != nil {
-		s.Logger.Fatalf("Error: %s", err)
+		s.Logger.Errorf("Error: %s", err)
+		return
 	}
 	bytesAggregation := []byte(aggregatedResults)
 	s.kv.Get().Put("aggregation", bytesAggregation)

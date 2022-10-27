@@ -7,15 +7,15 @@ import "google/api/annotations.proto";
 package modeltraining;
 
 service ModelTraining {
-  rpc TrainModel(WorkloadInfoList) returns (core.Reference) {
+  rpc TrainModel(ModelTrainingParametersList) returns (ModelTrainingResponse) {
     option (google.api.http) = {
-      post: "/trainModel"
+      post: "/model/train"
       body: "*"
     };
   }
-  rpc WorkloadLogCount(core.Reference) returns (WorkloadInfoList) {
+  rpc ClusterWorkloadAggregation(core.Reference) returns (WorkloadAggregationList) {
     option (google.api.http) = {
-      post: "/workloadLogCount/{id}"
+      get: "/workloadAggregation/{id}"
     };
   }
   rpc GetModelStatus(google.protobuf.Empty) returns (ModelStatus) {
@@ -28,7 +28,7 @@ service ModelTraining {
       get: "/model/training_parameters"
     };
   }
-  rpc GpuPresentCluster(google.protobuf.Empty) returns (GPUInfoList) {
+  rpc ClusterGPUInfo(google.protobuf.Empty) returns (GPUInfoList) {
     option (google.api.http) = {
       get: "/gpuPresentCluster"
     };
@@ -49,6 +49,10 @@ message ModelStatus {
   string status = 1;
 }
 
+message ModelTrainingResponse {
+  string response = 1;
+}
+
 message ModelTrainingParameters {
   string clusterId = 1;
   string namespace = 2;
@@ -59,13 +63,13 @@ message ModelTrainingParametersList {
   repeated ModelTrainingParameters items = 1;
 }
 
-message WorkloadInfo {
+message WorkloadAggregation {
   string clusterId = 1;
   string namespace = 2;
   string deployment = 3;
   int64 logCount = 4;
 }
 
-message WorkloadInfoList {
-  repeated WorkloadInfo items = 1;
+message WorkloadAggregationList {
+  repeated WorkloadAggregation items = 1;
 }

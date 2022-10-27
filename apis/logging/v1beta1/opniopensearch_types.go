@@ -32,6 +32,7 @@ type OpniOpensearchStatus struct {
 	State             OpniOpensearchState `json:"state,omitempty"`
 	OpensearchVersion *string             `json:"opensearchVersion,omitempty"`
 	Version           *string             `json:"version,omitempty"`
+	PasswordGenerated bool                `json:"passwordGenerated,omitempty"`
 }
 
 type OpniOpensearchSpec struct {
@@ -45,9 +46,10 @@ type OpniOpensearchSpec struct {
 }
 
 type OpensearchSettings struct {
-	NodePools  []opsterv1.NodePool       `json:"nodePools,omitempty"`
-	Dashboards opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
-	Security   *opsterv1.Security        `json:"security,omitempty"`
+	ImageOverride *string                   `json:"imageOverride,omitempty"`
+	NodePools     []opsterv1.NodePool       `json:"nodePools,omitempty"`
+	Dashboards    opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
+	Security      *opsterv1.Security        `json:"security,omitempty"`
 }
 
 // +kubebuilder:object:root=true

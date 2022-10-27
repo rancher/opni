@@ -3,7 +3,7 @@ package opniopensearch
 import (
 	"bytes"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -42,6 +42,17 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		r.instance.Spec.OpensearchVersion,
 		version,
 	)
+
+	updatedSecurityConfig := r.instance.Spec.OpensearchSettings.Security.DeepCopy()
+	updatedSecurityConfig.Config = &opsterv1.SecurityConfig{
+		SecurityconfigSecret: corev1.LocalObjectReference{
+			Name: fmt.Sprintf("%s-securityconfig", r.instance.Name),
+		},
+		AdminCredentialsSecret: corev1.LocalObjectReference{
+			Name: fmt.Sprintf("%s-internal-auth", r.instance.Name),
+		},
+	}
+
 	cluster := &opsterv1.OpenSearchCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Name,
@@ -50,8 +61,13 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		Spec: opsterv1.ClusterSpec{
 			General: opsterv1.GeneralConfig{
 				ImageSpec: &opsterv1.ImageSpec{
-					Image:           &image,
 					ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
+					Image: func() *string {
+						if r.instance.Spec.OpensearchSettings.ImageOverride != nil {
+							return r.instance.Spec.OpensearchSettings.ImageOverride
+						}
+						return &image
+					}(),
 				},
 				Version:          r.instance.Spec.OpensearchVersion,
 				ServiceName:      fmt.Sprintf("%s-opensearch-svc", r.instance.Name),
@@ -83,7 +99,7 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 				}(),
 			},
 			NodePools:  r.instance.Spec.NodePools,
-			Security:   r.instance.Spec.OpensearchSettings.Security,
+			Security:   updatedSecurityConfig,
 			Dashboards: r.instance.Spec.Dashboards,
 		},
 	}

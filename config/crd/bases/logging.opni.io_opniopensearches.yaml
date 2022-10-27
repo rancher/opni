@@ -614,6 +614,8 @@ spec:
                     - replicas
                     - version
                     type: object
+                  imageOverride:
+                    type: string
                   nodePools:
                     items:
                       properties:
@@ -1207,6 +1209,8 @@ spec:
                 type: array
               opensearchVersion:
                 type: string
+              passwordGenerated:
+                type: boolean
               state:
                 type: string
               version:

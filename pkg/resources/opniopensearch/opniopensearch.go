@@ -47,6 +47,32 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	}
 
 	result := reconciler.CombinedResult{}
+
+	if !r.instance.Status.PasswordGenerated {
+		objects, err := r.generatePasswordObjects()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, object := range objects {
+			result.Combine(r.ReconcileResource(object, reconciler.StatePresent))
+		}
+		if result.Err != nil || !result.Result.IsZero() {
+			return &result.Result, result.Err
+		}
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.instance), r.instance); err != nil {
+				return err
+			}
+
+			r.instance.Status.PasswordGenerated = true
+			return r.client.Status().Update(r.ctx, r.instance)
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(natsSecret), reconciler.StatePresent))
 	result.Combine(r.ReconcileResource(r.buildMulticlusterRoleBinding(), reconciler.StatePresent))
 	if r.instance.Spec.NatsRef != nil {

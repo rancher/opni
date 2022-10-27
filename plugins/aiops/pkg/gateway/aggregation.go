@@ -33,15 +33,15 @@ type Bucket struct {
 }
 
 type Aggregations struct {
-	ByCluster map[string]*ClusterAggregation `json:",inline,omitEmpty"`
+	ByCluster map[string]*ClusterAggregation `json:",inline,omitempty"`
 }
 
 type ClusterAggregation struct {
-	ByNamespace map[string]*NamespaceAggregation `json:",inline,omitEmpty"`
+	ByNamespace map[string]*NamespaceAggregation `json:",inline,omitempty"`
 }
 
 type NamespaceAggregation struct {
-	ByDeployment map[string]*DeploymentLogCount `json:",inline,omitEmpty"`
+	ByDeployment map[string]*DeploymentLogCount `json:",inline,omitempty"`
 }
 
 type DeploymentLogCount struct {

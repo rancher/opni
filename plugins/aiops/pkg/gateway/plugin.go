@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"os"
 
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,12 +24,13 @@ import (
 type AIOpsPlugin struct {
 	modeltraining.UnsafeModelTrainingServer
 	system.UnimplementedSystemPluginClient
-	ctx            context.Context
-	Logger         *zap.SugaredLogger
-	k8sClient      future.Future[client.Client]
-	osClient       future.Future[*opensearch.Client]
-	natsConnection future.Future[*nats.Conn]
-	kv             future.Future[nats.KeyValue]
+	ctx              context.Context
+	Logger           *zap.SugaredLogger
+	k8sClient        client.Client
+	osClient         future.Future[*opensearch.Client]
+	natsConnection   future.Future[*nats.Conn]
+	kv               future.Future[nats.KeyValue]
+	storageNamespace string
 }
 
 func (s *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
@@ -47,20 +50,10 @@ func (s *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
 	if err != nil {
 		lg.Fatal(err)
 	}
-	client, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-		Scheme: apis.NewScheme(),
-	})
-	if err != nil {
-		lg.Fatal(err)
-	}
-	s.k8sClient.Set(client)
+
 	s.natsConnection.Set(nc)
 	s.kv.Set(keyValue)
-	osClient, err := s.newOpensearchConnection()
-	if err != nil {
-		lg.Fatal(err)
-	}
-	s.osClient.Set(osClient)
+
 	go s.runAggregation()
 	<-s.ctx.Done()
 }
@@ -72,13 +65,30 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := &AIOpsPlugin{
 		Logger:         logger.NewPluginLogger().Named("modeltraining"),
 		ctx:            ctx,
-		k8sClient:      future.New[client.Client](),
 		natsConnection: future.New[*nats.Conn](),
 		kv:             future.New[nats.KeyValue](),
 		osClient:       future.New[*opensearch.Client](),
 	}
+
+	p.storageNamespace = os.Getenv("POD_NAMESPACE")
+
+	k8sClient, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
+		Scheme: apis.NewScheme(),
+	})
+	if err != nil {
+		p.Logger.Fatal(err)
+	}
+	p.k8sClient = k8sClient
+
+	go p.setOpensearchConnection()
+
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&modeltraining.ModelTraining_ServiceDesc, p)))
+	scheme.Add(
+		managementext.ManagementAPIExtensionPluginID,
+		managementext.NewPlugin(
+			util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
+			util.PackService(&admin.Admin_ServiceDesc, p),
+		),
+	)
 	return scheme
 }

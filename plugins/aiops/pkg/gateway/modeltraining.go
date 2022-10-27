@@ -113,7 +113,7 @@ func (c *AIOpsPlugin) ModelTrainingParameters(ctx context.Context, in *emptypb.E
 func (c *AIOpsPlugin) GpuPresentCluster(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 
 	nodes := &k8scorev1.NodeList{}
-	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
+	if err := c.k8sClient.List(ctx, nodes); err != nil {
 		return nil, err
 	}
 	returnedData := modeltraining.GPUInfoList{}

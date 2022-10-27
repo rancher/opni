@@ -130,6 +130,8 @@ func (c *ModelTrainingPlugin) GpuPresentCluster(ctx context.Context, in *emptypb
 			}
 		}
 	}
-	returnedData.List = gpuInfoArray
-	return &returnedData, nil
+	returnedData.Items = gpuInfoArray
+	return &modeltraining.GPUInfoList{
+		Items: gpuInfoArray,
+	}, nil
 }

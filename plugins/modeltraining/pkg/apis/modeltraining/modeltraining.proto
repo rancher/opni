@@ -42,7 +42,7 @@ message GPUInfo {
 }
 
 message GPUInfoList {
-  repeated GPUInfo list = 1;
+  repeated GPUInfo items = 1;
 }
 
 message WorkloadResponse {

@@ -62,7 +62,7 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	}
 	s.osClient.Set(osClient)
 	go s.runAggregation()
-
+	<-s.ctx.Done()
 }
 
 var _ modeltraining.ModelTrainingServer = (*ModelTrainingPlugin)(nil)

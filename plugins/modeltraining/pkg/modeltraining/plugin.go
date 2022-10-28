@@ -2,6 +2,7 @@ package modeltraining
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
@@ -40,12 +41,17 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	if err != nil {
 		lg.Fatal(err)
 	}
-	keyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "os-workload-aggregation",
-		Description: "Storing aggregation of workload logs from Opensearch.",
-	})
+	keyValue, err := mgr.KeyValue("os-workload-aggregation")
 	if err != nil {
-		lg.Fatal(err)
+		if errors.Is(err, nats.ErrBucketNotFound) {
+			keyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+				Bucket:      "os-workload-aggregation",
+				Description: "Storing aggregation of workload logs from Opensearch.",
+			})
+			if err != nil {
+				lg.Fatal(err)
+			}
+		}
 	}
 	client, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 		Scheme: apis.NewScheme(),

@@ -162,7 +162,7 @@ func (e *EmailEndpoint) Validate() error {
 	if e.SmtpSmartHost != nil {
 		arr := strings.Split(*e.SmtpSmartHost, ":")
 		if len(arr) != 2 {
-			return validation.Errorf("Invalid smtp host %s", *e.SmtpSmartHost)
+			return validation.Errorf("SMTP smart host must be in the form <address>:<port>, but got : %s", *e.SmtpSmartHost)
 		}
 	}
 	return nil

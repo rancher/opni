@@ -5,13 +5,11 @@ import (
 	"os/exec"
 	"os/signal"
 
-	"github.com/kralicky/spellbook/build"
-	"github.com/kralicky/spellbook/testbin"
 	"github.com/magefile/mage/mg"
 )
 
 func Env() {
-	mg.Deps(testbin.Testbin, build.Build)
+	mg.Deps(Deps...)
 	cmd := exec.Command("bin/testenv")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

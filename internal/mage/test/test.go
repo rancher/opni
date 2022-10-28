@@ -12,8 +12,6 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 	"github.com/jaypipes/ghw"
-	"github.com/kralicky/spellbook/build"
-	"github.com/kralicky/spellbook/testbin"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 	"github.com/onsi/ginkgo/v2/types"
@@ -57,8 +55,10 @@ func init() {
 	}
 }
 
+var Deps []any
+
 func Test() error {
-	mg.Deps(testbin.Testbin, build.Build, SysInfo)
+	mg.Deps(append(Deps, SysInfo)...)
 
 	rt, err := NewTestPlanRuntime()
 	if err != nil {

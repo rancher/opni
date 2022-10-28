@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -22,14 +23,22 @@ type CRDStore struct {
 }
 
 var _ storage.TokenStore = (*CRDStore)(nil)
-var _ storage.ClusterStore = (*CRDStore)(nil)
 var _ storage.RBACStore = (*CRDStore)(nil)
 var _ storage.KeyringStoreBroker = (*CRDStore)(nil)
 
+var (
+	defaultBackoff = wait.Backoff{
+		Steps:    20,
+		Duration: 10 * time.Millisecond,
+		Cap:      1 * time.Second,
+		Factor:   1.5,
+		Jitter:   0.1,
+	}
+)
+
 type CRDStoreOptions struct {
-	namespace      string
-	restConfig     *rest.Config
-	commandTimeout time.Duration
+	namespace  string
+	restConfig *rest.Config
 }
 
 type CRDStoreOption func(*CRDStoreOptions)
@@ -52,17 +61,10 @@ func WithRestConfig(rc *rest.Config) CRDStoreOption {
 	}
 }
 
-func WithCommandTimeout(timeout time.Duration) CRDStoreOption {
-	return func(o *CRDStoreOptions) {
-		o.commandTimeout = timeout
-	}
-}
-
 func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	lg := logger.New().Named("crd-store")
 	options := CRDStoreOptions{
-		namespace:      os.Getenv("POD_NAMESPACE"),
-		commandTimeout: 5 * time.Second,
+		namespace: os.Getenv("POD_NAMESPACE"),
 	}
 	options.apply(opts...)
 	if options.namespace == "" {
@@ -72,7 +74,6 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}
-	options.restConfig.Timeout = options.commandTimeout
 	return &CRDStore{
 		CRDStoreOptions: options,
 		client: util.Must(client.NewWithWatch(options.restConfig, client.Options{

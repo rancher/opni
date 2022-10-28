@@ -1,6 +1,4 @@
-//go:build !noetcd
-
-package etcd_test
+package jetstream_test
 
 import (
 	"context"
@@ -10,17 +8,17 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/rancher/opni/pkg/storage/conformance"
-	"github.com/rancher/opni/pkg/storage/etcd"
+	"github.com/rancher/opni/pkg/storage/jetstream"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/future"
 )
 
-func TestEtcd(t *testing.T) {
+func TestJetStream(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Etcd Storage Suite")
+	RunSpecs(t, "JetStream Storage Suite")
 }
 
-var store = future.New[*etcd.EtcdStore]()
+var store = future.New[*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
 	env := test.Environment{
@@ -29,15 +27,15 @@ var _ = BeforeSuite(func() {
 	env.Start(
 		test.WithEnableCortex(false),
 		test.WithEnableGateway(false),
-		test.WithEnableEtcd(true),
-		test.WithEnableJetstream(false),
+		test.WithEnableEtcd(false),
+		test.WithEnableJetstream(true),
 		test.WithEnableDisconnectServer(false),
 		test.WithEnableRealtimeServer(false),
 	)
 
-	store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
-		etcd.WithPrefix("test"),
-	))
+	s, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())
+	Expect(err).NotTo(HaveOccurred())
+	store.Set(s)
 
 	DeferCleanup(env.Stop)
 })

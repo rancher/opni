@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -84,7 +86,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 			Id: "test-role",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get role: not found"))
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	//#endregion
@@ -106,7 +108,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 			Id: "test-role",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get role: not found"))
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	It("can create and get a role without a cluster ID", func() {

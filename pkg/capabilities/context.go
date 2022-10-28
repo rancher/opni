@@ -68,7 +68,7 @@ func (cc *capabilityContext[T, U]) watch() {
 			case storage.WatchEventDelete:
 				cc.err.Store(ErrObjectDeleted)
 				return
-			case storage.WatchEventCreate:
+			case storage.WatchEventUpdate:
 				if len(cc.capabilities) == 0 {
 					// check if any capabilities were lost
 					for _, c := range event.Previous.GetCapabilities() {

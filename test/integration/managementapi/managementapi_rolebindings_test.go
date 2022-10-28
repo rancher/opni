@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -85,7 +87,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 			Id: "test-rolebinding",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get role binding: not found"))
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	//#endregion
@@ -104,7 +106,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 			Id: "test-rolebinding",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get role binding: not found"))
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	It("can create rolebindings without a valid RoleId", func() {

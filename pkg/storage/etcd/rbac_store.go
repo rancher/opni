@@ -43,7 +43,7 @@ func (e *EtcdStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 	if len(resp.Kvs) == 0 {
-		return nil, fmt.Errorf("failed to get role: %w", storage.ErrNotFound)
+		return nil, storage.ErrNotFound
 	}
 	role := &corev1.Role{}
 	if err := protojson.Unmarshal(resp.Kvs[0].Value, role); err != nil {
@@ -81,7 +81,7 @@ func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (
 		return nil, fmt.Errorf("failed to get role binding: %w", err)
 	}
 	if len(resp.Kvs) == 0 {
-		return nil, fmt.Errorf("failed to get role binding: %w", storage.ErrNotFound)
+		return nil, storage.ErrNotFound
 	}
 	roleBinding := &corev1.RoleBinding{}
 	if err := protojson.Unmarshal(resp.Kvs[0].Value, roleBinding); err != nil {

@@ -2,7 +2,6 @@ package crds_test
 
 import (
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,12 +29,11 @@ var _ = BeforeSuite(func() {
 	config, _, err := env.StartK8s()
 	Expect(err).NotTo(HaveOccurred())
 
-	store.Set(crds.NewCRDStore(crds.WithRestConfig(config), crds.WithCommandTimeout(1*time.Second)))
+	store.Set(crds.NewCRDStore(crds.WithRestConfig(config)))
 
 	DeferCleanup(env.Stop)
 })
 
 var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))
-var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), conformance.ClusterStoreTestSuite(store))
 var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), conformance.RBACStoreTestSuite(store))
 var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), conformance.KeyringStoreTestSuite(store))

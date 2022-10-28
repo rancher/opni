@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -62,10 +61,8 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 
 		Expect(token.TokenID).NotTo(BeNil())
 		Expect(utf8.RuneCountInString(token.TokenID)).To(Equal(12))
-		Expect(token.Metadata.LeaseID).NotTo(BeZero())
 		Expect(utf8.RuneCountInString(token.Secret)).To(Equal(52))
 		Expect(token.Secret).NotTo(BeNil())
-		Expect(utf8.RuneCountInString(strconv.Itoa(int(token.Metadata.LeaseID)))).To(Equal(19))
 		Expect(token.Metadata.Ttl).To(Equal(int64(time.Hour.Seconds())))
 	})
 
@@ -145,10 +142,8 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 
 		Expect(token.TokenID).NotTo(BeNil())
 		Expect(utf8.RuneCountInString(token.TokenID)).To(Equal(12))
-		Expect(token.Metadata.LeaseID).NotTo(BeNil())
 		Expect(utf8.RuneCountInString(token.Secret)).To(Equal(52))
 		Expect(token.Secret).NotTo(BeNil())
-		Expect(utf8.RuneCountInString(strconv.Itoa(int(token.Metadata.LeaseID)))).To(Equal(19))
 		Expect(token.Metadata.Ttl).To(Equal(int64(60)))
 
 		_, err = client.RevokeBootstrapToken(context.Background(), token.Reference())

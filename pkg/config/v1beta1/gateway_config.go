@@ -276,6 +276,8 @@ type StorageType string
 const (
 	// Use etcd for key-value storage. This is the recommended default.
 	StorageTypeEtcd StorageType = "etcd"
+	// Use NATS JetStream for key-value storage.
+	StorageTypeJetStream StorageType = "jetstream"
 	// Use Kubernetes custom resources to store objects. This is experimental,
 	// and it is recommended to use the etcd storage type instead for performance
 	// reasons.
@@ -285,6 +287,7 @@ const (
 type StorageSpec struct {
 	Type            StorageType                 `json:"type,omitempty"`
 	Etcd            *EtcdStorageSpec            `json:"etcd,omitempty"`
+	JetStream       *JetStreamStorageSpec       `json:"jetstream,omitempty"`
 	CustomResources *CustomResourcesStorageSpec `json:"customResources,omitempty"`
 }
 
@@ -293,6 +296,11 @@ type EtcdStorageSpec struct {
 	Endpoints []string `json:"endpoints,omitempty"`
 	// Configuration for etcd client-cert auth.
 	Certs *MTLSSpec `json:"certs,omitempty"`
+}
+
+type JetStreamStorageSpec struct {
+	Endpoint     string `json:"endpoint,omitempty"`
+	NkeySeedPath string `json:"nkeySeedPath,omitempty"`
 }
 
 type CustomResourcesStorageSpec struct {

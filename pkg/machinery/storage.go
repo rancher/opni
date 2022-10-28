@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
+	"github.com/rancher/opni/pkg/storage/jetstream"
 )
 
 func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (storage.Backend, error) {
@@ -31,6 +32,12 @@ func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (sto
 		}
 		crdStore := crds.NewCRDStore(crdOpts...)
 		storageBackend.Use(crdStore)
+	case v1beta1.StorageTypeJetStream:
+		store, err := jetstream.NewJetStreamStore(ctx, cfg.JetStream)
+		if err != nil {
+			return nil, err
+		}
+		storageBackend.Use(store)
 	default:
 		return nil, errors.New("unknown storage type")
 	}

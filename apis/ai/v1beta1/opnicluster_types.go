@@ -87,21 +87,28 @@ type OpniCluster struct {
 }
 
 type ServicesSpec struct {
-	Drain            DrainServiceSpec            `json:"drain,omitempty"`
-	Inference        InferenceServiceSpec        `json:"inference,omitempty"`
-	Preprocessing    PreprocessingServiceSpec    `json:"preprocessing,omitempty"`
-	PayloadReceiver  PayloadReceiverServiceSpec  `json:"payloadReceiver,omitempty"`
-	GPUController    GPUControllerServiceSpec    `json:"gpuController,omitempty"`
-	Metrics          MetricsServiceSpec          `json:"metrics,omitempty"`
-	OpensearchUpdate OpensearchUpdateServiceSpec `json:"opensearchUpdate,omitempty"`
+	Drain              DrainServiceSpec              `json:"drain,omitempty"`
+	Inference          InferenceServiceSpec          `json:"inference,omitempty"`
+	Preprocessing      PreprocessingServiceSpec      `json:"preprocessing,omitempty"`
+	PayloadReceiver    PayloadReceiverServiceSpec    `json:"payloadReceiver,omitempty"`
+	GPUController      GPUControllerServiceSpec      `json:"gpuController,omitempty"`
+	Metrics            MetricsServiceSpec            `json:"metrics,omitempty"`
+	OpensearchUpdate   OpensearchUpdateServiceSpec   `json:"opensearchUpdate,omitempty"`
+	TrainingController TrainingControllerServiceSpec `json:"trainingController,omitempty"`
 }
 
 type DrainServiceSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
-	Enabled            *bool               `json:"enabled,omitempty"`
-	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
-	Replicas           *int32              `json:"replicas,omitempty"`
+	Enabled            *bool                    `json:"enabled,omitempty"`
+	NodeSelector       map[string]string        `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration      `json:"tolerations,omitempty"`
+	Replicas           *int32                   `json:"replicas,omitempty"`
+	Workload           WorkloadDrainServiceSpec `json:"workload,omitempty"`
+}
+
+type WorkloadDrainServiceSpec struct {
+	Enabled  *bool  `json:"enabled,omitempty"`
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 type InferenceServiceSpec struct {
@@ -131,6 +138,13 @@ type GPUControllerServiceSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
 	Enabled            *bool               `json:"enabled,omitempty"`
 	RuntimeClass       *string             `json:"runtimeClass,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
+type TrainingControllerServiceSpec struct {
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
 	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }

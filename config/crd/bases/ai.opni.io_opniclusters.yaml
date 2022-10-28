@@ -159,6 +159,14 @@ spec:
                               type: string
                           type: object
                         type: array
+                      workload:
+                        properties:
+                          enabled:
+                            type: boolean
+                          replicas:
+                            format: int32
+                            type: integer
+                        type: object
                     type: object
                   gpuController:
                     properties:
@@ -1062,6 +1070,42 @@ spec:
                       replicas:
                         format: int32
                         type: integer
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  trainingController:
+                    properties:
+                      enabled:
+                        type: boolean
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
                       tolerations:
                         items:
                           properties:

@@ -9,14 +9,12 @@ type ServiceKind int
 
 const (
 	InferenceService ServiceKind = iota
-	PretrainedDrainService
-	WorkloadDrainService
+	DrainService
 	PreprocessingService
 	PayloadReceiverService
 	GPUControllerService
 	MetricsService
 	OpensearchUpdateService
-	TrainingControllerService
 )
 
 type OpensearchRole string
@@ -32,10 +30,8 @@ func (s ServiceKind) String() string {
 	switch s {
 	case InferenceService:
 		return "inference"
-	case PretrainedDrainService:
-		return "pretrained-drain"
-	case WorkloadDrainService:
-		return "workload-drain"
+	case DrainService:
+		return "drain"
 	case PreprocessingService:
 		return "preprocessing"
 	case PayloadReceiverService:
@@ -46,8 +42,6 @@ func (s ServiceKind) String() string {
 		return "metrics"
 	case OpensearchUpdateService:
 		return "opensearch-update"
-	case TrainingControllerService:
-		return "training-controller"
 	default:
 		return ""
 	}
@@ -70,9 +64,7 @@ func (s ServiceKind) GetImageSpec(spec OpniClusterSpec) *opnimeta.ImageSpec {
 	switch s {
 	case InferenceService:
 		return &spec.Services.Inference.ImageSpec
-	case PretrainedDrainService:
-		return &spec.Services.Drain.ImageSpec
-	case WorkloadDrainService:
+	case DrainService:
 		return &spec.Services.Drain.ImageSpec
 	case PreprocessingService:
 		return &spec.Services.Preprocessing.ImageSpec
@@ -84,8 +76,6 @@ func (s ServiceKind) GetImageSpec(spec OpniClusterSpec) *opnimeta.ImageSpec {
 		return &spec.Services.Metrics.ImageSpec
 	case OpensearchUpdateService:
 		return &spec.Services.OpensearchUpdate.ImageSpec
-	case TrainingControllerService:
-		return &spec.Services.TrainingController.ImageSpec
 	default:
 		return nil
 	}
@@ -95,9 +85,7 @@ func (s ServiceKind) GetNodeSelector(spec OpniClusterSpec) map[string]string {
 	switch s {
 	case InferenceService:
 		return spec.Services.Inference.NodeSelector
-	case PretrainedDrainService:
-		return spec.Services.Drain.NodeSelector
-	case WorkloadDrainService:
+	case DrainService:
 		return spec.Services.Drain.NodeSelector
 	case PreprocessingService:
 		return spec.Services.Preprocessing.NodeSelector
@@ -109,8 +97,6 @@ func (s ServiceKind) GetNodeSelector(spec OpniClusterSpec) map[string]string {
 		return spec.Services.Metrics.NodeSelector
 	case OpensearchUpdateService:
 		return spec.Services.OpensearchUpdate.NodeSelector
-	case TrainingControllerService:
-		return spec.Services.TrainingController.NodeSelector
 	default:
 		return map[string]string{}
 	}
@@ -120,9 +106,7 @@ func (s ServiceKind) GetTolerations(spec OpniClusterSpec) []corev1.Toleration {
 	switch s {
 	case InferenceService:
 		return spec.Services.Inference.Tolerations
-	case PretrainedDrainService:
-		return spec.Services.Drain.Tolerations
-	case WorkloadDrainService:
+	case DrainService:
 		return spec.Services.Drain.Tolerations
 	case PreprocessingService:
 		return spec.Services.Preprocessing.Tolerations
@@ -134,8 +118,6 @@ func (s ServiceKind) GetTolerations(spec OpniClusterSpec) []corev1.Toleration {
 		return spec.Services.Metrics.Tolerations
 	case OpensearchUpdateService:
 		return spec.Services.OpensearchUpdate.Tolerations
-	case TrainingControllerService:
-		return spec.Services.TrainingController.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

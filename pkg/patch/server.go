@@ -257,7 +257,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 					f.Logger.With(
 						"id", id,
 					).Info("agent plugins are out of date; requesting update")
-					return status.Errorf(codes.FailedPrecondition, "plugin manifest mismatch")
+					return status.Errorf(codes.FailedPrecondition, "plugin manifest mismatch agentPlugins != gatewayPlugins : :%s != %s", digest, f.getPluginMetadata().Digest())
 				}
 			}
 		}
@@ -305,10 +305,27 @@ func PatchWith(
 			case controlv1.PatchOp_UPDATE:
 				if info.GetIsPatch() { // patch received from gateway
 					lg.Infof("patching plugin with known patch revision: %s -> ", info.GetOldHash(), info.GetNewHash())
-					outdatedRawBytes, err := os.ReadFile(fullPluginPath)
+					f, err := os.OpenFile(fullPluginPath, os.O_TRUNC|os.O_RDWR, 0755)
+					defer func() {
+						err = f.Close()
+						if err != nil {
+							lg.Warnf("failed to close plugin binary file : %s", err)
+						}
+					}()
 					if err != nil {
 						return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
 					}
+					outdatedRawBytes, err := io.ReadAll(f)
+					if err != nil {
+						return fmt.Errorf("could not read from plugin binary '%s' for plugin with name '%s' : %s", fullPluginPath, pluginBaseName, err)
+					}
+					if err := f.Truncate(0); err != nil {
+						return fmt.Errorf("could not truncate the plugin binary %s : %s", fullPluginPath, err)
+					}
+					if _, err := f.Seek(0, 0); err != nil { // need to seek after we truncate since it can be padded with 0 byte
+						return fmt.Errorf("could not seek to the beginning of the plugin binary %s : %s", fullPluginPath, err)
+					}
+
 					outdatedBufferedReader := bufio.NewReader(bytes.NewReader(outdatedRawBytes))
 					newBufferedReader := bufio.NewReader(bytes.NewReader(receivedData))
 
@@ -317,19 +334,34 @@ func PatchWith(
 					if err != nil {
 						return err
 					}
-					err = os.WriteFile(fullPluginPath, patchResult.Bytes(), 0755)
-					if err != nil {
-						return err
+					if _, err := f.Write(patchResult.Bytes()); err != nil {
+						return fmt.Errorf("failed to write to plugin binary '%s' for plugin with name '%s' : %s", fullPluginPath, pluginBaseName, err)
 					}
-				} else { // whole file received from gateway
+				} else { // whole binary received from gateway
 					lg.Info("updating plugin without known patch")
 					if info.RequestPatchUpload {
-						outdatedPluginBytes, err := os.ReadFile(fullPluginPath)
+
+						f, err := os.OpenFile(fullPluginPath, os.O_TRUNC|os.O_RDWR, 0755)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							err = f.Close()
+							if err != nil {
+								lg.Warnf("failed to close plugin binary file : %s", err)
+							}
+						}()
+						outdatedPluginBytes, err := io.ReadAll(f)
 						if err != nil {
 							return fmt.Errorf("could not open the plugin '%s' : %s", fullPluginPath, err)
 						}
-						err = os.WriteFile(fullPluginPath, receivedData, 0755)
-						if err != nil {
+						if err := f.Truncate(0); err != nil {
+							return fmt.Errorf("could not truncate the plugin binary %s : %s", fullPluginPath, err)
+						}
+						if _, err := f.Seek(0, 0); err != nil { // need to seek after we truncate since it can be padded with 0 byte
+							return fmt.Errorf("could not seek to the beginning of the plugin binary %s : %s", fullPluginPath, err)
+						}
+						if _, err = f.Write(receivedData); err != nil {
 							return fmt.Errorf("could not write to the the plugin '%s' : %s", fullPluginPath, err)
 						}
 						outdatedBufferedReader := bufio.NewReader(bytes.NewBuffer(outdatedPluginBytes))
@@ -364,7 +396,7 @@ func PatchWith(
 								).Error("failed to upload patch")
 							}
 						}()
-					} else { // go ahead and annihilate the old file
+					} else { // safe to go ahead and annihilate the old file
 						err := os.WriteFile(fullPluginPath, receivedData, 0755)
 						if err != nil {
 							return err

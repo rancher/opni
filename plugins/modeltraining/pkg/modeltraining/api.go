@@ -22,19 +22,10 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 		namespaceName := item.Namespace
 		deploymentName := item.Deployment
 		_, clusterFound := modelTrainingParameters[clusterId]
-		if clusterFound {
-			_, namespaceFound := modelTrainingParameters[clusterId][namespaceName]
-			if namespaceFound {
-				modelTrainingParameters[clusterId][namespaceName] = append(modelTrainingParameters[clusterId][namespaceName], deploymentName)
-			} else {
-				modelTrainingParameters[clusterId][namespaceName] = make([]string, 0)
-				modelTrainingParameters[clusterId][namespaceName] = append(modelTrainingParameters[clusterId][namespaceName], deploymentName)
-			}
-		} else {
+		if !clusterFound {
 			modelTrainingParameters[clusterId] = map[string][]string{}
-			modelTrainingParameters[clusterId][namespaceName] = make([]string, 0)
-			modelTrainingParameters[clusterId][namespaceName] = append(modelTrainingParameters[clusterId][namespaceName], deploymentName)
 		}
+		modelTrainingParameters[clusterId][namespaceName] = append(modelTrainingParameters[clusterId][namespaceName], deploymentName)
 	}
 	jsonParameters, err := json.Marshal(modelTrainingParameters)
 	if err != nil {
@@ -63,7 +54,7 @@ func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in
 	if !ok {
 		return &modeltraining.WorkloadAggregationList{}, nil
 	}
-	workloadArray := make([]*modeltraining.WorkloadAggregation, 0)
+	var workloadArray []*modeltraining.WorkloadAggregation
 	for namespaceName, deployments := range clusterAggregationResults.ByNamespace {
 		for deploymentName, count := range deployments.ByDeployment {
 			workloadAggregation := modeltraining.WorkloadAggregation{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, LogCount: int64(count.Count)}
@@ -92,17 +83,13 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %s", err)
 	}
-	parametersArray := make([]*modeltraining.ModelTrainingParameters, 0)
+	var parametersArray []*modeltraining.ModelTrainingParameters
 	var resultsStorage = map[string]map[string][]string{}
 	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JSON: %s", err)
 	}
 	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {
-			if deployments == nil {
-				c.Logger.Error("Unexpected nil deployment for array.")
-				continue
-			}
 			for deploymentIdx := range deployments {
 				deploymentData := modeltraining.ModelTrainingParameters{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
 				parametersArray = append(parametersArray, &deploymentData)
@@ -114,8 +101,7 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) ClusterGPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
-
+func (c *ModelTrainingPlugin) GPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 	nodes := &k8scorev1.NodeList{}
 	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -124,7 +110,7 @@ func (c *ModelTrainingPlugin) ClusterGPUInfo(ctx context.Context, in *emptypb.Em
 			return nil, status.Errorf(codes.Internal, "Failed to get nodes: %v", err)
 		}
 	}
-	gpuInfoArray := make([]*modeltraining.GPUInfo, 0)
+	var gpuInfoArray []*modeltraining.GPUInfo
 
 	for _, node := range nodes.Items {
 		capacity := node.Status.Capacity
@@ -132,8 +118,11 @@ func (c *ModelTrainingPlugin) ClusterGPUInfo(ctx context.Context, in *emptypb.Em
 		for k, v := range capacity {
 			if strings.HasPrefix(string(k), "nvidia.com/gpu") {
 				allocation := allocatable[k]
-				gpuInfo := &modeltraining.GPUInfo{Name: string(k), Capacity: v.String(), Allocatable: allocation.String()}
-				gpuInfoArray = append(gpuInfoArray, gpuInfo)
+				gpuInfoArray = append(gpuInfoArray, &modeltraining.GPUInfo{
+					Name:        string(k),
+					Capacity:    v.String(),
+					Allocatable: allocation.String(),
+				})
 			}
 		}
 	}

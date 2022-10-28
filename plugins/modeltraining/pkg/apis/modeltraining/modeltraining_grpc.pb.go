@@ -28,7 +28,7 @@ type ModelTrainingClient interface {
 	ClusterWorkloadAggregation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadAggregationList, error)
 	GetModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelStatus, error)
 	GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelTrainingParametersList, error)
-	ClusterGPUInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error)
+	GPUInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error)
 }
 
 type modelTrainingClient struct {
@@ -75,9 +75,9 @@ func (c *modelTrainingClient) GetModelTrainingParameters(ctx context.Context, in
 	return out, nil
 }
 
-func (c *modelTrainingClient) ClusterGPUInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error) {
+func (c *modelTrainingClient) GPUInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GPUInfoList, error) {
 	out := new(GPUInfoList)
-	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/ClusterGPUInfo", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/GPUInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ type ModelTrainingServer interface {
 	ClusterWorkloadAggregation(context.Context, *v1.Reference) (*WorkloadAggregationList, error)
 	GetModelStatus(context.Context, *emptypb.Empty) (*ModelStatus, error)
 	GetModelTrainingParameters(context.Context, *emptypb.Empty) (*ModelTrainingParametersList, error)
-	ClusterGPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error)
+	GPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error)
 	mustEmbedUnimplementedModelTrainingServer()
 }
 
@@ -112,8 +112,8 @@ func (UnimplementedModelTrainingServer) GetModelStatus(context.Context, *emptypb
 func (UnimplementedModelTrainingServer) GetModelTrainingParameters(context.Context, *emptypb.Empty) (*ModelTrainingParametersList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetModelTrainingParameters not implemented")
 }
-func (UnimplementedModelTrainingServer) ClusterGPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ClusterGPUInfo not implemented")
+func (UnimplementedModelTrainingServer) GPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPUInfo not implemented")
 }
 func (UnimplementedModelTrainingServer) mustEmbedUnimplementedModelTrainingServer() {}
 
@@ -200,20 +200,20 @@ func _ModelTraining_GetModelTrainingParameters_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ModelTraining_ClusterGPUInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ModelTraining_GPUInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ModelTrainingServer).ClusterGPUInfo(ctx, in)
+		return srv.(ModelTrainingServer).GPUInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/modeltraining.ModelTraining/ClusterGPUInfo",
+		FullMethod: "/modeltraining.ModelTraining/GPUInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ModelTrainingServer).ClusterGPUInfo(ctx, req.(*emptypb.Empty))
+		return srv.(ModelTrainingServer).GPUInfo(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -242,8 +242,8 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ModelTraining_GetModelTrainingParameters_Handler,
 		},
 		{
-			MethodName: "ClusterGPUInfo",
-			Handler:    _ModelTraining_ClusterGPUInfo_Handler,
+			MethodName: "GPUInfo",
+			Handler:    _ModelTraining_GPUInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -15,7 +15,7 @@ service ModelTraining {
   }
   rpc ClusterWorkloadAggregation(core.Reference) returns (WorkloadAggregationList) {
     option (google.api.http) = {
-      get: "/workloadAggregation/{id}"
+      get: "/workload_aggregation/{id}"
     };
   }
   rpc GetModelStatus(google.protobuf.Empty) returns (ModelStatus) {
@@ -28,9 +28,9 @@ service ModelTraining {
       get: "/model/training_parameters"
     };
   }
-  rpc ClusterGPUInfo(google.protobuf.Empty) returns (GPUInfoList) {
+  rpc GPUInfo(google.protobuf.Empty) returns (GPUInfoList) {
     option (google.api.http) = {
-      get: "/gpuPresentCluster"
+      get: "/gpu_info"
     };
   }
 }

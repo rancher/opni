@@ -1,6 +1,8 @@
 package patch
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -12,7 +14,6 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	v1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins"
@@ -34,12 +35,12 @@ type inflightRequest struct {
 }
 
 type FilesystemPluginSyncServer struct {
-	v1.UnsafePluginManifestServer
+	controlv1.UnsafePluginManifestServer
 	Logger *zap.SugaredLogger
 	Config v1beta1.PluginsSpec
 
 	loadMetadataOnce sync.Once
-	pluginMetadata   *v1.ManifestMetadataList
+	pluginMetadata   *controlv1.ManifestMetadataList
 	patchCache       PatchCache
 
 	inflightUploadRequestsMu sync.Mutex
@@ -55,7 +56,7 @@ func NewFilesystemPluginSyncServer(cfg v1beta1.PluginsSpec, lg *zap.SugaredLogge
 	}
 }
 
-func (f *FilesystemPluginSyncServer) getPluginMetadata() *v1.ManifestMetadataList {
+func (f *FilesystemPluginSyncServer) getPluginMetadata() *controlv1.ManifestMetadataList {
 	f.loadMetadataOnce.Do(func() {
 		md, err := GetFilesystemPlugins(f.Config, f.Logger)
 		if err != nil {
@@ -66,7 +67,7 @@ func (f *FilesystemPluginSyncServer) getPluginMetadata() *v1.ManifestMetadataLis
 	return f.pluginMetadata
 }
 
-func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*v1.ManifestMetadataList, error) {
+func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*controlv1.ManifestMetadataList, error) {
 	lg.Debug("plugin manifests requested")
 
 	var matches []string
@@ -76,8 +77,8 @@ func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*v
 			matches = append(matches, items...)
 		}
 	}
-	res := &v1.ManifestMetadataList{
-		Items: map[string]*v1.ManifestMetadata{},
+	res := &controlv1.ManifestMetadataList{
+		Items: map[string]*controlv1.ManifestMetadata{},
 	}
 	for _, pluginPath := range matches {
 		f, err := os.Open(pluginPath)
@@ -91,7 +92,7 @@ func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*v
 		}
 		sum := hex.EncodeToString(hash.Sum(nil))
 		f.Close()
-		res.Items[pluginPath] = &v1.ManifestMetadata{
+		res.Items[pluginPath] = &controlv1.ManifestMetadata{
 			Hash: sum,
 			Path: pluginPath,
 			//Revision: *revision,
@@ -102,23 +103,25 @@ func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*v
 
 func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 	ctx context.Context,
-	theirManifestMetadata *v1.ManifestMetadataList,
-) (*v1.ManifestList, error) {
+	theirManifestMetadata *controlv1.ManifestMetadataList,
+) (*controlv1.ManifestList, error) {
 	// on startup
 	ourManifestMetadata := f.getPluginMetadata()
 
 	ops, err := ourManifestMetadata.LeftJoinOn(theirManifestMetadata)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to reconcile which manifests the gateway should send : %s", err)
 	}
-	res := &v1.ManifestList{
-		Manifests: make(map[string]*v1.CompressedManifest),
+	f.Logger.Debug("%v manifests to send", ops)
+
+	res := &controlv1.ManifestList{
+		Manifests: make(map[string]*controlv1.CompressedManifest),
 	}
 	for pluginName, op := range ops.Items {
 	RETRY_CACHE:
 		if data, err := f.patchCache.Get(pluginName, op.OldHash, op.NewHash); err == nil {
-			res.Manifests[pluginName] = &v1.CompressedManifest{
-				DataAndInfo: &v1.ManifestData{
+			res.Manifests[pluginName] = &controlv1.CompressedManifest{
+				DataAndInfo: &controlv1.ManifestData{
 					Data:    data,
 					OpPath:  op.TheirPath,
 					Op:      op.Op,
@@ -127,10 +130,23 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 					NewHash: op.NewHash,
 				},
 			}
-		} else {
+		} else if op.Op == controlv1.PatchOp_REMOVE {
+			res.Manifests[pluginName] = &controlv1.CompressedManifest{
+				DataAndInfo: &controlv1.ManifestData{
+					Data:    []byte{},
+					OpPath:  op.TheirPath,
+					Op:      op.Op,
+					IsPatch: false,
+					OldHash: op.OldHash,
+					NewHash: op.NewHash,
+				},
+			}
+		} else { // no known patch AND the agent plugin is not being removed
 			data, err := os.ReadFile(op.OurPath)
 			if err != nil {
-				return nil, err
+				msgErr := fmt.Errorf("could not read a requested plugin in path '%s'(agentPath='%s', op='%s') : %s", op.OurPath, op.TheirPath, op.Op.String(), err)
+				f.Logger.Error(msgErr)
+				return nil, msgErr
 			}
 			// if there are no pending requests for an agent to upload this patch, ask this agent to upload it
 			key := f.patchCache.Key(pluginName, op.OldHash, op.NewHash)
@@ -177,8 +193,8 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 
 			f.inflightUploadRequestsMu.Unlock()
 
-			res.Manifests[pluginName] = &v1.CompressedManifest{
-				DataAndInfo: &v1.ManifestData{
+			res.Manifests[pluginName] = &controlv1.CompressedManifest{
+				DataAndInfo: &controlv1.ManifestData{
 					Data:               data,
 					OpPath:             op.TheirPath,
 					Op:                 op.Op,
@@ -193,13 +209,13 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 	return res, nil
 }
 
-func (f *FilesystemPluginSyncServer) GetPluginManifests(ctx context.Context, _ *emptypb.Empty) (*v1.ManifestMetadataList, error) {
+func (f *FilesystemPluginSyncServer) GetPluginManifests(ctx context.Context, _ *emptypb.Empty) (*controlv1.ManifestMetadataList, error) {
 	lg := f.Logger.With("method", "GetPluginManifests")
 
 	return GetFilesystemPlugins(f.Config, lg)
 }
 
-func (f *FilesystemPluginSyncServer) UploadPatch(ctx context.Context, spec *v1.PatchSpec) (*emptypb.Empty, error) {
+func (f *FilesystemPluginSyncServer) UploadPatch(ctx context.Context, spec *controlv1.PatchSpec) (*emptypb.Empty, error) {
 	if err := spec.Validate(); err != nil {
 		return nil, err
 	}
@@ -231,7 +247,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		id := cluster.StreamAuthorizedID(stream.Context())
 
-		// for now, plugin manifest validation is voluntary, but this may change in the future
+		//for now, plugin manifest validation is voluntary, but this may change in the future
 		md, ok := metadata.FromIncomingContext(stream.Context())
 		if ok {
 			values := md.Get(controlv1.ManifestDigestKey)
@@ -241,7 +257,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 					f.Logger.With(
 						"id", id,
 					).Info("agent plugins are out of date; requesting update")
-					return status.Errorf(codes.FailedPrecondition, "plugin manifest mismatch")
+					return status.Errorf(codes.FailedPrecondition, "plugin manifest mismatch agentPlugins != gatewayPlugins : :%s != %s", digest, f.getPluginMetadata().Digest())
 				}
 			}
 		}
@@ -250,12 +266,13 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 	}
 }
 
+// digests must match after the patchops are processed, not after the patch is calculated
 func PatchWith(
 	ctx context.Context,
 	config v1beta1.PluginsSpec,
-	receivedManifests *v1.ManifestList,
+	receivedManifests *controlv1.ManifestList,
 	lg *zap.SugaredLogger,
-	gatewaySyncClient v1.PluginManifestClient,
+	gatewaySyncClient controlv1.PluginManifestClient,
 ) (chan struct{}, error) {
 	if len(config.Dirs) == 0 {
 		return nil, fmt.Errorf("no plugin directories configured")
@@ -279,47 +296,87 @@ func PatchWith(
 			receivedData := info.GetData()
 
 			switch info.GetOp() {
-			case v1.PatchOp_CREATE:
-				lg.Info("writing new plugin")
+			case controlv1.PatchOp_CREATE:
+				lg.Infof("writing new plugin")
 				err := os.WriteFile(fullPluginPath, receivedData, 0755)
 				if err != nil {
 					return err
 				}
-			case v1.PatchOp_UPDATE:
+			case controlv1.PatchOp_UPDATE:
 				if info.GetIsPatch() { // patch received from gateway
-					lg.Info("patching plugin")
-					existingData, err := os.ReadFile(fullPluginPath)
+					lg.Infof("patching plugin with known patch revision: %s -> ", info.GetOldHash(), info.GetNewHash())
+					f, err := os.OpenFile(fullPluginPath, os.O_TRUNC|os.O_RDWR, 0755)
+					defer func() {
+						err = f.Close()
+						if err != nil {
+							lg.Warnf("failed to close plugin binary file : %s", err)
+						}
+					}()
 					if err != nil {
-						return err
+						return fmt.Errorf("could not find plugin binary : '%s' for plugin with name '%s': %s", fullPluginPath, pluginBaseName, err)
 					}
-					patchResult, err := ApplyPatch(existingData, receivedData)
+					outdatedRawBytes, err := io.ReadAll(f)
 					if err != nil {
-						return err
+						return fmt.Errorf("could not read from plugin binary '%s' for plugin with name '%s' : %s", fullPluginPath, pluginBaseName, err)
 					}
-					err = os.WriteFile(fullPluginPath, patchResult, 0755)
-					if err != nil {
-						return err
+					if err := f.Truncate(0); err != nil {
+						return fmt.Errorf("could not truncate the plugin binary %s : %s", fullPluginPath, err)
 					}
-				} else { // whole file received from gateway
-					lg.Info("updating plugin")
-					existingData, err := os.ReadFile(fullPluginPath)
-					if err != nil {
-						return err
+					if _, err := f.Seek(0, 0); err != nil { // need to seek after we truncate since it can be padded with 0 byte
+						return fmt.Errorf("could not seek to the beginning of the plugin binary %s : %s", fullPluginPath, err)
 					}
 
-					err = os.WriteFile(fullPluginPath, receivedData, 0755)
+					outdatedBufferedReader := bufio.NewReader(bytes.NewReader(outdatedRawBytes))
+					newBufferedReader := bufio.NewReader(bytes.NewReader(receivedData))
+
+					var patchResult bytes.Buffer
+					err = ApplyIOStreamPatch(outdatedBufferedReader, newBufferedReader, &patchResult)
 					if err != nil {
 						return err
 					}
+					if _, err := f.Write(patchResult.Bytes()); err != nil {
+						return fmt.Errorf("failed to write to plugin binary '%s' for plugin with name '%s' : %s", fullPluginPath, pluginBaseName, err)
+					}
+				} else { // whole binary received from gateway
+					lg.Info("updating plugin without known patch")
 					if info.RequestPatchUpload {
-						lg.Info("gateway requested patch upload for plugin")
+
+						f, err := os.OpenFile(fullPluginPath, os.O_TRUNC|os.O_RDWR, 0755)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							err = f.Close()
+							if err != nil {
+								lg.Warnf("failed to close plugin binary file : %s", err)
+							}
+						}()
+						outdatedPluginBytes, err := io.ReadAll(f)
+						if err != nil {
+							return fmt.Errorf("could not open the plugin '%s' : %s", fullPluginPath, err)
+						}
+						if err := f.Truncate(0); err != nil {
+							return fmt.Errorf("could not truncate the plugin binary %s : %s", fullPluginPath, err)
+						}
+						if _, err := f.Seek(0, 0); err != nil { // need to seek after we truncate since it can be padded with 0 byte
+							return fmt.Errorf("could not seek to the beginning of the plugin binary %s : %s", fullPluginPath, err)
+						}
+						if _, err = f.Write(receivedData); err != nil {
+							return fmt.Errorf("could not write to the the plugin '%s' : %s", fullPluginPath, err)
+						}
+						outdatedBufferedReader := bufio.NewReader(bytes.NewBuffer(outdatedPluginBytes))
+						newBufferedReader := bufio.NewReader(bytes.NewBuffer(receivedData))
+						lg.Info("gateway requested patch upload for plugin : %s", fullPluginPath)
 						oldHash := v.GetDataAndInfo().GetOldHash()
 						newHash := v.GetDataAndInfo().GetNewHash()
 						backgroundTasks.Add(1)
 						go func() {
-							defer backgroundTasks.Done()
+							defer func() {
+								backgroundTasks.Done()
+							}()
 							lg.Info("computing patch")
-							patch, err := GeneratePatch(existingData, receivedData)
+							var patch bytes.Buffer
+							err := GenerateIOStreamPatch(outdatedBufferedReader, newBufferedReader, &patch)
 							if err != nil {
 								lg.With(
 									zap.Error(err),
@@ -327,11 +384,11 @@ func PatchWith(
 								return
 							}
 							lg.Info("uploading computed patch")
-							_, err = gatewaySyncClient.UploadPatch(ctx, &v1.PatchSpec{
+							_, err = gatewaySyncClient.UploadPatch(ctx, &controlv1.PatchSpec{
 								PluginName: pluginBaseName,
 								OldHash:    oldHash,
 								NewHash:    newHash,
-								Patch:      patch,
+								Patch:      patch.Bytes(),
 							})
 							if err != nil {
 								lg.With(
@@ -339,9 +396,15 @@ func PatchWith(
 								).Error("failed to upload patch")
 							}
 						}()
+					} else { // safe to go ahead and annihilate the old file
+						err := os.WriteFile(fullPluginPath, receivedData, 0755)
+						if err != nil {
+							return err
+						}
 					}
 				}
-			case v1.PatchOp_REMOVE:
+			case controlv1.PatchOp_REMOVE:
+				lg.Infof("removing outdated plugin")
 				err := os.Remove(fullPluginPath)
 				if err != nil {
 					return err

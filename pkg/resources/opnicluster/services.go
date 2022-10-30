@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"opensearch.opster.io/pkg/helpers"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -993,23 +992,6 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 }
 
 func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resource, retErr error) {
-	_, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, r.opensearchCluster)
-	if retErr != nil {
-		return
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "external-os-password",
-			Namespace: r.instanceNamespace,
-		},
-		StringData: map[string]string{
-			"password": password,
-		},
-	}
-	ctrl.SetControllerReference(r.opensearchCluster, secret, r.client.Scheme())
-	retResources = append(retResources, resources.Present(secret))
-
 	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if r.opniCluster != nil {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
@@ -1018,7 +1000,7 @@ func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resour
 			r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
 				Key: "password",
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secret.Name,
+					Name: fmt.Sprintf("%s-admin-password", r.opensearchCluster.Name),
 				},
 			}
 			return r.client.Status().Update(r.ctx, r.opniCluster)
@@ -1030,7 +1012,7 @@ func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resour
 			r.aiOpniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
 				Key: "password",
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secret.Name,
+					Name: fmt.Sprintf("%s-admin-password", r.opensearchCluster.Name),
 				},
 			}
 			return r.client.Status().Update(r.ctx, r.aiOpniCluster)

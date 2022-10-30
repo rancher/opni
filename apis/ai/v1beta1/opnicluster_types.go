@@ -166,38 +166,6 @@ type OpensearchUpdateServiceSpec struct {
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-type OpensearchClusterSpec struct {
-	ExternalOpensearch        *opnimeta.OpensearchClusterRef `json:"externalOpensearch"`
-	Version                   string                         `json:"version"`
-	Workloads                 OpensearchWorkloadSpec         `json:"workloads,omitempty"`
-	DefaultRepo               *string                        `json:"defaultRepo,omitempty"`
-	Image                     *opnimeta.ImageSpec            `json:"image,omitempty"`
-	DashboardsImage           *opnimeta.ImageSpec            `json:"dashboardsImage,omitempty"`
-	Persistence               *opnimeta.PersistenceSpec      `json:"persistence,omitempty"`
-	EnableLogIndexManagement  *bool                          `json:"enableLogIndexManagement"`
-	EnableIngestPreprocessing bool                           `json:"enableIngestPreprocessing,omitempty"`
-	// Secret containing an item "logging.yml" with the contents of the
-	// elasticsearch logging config.
-	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
-	// Reference to a secret containing the desired admin password
-	AdminPasswordFrom *corev1.SecretKeySelector `json:"adminPasswordFrom,omitempty"`
-}
-
-type OpensearchWorkloadSpec struct {
-	Master     OpensearchWorkloadOptions `json:"master,omitempty"`
-	Data       OpensearchWorkloadOptions `json:"data,omitempty"`
-	Client     OpensearchWorkloadOptions `json:"client,omitempty"`
-	Dashboards OpensearchWorkloadOptions `json:"dashboards,omitempty"`
-}
-
-type OpensearchWorkloadOptions struct {
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
-	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
-}
-
 type S3Spec struct {
 	// If set, Opni will deploy an S3 pod to use internally.
 	// Cannot be set at the same time as `external`.

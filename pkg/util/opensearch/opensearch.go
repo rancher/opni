@@ -62,7 +62,7 @@ func NewReconciler(
 		Addresses: []string{
 			fmt.Sprintf("https://%s.%s:9200", osServiceName, namespace),
 		},
-		Username:             "admin",
+		Username:             username,
 		Password:             password,
 		UseResponseCheckOnly: true,
 		Transport:            transport,

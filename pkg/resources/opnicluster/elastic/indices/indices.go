@@ -72,16 +72,6 @@ func NewReconciler(ctx context.Context, instance interface{}, c client.Client) (
 		if err := c.Get(ctx, client.ObjectKeyFromObject(reconciler.aiCluster), reconciler.aiCluster); err != nil {
 			lg.Error(err, "error fetching cluster status, using default password")
 		}
-		if reconciler.aiCluster.Status.Auth.OpensearchAuthSecretKeyRef != nil {
-			secret := &corev1.Secret{}
-			if err := c.Get(ctx, types.NamespacedName{
-				Name:      reconciler.aiCluster.Status.Auth.OpensearchAuthSecretKeyRef.Name,
-				Namespace: reconciler.aiCluster.Namespace,
-			}, secret); err != nil {
-				lg.Error(err, "error fetching password secret, using default password")
-			}
-			password = string(secret.Data[reconciler.aiCluster.Status.Auth.OpensearchAuthSecretKeyRef.Key])
-		}
 		reconciler.spec = opnicluster.ConvertSpec(opniCluster.Spec)
 		reconciler.namespace = opniCluster.Namespace
 	default:
@@ -97,12 +87,12 @@ func NewReconciler(ctx context.Context, instance interface{}, c client.Client) (
 		opensearchCluster := &opensearchv1.OpenSearchCluster{}
 		err := c.Get(ctx, reconciler.spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), opensearchCluster)
 		if err != nil {
-			lg.Error(err, "failed to fetch opensearch, index reconciliation will continue with defaults")
+			return nil, err
 		}
 
 		reconciler.opensearch = opensearchCluster
 
-		username, _, err = helpers.UsernameAndPassword(ctx, c, opensearchCluster)
+		username, password, err = helpers.UsernameAndPassword(ctx, c, opensearchCluster)
 		if err != nil {
 			lg.Error(err, "fetching username from opensearch failed")
 		}

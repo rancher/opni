@@ -98,7 +98,7 @@ func ConvertSpec(input aiv1beta1.OpniClusterSpec) v1beta2.OpniClusterSpec {
 	retSpec.Opensearch = v1beta2.OpensearchClusterSpec{
 		ExternalOpensearch:        input.Opensearch,
 		EnableLogIndexManagement:  lo.ToPtr(false),
-		EnableIngestPreprocessing: true,
+		EnableIngestPreprocessing: false,
 	}
 	retSpec.DefaultRepo = input.DefaultRepo
 	retSpec.Version = input.Version

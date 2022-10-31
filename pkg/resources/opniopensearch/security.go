@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	bcryptCost       = 5
+	bcryptCost       = 12
 	internalUsersKey = "internal_users.yml"
 )
 

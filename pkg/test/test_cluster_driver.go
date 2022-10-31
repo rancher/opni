@@ -83,18 +83,12 @@ func (d *TestEnvClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 }
 
 func (d *TestEnvClusterDriver) GetClusterConfiguration(context.Context, *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	return d.Configuration, nil
 }
 
 func (d *TestEnvClusterDriver) ConfigureCluster(_ context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
-	if conf.GetMode() == cortexops.DeploymentMode_HighlyAvailable {
-		return nil, status.Error(codes.Unimplemented, "highly available mode is not supported in the test environment")
-	}
-
-	if conf.GetStorage().GetBackend() != "filesystem" {
-		return nil, status.Error(codes.Unimplemented, "only filesystem storage is supported in the test environment")
-	}
-
 	d.lock.Lock()
 
 	switch d.state {
@@ -113,6 +107,7 @@ func (d *TestEnvClusterDriver) ConfigureCluster(_ context.Context, conf *cortexo
 	ctx, ca := context.WithCancel(waitctx.FromContext(d.Env.Context()))
 	d.cortexCtx = ctx
 	d.cortexCancel = ca
+	d.Configuration = conf
 
 	d.lock.Unlock()
 

@@ -17,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testgrpc"
-	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -121,7 +120,23 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 			Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 		})
 	})
-	When("the agent sends the wrong nonce in its response", func() {
+	When("the agent does not correctly respond to the challenge", func() {
+		It("should fail", func() {
+			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				return streamer(ctx, desc, cc, method, opts...)
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			defer cc.Close()
+
+			client := testgrpc.NewStreamServiceClient(cc)
+			err = doPingPong(client)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		})
+	})
+	When("the agent replies with the wrong nonce", func() {
 		It("should fail", func() {
 			broker.KeyringStore("gateway", &v1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
@@ -131,13 +146,19 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 				if err != nil {
 					return clientStream, err
 				}
-				challenge := &corev1.Challenge{}
-				err = clientStream.RecvMsg(challenge)
+				headerMd, err := clientStream.Header()
 				if err != nil {
-					return nil, err
+					return nil, status.Errorf(codes.Internal, "failed to read stream header: %v", err)
 				}
-				nonce := uuid.New()
-				mac, err := b2mac.New512([]byte("foo"), nonce, []byte(method), testSharedKeys.ClientKey)
+				challenge := headerMd.Get(cluster.ChallengeKey)
+				if len(challenge) != 1 {
+					return nil, status.Errorf(codes.Internal, "server did not send a challenge header")
+				}
+				nonce, err := uuid.Parse(challenge[0])
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "server sent an invalid challenge header")
+				}
+				mac, err := b2mac.New512([]byte("foo"), uuid.New(), []byte(method), testSharedKeys.ClientKey)
 				if err != nil {
 					return nil, err
 				}
@@ -172,12 +193,18 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 				if err != nil {
 					return clientStream, err
 				}
-				challenge := &corev1.Challenge{}
-				err = clientStream.RecvMsg(challenge)
+				headerMd, err := clientStream.Header()
 				if err != nil {
-					return nil, err
+					return nil, status.Errorf(codes.Internal, "failed to read stream header: %v", err)
 				}
-				nonce := util.Must(uuid.FromBytes(challenge.Nonce))
+				challenge := headerMd.Get(cluster.ChallengeKey)
+				if len(challenge) != 1 {
+					return nil, status.Errorf(codes.Internal, "server did not send a challenge header")
+				}
+				nonce, err := uuid.Parse(challenge[0])
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "server sent an invalid challenge header")
+				}
 				mac, err := b2mac.New512([]byte("foo"), nonce, []byte(method), []byte("wrong"))
 				if err != nil {
 					return nil, err

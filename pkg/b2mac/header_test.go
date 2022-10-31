@@ -1,7 +1,9 @@
 package b2mac_test
 
 import (
+	"crypto/ed25519"
 	"encoding/base64"
+	"fmt"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -57,4 +59,17 @@ var _ = Describe("Headers", Label("unit"), func() {
 		Entry(nil, `MAC id="dGVzdA",nonce="00000000-0000-0000-0000-000000000000",mac="dGVzdA"`, []byte(""), uuid.Nil, []byte(""), "nonce is not a v4 UUID"),
 		Entry(nil, `MAC id="dGVzdA",nonce="5b8c6876-0c5f-4ee4-862f-0dd1fb29f771",mac="$$$$"`, []byte(""), uuid.Nil, []byte(""), corruptInputErr),
 	)
+	Specify("NewEncodedHeader should correctly create and encode a header", func() {
+		id := []byte("test-id")
+		nonce := uuid.New()
+		payload := []byte("test-payload")
+		_, key, err := ed25519.GenerateKey(nil)
+
+		header, err := b2mac.NewEncodedHeader(id, nonce, payload, key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(headerRegex.MatchString(header)).To(BeTrue())
+		mac, err := b2mac.New512(id, nonce, payload, key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(header).To(Equal(fmt.Sprintf(`MAC id="dGVzdC1pZA",nonce="%s",mac="%s"`, nonce.String(), base64.RawURLEncoding.EncodeToString(mac))))
+	})
 })

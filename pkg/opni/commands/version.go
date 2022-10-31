@@ -39,7 +39,7 @@ func BuildVersionCmd() *cobra.Command {
 			}
 			fmt.Printf("Opni, %s %s\n", noun, version)
 			fmt.Printf("  go version: %s\n", info.GoVersion)
-			fmt.Printf("  build date: %s\n", settings["vcs.time"].Value)
+			fmt.Printf("  build date: %s\n", util.BuildTime)
 		},
 	}
 	versionCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Only print version or revision")

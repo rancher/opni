@@ -136,18 +136,14 @@ func dial(ctx context.Context, address, id string, sharedKeys *keyring.SharedKey
 	)
 }
 
-func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
+func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterface, errf future.Future[error]) {
 	streamClient := streamv1.NewStreamClient(gc.cc)
 	stream, err := streamClient.Connect(ctx)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
 	}
 
-	shortId := gc.id
-	if len(shortId) > 8 {
-		shortId = shortId[:8]
-	}
-	ts, err := totem.NewServer(stream, totem.WithName("gateway-client-"+shortId))
+	ts, err := totem.NewServer(stream, totem.WithName("gateway-client"))
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}
@@ -172,6 +168,9 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		}
 
 		defer func() {
+			if errf.IsSet() {
+				return
+			}
 			ctx, ca := context.WithTimeout(ctx, 2*time.Second)
 			defer ca()
 			streamClient.Notify(ctx, &streamv1.StreamEvent{
@@ -182,6 +181,12 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 
 	cc, errC := ts.Serve()
 	f := future.NewFromChannel(errC)
+	if f.IsSet() {
+		gc.logger.With(
+			zap.Error(f.Get()),
+		).Error("failed to connect to gateway")
+		// fallthrough
+	}
 	return cc, f
 }
 

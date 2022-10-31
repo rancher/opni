@@ -208,10 +208,6 @@ message LogEntry {
   google.protobuf.Timestamp timestamp = 3;
 }
 
-message Challenge {
-  bytes nonce = 1;
-}
-
 message ChallengeResponse {
-  string authorization = 1;
+  string authorization = 2047;
 }

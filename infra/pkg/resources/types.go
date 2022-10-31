@@ -43,6 +43,7 @@ type MainClusterOutput struct {
 	Provider             kubernetes.ProviderOutput
 	Kubeconfig           pulumi.AnyOutput
 	GrafanaHostname      pulumi.StringOutput
+	OpensearchHostname   pulumi.StringOutput
 	GatewayHostname      pulumi.StringOutput
 	LoadBalancerHostname pulumi.StringOutput
 	OAuth                OAuthOutput

@@ -250,6 +250,18 @@ func run(ctx *Context) (runErr error) {
 	if err != nil {
 		return errors.WithStack(err)
 	}
+
+	_, err = provisioner.ProvisionDNSRecord(ctx, "opensearch", resources.DNSRecordConfig{
+		Name:    mainCluster.OpensearchHostname,
+		Type:    "CNAME",
+		ZoneID:  conf.ZoneID,
+		Records: StringArray{mainCluster.LoadBalancerHostname},
+		TTL:     60,
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
 	ctx.Export("kubeconfig", mainCluster.Kubeconfig.ApplyT(func(kubeconfig any) (string, error) {
 		jsonData, err := json.Marshal(kubeconfig)
 		if err != nil {
@@ -259,6 +271,9 @@ func run(ctx *Context) (runErr error) {
 	}).(StringOutput))
 	ctx.Export("gateway_url", mainCluster.GatewayHostname)
 	ctx.Export("grafana_url", mainCluster.GrafanaHostname.ApplyT(func(hostname string) string {
+		return fmt.Sprintf("https://%s", hostname)
+	}).(StringOutput))
+	ctx.Export("opensearch_url", mainCluster.OpensearchHostname.ApplyT(func(hostname string) string {
 		return fmt.Sprintf("https://%s", hostname)
 	}).(StringOutput))
 	ctx.Export("s3_bucket", mainCluster.S3.Bucket)

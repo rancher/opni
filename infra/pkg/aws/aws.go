@@ -82,7 +82,7 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 	})
 
 	role, err := iam.NewRole(ctx, "ebs-csi-driver-role", &iam.RoleArgs{
-		Name:             String("AmazonEKS_EBS_CSI_DriverRole"),
+		NamePrefix:       String("AmazonEKS_EBS_CSI_DriverRole"),
 		AssumeRolePolicy: rolePolicyDocument,
 	})
 	if err != nil {
@@ -127,6 +127,12 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 		}
 		return fmt.Sprintf("grafana.%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
+	opensearchFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
+		if conf.UseIdInDnsNames {
+			return fmt.Sprintf("opensearch.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		}
+		return fmt.Sprintf("opensearch.%s.%s", conf.NamePrefix, idZoneName[1])
+	}).(StringOutput)
 	gatewayFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
 		if conf.UseIdInDnsNames {
 			return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
@@ -135,7 +141,10 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	}).(StringOutput)
 
 	cert, err := acm.NewCertificate(ctx, "cert", &acm.CertificateArgs{
-		DomainName:       grafanaFqdn,
+		DomainName: grafanaFqdn,
+		SubjectAlternativeNames: StringArray{
+			opensearchFqdn,
+		},
 		ValidationMethod: StringPtr("DNS"),
 		Tags:             ToStringMap(conf.Tags),
 	})
@@ -143,7 +152,7 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 		return nil, errors.WithStack(err)
 	}
 
-	record, err := route53.NewRecord(ctx, "validation", &route53.RecordArgs{
+	grafanaValidationRecord, err := route53.NewRecord(ctx, "validation-grafana", &route53.RecordArgs{
 		Name: cert.DomainValidationOptions.Index(Int(0)).ResourceRecordName().Elem(),
 		Records: StringArray{
 			cert.DomainValidationOptions.Index(Int(0)).ResourceRecordValue().Elem(),
@@ -155,19 +164,35 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	opensearchValidationRecord, err := route53.NewRecord(ctx, "validation-opensearch", &route53.RecordArgs{
+		Name: cert.DomainValidationOptions.Index(Int(1)).ResourceRecordName().Elem(),
+		Records: StringArray{
+			cert.DomainValidationOptions.Index(Int(1)).ResourceRecordValue().Elem(),
+		},
+		Type:   cert.DomainValidationOptions.Index(Int(1)).ResourceRecordType().Elem(),
+		Ttl:    Int(60),
+		ZoneId: String(zone.Id),
+	}, Parent(cert))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	_, err = acm.NewCertificateValidation(ctx, "validation", &acm.CertificateValidationArgs{
-		CertificateArn:        cert.Arn,
-		ValidationRecordFqdns: StringArray{record.Fqdn},
+		CertificateArn: cert.Arn,
+		ValidationRecordFqdns: StringArray{
+			grafanaValidationRecord.Fqdn,
+			opensearchValidationRecord.Fqdn,
+		},
 	}, Parent(cert))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	return &dnsResources{
-		GrafanaFqdn: grafanaFqdn,
-		GatewayFqdn: gatewayFqdn,
-		Cert:        cert,
+		GrafanaFqdn:    grafanaFqdn,
+		GatewayFqdn:    gatewayFqdn,
+		OpensearchFqdn: opensearchFqdn,
+		Cert:           cert,
 	}, nil
 }
 

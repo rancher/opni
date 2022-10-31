@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -50,7 +51,7 @@ func goBuild(args ...string) error {
 
 	defaultArgs := []string{
 		"build",
-		"-ldflags", "-w -s -X github.com/rancher/opni/pkg/util.Version=" + version,
+		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/util.Version=%s -X github.com/rancher/opni/pkg/util.BuildTime=%s", version, time.Now().UTC().Format(time.RFC3339)),
 		"-trimpath",
 		"-o", "./bin/",
 	}

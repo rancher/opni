@@ -37,6 +37,13 @@ type StreamClientHandler interface {
 	UseStreamClient(client grpc.ClientConnInterface)
 }
 
+// A plugin can optionally implement StreamClientDisconnectHandler to
+// be notified when the stream disconnects
+type StreamClientDisconnectHandler interface {
+	StreamClientHandler
+	StreamDisconnected()
+}
+
 type Server struct {
 	Desc              *grpc.ServiceDesc
 	Impl              interface{}
@@ -161,6 +168,12 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 			e.logger.With(
 				zap.Error(err),
 			).Warn("stream disconnected with error")
+		}
+		if e.clientHandler != nil {
+			if d, ok := e.clientHandler.(StreamClientDisconnectHandler); ok {
+				e.logger.Debug("notifying agent of disconnect")
+				d.StreamDisconnected()
+			}
 		}
 		return err
 	default:

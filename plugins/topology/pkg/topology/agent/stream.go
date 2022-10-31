@@ -7,7 +7,7 @@ import (
 
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/remote"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
 
 	"google.golang.org/grpc"
 )
@@ -22,7 +22,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	p.topologyStreamer.SetRemoteWriteClient(remote.NewRemoteTopologyClient(cc))
+	p.topologyStreamer.SetTopologyStreamClient(stream.NewRemoteTopologyClient(cc))
 	p.topologyStreamer.SetIdentityClient(controlv1.NewIdentityClient(cc))
 	p.node.SetClient(node.NewNodeTopologyCapabilityClient(cc))
 }

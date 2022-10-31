@@ -1,11 +1,11 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/remote";
+option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/stream";
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 
-package remote.topology;
+package stream.topology;
 
 service RemoteTopology {
     rpc Push(Payload) returns (google.protobuf.Empty);

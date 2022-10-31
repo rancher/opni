@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/topology/graph"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/remote"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -30,10 +30,10 @@ type TopologyStreamer struct {
 	v                chan client.Object
 	eventWatchClient client.WithWatch
 
-	identityClientMu    sync.Mutex
-	identityClient      controlv1.IdentityClient
-	remoteWriteClientMu sync.Mutex
-	remoteWriteClient   remote.RemoteTopologyClient
+	identityClientMu       sync.Mutex
+	identityClient         controlv1.IdentityClient
+	topologyStreamClientMu sync.Mutex
+	topologyStreamClient   stream.RemoteTopologyClient
 }
 
 func NewTopologyStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *TopologyStreamer {
@@ -49,10 +49,10 @@ func NewTopologyStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *Top
 	}
 }
 
-func (s *TopologyStreamer) SetRemoteWriteClient(client remote.RemoteTopologyClient) {
-	s.remoteWriteClientMu.Lock()
-	defer s.remoteWriteClientMu.Unlock()
-	s.remoteWriteClient = client
+func (s *TopologyStreamer) SetTopologyStreamClient(client stream.RemoteTopologyClient) {
+	s.topologyStreamClientMu.Lock()
+	defer s.topologyStreamClientMu.Unlock()
+	s.topologyStreamClient = client
 }
 
 func (s *TopologyStreamer) SetIdentityClient(identityClient controlv1.IdentityClient) {
@@ -108,15 +108,15 @@ func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilit
 			}
 			s.identityClientMu.Unlock()
 
-			s.remoteWriteClientMu.Lock()
-			s.remoteWriteClient.Push(ctx, &remote.Payload{
-				Graph: &remote.TopologyGraph{
+			s.topologyStreamClientMu.Lock()
+			_, err = s.topologyStreamClient.Push(ctx, &stream.Payload{
+				Graph: &stream.TopologyGraph{
 					ClusterId: thisCluster,
 					Data:      b.Bytes(),
-					Repr:      remote.GraphRepr_KubectlGraph,
+					Repr:      stream.GraphRepr_KubectlGraph,
 				},
 			})
-			s.remoteWriteClientMu.Unlock()
+			s.topologyStreamClientMu.Unlock()
 		}
 	}
 }

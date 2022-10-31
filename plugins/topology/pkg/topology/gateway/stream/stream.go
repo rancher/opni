@@ -18,7 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/remote"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,7 +30,7 @@ type TopologyRemoteWriteConfig struct {
 }
 
 type TopologyRemoteWriter struct {
-	remote.UnsafeRemoteTopologyServer
+	stream.UnsafeRemoteTopologyServer
 	TopologyRemoteWriteConfig
 
 	topologyObjectStore nats.ObjectStore
@@ -38,7 +38,7 @@ type TopologyRemoteWriter struct {
 	util.Initializer
 }
 
-var _ remote.RemoteTopologyServer = (*TopologyRemoteWriter)(nil)
+var _ stream.RemoteTopologyServer = (*TopologyRemoteWriter)(nil)
 
 func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
 	t.InitOnce(func() {
@@ -51,7 +51,7 @@ func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
 	})
 }
 
-func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr remote.GraphRepr) *nats.ObjectMeta {
+func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr stream.GraphRepr) *nats.ObjectMeta {
 	return &nats.ObjectMeta{
 		Name: store.NewClusterKey(clusterId),
 		Description: fmt.Sprintf(
@@ -64,7 +64,7 @@ func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr remot
 	}
 }
 
-func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *remote.Payload) (*emptypb.Empty, error) {
+func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -80,7 +80,7 @@ func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *remote.Payload
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *remote.Payload) (*emptypb.Empty, error) {
+func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}

@@ -45,11 +45,11 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller", "depreca
 		createCluster(buildCluster(opniClusterOpts{Name: "test"}))
 
 		for _, kind := range []v1beta2.ServiceKind{
-			v1beta2.PretrainedDrainService,
-			//v1beta2.InferenceService,
+			v1beta2.DrainService,
+			v1beta2.InferenceService,
 			v1beta2.PayloadReceiverService,
 			v1beta2.PreprocessingService,
-			//v1beta2.GPUControllerService,
+			v1beta2.GPUControllerService,
 			v1beta2.MetricsService,
 		} {
 			wg.Add(1)

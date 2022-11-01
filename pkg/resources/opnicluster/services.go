@@ -46,6 +46,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.metricsServiceMonitor,
 		r.metricsPrometheusRule,
 		r.opensearchUpdateDeployment,
+		r.trainingControllerDeployment,
 	}, nil
 }
 

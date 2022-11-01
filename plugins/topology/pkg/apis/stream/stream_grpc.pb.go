@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/topology/pkg/apis/remote/remote.proto
+// source: github.com/rancher/opni/plugins/topology/pkg/apis/stream/stream.proto
 
-package remote
+package stream
 
 import (
 	context "context"
@@ -37,7 +37,7 @@ func NewRemoteTopologyClient(cc grpc.ClientConnInterface) RemoteTopologyClient {
 
 func (c *remoteTopologyClient) Push(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remote.topology.RemoteTopology/Push", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/stream.topology.RemoteTopology/Push", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (c *remoteTopologyClient) Push(ctx context.Context, in *Payload, opts ...gr
 
 func (c *remoteTopologyClient) SyncTopology(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remote.topology.RemoteTopology/SyncTopology", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/stream.topology.RemoteTopology/SyncTopology", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func _RemoteTopology_Push_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remote.topology.RemoteTopology/Push",
+		FullMethod: "/stream.topology.RemoteTopology/Push",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RemoteTopologyServer).Push(ctx, req.(*Payload))
@@ -113,7 +113,7 @@ func _RemoteTopology_SyncTopology_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remote.topology.RemoteTopology/SyncTopology",
+		FullMethod: "/stream.topology.RemoteTopology/SyncTopology",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RemoteTopologyServer).SyncTopology(ctx, req.(*Payload))
@@ -125,7 +125,7 @@ func _RemoteTopology_SyncTopology_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var RemoteTopology_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "remote.topology.RemoteTopology",
+	ServiceName: "stream.topology.RemoteTopology",
 	HandlerType: (*RemoteTopologyServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -138,5 +138,5 @@ var RemoteTopology_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/topology/pkg/apis/remote/remote.proto",
+	Metadata: "github.com/rancher/opni/plugins/topology/pkg/apis/stream/stream.proto",
 }

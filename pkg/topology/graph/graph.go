@@ -1,20 +1,29 @@
 package graph
 
 import (
+	"go.uber.org/zap"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	"github.com/rancher/opni/pkg/util"
 	"github.com/steveteuber/kubectl-graph/pkg/graph"
+	kgraph "github.com/steveteuber/kubectl-graph/pkg/graph"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	// Import to initialize client auth plugins
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 )
 
-func Run(f cmdutil.Factory) (*graph.Graph, error) {
-	// config, err := f.ToRESTConfig()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	clientSet, err := f.KubernetesClientSet()
+func NewRuntimeFactory() cmdutil.Factory {
+	return cmdutil.NewFactory(&genericclioptions.ConfigFlags{})
+}
+
+// panics if run outside of a kubernetes environment
+func TraverseTopology(lg *zap.SugaredLogger, f cmdutil.Factory) (*kgraph.Graph, error) {
+	clientSet, err := kubernetes.NewForConfig(util.Must(rest.InClusterConfig()))
 	if err != nil {
 		return nil, err
 	}
@@ -22,22 +31,27 @@ func Run(f cmdutil.Factory) (*graph.Graph, error) {
 	r := f.NewBuilder().
 		Unstructured().
 		NamespaceParam("").DefaultNamespace().AllNamespaces(true).
+		//FIXME: reimplement these at a later date
 		// FilenameParam(o.ExplicitNamespace, &o.FilenameOptions).
 		// LabelSelectorParam(o.LabelSelector).
 		// FieldSelectorParam(o.FieldSelector).
 		// RequestChunksOf(o.ChunkSize).
-		// ResourceTypeOrNameArgs(true, args...).
+		ResourceTypeOrNameArgs(true, "all").
 		ContinueOnError().
 		Latest().
 		Flatten().
 		Do()
 
 	if err := r.Err(); err != nil {
+		lg.Errorf("hit an error in the kubernetes runtime : %s", err)
 		return nil, err
 	}
 
-	infos, err := r.Infos()
+	infos, err := r.Infos() // doesn't use error types
 	if err != nil {
+		lg.Warnf("hit an error while collecting kubernetes topology : %s", err)
+	}
+	if len(infos) == 0 && err != nil { // should only exit in this case
 		return nil, err
 	}
 
@@ -45,9 +59,10 @@ func Run(f cmdutil.Factory) (*graph.Graph, error) {
 		objs = append(objs, info.Object.(*unstructured.Unstructured))
 	}
 
-	graph, err := graph.NewGraph(clientSet, objs, func() {})
+	kubegraph, err := graph.NewGraph(clientSet, objs, func() {})
 	if err != nil {
+		lg.Error(err)
 		return nil, err
 	}
-	return graph, nil
+	return kubegraph, nil
 }

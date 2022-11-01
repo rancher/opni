@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/gogo/status"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -20,6 +19,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

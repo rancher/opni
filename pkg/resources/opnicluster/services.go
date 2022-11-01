@@ -9,6 +9,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/rancher/opni/apis/ai/v1beta1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
@@ -286,6 +287,73 @@ func (r *Reconciler) pretrainedModelDeployment(
 	}
 }
 
+func (r *Reconciler) workloadDrain() (resourceList []resources.Resource, retError error) {
+	resourceList = []resources.Resource{}
+	workloadDeployment, err := r.workloadDrainDeployment()
+	if err != nil {
+		panic(err)
+	}
+	resourceList = append(resourceList, workloadDeployment)
+	return resourceList, nil
+}
+
+func (r *Reconciler) workloadDrainDeployment() (resources.Resource, error) {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		labels := resources.CombineLabels(
+			r.serviceLabels(v1beta2.DrainService),
+		)
+		imageSpec := r.serviceImageSpec(v1beta2.DrainService)
+		lg, _ := logr.FromContext(r.ctx)
+		lg.V(1).Info("generating workload DRAIN deployment")
+		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+		s3EnvVars := r.s3EnvVars()
+		envVars = append(envVars, s3EnvVars...)
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  "FAIL_KEYWORDS",
+				Value: "fail,error,missing,unable",
+			})
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  "IS_PRETRAINED_SERVICE",
+				Value: "false",
+			})
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-workload-drain"),
+				Namespace: r.instanceNamespace,
+				Labels:    labels,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: labels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: labels,
+					},
+					Spec: corev1.PodSpec{
+						Volumes: volumes,
+						Containers: []corev1.Container{
+							{
+								Name:            "workload-drain-service",
+								Image:           imageSpec.GetImage(),
+								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+								VolumeMounts:    volumeMounts,
+								Env:             envVars,
+							},
+						},
+						Tolerations:  r.serviceTolerations(v1beta2.DrainService),
+						NodeSelector: r.serviceNodeSelector(v1beta2.DrainService),
+					},
+				},
+			},
+		}
+		r.setOwner(deployment)
+		return deployment, reconciler.StatePresent, nil
+	}, nil
+}
+
 func maybeImagePullSecrets(instance interface{}) []corev1.LocalObjectReference {
 	switch model := instance.(type) {
 	case *v1beta2.PretrainedModel:
@@ -355,8 +423,8 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 			Value: "5",
 		},
 		{
-			Name:  "IS_GPU_SERVICE",
-			Value: "True",
+			Name:  "SERVICE_TYPE",
+			Value: "gpu",
 		},
 		{
 			Name:  "NVIDIA_VISIBLE_DEVICES",
@@ -673,33 +741,8 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
 }
 
-func (r *Reconciler) workloadDrainDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.DrainService)
-	// temporary
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
-		corev1.EnvVar{
-			Name:  "FAIL_KEYWORDS",
-			Value: "fail,error,missing,unable",
-		})
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
-		corev1.EnvVar{
-			Name:  "IS_PRETRAINED_SERVICE",
-			Value: "false",
-		})
-	s3EnvVars := r.s3EnvVars()
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
-	if r.spec.S3.DrainS3Bucket != "" {
-		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
-			corev1.EnvVar{
-				Name:  "S3_BUCKET",
-				Value: r.spec.S3.DrainS3Bucket,
-			})
-	}
-	deployment.Spec.Replicas = r.spec.Services.Drain.Replicas
-	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
-}
 func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
+	deployment := r.genericDeployment(v1beta2.ServiceKind(v1beta1.TrainingControllerService))
 
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 		corev1.EnvVar{

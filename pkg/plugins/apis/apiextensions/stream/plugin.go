@@ -37,6 +37,12 @@ type StreamClientHandler interface {
 	UseStreamClient(client grpc.ClientConnInterface)
 }
 
+// A plugin can optionally implement StreamClientDisconnectHandler to
+// be notified when the stream disconnects
+type StreamClientDisconnectHandler interface {
+	StreamDisconnected()
+}
+
 type Server struct {
 	Desc              *grpc.ServiceDesc
 	Impl              interface{}
@@ -108,6 +114,9 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
 		}
+		if clientDisconnectHandler, ok := p.(StreamClientDisconnectHandler); ok {
+			ext.clientDisconnectHandler = clientDisconnectHandler
+		}
 	}
 	return &streamApiExtensionPlugin{
 		extensionSrv: ext,
@@ -118,9 +127,10 @@ type streamExtensionServerImpl struct {
 	streamv1.UnsafeStreamServer
 	name string
 	apiextensions.UnimplementedStreamAPIExtensionServer
-	servers       []*richServer
-	clientHandler StreamClientHandler
-	logger        *zap.SugaredLogger
+	servers                 []*richServer
+	clientHandler           StreamClientHandler
+	clientDisconnectHandler StreamClientDisconnectHandler
+	logger                  *zap.SugaredLogger
 
 	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
@@ -174,6 +184,12 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 
 	defer func() {
 		e.streamClientCond.L.Lock()
+		if e.clientDisconnectHandler != nil {
+			e.logger.Debug("calling disconnect handler")
+			e.clientDisconnectHandler.StreamDisconnected()
+		} else {
+			e.logger.Debug("no disconnect handler")
+		}
 		e.logger.Debug("stream client is no longer available")
 		e.streamClient = nil
 		e.streamClientCond.Broadcast()

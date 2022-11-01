@@ -20,3 +20,10 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	nodeClient := node.NewNodeLoggingCapabilityClient(cc)
 	p.node.SetClient(nodeClient)
 }
+
+func (p *Plugin) StreamDisconnected() {
+	config := &node.LoggingCapabilityConfig{
+		Enabled: false,
+	}
+	p.node.updateConfig(config)
+}

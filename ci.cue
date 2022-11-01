@@ -19,6 +19,8 @@ import (
 	"github.com/rancher/opni/images"
 )
 
+opniVersion: "0.7.0-rc1"
+
 dagger.#Plan & {
 	client: {
 		env: {
@@ -35,8 +37,9 @@ dagger.#Plan & {
 			HELM_OCI_REPO:          string | *"ghcr.io/rancher"
 			DASHBOARDS_VERSION:     string | *"1.3.3"
 			OPENSEARCH_VERSION:     string | *"1.3.3"
-			PLUGIN_VERSION:         string | *"0.7.0-rc1"
-			PLUGIN_PUBLISH:         string | *"0.7.0-rc1"
+			PLUGIN_VERSION:         string | *opniVersion
+			PLUGIN_PUBLISH:         string | *opniVersion
+			CHARTS_VERSION:         string | *opniVersion
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret
@@ -48,6 +51,9 @@ dagger.#Plan & {
 			TWINE_USERNAME:         string | *"__token__"
 			TWINE_PASSWORD?:        dagger.#Secret
 			WEB_DEBUG:              string | *"false"
+			GITHUB_TOKEN?:          dagger.#Secret
+			GIT_USER?:              string
+			GIT_EMAIL?:             string
 		}
 		filesystem: {
 			".": read: {
@@ -104,9 +110,10 @@ dagger.#Plan & {
 		// Build with mage using the builder image
 
 		#_build: {
-			target:   string | *"all"
-			_minimal: target == "minimal"
-			_exec:    docker.#Build & {
+			target:     string | *"all"
+			targetArgs: [...string] | *[]
+			_minimal:   target == "minimal"
+			_exec:      docker.#Build & {
 				steps: [
 					docker.#Copy & {
 						input:    _mageImage.output
@@ -137,7 +144,7 @@ dagger.#Plan & {
 				}
 				command: {
 					name: "mage"
-					args: ["-v", target]
+					args: ["-v", target] + targetArgs
 				}
 				export: directories: {
 					"/opt":             _
@@ -158,7 +165,8 @@ dagger.#Plan & {
 			target: "minimal"
 		}
 		#_chartsBuild: #_build & {
-			target: "charts"
+			target: "chartsv"
+			targetArgs: [client.env.CHARTS_VERSION]
 		}
 
 		_defaultBuild: #_defaultBuild
@@ -466,6 +474,15 @@ dagger.#Plan & {
 					if _auth != _|_ {
 						auth: _auth
 					}
+				}
+
+				dev: helm.#PublishToChartsRepo & {
+					dev:    true
+					remote: client.env.REPO
+					source: _chartsBuild.output.rootfs
+					token:  client.env.GITHUB_TOKEN
+					user:   client.env.GIT_USER
+					email:  client.env.GIT_EMAIL
 				}
 			}
 		}

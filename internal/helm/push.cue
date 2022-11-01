@@ -3,8 +3,10 @@ package helm
 import (
 	"github.com/rancher/opni/images"
 	"dagger.io/dagger"
-	// "dagger.io/dagger/core"
+	"dagger.io/dagger/core"
 	"universe.dagger.io/docker"
+	"universe.dagger.io/alpine"
+	"github.com/rancher/opni/internal/mage"
 )
 
 // Upload an image to a remote repository
@@ -51,4 +53,96 @@ import (
 		]
 	}
 	output: _exec.output
+}
+
+#PublishToChartsRepo: {
+	dev:     bool
+	source:  dagger.#FS
+	remote:  string | *"rancher"
+	_branch: *{
+		dev:  true
+		name: "charts-repo-dev"
+	} | {
+		dev:  false
+		name: "charts-repo"
+	}
+	user:  string
+	email: string
+	token: dagger.#Secret | *_|_
+
+	_git: alpine.#Build & {
+		version: "edge"
+		packages: "github-cli": _
+	}
+
+	_repo: docker.#Run & {
+		always: true
+		input:  _git.output
+		env: {
+			"GH_TOKEN": token
+		}
+		workdir: "/"
+		command: {
+			name: "sh"
+			args: [
+				"-c",
+				"gh repo clone \(remote)/opni -- --branch \(_branch.name)",
+			]
+		}
+		export: directories: "/opni": _
+	}
+
+	_exec: docker.#Build & {
+		steps: [
+			mage.#Image,
+			docker.#Copy & {
+				contents: source
+				"source": "/src"
+				dest:     "/src"
+			},
+			docker.#Copy & {
+				contents: _repo.export.directories["/opni"]
+				dest:     "/src"
+				include: ["charts/", "assets/", "index.yaml"]
+			},
+			docker.#Run & {
+				workdir: "/src"
+				command: {
+					name: "mage"
+					args: [
+						"charts:index",
+					]
+				}
+			},
+		]
+	}
+
+	_sync: core.#Copy & {
+		input:    _repo.export.directories["/opni"]
+		contents: _exec.output.rootfs
+		source:   "/src"
+		include: ["charts/", "assets/", "index.yaml"]
+	}
+
+	_push: docker.#Run & {
+		always: true
+		input:  _git.output
+		mounts: "charts-repo": {
+			contents: _sync.output
+			dest:     "/src"
+		}
+		env: {
+			"GH_TOKEN":         token
+			"GIT_AUTHOR_NAME":  user
+			"GIT_AUTHOR_EMAIL": email
+		}
+		workdir: "/src"
+		command: {
+			name: "sh"
+			args: [
+				"-c",
+				"gh auth setup-git && git config user.name \"$GIT_AUTHOR_NAME\" && git config user.email \"$GIT_AUTHOR_EMAIL\" && git remote -v && git add charts/ assets/ index.yaml && git commit -m 'Update charts' && git push origin refs/heads/\(_branch.name):refs/heads/\(_branch.name)",
+			]
+		}
+	}
 }

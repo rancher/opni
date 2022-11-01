@@ -15,7 +15,7 @@ steps:
       # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
-      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.35 sh
+      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.36 sh
       - bin/dagger version
       - bin/dagger do build
     volumes: &volumes

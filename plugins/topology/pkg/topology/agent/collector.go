@@ -81,10 +81,8 @@ func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilit
 			).Warn("topology stream closing")
 			return nil
 		case <-tick.C:
-			// this will panic when not  in a cluster : ruh roh
-			//  need to refactor to cluster driver
-
-			g, err := graph.TraverseTopology(graph.NewRuntimeFactory())
+			// will panic if not in a cluster
+			g, err := graph.TraverseTopology(lg, graph.NewRuntimeFactory())
 			if err != nil {
 				lg.With(
 					zap.Error(err),
@@ -116,6 +114,9 @@ func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilit
 					Repr:      stream.GraphRepr_KubectlGraph,
 				},
 			})
+			if err != nil {
+				lg.Errorf("failed to push topology graph: %s", err)
+			}
 			s.topologyStreamClientMu.Unlock()
 		}
 	}

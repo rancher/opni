@@ -37,7 +37,7 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	topologyRemoteWrite stream.TopologyRemoteWriter
+	topologyRemoteWrite stream.TopologyStreamWriter
 	topologyBackend     backend.TopologyBackend
 
 	nc      future.Future[*nats.Conn]
@@ -65,8 +65,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		topologyBackend:     backend.TopologyBackend{},
 	}
 	future.Wait1(p.nc, func(nc *nats.Conn) {
-		p.topologyRemoteWrite.Initialize(stream.TopologyRemoteWriteConfig{
-			Logger: p.logger.Named("remote-write-server"),
+		p.topologyRemoteWrite.Initialize(stream.TopologyStreamWriteConfig{
+			Logger: p.logger.With("component", "stream"),
 			Nc:     nc,
 		})
 	})

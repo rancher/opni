@@ -26,7 +26,7 @@ type TopologyRepresentationClient interface {
 	// opni internal use
 	GetGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*TopologyGraph, error)
 	// cluster id  --> kubernetes graph SVG
-	RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*GraphSVG, error)
+	RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*DOTRepresentation, error)
 }
 
 type topologyRepresentationClient struct {
@@ -46,8 +46,8 @@ func (c *topologyRepresentationClient) GetGraph(ctx context.Context, in *v1.Refe
 	return out, nil
 }
 
-func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*GraphSVG, error) {
-	out := new(GraphSVG)
+func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*DOTRepresentation, error) {
+	out := new(DOTRepresentation)
 	err := c.cc.Invoke(ctx, "/representation.TopologyRepresentation/RenderGraph", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ type TopologyRepresentationServer interface {
 	// opni internal use
 	GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error)
 	// cluster id  --> kubernetes graph SVG
-	RenderGraph(context.Context, *v1.Reference) (*GraphSVG, error)
+	RenderGraph(context.Context, *v1.Reference) (*DOTRepresentation, error)
 	mustEmbedUnimplementedTopologyRepresentationServer()
 }
 
@@ -73,7 +73,7 @@ type UnimplementedTopologyRepresentationServer struct {
 func (UnimplementedTopologyRepresentationServer) GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGraph not implemented")
 }
-func (UnimplementedTopologyRepresentationServer) RenderGraph(context.Context, *v1.Reference) (*GraphSVG, error) {
+func (UnimplementedTopologyRepresentationServer) RenderGraph(context.Context, *v1.Reference) (*DOTRepresentation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderGraph not implemented")
 }
 func (UnimplementedTopologyRepresentationServer) mustEmbedUnimplementedTopologyRepresentationServer() {

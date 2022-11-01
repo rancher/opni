@@ -13,7 +13,7 @@ service TopologyRepresentation {
     rpc GetGraph(core.Reference) returns (TopologyGraph) {}
 
     // cluster id  --> kubernetes graph SVG
-    rpc RenderGraph(core.Reference) returns (GraphSVG)  {
+    rpc RenderGraph(core.Reference) returns (DOTRepresentation)  {
         option(google.api.http) = {
             post: "/topology/render"
             body: "*"
@@ -33,6 +33,6 @@ enum GraphRepr {
     KubectlGraph = 1; 
 }
 
-message GraphSVG {
-    string rawSVG = 1;
+message DOTRepresentation {
+    string rawDotFormat = 1;
 }

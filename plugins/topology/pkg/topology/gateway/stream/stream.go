@@ -24,23 +24,23 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type TopologyRemoteWriteConfig struct {
+type TopologyStreamWriteConfig struct {
 	Logger *zap.SugaredLogger
 	Nc     *nats.Conn
 }
 
-type TopologyRemoteWriter struct {
+type TopologyStreamWriter struct {
 	stream.UnsafeRemoteTopologyServer
-	TopologyRemoteWriteConfig
+	TopologyStreamWriteConfig
 
 	topologyObjectStore nats.ObjectStore
 
 	util.Initializer
 }
 
-var _ stream.RemoteTopologyServer = (*TopologyRemoteWriter)(nil)
+var _ stream.RemoteTopologyServer = (*TopologyStreamWriter)(nil)
 
-func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
+func (t *TopologyStreamWriter) Initialize(conf TopologyStreamWriteConfig) {
 	t.InitOnce(func() {
 		objStore, err := store.NewTopologyObjectStore(conf.Nc)
 		if err != nil {
@@ -48,10 +48,11 @@ func (t *TopologyRemoteWriter) Initialize(conf TopologyRemoteWriteConfig) {
 			os.Exit(1)
 		}
 		t.topologyObjectStore = objStore
+		t.TopologyStreamWriteConfig = conf
 	})
 }
 
-func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr stream.GraphRepr) *nats.ObjectMeta {
+func (t *TopologyStreamWriter) objectDef(clusterId *corev1.Reference, repr stream.GraphRepr) *nats.ObjectMeta {
 	return &nats.ObjectMeta{
 		Name: store.NewClusterKey(clusterId),
 		Description: fmt.Sprintf(
@@ -64,7 +65,7 @@ func (t *TopologyRemoteWriter) objectDef(clusterId *corev1.Reference, repr strea
 	}
 }
 
-func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
+func (t *TopologyStreamWriter) Push(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -80,7 +81,7 @@ func (t *TopologyRemoteWriter) Push(ctx context.Context, payload *stream.Payload
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyRemoteWriter) SyncTopology(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
+func (t *TopologyStreamWriter) SyncTopology(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}

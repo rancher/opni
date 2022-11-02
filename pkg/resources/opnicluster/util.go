@@ -79,7 +79,13 @@ func ConvertSpec(input aiv1beta1.OpniClusterSpec) v1beta2.OpniClusterSpec {
 	services.GPUController = v1beta2.GPUControllerServiceSpec(input.Services.GPUController)
 	services.Metrics = v1beta2.MetricsServiceSpec(input.Services.Metrics)
 	services.Preprocessing = v1beta2.PreprocessingServiceSpec(input.Services.Preprocessing)
-	services.Drain = v1beta2.DrainServiceSpec(input.Services.Drain)
+	services.Drain = v1beta2.DrainServiceSpec{
+		ImageSpec:    input.Services.Drain.ImageSpec,
+		Enabled:      input.Services.Drain.Enabled,
+		NodeSelector: input.Services.Drain.NodeSelector,
+		Tolerations:  input.Services.Drain.Tolerations,
+		Replicas:     input.Services.Drain.Replicas,
+	}
 	services.OpensearchUpdate = v1beta2.OpensearchUpdateServiceSpec(input.Services.OpensearchUpdate)
 
 	retSpec.Services = services

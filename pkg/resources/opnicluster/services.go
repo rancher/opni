@@ -291,7 +291,7 @@ func (r *Reconciler) workloadDrain() (resourceList []resources.Resource, retErro
 	resourceList = []resources.Resource{}
 	workloadDeployment, err := r.workloadDrainDeployment()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	resourceList = append(resourceList, workloadDeployment)
 	return resourceList, nil
@@ -416,11 +416,11 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 	envVars = append(envVars, []corev1.EnvVar{
 		{
 			Name:  "MODEL_THRESHOLD",
-			Value: "0.5",
+			Value: "0.7",
 		},
 		{
 			Name:  "MIN_LOG_TOKENS",
-			Value: "5",
+			Value: "1",
 		},
 		{
 			Name:  "SERVICE_TYPE",
@@ -722,6 +722,11 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 				Value: r.spec.S3.NulogS3Bucket,
 			})
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "SERVICE_TYPE",
+		Value: "cpu",
+	})
+
 	insertHyperparametersVolume(deployment, "nulog")
 	return deployment, deploymentState(r.spec.Services.Inference.Enabled), nil
 }

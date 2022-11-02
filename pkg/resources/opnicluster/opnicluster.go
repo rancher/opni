@@ -201,6 +201,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// to this later.
 	}
 
+	workloadDrain, err := r.workloadDrain()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		conditions = append(conditions, err.Error())
+		lg.Error(err, "Error when reconciling workload drain, will retry.")
+	}
+
 	var es []resources.Resource
 	if r.opensearchCluster == nil && r.opniCluster != nil {
 		es, err = elastic.NewReconciler(r.ctx, r.client, r.opniCluster).OpensearchResources()
@@ -255,6 +262,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	allResources = append(allResources, s3...)
 	allResources = append(allResources, es...)
 	allResources = append(allResources, opniServices...)
+	allResources = append(allResources, workloadDrain...)
 	allResources = append(allResources, pretrained...)
 
 	for _, factory := range allResources {

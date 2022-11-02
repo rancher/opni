@@ -3,14 +3,18 @@ package alerting
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -60,6 +64,35 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 				p.Logger.Errorf("failed to receive cluster event : %s", err)
 			}
 			switch event.Type {
+			case managementv1.WatchEventType_Created:
+				_, err := p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
+					Name: fmt.Sprintf("agent-disconnect (%s)", event.Cluster.Id),
+					Description: fmt.Sprintf(
+						"Alert when the downstream agent (%s) disconnects from the opni upstream",
+						event.Cluster.Id,
+					),
+					Labels:   []string{"agent-disconnect", "opni"},
+					Severity: alertingv1.Severity_CRITICAL,
+					AlertType: &alertingv1.AlertTypeDetails{
+						Type: &alertingv1.AlertTypeDetails_System{
+							System: &alertingv1.AlertConditionSystem{
+								ClusterId: event.Cluster.Reference(),
+								Timeout:   durationpb.New(10 * time.Minute),
+							},
+						},
+					},
+				})
+				if err != nil {
+					p.Logger.Warn(
+						"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
+						event.Cluster.Id,
+					)
+				} else {
+					p.Logger.Debug(
+						"downstream agent disconnect condition on cluster creation for cluster %s is now active",
+						event.Cluster.Id,
+					)
+				}
 			case managementv1.WatchEventType_Deleted:
 				// delete any conditions that are associated with this cluster
 				ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)

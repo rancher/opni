@@ -85,7 +85,6 @@ func NewHTTPServer(
 	//    Webhooks are assumed to respond with 2xx response codes on a successful
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	// TODO : FIXME, this won't be used until webhook receiver is re-implemented
 	router.POST(handlerName, func(c *gin.Context) {
 		b, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -106,12 +105,12 @@ func NewHTTPServer(
 		//
 		opniAlertingRequests, errors := condition.ParseAlertManagerWebhookPayload(annotations)
 		if len(opniAlertingRequests) != len(errors) {
-			// this would be a non-recoverable interval server error since this means the code
-			// is written wrong => panic?
-			panic(errors)
+			c.Status(http.StatusBadRequest)
+			return
 		}
 		var anyErrors []error
 		for _, opniAlertingRequest := range opniAlertingRequests {
+			// TODO : do the request to trigger alerts
 			resp := "no response requested"
 			lg.With("handler", handlerName).Debug(
 				fmt.Sprintf("opni alering request : %s and response %s", opniAlertingRequest, resp),

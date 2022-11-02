@@ -236,10 +236,10 @@ var (
 		Description: "Opni preprocessing ingest pipeline",
 		Processors: []osapiext.Processor{
 			{
-				OpniPreProcessor: &osapiext.OpniPreProcessor{
-					Field:       "log",
-					TargetField: "masked_log",
-				},
+				OpniLoggingProcessor: &osapiext.OpniProcessorConfig{},
+			},
+			{
+				OpniPreProcessor: &osapiext.OpniProcessorConfig{},
 			},
 		},
 	}

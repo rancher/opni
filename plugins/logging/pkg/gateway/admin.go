@@ -342,15 +342,22 @@ func (p *Plugin) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty) (*l
 		return nil, err
 	}
 
+	status := ClusterStatus(-1)
+
 	cluster := &opsterv1.OpenSearchCluster{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,
 		Namespace: p.opensearchCluster.Namespace,
 	}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			status = ClusterStatusPending
+			return &loggingadmin.StatusResponse{
+				Status:  int32(status),
+				Details: ClusterStatusDescription(status),
+			}, nil
+		}
 		return nil, err
 	}
-
-	status := ClusterStatus(-1)
 
 	if !cluster.Status.Initialized {
 		status = ClusterStatusPending

@@ -74,14 +74,16 @@ message AttachedEndpoint {
 }
 
 enum AlertType {
-  // Reserved for opni-alerting internal use
   SYSTEM = 0;
-  // Ready for UI use
   KUBE_STATE = 1;
+  CPU_SATURATION = 2;
+  MEMORY_SATURATION = 3;
+  DISK_SATURATION = 4;
+  FS_SATURATION = 5;
   // Unimplemented
-  COMPOSITION = 2;
+  COMPOSITION = 6;
   // Unimplemented
-  CONTROL_FLOW = 3;
+  CONTROL_FLOW = 7;
 }
 
 enum CompositionAction {
@@ -118,6 +120,14 @@ message AlertTypeDetails {
     AlertConditionKubeState kubeState = 2;
     AlertConditionComposition composition = 3;
     AlertConditionControlFlow controlFlow = 4;
+    // cpu saturation : golden signal -> saturation
+    AlertConditionCPUSaturation cpu = 5;
+    // memory saturation : golden signal -> saturation
+    AlertConditionMemorySaturation memory = 6;
+    // disk saturation : golden signal -> saturation
+    AlertConditionDiskSaturation disk = 7;
+    // fs saturation : golden signal -> saturation
+    AlertConditionFilesystemSaturation fs = 8;
   }
 }
 
@@ -127,6 +137,10 @@ message ListAlertTypeDetails {
     ListAlertConditionKubeState kubeState = 2;
     ListAlertConditionComposition composition = 3;
     ListAlertConditionControlFlow controlFlow = 4;
+    ListAlertConditionCPUSaturation cpu = 5;
+    ListAlertConditionMemorySaturation memory = 6;
+    ListAlertConditionDiskSaturation disk = 7;
+    ListAlertConditionFilesystemSaturation fs = 8;
   }
 }
 
@@ -165,6 +179,38 @@ message ListAlertConditionKubeState {
   map<string, KubeObjectGroups> clusters = 1;
   repeated string states = 2;
   repeated google.protobuf.Duration fors = 3;
+}
+
+message AlertConditionCPUSaturation {
+  //TODO:
+}
+
+message ListAlertConditionCPUSaturation {
+  //TODO:
+}
+
+message AlertConditionMemorySaturation {
+  //TODO:
+}
+
+message ListAlertConditionMemorySaturation {
+  //TODO:
+}
+
+message AlertConditionDiskSaturation {
+  //TODO:
+}
+
+message ListAlertConditionDiskSaturation {
+  //TODO:
+}
+
+message AlertConditionFilesystemSaturation {
+  //TODO:
+}
+
+message ListAlertConditionFilesystemSaturation {
+  //TODO:
 }
 
 message ObjectList {

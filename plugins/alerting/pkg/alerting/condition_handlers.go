@@ -42,23 +42,55 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
+	if c := req.GetAlertType().GetCpu(); c != nil {
+		return nil, shared.AlertingErrNotImplemented
+	}
+	if m := req.AlertType.GetMemory(); m != nil {
+		return nil, shared.AlertingErrNotImplemented
+	}
+	if d := req.AlertType.GetDisk(); d != nil {
+		return nil, shared.AlertingErrNotImplemented
+	}
+	if fs := req.AlertType.GetFs(); fs != nil {
+		return nil, shared.AlertingErrNotImplemented
+	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
-	if s := req.GetAlertType().GetSystem(); s != nil {
+	switch r := req.GetAlertType(); {
+	case r.GetSystem() != nil:
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
 		return nil
-	}
-	if k := req.GetAlertType().GetKubeState(); k != nil {
+	case r.GetKubeState() != nil || r.GetCpu() != nil || r.GetMemory() != nil || r.GetDisk() != nil || r.GetFs() != nil:
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-			ClusterId: k.GetClusterId(),
+			ClusterId: handleSwitchCortexRules(r).Id,
 			GroupName: CortexRuleIdFromUuid(id),
 		})
 		return err
 	}
 	return shared.AlertingErrNotImplemented
+}
+
+func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
+	if k := t.GetKubeState(); k != nil {
+		return &corev1.Reference{Id: k.ClusterId}
+	}
+	if c := t.GetCpu(); c != nil { //FIXME: this is a placeholder
+		return &corev1.Reference{Id: "TODO"}
+	}
+	if m := t.GetMemory(); m != nil { //FIXME: this is a placeholder
+		return &corev1.Reference{Id: "TODO"}
+	}
+	if d := t.GetDisk(); d != nil { //FIXME: this is a placeholder
+		return &corev1.Reference{Id: "TODO"}
+	}
+	if f := t.GetFs(); f != nil { //FIXME: this is a placeholder
+		return &corev1.Reference{Id: "TODO"}
+	}
+
+	return nil
 }
 
 func handleSystemAlertCreation(

@@ -748,12 +748,6 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 
 func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.ServiceKind(v1beta1.TrainingControllerService))
-
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
-		corev1.EnvVar{
-			Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
-			Value: "0",
-		})
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
 	return deployment, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil

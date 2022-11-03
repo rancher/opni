@@ -66,9 +66,11 @@ import (
 		dev:  false
 		name: "charts-repo"
 	}
-	user:  string
-	email: string
-	token: dagger.#Secret | *_|_
+	auth?: {
+		user:  string
+		email: string
+		token: dagger.#Secret
+	}
 
 	_git: alpine.#Build & {
 		version: "edge"
@@ -79,7 +81,7 @@ import (
 		always: true
 		input:  _git.output
 		env: {
-			"GH_TOKEN": token
+			"GH_TOKEN": auth.token
 		}
 		workdir: "/"
 		command: {
@@ -132,9 +134,9 @@ import (
 			dest:     "/src"
 		}
 		env: {
-			"GH_TOKEN":         token
-			"GIT_AUTHOR_NAME":  user
-			"GIT_AUTHOR_EMAIL": email
+			"GH_TOKEN":         auth.token
+			"GIT_AUTHOR_NAME":  auth.user
+			"GIT_AUTHOR_EMAIL": auth.email
 		}
 		workdir: "/src"
 		command: {

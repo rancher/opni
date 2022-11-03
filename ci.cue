@@ -480,9 +480,25 @@ dagger.#Plan & {
 					dev:    true
 					remote: client.env.REPO
 					source: _chartsBuild.output.rootfs
-					token:  client.env.GITHUB_TOKEN
-					user:   client.env.GIT_USER
-					email:  client.env.GIT_EMAIL
+					if client.env.GITHUB_TOKEN != _|_ && client.env.GIT_USER != _|_ && client.env.GIT_EMAIL != _|_ {
+						auth: {
+							token: client.env.GITHUB_TOKEN
+							user:  client.env.GIT_USER
+							email: client.env.GIT_EMAIL
+						}
+					}
+				}
+				prod: helm.#PublishToChartsRepo & {
+					dev:    false
+					remote: client.env.REPO
+					source: _chartsBuild.output.rootfs
+					if client.env.GITHUB_TOKEN != _|_ && client.env.GIT_USER != _|_ && client.env.GIT_EMAIL != _|_ {
+						auth: {
+							token: client.env.GITHUB_TOKEN
+							user:  client.env.GIT_USER
+							email: client.env.GIT_EMAIL
+						}
+					}
 				}
 			}
 		}

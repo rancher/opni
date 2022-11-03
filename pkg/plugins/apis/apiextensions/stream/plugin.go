@@ -228,14 +228,13 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 			e.logger.Debug("waiting for stream client to become available")
 			e.streamClientCond.Wait()
 		}
-		e.streamClientCond.L.Unlock()
-
-		if e.clientHandler != nil && e.streamClient != nil {
+		if e.clientHandler != nil {
 			e.logger.Debug("calling client handler")
 			go e.clientHandler.UseStreamClient(e.streamClient)
 		} else {
 			e.logger.Warn("bug: no client handler or stream client")
 		}
+		e.streamClientCond.L.Unlock()
 	}
 	return &emptypb.Empty{}, nil
 }

@@ -163,17 +163,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
-	// GPU learning is currently unsupported but will be added back in soon
-	if lo.FromPtrOr(r.spec.Services.GPUController.Enabled, true) {
-		lg.Info("gpu learning is currently not supported, but will return in a later release")
-		if r.opniCluster != nil {
-			r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
-		}
-		if r.aiOpniCluster != nil {
-			r.recorder.Event(r.aiOpniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
-		}
-	}
-
 	if r.spec.Opensearch.ExternalOpensearch != nil {
 		r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
 		err := r.client.Get(r.ctx, r.spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)

@@ -86,6 +86,7 @@ func ConvertSpec(input aiv1beta1.OpniClusterSpec) v1beta2.OpniClusterSpec {
 		Tolerations:  input.Services.Drain.Tolerations,
 		Replicas:     input.Services.Drain.Replicas,
 	}
+	services.TrainingController = v1beta2.TrainingControllerServiceSpec(input.Services.TrainingController)
 	services.OpensearchUpdate = v1beta2.OpensearchUpdateServiceSpec(input.Services.OpensearchUpdate)
 
 	retSpec.Services = services

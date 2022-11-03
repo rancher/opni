@@ -487,6 +487,8 @@ dagger.#Plan & {
 			}
 		}
 
+		_pluginVersion: strings.TrimPrefix(client.env.PLUGIN_VERSION, "v")
+		_pluginPublish: strings.TrimPrefix(client.env.PLUGIN_PUBLISH, "v")
 		dashboards: {
 			build: docker.#Build & {
 				steps: [
@@ -498,14 +500,14 @@ dagger.#Plan & {
 							name: "opensearch-dashboards-plugin"
 							args: [
 								"install",
-								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION).zip",
+								"https://github.com/rancher/opni-ui/releases/download/plugin-\(_pluginVersion)/opni-dashboards-plugin-\(_pluginVersion).zip",
 							]
 						}
 					},
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_PUBLISH)"
+				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(_pluginPublish)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
@@ -528,7 +530,7 @@ dagger.#Plan & {
 								"-s",
 								"install",
 								"-b",
-								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(client.env.PLUGIN_VERSION)/opnipreprocessing.zip",
+								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(_pluginVersion)/opnipreprocessing.zip",
 							]
 						}
 					},
@@ -546,7 +548,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(client.env.PLUGIN_PUBLISH)"
+				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(_pluginPublish)"
 				image: opensearch.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {

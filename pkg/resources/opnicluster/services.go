@@ -9,7 +9,6 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis/ai/v1beta1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
@@ -747,7 +746,7 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 }
 
 func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.ServiceKind(v1beta1.TrainingControllerService))
+	deployment := r.genericDeployment(v1beta2.TrainingControllerService)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
 	return deployment, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil

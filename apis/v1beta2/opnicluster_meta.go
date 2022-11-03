@@ -15,6 +15,7 @@ const (
 	GPUControllerService
 	MetricsService
 	OpensearchUpdateService
+	TrainingControllerService
 )
 
 type OpensearchRole string
@@ -42,6 +43,8 @@ func (s ServiceKind) String() string {
 		return "metrics"
 	case OpensearchUpdateService:
 		return "opensearch-update"
+	case TrainingControllerService:
+		return "training-controller"
 	default:
 		return ""
 	}
@@ -76,6 +79,8 @@ func (s ServiceKind) GetImageSpec(spec OpniClusterSpec) *opnimeta.ImageSpec {
 		return &spec.Services.Metrics.ImageSpec
 	case OpensearchUpdateService:
 		return &spec.Services.OpensearchUpdate.ImageSpec
+	case TrainingControllerService:
+		return &spec.Services.TrainingController.ImageSpec
 	default:
 		return nil
 	}
@@ -97,6 +102,8 @@ func (s ServiceKind) GetNodeSelector(spec OpniClusterSpec) map[string]string {
 		return spec.Services.Metrics.NodeSelector
 	case OpensearchUpdateService:
 		return spec.Services.OpensearchUpdate.NodeSelector
+	case TrainingControllerService:
+		return spec.Services.TrainingController.NodeSelector
 	default:
 		return map[string]string{}
 	}
@@ -118,6 +125,8 @@ func (s ServiceKind) GetTolerations(spec OpniClusterSpec) []corev1.Toleration {
 		return spec.Services.Metrics.Tolerations
 	case OpensearchUpdateService:
 		return spec.Services.OpensearchUpdate.Tolerations
+	case TrainingControllerService:
+		return spec.Services.TrainingController.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

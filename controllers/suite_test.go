@@ -310,6 +310,10 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
+				TrainingController: v1beta2.TrainingControllerServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
 				GPUController: v1beta2.GPUControllerServiceSpec{
 					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
@@ -412,6 +416,10 @@ func buildAICluster(opts opniClusterOpts) *aiv1beta1.OpniCluster {
 					ImageSpec: imageSpec,
 				},
 				GPUController: aiv1beta1.GPUControllerServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				TrainingController: aiv1beta1.TrainingControllerServiceSpec{
 					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},

@@ -457,6 +457,9 @@ func Charts() {
 }
 
 func ChartsV(version string) error {
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
 	fmt.Println("Patching chart version to " + version)
 	for _, packageSpec := range []string{
 		"./packages/opni-agent/opni-agent/package.yaml",

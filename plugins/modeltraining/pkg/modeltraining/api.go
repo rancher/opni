@@ -57,7 +57,12 @@ func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in
 	var workloadArray []*modeltraining.WorkloadAggregation
 	for namespaceName, deployments := range clusterAggregationResults.ByNamespace {
 		for deploymentName, count := range deployments.ByDeployment {
-			workloadAggregation := modeltraining.WorkloadAggregation{ClusterId: in.Id, Namespace: namespaceName, Deployment: deploymentName, LogCount: int64(count.Count)}
+			workloadAggregation := modeltraining.WorkloadAggregation{
+				ClusterId:  in.Id,
+				Namespace:  namespaceName,
+				Deployment: deploymentName,
+				LogCount:   int64(count.Count),
+			}
 			workloadArray = append(workloadArray, &workloadAggregation)
 		}
 	}
@@ -91,7 +96,11 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {
 			for deploymentIdx := range deployments {
-				deploymentData := modeltraining.ModelTrainingParameters{ClusterId: clusterName, Namespace: namespaceName, Deployment: deployments[deploymentIdx]}
+				deploymentData := modeltraining.ModelTrainingParameters{
+					ClusterId:  clusterName,
+					Namespace:  namespaceName,
+					Deployment: deployments[deploymentIdx],
+				}
 				parametersArray = append(parametersArray, &deploymentData)
 			}
 		}

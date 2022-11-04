@@ -831,7 +831,9 @@ func (r *Reconciler) MaybeRemoveRolesMapping(roleName string, userName string) e
 	return nil
 }
 
-func (r *Reconciler) shouldCreateIngestPipeline(name string) (bool, error) {
+func (r *Reconciler) shouldUpdateIngestPipeline(name string, new opensearchapiext.IngestPipeline) (bool, error) {
+	lg := log.FromContext(r.ctx)
+
 	resp, err := r.osClient.Ingest.GetPipeline(
 		r.osClient.Ingest.GetPipeline.WithContext(r.ctx),
 		r.osClient.Ingest.GetPipeline.WithPipelineID(name),
@@ -847,12 +849,42 @@ func (r *Reconciler) shouldCreateIngestPipeline(name string) (bool, error) {
 		return false, fmt.Errorf("response from API is %s", resp.Status())
 	}
 
-	// TODO compare content of pipeline
+	existing := opensearchapiext.IngestPipeline{}
+	err = json.NewDecoder(resp.Body).Decode(&existing)
+	if err != nil {
+		return false, err
+	}
+
+	if !reflect.DeepEqual(new, existing) {
+		lg.Info("pipeline template exists but is different")
+		return true, nil
+	}
+
 	return false, nil
 }
 
+func (r *Reconciler) ingestPipelineExists(name string) (bool, error) {
+	resp, err := r.osClient.Ingest.GetPipeline(
+		r.osClient.Ingest.GetPipeline.WithContext(r.ctx),
+		r.osClient.Ingest.GetPipeline.WithPipelineID(name),
+	)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return false, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.Status())
+	}
+
+	// TODO compare content of pipeline
+	return true, nil
+}
+
 func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline opensearchapiext.IngestPipeline) error {
-	shouldCreate, err := r.shouldCreateIngestPipeline(name)
+	shouldCreate, err := r.shouldUpdateIngestPipeline(name, pipeline)
 	if err != nil {
 		return err
 	}
@@ -879,12 +911,12 @@ func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline opensearcha
 }
 
 func (r *Reconciler) MaybeDeleteIngestPipeline(name string) error {
-	absent, err := r.shouldCreateIngestPipeline(name)
+	exists, err := r.ingestPipelineExists(name)
 	if err != nil {
 		return err
 	}
 
-	if absent {
+	if !exists {
 		return nil
 	}
 

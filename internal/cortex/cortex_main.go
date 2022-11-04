@@ -92,6 +92,19 @@ func Main(args []string) {
 	}
 	//////////////////////////////////////////////////////////////////////////////
 
+	//////////////////////////////////////////////////////////////////////////////
+	// Opni Custom Logic: Create filesystem storage directory if it doesn't exist
+	if cfg.BlocksStorage.Bucket.Backend == "filesystem" {
+		dir := cfg.BlocksStorage.Bucket.Filesystem.Directory
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "error creating tsdb dir: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
+	//////////////////////////////////////////////////////////////////////////////
+
 	// Setting the environment variable JAEGER_AGENT_HOST enables tracing.
 	if trace, err := tracing.NewFromEnv(name); err != nil {
 		level.Error(util_log.Logger).Log("msg", "Failed to setup tracing", "err", err.Error())

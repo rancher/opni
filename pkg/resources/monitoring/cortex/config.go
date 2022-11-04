@@ -118,7 +118,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GetGcs())
 	azureSpec := valueOrDefault(r.spec.Cortex.Storage.GetAzure())
 	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.GetSwift())
-	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.GetFilesystem())
 
 	storageConfig := bucket.Config{
 		Backend: string(r.spec.Cortex.Storage.GetBackend()),
@@ -178,7 +177,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
 		},
 		Filesystem: filesystem.Config{
-			Directory: filesystemSpec.GetDirectory(),
+			Directory: "/data/bucket",
 		},
 	}
 	logLevel := logging.Level{}
@@ -279,6 +278,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 
 		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
+			DataDir: "/data/alertmanager",
 			AlertmanagerClient: alertmanager.ClientConfig{
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
@@ -304,6 +304,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				KVStore: kvConfig,
 			},
 			CleanupInterval: 5 * time.Minute,
+			DataDir:         "/data/compactor",
 		},
 		Distributor: distributor.Config{
 			PoolConfig: distributor.PoolConfig{

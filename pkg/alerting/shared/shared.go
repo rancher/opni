@@ -15,6 +15,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Condition constants
+var ComparisonOperators = []string{"<", ">", "<=", ">="}
+var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+
 // Datasources & Versioning
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"

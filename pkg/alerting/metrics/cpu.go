@@ -1,28 +1,77 @@
 package metrics
 
 import (
-	"time"
+	"bytes"
+	"fmt"
+	"strconv"
+	"text/template"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/prometheus/common/model"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func NewCpuRule() (*AlertingRule, error) {
-	// TODO
-	return nil, nil
+const CPUMatcherName = "node_cpu_seconds_total"
+const ModeFilter = "mode"
+
+var CpuRuleAnnotations = map[string]string{}
+
+const CpuFilter = "cpu"
+
+func NewCpuRule(
+	nodeFilters map[string]*alertingv1.Cores,
+	cpuStates []string,
+	operation string,
+	expectedRatio float64,
+	duration *durationpb.Duration,
+	annotations map[string]string,
+) (*AlertingRule, error) {
+
+	dur := model.Duration(duration.AsDuration())
+	filters := NewPrometheusFilters()
+	for node, state := range nodeFilters {
+		filters.Or(NodeFilter, node)
+		for _, cpu := range state.Items {
+			filters.Or(CpuFilter, strconv.Itoa(int(cpu)))
+		}
+	}
+	for _, state := range cpuStates {
+		filters.Or(ModeFilter, state)
+	}
+	filters.Match(ModeFilter)
+	filters.Match(NodeFilter)
+	filters.Match(CpuFilter)
+
+	tmpl := template.Must(template.New("").Parse(`
+	(1 - sum(
+		rate(
+			node_cpu_seconds_total{{ .Filters }}[1m]
+		)
+	)
+	BY (__tenant_id__)
+	/ 
+	ON (__tenant_id__)
+	GROUP_LEFT()
+	sum(
+		rate(
+			node_cpu_seconds_total[1m]
+		)
+	)) {{ .Operation }} bool {{ .ExpectedValue }}
+`))
+	var b bytes.Buffer
+	err := tmpl.Execute(&b, map[string]string{
+		"Filters":       filters.Build(),
+		"Operation":     operation,
+		"ExpectedValue": fmt.Sprintf("%.7f", expectedRatio),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &AlertingRule{
+		Alert:       "",
+		Expr:        b.String(),
+		For:         dur,
+		Labels:      annotations,
+		Annotations: annotations,
+	}, nil
 }
-
-type CpuRuleOptions struct {
-	Cluster *corev1.Cluster `metric:"node_cpu_seconds_total"`
-
-	Node      []string `label:"instance" metric:"node_cpu_seconds_total"`
-	UsageMode string   `label:"mode" metric:"node_cpu_seconds_total"`
-	Cpu       []string `label:"cpu" metric:"node_cpu_seconds_total"`
-
-	CompOperator ComparisonOperator
-	Target       float64 `range:"[0,100]"`
-	ForDuration  time.Duration
-	// Interval     prometheus.Duration
-}
-
-// Implements MetricOpts interface
-func (c *CpuRuleOptions) MetricOptions() {}

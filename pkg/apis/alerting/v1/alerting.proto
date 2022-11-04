@@ -118,7 +118,9 @@ message AlertTypeDetails {
     AlertConditionSystem system = 1;
     // kube state : golden signal -> errors
     AlertConditionKubeState kubeState = 2;
+    // not implemented
     AlertConditionComposition composition = 3;
+    // not implemented
     AlertConditionControlFlow controlFlow = 4;
     // cpu saturation : golden signal -> saturation
     AlertConditionCPUSaturation cpu = 5;
@@ -181,20 +183,67 @@ message ListAlertConditionKubeState {
   repeated google.protobuf.Duration fors = 3;
 }
 
+// Defaults :
+// - all nodes selected (empty nodes array)
+// - all cores selected (empty cores array)
+// - cpuState : "user", "system", "guest" selected
 message AlertConditionCPUSaturation {
-  //TODO:
+  core.Reference clusterId = 1;
+  map<string, Cores> nodeCoreFilters = 2;
+  repeated string cpuStates = 3;
+  string operation = 4; // one of "<", ">", "<=", ">="
+  float expectedRatio = 5; // 0-1
+  google.protobuf.Duration for = 6;
 }
 
+message Cores {
+  repeated int64 items = 1;
+}
+
+// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
 message ListAlertConditionCPUSaturation {
-  //TODO:
+  map<string, CpuNodeGroup> clusters = 1;
+  // cpu state, one of : 
+  // "user": The time spent in userland
+  // "system": The time spent in the kernel
+  // "iowait": Time spent waiting for I/O
+  // "idle": Time the CPU had nothing to do
+  // "irq" : Time servicing interrupts
+  // "softirq": Time servicing interrupts
+  // "guest" : If you are running VMs, the CPU they use
+  // "steal" : If you are a VM, time other VMs "stole" from your CPUs
+  repeated string cpuStates = 2;
+}
+
+message CpuNodeGroup {
+  map<string, CpuInfo> nodes = 1;
+}
+
+message CpuInfo {
+  // cores
+  repeated int64 coreIds = 1;
 }
 
 message AlertConditionMemorySaturation {
-  //TODO:
+  core.Reference clusterId = 1;
+  map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices, usage states
+  repeated string usageTypes =3;
+  string operation = 4;
+  double expectedRatio = 5;
+  google.protobuf.Duration for =6;
 }
 
 message ListAlertConditionMemorySaturation {
-  //TODO:
+  map<string, MemoryNodeGroup> clusters = 1;
+  repeated string usageTypes = 2;
+}
+
+message MemoryNodeGroup {
+  map<string, MemoryInfo> nodes = 1;
+}
+
+message MemoryInfo {
+  repeated string device = 2;
 }
 
 message AlertConditionDiskSaturation {
@@ -210,7 +259,16 @@ message AlertConditionFilesystemSaturation {
 }
 
 message ListAlertConditionFilesystemSaturation {
-  //TODO:
+  map<string, FilesystemNodeGroup> clusters = 1;
+}
+
+message FilesystemNodeGroup {
+  map<string, FilesystemInfo> nodes = 1;
+}
+
+message FilesystemInfo {
+  repeated string mountpoints = 1;
+  repeated string device = 2;
 }
 
 message ObjectList {

@@ -5,11 +5,17 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 )
+
+func validComparionOperator(op string) error {
+	if !slices.Contains(shared.ComparisonOperators, op) {
+		return validation.Error("Invalid comparison operator")
+	}
+	return nil
+}
 
 func (s *SilenceRequest) Validate() error {
 	if err := s.ConditionId.Validate(); err != nil {
@@ -38,8 +44,8 @@ func (k *AlertConditionKubeState) Validate() error {
 	if k.Namespace == "" {
 		return validation.Error("objectNamespace must be set")
 	}
-	if !slices.Contains(metrics.KubeStates, k.State) {
-		return validation.Errorf("state must be one of the following: %v", metrics.KubeStates)
+	if !slices.Contains(shared.KubeStates, k.State) {
+		return validation.Errorf("state must be one of the following: %v", shared.KubeStates)
 	}
 	return nil
 }
@@ -52,6 +58,32 @@ func (c *AlertConditionControlFlow) Validate() error {
 	return shared.WithUnimplementedErrorf("Control flow alerts not implemented yet")
 }
 
+func (c *AlertConditionCPUSaturation) Validate() error {
+	if c.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(c.ExpectedRatio >= 0 && c.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if c.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return validComparionOperator(c.Operation)
+}
+
+func (c *AlertConditionMemorySaturation) Validate() error {
+	if c.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(c.ExpectedRatio >= 0 && c.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if c.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return validComparionOperator(c.Operation)
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
@@ -59,13 +91,19 @@ func (d *AlertTypeDetails) Validate() error {
 	if d.GetKubeState() != nil {
 		return d.GetKubeState().Validate()
 	}
+	if d.GetCpu() != nil {
+		return d.GetCpu().Validate()
+	}
+	if d.GetMemory() != nil {
+		return d.GetMemory().Validate()
+	}
 	if d.GetComposition() != nil {
 		return d.GetComposition().Validate()
 	}
 	if d.GetControlFlow() != nil {
 		return d.GetControlFlow().Validate()
 	}
-	return validation.Errorf("Unknown alert type provided %v", d)
+	return validation.Errorf("Backend does not handle alert type provided %v", d)
 }
 
 func (a *AlertCondition) Validate() error {

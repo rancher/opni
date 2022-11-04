@@ -16,6 +16,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var verbs = []string{"POST", "GET", "PUT", "DELETE"}
+var goodCodes = []int{200, 201, 202}
+var badCodes = []int{404, 429, 500, 502, 503}
+
 var (
 	uptimeCollector *prometheus.GaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "uptime_good",
@@ -31,22 +35,19 @@ var (
 	availabilityCollector *prometheus.CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "http_request_duration_seconds_count",
 	},
-		[]string{"code"},
+		[]string{"code", "verb"},
 	)
 	availabilityGoodEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		randomStatusInt1 := rand.Intn(1)
+		randomStatusCode := goodCodes[rand.Intn(len(goodCodes))]
+		randomVerb := verbs[rand.Intn(len(verbs))]
 
-		// anything between 200-399, and yes http status codes dont'work like this
-		randomStatusCode := 200 + randomStatusInt1
-
-		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode)).Inc()
+		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode), randomVerb).Inc()
 	}
 
 	availabilityBadEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		randomStatusInt1 := rand.Intn(3)
-		// anything between 400-599, and yes http status codes dont'work like this
-		randomStatusCode := 500 + randomStatusInt1
-		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode)).Inc()
+		randomStatusCode := badCodes[rand.Intn(len(badCodes))]
+		randomVerb := verbs[rand.Intn(len(verbs))]
+		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode), randomVerb).Inc()
 	}
 
 	latencyCollector *prometheus.HistogramVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{

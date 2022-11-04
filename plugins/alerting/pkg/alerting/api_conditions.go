@@ -169,6 +169,9 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	} else if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
 		// new condition has new active endpoints, but old one did
 		_, err = p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: conditionId})
+		if err != nil {
+			lg.Errorf("failed to delete condition routing node %s", err)
+		}
 	}
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels

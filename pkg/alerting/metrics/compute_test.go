@@ -1,51 +1,49 @@
 package metrics_test
 
 import (
-	"bytes"
+	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var _ = Describe("compute alerting options pipeline & compute alerts construction", func() {
 	When("users want to create cpu compute alerts", func() {
 		Specify("alerting/metrics package should export cpu alerts", func() {
-			_, templateOk := metrics.ComputeNameToTemplate["cpu"]
-			_, optionsOk := metrics.ComputeNameToOpts["cpu"]
-			Expect((templateOk && optionsOk)).To(BeTrue())
+			var err error
+			Expect(err).To(BeNil())
 		})
 
-		Specify("cpu alerts should have parsed an available template", func() {
-			tmpl := metrics.ComputeNameToTemplate["cpu"]
-			Expect(tmpl).NotTo(BeNil())
-			definedTmpls := tmpl.Templates()
-			Expect(definedTmpls).NotTo(HaveLen(0))
+		It("should be able to create CPU saturation rules", func() {
+			rule, err := metrics.NewCpuRule(
+				map[string]*alertingv1.Cores{},
+				[]string{"user", "guest", "system"},
+				">",
+				0.5,
+				durationpb.New(time.Minute),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
 		})
 
-		Specify("The template should be executed from options", func() {
-			tmpl := metrics.ComputeNameToTemplate["cpu"]
-			opts := metrics.ComputeNameToOpts["cpu"]
-			var b bytes.Buffer
-			err := tmpl.Execute(&b, opts)
-			Expect(err).NotTo(HaveOccurred())
+		It("should be able to create Memory saturation rules", func() {
+			rule, err := metrics.NewMemRule(
+				map[string]*alertingv1.MemoryInfo{},
+				[]string{"Cached"},
+				">",
+				90.0,
+				durationpb.New(time.Minute),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
 		})
-
-		Specify("valid inputs should construct valid promQL", func() {
-			validInputs := []metrics.CpuRuleOptions{
-				{
-					Node: []string{""},
-				},
-			}
-
-			for _, input := range validInputs {
-				tmpl := metrics.ComputeNameToTemplate["cpu"]
-				var b bytes.Buffer
-				err := tmpl.Execute(&b, input)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(b.String()).NotTo(Equal(""))
-			}
-		})
-
 	})
 })

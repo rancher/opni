@@ -38,7 +38,11 @@ func init() {
 		},
 	}
 
-	EnumConditionToImplementation[AlertType_CPU_SATURATION] = AlertTypeDetails{}
+	EnumConditionToImplementation[AlertType_CPU_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Cpu{
+			Cpu: &AlertConditionCPUSaturation{},
+		},
+	}
 	EnumConditionToImplementation[AlertType_MEMORY_SATURATION] = AlertTypeDetails{}
 	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{}
 	EnumConditionToImplementation[AlertType_DISK_SATURATION] = AlertTypeDetails{}

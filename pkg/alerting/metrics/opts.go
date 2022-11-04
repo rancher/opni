@@ -1,5 +1,8 @@
 /*
  Prometheus metric options for building alerting rules
+
+ WIP: generic interface for building alerting rules auto gen : choices + build API
+ from structs
 */
 
 package metrics
@@ -81,9 +84,6 @@ func init() {
 		"proc": template.Must(template.New("proc").
 			Option("missingkey=error").
 			Parse(string(procAlertTemplate))),
-	}
-	ComputeNameToOpts = map[string]MetricOpts{
-		"cpu": &CpuRuleOptions{},
 	}
 }
 

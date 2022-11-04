@@ -5,12 +5,121 @@ package metrics
 
 import (
 	"fmt"
+	"time"
+
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"time"
 )
+
+const NodeFilter = "instance"
+
+type Filter string
+
+func NewFilter() Filter {
+	return Filter("")
+}
+
+func (f Filter) IsEmpty() bool {
+	return string(f) == ""
+}
+
+func (f Filter) Or(value string) Filter {
+	if f.IsEmpty() {
+		return Filter(value)
+	}
+	return Filter(string(f) + "|" + value)
+}
+
+func (f Filter) And(value string) Filter {
+	if f.IsEmpty() {
+		return Filter(value)
+	}
+	return Filter(string(f) + "")
+}
+
+func (f Filter) Match(key string) Filter {
+	if f.IsEmpty() {
+		return ""
+	}
+	return Filter(fmt.Sprintf("%s=~\"%s\"", key, string(f)))
+}
+
+func (f Filter) Equals(key string) Filter {
+	if f.IsEmpty() {
+		return ""
+	}
+	return Filter(fmt.Sprintf("%s=\"%s\"", key, string(f)))
+}
+
+func (f Filter) NotEquals(key string) Filter {
+	if f.IsEmpty() {
+		return ""
+	}
+	return Filter(fmt.Sprintf("%s!=~\"%s\"", key, string(f)))
+}
+
+type PrometheusFilters struct {
+	Filters map[string]Filter
+}
+
+func NewPrometheusFilters() *PrometheusFilters {
+	return &PrometheusFilters{
+		Filters: map[string]Filter{},
+	}
+}
+
+func (p *PrometheusFilters) AddFilter(key string) {
+	if p.Filters == nil {
+		p.Filters = map[string]Filter{}
+	}
+	if _, ok := p.Filters[key]; !ok {
+		p.Filters[key] = NewFilter()
+	}
+}
+
+func (p *PrometheusFilters) Build() string {
+	filters := ""
+	for _, filter := range p.Filters {
+		if filter.IsEmpty() {
+			continue
+		}
+		if filters != "" {
+			filters += ","
+		}
+		filters = filters + string(filter)
+	}
+	return fmt.Sprintf("{%s}", filters)
+}
+
+func (p *PrometheusFilters) Or(key string, value string) {
+	p.AddFilter(key)
+	p.Filters[key] = p.Filters[key].Or(value)
+}
+
+func (p *PrometheusFilters) And(key string, value string) {
+	p.AddFilter(key)
+	p.Filters[key] = p.Filters[key].And(value)
+}
+
+func (p *PrometheusFilters) Match(key string) {
+	p.AddFilter(key)
+	p.Filters[key] = p.Filters[key].Match(key)
+}
+
+func (p *PrometheusFilters) Equals(key string) {
+	p.AddFilter(key)
+	p.Filters[key] = p.Filters[key].Equals(key)
+}
+
+func (p *PrometheusFilters) NotEquals(key string) {
+	p.AddFilter(key)
+	p.Filters[key] = p.Filters[key].NotEquals(key)
+}
+
+const UnlabelledNode = "unidentified_node"
+const NodeExporterNodeLabel = "instance"
 
 // AlertingRule
 //

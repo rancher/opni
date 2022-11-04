@@ -29,30 +29,44 @@ import (
 
 func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
-		err := handleSystemAlertCreation(p, lg, ctx, s, newConditionId)
+		err := p.handleSystemAlertCreation(ctx, s, newConditionId)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
-		err := handleKubeAlertCreation(p, lg, ctx, k, newConditionId)
+		err := p.handleKubeAlertCreation(ctx, k, newConditionId)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if c := req.GetAlertType().GetCpu(); c != nil {
-		return nil, shared.AlertingErrNotImplemented
+		err := p.handleCpuSaturationAlertCreation(ctx, c, newConditionId)
+		if err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if m := req.AlertType.GetMemory(); m != nil {
-		return nil, shared.AlertingErrNotImplemented
+		err := p.handleMemorySaturationAlertCreation(ctx, m, newConditionId)
+		if err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if d := req.AlertType.GetDisk(); d != nil {
-		return nil, shared.AlertingErrNotImplemented
+		if err := p.handleDiskSaturationAlertCreation(ctx, d, newConditionId); err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if fs := req.AlertType.GetFs(); fs != nil {
-		return nil, shared.AlertingErrNotImplemented
+		if err := p.handleFsSaturationAlertCreation(ctx, fs, newConditionId); err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
@@ -77,11 +91,11 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
 	if k := t.GetKubeState(); k != nil {
 		return &corev1.Reference{Id: k.ClusterId}
 	}
-	if c := t.GetCpu(); c != nil { //FIXME: this is a placeholder
-		return &corev1.Reference{Id: "TODO"}
+	if c := t.GetCpu(); c != nil {
+		return &corev1.Reference{Id: c.ClusterId.Id}
 	}
-	if m := t.GetMemory(); m != nil { //FIXME: this is a placeholder
-		return &corev1.Reference{Id: "TODO"}
+	if m := t.GetMemory(); m != nil {
+		return &corev1.Reference{Id: m.ClusterId.Id}
 	}
 	if d := t.GetDisk(); d != nil { //FIXME: this is a placeholder
 		return &corev1.Reference{Id: "TODO"}
@@ -93,9 +107,7 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
 	return nil
 }
 
-func handleSystemAlertCreation(
-	p *Plugin,
-	lg *zap.SugaredLogger,
+func (p *Plugin) handleSystemAlertCreation(
 	ctx context.Context,
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
@@ -120,7 +132,7 @@ func handleSystemAlertCreation(
 	return nil
 }
 
-func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, k *alertingv1.AlertConditionKubeState, newId string) error {
+func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.AlertConditionKubeState, newId string) error {
 	baseKubeRule, err := metrics.NewKubeStateRule(
 		k.GetObjectType(),
 		k.GetObjectName(),
@@ -141,6 +153,7 @@ func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Conte
 	if err != nil {
 		return err
 	}
+	p.Logger.With("Expr", "kube-state").Debugf("%s", string(out))
 	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
 		ClusterId:   k.GetClusterId(),
 		YamlContent: string(out),
@@ -149,6 +162,72 @@ func handleKubeAlertCreation(p *Plugin, lg *zap.SugaredLogger, ctx context.Conte
 		return err
 	}
 	return nil
+}
+
+func (p *Plugin) handleCpuSaturationAlertCreation(ctx context.Context, c *alertingv1.AlertConditionCPUSaturation, conditionId string) error {
+	baseCpuRule, err := metrics.NewCpuRule(
+		c.GetNodeCoreFilters(),
+		c.GetCpuStates(),
+		c.GetOperation(),
+		float64(c.GetExpectedRatio()),
+		c.GetFor(),
+		metrics.CpuRuleAnnotations,
+	)
+	if err != nil {
+		return err
+	}
+	cpuRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseCpuRule)
+	if err != nil {
+		return err
+	}
+	out, err := yaml.Marshal(cpuRuleContent)
+	if err != nil {
+		return err
+	}
+	p.Logger.With("Expr", "cpu").Debugf("%s", string(out))
+
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		ClusterId:   c.ClusterId.GetId(),
+		YamlContent: string(out),
+	})
+	return err
+}
+
+func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *alertingv1.AlertConditionMemorySaturation, conditionId string) error {
+	baseMemRule, err := metrics.NewMemRule(
+		m.GetNodeMemoryFilters(),
+		m.UsageTypes,
+		m.GetOperation(),
+		float64(m.GetExpectedRatio()),
+		m.GetFor(),
+		metrics.MemRuleAnnotations,
+	)
+	if err != nil {
+		return err
+	}
+	memRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseMemRule)
+	if err != nil {
+		return err
+	}
+
+	out, err := yaml.Marshal(memRuleContent)
+	if err != nil {
+		return err
+	}
+	p.Logger.With("Expr", "mem").Debugf("%s", string(out))
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		ClusterId:   m.ClusterId.GetId(),
+		YamlContent: string(out),
+	})
+	return err
+}
+
+func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alertingv1.AlertConditionFilesystemSaturation, conditionId string) error {
+	return shared.AlertingErrNotImplemented
+}
+
+func (p *Plugin) handleDiskSaturationAlertCreation(ctx context.Context, d *alertingv1.AlertConditionDiskSaturation, conditionId string) error {
+	return shared.AlertingErrNotImplemented
 }
 
 func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {

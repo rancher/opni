@@ -98,7 +98,7 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 		"aggs": map[string]any{
 			"bucket": map[string]any{
 				"composite": map[string]any{
-					"size": 4,
+					"size": 1000,
 					"sources": []map[string]any{
 						{
 							"cluster_id": map[string]any{

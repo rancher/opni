@@ -9,7 +9,7 @@ var loggingAdminClient loggingadmin.LoggingAdminClient
 
 func ConfigureLoggingAdminCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {
-		cmd.PersistentPreRunE = cortexAdminPreRunE
+		cmd.PersistentPreRunE = loggingAdminPreRunE
 	} else {
 		oldPreRunE := cmd.PersistentPreRunE
 		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {

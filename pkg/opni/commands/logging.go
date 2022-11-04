@@ -12,6 +12,7 @@ func BuildLoggingCmd() *cobra.Command {
 
 	cmd.AddCommand(BuildLoggingUpgradeCmd())
 
+	ConfigureManagementCommand(cmd)
 	ConfigureLoggingAdminCommand(cmd)
 
 	return cmd

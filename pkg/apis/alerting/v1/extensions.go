@@ -23,7 +23,6 @@ func init() {
 	EnumConditionToDatasource[AlertType_CPU_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_MEMORY_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_FS_SATURATION] = &monitoring
-	EnumConditionToDatasource[AlertType_DISK_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_COMPOSITION] = &monitoring
 	EnumConditionToDatasource[AlertType_CONTROL_FLOW] = &monitoring
 
@@ -43,9 +42,12 @@ func init() {
 			Cpu: &AlertConditionCPUSaturation{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_MEMORY_SATURATION] = AlertTypeDetails{}
+	EnumConditionToImplementation[AlertType_MEMORY_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Memory{
+			Memory: &AlertConditionMemorySaturation{},
+		},
+	}
 	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{}
-	EnumConditionToImplementation[AlertType_DISK_SATURATION] = AlertTypeDetails{}
 	EnumConditionToImplementation[AlertType_COMPOSITION] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Composition{
 			Composition: &AlertConditionComposition{},

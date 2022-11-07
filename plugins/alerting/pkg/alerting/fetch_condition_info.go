@@ -30,8 +30,6 @@ func handleChoicesByType(
 		return p.fetchCPUSaturationInfo(ctx)
 	case alertingv1.AlertType_MEMORY_SATURATION:
 		return p.fetchMemorySaturationInfo(ctx)
-	case alertingv1.AlertType_DISK_SATURATION:
-		return p.fetchDiskSaturationInfo(ctx)
 	case alertingv1.AlertType_FS_SATURATION:
 		return p.fetchFsSaturationInfo(ctx)
 	default:
@@ -58,6 +56,10 @@ func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.Cor
 		return false
 	}
 	return len(*v) > 0
+}
+
+func clusterHasNodeExporterMetrics(ctx context.Context, adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
+	return true
 }
 
 func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
@@ -106,7 +108,7 @@ func (p *Plugin) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertT
 		go func() {
 			defer wg.Done()
 
-			if clusterHasKubeStateMetrics(adminClient, cl) {
+			if clusterHasKubeStateMetrics(ctx, adminClient, cl) {
 				rawKubeStateSeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
 					Tenant:    cl.Id,
 					MatchExpr: metrics.KubeObjMetricNameMatcher,
@@ -212,7 +214,7 @@ func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAl
 		cl := cl
 		go func() {
 			defer wg.Done()
-			if !clusterHasNodeExporterMetrics(adminClient, cl) {
+			if !clusterHasNodeExporterMetrics(ctx, adminClient, cl) {
 				return
 			}
 			nodesToCores := map[string]map[int64]struct{}{}
@@ -302,8 +304,110 @@ func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAl
 func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
 	resMemoryChoices := &alertingv1.ListAlertConditionMemorySaturation{
-		Clusters:   make(map[string]*alertingv1.MemoryNodeGroup),
 		UsageTypes: []string{},
+		Clusters:   make(map[string]*alertingv1.MemoryNodeGroup),
+	}
+	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		lg.Error("failed to get clusters", zap.Error(err))
+		return nil, err
+	}
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("failed to get cortex client %s", err)
+	}
+	memUsage := make(map[string]struct{})
+
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+
+	for _, cl := range clusters.Items {
+		wg.Add(1)
+		cl := cl
+		go func() {
+			defer wg.Done()
+			if !clusterHasNodeExporterMetrics(ctx, adminClient, cl) {
+				return
+			}
+			rawMemorySeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
+				Tenant:    cl.Id,
+				MatchExpr: metrics.MemoryMatcherName,
+			})
+			if err != nil {
+				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err)
+				return
+			}
+			result := gjson.Get(string(rawMemorySeries.Data), "data.result")
+			if !result.Exists() || len(result.Array()) == 0 {
+				lg.Warnf("no node fs metrics found for cluster %s : %s", cl.Id, result)
+				return
+			}
+			nodeToDevices := make(map[string]map[string]struct{})
+			for _, series := range result.Array() {
+				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
+				seriesInfoMap := seriesInfo.Map()
+				name := seriesInfoMap["__name__"].String()
+
+				objType := metrics.MemoryUsageTypeExtractor.FindStringSubmatch(name)[1]
+				lock.Lock()
+				memUsage[objType] = struct{}{}
+				lock.Unlock()
+
+				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
+				nodeName := ""
+				if !node.Exists() {
+					lg.Warnf("failed to find node name for series %s", seriesInfo)
+					nodeName = metrics.UnlabelledNode
+				}
+				nodeName = node.String()
+				lock.Lock()
+				if _, ok := resMemoryChoices.Clusters[cl.Id]; !ok {
+					resMemoryChoices.Clusters[cl.Id] = &alertingv1.MemoryNodeGroup{
+						Nodes: map[string]*alertingv1.MemoryInfo{},
+					}
+				}
+				resMemoryChoices.Clusters[cl.Id].Nodes[nodeName] = &alertingv1.MemoryInfo{
+					Devices: []string{},
+				}
+				lock.Unlock()
+				device := seriesInfoMap[metrics.MemoryDeviceFilter]
+
+				if !device.Exists() {
+					lg.Warnf("failed to find device name for series %s", seriesInfo)
+				} else {
+					if _, ok := nodeToDevices[nodeName]; !ok {
+						nodeToDevices[nodeName] = map[string]struct{}{}
+					}
+					nodeToDevices[nodeName][device.String()] = struct{}{}
+				}
+			}
+			lock.Lock()
+			for nodeName, devices := range nodeToDevices {
+				for device := range devices {
+					resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Devices = append(
+						resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Devices,
+						device,
+					)
+				}
+			}
+			lock.Unlock()
+		}()
+	}
+	wg.Wait()
+	for usageType := range memUsage {
+		resMemoryChoices.UsageTypes = append(resMemoryChoices.UsageTypes, usageType)
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_Memory{
+			Memory: resMemoryChoices,
+		},
+	}, nil
+}
+
+func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
+	resFilesystemChoices := &alertingv1.ListAlertConditionFilesystemSaturation{
+		Clusters: make(map[string]*alertingv1.FilesystemNodeGroup),
 	}
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
@@ -323,22 +427,24 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 		cl := cl
 		go func() {
 			defer wg.Done()
-			if !clusterHasNodeExporterMetrics(adminClient, cl) {
+			if !clusterHasNodeExporterMetrics(ctx, adminClient, cl) {
 				return
 			}
-			rawMemorySeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
+			rawFsSeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
 				Tenant:    cl.Id,
-				MatchExpr: metrics.MemoryMatcherName,
+				MatchExpr: metrics.FilesystemMatcherName,
 			})
 			if err != nil {
 				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err)
 				return
 			}
-			result := gjson.Get(string(rawMemorySeries.Data), "data.result")
+			result := gjson.Get(string(rawFsSeries.Data), "data.result")
 			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no node memory metrics found for cluster %s : %s", cl.Id, result)
+				lg.Warnf("no node fs metrics found for cluster %s : %s", cl.Id, result)
 				return
 			}
+			nodeToDevice := make(map[string]map[string]struct{})
+			nodeToMountpoints := make(map[string]map[string]struct{})
 			for _, series := range result.Array() {
 				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
 				seriesInfoMap := seriesInfo.Map()
@@ -350,104 +456,60 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 				}
 				nodeName = node.String()
 				lock.Lock()
-				if _, ok := resMemoryChoices.Clusters[cl.Id]; !ok {
-					resMemoryChoices.Clusters[cl.Id] = &alertingv1.MemoryNodeGroup{
-						Nodes: map[string]*alertingv1.MemoryInfo{
+				if _, ok := resFilesystemChoices.Clusters[cl.Id]; !ok {
+					resFilesystemChoices.Clusters[cl.Id] = &alertingv1.FilesystemNodeGroup{
+						Nodes: map[string]*alertingv1.FilesystemInfo{
 							nodeName: {
-								Device: []string{},
+								Mountpoints: []string{},
+								Devices:     []string{},
 							},
 						},
 					}
 				}
 				lock.Unlock()
-				name := seriesInfoMap["__name__"].String()
-				usageType := metrics.MemoryUsageTypeExtractor.FindStringSubmatch(name)[1]
-				lock.Lock()
-				resMemoryChoices.UsageTypes = append(resMemoryChoices.UsageTypes, usageType)
-				lock.Unlock()
-				device := seriesInfoMap[metrics.MemoryDeviceFilter]
+				device := seriesInfoMap[metrics.NodeExportFilesystemDeviceLabel]
 				if !device.Exists() {
 					lg.Warnf("failed to find device name for series %s", seriesInfo)
-					continue
+				} else {
+					if _, ok := nodeToDevice[nodeName]; !ok {
+						nodeToDevice[nodeName] = map[string]struct{}{}
+					}
+					nodeToDevice[nodeName][device.String()] = struct{}{}
 				}
-				lock.Lock()
-				resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Device = append(
-					resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Device,
-					device.String(),
-				)
-				lock.Unlock()
+				mountpoint := seriesInfoMap[metrics.NodeExporterMountpointLabel]
+				if !mountpoint.Exists() {
+					lg.Warnf("failed to find device name for series %s", seriesInfo)
+				} else {
+					if _, ok := nodeToMountpoints[nodeName]; !ok {
+						nodeToMountpoints[nodeName] = map[string]struct{}{}
+					}
+					nodeToMountpoints[nodeName][mountpoint.String()] = struct{}{}
+				}
 			}
-		}()
-	}
-	wg.Wait()
-	return &alertingv1.ListAlertTypeDetails{
-		Type: &alertingv1.ListAlertTypeDetails_Memory{
-			Memory: resMemoryChoices,
-		},
-	}, nil
-}
-
-func (p *Plugin) fetchDiskSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
-	resDiskChoices := &alertingv1.ListAlertConditionDiskSaturation{}
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
-	if err != nil {
-		lg.Error("failed to get clusters", zap.Error(err))
-		return nil, err
-	}
-	adminClient, err := p.adminClient.GetContext(ctx)
-	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
-	}
-
-	var wg sync.WaitGroup
-	for _, cl := range clusters.Items {
-		wg.Add(1)
-		cl := cl
-		go func() {
-			defer wg.Done()
-			if !clusterHasNodeExporterMetrics(adminClient, cl) {
-				return
+			lock.Lock()
+			for nodeName, devices := range nodeToDevice {
+				for device := range devices {
+					resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices = append(
+						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices,
+						device,
+					)
+				}
 			}
-		}()
-	}
-
-	wg.Wait()
-	return &alertingv1.ListAlertTypeDetails{
-		Type: &alertingv1.ListAlertTypeDetails_Disk{
-			Disk: resDiskChoices,
-		},
-	}, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
-	resDiskChoices := &alertingv1.ListAlertConditionFilesystemSaturation{}
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
-	if err != nil {
-		lg.Error("failed to get clusters", zap.Error(err))
-		return nil, err
-	}
-	adminClient, err := p.adminClient.GetContext(ctx)
-	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
-	}
-
-	var wg sync.WaitGroup
-	for _, cl := range clusters.Items {
-		wg.Add(1)
-		cl := cl
-		go func() {
-			defer wg.Done()
-			if !clusterHasNodeExporterMetrics(adminClient, cl) {
-				return
+			for nodeName, mountpoints := range nodeToMountpoints {
+				for mountpoint := range mountpoints {
+					resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Mountpoints = append(
+						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Mountpoints,
+						mountpoint,
+					)
+				}
 			}
+			lock.Unlock()
 		}()
 	}
 	wg.Wait()
 	return &alertingv1.ListAlertTypeDetails{
 		Type: &alertingv1.ListAlertTypeDetails_Fs{
-			Fs: resDiskChoices,
+			Fs: resFilesystemChoices,
 		},
 	}, shared.AlertingErrNotImplemented
 }

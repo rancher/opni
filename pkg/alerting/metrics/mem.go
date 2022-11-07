@@ -34,7 +34,7 @@ func NewMemRule(
 	filters.AddFilter(NodeFilter)
 	for node, state := range deviceFilters {
 		filters.Or(NodeFilter, node)
-		for _, device := range state.Device {
+		for _, device := range state.Devices {
 			filters.Or(MemoryDeviceFilter, device)
 		}
 	}

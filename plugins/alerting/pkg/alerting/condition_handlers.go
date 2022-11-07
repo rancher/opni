@@ -56,12 +56,6 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if d := req.AlertType.GetDisk(); d != nil {
-		if err := p.handleDiskSaturationAlertCreation(ctx, d, newConditionId); err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
-	}
 	if fs := req.AlertType.GetFs(); fs != nil {
 		if err := p.handleFsSaturationAlertCreation(ctx, fs, newConditionId); err != nil {
 			return nil, err
@@ -77,7 +71,7 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
 		return nil
-	case r.GetKubeState() != nil || r.GetCpu() != nil || r.GetMemory() != nil || r.GetDisk() != nil || r.GetFs() != nil:
+	case r.GetKubeState() != nil || r.GetCpu() != nil || r.GetMemory() != nil || r.GetFs() != nil:
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
 			ClusterId: handleSwitchCortexRules(r).Id,
 			GroupName: CortexRuleIdFromUuid(id),
@@ -92,16 +86,13 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
 		return &corev1.Reference{Id: k.ClusterId}
 	}
 	if c := t.GetCpu(); c != nil {
-		return &corev1.Reference{Id: c.ClusterId.Id}
+		return c.ClusterId
 	}
 	if m := t.GetMemory(); m != nil {
-		return &corev1.Reference{Id: m.ClusterId.Id}
+		return m.ClusterId
 	}
-	if d := t.GetDisk(); d != nil { //FIXME: this is a placeholder
-		return &corev1.Reference{Id: "TODO"}
-	}
-	if f := t.GetFs(); f != nil { //FIXME: this is a placeholder
-		return &corev1.Reference{Id: "TODO"}
+	if f := t.GetFs(); f != nil {
+		return f.ClusterId
 	}
 
 	return nil
@@ -223,11 +214,31 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 }
 
 func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alertingv1.AlertConditionFilesystemSaturation, conditionId string) error {
-	return shared.AlertingErrNotImplemented
-}
+	baseFsRule, err := metrics.NewFsRule(
+		fs.GetNodeFilters(),
+		fs.GetOperation(),
+		float64(fs.GetExpectedRatio()),
+		fs.GetFor(),
+		metrics.MemRuleAnnotations,
+	)
+	if err != nil {
+		return err
+	}
+	fsRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseFsRule)
+	if err != nil {
+		return err
+	}
 
-func (p *Plugin) handleDiskSaturationAlertCreation(ctx context.Context, d *alertingv1.AlertConditionDiskSaturation, conditionId string) error {
-	return shared.AlertingErrNotImplemented
+	out, err := yaml.Marshal(fsRuleContent)
+	if err != nil {
+		return err
+	}
+	p.Logger.With("Expr", "fs").Debugf("%s", string(out))
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		ClusterId:   fs.ClusterId.GetId(),
+		YamlContent: string(out),
+	})
+	return err
 }
 
 func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {

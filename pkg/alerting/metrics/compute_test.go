@@ -45,5 +45,18 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 			_, err = rule.Build(uuid.New().String())
 			Expect(err).To(Succeed())
 		})
+
+		It("should be able to create Filesystem saturation rules", func() {
+			rule, err := metrics.NewFsRule(
+				map[string]*alertingv1.FilesystemInfo{},
+				">",
+				90.0,
+				durationpb.New(time.Minute),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
+		})
 	})
 })

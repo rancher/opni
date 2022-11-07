@@ -78,8 +78,7 @@ enum AlertType {
   KUBE_STATE = 1;
   CPU_SATURATION = 2;
   MEMORY_SATURATION = 3;
-  DISK_SATURATION = 4;
-  FS_SATURATION = 5;
+  FS_SATURATION = 4;
   // Unimplemented
   COMPOSITION = 6;
   // Unimplemented
@@ -126,8 +125,6 @@ message AlertTypeDetails {
     AlertConditionCPUSaturation cpu = 5;
     // memory saturation : golden signal -> saturation
     AlertConditionMemorySaturation memory = 6;
-    // disk saturation : golden signal -> saturation
-    AlertConditionDiskSaturation disk = 7;
     // fs saturation : golden signal -> saturation
     AlertConditionFilesystemSaturation fs = 8;
   }
@@ -141,8 +138,7 @@ message ListAlertTypeDetails {
     ListAlertConditionControlFlow controlFlow = 4;
     ListAlertConditionCPUSaturation cpu = 5;
     ListAlertConditionMemorySaturation memory = 6;
-    ListAlertConditionDiskSaturation disk = 7;
-    ListAlertConditionFilesystemSaturation fs = 8;
+    ListAlertConditionFilesystemSaturation fs = 7;
   }
 }
 
@@ -200,8 +196,8 @@ message Cores {
   repeated int64 items = 1;
 }
 
-// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
 message ListAlertConditionCPUSaturation {
+// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
   map<string, CpuNodeGroup> clusters = 1;
   // cpu state, one of : 
   // "user": The time spent in userland
@@ -243,19 +239,15 @@ message MemoryNodeGroup {
 }
 
 message MemoryInfo {
-  repeated string device = 2;
-}
-
-message AlertConditionDiskSaturation {
-  //TODO:
-}
-
-message ListAlertConditionDiskSaturation {
-  //TODO:
+  repeated string devices = 2;
 }
 
 message AlertConditionFilesystemSaturation {
-  //TODO:
+  core.Reference clusterId  = 1;
+  map<string, FilesystemInfo> nodeFilters = 2;
+  string operation = 3; // "<", ">", "<=", ">="
+  double expectedRatio = 4; // 0-1
+  google.protobuf.Duration for = 5;
 }
 
 message ListAlertConditionFilesystemSaturation {
@@ -268,7 +260,7 @@ message FilesystemNodeGroup {
 
 message FilesystemInfo {
   repeated string mountpoints = 1;
-  repeated string device = 2;
+  repeated string devices = 2;
 }
 
 message ObjectList {

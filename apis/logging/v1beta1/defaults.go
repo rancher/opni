@@ -25,12 +25,12 @@ func enableSecuritySettings(spec *LogAdapterSpec) {
 		spec.RootFluentConfig.Fluentd.Security = &loggingv1beta1.Security{}
 	}
 
-	spec.FluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
-	spec.RootFluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
+	spec.FluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = false
+	spec.RootFluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = false
 	spec.FluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
 	spec.RootFluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
-	spec.FluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
-	spec.RootFluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
+	spec.FluentConfig.Fluentd.Security.PodSecurityPolicyCreate = false
+	spec.RootFluentConfig.Fluentd.Security.PodSecurityPolicyCreate = false
 	spec.FluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
 	spec.RootFluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
 	if spec.SELinuxEnabled {

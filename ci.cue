@@ -35,8 +35,8 @@ dagger.#Plan & {
 			HELM_OCI_REPO:          string | *"ghcr.io/rancher"
 			DASHBOARDS_VERSION:     string | *"1.3.3"
 			OPENSEARCH_VERSION:     string | *"1.3.3"
-			PLUGIN_VERSION:         string | *"0.6.1-rc1"
-			PLUGIN_PUBLISH:         string | *"0.6.1-rc1"
+			PLUGIN_VERSION:         string | *"0.6.1"
+			PLUGIN_PUBLISH:         string | *"0.6.1"
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret

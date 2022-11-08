@@ -44,7 +44,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 	BeforeEach(func() {
 		namespace = "test-logging"
 		version = "0.6.1"
-		opensearchVersion = "1.3.3"
+		opensearchVersion = "1.3.6"
 
 		request = &loggingadmin.OpensearchCluster{
 			ExternalURL: "https://test.example.com",
@@ -123,7 +123,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.3-0.6.1"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.6-0.6.1"),
 			},
 			Replicas: 1,
 			Enable:   true,

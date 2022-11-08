@@ -39,7 +39,7 @@ const (
 	LabelOpsterNodePool = "opster.io/opensearch-nodepool"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion = "1.3.6"
+	opensearchVersion = "1.3.3"
 	defaultRepo       = "docker.io/rancher"
 )
 

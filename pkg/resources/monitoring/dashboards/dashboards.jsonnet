@@ -6,7 +6,7 @@ local patchDashboard(d) = {
     list: [
       if x.name == 'cluster'
       then x {
-        query: 'query_result(opni_monitoring_cluster_info)',
+        query: 'query_result(opni_cluster_info)',
         regex: '/cluster_id="(?<value>[^"]+)|friendly_name="(?<text>[^"]+)/g',
       }
       else x

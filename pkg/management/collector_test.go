@@ -30,18 +30,11 @@ var _ = Describe("Collector", Ordered, Label("slow"), func() {
 		It("should collect descriptors but no metrics", func() {
 			descs := make(chan *prometheus.Desc, 100)
 			tv.ifaces.collector.Describe(descs)
-			Eventually(descs).Should(Receive(WithTransform(fmt.Stringer.String, Equal(
-				descriptorString(
-					"opni_monitoring_cluster_info",
-					"Cluster information",
-					[]string{},
-					[]string{"cluster_id", "friendly_name"},
-				),
-			))))
-			Consistently(descs).ShouldNot(Receive())
+			Eventually(descs).Should(HaveLen(4))
+			Consistently(descs).Should(HaveLen(4))
 			metrics := make(chan prometheus.Metric, 100)
 			tv.ifaces.collector.Collect(metrics)
-			Consistently(metrics).ShouldNot(Receive())
+			Consistently(metrics).Should(BeEmpty())
 		})
 	})
 	When("clusters are present", func() {
@@ -61,16 +54,39 @@ var _ = Describe("Collector", Ordered, Label("slow"), func() {
 				},
 			})
 
-			descs := make(chan *prometheus.Desc, 100)
-			tv.ifaces.collector.Describe(descs)
-			Expect(descs).To(Receive(WithTransform(fmt.Stringer.String, Equal(
+			c := make(chan *prometheus.Desc, 100)
+			tv.ifaces.collector.Describe(c)
+			Expect(c).To(HaveLen(4))
+			descs := make([]string, 0, 4)
+			for i := 0; i < 4; i++ {
+				descs = append(descs, (<-c).String())
+			}
+			Expect(descs).To(ConsistOf(
 				descriptorString(
-					"opni_monitoring_cluster_info",
+					"opni_cluster_info",
 					"Cluster information",
 					[]string{},
 					[]string{"cluster_id", "friendly_name"},
 				),
-			))))
+				descriptorString(
+					"opni_agent_up",
+					"Agent connection status",
+					[]string{},
+					[]string{"cluster_id"},
+				),
+				descriptorString(
+					"opni_agent_ready",
+					"Agent readiness status",
+					[]string{},
+					[]string{"cluster_id", "conditions"},
+				),
+				descriptorString(
+					"opni_agent_status_summary",
+					"Agent status summary",
+					[]string{},
+					[]string{"cluster_id", "summary"},
+				),
+			))
 
 			metrics := make(chan prometheus.Metric, 100)
 			tv.ifaces.collector.Collect(metrics)

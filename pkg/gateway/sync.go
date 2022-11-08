@@ -2,10 +2,12 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -15,6 +17,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+var (
+	mSyncRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "opni",
+		Name:      "server_sync_requests_total",
+		Help:      "Total number of sync requests sent to agents",
+	}, []string{"cluster_id", "code", "code_text"})
 )
 
 type SyncRequester struct {
@@ -75,6 +85,8 @@ func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncR
 			"capabilities", req.GetFilter().GetCapabilityNames(),
 		).Debug("sending sync request to agent")
 		_, err := clientSet.SyncNow(ctx, req.GetFilter())
+		code := status.Code(err)
+		mSyncRequests.WithLabelValues(req.GetCluster().GetId(), fmt.Sprint(code), code.String()).Inc()
 		if err != nil {
 			f.logger.With(
 				zap.Error(err),

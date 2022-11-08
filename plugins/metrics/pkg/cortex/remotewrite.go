@@ -55,6 +55,11 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
 	}
 
+	defer func() {
+		code := status.Code(pushErr)
+		mRemoteWriteRequests.WithLabelValues(clusterId, fmt.Sprint(code), code.String()).Inc()
+	}()
+
 	payloadSize := float64(len(payload.Contents))
 	mIngestBytesTotal.Add(payloadSize)
 	mIngestBytesByID.WithLabelValues(clusterId).Add(payloadSize)

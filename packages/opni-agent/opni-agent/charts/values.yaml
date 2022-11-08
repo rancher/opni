@@ -82,10 +82,9 @@ address: ""
 
 # v2 only
 persistence:
-  # default is to use a persistent volume claim template
-  mode: pvc
+  # mode: pvc
   # clusters without persistent storage can use a hostPath volume
-  #mode: hostPath
+  mode: hostPath
   # hostDirectoryPath: /var/lib/opni/plugins
 
 

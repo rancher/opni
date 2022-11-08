@@ -435,9 +435,11 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			} else if k := condition.GetAlertType().GetKubeState(); k != nil {
 				// do the raw quer
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
-					Start: start,
-					End:   end,
-					Step:  cortexStep,
+					Tenants: []string{k.ClusterId},
+					Query:   ids[idx],
+					Start:   start,
+					End:     end,
+					Step:    cortexStep,
 				})
 				if err != nil {
 					p.Logger.Errorf("failed to query range : %s", err)

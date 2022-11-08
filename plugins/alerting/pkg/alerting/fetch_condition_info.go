@@ -9,6 +9,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/tidwall/gjson"
 )
@@ -26,8 +27,26 @@ func handleChoicesByType(
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
-func clusterHasKubeStateMetrics(adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
-	return true
+func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
+	q, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{cl.Id},
+		Query:   "kube_namespace_created{namespace=\"kube-system\"}",
+	})
+	if err != nil {
+		return false
+	}
+	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	if err != nil {
+		return false
+	}
+	v, err := qr.GetVector()
+	if err != nil {
+		return false
+	}
+	if v == nil {
+		return false
+	}
+	return len(*v) > 0
 }
 
 func fetchAgentInfo(p *Plugin, ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
@@ -69,73 +88,74 @@ func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1.ListAlertTy
 		lg.Errorf("Failed to get cortex client %s", err)
 	}
 	for _, cl := range clusters.Items {
-		if clusterHasKubeStateMetrics(adminClient, cl) {
-			rawKubeStateSeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
-				Tenant:    cl.Id,
-				MatchExpr: metrics.KubeObjMetricNameMatcher,
-			})
-			if err != nil {
-				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.KubeObjMetricNameMatcher, err)
+		if !clusterHasKubeStateMetrics(ctx, adminClient, cl) {
+			continue
+		}
+		rawKubeStateSeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
+			Tenant:    cl.Id,
+			MatchExpr: metrics.KubeObjMetricNameMatcher,
+		})
+		if err != nil {
+			lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.KubeObjMetricNameMatcher, err)
+			continue
+		}
+		result := gjson.Get(string(rawKubeStateSeries.Data), "data.result")
+		if !result.Exists() || len(result.Array()) == 0 {
+			lg.Warnf("no result kube state metrics found for cluster %s : %s", cl.Id, result)
+			continue
+		}
+		for _, series := range result.Array() {
+			seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
+			// value array is [timestamp int, value int]
+			seriesTsAndValue := series.Get("value")
+
+			if !seriesInfo.Exists() || !seriesTsAndValue.Exists() {
+				lg.Warnf("Series info or value does not exist %s", series)
 				continue
 			}
-			result := gjson.Get(string(rawKubeStateSeries.Data), "data.result")
-			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no result kube state metrics found for cluster %s : %s", cl.Id, result)
+			value := seriesTsAndValue.Array()[1].Int()
+			if value == 0 {
 				continue
 			}
-			for _, series := range result.Array() {
-				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
-				// value array is [timestamp int, value int]
-				seriesTsAndValue := series.Get("value")
+			seriesInfoMap := seriesInfo.Map()
+			name := seriesInfoMap["__name__"].String()
+			namespace := seriesInfoMap["namespace"].String()
+			//phase := seriesInfo["phase"].String()
 
-				if !seriesInfo.Exists() || !seriesTsAndValue.Exists() {
-					lg.Warnf("Series info or value does not exist %s", series)
-					continue
+			objType := metrics.KubeObjTypeExtractor.FindStringSubmatch(name)[1]
+			if objType == "namespace" {
+				continue // namespaces don't have a state to monitor
+			}
+			objName := seriesInfoMap[objType]
+			if !objName.Exists() {
+				lg.Warnf("Failed to find object name for series %s", seriesInfo)
+				continue
+			}
+			if _, ok := resKubeState.Clusters[cl.Id]; !ok {
+				resKubeState.Clusters[cl.Id] = &alertingv1.KubeObjectGroups{
+					ResourceTypes: map[string]*alertingv1.NamespaceObjects{},
 				}
-				value := seriesTsAndValue.Array()[1].Int()
-				if value == 0 {
-					continue
+			}
+			if _, ok := resKubeState.Clusters[cl.Id].
+				ResourceTypes[objType]; !ok {
+				resKubeState.Clusters[cl.Id].
+					ResourceTypes[objType] = &alertingv1.NamespaceObjects{
+					Namespaces: map[string]*alertingv1.ObjectList{},
 				}
-				seriesInfoMap := seriesInfo.Map()
-				name := seriesInfoMap["__name__"].String()
-				namespace := seriesInfoMap["namespace"].String()
-				//phase := seriesInfo["phase"].String()
-
-				objType := metrics.KubeObjTypeExtractor.FindStringSubmatch(name)[1]
-				if objType == "namespace" {
-					continue // namespaces don't have a state to monitor
-				}
-				objName := seriesInfoMap[objType]
-				if !objName.Exists() {
-					lg.Warnf("Failed to find object name for series %s", seriesInfo)
-					continue
-				}
-				if _, ok := resKubeState.Clusters[cl.Id]; !ok {
-					resKubeState.Clusters[cl.Id] = &alertingv1.KubeObjectGroups{
-						ResourceTypes: map[string]*alertingv1.NamespaceObjects{},
-					}
-				}
-				if _, ok := resKubeState.Clusters[cl.Id].
-					ResourceTypes[objType]; !ok {
-					resKubeState.Clusters[cl.Id].
-						ResourceTypes[objType] = &alertingv1.NamespaceObjects{
-						Namespaces: map[string]*alertingv1.ObjectList{},
-					}
-				}
-				if _, ok := resKubeState.Clusters[cl.Id].
-					ResourceTypes[objType].
-					Namespaces[namespace]; !ok {
-					resKubeState.Clusters[cl.Id].
-						ResourceTypes[objType].
-						Namespaces[namespace] = &alertingv1.ObjectList{
-						Objects: []string{},
-					}
-				}
+			}
+			if _, ok := resKubeState.Clusters[cl.Id].
+				ResourceTypes[objType].
+				Namespaces[namespace]; !ok {
 				resKubeState.Clusters[cl.Id].
 					ResourceTypes[objType].
-					Namespaces[namespace].Objects = append(
-					resKubeState.Clusters[cl.Id].ResourceTypes[objType].Namespaces[namespace].Objects, objName.String())
+					Namespaces[namespace] = &alertingv1.ObjectList{
+					Objects: []string{},
+				}
 			}
+			resKubeState.Clusters[cl.Id].
+				ResourceTypes[objType].
+				Namespaces[namespace].Objects = append(
+				resKubeState.Clusters[cl.Id].ResourceTypes[objType].Namespaces[namespace].Objects, objName.String())
 		}
 	}
 	return &alertingv1.ListAlertTypeDetails{

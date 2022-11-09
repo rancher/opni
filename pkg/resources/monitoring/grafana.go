@@ -178,6 +178,12 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			SecurityContext: &corev1.PodSecurityContext{
 				FSGroup: lo.ToPtr(int64(472)),
 			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "GF_INSTALL_PLUGINS",
+					Value: "grafana-polystat-panel,marcusolsson-treemap-panel",
+				},
+			},
 		},
 		Secrets: []string{"grafana-datasource-cert"},
 		DataStorage: &grafanav1alpha1.GrafanaDataStorage{

@@ -106,7 +106,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": false,
-          "expr": "sum by(cluster_id) (rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])) * on(cluster_id) group_left(friendly_name) opni_monitoring_cluster_info",
+          "expr": "sum by(cluster_id) (rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])) * on(cluster_id) group_left(friendly_name) opni_cluster_info",
           "instant": false,
           "interval": "",
           "legendFormat": "{{friendly_name}}",

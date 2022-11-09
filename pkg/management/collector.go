@@ -2,24 +2,47 @@ package management
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/samber/lo"
 )
 
 var (
 	clusterInfo = prometheus.NewDesc(
-		"opni_monitoring_cluster_info",
+		"opni_cluster_info",
 		"Cluster information",
 		[]string{"cluster_id", "friendly_name"},
+		prometheus.Labels{},
+	)
+	agentUp = prometheus.NewDesc(
+		"opni_agent_up",
+		"Agent connection status",
+		[]string{"cluster_id"},
+		prometheus.Labels{},
+	)
+	agentReady = prometheus.NewDesc(
+		"opni_agent_ready",
+		"Agent readiness status",
+		[]string{"cluster_id", "conditions"},
+		prometheus.Labels{},
+	)
+	agentSummary = prometheus.NewDesc(
+		"opni_agent_status_summary",
+		"Agent status summary",
+		[]string{"cluster_id", "summary"},
 		prometheus.Labels{},
 	)
 )
 
 func (s *Server) Describe(c chan<- *prometheus.Desc) {
 	c <- clusterInfo
+	c <- agentUp
+	c <- agentReady
+	c <- agentSummary
 }
 
 func (s *Server) Collect(c chan<- prometheus.Metric) {
@@ -43,6 +66,35 @@ func (s *Server) Collect(c chan<- prometheus.Metric) {
 			1,
 			cluster.Id,
 			friendlyName,
+		)
+
+		var connected, ready float64
+		var conditions, summary string
+		if hs, err := s.GetClusterHealthStatus(ctx, &corev1.Reference{Id: cluster.Id}); err == nil {
+			connected = lo.Ternary[float64](hs.Status.Connected, 1, 0)
+			ready = lo.Ternary[float64](hs.Health.Ready, 1, 0)
+			conditions = strings.Join(hs.Health.Conditions, ",")
+			summary = hs.Summary()
+		}
+		c <- prometheus.MustNewConstMetric(
+			agentUp,
+			prometheus.GaugeValue,
+			connected,
+			cluster.Id,
+		)
+		c <- prometheus.MustNewConstMetric(
+			agentReady,
+			prometheus.GaugeValue,
+			ready,
+			cluster.Id,
+			conditions,
+		)
+		c <- prometheus.MustNewConstMetric(
+			agentSummary,
+			prometheus.GaugeValue,
+			1,
+			cluster.Id,
+			summary,
 		)
 	}
 }

@@ -29,9 +29,11 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: manager
-          command: 
-          - opni
+          args:
           - manager
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=127.0.0.1:8080
+          - --leader-elect
           env:
           - name: POD_NAME
             valueFrom:
@@ -47,10 +49,6 @@ spec:
                 fieldPath: metadata.namespace
           - name: NODE_FEATURE_DISCOVERY_IMAGE
             value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
-          args:
-          - --health-probe-bind-address=:8081
-          - --metrics-bind-address=127.0.0.1:8080
-          - --leader-elect
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"

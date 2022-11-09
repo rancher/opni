@@ -269,7 +269,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		RulerStorage: rulestore.Config{
 			Config: storageConfig,
 		},
-
 		RuntimeConfig: runtimeconfig.Config{
 			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",
 		},
@@ -371,7 +370,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingClusterNodeServiceName),
+			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
@@ -451,6 +450,20 @@ func (r *Reconciler) runtimeConfig() resources.Resource {
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
+	cfgStr := `global: {}
+templates: []
+route:
+	receiver: default
+receivers:
+	- name: default
+inhibit_rules: []
+mute_time_intervals: []`
+	dConfig, err := shared.DefaultAlertManagerConfig(
+		"http://localhost:11080" + shared.AlertingCortexHookHandler,
+	)
+	if err == nil {
+		cfgStr = dConfig.String()
+	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "alertmanager-fallback-config",
@@ -458,14 +471,7 @@ func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
-			"fallback.yaml": `global: {}
-templates: []
-route:
-  receiver: default
-receivers:
-  - name: default
-inhibit_rules: []
-mute_time_intervals: []`,
+			"fallback.yaml": cfgStr,
 		},
 	}
 	r.setOwner(cm)

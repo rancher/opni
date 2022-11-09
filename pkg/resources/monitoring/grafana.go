@@ -26,6 +26,9 @@ var dashboardsJson []byte
 //go:embed dashboards/opni-gateway.json
 var opniGatewayJson []byte
 
+//go:embed dashboards/home.json
+var homeDashboardJson []byte
+
 //go:embed slo/slo_grafana_overview.json
 var sloOverviewDashboard []byte
 
@@ -72,7 +75,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "opni-gateway",
+				Name:      "opni-gateway.json",
 				Namespace: r.instanceNamespace,
 				Labels:    dashboardSelector.MatchLabels,
 			},
@@ -80,28 +83,38 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Json: string(opniGatewayJson),
 			},
 		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-home.json",
+				Namespace: r.instanceNamespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json:               string(homeDashboardJson),
+				UseAsHomeDashboard: true,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "slo-overview.json",
+				Namespace: r.instanceNamespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: string(sloOverviewDashboard),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "slo-detailed.json",
+				Namespace: r.instanceNamespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: string(sloDetailedDashboard),
+			},
+		},
 	}
-
-	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "slo-overview",
-			Namespace: r.instanceNamespace,
-			Labels:    dashboardSelector.MatchLabels,
-		},
-		Spec: grafanav1alpha1.GrafanaDashboardSpec{
-			Json: string(sloOverviewDashboard),
-		},
-	})
-	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "slo-detailed",
-			Namespace: r.instanceNamespace,
-			Labels:    dashboardSelector.MatchLabels,
-		},
-		Spec: grafanav1alpha1.GrafanaDashboardSpec{
-			Json: string(sloDetailedDashboard),
-		},
-	})
 
 	dashboards := map[string]json.RawMessage{}
 	if err := json.Unmarshal(dashboardsJson, &dashboards); err != nil {

@@ -79,6 +79,8 @@ spec:
                 type: array
               url:
                 type: string
+              useAsHomeDashboard:
+                type: boolean
             type: object
           status:
             type: object

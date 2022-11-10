@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -209,10 +210,54 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 
-	_, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
+	cond, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
+	}
+
+	if a := cond.GetAlertType().GetSystem(); a != nil {
+		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
+		if err != nil {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+
+	if ref := handleSwitchCortexRules(cond.GetAlertType()); ref != nil {
+		// check monitoring backend is installed
+		ctxca, ca := context.WithCancel(ctx)
+		defer ca()
+		cortexOpsClient, err := p.cortexOpsClient.GetContext(ctxca)
+		if err != nil {
+			return nil, err
+		}
+		backendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+		if backendStatus.State == cortexops.InstallState_NotInstalled {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+		// check that monitoring is enabled on the cluster
+		deets, err := p.mgmtClient.Get().GetCluster(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		found := false
+		for _, cap := range deets.GetCapabilities() {
+			if cap.Name == "metrics" {
+				found = true
+			}
+		}
+		if !found {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
 	}
 
 	defaultState := &alertingv1.AlertStatusResponse{

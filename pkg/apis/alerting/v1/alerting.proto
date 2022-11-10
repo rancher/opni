@@ -96,10 +96,11 @@ enum ControlFlowAction {
 }
 
 enum AlertConditionState {
-  UNSPECIFIED = 0;
+  UNKOWN = 0;
   OK = 1;
   FIRING = 2;
   SILENCED = 3;
+  INVALIDATED = 4;
 }
 
 // enum will map to an object of available choices
@@ -127,7 +128,6 @@ message AlertTypeDetails {
     AlertConditionMemorySaturation memory = 6;
     // fs saturation : golden signal -> saturation
     AlertConditionFilesystemSaturation fs = 8;
-  }
 }
 
 message ListAlertTypeDetails {

@@ -17,7 +17,7 @@ func (r *RoutingTree) CreateRoutingNodeForCondition(
 	internalRouting *OpniInternalRouting,
 ) error {
 	if endpoints.GetItems() == nil || len(endpoints.GetItems()) == 0 {
-		return fmt.Errorf("no endpoints provided")
+		return fmt.Errorf("no matching endpoints provided")
 	}
 	route := NewRouteBase(conditionId)
 	err := UpdateRouteWithGeneralRequestInfo(route, endpoints)

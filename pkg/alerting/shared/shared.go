@@ -16,7 +16,7 @@ import (
 )
 
 // Condition constants
-var ComparisonOperators = []string{"<", ">", "<=", ">="}
+var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
 // Datasources & Versioning

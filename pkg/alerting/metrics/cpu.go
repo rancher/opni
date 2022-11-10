@@ -41,22 +41,19 @@ func NewCpuRule(
 	filters.Match(ModeFilter)
 	filters.Match(NodeFilter)
 	filters.Match(CpuFilter)
-
+	// group operations mess this up
 	tmpl := template.Must(template.New("").Parse(`
-	(1 - sum(
+	sum(
 		rate(
 			node_cpu_seconds_total{{ .Filters }}[1m]
 		)
 	)
-	BY (__tenant_id__)
-	/ 
-	ON (__tenant_id__)
-	GROUP_LEFT()
+	/
 	sum(
 		rate(
 			node_cpu_seconds_total[1m]
 		)
-	)) {{ .Operation }} bool {{ .ExpectedValue }}
+	) {{ .Operation }} bool {{ .ExpectedValue }}
 `))
 	var b bytes.Buffer
 	err := tmpl.Execute(&b, map[string]string{

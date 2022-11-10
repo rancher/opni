@@ -45,8 +45,7 @@ func NewFsRule(
 			1- (
 				node_filesystem_free_bytes{{ .Filters }}
 				) 
-				/ ON (instance, device, mountpoint) 
-				GROUP_LEFT() 
+				/ 
 				node_filesystem_size_bytes
 			)  {{  .Operation }} bool {{ .ExpectedValue }} 
 	`))

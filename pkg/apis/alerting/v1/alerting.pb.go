@@ -1425,20 +1425,21 @@ func (x *ListAlertConditionKubeState) GetFors() []*durationpb.Duration {
 }
 
 // Defaults :
-// - all nodes selected (empty nodes array)
-// - all cores selected (empty cores array)
 // - cpuState : "user", "system", "guest" selected
 type AlertConditionCPUSaturation struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ClusterId       *v1.Reference        `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
-	NodeCoreFilters map[string]*Cores    `protobuf:"bytes,2,rep,name=nodeCoreFilters,proto3" json:"nodeCoreFilters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	CpuStates       []string             `protobuf:"bytes,3,rep,name=cpuStates,proto3" json:"cpuStates,omitempty"`
-	Operation       string               `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`           // one of "<", ">", "<=", ">="
-	ExpectedRatio   float32              `protobuf:"fixed32,5,opt,name=expectedRatio,proto3" json:"expectedRatio,omitempty"` // 0-1
-	For             *durationpb.Duration `protobuf:"bytes,6,opt,name=for,proto3" json:"for,omitempty"`
+	ClusterId *v1.Reference `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
+	// optional filters for nodes and cores, restrict observation to said nodes or cores,
+	// if empty, all nodes and cores are selected
+	NodeCoreFilters map[string]*Cores `protobuf:"bytes,2,rep,name=nodeCoreFilters,proto3" json:"nodeCoreFilters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// at least one cpu state should be specified
+	CpuStates     []string             `protobuf:"bytes,3,rep,name=cpuStates,proto3" json:"cpuStates,omitempty"`
+	Operation     string               `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`           // one of "<", ">", "<=", ">="
+	ExpectedRatio float32              `protobuf:"fixed32,5,opt,name=expectedRatio,proto3" json:"expectedRatio,omitempty"` // 0-1
+	For           *durationpb.Duration `protobuf:"bytes,6,opt,name=for,proto3" json:"for,omitempty"`
 }
 
 func (x *AlertConditionCPUSaturation) Reset() {
@@ -1728,11 +1729,12 @@ type AlertConditionMemorySaturation struct {
 	unknownFields protoimpl.UnknownFields
 
 	ClusterId         *v1.Reference          `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
-	NodeMemoryFilters map[string]*MemoryInfo `protobuf:"bytes,2,rep,name=nodeMemoryFilters,proto3" json:"nodeMemoryFilters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // nodes to devices, usage states
-	UsageTypes        []string               `protobuf:"bytes,3,rep,name=usageTypes,proto3" json:"usageTypes,omitempty"`
-	Operation         string                 `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`
-	ExpectedRatio     float64                `protobuf:"fixed64,5,opt,name=expectedRatio,proto3" json:"expectedRatio,omitempty"`
-	For               *durationpb.Duration   `protobuf:"bytes,6,opt,name=for,proto3" json:"for,omitempty"`
+	NodeMemoryFilters map[string]*MemoryInfo `protobuf:"bytes,2,rep,name=nodeMemoryFilters,proto3" json:"nodeMemoryFilters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // nodes to devices
+	// at least one usageType is required
+	UsageTypes    []string             `protobuf:"bytes,3,rep,name=usageTypes,proto3" json:"usageTypes,omitempty"`
+	Operation     string               `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`
+	ExpectedRatio float64              `protobuf:"fixed64,5,opt,name=expectedRatio,proto3" json:"expectedRatio,omitempty"`
+	For           *durationpb.Duration `protobuf:"bytes,6,opt,name=for,proto3" json:"for,omitempty"`
 }
 
 func (x *AlertConditionMemorySaturation) Reset() {
@@ -1963,7 +1965,8 @@ type AlertConditionFilesystemSaturation struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ClusterId     *v1.Reference              `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
+	ClusterId *v1.Reference `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
+	// optional filters, if none are set then everything is selected
 	NodeFilters   map[string]*FilesystemInfo `protobuf:"bytes,2,rep,name=nodeFilters,proto3" json:"nodeFilters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Operation     string                     `protobuf:"bytes,3,opt,name=operation,proto3" json:"operation,omitempty"`           // "<", ">", "<=", ">="
 	ExpectedRatio float64                    `protobuf:"fixed64,4,opt,name=expectedRatio,proto3" json:"expectedRatio,omitempty"` // 0-1

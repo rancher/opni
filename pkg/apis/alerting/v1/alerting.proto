@@ -180,14 +180,15 @@ message ListAlertConditionKubeState {
 }
 
 // Defaults :
-// - all nodes selected (empty nodes array)
-// - all cores selected (empty cores array)
 // - cpuState : "user", "system", "guest" selected
 message AlertConditionCPUSaturation {
   core.Reference clusterId = 1;
+  // optional filters for nodes and cores, restrict observation to said nodes or cores,
+  // if empty, all nodes and cores are selected
   map<string, Cores> nodeCoreFilters = 2;
+  // at least one cpu state should be specified
   repeated string cpuStates = 3;
-  string operation = 4; // one of "<", ">", "<=", ">="
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
   float expectedRatio = 5; // 0-1
   google.protobuf.Duration for = 6;
 }
@@ -222,9 +223,10 @@ message CpuInfo {
 
 message AlertConditionMemorySaturation {
   core.Reference clusterId = 1;
-  map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices, usage states
+  map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices
+  // at least one usageType is required
   repeated string usageTypes =3;
-  string operation = 4;
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
   double expectedRatio = 5;
   google.protobuf.Duration for =6;
 }
@@ -244,8 +246,9 @@ message MemoryInfo {
 
 message AlertConditionFilesystemSaturation {
   core.Reference clusterId  = 1;
+  // optional filters, if none are set then everything is selected
   map<string, FilesystemInfo> nodeFilters = 2;
-  string operation = 3; // "<", ">", "<=", ">="
+  string operation = 3; // one of "<", ">", "<=", ">=", "=". "!="
   double expectedRatio = 4; // 0-1
   google.protobuf.Duration for = 5;
 }

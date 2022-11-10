@@ -68,6 +68,9 @@ func (c *AlertConditionCPUSaturation) Validate() error {
 	if c.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be set")
 	}
+	if len(c.CpuStates) == 0 {
+		return validation.Error("At least one usage type should be set")
+	}
 	return validComparionOperator(c.Operation)
 }
 
@@ -81,7 +84,23 @@ func (c *AlertConditionMemorySaturation) Validate() error {
 	if c.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be set")
 	}
+	if len(c.UsageTypes) == 0 {
+		return validation.Error("At least one usage type should be set")
+	}
 	return validComparionOperator(c.Operation)
+}
+
+func (f *AlertConditionFilesystemSaturation) Validate() error {
+	if f.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(f.ExpectedRatio >= 0 && f.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if f.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return validComparionOperator(f.Operation)
 }
 
 func (d *AlertTypeDetails) Validate() error {

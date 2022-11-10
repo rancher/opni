@@ -47,7 +47,11 @@ func init() {
 			Memory: &AlertConditionMemorySaturation{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{}
+	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Fs{
+			Fs: &AlertConditionFilesystemSaturation{},
+		},
+	}
 	EnumConditionToImplementation[AlertType_COMPOSITION] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Composition{
 			Composition: &AlertConditionComposition{},

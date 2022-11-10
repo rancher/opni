@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 func handleChoicesByType(
@@ -59,7 +60,25 @@ func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.Cor
 }
 
 func clusterHasNodeExporterMetrics(ctx context.Context, adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
-	return true
+	q, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{cl.Id},
+		Query:   "node_os_info",
+	})
+	if err != nil {
+		return false
+	}
+	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	if err != nil {
+		return false
+	}
+	v, err := qr.GetVector()
+	if err != nil {
+		return false
+	}
+	if v == nil {
+		return false
+	}
+	return len(*v) > 0
 }
 
 func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
@@ -349,10 +368,11 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 				name := seriesInfoMap["__name__"].String()
 
 				objType := metrics.MemoryUsageTypeExtractor.FindStringSubmatch(name)[1]
-				lock.Lock()
-				memUsage[objType] = struct{}{}
-				lock.Unlock()
-
+				if slices.Contains(metrics.MemoryMatcherRegexFilter, objType) {
+					lock.Lock()
+					memUsage[objType] = struct{}{}
+					lock.Unlock()
+				}
 				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
 				nodeName := ""
 				if !node.Exists() {
@@ -372,9 +392,7 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 				lock.Unlock()
 				device := seriesInfoMap[metrics.MemoryDeviceFilter]
 
-				if !device.Exists() {
-					lg.Warnf("failed to find device name for series %s", seriesInfo)
-				} else {
+				if device.Exists() {
 					if _, ok := nodeToDevices[nodeName]; !ok {
 						nodeToDevices[nodeName] = map[string]struct{}{}
 					}
@@ -468,18 +486,14 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 				}
 				lock.Unlock()
 				device := seriesInfoMap[metrics.NodeExportFilesystemDeviceLabel]
-				if !device.Exists() {
-					lg.Warnf("failed to find device name for series %s", seriesInfo)
-				} else {
+				if device.Exists() {
 					if _, ok := nodeToDevice[nodeName]; !ok {
 						nodeToDevice[nodeName] = map[string]struct{}{}
 					}
 					nodeToDevice[nodeName][device.String()] = struct{}{}
 				}
 				mountpoint := seriesInfoMap[metrics.NodeExporterMountpointLabel]
-				if !mountpoint.Exists() {
-					lg.Warnf("failed to find device name for series %s", seriesInfo)
-				} else {
+				if mountpoint.Exists() {
 					if _, ok := nodeToMountpoints[nodeName]; !ok {
 						nodeToMountpoints[nodeName] = map[string]struct{}{}
 					}
@@ -489,6 +503,12 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 			lock.Lock()
 			for nodeName, devices := range nodeToDevice {
 				for device := range devices {
+					if _, ok := resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName]; !ok {
+						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName] = &alertingv1.FilesystemInfo{
+							Devices: []string{},
+						}
+					}
+
 					resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices = append(
 						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices,
 						device,
@@ -511,5 +531,5 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 		Type: &alertingv1.ListAlertTypeDetails_Fs{
 			Fs: resFilesystemChoices,
 		},
-	}, shared.AlertingErrNotImplemented
+	}, nil
 }

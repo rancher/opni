@@ -67,3 +67,62 @@ func NewFsRule(
 		Annotations: annotations,
 	}, nil
 }
+
+func NewFsSpikeRule(
+	nodeFilters map[string]*alertingv1.FilesystemInfo,
+	operation string,
+	expectedValue float64,
+	numSpikes int64,
+	duration *durationpb.Duration,
+	spikeWindow *durationpb.Duration,
+	annotations map[string]string,
+) (*AlertingRule, error) {
+	dur := model.Duration(duration.AsDuration())
+	spikeDur := model.Duration(spikeWindow.AsDuration())
+	filters := NewPrometheusFilters()
+	filters.AddFilter(NodeFilter)
+	filters.AddFilter(NodeExporterMountpointLabel)
+	filters.AddFilter(NodeExportFilesystemDeviceLabel)
+	for node, info := range nodeFilters {
+		filters.Or(NodeFilter, node)
+		for _, device := range info.Devices {
+			filters.Or(NodeExportFilesystemDeviceLabel, device)
+		}
+		for _, mountpoint := range info.Mountpoints {
+			filters.Or(NodeFilter, mountpoint)
+		}
+	}
+	filters.Match(NodeFilter)
+	filters.Match(NodeExporterMountpointLabel)
+	filters.Match(NodeExportFilesystemDeviceLabel)
+	tmpl := template.Must(template.New("").Parse(`
+		count_over_time((
+			sum(
+			1- (
+				node_filesystem_free_bytes{{ .Filters }}
+				) 
+				/ 
+				node_filesystem_size_bytes
+			)  {{  .Operation }} bool {{ .ExpectedValue }}
+		)[{{ .SpikeWindow }}:5s]) > {{ .NumSpike }}
+	`))
+
+	var b bytes.Buffer
+	err := tmpl.Execute(&b, map[string]string{
+		"Filters":       filters.Build(),
+		"Operation":     operation,
+		"ExpectedValue": fmt.Sprintf("%.7f", expectedValue),
+		"SpikeWindow":   spikeDur.String(),
+		"NumSpike":      fmt.Sprintf("%d", numSpikes),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &AlertingRule{
+		Alert:       "",
+		Expr:        b.String(),
+		For:         dur,
+		Labels:      annotations,
+		Annotations: annotations,
+	}, nil
+}

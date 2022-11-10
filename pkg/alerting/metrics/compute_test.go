@@ -58,5 +58,52 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 			_, err = rule.Build(uuid.New().String())
 			Expect(err).To(Succeed())
 		})
+
+		It("should be able to create CPU Saturation spike rules", func() {
+			rule, err := metrics.NewCpuSpikeRule(
+				map[string]*alertingv1.Cores{},
+				[]string{"user", "guest", "system"},
+				">",
+				0.5,
+				200,
+				durationpb.New(time.Minute),
+				durationpb.New(time.Hour),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
+		})
+
+		It("should be able to create Mem Saturation spike rules", func() {
+			rule, err := metrics.NewMemSpikeRule(
+				map[string]*alertingv1.MemoryInfo{},
+				[]string{"Cached"},
+				">",
+				90.0,
+				200,
+				durationpb.New(time.Minute),
+				durationpb.New(time.Hour),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
+		})
+
+		It("should be able to create Filesystem Saturation spike rules", func() {
+			rule, err := metrics.NewFsSpikeRule(
+				map[string]*alertingv1.FilesystemInfo{},
+				">",
+				90.0,
+				200,
+				durationpb.New(time.Minute),
+				durationpb.New(time.Hour),
+				map[string]string{},
+			)
+			Expect(err).To(Succeed())
+			_, err = rule.Build(uuid.New().String())
+			Expect(err).To(Succeed())
+		})
 	})
 })

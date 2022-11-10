@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
 )
 

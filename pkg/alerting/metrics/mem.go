@@ -76,3 +76,68 @@ func NewMemRule(
 		Annotations: annotations,
 	}, nil
 }
+
+func NewMemSpikeRule(
+	deviceFilters map[string]*alertingv1.MemoryInfo,
+	usageTypes []string,
+	operation string,
+	expectedRatio float64,
+	numSpikes int64,
+	duration *durationpb.Duration,
+	spikeWindow *durationpb.Duration,
+	annotations map[string]string,
+) (*AlertingRule, error) {
+	dur := model.Duration(duration.AsDuration())
+	spikeDur := model.Duration(spikeWindow.AsDuration())
+
+	filters := NewPrometheusFilters()
+	filters.AddFilter(NodeFilter)
+	for node, state := range deviceFilters {
+		filters.Or(NodeFilter, node)
+		for _, device := range state.Devices {
+			filters.Or(MemoryDeviceFilter, device)
+		}
+	}
+	filters.Match(NodeFilter)
+	outputFilters := filters.Build()
+	aggrMetrics := ""
+	for _, utype := range usageTypes {
+		if !slices.Contains(MemoryMatcherRegexFilter, utype) {
+			continue // FIXME: warn
+		}
+		if aggrMetrics != "" {
+			aggrMetrics += " + "
+		}
+		aggrMetrics += fmt.Sprintf("node_memory_%s_bytes%s", utype, outputFilters)
+	}
+	tmpl := template.Must(template.New("").Parse(`
+	count_over_time(
+		((
+			1 -  
+			(
+				{{ .AggrMetrics }}
+			)
+			/
+			node_memory_MemTotal_bytes{{ .Filters }}
+	) {{ .Operation }} bool {{ .ExpectedValue }})[{{ .SpikeWindow }}:5s]) > {{ .NumSpikes }}
+`))
+	var b bytes.Buffer
+	err := tmpl.Execute(&b, map[string]string{
+		"Filters":       filters.Build(),
+		"AggrMetrics":   aggrMetrics,
+		"Operation":     operation,
+		"ExpectedValue": fmt.Sprintf("%.7f", expectedRatio),
+		"SpikeWindow":   spikeDur.String(),
+		"NumSpikes":     fmt.Sprintf("%d", numSpikes),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &AlertingRule{
+		Alert:       "",
+		Expr:        b.String(),
+		For:         dur,
+		Labels:      annotations,
+		Annotations: annotations,
+	}, nil
+}

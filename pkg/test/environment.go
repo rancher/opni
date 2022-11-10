@@ -81,7 +81,6 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	"github.com/rancher/opni/pkg/webui"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
@@ -1730,7 +1729,6 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
 		}
 	}
-	webui.AddExtraHandler("/opni-test/agents", addAgent)
 	http.HandleFunc("/agents", addAgent)
 	if err := environment.Start(opts...); err != nil {
 		panic(err)

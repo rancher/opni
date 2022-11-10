@@ -33,6 +33,7 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
@@ -43,7 +44,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	"github.com/rancher/opni/pkg/webui"
 )
 
 type Gateway struct {
@@ -254,7 +254,7 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	})
 
 	// start web server
-	webuiSrv, err := webui.NewWebUIServer(g.config)
+	dashboardSrv, err := dashboard.NewServer(g.config)
 	var e3 chan error
 	if err != nil {
 		lg.With(
@@ -264,7 +264,7 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 		close(e3)
 	} else {
 		e3 = lo.Async(func() error {
-			err := webuiSrv.ListenAndServe(ctx)
+			err := dashboardSrv.ListenAndServe(ctx)
 			if err != nil {
 				lg.With(
 					zap.Error(err),

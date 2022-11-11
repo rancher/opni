@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -62,18 +63,24 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
+	if q := req.AlertType.GetPrometheusQuery(); q != nil {
+		if err := p.handlePrometheusQueryAlertCreation(ctx, q, newConditionId); err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
+	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
-	switch r := req.GetAlertType(); {
-	case r.GetSystem() != nil:
+	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
 		return nil
-	case r.GetKubeState() != nil || r.GetCpu() != nil || r.GetMemory() != nil || r.GetFs() != nil:
+	}
+	if r := handleSwitchCortexRules(req.AlertType); r != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-			ClusterId: handleSwitchCortexRules(r).Id,
+			ClusterId: r.Id,
 			GroupName: CortexRuleIdFromUuid(id),
 		})
 		return err
@@ -93,6 +100,9 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
 	}
 	if f := t.GetFs(); f != nil {
 		return f.ClusterId
+	}
+	if q := t.GetPrometheusQuery(); q != nil {
+		return q.ClusterId
 	}
 
 	return nil
@@ -238,6 +248,33 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 		ClusterId:   fs.ClusterId.GetId(),
 		YamlContent: string(out),
 	})
+	return err
+}
+
+func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *alertingv1.AlertConditionPrometheusQuery, conditionId string) error {
+	dur := model.Duration(q.GetFor().AsDuration())
+	baseRule := &metrics.AlertingRule{
+		Alert:       "",
+		Expr:        metrics.PostProcessRuleString(q.GetQuery()),
+		For:         dur,
+		Labels:      map[string]string{},
+		Annotations: map[string]string{},
+	}
+
+	baseRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseRule)
+	if err != nil {
+		return err
+	}
+	out, err := yaml.Marshal(baseRuleContent)
+	if err != nil {
+		return err
+	}
+	p.Logger.With("Expr", "user-query").Debugf("%s", string(out))
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		ClusterId:   q.ClusterId.GetId(),
+		YamlContent: string(out),
+	})
+
 	return err
 }
 

@@ -66,7 +66,7 @@ func NewCpuRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,
@@ -133,7 +133,7 @@ func NewCpuSpikeRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,

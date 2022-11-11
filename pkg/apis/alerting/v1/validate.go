@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
@@ -103,6 +104,22 @@ func (f *AlertConditionFilesystemSaturation) Validate() error {
 	return validComparionOperator(f.Operation)
 }
 
+func (q *AlertConditionPrometheusQuery) Validate() error {
+	if q.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if q.Query == "" {
+		return validation.Error("Prometheus query must be non-empty")
+	}
+	if _, err := promql.ParseExpr(q.Query); err != nil {
+		return validation.Errorf("Invalid prometheus query : %s ", err)
+	}
+	if q.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
@@ -115,6 +132,12 @@ func (d *AlertTypeDetails) Validate() error {
 	}
 	if d.GetMemory() != nil {
 		return d.GetMemory().Validate()
+	}
+	if d.GetFs() != nil {
+		return d.GetFs().Validate()
+	}
+	if d.GetPrometheusQuery() != nil {
+		return d.GetPrometheusQuery().Validate()
 	}
 	if d.GetComposition() != nil {
 		return d.GetComposition().Validate()

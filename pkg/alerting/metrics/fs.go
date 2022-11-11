@@ -61,7 +61,7 @@ func NewFsRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,
@@ -120,7 +120,7 @@ func NewFsSpikeRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,

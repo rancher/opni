@@ -128,6 +128,8 @@ message AlertTypeDetails {
     AlertConditionMemorySaturation memory = 6;
     // fs saturation : golden signal -> saturation
     AlertConditionFilesystemSaturation fs = 8;
+    // no golden signal; custom
+    AlertConditionPrometheusQuery prometheusQuery = 9;
   }
 }
 
@@ -265,6 +267,12 @@ message FilesystemNodeGroup {
 message FilesystemInfo {
   repeated string mountpoints = 1;
   repeated string devices = 2;
+}
+
+message AlertConditionPrometheusQuery{
+  core.Reference clusterId = 1;
+  string query = 2;
+  google.protobuf.Duration for = 3;
 }
 
 message ObjectList {

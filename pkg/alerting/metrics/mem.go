@@ -70,7 +70,7 @@ func NewMemRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,
@@ -135,7 +135,7 @@ func NewMemSpikeRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        b.String(),
+		Expr:        PostProcessRuleString(b.String()),
 		For:         dur,
 		Labels:      annotations,
 		Annotations: annotations,

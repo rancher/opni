@@ -96,9 +96,10 @@ func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
 	})
 }
 
-func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
-	return &capabilityv1.InfoResponse{
-		CapabilityName: "test",
+func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.Details, error) {
+	return &capabilityv1.Details{
+		Name:   "test",
+		Source: "plugin_example",
 	}, nil
 }
 

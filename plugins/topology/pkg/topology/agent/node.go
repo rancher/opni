@@ -13,11 +13,10 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"golang.org/x/exp/slices"
-	"google.golang.org/grpc/status"
-
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

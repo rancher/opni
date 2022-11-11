@@ -54,9 +54,10 @@ func BuildCortexOpsCmd() *cobra.Command {
 func BuildQueryCmd() *cobra.Command {
 	var clusters []string
 	cmd := &cobra.Command{
-		Use:   "query <promql>",
-		Args:  cobra.ExactArgs(1),
-		Short: "Query time-series metrics from Cortex",
+		Use:               "query <promql>",
+		Short:             "Query time-series metrics from Cortex",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(clusters) == 0 {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
@@ -86,9 +87,10 @@ func BuildQueryRangeCmd() *cobra.Command {
 	var start, end string
 	var step time.Duration
 	cmd := &cobra.Command{
-		Use:   "query-range --start=<time> --end=<time> --step=<duration> <promql>",
-		Args:  cobra.ExactArgs(1),
-		Short: "Query time-series metrics from Cortex",
+		Use:               "query-range --start=<time> --end=<time> --step=<duration> <promql>",
+		Short:             "Query time-series metrics from Cortex",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
 			startTime := parseTimeOrDie(start)
 			endTime := parseTimeOrDie(end)
@@ -137,6 +139,10 @@ func BuildStorageInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "storage-info [<cluster-id> ...]",
 		Short: "Show cluster storage metrics",
+		Args:  cobra.MinimumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeClusters(cmd, args, toComplete)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})

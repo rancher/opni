@@ -79,14 +79,14 @@ func (mr *MockBackendClientMockRecorder) CancelUninstall(ctx, in interface{}, op
 }
 
 // Info mocks base method.
-func (m *MockBackendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.InfoResponse, error) {
+func (m *MockBackendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Info", varargs...)
-	ret0, _ := ret[0].(*v1.InfoResponse)
+	ret0, _ := ret[0].(*v1.Details)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -252,10 +252,10 @@ func (mr *MockBackendServerMockRecorder) CancelUninstall(arg0, arg1 interface{})
 }
 
 // Info mocks base method.
-func (m *MockBackendServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.InfoResponse, error) {
+func (m *MockBackendServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(*v1.InfoResponse)
+	ret0, _ := ret[0].(*v1.Details)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

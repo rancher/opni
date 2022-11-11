@@ -425,8 +425,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 							return corev1.PullAlways
 						}
 					}(),
-					Command: []string{"opni", "cortex"},
 					Args: append([]string{
+						"cortex",
 						"-target=" + target,
 						"-config.file=/etc/cortex/cortex.yaml",
 					}, options.extraArgs...),

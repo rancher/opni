@@ -23,6 +23,7 @@ func BuildClustersCmd() *cobra.Command {
 	clustersCmd.AddCommand(BuildClustersWatchCmd())
 	clustersCmd.AddCommand(BuildClustersDeleteCmd())
 	clustersCmd.AddCommand(BuildClustersLabelCmd())
+	clustersCmd.AddCommand(BuildClustersRenameCmd())
 	ConfigureManagementCommand(clustersCmd)
 	return clustersCmd
 }
@@ -97,6 +98,9 @@ func BuildClustersDeleteCmd() *cobra.Command {
 		Aliases: []string{"rm"},
 		Short:   "Delete a cluster",
 		Args:    cobra.MinimumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeClusters(cmd, args, toComplete)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, cluster := range args {
 				_, err := mgmtClient.DeleteCluster(cmd.Context(), &corev1.Reference{
@@ -121,6 +125,12 @@ func BuildClustersLabelCmd() *cobra.Command {
 		Use:   "label [--overwrite] <cluster-id> <label>=<value> [<label>=<value>...]",
 		Short: "Add labels to a cluster",
 		Args:  cobra.MinimumNArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeClusters(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			clusterID := args[0]
 			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
@@ -174,6 +184,54 @@ func BuildClustersLabelCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Enable overwriting existing label values")
+	return cmd
+}
+
+func BuildClustersRenameCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rename <cluster-id> <new-name>",
+		Short: "Rename a cluster",
+		Args:  cobra.ExactArgs(2),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeClusters(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
+				Id: args[0],
+			})
+			if err != nil {
+				return err
+			}
+			labels := cluster.GetLabels()
+			if labels == nil {
+				labels = map[string]string{}
+			}
+			oldName, hasOldName := labels[corev1.NameLabel]
+			labels[corev1.NameLabel] = args[1]
+			if _, err := mgmtClient.EditCluster(cmd.Context(), &managementv1.EditClusterRequest{
+				Cluster: &corev1.Reference{
+					Id: args[0],
+				},
+				Labels: labels,
+			}); err != nil {
+				return err
+			}
+			lg := lg.With(
+				"id", args[0],
+				"newName", args[1],
+			)
+			if hasOldName {
+				lg = lg.With(
+					"oldName", oldName,
+				)
+			}
+			lg.Info("Renamed cluster")
+			return nil
+		},
+	}
 	return cmd
 }
 

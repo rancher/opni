@@ -50,8 +50,10 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 	})
 }
 
-func (b *LoggingBackend) Info(context.Context, *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
-	return &capabilityv1.InfoResponse{
-		CapabilityName: wellknown.CapabilityLogs,
+func (b *LoggingBackend) Info(context.Context, *emptypb.Empty) (*capabilityv1.Details, error) {
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityLogs,
+		Source:  "plugin_logging",
+		Drivers: drivers.ListClusterDrivers(),
 	}, nil
 }

@@ -116,7 +116,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			).Error("failed to get capability info")
 			return
 		}
-		if err := capBackendStore.Add(info.CapabilityName, p); err != nil {
+		if err := capBackendStore.Add(info.Name, p); err != nil {
 			lg.With(
 				zap.String("plugin", md.Module),
 				zap.Error(err),
@@ -124,7 +124,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		}
 		lg.With(
 			zap.String("plugin", md.Module),
-			zap.String("capability", info.CapabilityName),
+			zap.String("capability", info.Name),
 		).Info("added capability backend")
 	}))
 

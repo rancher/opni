@@ -12,7 +12,7 @@ package capability;
 
 service Backend {
   // Returns info about the backend, including capability name
-  rpc Info(google.protobuf.Empty) returns (InfoResponse);
+  rpc Info(google.protobuf.Empty) returns (Details);
   
   // Returns an error if installing the capability would fail.
   rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty) {
@@ -58,6 +58,12 @@ service NodeManager {
   rpc RequestSync(SyncRequest) returns (google.protobuf.Empty);
 }
 
+message Details {
+  string name = 1;
+  string source = 2;
+  repeated string drivers = 3;
+}
+
 message SyncRequest {
   core.Reference cluster = 1;
   Filter filter = 2;
@@ -65,10 +71,6 @@ message SyncRequest {
 
 message Filter {
   repeated string capabilityNames = 1;
-}
-
-message InfoResponse {
-  string capabilityName = 1;
 }
 
 message InstallRequest {

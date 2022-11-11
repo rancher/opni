@@ -1115,6 +1115,23 @@
         }
       }
     },
+    "capabilityDetails": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "drivers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "capabilityInstallRequest": {
       "type": "object",
       "properties": {
@@ -1613,6 +1630,18 @@
         }
       }
     },
+    "managementCapabilityInfo": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "$ref": "#/definitions/capabilityDetails"
+        },
+        "nodeCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "managementCapabilityInstallerResponse": {
       "type": "object",
       "properties": {
@@ -1627,7 +1656,7 @@
         "items": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/managementCapabilityInfo"
           }
         }
       }

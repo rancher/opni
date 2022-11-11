@@ -38,7 +38,7 @@ func (m *Server) DeleteCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref)
+	cluster, err := m.resolveCluster(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -47,15 +47,15 @@ func (m *Server) DeleteCluster(
 		return nil, status.Error(codes.FailedPrecondition, "cannot delete a cluster with capabilities; uninstall the capabilities first")
 	}
 	// delete the cluster's keyring, if it exists
-	store := m.coreDataSource.StorageBackend().KeyringStore("gateway", ref)
+	store := m.coreDataSource.StorageBackend().KeyringStore("gateway", cluster.Reference())
 	if err := store.Delete(ctx); err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
-			return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", ref.Id, err)
+			return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", cluster.Id, err)
 		}
 	}
 
 	// delete the cluster
-	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
+	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, cluster.Reference())
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +69,7 @@ func (m *Server) GetCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	if cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref); err != nil {
-		return nil, err
-	} else {
-		return cluster, nil
-	}
+	return m.resolveCluster(ctx, ref)
 }
 
 func (m *Server) WatchClusters(
@@ -83,13 +79,9 @@ func (m *Server) WatchClusters(
 	if err := validation.Validate(in); err != nil {
 		return err
 	}
-	var known []*corev1.Cluster
-	for _, cluster := range in.GetKnownClusters().GetItems() {
-		if c, err := m.coreDataSource.StorageBackend().GetCluster(stream.Context(), cluster); err != nil {
-			return err
-		} else {
-			known = append(known, c)
-		}
+	known, err := m.resolveClusters(stream.Context(), in.GetKnownClusters().GetItems()...)
+	if err != nil {
+		return err
 	}
 
 	eventC, err := m.coreDataSource.StorageBackend().WatchClusters(stream.Context(), known)
@@ -129,7 +121,7 @@ func (m *Server) EditCluster(
 		return nil, err
 	}
 
-	oldCluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, in.GetCluster())
+	oldCluster, err := m.resolveCluster(ctx, in.GetCluster())
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +139,7 @@ func (m *Server) EditCluster(
 		return nil, status.Error(codes.InvalidArgument, "cannot change immutable labels")
 	}
 
-	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, in.GetCluster(), func(cluster *corev1.Cluster) {
+	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, oldCluster.Reference(), func(cluster *corev1.Cluster) {
 		if cluster.Metadata == nil {
 			cluster.Metadata = &corev1.ClusterMetadata{}
 		}
@@ -161,6 +153,9 @@ func (m *Server) InstallCapability(
 	in *managementv1.CapabilityInstallRequest,
 ) (*capabilityv1.InstallResponse, error) {
 	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
+	if err := m.ensureReferenceResolved(ctx, in.Target.Cluster); err != nil {
 		return nil, err
 	}
 
@@ -189,6 +184,9 @@ func (m *Server) UninstallCapability(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
+	if err := m.ensureReferenceResolved(ctx, in.Target.Cluster); err != nil {
+		return nil, err
+	}
 
 	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
 	backend, err := backendStore.Get(in.Name)
@@ -208,6 +206,9 @@ func (m *Server) CapabilityUninstallStatus(
 	req *managementv1.CapabilityStatusRequest,
 ) (*corev1.TaskStatus, error) {
 	if err := validation.Validate(req); err != nil {
+		return nil, err
+	}
+	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
 		return nil, err
 	}
 
@@ -238,9 +239,7 @@ func (m *Server) CancelCapabilityUninstall(
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-
-	cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, req.Cluster)
-	if err != nil {
+	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
 		return nil, err
 	}
 
@@ -250,9 +249,95 @@ func (m *Server) CancelCapabilityUninstall(
 		return nil, err
 	}
 
-	_, err = backend.CancelUninstall(ctx, cluster.Reference())
+	_, err = backend.CancelUninstall(ctx, req.Cluster)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (m *Server) resolveClusters(ctx context.Context, refs ...*corev1.Reference) ([]*corev1.Cluster, error) {
+	clusters := make([]*corev1.Cluster, len(refs))
+
+	for i, ref := range refs {
+		cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref)
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		clusters[i] = cluster
+	}
+
+	var names []string
+	nameIndexes := map[string]int{}
+	for i, r := range clusters {
+		if r == nil {
+			names = append(names, refs[i].Id)
+			nameIndexes[refs[i].Id] = i
+		}
+	}
+
+	if len(names) == 0 {
+		return clusters, nil
+	}
+
+	cl, err := m.coreDataSource.StorageBackend().ListClusters(ctx, &corev1.LabelSelector{
+		MatchExpressions: []*corev1.LabelSelectorRequirement{
+			{
+				Key:      corev1.NameLabel,
+				Operator: string(corev1.LabelSelectorOpIn),
+				Values:   names,
+			},
+		},
+	}, corev1.MatchOptions_EmptySelectorMatchesNone)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range cl.Items {
+		name := c.Metadata.Labels[corev1.NameLabel]
+		if idx, ok := nameIndexes[name]; ok {
+			clusters[idx] = c
+			nameIndexes[name] = -1
+		} else if idx == -1 {
+			// duplicate
+			return nil, status.Errorf(codes.FailedPrecondition, "ambiguous cluster name %q (use cluster IDs instead)", name)
+		} else {
+			panic("bug: ListClusters with label selector returned bad results")
+		}
+	}
+
+	for _, idx := range nameIndexes {
+		if idx == -1 {
+			continue
+		}
+		notFound := lo.OmitByValues(nameIndexes, []int{-1})
+		if len(notFound) > 0 {
+			if len(notFound) == 1 {
+				return nil, status.Errorf(codes.NotFound, "cluster not found: %q", names[0])
+			}
+			return nil, status.Errorf(codes.NotFound, "%d clusters not found: %v", len(names), names)
+		}
+	}
+
+	return clusters, nil
+}
+
+func (m *Server) resolveCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
+	clusters, err := m.resolveClusters(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	return clusters[0], nil
+}
+
+func (m *Server) ensureReferenceResolved(ctx context.Context, ref *corev1.Reference) error {
+	c, err := m.resolveCluster(ctx, ref)
+	if err != nil {
+		return err
+	}
+	ref.Id = c.Id
+	return nil
 }

@@ -54,6 +54,17 @@ func goBuild(args ...string) error {
 		"-trimpath",
 		"-o", "./bin/",
 	}
+
+	// disable vcs stamping inside git worktrees if the linked git directory doesn't exist
+	dotGit, err := os.Stat(".git")
+	if err != nil {
+		return err
+	}
+	if !dotGit.IsDir() {
+		fmt.Println("disabling vcs stamping inside worktree")
+		defaultArgs = append(defaultArgs, "-buildvcs=false")
+	}
+
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "0",
 	}, mg.GoCmd(), append(defaultArgs, args...)...)

@@ -3,9 +3,10 @@ package gateway
 import (
 	"bytes"
 	"fmt"
+	"path"
+
 	"github.com/rancher/opni/pkg/alerting/routing"
 	"gopkg.in/yaml.v3"
-	"path"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
 
@@ -181,8 +182,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 							// Defaults to
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
-							Command: []string{"opni", "alertmanager"},
 							Args: []string{
+								"alertmanager",
 								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.spec.Alerting.ClusterPort),
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
@@ -312,8 +313,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 							// Defaults to
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
-							Command: []string{"opni", "alertmanager"},
 							Args: []string{
+								"alertmanager",
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "info"),

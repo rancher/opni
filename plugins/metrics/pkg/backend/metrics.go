@@ -69,10 +69,17 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 	})
 }
 
-func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	// Info must not block
-	return &capabilityv1.InfoResponse{
-		CapabilityName: wellknown.CapabilityMetrics,
+	var drivers []string
+	if m.Initialized() {
+		drivers = append(drivers, m.ClusterDriver.Name())
+	}
+
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityMetrics,
+		Source:  "plugin_metrics",
+		Drivers: drivers,
 	}, nil
 }
 

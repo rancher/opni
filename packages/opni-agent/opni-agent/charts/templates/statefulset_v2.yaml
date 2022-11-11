@@ -85,9 +85,13 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         - name: client
-          command: 
-          - opni
+          args:
           - client
+          - --health-probe-bind-address=:7081
+          - --metrics-bind-address=127.0.0.1:7080
+          {{- if .Values.bootstrapInCluster.enabled }}
+          - --central
+          {{- end }}
           env:
           - name: POD_NAME
             valueFrom:
@@ -103,12 +107,6 @@ spec:
                 fieldPath: metadata.namespace
           - name: NODE_FEATURE_DISCOVERY_IMAGE
             value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
-          args:
-          - --health-probe-bind-address=:7081
-          - --metrics-bind-address=127.0.0.1:7080
-          {{- if .Values.bootstrapInCluster.enabled }}
-          - --central
-          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"

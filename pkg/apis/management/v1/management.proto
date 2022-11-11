@@ -270,7 +270,12 @@ message UpdateConfigRequest {
 }
 
 message CapabilityList {
-  repeated string items = 1;
+  repeated CapabilityInfo items = 1;
+}
+
+message CapabilityInfo {
+  capability.Details details = 1;
+  int32 nodeCount = 2;
 }
 
 message CapabilityInstallerRequest {

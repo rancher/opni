@@ -58,8 +58,10 @@ func NewTestCapabilityBackend(
 	client := mock_capability.NewMockBackendClient(ctrl)
 	client.EXPECT().
 		Info(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&capabilityv1.InfoResponse{
-			CapabilityName: capBackend.Name,
+		Return(&capabilityv1.Details{
+			Name:    capBackend.Name,
+			Source:  "mock",
+			Drivers: []string{"test"},
 		}, nil).
 		AnyTimes()
 	client.EXPECT().

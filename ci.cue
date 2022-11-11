@@ -172,8 +172,10 @@ dagger.#Plan & {
 		// Build the destination base image
 		_baseimage: alpine.#Build & {
 			packages: {
+				"bash":            _
 				"ca-certificates": _
 				"curl":            _
+				"tini":            _
 			}
 		}
 
@@ -198,9 +200,19 @@ dagger.#Plan & {
 						contents: sourceBuild.export.directories."/opt"
 						dest:     "/opt/"
 					},
+					docker.#Run & {
+						command: {
+							name: "sh"
+							args: ["-c",
+								"curl -sfL -o /etc/profile.d/bash_completion.sh https://raw.githubusercontent.com/scop/bash-completion/master/bash_completion && " +
+								"/usr/bin/opni completion bash > /etc/profile.d/opni_bash_completion.sh",
+							]
+						}
+					},
 					docker.#Set & {
 						config: {
-							entrypoint: ["/usr/bin/opni"]
+							entrypoint: ["/sbin/tini", "--"]
+							cmd: ["/usr/bin/opni"]
 							env: {
 								NVIDIA_VISIBLE_DEVICES: "void"
 							}

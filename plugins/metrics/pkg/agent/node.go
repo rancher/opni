@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -101,9 +102,11 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.sendHealthUpdate()
 }
 
-func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
-	return &capabilityv1.InfoResponse{
-		CapabilityName: wellknown.CapabilityMetrics,
+func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityMetrics,
+		Source:  "plugin_metrics",
+		Drivers: drivers.ListNodeDrivers(),
 	}, nil
 }
 

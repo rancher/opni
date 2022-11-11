@@ -225,7 +225,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		}
 	}
 
-	if ref := handleSwitchCortexRules(cond.GetAlertType()); ref != nil {
+	if ref, _ := handleSwitchCortexRules(cond.GetAlertType()); ref != nil {
 		// check monitoring backend is installed
 		ctxca, ca := context.WithCancel(ctx)
 		defer ca()
@@ -438,7 +438,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	}
 	requiresCortex := false
 	for idx, id := range ids {
-		if k := conditions[idx].GetAlertType().GetKubeState(); k != nil {
+		if k, _ := handleSwitchCortexRules(conditions[idx].GetAlertType()); k != nil {
 			requiresCortex = true
 		}
 		resp.Items[id] = &alertingv1.ActiveWindows{
@@ -480,17 +480,24 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 					Windows: activeWindows,
 				}
 				addMu.Unlock()
-			} else if k := condition.GetAlertType().GetKubeState(); k != nil {
-				// do the raw quer
+			}
+			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
-					Tenants: []string{k.ClusterId},
-					Query:   ids[idx],
-					Start:   start,
-					End:     end,
-					Step:    cortexStep,
+					Tenants: []string{r.Id},
+					// Constructed recording rule, NOT alerting rule
+					Query: fmt.Sprintf(
+						"%s{%s}",
+						ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
+						ConstructFiltersFromMap(
+							ConstructIdLabelsForRecordingRule(condition.Name, ids[idx]),
+						),
+					),
+					Start: start,
+					End:   end,
+					Step:  cortexStep,
 				})
 				if err != nil {
-					p.Logger.Errorf("failed to query range : %s", err)
+					p.Logger.Errorf("failed to query cortex : %s", err)
 					return
 				}
 				rawBytes := qr.Data

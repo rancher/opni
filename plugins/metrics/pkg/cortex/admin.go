@@ -399,6 +399,7 @@ func (p *CortexAdminServer) LoadRules(ctx context.Context,
 	if resp.StatusCode != http.StatusAccepted {
 		lg.With(
 			"Code", resp.StatusCode,
+			"error", resp.Status,
 		).Error("loading rules failed")
 		return nil, fmt.Errorf("loading rules failed: %d", resp.StatusCode)
 	}

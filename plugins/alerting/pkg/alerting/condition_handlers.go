@@ -28,7 +28,12 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 )
 
-func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, newConditionId string) (*corev1.Reference, error) {
+func setupCondition(
+	p *Plugin,
+	lg *zap.SugaredLogger,
+	ctx context.Context,
+	req *alertingv1.AlertCondition,
+	newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
 		err := p.handleSystemAlertCreation(ctx, s, newConditionId)
 		if err != nil {
@@ -37,34 +42,34 @@ func setupCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
-		err := p.handleKubeAlertCreation(ctx, k, newConditionId)
+		err := p.handleKubeAlertCreation(ctx, k, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if c := req.GetAlertType().GetCpu(); c != nil {
-		err := p.handleCpuSaturationAlertCreation(ctx, c, newConditionId)
+		err := p.handleCpuSaturationAlertCreation(ctx, c, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if m := req.AlertType.GetMemory(); m != nil {
-		err := p.handleMemorySaturationAlertCreation(ctx, m, newConditionId)
+		err := p.handleMemorySaturationAlertCreation(ctx, m, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if fs := req.AlertType.GetFs(); fs != nil {
-		if err := p.handleFsSaturationAlertCreation(ctx, fs, newConditionId); err != nil {
+		if err := p.handleFsSaturationAlertCreation(ctx, fs, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if q := req.AlertType.GetPrometheusQuery(); q != nil {
-		if err := p.handlePrometheusQueryAlertCreation(ctx, q, newConditionId); err != nil {
+		if err := p.handlePrometheusQueryAlertCreation(ctx, q, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
@@ -78,7 +83,7 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
 		return nil
 	}
-	if r := handleSwitchCortexRules(req.AlertType); r != nil {
+	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
 			ClusterId: r.Id,
 			GroupName: CortexRuleIdFromUuid(id),
@@ -88,24 +93,24 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 	return shared.AlertingErrNotImplemented
 }
 
-func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) *corev1.Reference {
+func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) (*corev1.Reference, alertingv1.IndexableMetric) {
 	if k := t.GetKubeState(); k != nil {
-		return &corev1.Reference{Id: k.ClusterId}
+		return &corev1.Reference{Id: k.ClusterId}, k
 	}
 	if c := t.GetCpu(); c != nil {
-		return c.ClusterId
+		return c.ClusterId, c
 	}
 	if m := t.GetMemory(); m != nil {
-		return m.ClusterId
+		return m.ClusterId, m
 	}
 	if f := t.GetFs(); f != nil {
-		return f.ClusterId
+		return f.ClusterId, f
 	}
 	if q := t.GetPrometheusQuery(); q != nil {
-		return q.ClusterId
+		return q.ClusterId, q
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (p *Plugin) handleSystemAlertCreation(
@@ -133,7 +138,7 @@ func (p *Plugin) handleSystemAlertCreation(
 	return nil
 }
 
-func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.AlertConditionKubeState, newId string) error {
+func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.AlertConditionKubeState, newId, alertName string) error {
 	baseKubeRule, err := metrics.NewKubeStateRule(
 		k.GetObjectType(),
 		k.GetObjectName(),
@@ -145,7 +150,7 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.Aler
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := NewCortexAlertingRule(newId, nil, baseKubeRule)
+	kubeRuleContent, err := NewCortexAlertingRule(newId, alertName, k, nil, baseKubeRule)
 	p.Logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
 	if err != nil {
 		return err
@@ -165,7 +170,12 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.Aler
 	return nil
 }
 
-func (p *Plugin) handleCpuSaturationAlertCreation(ctx context.Context, c *alertingv1.AlertConditionCPUSaturation, conditionId string) error {
+func (p *Plugin) handleCpuSaturationAlertCreation(
+	ctx context.Context,
+	c *alertingv1.AlertConditionCPUSaturation,
+	conditionId,
+	alertName string,
+) error {
 	baseCpuRule, err := metrics.NewCpuRule(
 		c.GetNodeCoreFilters(),
 		c.GetCpuStates(),
@@ -177,7 +187,7 @@ func (p *Plugin) handleCpuSaturationAlertCreation(ctx context.Context, c *alerti
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseCpuRule)
+	cpuRuleContent, err := NewCortexAlertingRule(conditionId, alertName, c, nil, baseCpuRule)
 	if err != nil {
 		return err
 	}
@@ -194,7 +204,7 @@ func (p *Plugin) handleCpuSaturationAlertCreation(ctx context.Context, c *alerti
 	return err
 }
 
-func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *alertingv1.AlertConditionMemorySaturation, conditionId string) error {
+func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *alertingv1.AlertConditionMemorySaturation, conditionId, alertName string) error {
 	baseMemRule, err := metrics.NewMemRule(
 		m.GetNodeMemoryFilters(),
 		m.UsageTypes,
@@ -206,7 +216,7 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseMemRule)
+	memRuleContent, err := NewCortexAlertingRule(conditionId, alertName, m, nil, baseMemRule)
 	if err != nil {
 		return err
 	}
@@ -223,7 +233,7 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 	return err
 }
 
-func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alertingv1.AlertConditionFilesystemSaturation, conditionId string) error {
+func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alertingv1.AlertConditionFilesystemSaturation, conditionId, alertName string) error {
 	baseFsRule, err := metrics.NewFsRule(
 		fs.GetNodeFilters(),
 		fs.GetOperation(),
@@ -234,7 +244,7 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseFsRule)
+	fsRuleContent, err := NewCortexAlertingRule(conditionId, alertName, fs, nil, baseFsRule)
 	if err != nil {
 		return err
 	}
@@ -251,7 +261,7 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 	return err
 }
 
-func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *alertingv1.AlertConditionPrometheusQuery, conditionId string) error {
+func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *alertingv1.AlertConditionPrometheusQuery, conditionId, alertName string) error {
 	dur := model.Duration(q.GetFor().AsDuration())
 	baseRule := &metrics.AlertingRule{
 		Alert:       "",
@@ -261,7 +271,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := NewCortexAlertingRule(conditionId, nil, baseRule)
+	baseRuleContent, err := NewCortexAlertingRule(conditionId, alertName, q, nil, baseRule)
 	if err != nil {
 		return err
 	}

@@ -152,10 +152,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
-	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey) // cluster.WithExcludeGRPCMethodsFromAuth(
-	// 	"/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth",
-	// 	"/bootstrap.v2.Bootstrap/Join", "/bootstrap.v2.Bootstrap/Auth",
-	// ),
+	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey)
 
 	if err != nil {
 		lg.With(
@@ -189,13 +186,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		// services, err := ext.Services(ctx, &emptypb.Empty{})
-		// if err != nil {
-		// 	lg.With(
-		// 		zap.Error(err),
-		// 		"plugin", md.Module,
-		// 	).Error("failed to load stream services from plugin")
-		// }
 		if err := streamSvc.AddRemote(cc, md.ShortName()); err != nil {
 			lg.With(
 				zap.Error(err),
@@ -209,10 +199,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	bootstrapServerV2 := bootstrap.NewServerV2(storageBackend, pkey)
 	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapServerV1)
 	bootstrapv2.RegisterBootstrapServer(grpcServer, bootstrapServerV2)
-
-	//set up unary plugins
-	// unarySvc := NewUnaryService()
-	// unarySvc.RegisterUnaryPlugins(ctx, grpcServer, pl)
 
 	g := &Gateway{
 		GatewayOptions:  options,

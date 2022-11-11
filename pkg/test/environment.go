@@ -47,6 +47,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -489,6 +490,8 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	e.initCtx()
 	e.Processes.APIServer = future.New[*os.Process]()
 
+	lg := Log.Named("k8s")
+
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -523,6 +526,26 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// wait for the apiserver to be ready
+	readyCount := 0
+	client := kubernetes.NewForConfigOrDie(cfg).CoreV1().RESTClient().Get().AbsPath("/healthz")
+	for readyCount < 5 {
+		response := client.Do(context.Background())
+		if response.Error() == nil {
+			var code int
+			response.StatusCode(&code)
+			if code == 200 {
+				readyCount++
+				continue
+			}
+		}
+		lg.With(zap.Error(response.Error())).Debug("apiserver is not ready yet")
+		readyCount = 0
+		time.Sleep(100 * time.Millisecond)
+	}
+	lg.Info("apiserver is ready")
+
 	pid := os.Getpid()
 	threads, err := os.ReadDir(fmt.Sprintf("/proc/%d/task/", pid))
 	if err != nil {

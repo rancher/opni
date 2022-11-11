@@ -65,7 +65,7 @@ questions:
         group: "Auth Settings"
         default: ""
         type: string
-        description: "https://grafana.com/docs/grafana/latest/auth/generic-oauth/#roles"
+        description: "https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/generic-oauth/#role-mapping"
         required: true
         label: "Grafana Role Attribute Path"
   - variable: ai.enabled

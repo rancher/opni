@@ -22029,6 +22029,12 @@ spec:
                             type: boolean
                           scopes:
                             type: string
+                          team_ids:
+                            type: string
+                          team_ids_attribute_path:
+                            type: string
+                          teams_url:
+                            type: string
                           tls_client_ca:
                             type: string
                           tls_client_cert:
@@ -22412,9 +22418,20 @@ spec:
                         type: object
                       plugins:
                         properties:
+                          allow_loading_unsigned_plugins:
+                            type: string
                           enable_alpha:
                             nullable: true
                             type: boolean
+                          plugin_admin_enabled:
+                            nullable: true
+                            type: boolean
+                          plugin_catalog_hidden_plugins:
+                            type: string
+                          plugin_catalog_url:
+                            type: string
+                        required:
+                        - plugin_admin_enabled
                         type: object
                       remote_cache:
                         properties:
@@ -22495,6 +22512,9 @@ spec:
                           http_port:
                             type: string
                           protocol:
+                            enum:
+                            - http
+                            - https
                             type: string
                           root_url:
                             type: string
@@ -23181,6 +23201,8 @@ spec:
                       - name
                       type: object
                     type: array
+                  dashboardContentCacheDuration:
+                    type: string
                   dashboardLabelSelector:
                     items:
                       properties:
@@ -23251,6 +23273,8 @@ spec:
                         - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
+                      volumeName:
+                        type: string
                     type: object
                   deployment:
                     properties:
@@ -25048,6 +25072,8 @@ spec:
                         properties:
                           enabled:
                             type: boolean
+                          noProxy:
+                            type: string
                           secureUrl:
                             type: string
                           url:

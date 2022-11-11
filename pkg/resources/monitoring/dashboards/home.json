@@ -1,0 +1,1550 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "P0BEE70D62F42845E"
+        },
+        "enable": true,
+        "expr": "increase(kube_deployment_metadata_generation{deployment=\"opni-gateway\"}[$__rate_interval])",
+        "hide": true,
+        "iconColor": "blue",
+        "name": "Opni Deployment Updates",
+        "textFormat": "The Opni Gateway deployment has been modified; agents may need to reconnect.",
+        "titleFormat": "Gateway Updated"
+      }
+    ]
+  },
+  "description": "",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 23,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "center",
+            "displayMode": "auto",
+            "filterable": false,
+            "inspect": false
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.25
+              },
+              {
+                "color": "#EF843C",
+                "value": 0.5
+              },
+              {
+                "color": "#E24D42",
+                "value": 0.75
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #CPU Usage"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "basic"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Memory Utilization"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "basic"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Total Memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "continuous-BlPu"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster_id"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "auto"
+              },
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Cluster Details",
+                    "url": "/d/efa86fd1d0c121a26444b636a3f509a8/kubernetes-compute-resources-cluster?orgId=1&var-cluster=${__data.fields[\"Cluster ID\"]}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Total Cores"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-blue",
+                  "mode": "continuous-BlPu"
+                }
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Up"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background-solid"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "index": 0,
+                        "text": "Disconnected"
+                      },
+                      "1": {
+                        "color": "green",
+                        "index": 1,
+                        "text": "Connected"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 128
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Ready"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "orange",
+                        "index": 0,
+                        "text": "Not Ready"
+                      },
+                      "1": {
+                        "color": "green",
+                        "index": 1,
+                        "text": "Ready"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-background-solid"
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 128
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Disk Capacity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Cluster Disk Utilization"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "basic"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "footer": {
+          "enablePagination": false,
+          "fields": [
+            "Value #CPU Usage",
+            "Value #Total Cores",
+            "Value #Memory Utilization",
+            "Value #Total Memory"
+          ],
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Cluster CPU Usage"
+          }
+        ]
+      },
+      "pluginVersion": "9.2.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "group without (instance, pod) (label_replace(opni_cluster_info, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\"))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Cluster ID"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_replace(opni_agent_up, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Up"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_replace(opni_agent_ready, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Ready"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "cluster:node_cpu:ratio",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "CPU Usage"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by(__tenant_id__) (node:node_num_cpu:sum)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Total Cores"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes))",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Memory Utilization"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by(__tenant_id__) (node_memory_MemTotal_bytes)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Total Memory"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "1 - sum by(__tenant_id__) (node_filesystem_avail_bytes{job=\"node-exporter\", device=~\"^/dev.*\"}) / sum by(__tenant_id__) (node_filesystem_size_bytes{job=\"node-exporter\", device=~\"^/dev.*\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Cluster Disk Utilization"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by(__tenant_id__) (node_filesystem_size_bytes{job=\"node-exporter\", device=~\"^/dev.*\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Disk Capacity"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "__tenant_id__"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "Value #A": true,
+              "Value #Cluster ID": true,
+              "__name__": true,
+              "__tenant_id__": true,
+              "cluster_id": false,
+              "cluster_id 2": true,
+              "cluster_id 3": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "prometheus": true,
+              "prometheus_replica": true,
+              "service": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "Time 3": "",
+              "Time 4": "",
+              "Time 5": "",
+              "Time 6": "",
+              "Time 7": "",
+              "Value #B": "Total CPU Usage",
+              "Value #C": "Total Memory Usage",
+              "Value #CPU Usage": "Cluster CPU Usage",
+              "Value #Cluster Disk Utilization": "Cluster Disk Utilization",
+              "Value #Cluster ID": "",
+              "Value #Disk Capacity": "Disk Capacity",
+              "Value #Memory Utilization": "Cluster Memory Utilization",
+              "Value #Ready": "Health",
+              "Value #Storage": "Storage",
+              "Value #Storage2": "Storage",
+              "Value #Total Cores": "CPU Capacity",
+              "Value #Total Memory": "Mem Capacity",
+              "Value #Up": "Status",
+              "cluster_id": "Cluster ID",
+              "cluster_id 1": "Cluster ID",
+              "friendly_name": "Cluster Name"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "links": [
+            {
+              "title": "CPU Usage Details",
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}&viewPanel=5"
+            },
+            {
+              "title": "Namespace Details",
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "cpus"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 7
+      },
+      "id": 9,
+      "options": {
+        "colorByField": "Value",
+        "groupByField": "friendly_name",
+        "labelFields": [],
+        "sizeField": "Value",
+        "textField": "namespace",
+        "tiling": "treemapSquarify"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_replace(sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate), \"cluster_id\", \"$1\", \"__tenant_id__\", \"(.*)\") * on(cluster_id) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "Node CPU Usage by Namespace",
+      "type": "marcusolsson-treemap-panel"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "title": "Show details",
+              "url": "/d/efa86fd1d0c121a26444b636a3f509a8/kubernetes-compute-resources-cluster?var-cluster=${__field.labels.__tenant_id__}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 7
+      },
+      "id": 15,
+      "links": [
+        {
+          "title": "Compute Resources by Cluster",
+          "url": "/d/efa86fd1d0c121a26444b636a3f509a8/kubernetes-compute-resources-cluster"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "time_series",
+          "interval": "1m",
+          "legendFormat": "{{friendly_name}}",
+          "range": true,
+          "refId": "Data"
+        }
+      ],
+      "title": "CPU Usage By Cluster",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-YlBl",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisLabel": "Received                         Transmitted",
+            "axisPlacement": "right",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "title": "Show details",
+              "url": "/d/ff635a025bcfea7bc3dd4f508990a3e9/kubernetes-networking-cluster?var-cluster=${__field.labels.__tenant_id__}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#ffffff",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "binBps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 7
+      },
+      "id": 13,
+      "links": [
+        {
+          "title": "Networking by Cluster",
+          "url": "/d/ff635a025bcfea7bc3dd4f508990a3e9/kubernetes-networking-cluster"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "interval": "1m",
+          "legendFormat": "[Rx] {{friendly_name}}",
+          "range": true,
+          "refId": "Rx"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "hide": false,
+          "interval": "1m",
+          "legendFormat": "[Tx] {{friendly_name}}",
+          "range": true,
+          "refId": "Tx"
+        }
+      ],
+      "title": "Network Throughput by Cluster",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Memory Usage Details",
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}&viewPanel=7"
+            },
+            {
+              "targetBlank": false,
+              "title": "Namespace Details",
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 20,
+      "options": {
+        "colorByField": "Value",
+        "groupByField": "friendly_name",
+        "labelFields": [],
+        "sizeField": "Value",
+        "textField": "namespace",
+        "tiling": "treemapSquarify"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_replace(sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_memory_rss), \"cluster_id\", \"$1\", \"__tenant_id__\", \"(.*)\") * on(cluster_id) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "Node Memory Usage by Namespace",
+      "type": "marcusolsson-treemap-panel"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "title": "Show details",
+              "url": "/d/efa86fd1d0c121a26444b636a3f509a8/kubernetes-compute-resources-cluster?var-cluster=${__field.labels.__tenant_id__}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "time_series",
+          "interval": "1m",
+          "legendFormat": "{{friendly_name}}",
+          "range": true,
+          "refId": "Data"
+        }
+      ],
+      "title": "Memory Usage By Cluster",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "title": "Show details",
+              "url": "/d/3138fa155d5915769fbded898ac09fd9/kubernetes-kubelet?var-cluster=${__field.labels.__tenant_id__}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 19,
+      "links": [
+        {
+          "title": "Kubelet Details by Cluster",
+          "url": "/d/3138fa155d5915769fbded898ac09fd9/kubernetes-kubelet"
+        }
+      ],
+      "maxDataPoints": 100,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kubelet_runtime_operations_errors_total{job=\"kubelet\",}[$__rate_interval])) by (__tenant_id__, operation_type) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "time_series",
+          "intervalFactor": 4,
+          "legendFormat": "{{friendly_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Kubelet Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "Disconnected": {
+                  "color": "red",
+                  "index": 1
+                },
+                "Healthy": {
+                  "color": "green",
+                  "index": 0
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "pattern": "^Unhealthy: (.*)$",
+                "result": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "$1"
+                }
+              },
+              "type": "regex"
+            },
+            {
+              "options": {
+                "pattern": "^(Not ready.*)|(Unknown)$",
+                "result": {
+                  "color": "#808080",
+                  "index": 3,
+                  "text": "$1"
+                }
+              },
+              "type": "regex"
+            },
+            {
+              "options": {
+                "match": "empty",
+                "result": {
+                  "color": "#808080",
+                  "index": 4,
+                  "text": "No Data"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "string"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 25
+      },
+      "id": 7,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "never",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "opni_agent_status_summary * on(cluster_id, instance) group_right(summary) (group without(pod) (opni_cluster_info))",
+          "format": "table",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Historical Agent Uptime",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "friendly_name",
+            "rowField": "Time",
+            "valueField": "summary"
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "time",
+                "targetField": "Time\\friendly_name"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ],
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 25
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "format": "time_series",
+          "interval": "1m",
+          "legendFormat": "{{friendly_name}}",
+          "range": true,
+          "refId": "Data"
+        }
+      ],
+      "title": "Disk IOPS By Cluster",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "P0BEE70D62F42845E"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 25
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "P0BEE70D62F42845E"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"cluster_id\", \"$1\", \"user\", \"(.*)\") * on(cluster_id) group_left(friendly_name) opni_cluster_info",
+          "format": "time_series",
+          "instant": false,
+          "legendFormat": "{{friendly_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Blocks in Long Term Storage",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "Infrastructure Overview",
+  "uid": "1e83e204be502391f69d3a826675d3df",
+  "version": 7,
+  "weekStart": ""
+}

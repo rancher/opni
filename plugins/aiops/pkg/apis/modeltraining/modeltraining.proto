@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/modeltraining/pkg/modeltraining";
+option go_package = "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";

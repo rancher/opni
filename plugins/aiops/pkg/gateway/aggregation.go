@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"bytes"
@@ -71,7 +71,7 @@ func (a *Aggregations) Add(bucket Bucket) {
 	}
 }
 
-func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
+func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	request := map[string]any{
 		"size": 0,
 		"query": map[string]any{
@@ -130,28 +130,28 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 	for {
 		var buf bytes.Buffer
 		if err := json.NewEncoder(&buf).Encode(request); err != nil {
-			s.Logger.Errorf("Error: Unable to encode request: %s", err)
+			p.Logger.Errorf("Error: Unable to encode request: %s", err)
 			return
 		}
-		res, err := s.osClient.Get().Search(
-			s.osClient.Get().Search.WithContext(s.ctx),
-			s.osClient.Get().Search.WithIndex("logs"),
-			s.osClient.Get().Search.WithBody(&buf),
-			s.osClient.Get().Search.WithTrackTotalHits(true),
-			s.osClient.Get().Search.WithPretty(),
+		res, err := p.osClient.Get().Search(
+			p.osClient.Get().Search.WithContext(p.ctx),
+			p.osClient.Get().Search.WithIndex("logs"),
+			p.osClient.Get().Search.WithBody(&buf),
+			p.osClient.Get().Search.WithTrackTotalHits(true),
+			p.osClient.Get().Search.WithPretty(),
 		)
 		if err != nil {
-			s.Logger.Errorf("Unable to connect to Opensearch %s", err)
+			p.Logger.Errorf("Unable to connect to Opensearch %s", err)
 			return
 		}
 		defer res.Body.Close()
 		if res.IsError() {
-			s.Logger.Errorf("Error: %s", res.String())
+			p.Logger.Errorf("Error: %s", res.String())
 			return
 		}
 		var result SearchResponse
 		if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-			s.Logger.Errorf("Error parsing the response body: %s", err)
+			p.Logger.Errorf("Error parsing the response body: %s", err)
 			return
 		}
 		for _, b := range result.Aggregations.Bucket.Buckets {
@@ -166,21 +166,21 @@ func (s *ModelTrainingPlugin) aggregateWorkloadLogs() {
 	}
 	aggregatedResults, err := json.Marshal(resultAgg)
 	if err != nil {
-		s.Logger.Errorf("Error: %s", err)
+		p.Logger.Errorf("Error: %s", err)
 		return
 	}
 	bytesAggregation := []byte(aggregatedResults)
-	s.kv.Get().Put("aggregation", bytesAggregation)
-	s.Logger.Info("Updated aggregation of deployments to Jetstream.")
+	p.kv.Get().Put("aggregation", bytesAggregation)
+	p.Logger.Info("Updated aggregation of deployments to Jetstream.")
 }
 
-func (s *ModelTrainingPlugin) runAggregation() {
+func (p *AIOpsPlugin) runAggregation() {
 	t := time.NewTicker(30 * time.Second)
 	for {
 		select {
 		case <-t.C:
-			s.aggregateWorkloadLogs()
-		case <-s.ctx.Done():
+			p.aggregateWorkloadLogs()
+		case <-p.ctx.Done():
 			t.Stop()
 			return
 		}

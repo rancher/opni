@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"crypto/tls"
@@ -42,7 +42,7 @@ func newNatsConnection() (*nats.Conn, error) {
 	)
 }
 
-func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
+func (p *AIOpsPlugin) newOpensearchConnection() (*opensearch.Client, error) {
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
 		namespace = "opni-cluster-system"
@@ -54,30 +54,30 @@ func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, err
 		backoffv2.WithMaxInterval(1*time.Minute),
 		backoffv2.WithMultiplier(1.1),
 	)
-	b := retrier.Start(s.ctx)
+	b := retrier.Start(p.ctx)
 	cluster := &opsterv1.OpenSearchCluster{}
 FETCH:
 	for {
 		select {
 		case <-b.Done():
-			s.Logger.Warn("plugin context cancelled before Opensearch object created")
+			p.Logger.Warn("plugin context cancelled before Opensearch object created")
 		case <-b.Next():
-			err := s.k8sClient.Get().Get(s.ctx, types.NamespacedName{
+			err := p.k8sClient.Get().Get(p.ctx, types.NamespacedName{
 				Name:      "opni",
 				Namespace: namespace,
 			}, cluster)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					s.Logger.Info("waiting for k8s object")
+					p.Logger.Info("waiting for k8s object")
 					continue
 				}
-				s.Logger.Errorf("failed to check k8s object: %v", err)
+				p.Logger.Errorf("failed to check k8s object: %v", err)
 				continue
 			}
 			break FETCH
 		}
 	}
-	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient.Get(), cluster)
+	esUsername, esPassword, err := helpers.UsernameAndPassword(p.ctx, p.k8sClient.Get(), cluster)
 	if err != nil {
 		return nil, err
 	}

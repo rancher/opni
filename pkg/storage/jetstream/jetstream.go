@@ -2,7 +2,6 @@ package jetstream
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -136,20 +135,15 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 
 func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {
 	bucketName := fmt.Sprintf("%s-%s", s.BucketPrefix, name)
-	kv, err := s.js.KeyValue(bucketName)
-	if err != nil {
-		if errors.Is(err, nats.ErrBucketNotFound) {
-			kv, err = s.js.CreateKeyValue(&nats.KeyValueConfig{
-				Bucket: bucketName,
-				Description: fmt.Sprintf("Opni %s %s Store",
-					strcase.ToCamel(s.BucketPrefix),
-					strcase.ToCamel(name)),
-				Storage:  nats.FileStorage,
-				History:  64,
-				Replicas: 1,
-			})
-		}
-	}
+	kv, err := s.js.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket: bucketName,
+		Description: fmt.Sprintf("Opni %s %s Store",
+			strcase.ToCamel(s.BucketPrefix),
+			strcase.ToCamel(name)),
+		Storage:  nats.FileStorage,
+		History:  64,
+		Replicas: 1,
+	})
 	if err != nil {
 		s.logger.With(
 			"bucket", bucketName,

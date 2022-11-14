@@ -211,8 +211,7 @@ dagger.#Plan & {
 					},
 					docker.#Set & {
 						config: {
-							entrypoint: ["/sbin/tini", "--"]
-							cmd: ["/usr/bin/opni"]
+							entrypoint: ["/sbin/tini", "--", "/usr/bin/opni"]
 							env: {
 								NVIDIA_VISIBLE_DEVICES: "void"
 							}

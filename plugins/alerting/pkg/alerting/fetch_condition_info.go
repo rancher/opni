@@ -250,6 +250,9 @@ func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAl
 				lg.Warnf("no result kube state metrics found for cluster %s : %s", cl.Id, result)
 				return
 			}
+			// clusterIds
+			temp := map[string]*alertingv1.CpuNodeGroup{}
+			tempCpuStates := map[string]struct{}{}
 			for _, series := range result.Array() {
 				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
 				seriesInfoMap := seriesInfo.Map()
@@ -258,25 +261,34 @@ func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAl
 				if !node.Exists() {
 					lg.Warnf("failed to find node name for series %s", seriesInfo)
 					nodeName = metrics.UnlabelledNode
+				} else {
+					nodeName = node.String()
 				}
-				lock.Lock()
-				nodeName = node.String()
-				if curNodes, ok := resCpuState.Clusters[cl.Id]; !ok {
-					resCpuState.Clusters[cl.Id] = &alertingv1.CpuNodeGroup{
+				if _, ok := temp[cl.Id]; !ok {
+					temp[cl.Id] = &alertingv1.CpuNodeGroup{
 						Nodes: map[string]*alertingv1.CpuInfo{
-							nodeName: {
-								CoreIds: []int64{},
-							},
+							nodeName: {},
 						},
 					}
-				} else {
-					if _, ok := curNodes.Nodes[nodeName]; !ok {
-						curNodes.Nodes[nodeName] = &alertingv1.CpuInfo{
-							CoreIds: []int64{},
-						}
-					}
 				}
-				lock.Unlock()
+				// lock.Lock()
+
+				// if curNodes, ok := resCpuState.Clusters[cl.Id]; !ok {
+				// 	resCpuState.Clusters[cl.Id] = &alertingv1.CpuNodeGroup{
+				// 		Nodes: map[string]*alertingv1.CpuInfo{
+				// 			nodeName: {
+				// 				CoreIds: []int64{},
+				// 			},
+				// 		},
+				// 	}
+				// } else {
+				// 	if _, ok := curNodes.Nodes[nodeName]; !ok {
+				// 		curNodes.Nodes[nodeName] = &alertingv1.CpuInfo{
+				// 			CoreIds: []int64{},
+				// 		}
+				// 	}
+				// }
+				// lock.Unlock()
 				core := seriesInfoMap["cpu"]
 				if !core.Exists() {
 					lg.Warnf("failed to find core name for series %s", seriesInfo)
@@ -292,20 +304,33 @@ func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAl
 					lg.Warnf("failed to find cpu state for series %s", seriesInfo)
 					continue
 				}
-				lock.Lock()
-				cpuStates[cpuState.String()] = struct{}{}
-				lock.Unlock()
+				// lock.Lock()
+				tempCpuStates[cpuState.String()] = struct{}{}
+				// lock.Unlock()
 			}
 			for node, validCore := range nodesToCores {
-				lock.Lock()
+				if _, ok := temp[cl.Id].Nodes[node]; !ok {
+					temp[cl.Id].Nodes[node] = &alertingv1.CpuInfo{
+						CoreIds: []int64{},
+					}
+				}
 				for core := range validCore {
-					resCpuState.Clusters[cl.Id].Nodes[node].CoreIds = append(
-						resCpuState.Clusters[cl.Id].Nodes[node].CoreIds,
+					temp[cl.Id].Nodes[node].CoreIds = append(
+						temp[cl.Id].Nodes[node].CoreIds,
 						core,
 					)
 				}
-				lock.Unlock()
 			}
+			lock.Lock()
+			for cpuState := range tempCpuStates {
+				if _, ok := cpuStates[cpuState]; !ok {
+					cpuStates[cpuState] = struct{}{}
+				}
+			}
+			if _, ok := resCpuState.Clusters[cl.Id]; !ok {
+				resCpuState.Clusters[cl.Id] = temp[cl.Id]
+			}
+			lock.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -358,10 +383,12 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 			}
 			result := gjson.Get(string(rawMemorySeries.Data), "data.result")
 			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no node fs metrics found for cluster %s : %s", cl.Id, result)
+				lg.Warnf("no node memory metrics found for cluster %s : %s", cl.Id, result)
 				return
 			}
 			nodeToDevices := make(map[string]map[string]struct{})
+			temp := make(map[string]*alertingv1.MemoryNodeGroup)
+			tempMemUsage := make(map[string]struct{})
 			for _, series := range result.Array() {
 				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
 				seriesInfoMap := seriesInfo.Map()
@@ -370,7 +397,7 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 				objType := metrics.MemoryUsageTypeExtractor.FindStringSubmatch(name)[1]
 				if slices.Contains(metrics.MemoryMatcherRegexFilter, objType) {
 					lock.Lock()
-					memUsage[objType] = struct{}{}
+					tempMemUsage[objType] = struct{}{}
 					lock.Unlock()
 				}
 				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
@@ -378,18 +405,17 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 				if !node.Exists() {
 					lg.Warnf("failed to find node name for series %s", seriesInfo)
 					nodeName = metrics.UnlabelledNode
+				} else {
+					nodeName = node.String()
 				}
-				nodeName = node.String()
-				lock.Lock()
-				if _, ok := resMemoryChoices.Clusters[cl.Id]; !ok {
-					resMemoryChoices.Clusters[cl.Id] = &alertingv1.MemoryNodeGroup{
+				if _, ok := temp[cl.Id]; !ok {
+					temp[cl.Id] = &alertingv1.MemoryNodeGroup{
 						Nodes: map[string]*alertingv1.MemoryInfo{},
 					}
 				}
-				resMemoryChoices.Clusters[cl.Id].Nodes[nodeName] = &alertingv1.MemoryInfo{
+				temp[cl.Id].Nodes[nodeName] = &alertingv1.MemoryInfo{
 					Devices: []string{},
 				}
-				lock.Unlock()
 				device := seriesInfoMap[metrics.MemoryDeviceFilter]
 
 				if device.Exists() {
@@ -399,15 +425,29 @@ func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.Lis
 					nodeToDevices[nodeName][device.String()] = struct{}{}
 				}
 			}
-			lock.Lock()
 			for nodeName, devices := range nodeToDevices {
 				for device := range devices {
-					resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Devices = append(
-						resMemoryChoices.Clusters[cl.Id].Nodes[nodeName].Devices,
+					if _, ok := temp[cl.Id]; !ok {
+						temp[cl.Id] = &alertingv1.MemoryNodeGroup{
+							Nodes: map[string]*alertingv1.MemoryInfo{},
+						}
+					}
+					if _, ok := temp[cl.Id].Nodes[nodeName]; !ok {
+						temp[cl.Id].Nodes[nodeName] = &alertingv1.MemoryInfo{
+							Devices: []string{},
+						}
+					}
+					temp[cl.Id].Nodes[nodeName].Devices = append(
+						temp[cl.Id].Nodes[nodeName].Devices,
 						device,
 					)
 				}
 			}
+			lock.Lock()
+			for memType := range tempMemUsage {
+				memUsage[memType] = struct{}{}
+			}
+			resMemoryChoices.Clusters[cl.Id] = temp[cl.Id]
 			lock.Unlock()
 		}()
 	}
@@ -463,6 +503,7 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 			}
 			nodeToDevice := make(map[string]map[string]struct{})
 			nodeToMountpoints := make(map[string]map[string]struct{})
+			temp := make(map[string]*alertingv1.FilesystemNodeGroup)
 			for _, series := range result.Array() {
 				seriesInfo := series.Get("metric") // this maps to {"metric" : {}, "value": []}
 				seriesInfoMap := seriesInfo.Map()
@@ -473,9 +514,8 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 					nodeName = metrics.UnlabelledNode
 				}
 				nodeName = node.String()
-				lock.Lock()
-				if _, ok := resFilesystemChoices.Clusters[cl.Id]; !ok {
-					resFilesystemChoices.Clusters[cl.Id] = &alertingv1.FilesystemNodeGroup{
+				if _, ok := temp[cl.Id]; !ok {
+					temp[cl.Id] = &alertingv1.FilesystemNodeGroup{
 						Nodes: map[string]*alertingv1.FilesystemInfo{
 							nodeName: {
 								Mountpoints: []string{},
@@ -484,7 +524,6 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 						},
 					}
 				}
-				lock.Unlock()
 				device := seriesInfoMap[metrics.NodeExportFilesystemDeviceLabel]
 				if device.Exists() {
 					if _, ok := nodeToDevice[nodeName]; !ok {
@@ -500,29 +539,30 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 					nodeToMountpoints[nodeName][mountpoint.String()] = struct{}{}
 				}
 			}
-			lock.Lock()
 			for nodeName, devices := range nodeToDevice {
 				for device := range devices {
-					if _, ok := resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName]; !ok {
-						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName] = &alertingv1.FilesystemInfo{
+					if _, ok := temp[cl.Id].Nodes[nodeName]; !ok {
+						temp[cl.Id].Nodes[nodeName] = &alertingv1.FilesystemInfo{
 							Devices: []string{},
 						}
 					}
 
-					resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices = append(
-						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Devices,
+					temp[cl.Id].Nodes[nodeName].Devices = append(
+						temp[cl.Id].Nodes[nodeName].Devices,
 						device,
 					)
 				}
 			}
 			for nodeName, mountpoints := range nodeToMountpoints {
 				for mountpoint := range mountpoints {
-					resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Mountpoints = append(
-						resFilesystemChoices.Clusters[cl.Id].Nodes[nodeName].Mountpoints,
+					temp[cl.Id].Nodes[nodeName].Mountpoints = append(
+						temp[cl.Id].Nodes[nodeName].Mountpoints,
 						mountpoint,
 					)
 				}
 			}
+			lock.Lock()
+			resFilesystemChoices.Clusters[cl.Id] = temp[cl.Id]
 			lock.Unlock()
 		}()
 	}

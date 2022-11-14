@@ -19,6 +19,20 @@ var MemoryUsageTypeExtractor = regexp.MustCompile("node_memory_(.*)_bytes")
 var MemoryMatcherRegexFilter = []string{"Buffers", "Cached", "MemFree", "Slab"}
 var MemRuleAnnotations = map[string]string{}
 
+type memorySaturation struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+}
+
+type memorySaturationSpike struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+	SpikeWindow   string
+	NumSpike      string
+}
+
 func NewMemRule(
 	deviceFilters map[string]*alertingv1.MemoryInfo,
 	usageTypes []string,

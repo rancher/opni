@@ -16,6 +16,20 @@ const NodeExportFilesystemDeviceLabel = "device"
 
 var FilesystemRuleAnnotations = map[string]string{}
 
+type filesystemSaturation struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+}
+
+type filesystemSaturationSpike struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+	SpikeWindow   string
+	NumSpike      string
+}
+
 func NewFsRule(
 	nodeFilters map[string]*alertingv1.FilesystemInfo,
 	operation string,
@@ -51,10 +65,10 @@ func NewFsRule(
 	`))
 
 	var b bytes.Buffer
-	err := tmpl.Execute(&b, map[string]string{
-		"Filters":       filters.Build(),
-		"Operation":     operation,
-		"ExpectedValue": fmt.Sprintf("%.7f", expectedValue),
+	err := tmpl.Execute(&b, filesystemSaturation{
+		Filters:       filters.Build(),
+		Operation:     operation,
+		ExpectedValue: fmt.Sprintf("%.7f", expectedValue),
 	})
 	if err != nil {
 		return nil, err
@@ -108,12 +122,12 @@ func NewFsSpikeRule(
 	`))
 
 	var b bytes.Buffer
-	err := tmpl.Execute(&b, map[string]string{
-		"Filters":       filters.Build(),
-		"Operation":     operation,
-		"ExpectedValue": fmt.Sprintf("%.7f", expectedValue),
-		"SpikeWindow":   spikeDur.String(),
-		"NumSpike":      fmt.Sprintf("%d", numSpikes),
+	err := tmpl.Execute(&b, filesystemSaturationSpike{
+		Filters:       filters.Build(),
+		Operation:     operation,
+		ExpectedValue: fmt.Sprintf("%.7f", expectedValue),
+		SpikeWindow:   spikeDur.String(),
+		NumSpike:      fmt.Sprintf("%d", numSpikes),
 	})
 	if err != nil {
 		return nil, err

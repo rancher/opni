@@ -76,7 +76,7 @@ service AlertConditions {
   // id corresponds to conditionId
   rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete : "/silences/{id}"
+      delete : "/silences"
     };
   }
 

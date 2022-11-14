@@ -217,10 +217,11 @@ func (s *SlackEndpoint) Validate() error {
 		return validation.Errorf("webhook must be a valid url : %s", err)
 	}
 
-	if s.Channel != "" {
-		if !strings.HasPrefix(s.Channel, "#") {
-			return validation.Error(shared.AlertingErrInvalidSlackChannel.Error())
-		}
+	if s.Channel == "" {
+		return validation.Error("channel must be set")
+	}
+	if !strings.HasPrefix(s.Channel, "#") {
+		return validation.Error(shared.AlertingErrInvalidSlackChannel.Error())
 	}
 	return nil
 }

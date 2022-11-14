@@ -291,6 +291,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
+	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
 	jsCtx, cancel := context.WithCancel(p.Ctx)
 	var firingLock sync.RWMutex
 	currentlyFiring := false

@@ -18,6 +18,20 @@ var CpuRuleAnnotations = map[string]string{}
 
 const CpuFilter = "cpu"
 
+type cpuSaturation struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+}
+
+type cpuSaturationSpike struct {
+	Filters       string
+	Operation     string
+	ExpectedValue string
+	SpikeWindow   string
+	NumSpikes     string
+}
+
 func NewCpuRule(
 	nodeFilters map[string]*alertingv1.Cores,
 	cpuStates []string,
@@ -56,10 +70,10 @@ func NewCpuRule(
 	) {{ .Operation }} bool {{ .ExpectedValue }}
 `))
 	var b bytes.Buffer
-	err := tmpl.Execute(&b, map[string]string{
-		"Filters":       filters.Build(),
-		"Operation":     operation,
-		"ExpectedValue": fmt.Sprintf("%.7f", expectedRatio),
+	err := tmpl.Execute(&b, cpuSaturation{
+		Filters:       filters.Build(),
+		Operation:     operation,
+		ExpectedValue: fmt.Sprintf("%.7f", expectedRatio),
 	})
 	if err != nil {
 		return nil, err
@@ -121,12 +135,12 @@ func NewCpuSpikeRule(
 	) > bool {{ .NumSpikes}}
 `))
 	var b bytes.Buffer
-	err := tmpl.Execute(&b, map[string]string{
-		"Filters":       filters.Build(),
-		"Operation":     operation,
-		"ExpectedValue": fmt.Sprintf("%.7f", expectedRatio),
-		"SpikeWindow":   spikeDur.String(),
-		"NumSpikes":     fmt.Sprintf("%d", numSpikes),
+	err := tmpl.Execute(&b, cpuSaturationSpike{
+		Filters:       filters.Build(),
+		Operation:     operation,
+		ExpectedValue: fmt.Sprintf("%.7f", expectedRatio),
+		SpikeWindow:   spikeDur.String(),
+		NumSpikes:     fmt.Sprintf("%d", numSpikes),
 	})
 	if err != nil {
 		return nil, err

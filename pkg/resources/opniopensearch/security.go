@@ -26,64 +26,63 @@ var (
 
 # Define your internal users here
 
-## Demo users
-
-admin:
-  hash: "$2a$12$VcCDgh2NDk07JGN0rjGbM.Ad41qVR/YFJcgHp0UGns5JDymv..TOG"
-  reserved: true
-  backend_roles:
-  - "admin"
-  description: "Demo admin user"
-
 internalopni:
-  hash: "{{ . }}"
+  hash: "{{ .Admin }}"
   reserved: true
   backend_roles:
   - "admin"
   description: "Internal admin user"
 
 kibanaserver:
-  hash: "$2a$12$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrU3H."
+  hash: "{{ .Dashboards }}"
   reserved: true
-  description: "Demo OpenSearch Dashboards user"
-
-readall:
-  hash: "$2a$12$ae4ycwzwvLtZxwZ82RmiEunBbIPiAmGZduBAjKN0TXdwQFtCwARz2"
-  reserved: false
-  backend_roles:
-  - "readall"
-  description: "Demo readall user"
-
-snapshotrestore:
-  hash: "$2y$12$DpwmetHKwgYnorbgdvORCenv4NAK8cPUg8AI6pxLCuWf/ALc0.v7W"
-  reserved: false
-  backend_roles:
-  - "snapshotrestore"
-  description: "Demo snapshotrestore user"`))
+  description: "Demo OpenSearch Dashboards user"`))
 )
 
+type internalUsersHashes struct {
+	Admin      string
+	Dashboards string
+}
+
+type internalUsersPasswords struct {
+	admin      []byte
+	dashboards []byte
+}
+
 func (r *Reconciler) generatePasswordObjects() (retObjects []runtime.Object, retErr error) {
-	password := util.GenerateRandomString(16)
-	securityconfig, retErr := r.generateInternalUsers(password)
+	adminPassword := util.GenerateRandomString(16)
+	dashboardsPassword := util.GenerateRandomString(16)
+	securityconfig, retErr := r.generateInternalUsers(internalUsersPasswords{
+		admin:      adminPassword,
+		dashboards: dashboardsPassword,
+	})
 	if retErr != nil {
 		return
 	}
 	retObjects = append(retObjects, securityconfig)
-	retObjects = append(retObjects, r.generateAuthSecret(password))
+	retObjects = append(retObjects, r.generateAuthSecret(adminPassword))
+	retObjects = append(retObjects, r.generateDashboardsSecret(dashboardsPassword))
 
 	return
 }
 
-func (r *Reconciler) generateInternalUsers(password []byte) (runtime.Object, error) {
+func (r *Reconciler) generateInternalUsers(passwords internalUsersPasswords) (runtime.Object, error) {
 	lg := log.FromContext(r.ctx)
 	lg.Info("generating bcrypt hash, this is slow")
-	hash, err := bcrypt.GenerateFromPassword(password, bcryptCost)
+	adminHash, err := bcrypt.GenerateFromPassword(passwords.admin, bcryptCost)
+	if err != nil {
+		return nil, err
+	}
+	dashHash, err := bcrypt.GenerateFromPassword(passwords.dashboards, bcryptCost)
 	if err != nil {
 		return nil, err
 	}
 
 	var buffer bytes.Buffer
-	err = internalUsersTemplate.Execute(&buffer, string(hash))
+	err = internalUsersTemplate.Execute(&buffer, internalUsersHashes{
+		Admin:      string(adminHash),
+		Dashboards: string(dashHash),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +108,21 @@ func (r *Reconciler) generateAuthSecret(password []byte) runtime.Object {
 		},
 		Data: map[string][]byte{
 			"username": []byte("internalopni"),
+			"password": password,
+		},
+	}
+	ctrl.SetControllerReference(r.instance, secret, r.client.Scheme())
+	return secret
+}
+
+func (r *Reconciler) generateDashboardsSecret(password []byte) runtime.Object {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-dashboards-auth", r.instance.Name),
+			Namespace: r.instance.Namespace,
+		},
+		Data: map[string][]byte{
+			"username": []byte("kibanaserver"),
 			"password": password,
 		},
 	}

@@ -77,7 +77,7 @@ import (
 					workdir: "/app"
 					command: {
 						name: "node_modules/.bin/nuxt"
-						args: ["generate", "-c", "product/opni/nuxt.config.js"]
+						args: ["generate", "-c", "product/opni/nuxt.config.js", "--spa"]
 					}
 				},
 				docker.#Run & {
@@ -89,13 +89,6 @@ import (
 					}
 					if keepSourceMaps {
 						command: name: "/bin/true"
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "find"
-						args: ["/app/dist", "-type", "f", "-exec", "brotli", "-jf", "{}", "+"]
 					}
 				},
 			]

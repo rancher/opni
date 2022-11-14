@@ -23,7 +23,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/pkg/alerting/metrics"
@@ -48,6 +47,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -156,6 +156,7 @@ type EnvironmentOptions struct {
 	defaultAgentVersion       string
 	enableDisconnectServer    bool
 	enableNodeExporter        bool
+	storageBackend            v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -238,11 +239,24 @@ func WithEnableNodeExporter(enable bool) EnvironmentOption {
 	}
 }
 
+func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.storageBackend = backend
+	}
+}
+
 func defaultAgentVersion() string {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_AGENT_VERSION"); ok {
 		return v
 	}
 	return "v2"
+}
+
+func defaultStorageBackend() v1beta1.StorageType {
+	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_STORAGE_BACKEND"); ok {
+		return v1beta1.StorageType(v)
+	}
+	return "etcd"
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
@@ -256,6 +270,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableRealtimeServer:   true,
 		agentIdSeed:            time.Now().UnixNano(),
 		defaultAgentVersion:    defaultAgentVersion(),
+		storageBackend:         defaultStorageBackend(),
 	}
 	options.apply(opts...)
 
@@ -368,6 +383,12 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			panic(err)
 		}
 	}
+	if portNum, ok := os.LookupEnv("JETSTREAM_PORT"); ok {
+		e.ports.Jetstream, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	e.tempDir, err = os.MkdirTemp("", "opni-test-*")
 	if err != nil {
@@ -469,6 +490,8 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	e.initCtx()
 	e.Processes.APIServer = future.New[*os.Process]()
 
+	lg := Log.Named("k8s")
+
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -503,6 +526,26 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// wait for the apiserver to be ready
+	readyCount := 0
+	client := kubernetes.NewForConfigOrDie(cfg).CoreV1().RESTClient().Get().AbsPath("/healthz")
+	for readyCount < 5 {
+		response := client.Do(context.Background())
+		if response.Error() == nil {
+			var code int
+			response.StatusCode(&code)
+			if code == 200 {
+				readyCount++
+				continue
+			}
+		}
+		lg.With(zap.Error(response.Error())).Debug("apiserver is not ready yet")
+		readyCount = 0
+		time.Sleep(100 * time.Millisecond)
+	}
+	lg.Info("apiserver is ready")
+
 	pid := os.Getpid()
 	threads, err := os.ReadDir(fmt.Sprintf("/proc/%d/task/", pid))
 	if err != nil {
@@ -630,6 +673,7 @@ func (e *Environment) startJetstream() {
 	}
 	jetstreamBin := path.Join(e.TestBin, "nats-server")
 	cmd := exec.CommandContext(e.ctx, jetstreamBin, defaultArgs...)
+	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
@@ -657,36 +701,24 @@ func (e *Environment) startJetstream() {
 		opt, err := nats.NkeyOptionFromSeed(natsSeedPath)
 		if err != nil {
 			panic(err)
-
 		}
-		retryBackoff := backoff.NewExponentialBackOff()
-		time.Sleep(time.Second)
 		if nc, err := nats.Connect(
 			natsURL,
 			opt,
 			nats.MaxReconnects(-1),
-			nats.CustomReconnectDelay(
-				func(i int) time.Duration {
-					if i == 1 {
-						retryBackoff.Reset()
-					}
-					return retryBackoff.NextBackOff()
-				},
-			),
-			nats.DisconnectErrHandler(
-				func(nc *nats.Conn, err error) {
-					lg.With(
-						"err", err,
-					).Warn("nats disconnected")
-				},
-			),
+			nats.RetryOnFailedConnect(true),
 		); err == nil {
 			defer nc.Close()
+			for e.ctx.Err() == nil {
+				if _, err := nc.RTT(); err == nil {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
 			break
 		} else {
 			lg.Error(err)
 		}
-		time.Sleep(time.Second)
 	}
 	lg.Info("Jetstream started")
 }
@@ -1233,12 +1265,23 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					ClientKey:  path.Join(e.tempDir, "cortex/client.key"),
 				},
 			},
-			Storage: v1beta1.StorageSpec{
-				Type: v1beta1.StorageTypeEtcd,
-				Etcd: &v1beta1.EtcdStorageSpec{
-					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
-				},
-			},
+			Storage: lo.Switch[v1beta1.StorageType, v1beta1.StorageSpec](e.storageBackend).
+				Case(v1beta1.StorageTypeEtcd, v1beta1.StorageSpec{
+					Type: v1beta1.StorageTypeEtcd,
+					Etcd: &v1beta1.EtcdStorageSpec{
+						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+					},
+				}).
+				Case(v1beta1.StorageTypeJetStream, v1beta1.StorageSpec{
+					Type: v1beta1.StorageTypeJetStream,
+					JetStream: &v1beta1.JetStreamStorageSpec{
+						Endpoint:     fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream),
+						NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
+					},
+				}).
+				DefaultF(func() v1beta1.StorageSpec {
+					panic("unknown storage backend")
+				}),
 			Alerting: v1beta1.AlertingSpec{
 				//Endpoints:                 []string{"opni-alerting:9093"},
 				ConfigMap: "alertmanager-config",
@@ -1652,6 +1695,16 @@ func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 	}
 	return &v1beta1.EtcdStorageSpec{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+	}
+}
+
+func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
+	if !e.enableJetstream {
+		e.Logger.Panic("JetStream disabled")
+	}
+	return &v1beta1.JetStreamStorageSpec{
+		Endpoint:     fmt.Sprintf("http://localhost:%d", e.ports.Jetstream),
+		NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
 	}
 }
 

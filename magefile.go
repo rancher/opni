@@ -273,6 +273,8 @@ func k8sModuleVersion() string {
 }
 
 func init() {
+	test.Deps = append(test.Deps, testbin.Testbin, Build) // TODO: fix this with magefiles directory
+
 	k8sVersion := k8sModuleVersion()
 
 	mockgen.Config.Mocks = []mockgen.Mock{

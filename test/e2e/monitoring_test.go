@@ -52,8 +52,6 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		cortexOpsClient.ConfigureCluster(ctx, &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_HighlyAvailable,
 			Storage: &storagev1.StorageSpec{
-				// Backend:    "filesystem",
-				// Filesystem: &storagev1.FilesystemStorageSpec{},
 				Backend: "s3",
 				S3: &storagev1.S3StorageSpec{
 					Endpoint:        outputs.S3Endpoint,

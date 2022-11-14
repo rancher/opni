@@ -126,3 +126,41 @@ func (p *provisioner) buildGrafanaIngress(ctx *Context, namespace StringPtrInput
 	}, Provider(provider), RetainOnDelete(true))
 	return err
 }
+
+func (p *provisioner) buildOpensearchIngress(ctx *Context, namespace StringPtrInput, provider ProviderResource) error {
+	_, err := networkingv1.NewIngress(ctx, "opensearch", &networkingv1.IngressArgs{
+		Metadata: &metav1.ObjectMetaArgs{
+			Name:      String("opensearch"),
+			Namespace: namespace,
+			Annotations: StringMap{
+				"nginx.ingress.kubernetes.io/backend-protocol": String("HTTPS"),
+				"nginx.ingress.kubernetes.io/proxy-body-size":  String("500m"),
+			},
+		},
+		Spec: &networkingv1.IngressSpecArgs{
+			IngressClassName: String("nginx"),
+			Rules: networkingv1.IngressRuleArray{
+				networkingv1.IngressRuleArgs{
+					Host: p.dns.OpensearchFqdn,
+					Http: &networkingv1.HTTPIngressRuleValueArgs{
+						Paths: networkingv1.HTTPIngressPathArray{
+							networkingv1.HTTPIngressPathArgs{
+								Path:     String("/"),
+								PathType: String("Prefix"),
+								Backend: &networkingv1.IngressBackendArgs{
+									Service: networkingv1.IngressServiceBackendArgs{
+										Name: String("opni-opensearch-svc"),
+										Port: networkingv1.ServiceBackendPortArgs{
+											Number: Int(9200),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, Provider(provider), RetainOnDelete(true))
+	return err
+}

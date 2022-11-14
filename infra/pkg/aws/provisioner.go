@@ -36,9 +36,10 @@ type eksResources struct {
 }
 
 type dnsResources struct {
-	GrafanaFqdn StringOutput
-	GatewayFqdn StringOutput
-	Cert        *acm.Certificate
+	GrafanaFqdn    StringOutput
+	GatewayFqdn    StringOutput
+	OpensearchFqdn StringOutput
+	Cert           *acm.Certificate
 }
 
 type s3Resources struct {
@@ -91,6 +92,10 @@ func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.M
 			return StringOutput{}, err
 		}
 
+		if err := p.buildOpensearchIngress(ctx, namespace.Metadata.Name(), k); err != nil {
+			return StringOutput{}, err
+		}
+
 		return lbHostname, nil
 	}).(StringOutput)
 
@@ -103,6 +108,7 @@ func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.M
 		Provider:             eks.Cluster.Provider,
 		Kubeconfig:           eks.Cluster.Kubeconfig,
 		GrafanaHostname:      p.dns.GrafanaFqdn,
+		OpensearchHostname:   p.dns.OpensearchFqdn,
 		GatewayHostname:      p.dns.GatewayFqdn,
 		LoadBalancerHostname: lbHostname,
 		OAuth: resources.OAuthOutput{

@@ -1,3 +1,6 @@
 package util
 
-var Version string
+var (
+	Version   string
+	BuildTime string
+)

@@ -16,9 +16,9 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -32,20 +32,22 @@ func TestE2E(t *testing.T) {
 }
 
 var (
-	testEnv         *test.Environment
-	stopEnv         context.CancelFunc
-	k8sClient       client.Client
-	restConfig      *rest.Config
-	mgmtClient      managementv1.ManagementClient
-	adminClient     cortexadmin.CortexAdminClient
-	cortexOpsClient cortexops.CortexOpsClient
-	outputs         StackOutputs
-	gatewayAddress  string
+	testEnv            *test.Environment
+	stopEnv            context.CancelFunc
+	k8sClient          client.Client
+	restConfig         *rest.Config
+	mgmtClient         managementv1.ManagementClient
+	adminClient        cortexadmin.CortexAdminClient
+	cortexOpsClient    cortexops.CortexOpsClient
+	loggingAdminClient loggingadmin.LoggingAdminClient
+	outputs            StackOutputs
+	gatewayAddress     string
 )
 
 type StackOutputs struct {
 	GatewayURL        string `json:"gateway_url"`
 	GrafanaURL        string `json:"grafana_url"`
+	OpensearchURL     string `json:"opensearch_url"`
 	Kubeconfig        string `json:"kubeconfig"`
 	OAuthClientID     string `json:"oauth_client_id"`
 	OAuthClientSecret string `json:"oauth_client_secret"`
@@ -100,17 +102,13 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	adminClient, err = cortexadmin.NewClient(ctx,
-		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
-		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-	)
+	adminClient, err = clients.FromExtension(ctx, mgmtClient, "CortexAdmin", cortexadmin.NewCortexAdminClient)
 	Expect(err).NotTo(HaveOccurred())
 
-	cortexOpsClient, err = cortexops.NewClient(
-		ctx,
-		cortexops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
-		cortexops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-	)
+	cortexOpsClient, err = clients.FromExtension(ctx, mgmtClient, "CortexOps", cortexops.NewCortexOpsClient)
+	Expect(err).NotTo(HaveOccurred())
+
+	loggingAdminClient, err = clients.FromExtension(ctx, mgmtClient, "LoggingAdmin", loggingadmin.NewLoggingAdminClient)
 	Expect(err).NotTo(HaveOccurred())
 
 	startStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})

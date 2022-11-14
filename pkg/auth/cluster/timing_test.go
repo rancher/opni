@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"net/http"
 	"path"
 	"runtime"
 	"runtime/debug"
@@ -18,6 +17,8 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sys/unix"
 	"gonum.org/v1/gonum/stat"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/onsi/gomega/gmeasure"
 	"go.uber.org/zap/zapcore"
@@ -104,9 +105,9 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 		rand.Read(largeBody)
 		largeBody2 := make([]byte, 2*1024*1024)
 		rand.Read(largeBody2)
-		invalidExists := invalidAuthHeader("cluster-1", largeBody2)
-		validDoesNotExist := validAuthHeader("cluster-2", largeBody)
-		invalidDoesNotExist := invalidAuthHeader("cluster-2", largeBody2)
+		invalidExistsNonce, invalidExists := invalidAuthHeader("cluster-1", largeBody2)
+		validDoesNotExistNonce, validDoesNotExist := validAuthHeader("cluster-2", largeBody)
+		invalidDoesNotExistNonce, invalidDoesNotExist := invalidAuthHeader("cluster-2", largeBody2)
 
 		titleA := "A) valid mac, cluster does not exist"
 		titleB := "B) valid mac, cluster exists"
@@ -129,24 +130,24 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 				for i := 0; i < sampleTarget/threads; i++ {
 					{ // A
 						start := threadClock()
-						code, _, _ := mw.VerifyKeyring(validDoesNotExist, largeBody)
+						_, _, err := mw.VerifyKeyring(validDoesNotExist, validDoesNotExistNonce, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleA, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
-						Expect(code).To(Equal(http.StatusUnauthorized))
+						Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 					}
 					{ // B
 						start := threadClock()
-						code, _, _ := mw.VerifyKeyring(invalidDoesNotExist, largeBody)
+						_, _, err := mw.VerifyKeyring(invalidDoesNotExist, invalidDoesNotExistNonce, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleB, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
-						Expect(code).To(Equal(http.StatusUnauthorized))
+						Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 					} // C
 					{
 						start := threadClock()
-						code, _, _ := mw.VerifyKeyring(invalidExists, largeBody)
+						_, _, err := mw.VerifyKeyring(invalidExists, invalidExistsNonce, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleC, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
-						Expect(code).To(Equal(http.StatusUnauthorized))
+						Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
 					}
 				}
 			}()

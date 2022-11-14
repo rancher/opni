@@ -3,6 +3,7 @@ package monitoring
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	_ "embed"
@@ -160,6 +161,15 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	grafanaHostname := fmt.Sprintf("grafana.%s", gatewayHostname)
 	if r.spec.Grafana.Hostname != "" {
 		grafanaHostname = r.spec.Grafana.Hostname
+	}
+
+	if strings.Contains(grafanaHostname, "://") {
+		_, grafanaHostname, _ = strings.Cut(grafanaHostname, "://")
+	}
+
+	grafanaHostname = strings.TrimSpace(grafanaHostname)
+	if _, err := url.Parse(grafanaHostname); err != nil {
+		return nil, fmt.Errorf("invalid grafana hostname: %w", err)
 	}
 
 	defaults := grafanav1alpha1.GrafanaSpec{

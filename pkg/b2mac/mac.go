@@ -11,20 +11,18 @@ import (
 )
 
 // Computes a blake2b-512 MAC for the given tenant ID and message payload
-// using the provided private key. A random nonce used in the computation is
-// returned along with the MAC.
+// using the provided private key and random nonce.
 // This function will only return an error if there is a problem with the
 // private key.
-func New512(id []byte, payload []byte, key ed25519.PrivateKey) (uuid.UUID, []byte, error) {
-	nonce := uuid.New()
+func New512(id []byte, nonce uuid.UUID, payload []byte, key ed25519.PrivateKey) ([]byte, error) {
 	mac, err := blake2b.New512(key)
 	if err != nil {
-		return uuid.UUID{}, nil, err
+		return nil, err
 	}
 	mac.Write(id)
 	mac.Write(nonce[:])
 	mac.Write(payload)
-	return nonce, mac.Sum(nil), nil
+	return mac.Sum(nil), nil
 }
 
 func Verify(mac []byte, id []byte, nonce uuid.UUID, payload []byte, key ed25519.PrivateKey) error {

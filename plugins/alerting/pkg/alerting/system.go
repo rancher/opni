@@ -68,13 +68,14 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			drivers.WithManagementClient(client),
 		)
 	})
-	go func() {
-		p.watchGlobalCluster(client)
-	}()
+	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
+		func() { p.watchGlobalCluster(client) },
+		func() { p.watchGlobalClusterHealthStatus(client) },
+		func() { p.watchCortexClusterStatus() }
 
-	go func() {
-		p.watchGlobalClusterHealthStatus(client)
-	}()
+	p.globalWatchers = NewSimpleInternalConditionWatcher(
+		clusterCrud, clusterHealthStatus, cortexBackendStatus)
+	p.globalWatchers.WatchEvents()
 	<-p.Ctx.Done()
 }
 
@@ -131,7 +132,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 func (p *Plugin) restartAgentDisconnectTrackers() {
 	lg := p.Logger.With("re-indexing", "agent-disconnect-trackers")
-	ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)
+	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
 		return

@@ -48,6 +48,7 @@ type Plugin struct {
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
 	natsConn        future.Future[*nats.Conn]
+	globalWatchers  InternalConditionWatcher
 }
 
 type StorageAPIs struct {

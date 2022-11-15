@@ -12,9 +12,11 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, opts ...drivers.AlertingManagerDriverOption) {
@@ -44,6 +46,45 @@ func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, o
 		}
 	}
 	p.opsNode.ClusterDriver.Set(driver)
+}
+
+// blocking
+func (p *Plugin) watchCortexClusterStatus() {
+	lg := p.Logger.With("watcher", "cortex-cluster-status")
+	// acquire cortex client
+	var adminClient cortexadmin.CortexAdminClient
+	for {
+		ctxca, ca := context.WithTimeout(p.Ctx, 5*time.Second)
+		acquiredClient, err := p.adminClient.GetContext(ctxca)
+		ca()
+		if err != nil {
+			lg.Warn("could not acquire cortex admin client within timeout, retrying...")
+		} else {
+			adminClient = acquiredClient
+			break
+		}
+	}
+
+	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.Ctx.Done():
+			lg.Debug("closing cortex cluster status watcher...")
+		case <-ticker.C:
+			status, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
+			if err != nil {
+				lg.Debugf("failed to get cortex cluster status %s", err)
+				continue
+			}
+			for _, cortexMsgReceiver := range p.msgNode.ListCortexStatusListeners() {
+				select {
+				case cortexMsgReceiver <- status:
+				default:
+				}
+			}
+		}
+	}
 }
 
 // blocking
@@ -108,7 +149,7 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 				}
 			case managementv1.WatchEventType_Deleted:
 				// delete any conditions that are associated with this cluster
-				ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)
+				ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
 				if err != nil {
 					p.Logger.Errorf("failed to list conditions from storage : %s", err)
 				}
@@ -152,6 +193,18 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 			clusterStatus, err := clusterStatusClient.Recv()
 			if err != nil {
 				p.Logger.Error()
+			}
+			if clusterStatus.HealthStatus == nil { // isn't clear if this should be explicitly checked
+				continue
+			}
+			if clusterStatus.HealthStatus.Health == nil {
+				clusterStatus.HealthStatus.Health = &corev1.Health{
+					Timestamp: timestamppb.Now(),
+					Ready:     false,
+				}
+			}
+			if clusterStatus.HealthStatus.Health.Timestamp == nil {
+				clusterStatus.HealthStatus.Health.Timestamp = timestamppb.Now()
 			}
 			msg := &health.StatusUpdate{
 				ID:     clusterStatus.Cluster.Id,

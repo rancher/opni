@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
 	"go.uber.org/zap"
@@ -87,7 +87,7 @@ func (s *StorageNodeOptions) apply(opts ...StorageNodeOption) {
 	}
 }
 
-func (s *StorageNode) CreateConditionStorage(ctx context.Context, conditionId string, condition *alertingv1.AlertCondition) error {
+func (s *StorageNode) CreateCondition(ctx context.Context, conditionId string, condition *alertingv1.AlertCondition) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -97,7 +97,7 @@ func (s *StorageNode) CreateConditionStorage(ctx context.Context, conditionId st
 	return storage.Conditions.Put(ctx, path.Join(conditionPrefix, conditionId), condition)
 }
 
-func (s *StorageNode) GetConditionStorage(ctx context.Context, conditionId string) (*alertingv1.AlertCondition, error) {
+func (s *StorageNode) GetCondition(ctx context.Context, conditionId string) (*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -107,7 +107,7 @@ func (s *StorageNode) GetConditionStorage(ctx context.Context, conditionId strin
 	return storage.Conditions.Get(ctx, path.Join(conditionPrefix, conditionId))
 }
 
-func (s *StorageNode) ListConditionStorage(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
+func (s *StorageNode) ListConditions(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -121,7 +121,7 @@ func (s *StorageNode) ListConditionStorage(ctx context.Context) ([]*alertingv1.A
 	return items, nil
 }
 
-func (s *StorageNode) ListWithKeyConditionStorage(ctx context.Context) ([]string, []*alertingv1.AlertCondition, error) {
+func (s *StorageNode) ListWithKeysConditions(ctx context.Context) ([]string, []*alertingv1.AlertCondition, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -135,7 +135,7 @@ func (s *StorageNode) ListWithKeyConditionStorage(ctx context.Context) ([]string
 	return keys, items, nil
 }
 
-func (s *StorageNode) UpdateConditionStorage(ctx context.Context, conditionId string, newCondition *alertingv1.AlertCondition) error {
+func (s *StorageNode) UpdateCondition(ctx context.Context, conditionId string, newCondition *alertingv1.AlertCondition) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -149,7 +149,7 @@ func (s *StorageNode) UpdateConditionStorage(ctx context.Context, conditionId st
 	return storage.Conditions.Put(ctx, path.Join(conditionPrefix, conditionId), newCondition)
 }
 
-func (s *StorageNode) DeleteConditionStorage(ctx context.Context, conditionId string) error {
+func (s *StorageNode) DeleteCondition(ctx context.Context, conditionId string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -163,7 +163,7 @@ func (s *StorageNode) DeleteConditionStorage(ctx context.Context, conditionId st
 	return storage.Conditions.Delete(ctx, path.Join(conditionPrefix, conditionId))
 }
 
-func (s *StorageNode) CreateEndpointsStorage(ctx context.Context, endpointId string, endpoint *alertingv1.AlertEndpoint) error {
+func (s *StorageNode) CreateEndpoint(ctx context.Context, endpointId string, endpoint *alertingv1.AlertEndpoint) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -173,7 +173,7 @@ func (s *StorageNode) CreateEndpointsStorage(ctx context.Context, endpointId str
 	return storage.Endpoints.Put(ctx, path.Join(endpointPrefix, endpointId), endpoint)
 }
 
-func (s *StorageNode) GetEndpointStorage(ctx context.Context, endpointId string) (*alertingv1.AlertEndpoint, error) {
+func (s *StorageNode) GetEndpoint(ctx context.Context, endpointId string) (*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -183,7 +183,7 @@ func (s *StorageNode) GetEndpointStorage(ctx context.Context, endpointId string)
 	return storage.Endpoints.Get(ctx, path.Join(endpointPrefix, endpointId))
 }
 
-func (s *StorageNode) ListEndpointStorage(ctx context.Context) ([]*alertingv1.AlertEndpoint, error) {
+func (s *StorageNode) ListEndpoints(ctx context.Context) ([]*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -197,7 +197,7 @@ func (s *StorageNode) ListEndpointStorage(ctx context.Context) ([]*alertingv1.Al
 	return items, nil
 }
 
-func (s *StorageNode) ListWithKeyEndpointStorage(ctx context.Context) ([]string, []*alertingv1.AlertEndpoint, error) {
+func (s *StorageNode) ListWithKeysEndpoints(ctx context.Context) ([]string, []*alertingv1.AlertEndpoint, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -211,7 +211,7 @@ func (s *StorageNode) ListWithKeyEndpointStorage(ctx context.Context) ([]string,
 	return keys, items, nil
 }
 
-func (s *StorageNode) UpdateEndpointStorage(ctx context.Context, endpointId string, newEndpoint *alertingv1.AlertEndpoint) error {
+func (s *StorageNode) UpdateEndpoint(ctx context.Context, endpointId string, newEndpoint *alertingv1.AlertEndpoint) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -225,7 +225,7 @@ func (s *StorageNode) UpdateEndpointStorage(ctx context.Context, endpointId stri
 	return storage.Endpoints.Put(ctx, path.Join(endpointPrefix, endpointId), newEndpoint)
 }
 
-func (s *StorageNode) DeleteEndpointStorage(ctx context.Context, endpointId string) error {
+func (s *StorageNode) DeleteEndpoint(ctx context.Context, endpointId string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -239,11 +239,14 @@ func (s *StorageNode) DeleteEndpointStorage(ctx context.Context, endpointId stri
 	return storage.Endpoints.Delete(ctx, path.Join(endpointPrefix, endpointId))
 }
 
-func (s *StorageNode) CreateAgentIncidentTracker(ctx context.Context, conditionId string, initialValue AgentIncidentStep) error {
-	t := AgentIncident{
-		ConditionId: conditionId,
-		Steps:       []*AgentIncidentStep{&initialValue},
-	}
+func (s *StorageNode) CreateIncidentTracker(
+	ctx context.Context,
+	conditionId string,
+	initialValue InternalIncidentStep) error {
+	// TODO : generic constructor
+	// FIXME: input the type ourselves
+	t := HandleInternalIncidentType(shared.AgentDisconnectStorageType)
+	t.New(conditionId, initialValue)
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -262,7 +265,7 @@ func (s *StorageNode) CreateAgentIncidentTracker(ctx context.Context, conditionI
 	return err
 }
 
-func (s *StorageNode) GetAgentIncidentTracker(ctx context.Context, conditionId string) (*AgentIncident, error) {
+func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string) (InternalIncident, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -277,15 +280,15 @@ func (s *StorageNode) GetAgentIncidentTracker(ctx context.Context, conditionId s
 	if err != nil {
 		return nil, err
 	}
-	var st AgentIncident
+	var st *AgentIncident
 	err = json.Unmarshal(entry.Value(), &st)
 	if err != nil {
 		return nil, err
 	}
-	return &st, nil
+	return st, nil
 }
 
-func (s *StorageNode) GetActiveWindowsFromAgentIncidentTracker(
+func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
 	ctx context.Context,
 	conditionId string,
 	start,
@@ -293,28 +296,29 @@ func (s *StorageNode) GetActiveWindowsFromAgentIncidentTracker(
 ) ([]*alertingv1.ActiveWindow, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	incident, err := s.GetAgentIncidentTracker(ctxTimeout, conditionId)
+	incident, err := s.GetIncidentTracker(ctxTimeout, conditionId)
 	if err != nil {
 		return nil, err
 	}
 	res := []*alertingv1.ActiveWindow{}
-	if len(incident.Steps) == 0 {
+	steps := incident.GetSteps()
+	if len(steps) == 0 {
 		return res, nil
 	}
 	risingEdge := true
-	for _, step := range incident.Steps {
-		if step.Status.Timestamp == nil {
+	for _, step := range steps {
+		if step.GetTimestamp() == nil {
 			continue
 		}
-		if step.AlertFiring && risingEdge {
+		if step.IsFiring() && risingEdge {
 			res = append(res, &alertingv1.ActiveWindow{
-				Start: step.Status.Timestamp,
+				Start: step.GetTimestamp(),
 				End:   timestamppb.Now(), // overwritten if it is found later
 				Type:  alertingv1.TimelineType_Timeline_Alerting,
 			})
 			risingEdge = false
-		} else if !step.AlertFiring && !risingEdge {
-			res[len(res)-1].End = step.Status.Timestamp
+		} else if !step.IsFiring() && !risingEdge {
+			res[len(res)-1].End = step.GetTimestamp()
 			risingEdge = true
 		}
 	}
@@ -328,7 +332,7 @@ func (s *StorageNode) GetActiveWindowsFromAgentIncidentTracker(
 	return res, nil
 }
 
-func (s *StorageNode) ListAgentIncidentTrackers(ctx context.Context) ([]AgentIncident, error) {
+func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]InternalIncident, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
@@ -343,13 +347,20 @@ func (s *StorageNode) ListAgentIncidentTrackers(ctx context.Context) ([]AgentInc
 	if err != nil {
 		return nil, err
 	}
-	res := make([]AgentIncident, 0)
+	res := make([]InternalIncident, 0)
 	for _, id := range ids {
 		entry, err := sts.Get(id)
 		if err != nil {
 			return nil, err
 		}
-		var st AgentIncident
+		var st *AgentIncident
+		err = json.Unmarshal(entry.Value(), &st)
+		if err != nil {
+			continue
+		}
+		if st == nil {
+			panic("st should not unmarshal to nil")
+		}
 		err = json.Unmarshal(entry.Value(), &st)
 		if err != nil {
 			continue
@@ -359,7 +370,7 @@ func (s *StorageNode) ListAgentIncidentTrackers(ctx context.Context) ([]AgentInc
 	return res, nil
 }
 
-func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId string, updateValue AgentIncidentStep) error {
+func (s *StorageNode) AddToIncidentTracker(ctx context.Context, conditionId string, updateValue InternalIncidentStep) error {
 	s.agentTrackerMu.Lock()
 	defer s.agentTrackerMu.Unlock()
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
@@ -375,7 +386,7 @@ func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId
 	var agentEntry nats.KeyValueEntry
 	entry, err := sts.Get(conditionId)
 	if errors.Is(err, nats.ErrKeyNotFound) {
-		err := s.CreateAgentIncidentTracker(ctx, conditionId, updateValue)
+		err := s.CreateIncidentTracker(ctx, conditionId, updateValue)
 		if err != nil {
 			return err
 		}
@@ -397,8 +408,7 @@ func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId
 	if prev.isEquivalentState(updateValue) { // prevent filling up K,V with duplicate states
 		return nil
 	}
-
-	prev.Steps = append(prev.Steps, &updateValue)
+	prev.AddStep(updateValue)
 	data, err := json.Marshal(prev)
 	if err != nil {
 		return err
@@ -407,7 +417,7 @@ func (s *StorageNode) AddToAgentIncidentTracker(ctx context.Context, conditionId
 	return err
 }
 
-func (s *StorageNode) DeleteAgentIncidentTracker(ctx context.Context, conditionId string) error {
+func (s *StorageNode) DeleteIncidentTracker(ctx context.Context, conditionId string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)

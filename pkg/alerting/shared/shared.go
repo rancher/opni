@@ -19,6 +19,10 @@ import (
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
+// Storage types
+
+const AgentDisconnectStorageType = "agent-disconnect"
+
 // Datasources & Versioning
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"

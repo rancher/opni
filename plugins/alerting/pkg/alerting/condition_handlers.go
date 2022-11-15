@@ -80,7 +80,7 @@ func setupCondition(
 func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteAgentIncidentTracker(ctx, id)
+		p.storageNode.DeleteIncidentTracker(ctx, id)
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
@@ -118,9 +118,9 @@ func (p *Plugin) handleSystemAlertCreation(
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 ) error {
-	_, err := p.storageNode.GetAgentIncidentTracker(ctx, newConditionId)
+	_, err := p.storageNode.GetIncidentTracker(ctx, newConditionId)
 	if errors.Is(err, nats.ErrKeyNotFound) {
-		p.storageNode.CreateAgentIncidentTracker(ctx, newConditionId, alertstorage.AgentIncidentStep{
+		p.storageNode.CreateIncidentTracker(ctx, newConditionId, &alertstorage.AgentIncidentStep{
 			StatusUpdate: health.StatusUpdate{
 				ID: k.GetClusterId().Id,
 				Status: &corev1.Status{
@@ -304,10 +304,10 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 	var firingLock sync.RWMutex
 	currentlyFiring := false // last know firing state synced between the spawned goroutines
 	// for re-entrant conditions, check the last persisted state
-	st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
-	if err == nil && st != nil && len(st.Steps) != 0 {
-		a := st.Steps[len(st.Steps)-1]
-		currentlyFiring = a.AlertFiring
+	st, err := p.storageNode.GetIncidentTracker(jsCtx, conditionId)
+	if err == nil && st != nil && len(st.GetSteps()) != 0 {
+		a := st.GetSteps()[len(st.GetSteps())-1]
+		currentlyFiring = a.IsFiring()
 	}
 	// spawn async subscription stream
 	go func() {
@@ -342,7 +342,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 						lg.Error(err)
 					}
 					firingLock.RLock()
-					err = p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+					err = p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
 						StatusUpdate: status,
 						AlertFiring:  currentlyFiring,
 					})
@@ -366,21 +366,22 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 			case <-jsCtx.Done():
 				return
 			case <-ticker.C:
-				st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
+				st, err := p.storageNode.GetIncidentTracker(jsCtx, conditionId)
 				if err != nil || st == nil {
-					lg.Warn(err)
+					lg.Warnf("failed to get agent incident tracker : %s", err)
 					continue
 				}
-				if len(st.Steps) == 0 {
+				steps := st.GetSteps()
+				if len(steps) == 0 {
 					panic("no system alert condition steps")
 				}
-				a := st.Steps[len(st.Steps)-1]
-				if a.Status.Timestamp == nil {
+				a := steps[len(steps)-1]
+				if a.GetTimestamp() == nil {
 					continue
 				}
-				if !a.Status.Connected {
+				if !a.IsHealthy() {
 					lg.Debug("agent is disconnected")
-					interval := timestamppb.Now().AsTime().Sub(a.Status.Timestamp.AsTime())
+					interval := timestamppb.Now().AsTime().Sub(a.GetTimestamp().AsTime())
 					if interval > condition.GetTimeout().AsDuration() {
 						lg.Debug("triggering alert")
 						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
@@ -396,23 +397,35 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 						currentlyFiring = true
 						firingLock.Unlock() // in case Updating the incident tracker takes a while, but we still want to process incoming messages
 						firingLock.RLock()
-						p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
-							StatusUpdate: a.StatusUpdate, // must copy old timestamp
-							AlertFiring:  currentlyFiring,
+						p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
+							StatusUpdate: health.StatusUpdate{
+								ID: "", // don't need this
+								Status: &corev1.Status{
+									Timestamp: a.GetTimestamp(),
+									Connected: a.IsHealthy(),
+								},
+							}, //a.StatusUpdate, // must copy old timestamp
+							AlertFiring: currentlyFiring,
 						})
 						firingLock.RUnlock()
 					} else {
 						currentlyFiring = false
 					}
-				} else if a.Status.Connected && currentlyFiring {
+				} else if a.IsHealthy() && currentlyFiring {
 					lg.Debug("agent disconnect is firing : agent is reconnected")
 					firingLock.Lock()
 					currentlyFiring = false
 					firingLock.Unlock()
 					firingLock.RLock()
-					p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
-						StatusUpdate: a.StatusUpdate, // must copy old timestamp
-						AlertFiring:  currentlyFiring,
+					p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
+						StatusUpdate: health.StatusUpdate{
+							ID: "", // don't need this
+							Status: &corev1.Status{
+								Timestamp: a.GetTimestamp(),
+								Connected: a.IsHealthy(),
+							},
+						}, // must copy old timestamp
+						AlertFiring: currentlyFiring,
 					})
 					firingLock.RUnlock()
 				}
@@ -421,4 +434,61 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, cancel)
 	return nil
+}
+
+func (p *Plugin) onCortexClusterStatusCreate(conditionId string, cond interface{}) context.CancelFunc {
+	//lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
+	/*msgCtx*/
+	_, cancel := context.WithCancel(p.Ctx)
+	var firingLock sync.RWMutex
+	//currentlyFiring := false
+
+	// spawn subscription/ aggregation stream
+	go func() {
+		defer cancel()
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-p.Ctx.Done():
+				return
+			case <-ticker.C:
+				select {
+				default:
+					for el := range p.msgNode.GetWatcher(conditionId) {
+						if el == nil {
+							continue
+						}
+						firingLock.RLock()
+						// TODO
+						//err := p.storageNode.AddToCortexClusterStatusIncidentTracker(msgCtx, conditionId, alertstorage.CortexClusterStatusIncidentStep{
+						//	AlertFiring:   currentlyFiring,
+						//	ClusterStatus: el.ClusterStatus,
+						//})
+						//if err != nil {
+						//	lg.Error(err)
+						//}
+						firingLock.RUnlock()
+					}
+				}
+			}
+		}
+	}()
+
+	// spawn a watcher for triggering alerts
+	go func() {
+		defer cancel()
+		ticker := time.NewTicker(time.Second * 10)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-p.Ctx.Done():
+				return
+			case <-ticker.C:
+				// get storage tracker
+			}
+		}
+	}()
+
+	return cancel
 }

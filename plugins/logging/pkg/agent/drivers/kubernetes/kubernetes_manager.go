@@ -294,7 +294,7 @@ func (m *KubernetesManagerDriver) buildOpniClusterFlow() *loggingv1beta1.Cluster
 				{
 					ClusterExclude: &loggingv1beta1.ClusterExclude{
 						Namespaces: []string{
-							"opni-system",
+							m.namespace,
 						},
 					},
 				},

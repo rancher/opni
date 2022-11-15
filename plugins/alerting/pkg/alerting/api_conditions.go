@@ -301,13 +301,13 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 					return defaultState, nil
 				}
 				switch *alert.Status.State {
-				case models.AlertStatusStateActive:
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_FIRING,
-					}, nil
 				case models.AlertStatusStateSuppressed:
 					return &alertingv1.AlertStatusResponse{
 						State: alertingv1.AlertConditionState_SILENCED,
+					}, nil
+				case models.AlertStatusStateActive:
+					return &alertingv1.AlertStatusResponse{
+						State: alertingv1.AlertConditionState_FIRING,
 					}, nil
 				case models.AlertStatusStateUnprocessed:
 					fallthrough
@@ -341,8 +341,14 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 	if existing.Silence != nil {
 		silenceID = &existing.Silence.SilenceId
 	}
+	if existing.Silence != nil && existing.Silence.SilenceId != "" {
+		_, err := p.DeactivateSilence(ctx, &corev1.Reference{Id: req.ConditionId.Id})
+		if err != nil {
+			return nil, shared.WithInternalServerErrorf("failed to deactivate existing silence : %s", err)
+		}
+	}
 	respSilence := &backend.PostSilencesResponse{}
-	apiNode := backend.NewAlertManagerPostSilenceClient(
+	postSilenceNode := backend.NewAlertManagerPostSilenceClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(p.Logger),
@@ -353,7 +359,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 			}
 			return json.NewDecoder(resp.Body).Decode(respSilence)
 		}))
-	err = apiNode.DoRequest()
+	err = postSilenceNode.DoRequest()
 	if err != nil {
 		p.Logger.Errorf("failed to post silence : %s", err)
 		return nil, err

@@ -336,7 +336,7 @@ func NewAlertManagerDeleteSilenceClient(ctx context.Context, endpoint, silenceId
 	return (&AlertManagerAPI{
 		AlertManagerApiOptions: options,
 		Endpoint:               endpoint,
-		Route:                  fmt.Sprintf("/silences/%s", silenceId),
+		Route:                  fmt.Sprintf("/silence/%s", silenceId),
 		Verb:                   DELETE,
 		ctx:                    ctx,
 	}).WithAPIV2()

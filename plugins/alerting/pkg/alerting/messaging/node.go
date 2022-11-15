@@ -63,8 +63,8 @@ func (n *MessagingNode) ListCortexStatusListeners() []chan *cortexadmin.CortexSt
 }
 
 func (n *MessagingNode) AddSystemConfigListener(conditionId string, ca context.CancelFunc) {
-	n.conditionMu.Lock()
-	defer n.conditionMu.Unlock()
+	n.systemConditionMu.Lock()
+	defer n.systemConditionMu.Unlock()
 	if oldCa, ok := n.systemConditionUpdateListeners[conditionId]; ok {
 		//existing goroutine, cancel it
 		oldCa()

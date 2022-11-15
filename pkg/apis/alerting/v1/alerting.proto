@@ -79,6 +79,7 @@ enum AlertType {
   CPU_SATURATION = 2;
   MEMORY_SATURATION = 3;
   FS_SATURATION = 4;
+  DOWNSTREAM_CAPABILTIY = 5;
   // Unimplemented
   COMPOSITION = 6;
   // Unimplemented
@@ -131,6 +132,8 @@ message AlertTypeDetails {
     AlertConditionFilesystemSaturation fs = 8;
     // no golden signal; custom
     AlertConditionPrometheusQuery prometheusQuery = 9;
+    // agent downstream capability alerts
+    AlertConditionDownstreamCapability downstreamCapability = 10;
   }
 }
 
@@ -143,7 +146,8 @@ message ListAlertTypeDetails {
     ListAlertConditionCPUSaturation cpu = 5;
     ListAlertConditionMemorySaturation memory = 6;
     ListAlertConditionFilesystemSaturation fs = 7;
-    ListAlertConditionPrometheusQuery prometheusQuery = 8;
+    ListAlertConditionDownstreamCapability downstreamCapability = 8;
+    ListAlertConditionPrometheusQuery prometheusQuery = 9;
   }
 }
 
@@ -279,6 +283,31 @@ message AlertConditionPrometheusQuery{
   core.Reference clusterId = 1;
   string query = 2;
   google.protobuf.Duration for = 3;
+}
+
+message AlertConditionDownstreamCapability{
+  core.Reference clusterId = 1;
+  string capability = 2;
+  repeated string capabilityState = 3;
+  // In the UI this should be "is in state : " versus "is not in state:"
+  bool contains = 4;
+  google.protobuf.Duration for = 5;
+}
+
+message ListAlertConditionDownstreamCapability{
+  map<string, ClusterCapabilityInfo> clusters = 1; 
+}
+
+message ClusterCapabilityInfo {
+  map<string, ClusterCapabilityConditions> capabilities = 1;
+}
+
+message ClusterCapabilityConditions {
+  map<string, StringArray> conditions = 1;
+}
+
+message StringArray {
+  repeated string items = 1;
 }
 
 message ObjectList {

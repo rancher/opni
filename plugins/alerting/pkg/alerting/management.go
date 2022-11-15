@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent"
+
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -18,6 +22,56 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// capability name ---> condition name ---> condition status
+var registerMu sync.RWMutex
+var RegisteredCapabilityStatuses = map[string]map[string][]health.ConditionStatus{}
+
+func RegisterCapabilityStatus(capabilityName, condName string, availableStatuses []health.ConditionStatus) {
+	registerMu.Lock()
+	defer registerMu.Unlock()
+	if _, ok := RegisteredCapabilityStatuses[capabilityName]; !ok {
+		RegisteredCapabilityStatuses[capabilityName] = map[string][]health.ConditionStatus{}
+	}
+	RegisteredCapabilityStatuses[capabilityName][condName] = availableStatuses
+}
+
+func ListCapabilityStatuses(capabilityName string) map[string][]health.ConditionStatus {
+	registerMu.RLock()
+	defer registerMu.RUnlock()
+	return RegisteredCapabilityStatuses[capabilityName]
+}
+
+func init() {
+	// metrics
+	RegisterCapabilityStatus(
+		wellknown.CapabilityMetrics,
+		health.CondConfigSync,
+		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
+	RegisterCapabilityStatus(
+		wellknown.CapabilityMetrics,
+		agent.CondRemoteWrite,
+		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
+	RegisterCapabilityStatus(
+		wellknown.CapabilityMetrics,
+		agent.CondRuleSync,
+		[]health.ConditionStatus{
+			health.StatusPending,
+			health.StatusFailure})
+	RegisterCapabilityStatus(
+		wellknown.CapabilityMetrics,
+		health.CondBackend,
+		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
+	//logging
+	RegisterCapabilityStatus(wellknown.CapabilityLogs, health.CondConfigSync, []health.ConditionStatus{
+		health.StatusPending,
+		health.StatusFailure,
+	})
+	RegisterCapabilityStatus(wellknown.CapabilityLogs, health.CondBackend, []health.ConditionStatus{
+		health.StatusPending,
+		health.StatusFailure,
+	})
+}
 
 func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, opts ...drivers.AlertingManagerDriverOption) {
 	// load default cluster drivers

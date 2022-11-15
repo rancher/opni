@@ -20,6 +20,7 @@ func init() {
 	monitoring := shared.MonitoringDatasource
 	system := shared.SystemDatasource
 	EnumConditionToDatasource[AlertType_SYSTEM] = &system
+	EnumConditionToDatasource[AlertType_DOWNSTREAM_CAPABILTIY] = &system
 	EnumConditionToDatasource[AlertType_KUBE_STATE] = &monitoring
 	EnumConditionToDatasource[AlertType_CPU_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_MEMORY_SATURATION] = &monitoring
@@ -68,6 +69,11 @@ func init() {
 	EnumConditionToImplementation[AlertType_PROMETHEUS_QUERY] = AlertTypeDetails{
 		Type: &AlertTypeDetails_PrometheusQuery{
 			PrometheusQuery: &AlertConditionPrometheusQuery{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_DOWNSTREAM_CAPABILTIY] = AlertTypeDetails{
+		Type: &AlertTypeDetails_DownstreamCapability{
+			DownstreamCapability: &AlertConditionDownstreamCapability{},
 		},
 	}
 }

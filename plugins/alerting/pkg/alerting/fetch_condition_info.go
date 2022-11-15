@@ -28,6 +28,8 @@ func handleChoicesByType(
 	switch req.GetAlertType() {
 	case alertingv1.AlertType_SYSTEM:
 		return p.fetchAgentInfo(ctx)
+	case alertingv1.AlertType_DOWNSTREAM_CAPABILTIY:
+		return p.fetchDownstreamCapabilityInfo(ctx)
 	case alertingv1.AlertType_KUBE_STATE:
 		return p.fetchKubeStateInfo(ctx)
 	case alertingv1.AlertType_CPU_SATURATION:
@@ -106,6 +108,56 @@ func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeD
 	return &alertingv1.ListAlertTypeDetails{
 		Type: &alertingv1.ListAlertTypeDetails_System{
 			System: resSystem,
+		},
+	}, nil
+}
+
+func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.Logger.With("handler", "fetchDownstreamCapabilityInfo")
+	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	resChoices := &alertingv1.ListAlertConditionDownstreamCapability{
+		Clusters: make(map[string]*alertingv1.ClusterCapabilityInfo),
+	}
+
+	for _, cl := range clusters.Items {
+		lg.Debugf("found cluster name : %s", cl.Id)
+		lg.Debugf("found num capabilities %d", len(cl.GetCapabilities()))
+		for _, cap := range cl.GetCapabilities() {
+			lg.Debugf("found capability `%s`", cap.Name)
+			if _, ok := resChoices.Clusters[cl.Id]; !ok {
+				resChoices.Clusters[cl.Id] = &alertingv1.ClusterCapabilityInfo{
+					Capabilities: make(map[string]*alertingv1.ClusterCapabilityConditions),
+				}
+				if _, ok := resChoices.Clusters[cl.Id].Capabilities[cap.Name]; !ok {
+					resChoices.Clusters[cl.Id].Capabilities[cap.Name] = &alertingv1.ClusterCapabilityConditions{
+						Conditions: make(map[string]*alertingv1.StringArray),
+					}
+					lg.Debugf("found num conditions %d", len(ListCapabilityStatuses(cap.Name)))
+					for condName, statuses := range ListCapabilityStatuses(cap.Name) {
+						resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName] = &alertingv1.StringArray{
+							Items: []string{},
+						}
+						for _, status := range statuses {
+							resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName].Items = append(resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName].Items, status.String())
+							lg.Debugf("Found condition mapping %s->%s", condName, status.String())
+						}
+					}
+				}
+			}
+		}
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_DownstreamCapability{
+			DownstreamCapability: resChoices,
 		},
 	}, nil
 }

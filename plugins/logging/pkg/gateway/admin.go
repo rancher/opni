@@ -656,7 +656,7 @@ func (p *Plugin) generateAdminPassword(cluster *loggingv1beta1.OpniOpensearch) (
 	password = util.GenerateRandomString(8)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-admin-password",
+			Name:      "opni-user-password",
 			Namespace: p.storageNamespace,
 		},
 		Data: map[string][]byte{

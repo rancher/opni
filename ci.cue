@@ -194,7 +194,7 @@ dagger.#Plan & {
 						// input connects to previous step's output
 						contents: sourceBuild.export.directories."/src/bin/plugins"
 						dest:     "/var/lib/opni/plugins/"
-						exclude: ["plugin_example", "plugin_alerting"]
+						exclude: ["plugin_example"]
 					},
 					docker.#Copy & {
 						contents: sourceBuild.export.directories."/opt"

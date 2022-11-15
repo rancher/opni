@@ -74,14 +74,15 @@ message AttachedEndpoint {
 }
 
 enum AlertType {
-  // Reserved for opni-alerting internal use
   SYSTEM = 0;
-  // Ready for UI use
   KUBE_STATE = 1;
+  CPU_SATURATION = 2;
+  MEMORY_SATURATION = 3;
+  FS_SATURATION = 4;
   // Unimplemented
-  COMPOSITION = 2;
+  COMPOSITION = 6;
   // Unimplemented
-  CONTROL_FLOW = 3;
+  CONTROL_FLOW = 7;
 }
 
 enum CompositionAction {
@@ -95,10 +96,11 @@ enum ControlFlowAction {
 }
 
 enum AlertConditionState {
-  UNSPECIFIED = 0;
+  UNKOWN = 0;
   OK = 1;
   FIRING = 2;
   SILENCED = 3;
+  INVALIDATED = 4;
 }
 
 // enum will map to an object of available choices
@@ -116,8 +118,18 @@ message AlertTypeDetails {
     AlertConditionSystem system = 1;
     // kube state : golden signal -> errors
     AlertConditionKubeState kubeState = 2;
+    // not implemented
     AlertConditionComposition composition = 3;
+    // not implemented
     AlertConditionControlFlow controlFlow = 4;
+    // cpu saturation : golden signal -> saturation
+    AlertConditionCPUSaturation cpu = 5;
+    // memory saturation : golden signal -> saturation
+    AlertConditionMemorySaturation memory = 6;
+    // fs saturation : golden signal -> saturation
+    AlertConditionFilesystemSaturation fs = 8;
+    // no golden signal; custom
+    AlertConditionPrometheusQuery prometheusQuery = 9;
   }
 }
 
@@ -127,6 +139,9 @@ message ListAlertTypeDetails {
     ListAlertConditionKubeState kubeState = 2;
     ListAlertConditionComposition composition = 3;
     ListAlertConditionControlFlow controlFlow = 4;
+    ListAlertConditionCPUSaturation cpu = 5;
+    ListAlertConditionMemorySaturation memory = 6;
+    ListAlertConditionFilesystemSaturation fs = 7;
   }
 }
 
@@ -165,6 +180,99 @@ message ListAlertConditionKubeState {
   map<string, KubeObjectGroups> clusters = 1;
   repeated string states = 2;
   repeated google.protobuf.Duration fors = 3;
+}
+
+// Defaults :
+// - cpuState : "user", "system", "guest" selected
+message AlertConditionCPUSaturation {
+  core.Reference clusterId = 1;
+  // optional filters for nodes and cores, restrict observation to said nodes or cores,
+  // if empty, all nodes and cores are selected
+  map<string, Cores> nodeCoreFilters = 2;
+  // at least one cpu state should be specified
+  repeated string cpuStates = 3;
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
+  float expectedRatio = 5; // 0-1
+  google.protobuf.Duration for = 6;
+}
+
+message Cores {
+  repeated int64 items = 1;
+}
+
+message ListAlertConditionCPUSaturation {
+// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
+  map<string, CpuNodeGroup> clusters = 1;
+  // cpu state, one of : 
+  // "user": The time spent in userland
+  // "system": The time spent in the kernel
+  // "iowait": Time spent waiting for I/O
+  // "idle": Time the CPU had nothing to do
+  // "irq" : Time servicing interrupts
+  // "softirq": Time servicing interrupts
+  // "guest" : If you are running VMs, the CPU they use
+  // "steal" : If you are a VM, time other VMs "stole" from your CPUs
+  repeated string cpuStates = 2;
+}
+
+message CpuNodeGroup {
+  map<string, CpuInfo> nodes = 1;
+}
+
+message CpuInfo {
+  // cores
+  repeated int64 coreIds = 1;
+}
+
+message AlertConditionMemorySaturation {
+  core.Reference clusterId = 1;
+  map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices
+  // at least one usageType is required
+  repeated string usageTypes =3;
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
+  double expectedRatio = 5;
+  google.protobuf.Duration for =6;
+}
+
+message ListAlertConditionMemorySaturation {
+  map<string, MemoryNodeGroup> clusters = 1;
+  repeated string usageTypes = 2;
+}
+
+message MemoryNodeGroup {
+  map<string, MemoryInfo> nodes = 1;
+}
+
+message MemoryInfo {
+  repeated string devices = 2;
+}
+
+message AlertConditionFilesystemSaturation {
+  core.Reference clusterId  = 1;
+  // optional filters, if none are set then everything is selected
+  map<string, FilesystemInfo> nodeFilters = 2;
+  string operation = 3; // one of "<", ">", "<=", ">=", "=". "!="
+  double expectedRatio = 4; // 0-1
+  google.protobuf.Duration for = 5;
+}
+
+message ListAlertConditionFilesystemSaturation {
+  map<string, FilesystemNodeGroup> clusters = 1;
+}
+
+message FilesystemNodeGroup {
+  map<string, FilesystemInfo> nodes = 1;
+}
+
+message FilesystemInfo {
+  repeated string mountpoints = 1;
+  repeated string devices = 2;
+}
+
+message AlertConditionPrometheusQuery{
+  core.Reference clusterId = 1;
+  string query = 2;
+  google.protobuf.Duration for = 3;
 }
 
 message ObjectList {

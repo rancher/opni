@@ -5,11 +5,18 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/rancher/opni/pkg/alerting/metrics"
+	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 )
+
+func validComparionOperator(op string) error {
+	if !slices.Contains(shared.ComparisonOperators, op) {
+		return validation.Error("Invalid comparison operator")
+	}
+	return nil
+}
 
 func (s *SilenceRequest) Validate() error {
 	if err := s.ConditionId.Validate(); err != nil {
@@ -38,8 +45,8 @@ func (k *AlertConditionKubeState) Validate() error {
 	if k.Namespace == "" {
 		return validation.Error("objectNamespace must be set")
 	}
-	if !slices.Contains(metrics.KubeStates, k.State) {
-		return validation.Errorf("state must be one of the following: %v", metrics.KubeStates)
+	if !slices.Contains(shared.KubeStates, k.State) {
+		return validation.Errorf("state must be one of the following: %v", shared.KubeStates)
 	}
 	return nil
 }
@@ -52,6 +59,67 @@ func (c *AlertConditionControlFlow) Validate() error {
 	return shared.WithUnimplementedErrorf("Control flow alerts not implemented yet")
 }
 
+func (c *AlertConditionCPUSaturation) Validate() error {
+	if c.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(c.ExpectedRatio >= 0 && c.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if c.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	if len(c.CpuStates) == 0 {
+		return validation.Error("At least one usage type should be set")
+	}
+	return validComparionOperator(c.Operation)
+}
+
+func (c *AlertConditionMemorySaturation) Validate() error {
+	if c.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(c.ExpectedRatio >= 0 && c.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if c.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	if len(c.UsageTypes) == 0 {
+		return validation.Error("At least one usage type should be set")
+	}
+	return validComparionOperator(c.Operation)
+}
+
+func (f *AlertConditionFilesystemSaturation) Validate() error {
+	if f.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if !(f.ExpectedRatio >= 0 && f.ExpectedRatio <= 1) {
+		return validation.Error("expectedRatio must be between 0 and 1")
+	}
+	if f.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return validComparionOperator(f.Operation)
+}
+
+func (q *AlertConditionPrometheusQuery) Validate() error {
+	if q.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if q.Query == "" {
+		return validation.Error("Prometheus query must be non-empty")
+	}
+	if _, err := promql.ParseExpr(q.Query); err != nil {
+		return validation.Errorf("Invalid prometheus query : %s ", err)
+	}
+	if q.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be set")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
@@ -59,13 +127,25 @@ func (d *AlertTypeDetails) Validate() error {
 	if d.GetKubeState() != nil {
 		return d.GetKubeState().Validate()
 	}
+	if d.GetCpu() != nil {
+		return d.GetCpu().Validate()
+	}
+	if d.GetMemory() != nil {
+		return d.GetMemory().Validate()
+	}
+	if d.GetFs() != nil {
+		return d.GetFs().Validate()
+	}
+	if d.GetPrometheusQuery() != nil {
+		return d.GetPrometheusQuery().Validate()
+	}
 	if d.GetComposition() != nil {
 		return d.GetComposition().Validate()
 	}
 	if d.GetControlFlow() != nil {
 		return d.GetControlFlow().Validate()
 	}
-	return validation.Errorf("Unknown alert type provided %v", d)
+	return validation.Errorf("Backend does not handle alert type provided %v", d)
 }
 
 func (a *AlertCondition) Validate() error {
@@ -137,10 +217,11 @@ func (s *SlackEndpoint) Validate() error {
 		return validation.Errorf("webhook must be a valid url : %s", err)
 	}
 
-	if s.Channel != "" {
-		if !strings.HasPrefix(s.Channel, "#") {
-			return validation.Error(shared.AlertingErrInvalidSlackChannel.Error())
-		}
+	if s.Channel == "" {
+		return validation.Error("channel must be set")
+	}
+	if !strings.HasPrefix(s.Channel, "#") {
+		return validation.Error(shared.AlertingErrInvalidSlackChannel.Error())
 	}
 	return nil
 }

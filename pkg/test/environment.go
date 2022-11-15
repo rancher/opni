@@ -262,7 +262,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:             true,
 		enableJetstream:        true,
-		enableNodeExporter:     false,
+		enableNodeExporter:     true,
 		enableGateway:          true,
 		enableCortex:           true,
 		enableDisconnectServer: true,
@@ -1049,7 +1049,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 			newOrExistingKubeObjStateCollector = registeredCollectors[b.String()]
 		}
 
-		for _, validPhase := range metrics.KubeStates {
+		for _, validPhase := range shared.KubeStates {
 			if phase == validPhase {
 				accessedState = true
 				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(1)
@@ -1058,7 +1058,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 			}
 		}
 		if accessedState == false {
-			panic(fmt.Sprintf("Set state for kube metrics api must be one of %s", strings.Join(metrics.KubeStates, ",")))
+			panic(fmt.Sprintf("Set state for kube metrics api must be one of %s", strings.Join(shared.KubeStates, ",")))
 		}
 	}
 
@@ -1171,7 +1171,7 @@ func (e *Environment) simulateKubeObject(kPort int) {
 	namespace := namespaces[rand.Intn(len(namespaces))]
 	sampleObjects := []string{"pod", "deployment", "statefulset", "daemonset", "job", "cronjob", "service", "ingress"}
 	sampleObject := sampleObjects[rand.Intn(len(sampleObjects))]
-	sampleState := metrics.KubeStates[rand.Intn(len(metrics.KubeStates))]
+	sampleState := shared.KubeStates[rand.Intn(len(shared.KubeStates))]
 
 	queryUrl := fmt.Sprintf("http://localhost:%d/set", kPort)
 	client := &http.Client{
@@ -1709,10 +1709,11 @@ func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
 
 func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	options := &EnvironmentOptions{
-		enableGateway:    true,
-		enableEtcd:       true,
-		enableCortex:     true,
-		defaultAgentOpts: []StartAgentOption{},
+		enableGateway:      true,
+		enableEtcd:         true,
+		enableCortex:       true,
+		enableNodeExporter: true,
+		defaultAgentOpts:   []StartAgentOption{},
 	}
 	err := os.Setenv(shared.LocalBackendEnvToggle, "true")
 	if err != nil {
@@ -1764,19 +1765,27 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			environment.StartPrometheus(port, NewOverridePrometheusConfig(
-				"alerting/prometheus/config.yaml",
-				[]PrometheusJob{
-					{
-						JobName:    query.MockTestServerName,
-						ScrapePort: iPort,
-					},
-					{
-						JobName:    "kubernetes",
-						ScrapePort: kPort,
-					},
-				}),
-			)
+			scraper := func() *overridePrometheusConfig {
+				optional := []PrometheusJob{}
+				if options.enableNodeExporter {
+					optional = append(optional, PrometheusJob{
+						JobName:    "node_exporter",
+						ScrapePort: environment.ports.NodeExporterPort,
+					})
+				}
+				return NewOverridePrometheusConfig("alerting/prometheus/config.yaml",
+					append([]PrometheusJob{
+						{
+							JobName:    "payment_service",
+							ScrapePort: iPort,
+						},
+						{
+							JobName:    "kubernetes",
+							ScrapePort: kPort,
+						},
+					}, optional...))
+			}()
+			environment.StartPrometheus(port, scraper)
 
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))

@@ -3,12 +3,12 @@ package metrics
 import (
 	"bytes"
 	"fmt"
-	"github.com/prometheus/common/model"
 	"regexp"
 	"text/template"
-)
 
-var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/alerting/shared"
+)
 
 // KubeObjMetricNameMatcher
 //
@@ -35,7 +35,6 @@ func NewKubeStateRule(
 	forDuration string,
 	annotations map[string]string,
 ) (*AlertingRule, error) {
-	//TODO move this to validation.go
 	if objType == "" {
 		return nil, fmt.Errorf("kubernetes object type should not be empty")
 	}
@@ -51,9 +50,8 @@ func NewKubeStateRule(
 	}
 	kubeMetricName := kubeMetricNameBuffer.String()
 	objectFilter := objType + fmt.Sprintf("= \"%s\"", objName)
-	//TODO: move this to validation.go
 	validState := false
-	for _, state := range KubeStates {
+	for _, state := range shared.KubeStates {
 		if state == podState {
 			validState = true
 		}

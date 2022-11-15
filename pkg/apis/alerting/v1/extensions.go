@@ -20,6 +20,9 @@ func init() {
 	system := shared.SystemDatasource
 	EnumConditionToDatasource[AlertType_SYSTEM] = &system
 	EnumConditionToDatasource[AlertType_KUBE_STATE] = &monitoring
+	EnumConditionToDatasource[AlertType_CPU_SATURATION] = &monitoring
+	EnumConditionToDatasource[AlertType_MEMORY_SATURATION] = &monitoring
+	EnumConditionToDatasource[AlertType_FS_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_COMPOSITION] = &monitoring
 	EnumConditionToDatasource[AlertType_CONTROL_FLOW] = &monitoring
 
@@ -31,6 +34,22 @@ func init() {
 	EnumConditionToImplementation[AlertType_KUBE_STATE] = AlertTypeDetails{
 		Type: &AlertTypeDetails_KubeState{
 			KubeState: &AlertConditionKubeState{},
+		},
+	}
+
+	EnumConditionToImplementation[AlertType_CPU_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Cpu{
+			Cpu: &AlertConditionCPUSaturation{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_MEMORY_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Memory{
+			Memory: &AlertConditionMemorySaturation{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{
+		Type: &AlertTypeDetails_Fs{
+			Fs: &AlertConditionFilesystemSaturation{},
 		},
 	}
 	EnumConditionToImplementation[AlertType_COMPOSITION] = AlertTypeDetails{

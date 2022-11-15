@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -169,6 +170,9 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	} else if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
 		// new condition has new active endpoints, but old one did
 		_, err = p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: conditionId})
+		if err != nil {
+			lg.Errorf("failed to delete condition routing node %s", err)
+		}
 	}
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels
@@ -206,10 +210,54 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 
-	_, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
+	cond, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
+	}
+
+	if a := cond.GetAlertType().GetSystem(); a != nil {
+		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
+		if err != nil {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+
+	if ref, _ := handleSwitchCortexRules(cond.GetAlertType()); ref != nil {
+		// check monitoring backend is installed
+		ctxca, ca := context.WithCancel(ctx)
+		defer ca()
+		cortexOpsClient, err := p.cortexOpsClient.GetContext(ctxca)
+		if err != nil {
+			return nil, err
+		}
+		backendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+		if backendStatus.State == cortexops.InstallState_NotInstalled {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+		// check that monitoring is enabled on the cluster
+		deets, err := p.mgmtClient.Get().GetCluster(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		found := false
+		for _, cap := range deets.GetCapabilities() {
+			if cap.Name == "metrics" {
+				found = true
+			}
+		}
+		if !found {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
 	}
 
 	defaultState := &alertingv1.AlertStatusResponse{
@@ -390,7 +438,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	}
 	requiresCortex := false
 	for idx, id := range ids {
-		if k := conditions[idx].GetAlertType().GetKubeState(); k != nil {
+		if k, _ := handleSwitchCortexRules(conditions[idx].GetAlertType()); k != nil {
 			requiresCortex = true
 		}
 		resp.Items[id] = &alertingv1.ActiveWindows{
@@ -432,17 +480,24 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 					Windows: activeWindows,
 				}
 				addMu.Unlock()
-			} else if k := condition.GetAlertType().GetKubeState(); k != nil {
-				// do the raw quer
+			}
+			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
-					Tenants: []string{k.ClusterId},
-					Query:   ids[idx],
-					Start:   start,
-					End:     end,
-					Step:    cortexStep,
+					Tenants: []string{r.Id},
+					// Constructed recording rule, NOT alerting rule
+					Query: fmt.Sprintf(
+						"%s{%s}",
+						ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
+						ConstructFiltersFromMap(
+							ConstructIdLabelsForRecordingRule(condition.Name, ids[idx]),
+						),
+					),
+					Start: start,
+					End:   end,
+					Step:  cortexStep,
 				})
 				if err != nil {
-					p.Logger.Errorf("failed to query range : %s", err)
+					p.Logger.Errorf("failed to query cortex : %s", err)
 					return
 				}
 				rawBytes := qr.Data

@@ -47,9 +47,8 @@ tests: ginkgo.#TestPlan & {
 				LabelFilter: "!deprecated"
 			}
 		}
-		logging: ginkgo.#Run & {
-			Packages: "./plugins/logging/pkg/gateway"
-			Build: CoverPkg: "github.com/rancher/opni/plugins/logging/pkg/gateway"
+		plugins: ginkgo.#Run & {
+			Packages: "./plugins/..."
 		}
 		integration: ginkgo.#Run & {
 			Packages: "./test/functional/...,./test/integration/..."

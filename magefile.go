@@ -28,6 +28,8 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
+	"github.com/rancher/opni/pkg/test/testutil"
+
 	// mage:import charts
 	charts "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
@@ -452,4 +454,13 @@ func Charts() {
 	}, func() {
 		charts.Charts("opni-agent")
 	})
+}
+
+func CoverageSummary() error {
+	summary, err := testutil.GenerateCoverageSummary("cover.out")
+	if err != nil {
+		return err
+	}
+	fmt.Println(summary)
+	return nil
 }

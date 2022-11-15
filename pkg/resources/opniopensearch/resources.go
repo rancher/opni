@@ -53,6 +53,11 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		},
 	}
 
+	updatedDashboards := r.instance.Spec.Dashboards.DeepCopy()
+	updatedDashboards.OpensearchCredentialsSecret = corev1.LocalObjectReference{
+		Name: fmt.Sprintf("%s-dashboards-auth", r.instance.Name),
+	}
+
 	cluster := &opsterv1.OpenSearchCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Name,
@@ -100,7 +105,7 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 			},
 			NodePools:  r.instance.Spec.NodePools,
 			Security:   updatedSecurityConfig,
-			Dashboards: r.instance.Spec.Dashboards,
+			Dashboards: *updatedDashboards,
 		},
 	}
 

@@ -49,7 +49,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	}
 
 	clusterReadRole.RoleName = r.instanceName
-	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.labels[resources.OpniClusterID])
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id": "%s"}}`, r.labels[resources.OpniClusterID])
 
 	secret := &corev1.Secret{}
 

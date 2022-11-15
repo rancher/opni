@@ -103,6 +103,9 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 						Replicas: 1,
 						Enable:   true,
 						Version:  "1.0.0",
+						OpensearchCredentialsSecret: corev1.LocalObjectReference{
+							Name: "opni-test-dashboards-auth",
+						},
 					},
 				},
 				NatsRef: &corev1.LocalObjectReference{

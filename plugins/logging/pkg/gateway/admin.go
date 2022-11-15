@@ -15,6 +15,7 @@ import (
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -214,6 +216,14 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err != nil {
 			return nil, err
 		}
+
+		password, err := p.generateAdminPassword(k8sOpensearchCluster)
+		if err != nil {
+			return nil, err
+		}
+
+		go p.opensearchManager.CreateInitialAdmin(password)
+
 		return &emptypb.Empty{}, nil
 	}
 
@@ -554,7 +564,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	}
 }
 
-func (p *Plugin) setOpensearchClient() *osclient.Client {
+func (p *Plugin) setOpensearchClient() opensearch.ExtendedClient {
 	expBackoff := backoff.Exponential(
 		backoff.WithMaxRetries(0),
 		backoff.WithMinInterval(5*time.Second),
@@ -570,6 +580,7 @@ FETCH:
 		select {
 		case <-b.Done():
 			p.logger.Warn("plugin context cancelled before Opensearch object created")
+			return opensearch.ExtendedClient{}
 		case <-b.Next():
 			err := p.k8sClient.Get(p.ctx, types.NamespacedName{
 				Name:      p.opensearchCluster.Name,
@@ -581,6 +592,10 @@ FETCH:
 					continue
 				}
 				p.logger.Errorf("failed to check k8s object: %v", err)
+				continue
+			}
+			if !cluster.Status.Initialized {
+				p.logger.Info("waiting for cluster to be initialized")
 				continue
 			}
 			break FETCH
@@ -619,7 +634,13 @@ FETCH:
 		panic(err)
 	}
 
-	return osClient
+	extendedClient := opensearch.ExtendedClient{
+		Client:   osClient,
+		ISM:      &opensearch.ISMApi{Client: osClient},
+		Security: &opensearch.SecurityAPI{Client: osClient},
+	}
+
+	return extendedClient
 }
 
 func (p *Plugin) validDurationString(duration string) bool {
@@ -629,6 +650,22 @@ func (p *Plugin) validDurationString(duration string) bool {
 		return false
 	}
 	return match
+}
+
+func (p *Plugin) generateAdminPassword(cluster *loggingv1beta1.OpniOpensearch) (password []byte, retErr error) {
+	password = util.GenerateRandomString(8)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-admin-password",
+			Namespace: p.storageNamespace,
+		},
+		Data: map[string][]byte{
+			"password": password,
+		},
+	}
+	ctrl.SetControllerReference(cluster, secret, p.k8sClient.Scheme())
+	retErr = p.k8sClient.Create(p.ctx, secret)
+	return
 }
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {

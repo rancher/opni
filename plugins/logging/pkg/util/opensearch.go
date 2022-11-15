@@ -3,11 +3,11 @@ package util
 import (
 	"sync"
 
-	osclient "github.com/opensearch-project/opensearch-go"
+	"github.com/rancher/opni/pkg/util/opensearch"
 )
 
 type AsyncOpensearchClient struct {
-	*osclient.Client
+	opensearch.ExtendedClient
 
 	initCond    *sync.Cond
 	initialized bool
@@ -28,7 +28,7 @@ func (c *AsyncOpensearchClient) WaitForInit() {
 	c.initCond.L.Unlock()
 }
 
-func (c *AsyncOpensearchClient) SetClient(setter func() *osclient.Client) {
+func (c *AsyncOpensearchClient) SetClient(setter func() opensearch.ExtendedClient) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
@@ -38,7 +38,7 @@ func (c *AsyncOpensearchClient) SetClient(setter func() *osclient.Client) {
 	if c.initialized {
 		return
 	}
-	c.Client = setter()
+	c.ExtendedClient = setter()
 	c.initialized = true
 	c.initCond.Broadcast()
 }

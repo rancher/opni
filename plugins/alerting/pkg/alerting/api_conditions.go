@@ -365,14 +365,13 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 		return nil, err
 	}
 	newCondition := util.ProtoClone(existing)
-	newCondition.Silence = &alertingv1.SilenceInfo{ // not exact, butno one will notice
+	newCondition.Silence = &alertingv1.SilenceInfo{ // not exact, but the difference will be negligible
 		SilenceId: respSilence.GetSilenceId(),
 		StartsAt:  timestamppb.Now(),
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
-	proto.Merge(existing, newCondition)
-	if err := p.storageNode.UpdateConditionStorage(ctx, req.ConditionId.Id, existing); err != nil {
+	if err := p.storageNode.UpdateConditionStorage(ctx, req.ConditionId.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -414,8 +413,7 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
 	// update K,V with new silence info for the respective condition
-	proto.Merge(existing, newCondition)
-	if err := p.storageNode.UpdateConditionStorage(ctx, req.Id, existing); err != nil {
+	if err := p.storageNode.UpdateConditionStorage(ctx, req.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

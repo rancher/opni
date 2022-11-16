@@ -26,9 +26,53 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func (p *Plugin) createRoutingNode(ctx context.Context, req *alertingv1.AttachedEndpoints, conditionId string) error {
+	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	if err != nil {
+		return err
+	}
+	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, conditionId)
+	if err != nil {
+		p.Logger.Error(err)
+		return err
+	}
+	_, err = p.CreateConditionRoutingNode(ctx, routingNode)
+	if err != nil {
+		p.Logger.Error(err)
+		return err
+	}
+	return nil
+}
+
+func (p *Plugin) updateRoutingNode(ctx context.Context, req *alertingv1.AttachedEndpoints, conditionId string) error {
+	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	if err != nil {
+		return err
+	}
+	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, conditionId)
+	if err != nil {
+		p.Logger.Error(err)
+		return err
+	}
+	_, err = p.UpdateConditionRoutingNode(ctx, routingNode)
+	if err != nil {
+		p.Logger.Error(err)
+		return err
+	}
+	return nil
+}
+
+func (p *Plugin) deleteRoutingNode(ctx context.Context, alertId string) error {
+	_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: alertId})
+	if err != nil {
+		p.Logger.Error(err)
+		return err
+	}
+	return nil
+}
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
 	lg := p.Logger.With("Handler", "CreateAlertCondition")
@@ -43,37 +87,8 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	if err != nil {
 		return nil, err
 	}
-
-	if !(req.AttachedEndpoints == nil || len(req.AttachedEndpoints.Items) == 0) {
-		// FIXME: temporary solution
-		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
-		if err != nil {
-			return nil, err
-		}
-		routingNode := &alertingv1.RoutingNode{
-			ConditionId: &corev1.Reference{Id: newId},
-			FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
-				Items:              []*alertingv1.FullAttachedEndpoint{},
-				InitialDelay:       req.AttachedEndpoints.InitialDelay,
-				RepeatInterval:     req.AttachedEndpoints.RepeatInterval,
-				ThrottlingDuration: req.AttachedEndpoints.ThrottlingDuration,
-				Details:            req.AttachedEndpoints.Details,
-			},
-		}
-		for _, endpointItem := range endpointItems.Items {
-			for _, expectedEndpoint := range req.AttachedEndpoints.Items {
-				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
-					routingNode.FullAttachedEndpoints.Items = append(
-						routingNode.FullAttachedEndpoints.Items,
-						&alertingv1.FullAttachedEndpoint{
-							EndpointId:    endpointItem.Id.Id,
-							AlertEndpoint: endpointItem.Endpoint,
-							Details:       req.AttachedEndpoints.Details,
-						})
-				}
-			}
-		}
-		_, err = p.CreateConditionRoutingNode(ctx, routingNode)
+	if alertingv1.ShouldCreateRoutingNode(nil, req.AttachedEndpoints) { //FIXME: this won't clean up setupCondition on failure
+		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +129,6 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	}
 	lg := p.Logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
-	overrideLabels := req.UpdateAlert.Labels
 	conditionId := req.Id.Id
 	existing, err := p.storageNode.GetConditionStorage(ctx, req.Id.Id)
 	if err != nil {
@@ -125,58 +139,30 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	if err != nil {
 		return nil, err
 	}
-	if !(req.UpdateAlert.AttachedEndpoints == nil || len(req.UpdateAlert.AttachedEndpoints.Items) == 0) {
-		endpointItems, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	newAE, oldAE := req.UpdateAlert.AttachedEndpoints, existing.AttachedEndpoints
+	if alertingv1.ShouldCreateRoutingNode(newAE, oldAE) { //FIXME: this won't clean up setupCondition on failure
+		lg.Debugf("udpated condition %s must create an endpoint implementation", conditionId)
+		err := p.createRoutingNode(ctx, newAE, conditionId)
 		if err != nil {
+			p.Logger.Errorf("creating routing node failed %s", err)
 			return nil, err
 		}
-		routingNode := &alertingv1.RoutingNode{
-			ConditionId: &corev1.Reference{Id: req.Id.Id},
-			FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
-				Items:              []*alertingv1.FullAttachedEndpoint{},
-				InitialDelay:       req.UpdateAlert.AttachedEndpoints.InitialDelay,
-				RepeatInterval:     req.UpdateAlert.AttachedEndpoints.RepeatInterval,
-				ThrottlingDuration: req.UpdateAlert.AttachedEndpoints.ThrottlingDuration,
-				Details:            req.UpdateAlert.AttachedEndpoints.Details,
-			},
-		}
-		for _, endpointItem := range endpointItems.Items {
-			for _, expectedEndpoint := range req.UpdateAlert.AttachedEndpoints.Items {
-				if endpointItem.Id.Id == expectedEndpoint.EndpointId {
-					routingNode.FullAttachedEndpoints.Items = append(
-						routingNode.FullAttachedEndpoints.Items,
-						&alertingv1.FullAttachedEndpoint{
-							EndpointId:    endpointItem.Id.Id,
-							AlertEndpoint: endpointItem.Endpoint,
-							Details:       req.UpdateAlert.AttachedEndpoints.Details,
-						})
-				}
-			}
-		}
-		if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
-			// existing condition has active endpoints, so we need to update the routing node
-			_, err = p.UpdateConditionRoutingNode(ctx, routingNode)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// existing condition did not have active endpoints so create the routing node
-			_, err = p.CreateConditionRoutingNode(ctx, routingNode)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-	} else if existing.AttachedEndpoints != nil && len(existing.AttachedEndpoints.Items) > 0 {
-		// new condition has new active endpoints, but old one did
-		_, err = p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: conditionId})
+	} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAE) {
+		lg.Debugf("udpated condition %s must update an existing endpoint implementation", conditionId)
+		err := p.updateRoutingNode(ctx, newAE, conditionId)
 		if err != nil {
-			lg.Errorf("failed to delete condition routing node %s", err)
+			p.Logger.Errorf("updating routing node failed %s", err)
+			return nil, err
+		}
+	} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAE) {
+		lg.Debugf("udpated condition %s must delete an existing endpoint implementation", conditionId)
+		err := p.deleteRoutingNode(ctx, conditionId)
+		if err != nil {
+			p.Logger.Errorf("deleting routing node failed %s", err)
+			return nil, err
 		}
 	}
-	proto.Merge(existing, req.UpdateAlert)
-	existing.Labels = overrideLabels
-	if err := p.storageNode.UpdateConditionStorage(ctx, conditionId, existing); err != nil {
+	if err := p.storageNode.UpdateConditionStorage(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -192,8 +178,9 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
 		return nil, err
 	}
-	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
+
 	if alertingv1.ShouldDeleteRoutingNode(nil, existing.AttachedEndpoints) {
+		lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
 		_, err = p.DeleteConditionRoutingNode(ctx, ref)
 		if err != nil {
 			return nil, err

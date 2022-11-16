@@ -266,5 +266,8 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 		}(), ","))
 	}
 
+	//FIXME: in kubernetes environment, we need to wait for the reconciler to do its magic
+	time.Sleep(time.Second * 2)
+
 	return &emptypb.Empty{}, nil
 }

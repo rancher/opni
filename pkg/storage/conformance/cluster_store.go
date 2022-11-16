@@ -86,6 +86,21 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				Expect(clusters.Items[0].GetMetadata().Capabilities).To(HaveLen(1))
 				Expect(clusters.Items[0].GetMetadata().Capabilities[0].Name).To(Equal("foo"))
 			})
+			It("should fail if the cluster already exists", func() {
+				cluster := &corev1.Cluster{
+					Id: newIdWithLine(),
+					Metadata: &corev1.ClusterMetadata{
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				}
+				err := ts.CreateCluster(context.Background(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = ts.CreateCluster(context.Background(), cluster)
+				Expect(err).To(MatchError(storage.ErrAlreadyExists))
+			})
 		})
 		It("should list clusters with a label selector", func() {
 			create := func(labels map[string]string) *corev1.Cluster {
@@ -591,6 +606,14 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(event.EventType).To(Equal(storage.WatchEventDelete))
 			Expect(event.Previous.Id).To(Equal(cluster2.Id))
 			Expect(event.Current).To(BeNil())
+		})
+		When("deleting a cluster", func() {
+			It("should fail if the cluster does not exist", func() {
+				err := ts.DeleteCluster(context.Background(), &corev1.Reference{
+					Id: newIdWithLine(),
+				})
+				Expect(err).To(MatchError(storage.ErrNotFound))
+			})
 		})
 	}
 }

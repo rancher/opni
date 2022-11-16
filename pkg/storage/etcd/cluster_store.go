@@ -20,15 +20,24 @@ import (
 
 func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
-
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
-	resp, err := e.Client.Put(ctx, path.Join(e.Prefix, clusterKey, cluster.Id), string(data))
+
+	key := path.Join(e.Prefix, clusterKey, cluster.Id)
+	resp, err := e.Client.Txn(ctx).If(
+		clientv3.Compare(clientv3.Version(key), "=", 0),
+	).Then(
+		clientv3.OpPut(key, string(data)),
+	).Commit()
 	if err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
+	if !resp.Succeeded {
+		return storage.ErrAlreadyExists
+	}
+
 	cluster.SetResourceVersion(fmt.Sprint(resp.Header.Revision))
 	return nil
 }

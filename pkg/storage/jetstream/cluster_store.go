@@ -23,6 +23,9 @@ func (s *JetStreamStore) CreateCluster(ctx context.Context, cluster *corev1.Clus
 	}
 	rev, err := s.kv.Clusters.Create(cluster.Id, data)
 	if err != nil {
+		if errIsKeyAlreadyExists(err) {
+			return storage.ErrAlreadyExists
+		}
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
 	cluster.SetResourceVersion(fmt.Sprint(rev))
@@ -32,6 +35,9 @@ func (s *JetStreamStore) CreateCluster(ctx context.Context, cluster *corev1.Clus
 func (s *JetStreamStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) error {
 	_, err := s.GetCluster(ctx, ref)
 	if err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			return storage.ErrNotFound
+		}
 		return err
 	}
 	return s.kv.Clusters.Delete(ref.Id)

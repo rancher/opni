@@ -50,6 +50,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          {{- if .Values.disableUsage }}
+            - name: DO_NOT_TRACK
+              value: "1"
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /etc/opni

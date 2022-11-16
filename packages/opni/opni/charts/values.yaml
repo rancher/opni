@@ -19,6 +19,8 @@ affinity: {}
 volumes: []
 volumeMounts: []
 
+disableUsage: false
+
 gateway:
   enabled: true
   # Service type for the external gateway APIs
@@ -64,6 +66,7 @@ opni-agent:
     version: v2
   kube-prometheus-stack:
     enabled: true
+  disableUsage: false
 
 global:
   cattle:

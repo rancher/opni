@@ -83,12 +83,12 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 					},
 				})
 				if err != nil {
-					p.Logger.Warn(
+					p.Logger.Warnf(
 						"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
 						event.Cluster.Id,
 					)
 				} else {
-					p.Logger.Debug(
+					p.Logger.Debugf(
 						"downstream agent disconnect condition on cluster creation for cluster %s is now active",
 						event.Cluster.Id,
 					)

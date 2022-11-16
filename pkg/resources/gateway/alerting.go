@@ -61,9 +61,7 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 	}
 	if spec.RawAlertManagerConfig == "" {
 		var amData bytes.Buffer
-		mgmtDNS := "opni-internal"
-		httpPort := "8080"
-		amData, err := shared.DefaultAlertManagerConfig(fmt.Sprintf("http://%s:%s", mgmtDNS, httpPort))
+		amData, err := shared.DefaultAlertManagerConfig("http://127.0.0.1:3000")
 		if err != nil {
 			panic(err)
 		}
@@ -188,7 +186,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "debug"),
-								fmt.Sprintf("--log.format=json"),
+								"--log.format=json",
 								// Maximum time to wait for cluster connections to settle before evaluating notifications.
 								fmt.Sprintf("--cluster.settle-timeout=%s", r.spec.Alerting.ClusterSettleTimeout),
 								//Interval for gossip state syncs. Setting this interval lower (more frequent)
@@ -200,7 +198,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 								// bandwidth.
 								fmt.Sprintf("--cluster.gossip-interval=%s", r.spec.Alerting.ClusterGossipInterval),
 								// Time to wait between peers to send notifications
-								fmt.Sprintf("--cluster.peer-timeout=1s"),
+								"--cluster.peer-timeout=1s",
 							},
 							Ports: r.controllerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{
@@ -318,7 +316,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "info"),
-								fmt.Sprintf("--log.format=json"),
+								"--log.format=json",
 								// join to controller
 								fmt.Sprintf("--cluster.peer=%s:%d",
 									shared.OperatorAlertingControllerServiceName,

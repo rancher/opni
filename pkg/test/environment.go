@@ -1293,7 +1293,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				ControllerStatefulSet: "opni-alerting-controller-internal",
 				ControllerNodePort:    9093,
 				ControllerClusterPort: 9094,
-				ManagementHookHandler: shared.AlertingCortexHookHandler,
+				ManagementHookHandler: shared.AlertingDefaultHookName,
 			},
 		},
 	}

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-contrib/pprof"
-	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -73,21 +72,9 @@ func NewHTTPServer(
 		},
 	)
 
-	handlerName := shared.AlertingCortexHookHandler
-	// request body will be in the form of AM webhook payload :
-	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
-	//
-	// Note :
-	//    Webhooks are assumed to respond with 2xx response codes on a successful
-	//	  request and 5xx response codes are assumed to be recoverable.
-	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	router.POST(handlerName, func(c *gin.Context) {
-		c.JSON(http.StatusOK, nil)
-	})
-
 	metricsRouter := gin.New()
 	metricsRouter.GET("/healthz", func(c *gin.Context) {
-		c.Status(http.StatusOK) // returns OK for AlertManager to persist the state
+		c.Status(http.StatusOK)
 	})
 
 	if cfg.Profiling.Path != "" {

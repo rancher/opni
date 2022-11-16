@@ -279,11 +279,8 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
 	for _, alert := range respAlertGroup {
-		for _, recv := range alert.Receivers {
-			if recv.Name == nil {
-				continue
-			}
-			if *recv.Name == ref.Id {
+		for labelName, label := range alert.Labels {
+			if labelName == shared.BackendConditionIdLabel && label == ref.Id {
 				if alert.Status.State == nil { // pretend everything is ok
 					continue
 				}
@@ -303,7 +300,6 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 				default:
 					return defaultState, nil
 				}
-
 			}
 		}
 	}

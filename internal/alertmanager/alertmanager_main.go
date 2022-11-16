@@ -31,6 +31,7 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/alertmanager/api"
@@ -171,6 +172,25 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 }
 
 func Main(args []string) {
+	mux := http.NewServeMux()
+	// request body will be in the form of AM webhook payload :
+	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
+	//
+	// Note :
+	//    Webhooks are assumed to respond with 2xx response codes on a successful
+	//	  request and 5xx response codes are assumed to be recoverable.
+	// therefore, non-recoverable errors should have error codes 3XX and 4XX
+	mux.HandleFunc(shared.AlertingDefaultHookName, func(http.ResponseWriter, *http.Request) {})
+	hookServer := &http.Server{
+		Addr:    fmt.Sprintf("127.0.0.1:%s", shared.AlertingDefaultHookPort),
+		Handler: mux,
+	}
+	go func() {
+		err := hookServer.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	}()
 	os.Exit(run(args))
 }
 

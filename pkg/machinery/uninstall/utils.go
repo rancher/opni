@@ -33,7 +33,13 @@ func (DefaultPendingHandler) OnTaskPending(ctx context.Context, ti task.ActiveTa
 		now := time.Now()
 		// sleep until endTime or context is cancelled
 		if endTime.After(now) {
-			ti.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("Delaying uninstall until %s (%s from now)", endTime.Format(time.Stamp), endTime.Sub(now).Round(time.Second)))
+			var format string
+			if md.DeleteStoredData {
+				format = "Delaying uninstall and data deletion until %s (%s from now)"
+			} else {
+				format = "Delaying uninstall until %s (%s from now)"
+			}
+			ti.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf(format, endTime.Format(time.Stamp), endTime.Sub(now).Round(time.Second)))
 			timer := time.NewTimer(endTime.Sub(now))
 			defer timer.Stop()
 			select {

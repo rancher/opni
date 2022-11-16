@@ -28,6 +28,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -137,6 +138,24 @@ func NewTestCapabilityBackend(
  * Storage                                                                    *
  ******************************************************************************/
 
+type storageErrorKey struct{}
+
+func InjectStorageError(ctx context.Context, err error) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "mock-storage-error", err.Error())
+}
+
+func InjectedStorageError(ctx context.Context) (error, bool) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, false
+	}
+	errs := md.Get("mock-storage-error")
+	if len(errs) == 0 {
+		return nil, false
+	}
+	return errors.New(errs[0]), true
+}
+
 func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 	mockClusterStore := mock_storage.NewMockClusterStore(ctrl)
 
@@ -145,18 +164,24 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 
 	mockClusterStore.EXPECT().
 		CreateCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, cluster *corev1.Cluster) error {
+		DoAndReturn(func(ctx context.Context, cluster *corev1.Cluster) error {
 			mu.Lock()
 			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return err
+			}
 			clusters[cluster.Id] = cluster
 			return nil
 		}).
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		DeleteCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *corev1.Reference) error {
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return err
+			}
 			if _, ok := clusters[ref.Id]; !ok {
 				return storage.ErrNotFound
 			}
@@ -166,9 +191,12 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
+		DoAndReturn(func(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
 			mu.Lock()
 			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
 			clusterList := &corev1.ClusterList{}
 			selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
 				LabelSelector: matchLabels,
@@ -184,9 +212,12 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		GetCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
 			if _, ok := clusters[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
@@ -195,9 +226,12 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		UpdateCluster(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
 			if _, ok := clusters[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
@@ -215,7 +249,11 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		WatchCluster(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			ctx context.Context,
-			cluster *corev1.Cluster) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+			cluster *corev1.Cluster,
+		) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
 			t := time.NewTicker(time.Millisecond * 100)
 			eventC := make(chan storage.WatchEvent[*corev1.Cluster], 10)
 			found := false
@@ -284,6 +322,9 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 	mockClusterStore.EXPECT().
 		WatchClusters(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, knownClusters []*corev1.Cluster) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
 			t := time.NewTicker(1 * time.Millisecond * 100)
 
 			knownClusterMap := make(map[string]*corev1.Cluster, len(knownClusters))

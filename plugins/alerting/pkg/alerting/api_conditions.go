@@ -285,7 +285,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 			}
 			if *recv.Name == ref.Id {
 				if alert.Status.State == nil { // pretend everything is ok
-					return defaultState, nil
+					continue
 				}
 				switch *alert.Status.State {
 				case models.AlertStatusStateSuppressed:
@@ -296,8 +296,10 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 					return &alertingv1.AlertStatusResponse{
 						State: alertingv1.AlertConditionState_FIRING,
 					}, nil
-				case models.AlertStatusStateUnprocessed:
-					fallthrough
+				case models.AlertStatusStateUnprocessed: // in our case unprocessed means it has arrived for firing
+					return &alertingv1.AlertStatusResponse{
+						State: alertingv1.AlertConditionState_FIRING,
+					}, nil
 				default:
 					return defaultState, nil
 				}

@@ -62,8 +62,8 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 	if spec.RawAlertManagerConfig == "" {
 		var amData bytes.Buffer
 		mgmtDNS := "opni-internal"
-		httpPort := "11080"
-		amData, err := shared.DefaultAlertManagerConfig(fmt.Sprintf("http://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
+		httpPort := "8080"
+		amData, err := shared.DefaultAlertManagerConfig(fmt.Sprintf("http://%s:%s", mgmtDNS, httpPort))
 		if err != nil {
 			panic(err)
 		}

@@ -294,18 +294,25 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
 	jsCtx, cancel := context.WithCancel(p.Ctx)
 	var firingLock sync.RWMutex
+	// last know firing state synced between the spawned goroutines
 	currentlyFiring := false
 
+	nc := p.natsConn.Get()
+	js, err := nc.JetStream()
+	if err != nil {
+		lg.Errorf("failed to get jetstream: %v", err)
+		return cancel
+	}
+	// for re-entrant conditions, check the last persisted state
+	st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
+	if err == nil && st != nil && len(st.Steps) != 0 {
+		a := st.Steps[len(st.Steps)-1]
+		currentlyFiring = a.AlertFiring
+	}
 	// spawn async subscription stream
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		for {
-			nc := p.natsConn.Get()
-			js, err := nc.JetStream()
-			if err != nil {
-				lg.Error("failed to get jetstream context")
-				continue
-			}
 			err = natsutil.NewPersistentStream(js, shared.NewAlertingDisconnectStream())
 			if err != nil {
 				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
@@ -372,8 +379,10 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 					continue
 				}
 				if !a.Status.Connected {
+					lg.Debug("agent is disconnected")
 					interval := timestamppb.Now().AsTime().Sub(a.Status.Timestamp.AsTime())
 					if interval > condition.GetTimeout().AsDuration() {
+						lg.Debug("triggering alert")
 						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
 							ConditionId: &corev1.Reference{Id: conditionId},
 							Annotations: map[string]string{
@@ -396,6 +405,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 						currentlyFiring = false
 					}
 				} else if a.Status.Connected && currentlyFiring {
+					lg.Debug("agent disconnect is firing : agent is reconnected")
 					firingLock.Lock()
 					currentlyFiring = false
 					firingLock.Unlock()

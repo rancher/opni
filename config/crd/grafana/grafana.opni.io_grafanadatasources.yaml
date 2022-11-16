@@ -38,6 +38,12 @@ spec:
                       type: string
                     basicAuthUser:
                       type: string
+                    customJsonData:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    customSecureJsonData:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
                     database:
                       type: string
                     editable:
@@ -102,7 +108,10 @@ spec:
                         encrypt:
                           type: string
                         esVersion:
-                          type: string
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          x-kubernetes-int-or-string: true
                         exemplarTraceIdDestinations:
                           items:
                             properties:
@@ -179,6 +188,8 @@ spec:
                           type: integer
                         postgresVersion:
                           type: integer
+                        queryTimeout:
+                          type: string
                         search:
                           properties:
                             hide:
@@ -215,6 +226,8 @@ spec:
                           type: string
                         timeInterval:
                           type: string
+                        timeout:
+                          type: integer
                         timescaledb:
                           type: boolean
                         timezone:

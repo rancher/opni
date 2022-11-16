@@ -71,6 +71,9 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 								},
 							},
 						},
+						Grafana: v1beta2.GrafanaSpec{
+							Enabled: true,
+						},
 					},
 				}
 				Expect(k8sClient.Create(context.Background(), aio)).To(Succeed())
@@ -120,6 +123,9 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						Cortex: v1beta2.CortexSpec{
 							Enabled:        true,
 							DeploymentMode: v1beta2.DeploymentModeHighlyAvailable,
+						},
+						Grafana: v1beta2.GrafanaSpec{
+							Enabled: true,
 						},
 					},
 				}

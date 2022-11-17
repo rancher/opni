@@ -59,7 +59,6 @@ type Plugin struct {
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
-	manageFlag          featureflags.FeatureFlag
 	logging             backend.LoggingBackend
 }
 
@@ -225,11 +224,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	if restconfig != nil {
 		features.PopulateFeatures(ctx, restconfig)
-		p.manageFlag = features.FeatureList.GetFeature("manage-opensearch")
-	}
-
-	if p.featureOverride != nil {
-		p.manageFlag = p.featureOverride
 	}
 
 	go p.opensearchManager.SetClient(p.setOpensearchClient)
@@ -239,7 +233,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 
 	if restconfig != nil {
-		loggingManager := LoggingManagerV2{
+		loggingManager := &LoggingManagerV2{
 			k8sClient:         p.k8sClient,
 			logger:            p.logger.Named("opensearch-manager"),
 			opensearchCluster: p.opensearchCluster,

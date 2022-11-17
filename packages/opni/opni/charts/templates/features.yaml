@@ -4,10 +4,4 @@ metadata:
   name: feature-flags
   namespace: {{ include "opni.namespace" . }}
 data:
-  features: |
-    manage-opensearch:
-      description: Management API for Opensearch Clusters
-      enabled: true
-    tracing:
-      description: Trace collection feature
-      enabled: true
+  features: ""

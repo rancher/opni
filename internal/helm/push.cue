@@ -56,15 +56,16 @@ import (
 }
 
 #PublishToChartsRepo: {
-	dev:     bool
-	source:  dagger.#FS
-	remote:  string | *"rancher"
-	_branch: *{
-		dev:  true
-		name: "charts-repo-dev"
+	dev:    bool
+	source: dagger.#FS
+	remote: string | *"rancher"
+	branch: string
+	{
+		dev:    true
+		branch: "charts-repo-dev"
 	} | {
-		dev:  false
-		name: "charts-repo"
+		dev:    false
+		branch: "charts-repo"
 	}
 	auth?: {
 		user:  string
@@ -88,7 +89,7 @@ import (
 			name: "sh"
 			args: [
 				"-c",
-				"gh repo clone \(remote)/opni -- --branch \(_branch.name)",
+				"gh repo clone \(remote)/opni -- --branch \(branch)",
 			]
 		}
 		export: directories: "/opni": _
@@ -143,7 +144,7 @@ import (
 			name: "sh"
 			args: [
 				"-c",
-				"gh auth setup-git && git config user.name \"$GIT_AUTHOR_NAME\" && git config user.email \"$GIT_AUTHOR_EMAIL\" && git remote -v && git add charts/ assets/ index.yaml && git commit -m 'Update charts' && git push origin refs/heads/\(_branch.name):refs/heads/\(_branch.name)",
+				"gh auth setup-git && git config user.name \"$GIT_AUTHOR_NAME\" && git config user.email \"$GIT_AUTHOR_EMAIL\" && git remote -v && git add charts/ assets/ index.yaml && git commit -m 'Update charts' && git push origin refs/heads/\(branch):refs/heads/\(branch)",
 			]
 		}
 	}

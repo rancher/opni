@@ -593,7 +593,12 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 		}
 		cpPool := opsterv1.NodePool{
 			Component: "quorum",
-			Replicas:  1,
+			Replicas: func() int32 {
+				if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) == 1 {
+					return 2
+				}
+				return 1
+			}(),
 			Roles: []string{
 				"master",
 			},

@@ -26,7 +26,7 @@ import (
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 	storageNamespace  string
-	opensearchManager opensearchdata.Manager
+	opensearchManager *opensearchdata.Manager
 	k8sClient         client.Client
 	storageBackend    future.Future[storage.Backend]
 	logger            *zap.SugaredLogger

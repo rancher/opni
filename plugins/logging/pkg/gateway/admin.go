@@ -36,42 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	LabelOpsterCluster  = "opster.io/opensearch-cluster"
-	LabelOpsterNodePool = "opster.io/opensearch-nodepool"
-	TopologyKeyK8sHost  = "kubernetes.io/hostname"
-
-	opensearchVersion = "1.3.3"
-	defaultRepo       = "docker.io/rancher"
-)
-
-type ClusterStatus int
-
-const (
-	ClusterStatusPending ClusterStatus = iota + 1
-	ClusterStatusGreen
-	ClusterStatusYellow
-	ClusterStatusRed
-	ClusterStatusError
-)
-
-func ClusterStatusDescription(s ClusterStatus) string {
-	switch s {
-	case ClusterStatusPending:
-		return "Opensearch cluster is initializing"
-	case ClusterStatusGreen:
-		return "Opensearch cluster is green"
-	case ClusterStatusYellow:
-		return "Opensearch cluster is yellow"
-	case ClusterStatusRed:
-		return "Opensearch cluster is red"
-	case ClusterStatusError:
-		return "Error fetching status from Opensearch cluster"
-	default:
-		return "unknown status"
-	}
-}
-
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
@@ -401,25 +365,9 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		tolerations = append(tolerations, &toleration)
 	}
 
-	persistence := loggingadmin.DataPersistence{}
-	if pool.Persistence == nil {
-		persistence.Enabled = lo.ToPtr(true)
-	} else {
-		if pool.Persistence.EmptyDir != nil {
-			persistence.Enabled = lo.ToPtr(false)
-		} else {
-			if pool.Persistence.PVC != nil {
-				persistence.Enabled = lo.ToPtr(true)
-				persistence.StorageClass = func() *string {
-					if pool.Persistence.PVC.StorageClassName == "" {
-						return nil
-					}
-					return &pool.Persistence.PVC.StorageClassName
-				}()
-			} else {
-				return &loggingadmin.OpensearchNodeDetails{}, errors.ErrStoredClusterPersistence()
-			}
-		}
+	persistence, err := generatePersistence(pool)
+	if err != nil {
+		return &loggingadmin.OpensearchNodeDetails{}, err
 	}
 
 	return &loggingadmin.OpensearchNodeDetails{
@@ -448,7 +396,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		}(),
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
-		Persistence:  &persistence,
+		Persistence:  persistence,
 		Roles:        ReplaceInArray(pool.Roles, "master", "controlplane"),
 		EnableAntiAffinity: func() *bool {
 			if pool.Affinity == nil {

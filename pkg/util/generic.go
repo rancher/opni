@@ -75,6 +75,37 @@ func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
 }
 
+func Contains[T comparable](items []T, itemToCheck T) bool {
+	for _, item := range items {
+		if item == itemToCheck {
+			return true
+		}
+	}
+	return false
+}
+
+func ReplaceInArray[T comparable](array []T, old T, new T) []T {
+	newArray := make([]T, 0, len(array))
+	for _, item := range array {
+		if item == old {
+			newArray = append(newArray, new)
+		} else {
+			newArray = append(newArray, item)
+		}
+	}
+	return newArray
+}
+
+func RemoveFromArray[T comparable](items []T, remove T) []T {
+	newArray := []T{}
+	for _, item := range items {
+		if item != remove {
+			newArray = append(newArray, item)
+		}
+	}
+	return newArray
+}
+
 func IsInterfaceNil(i interface{}) bool {
 	return reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()
 }

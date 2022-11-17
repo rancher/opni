@@ -11,6 +11,11 @@ import (
 )
 
 const (
+	LogPolicyName        = "log-policy"
+	LogIndexPrefix       = "logs-v0.5.4"
+	LogIndexAlias        = "logs"
+	LogIndexTemplateName = "logs_rollover_mapping"
+
 	tracingPolicyName           = "tracing-policy"
 	spanIndexPrefix             = "otel-v1-apm-span"
 	spanIndexAlias              = "otel-v1-apm-span"
@@ -25,6 +30,114 @@ const (
 
 var (
 	oldTracingIndexPrefixes = []string{}
+	OldIndexPrefixes        = []string{
+		"logs-v0.1.3*",
+		"logs-v0.5.1*",
+	}
+	DefaultRetry = osapiext.RetrySpec{
+		Count:   3,
+		Backoff: "exponential",
+		Delay:   "1m",
+	}
+	OpniLogPolicy = osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+			PolicyID:   LogPolicyName,
+			MarshallID: false,
+		},
+		Description:  "Opni policy with hot-warm-cold workflow",
+		DefaultState: "hot",
+		States: []osapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
+								MinIndexAge: "1d",
+								MinSize:     "20gb",
+							},
+						},
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: "2d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
+						},
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: "7d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
+						},
+					},
+				},
+				Transitions: make([]osapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: []osapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", LogIndexPrefix),
+				},
+				Priority: 100,
+			},
+		},
+	}
 
 	clusterIndexRole = osapiext.RoleSpec{
 		RoleName: "cluster_index",
@@ -244,17 +357,49 @@ var (
 		},
 	}
 
-	ingestPipelineTemplate = osapiext.IndexTemplateSpec{
-		TemplateName: "logs-ingest-pipeline",
+	OpniLogTemplate = osapiext.IndexTemplateSpec{
+		TemplateName: LogIndexTemplateName,
 		IndexPatterns: []string{
-			fmt.Sprintf("%s*", indices.LogIndexPrefix),
+			fmt.Sprintf("%s*", LogIndexPrefix),
 		},
 		Template: osapiext.TemplateSpec{
 			Settings: osapiext.TemplateSettingsSpec{
-				DefaultPipeline: preProcessingPipelineName,
+				NumberOfShards:   1,
+				NumberOfReplicas: 1,
+				ISMPolicyID:      LogPolicyName,
+				RolloverAlias:    LogIndexAlias,
+				DefaultPipeline:  preProcessingPipelineName,
+			},
+			Mappings: osapiext.TemplateMappingsSpec{
+				Properties: map[string]osapiext.PropertySettings{
+					"timestamp": {
+						Type: "date",
+					},
+					"time": {
+						Type: "date",
+					},
+					"log": {
+						Type: "text",
+					},
+					"masked_log": {
+						Type: "text",
+					},
+					"log_type": {
+						Type: "keyword",
+					},
+					"kubernetes_component": {
+						Type: "keyword",
+					},
+					"cluster_id": {
+						Type: "keyword",
+					},
+					"anomaly_level": {
+						Type: "keyword",
+					},
+				},
 			},
 		},
-		Priority: 50,
+		Priority: 100,
 	}
 
 	// kibanaObjects contains the ndjson form data for creating the kibana
@@ -266,7 +411,7 @@ var (
 func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 	return osapiext.ISMPolicySpec{
 		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
-			PolicyID:   indices.LogPolicyName,
+			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
@@ -349,7 +494,7 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 		ISMTemplate: []osapiext.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
-					fmt.Sprintf("%s*", indices.LogIndexPrefix),
+					fmt.Sprintf("%s*", LogIndexPrefix),
 				},
 				Priority: 100,
 			},

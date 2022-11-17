@@ -78,7 +78,7 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 						}
 					}
 				}
-				if !exists {
+				if exists {
 					continue
 				}
 				_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{

@@ -133,8 +133,10 @@ func (p *Plugin) handleSystemAlertCreation(
 	} else if err != nil {
 		return err
 	}
-	caFunc := p.onSystemConditionCreate(newConditionId, k)
-	p.msgNode.AddSystemConfigListener(newConditionId, caFunc)
+	err = p.onSystemConditionCreate(newConditionId, k)
+	if err != nil {
+		p.Logger.Errorf("failed to create agent condition %s", err)
+	}
 	return nil
 }
 
@@ -288,21 +290,19 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	return err
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) context.CancelFunc {
+func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
-	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	var firingLock sync.RWMutex
-	// last know firing state synced between the spawned goroutines
-	currentlyFiring := false
-
 	nc := p.natsConn.Get()
 	js, err := nc.JetStream()
 	if err != nil {
-		lg.Errorf("failed to get jetstream: %v", err)
-		return cancel
+		cancel()
+		return err
 	}
+	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
+	var firingLock sync.RWMutex
+	currentlyFiring := false // last know firing state synced between the spawned goroutines
 	// for re-entrant conditions, check the last persisted state
 	st, err := p.storageNode.GetAgentIncidentTracker(jsCtx, conditionId)
 	if err == nil && st != nil && len(st.Steps) != 0 {
@@ -419,5 +419,6 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 			}
 		}
 	}()
-	return cancel
+	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	return nil
 }

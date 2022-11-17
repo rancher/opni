@@ -140,8 +140,7 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
 			// this checks that we won't crash when importing existing conditions from versions < 0.6
 			if s.GetClusterId() != nil && s.GetTimeout() != nil {
-				caFu := p.onSystemConditionCreate(id, s)
-				p.msgNode.AddSystemConfigListener(id, caFu)
+				p.onSystemConditionCreate(id, s)
 			} else {
 				// delete invalid conditions that won't do anything
 				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})

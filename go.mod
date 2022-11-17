@@ -508,6 +508,7 @@ replace (
 // Forks
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
+	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.13.1-opni.0
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20221115225851-0b4fc0307089
 	github.com/grafana/cortex-tools => github.com/kralicky/cortex-tools v0.10.8-0.20221006211119-063ab6ce69b0
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116

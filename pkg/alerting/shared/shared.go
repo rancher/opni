@@ -42,7 +42,8 @@ const (
 	OperatorAlertingControllerServiceName  = "opni-alerting-controller"
 	OperatorAlertingClusterNodeServiceName = "opni-alerting"
 	AlertingHookReceiverName               = "opni.hook"
-	AlertingCortexHookHandler              = "/management/alerting/cortexHandler"
+	AlertingDefaultHookName                = "/opni/hook"
+	AlertingDefaultHookPort                = 3000
 )
 
 var (
@@ -104,7 +105,7 @@ func DefaultAlertManagerConfig(managementUrl string) (bytes.Buffer, error) {
 	var b bytes.Buffer
 	err := templateToFill.Execute(&b, DefaultAlertManagerInfo{
 		CortexHandlerName: AlertingHookReceiverName,
-		CortexHandlerURL:  managementUrl + AlertingCortexHookHandler,
+		CortexHandlerURL:  managementUrl + AlertingDefaultHookName,
 	})
 	if err != nil {
 		return b, err
@@ -142,6 +143,10 @@ type InternalServerError struct {
 }
 
 type NotFoundError struct {
+	message string
+}
+
+type FailedPreconditionError struct {
 	message string
 }
 

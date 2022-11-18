@@ -3,8 +3,6 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"path"
@@ -13,9 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-contrib/pprof"
-	"github.com/rancher/opni/pkg/alerting/condition"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,59 +71,6 @@ func NewHTTPServer(
 			httpRequestsTotal.Inc()
 		},
 	)
-
-	handlerName := cfg.Alerting.ManagementHookHandler
-	// request body will be in the form of AM webhook payload :
-	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
-	//
-	// Note :
-	//    Webhooks are assumed to respond with 2xx response codes on a successful
-	//	  request and 5xx response codes are assumed to be recoverable.
-	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	router.POST(handlerName, func(c *gin.Context) {
-		b, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			lg.With("handler", handlerName).Error(
-				fmt.Sprintf("failed to read request body %s", err),
-			)
-			c.Status(http.StatusBadRequest)
-			return
-		}
-		annotations, err := condition.ParseCortexPayloadBytes(b)
-		if err != nil {
-			lg.With("handler", handlerName).Error(
-				fmt.Sprintf("failed to read request body %s", err),
-			)
-			c.Status(http.StatusBadRequest)
-			return
-		}
-		//
-		opniAlertingRequests, errors := condition.ParseAlertManagerWebhookPayload(annotations)
-		if len(opniAlertingRequests) != len(errors) {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-		var anyErrors []error
-		for _, opniAlertingRequest := range opniAlertingRequests {
-			// TODO : do the request to trigger alerts
-			resp := "no response requested"
-			lg.With("handler", handlerName).Debug(
-				fmt.Sprintf("opni alering request : %s and response %s", opniAlertingRequest, resp),
-			)
-		}
-		if len(anyErrors) != 0 {
-			for _, err := range anyErrors {
-				if status.Code(err) != codes.NotFound {
-					c.Status(http.StatusBadRequest)
-					return
-				} else { // return not found only if there are no other failed triggers
-					c.Status(http.StatusNotFound)
-				}
-			}
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	})
 
 	metricsRouter := gin.New()
 	metricsRouter.GET("/healthz", func(c *gin.Context) {

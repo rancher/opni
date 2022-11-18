@@ -3,7 +3,6 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"time"
 
@@ -65,14 +64,28 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 			}
 			switch event.Type {
 			case managementv1.WatchEventType_Created:
-				_, err := p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
-					Name: fmt.Sprintf("agent-disconnect (%s)", event.Cluster.Id),
-					Description: fmt.Sprintf(
-						"Alert when the downstream agent (%s) disconnects from the opni upstream",
-						event.Cluster.Id,
-					),
-					Labels:   []string{"agent-disconnect", "opni"},
-					Severity: alertingv1.Severity_CRITICAL,
+				items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
+				if err != nil {
+					p.Logger.Errorf("failed to list alert conditions : %s", err)
+					continue
+				}
+				exists := false
+				for _, item := range items.Items {
+					if s := item.GetAlertCondition().GetAlertType().GetSystem(); s != nil {
+						if s.GetClusterId().Id == event.Cluster.Id {
+							exists = true
+							break
+						}
+					}
+				}
+				if exists {
+					continue
+				}
+				_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
+					Name:        "agent-disconnect",
+					Description: "Alert when the downstream agent disconnects from the opni upstream",
+					Labels:      []string{"agent-disconnect", "opni", "automatic"},
+					Severity:    alertingv1.Severity_CRITICAL,
 					AlertType: &alertingv1.AlertTypeDetails{
 						Type: &alertingv1.AlertTypeDetails_System{
 							System: &alertingv1.AlertConditionSystem{
@@ -83,12 +96,12 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 					},
 				})
 				if err != nil {
-					p.Logger.Warn(
+					p.Logger.Warnf(
 						"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
 						event.Cluster.Id,
 					)
 				} else {
-					p.Logger.Debug(
+					p.Logger.Debugf(
 						"downstream agent disconnect condition on cluster creation for cluster %s is now active",
 						event.Cluster.Id,
 					)

@@ -459,7 +459,7 @@ receivers:
 inhibit_rules: []
 mute_time_intervals: []`
 	dConfig, err := shared.DefaultAlertManagerConfig(
-		"http://localhost:11080" + shared.AlertingCortexHookHandler,
+		"http://127.0.0.1:3000",
 	)
 	if err == nil {
 		cfgStr = dConfig.String()

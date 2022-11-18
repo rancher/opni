@@ -21,9 +21,9 @@ func NewMessagingNode() *MessagingNode {
 func (n *MessagingNode) AddSystemConfigListener(conditionId string, ca context.CancelFunc) {
 	n.conditionMu.Lock()
 	defer n.conditionMu.Unlock()
-	if _, ok := n.systemConditionUpdateListeners[conditionId]; ok {
+	if oldCa, ok := n.systemConditionUpdateListeners[conditionId]; ok {
 		//existing goroutine, cancel it
-		ca()
+		oldCa()
 	}
 	n.systemConditionUpdateListeners[conditionId] = ca
 }
@@ -31,8 +31,8 @@ func (n *MessagingNode) AddSystemConfigListener(conditionId string, ca context.C
 func (n *MessagingNode) RemoveConfigListener(conditionId string) {
 	n.conditionMu.Lock()
 	defer n.conditionMu.Unlock()
-	if ca, ok := n.systemConditionUpdateListeners[conditionId]; ok {
-		ca()
+	if oldCa, ok := n.systemConditionUpdateListeners[conditionId]; ok {
+		oldCa()
 	}
 	delete(n.systemConditionUpdateListeners, conditionId)
 

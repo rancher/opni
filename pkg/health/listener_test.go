@@ -175,7 +175,7 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 
 		go listener.HandleConnection(ctx2, &test.HealthStore{})
 
-		Consistently(sc, 1*time.Second, 100*time.Millisecond).ShouldNot(Receive())
+		Consistently(sc).ShouldNot(Receive())
 
 		ca()
 
@@ -197,14 +197,18 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		ctx3, ca3 := context.WithCancel(context.Background())
 		ctx3 = test.ContextWithAuthorizedID(ctx3, "agent3")
 		go listener.HandleConnection(ctx3, &test.HealthStore{})
-		Consistently(sc, 1*time.Second, 100*time.Millisecond).ShouldNot(Receive())
+		Consistently(sc).ShouldNot(Receive())
 		ca3()
-		Consistently(sc, 1*time.Second, 100*time.Millisecond).ShouldNot(Receive())
+		Consistently(sc).ShouldNot(Receive())
 
 		ca2()
 
-		stat = <-sc
-		Expect(stat.ID).To(Equal("agent2"))
-		Expect(stat.Status.Connected).To(BeFalse())
+		select {
+		case stat = <-sc:
+			Expect(stat.ID).To(Equal("agent2"))
+			Expect(stat.Status.Connected).To(BeFalse())
+		case <-time.After(5 * time.Second):
+			Fail("timed out waiting for status update")
+		}
 	})
 })

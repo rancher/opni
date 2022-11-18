@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"net"
 	"time"
 
@@ -221,6 +222,29 @@ var _ = Describe("Server V2", func() {
 					_, err = client.Auth(ctx, &authReq)
 					Expect(err).To(HaveOccurred())
 					Expect(util.StatusCode(err)).To(Equal(codes.AlreadyExists))
+				})
+				When("the server encounters an error looking up the existing cluster", func() {
+					It("should return codes.Unavailable", func() {
+						rawToken, err := tokens.FromBootstrapToken(token)
+						Expect(err).NotTo(HaveOccurred())
+						jsonData, err := json.Marshal(rawToken)
+						Expect(err).NotTo(HaveOccurred())
+						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+						Expect(err).NotTo(HaveOccurred())
+						ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
+
+						ekp := ecdh.NewEphemeralKeyPair()
+						authReq := bootstrapv2.BootstrapAuthRequest{
+							ClientID:     "foo",
+							ClientPubKey: ekp.PublicKey,
+						}
+						_, err = client.Auth(ctx, &authReq)
+						Expect(err).NotTo(HaveOccurred())
+
+						_, err = client.Auth(test.InjectStorageError(ctx, errors.New("test error")), &authReq)
+						Expect(err).To(HaveOccurred())
+						Expect(util.StatusCode(err)).To(Equal(codes.Unavailable))
+					})
 				})
 			})
 		})

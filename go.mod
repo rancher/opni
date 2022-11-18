@@ -70,8 +70,8 @@ require (
 	github.com/nats-io/nats.go v1.20.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
-	github.com/onsi/ginkgo/v2 v2.4.0
-	github.com/onsi/gomega v1.23.0
+	github.com/onsi/ginkgo/v2 v2.5.0
+	github.com/onsi/gomega v1.24.1
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/ory/fosite v0.42.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -119,7 +119,7 @@ require (
 	golang.org/x/exp v0.0.0-20220927162542-c76eaa363f9d
 	golang.org/x/mod v0.6.0
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
-	golang.org/x/sys v0.1.0
+	golang.org/x/sys v0.2.0
 	golang.org/x/text v0.4.0
 	golang.org/x/tools v0.2.0
 	gonum.org/v1/gonum v0.11.0
@@ -460,9 +460,9 @@ require (
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
-	golang.org/x/term v0.1.0 // indirect
+	golang.org/x/term v0.2.0 // indirect
 	golang.org/x/time v0.0.0-20220920022843-2ce7c2934d45 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect

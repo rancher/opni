@@ -120,6 +120,8 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 
 	if cluster, err := h.storage.GetCluster(ctx, existing); err == nil {
 		return nil, status.Errorf(codes.AlreadyExists, "cluster %s already exists", cluster.Id)
+	} else if !errors.Is(err, storage.ErrNotFound) {
+		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 
 	ekp := ecdh.NewEphemeralKeyPair()
@@ -145,7 +147,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 		},
 	}
 	if err := h.storage.CreateCluster(ctx, newCluster); err != nil {
-		return nil, fmt.Errorf("error creating cluster: %w", err)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("error creating cluster: %v", err))
 	}
 	_, err = h.storage.UpdateToken(ctx, token.Reference(),
 		storage.NewCompositeMutator(

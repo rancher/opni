@@ -47,18 +47,18 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 		It("can get information about all rolebindings", func() {
 			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-				Id:       "test-rolebinding",
+				Id:       "test-rolebinding1",
 				RoleId:   "test-role",
 				Subjects: []string{"test-subject"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			rolebindingInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
-				Id: "test-rolebinding",
+				Id: "test-rolebinding1",
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(rolebindingInfo.Id).To(Equal("test-rolebinding"))
+			Expect(rolebindingInfo.Id).To(Equal("test-rolebinding1"))
 			Expect(rolebindingInfo.RoleId).To(Equal("test-role"))
 			Expect(rolebindingInfo.Subjects).To(Equal([]string{"test-subject"}))
 		})
@@ -71,7 +71,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		rolebindingList := rolebinding.Items
 		Expect(rolebindingList).To(HaveLen(1))
 		for _, rolebindingItem := range rolebindingList {
-			Expect(rolebindingItem.Id).To(Equal("test-rolebinding"))
+			Expect(rolebindingItem.Id).To(Equal("test-rolebinding1"))
 			Expect(rolebindingItem.RoleId).To(Equal("test-role"))
 			Expect(rolebindingItem.Subjects).To(ContainElement("test-subject"))
 		}
@@ -79,12 +79,12 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 	It("can delete an existing rolebinding", func() {
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding1",
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding1",
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.NotFound))
@@ -96,14 +96,14 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 	It("cannot create rolebindings without a RoleID", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding2",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: roleId"))
 
 		_, err = client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding2",
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.NotFound))
@@ -112,13 +112,13 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 	It("can create rolebindings without a valid RoleId", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			RoleId:   uuid.NewString(),
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding2",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		rbInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding2",
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rbInfo.Taints).To(ContainElement("role not found"))
@@ -135,54 +135,54 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 	It("can create and get rolebindings without a subject", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:     "test-rolebinding",
+			Id:     "test-rolebinding3",
 			RoleId: "test-role",
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		rolebindingInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding3",
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding"))
+		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding3"))
 		Expect(rolebindingInfo.RoleId).To(Equal("test-role"))
 		Expect(rolebindingInfo.Subjects).To(BeNil())
 		Expect(rolebindingInfo.Taints).To(Equal([]string{"no subjects"}))
 
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding3",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("can create and get rolebindings without a taint", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding4",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		rolebindingInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding4",
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding"))
+		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding4"))
 		Expect(rolebindingInfo.RoleId).To(Equal("test-role"))
 		Expect(rolebindingInfo.Subjects).To(ContainElement("test-subject"))
 		Expect(rolebindingInfo.Taints).To(BeNil())
 
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding4",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("cannot delete a rolebinding without specifying an Id", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding5",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
@@ -193,14 +193,14 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
 
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding5",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("cannot delete a rolebinding without specifying a valid Id", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding6",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
@@ -213,30 +213,29 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err.Error()).To(ContainSubstring("not found"))
 
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding6",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	//TODO: This can be unignored once the functionality is implemented
-	XIt("cannot create rolebindings with identical Ids", func() {
+	It("cannot create rolebindings with identical Ids", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding7",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
+			Id:       "test-rolebinding7",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to create rolebinding: already exists"))
+		Expect(status.Code(err)).To(Equal(codes.AlreadyExists))
 
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding",
+			Id: "test-rolebinding7",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

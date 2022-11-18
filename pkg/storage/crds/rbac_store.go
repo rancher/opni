@@ -12,22 +12,30 @@ import (
 )
 
 func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
-	return c.client.Create(ctx, &monitoringv1beta1.Role{
+	err := c.client.Create(ctx, &monitoringv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      role.Id,
 			Namespace: c.namespace,
 		},
 		Spec: role,
 	})
+	if k8serrors.IsAlreadyExists(err) {
+		return storage.ErrAlreadyExists
+	}
+	return err
 }
 
 func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
-	return c.client.Delete(ctx, &monitoringv1beta1.Role{
+	err := c.client.Delete(ctx, &monitoringv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
 		},
 	})
+	if k8serrors.IsNotFound(err) {
+		return storage.ErrNotFound
+	}
+	return err
 }
 
 func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error) {
@@ -46,22 +54,30 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.
 }
 
 func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding) error {
-	return c.client.Create(ctx, &monitoringv1beta1.RoleBinding{
+	err := c.client.Create(ctx, &monitoringv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rb.Id,
 			Namespace: c.namespace,
 		},
 		Spec: rb,
 	})
+	if k8serrors.IsAlreadyExists(err) {
+		return storage.ErrAlreadyExists
+	}
+	return err
 }
 
 func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
-	return c.client.Delete(ctx, &monitoringv1beta1.RoleBinding{
+	err := c.client.Delete(ctx, &monitoringv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
 		},
 	})
+	if k8serrors.IsNotFound(err) {
+		return storage.ErrNotFound
+	}
+	return err
 }
 
 func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {

@@ -80,7 +80,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 	It("can return a list of all Cluster IDs that a specific User (Subject) can access via labels", func() {
 		_, err := client.CreateRole(context.Background(), &corev1.Role{
-			Id: "test-role",
+			Id: "test-role-with-labels",
 			MatchLabels: &corev1.LabelSelector{
 				MatchLabels: map[string]string{"i": "999"},
 			},
@@ -89,9 +89,9 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding",
-			RoleId:   "test-role",
-			Subjects: []string{"test-subject"},
+			Id:       "test-rolebinding-with-labels",
+			RoleId:   "test-role-with-labels",
+			Subjects: []string{"test-subject-with-labels"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -131,7 +131,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		}
 
 		accessList, err := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
-			Subject: "test-subject",
+			Subject: "test-subject-with-labels",
 		})
 		Expect(err).NotTo(HaveOccurred())
 

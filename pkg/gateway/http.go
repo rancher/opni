@@ -136,6 +136,9 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 	}
 
 	metricsListener, err := net.Listen("tcp4", s.conf.MetricsListenAddress)
+	if err != nil {
+		return err
+	}
 
 	lg.With(
 		"api", listener.Addr().String(),

@@ -23,6 +23,14 @@ type NewAlertingOptions struct {
 	ManagementHookHandler string
 }
 
+func (a *NewAlertingOptions) GetInternalControllerOpniEndpoint() string {
+	return fmt.Sprintf("%s:%d", a.ControllerNodeService, AlertingDefaultHookPort)
+}
+
+func (a *NewAlertingOptions) GetInternalWorkerOpniEndpoint() string {
+	return fmt.Sprintf("%s:%d", a.WorkerNodesService, AlertingDefaultHookPort)
+}
+
 func (a *NewAlertingOptions) GetControllerEndpoint() string {
 	return fmt.Sprintf("%s:%d", a.ControllerNodeService, a.ControllerNodePort)
 }

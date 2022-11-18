@@ -10,7 +10,10 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -235,6 +238,7 @@ func (p *Plugin) CreateConditionRoutingNode(ctx context.Context, req *alertingv1
 }
 
 func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1.RoutingNode) (*emptypb.Empty, error) {
+	lg := p.Logger.With("handler", "UpdateConditionRoutingNode")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -248,11 +252,34 @@ func (p *Plugin) UpdateConditionRoutingNode(ctx context.Context, req *alertingv1
 		internalConfig,
 	)
 	if err != nil {
-		return nil, err
+		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // something went wrong and receiver/route can't be found
+			lg.Debug("update failed due to missing internal configuration, creating new routing node")
+			_, err = p.CreateConditionRoutingNode(ctx, req)
+			if err != nil {
+				p.Logger.Error(err)
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
-		return nil, err
+		if e, ok := status.FromError(err); ok && e.Code() == codes.FailedPrecondition { // no changes to apply to k8s objects, force a sync with internal AlertManager config
+			lg.Debug("forcing sync of internal routing config, since owned k8s objects are up to date")
+			info, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
+			if err != nil {
+				return nil, err
+			}
+			_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
+				UpdatedConfig: info.RawAlertManagerConfig,
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -263,13 +290,16 @@ func (p *Plugin) DeleteConditionRoutingNode(ctx context.Context, req *corev1.Ref
 	if err != nil {
 		return nil, err
 	}
-	err = amConfig.DeleteRoutingNodeForCondition(req.Id, internalConfig)
-	if err != nil {
+	deleteErr := amConfig.DeleteRoutingNodeForCondition(req.Id, internalConfig)
+	if e, ok := status.FromError(deleteErr); ok && e.Code() != codes.NotFound {
 		return nil, err
 	}
-	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
-	if err != nil {
-		return nil, err
+	// if the original indexing failed we want to skip applying no changes to the config
+	if deleteErr == nil {
+		err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -298,6 +328,7 @@ func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty)
 }
 
 func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, attachedEndpoint *alertingv1.FullAttachedEndpoint) (*emptypb.Empty, error) {
+	lg := p.Logger.With("handler", "UpdateIndividualEndpointInRoutingNode")
 	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
 		return nil, err
@@ -308,7 +339,21 @@ func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, atta
 	}
 	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
-		return nil, err
+		if e, ok := status.FromError(err); ok && e.Code() == codes.FailedPrecondition { // no changes to apply to k8s objects, force a sync with internal AlertManager config
+			lg.Debug("forcing sync of internal routing config, since owned k8s objects are up to date")
+			info, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
+			if err != nil {
+				return nil, err
+			}
+			_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
+				UpdatedConfig: info.RawAlertManagerConfig,
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -316,7 +361,7 @@ func (p *Plugin) UpdateIndividualEndpointInRoutingNode(ctx context.Context, atta
 // FIXME: errors in this function can result in mismatched information,
 // will be fixed when we move to a fully virtualize config
 func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, reference *corev1.Reference) (*emptypb.Empty, error) {
-	lg := p.Logger.With("action", "DeleteIndividualEndpointInRoutingNode")
+	lg := p.Logger.With("handler", "DeleteIndividualEndpointInRoutingNode")
 	deleteEndpointId := reference.Id
 	amConfig, internalConfig, err := p.opsNode.ConfigFromBackend(ctx)
 	if err != nil {
@@ -328,12 +373,17 @@ func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, refe
 	}
 
 	_, err = amConfig.DeleteIndividualEndpointNode(deleteEndpointId, internalConfig)
-	if err != nil {
+
+	if e, ok := status.FromError(err); ok && e.Code() != codes.NotFound {
+		lg.Error(err)
 		return nil, err
 	}
+	// if condition was never indexed in the internal routing, we need to continue and remove it
+	// from all conditions that specify it
 
 	err = p.opsNode.ApplyConfigToBackend(ctx, amConfig, internalConfig)
 	if err != nil {
+		lg.Error(err)
 		return nil, err
 	}
 

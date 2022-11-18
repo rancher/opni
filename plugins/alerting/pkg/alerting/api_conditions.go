@@ -12,8 +12,11 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/status"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -29,25 +32,33 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) createRoutingNode(ctx context.Context, req *alertingv1.AttachedEndpoints, conditionId string) error {
+func (p *Plugin) createRoutingNode(
+	ctx context.Context,
+	req *alertingv1.AttachedEndpoints,
+	conditionId string,
+	lg *zap.SugaredLogger) error {
 	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}
 	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, conditionId)
 	if err != nil {
-		p.Logger.Error(err)
+		lg.Error(err)
 		return err
 	}
 	_, err = p.CreateConditionRoutingNode(ctx, routingNode)
 	if err != nil {
-		p.Logger.Error(err)
+		lg.Error(err)
 		return err
 	}
 	return nil
 }
 
-func (p *Plugin) updateRoutingNode(ctx context.Context, req *alertingv1.AttachedEndpoints, conditionId string) error {
+func (p *Plugin) updateRoutingNode(
+	ctx context.Context,
+	req *alertingv1.AttachedEndpoints,
+	conditionId string,
+	lg *zap.SugaredLogger) error {
 	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
@@ -59,15 +70,42 @@ func (p *Plugin) updateRoutingNode(ctx context.Context, req *alertingv1.Attached
 	}
 	_, err = p.UpdateConditionRoutingNode(ctx, routingNode)
 	if err != nil {
-		p.Logger.Error(err)
-		return err
+		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // something went wrong and receiver/route can't be found
+			p.Logger.Debug("update failed due to missing internal configuration, creating new routing node")
+			_, err = p.CreateConditionRoutingNode(ctx, routingNode)
+			if err != nil {
+				p.Logger.Error(err)
+				return err
+			}
+		} else if ok && e.Code() == codes.FailedPrecondition { // no changes to apply to k8s objects, force a sync with internal AlertManager config
+			p.Logger.Debug("forcing sync of internal routing config, since owned k8s objects are up to date")
+			info, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
+				UpdatedConfig: info.RawAlertManagerConfig,
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			p.Logger.Error(err)
+			return err
+		}
 	}
 	return nil
 }
 
-func (p *Plugin) deleteRoutingNode(ctx context.Context, alertId string) error {
+func (p *Plugin) deleteRoutingNode(
+	ctx context.Context,
+	alertId string,
+	lg *zap.SugaredLogger) error {
 	_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: alertId})
 	if err != nil {
+		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // wasn't indexed to being with
+			return nil
+		}
 		p.Logger.Error(err)
 		return err
 	}
@@ -87,11 +125,14 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	if err != nil {
 		return nil, err
 	}
-	if alertingv1.ShouldCreateRoutingNode(nil, req.AttachedEndpoints) { //FIXME: this won't clean up setupCondition on failure
-		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId)
+	if alertingv1.ShouldCreateRoutingNode(req.AttachedEndpoints, nil) {
+		lg.Debug("must create routing node")
+		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId, lg)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		lg.Debug("must not create routing node")
 	}
 	if err := p.storageNode.CreateConditionStorage(ctx, newId, req); err != nil {
 		return nil, err
@@ -140,23 +181,23 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 		return nil, err
 	}
 	newAE, oldAE := req.UpdateAlert.AttachedEndpoints, existing.AttachedEndpoints
-	if alertingv1.ShouldCreateRoutingNode(newAE, oldAE) { //FIXME: this won't clean up setupCondition on failure
+	if alertingv1.ShouldCreateRoutingNode(newAE, oldAE) {
 		lg.Debugf("udpated condition %s must create an endpoint implementation", conditionId)
-		err := p.createRoutingNode(ctx, newAE, conditionId)
+		err := p.createRoutingNode(ctx, newAE, conditionId, lg)
 		if err != nil {
 			p.Logger.Errorf("creating routing node failed %s", err)
 			return nil, err
 		}
 	} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAE) {
 		lg.Debugf("udpated condition %s must update an existing endpoint implementation", conditionId)
-		err := p.updateRoutingNode(ctx, newAE, conditionId)
+		err := p.updateRoutingNode(ctx, newAE, conditionId, lg)
 		if err != nil {
 			p.Logger.Errorf("updating routing node failed %s", err)
 			return nil, err
 		}
 	} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAE) {
 		lg.Debugf("udpated condition %s must delete an existing endpoint implementation", conditionId)
-		err := p.deleteRoutingNode(ctx, conditionId)
+		err := p.deleteRoutingNode(ctx, conditionId, lg)
 		if err != nil {
 			p.Logger.Errorf("deleting routing node failed %s", err)
 			return nil, err

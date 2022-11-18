@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -199,13 +200,24 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	return &emptypb.Empty{}, nil
 }
 
+type apiConfigRequest struct {
+	RawConfig string `json:"config"`
+}
+
+type endpoint struct {
+	AlertManagerEndpoint string
+	OpniEndpoint         string
+}
+
 func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.ReloadInfo) (*emptypb.Empty, error) {
 	lg := a.Logger.With("alerting-backend", "k8s", "action", "reload")
 
-	reloadEndpoints := []string{}
+	reloadEndpoints := []endpoint{}
 	// RELOAD the controller!!!
-	controllerSvcEndpoint := a.AlertingOptions.GetControllerEndpoint()
-	reloadEndpoints = append(reloadEndpoints, controllerSvcEndpoint)
+	reloadEndpoints = append(reloadEndpoints, endpoint{
+		AlertManagerEndpoint: a.AlertingOptions.GetControllerEndpoint(),
+		OpniEndpoint:         a.AlertingOptions.GetInternalControllerOpniEndpoint(),
+	})
 	// RELOAD the workers
 	name := a.AlertingOptions.WorkerNodesService
 	namespace := a.AlertingOptions.Namespace
@@ -222,12 +234,18 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 	if len(workersEndpoints.Subsets) > 0 {
 		addresses := workersEndpoints.Subsets[0].Addresses
 		for _, address := range addresses {
-			reloadEndpoints = append(reloadEndpoints, fmt.Sprintf("%s:%d", address.IP, a.AlertingOptions.WorkerNodePort))
+			reloadEndpoints = append(reloadEndpoints, endpoint{
+				AlertManagerEndpoint: fmt.Sprintf("%s:%d", address.IP, a.AlertingOptions.WorkerNodePort),
+				OpniEndpoint:         fmt.Sprintf("%s:%d", address.IP, shared.AlertingDefaultHookPort),
+			})
 		}
 	}
 	wg := sync.WaitGroup{}
 	errors := &sharedErrors{}
-
+	updatedConfig, err := json.Marshal(apiConfigRequest{RawConfig: reloadInfo.UpdatedConfig})
+	if err != nil {
+		return nil, err
+	}
 	for _, endpoint := range reloadEndpoints {
 		wg.Add(1)
 		endpoint := endpoint //!! must capture in closure
@@ -237,15 +255,27 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 			backoffv2.WithMaxRetries(3),
 			backoffv2.WithMultiplier(1.2),
 		)
-
+		configReloadRetrier := backoffv2.Exponential(
+			backoffv2.WithMinInterval(time.Second*3),
+			backoffv2.WithMaxInterval(time.Second*10),
+			backoffv2.WithMaxRetries(12),
+			backoffv2.WithMultiplier(1.5),
+		)
+		lg.With("alertmanager-endpoint", endpoint.AlertManagerEndpoint, "opni-endpoint", endpoint.OpniEndpoint).Debug("reloading...")
 		go func() {
 			defer wg.Done()
 			pipelineErr := backend.NewApiPipline(
 				ctx,
 				[]*backend.AlertManagerAPI{
-					backend.NewAlertManagerReloadClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
-					backend.NewAlertManagerReadyClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
-					backend.NewAlertManagerStatusClient(ctx, endpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectConfigEqual(reloadInfo.UpdatedConfig))),
+					backend.NewAlertManagerReadyClient(ctx, endpoint.AlertManagerEndpoint, backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
+					backend.NewAlertManagerOpniConfigClient(
+						ctx,
+						endpoint.OpniEndpoint,
+						backend.WithRetrier(configReloadRetrier),
+						backend.WithRequestBody(updatedConfig),
+						backend.WithExpectClosure(backend.NewExpectStatusOk())),
+					backend.NewAlertManagerReloadClient(ctx, endpoint.AlertManagerEndpoint,
+						backend.WithRetrier(pipelineRetrier), backend.WithExpectClosure(backend.NewExpectStatusOk())),
 				},
 				&pipelineRetrier,
 			)
@@ -265,9 +295,5 @@ func (a *AlertingManager) Reload(ctx context.Context, reloadInfo *alertops.Reloa
 			return res
 		}(), ","))
 	}
-
-	//FIXME: in kubernetes environment, we need to wait for the reconciler to do its magic
-	time.Sleep(time.Second * 2)
-
 	return &emptypb.Empty{}, nil
 }

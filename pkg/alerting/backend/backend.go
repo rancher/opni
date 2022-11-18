@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -32,7 +31,7 @@ type AlertManagerApiOptions struct {
 	client        *http.Client
 	backoff       *backoffv2.Policy
 	expectClosure func(*http.Response) error
-	body          io.Reader
+	body          []byte
 	values        url.Values
 	logger        *zap.SugaredLogger
 }
@@ -88,7 +87,7 @@ func WithExpectClosure(expectClosure func(*http.Response) error) AlertManagerApi
 	}
 }
 
-func WithRequestBody(body io.Reader) AlertManagerApiOption {
+func WithRequestBody(body []byte) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		o.body = body
 	}
@@ -124,7 +123,7 @@ func WithPostSilenceBody(conditionId string, duration time.Duration, silenceId *
 		if err != nil {
 			panic(fmt.Errorf("malformed silence body :%s", err))
 		}
-		o.body = strings.NewReader(string(b))
+		o.body = b
 	}
 }
 
@@ -146,7 +145,7 @@ func WithPostAlertBody(conditionId string, annotations map[string]string) AlertM
 		if err != nil {
 			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
 		}
-		o.body = strings.NewReader(string(b))
+		o.body = b
 	}
 }
 
@@ -184,11 +183,11 @@ func (a *AlertManagerAPI) doRequest() error {
 		a.ctx,
 		a.Verb,
 		a.ConstructHTTP(),
-		a.body,
+		strings.NewReader(string(a.body)),
 	)
 	if err != nil {
-		lg.Error(
-			zap.Error(err),
+		lg.Errorf(
+			"AlertManager client invalid request %s", zap.Error(err),
 		)
 		return err
 	}
@@ -201,15 +200,15 @@ func (a *AlertManagerAPI) doRequest() error {
 	}
 	resp, err := a.client.Do(req)
 	if err != nil {
-		lg.Error(
-			zap.Error(err),
+		lg.Errorf(
+			"AlertManager client request failed with : %s", zap.Error(err),
 		)
 		return err
 	}
 	defer resp.Body.Close()
 	if err := a.expectClosure(resp); err != nil {
 		lg.Error(
-			zap.Error(err),
+			"failed to get specified expected AlertManager response", zap.Error(err),
 		)
 		return err
 	}
@@ -278,6 +277,18 @@ func NewAlertManagerStatusClient(ctx context.Context, endpoint string, opts ...A
 		Verb:                   GET,
 		ctx:                    ctx,
 	}).WithAPIV2()
+}
+
+func NewAlertManagerOpniConfigClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return &AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Verb:                   GET,
+		Route:                  "/config",
+		ctx:                    ctx,
+	}
 }
 
 func NewAlertManagerGetAlertsClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
@@ -368,7 +379,7 @@ func (a *AlertManagerAPI) ConstructHTTPS() string {
 func NewExpectStatusOk() func(*http.Response) error {
 	return func(resp *http.Response) error {
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			return fmt.Errorf("unexpected status code '%d' : %s", resp.StatusCode, resp.Status)
 		}
 		return nil
 	}
@@ -404,19 +415,16 @@ func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 		err = r1.Parse(result.String())
 		if err != nil {
 			return err
-		} else {
-			lg.Debug("%v", r1)
 		}
 		err = r2.Parse(expectedConfig)
 		if err != nil {
 			return err
-		} else {
-			lg.Debug("%v", r2)
 		}
-		if r1 != r2 { // this comparison is good enough for our purposes
-			return nil
+		if isEqual, reason := r1.IsEqual(r2); !isEqual {
+			lg.Debug(fmt.Sprintf("config not equal : %s", reason))
+			return fmt.Errorf("%s", reason)
 		}
-		return fmt.Errorf("config.original not equal to expected config")
+		return nil
 	}
 }
 

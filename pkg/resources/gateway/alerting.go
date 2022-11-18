@@ -421,6 +421,11 @@ func (r *Reconciler) alerting() []resources.Resource {
 func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
+			Name:          "opni-port",
+			ContainerPort: shared.AlertingDefaultHookPort,
+			Protocol:      "TCP",
+		},
+		{
 			Name:          "web-port",
 			ContainerPort: 9093,
 			Protocol:      "TCP",
@@ -430,6 +435,11 @@ func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {
 
 func (r *Reconciler) controllerAlertManagerPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
+		{
+			Name:          "opni-port",
+			ContainerPort: shared.AlertingDefaultHookPort,
+			Protocol:      "TCP",
+		},
 		{
 			Name:          "web-port",
 			ContainerPort: 9093,

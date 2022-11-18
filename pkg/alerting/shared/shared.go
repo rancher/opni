@@ -43,7 +43,7 @@ const (
 	OperatorAlertingClusterNodeServiceName = "opni-alerting"
 	AlertingHookReceiverName               = "opni.hook"
 	AlertingDefaultHookName                = "/opni/hook"
-	AlertingDefaultHookPort                = "3000"
+	AlertingDefaultHookPort                = 3000
 )
 
 var (
@@ -146,6 +146,10 @@ type NotFoundError struct {
 	message string
 }
 
+type FailedPreconditionError struct {
+	message string
+}
+
 func (e *NotFoundError) Error() string {
 	return e.message
 }
@@ -202,6 +206,26 @@ func WithUnimplementedError(msg string) error {
 
 func WithUnimplementedErrorf(format string, args ...interface{}) error {
 	return &UnimplementedError{
+		message: fmt.Errorf(format, args...).Error(),
+	}
+}
+
+func (e *FailedPreconditionError) Error() string {
+	return e.message
+}
+
+func (e *FailedPreconditionError) GRPCStatus() *status.Status {
+	return status.New(codes.FailedPrecondition, e.message)
+}
+
+func WithFailedPreconditionError(msg string) error {
+	return &FailedPreconditionError{
+		message: msg,
+	}
+}
+
+func WithFailedPreconditionErrorf(format string, args ...interface{}) error {
+	return &FailedPreconditionError{
 		message: fmt.Errorf(format, args...).Error(),
 	}
 }

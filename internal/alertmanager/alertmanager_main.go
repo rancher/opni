@@ -8,6 +8,7 @@ package alertmanager_internal
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,7 +32,10 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
+	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/tidwall/gjson"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/alertmanager/api"
@@ -171,7 +175,8 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 	return integrations, nil
 }
 
-func Main(args []string) {
+func startOpniServer(configFile string) {
+	lg := logger.NewPluginLogger().Named("opni.alerting")
 	mux := http.NewServeMux()
 	// request body will be in the form of AM webhook payload :
 	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
@@ -180,9 +185,56 @@ func Main(args []string) {
 	//    Webhooks are assumed to respond with 2xx response codes on a successful
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	mux.HandleFunc(shared.AlertingDefaultHookName, func(http.ResponseWriter, *http.Request) {})
+	mux.HandleFunc(shared.AlertingDefaultHookName, func(wr http.ResponseWriter, req *http.Request) {})
+	mux.HandleFunc("/config", func(wr http.ResponseWriter, req *http.Request) {
+		lg.Debug("testing requested config equality")
+		r1 := &routing.RoutingTree{}
+		r2 := &routing.RoutingTree{}
+		if req.Body == nil {
+			lg.Error("request body is nil")
+			http.Error(wr, "request body required", http.StatusBadRequest)
+			return
+		}
+		defer req.Body.Close()
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			lg.Errorf("failed to read incoming config %s", err)
+			http.Error(wr, err.Error(), http.StatusBadRequest)
+			return
+		}
+		updatedConfig := gjson.Get(string(body), "config")
+		if !updatedConfig.Exists() {
+			lg.Error("config not found in request body")
+			http.Error(wr, "config not found in request body", http.StatusBadRequest)
+			return
+		}
+		err = r1.Parse(updatedConfig.String())
+		if err != nil {
+			lg.Errorf("failed to parse persisted config into routing tree : %s", err)
+			http.Error(wr, err.Error(), http.StatusBadRequest)
+			return
+		}
+		onDiskConfig, err := os.ReadFile(configFile)
+		if err != nil {
+			lg.Error("failed to read persisted config file %s", err)
+			http.Error(wr, err.Error(), http.StatusNotFound)
+			return
+		}
+		err = r2.Parse(string(onDiskConfig))
+		if err != nil {
+			lg.Error("failed to parse persisted config into routing tree: %s", err)
+			http.Error(wr, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if equal, reason := r1.IsEqual(r2); !equal {
+			lg.Errorf("config is not equal to persisted config: %s", reason)
+			http.Error(wr, fmt.Sprintf("config not yet equal : %s", reason), http.StatusConflict)
+			return
+		}
+		lg.Info("request configs are equal")
+	})
 	hookServer := &http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%s", shared.AlertingDefaultHookPort),
+		Addr:    fmt.Sprintf(":%d", shared.AlertingDefaultHookPort),
 		Handler: mux,
 	}
 	go func() {
@@ -191,6 +243,9 @@ func Main(args []string) {
 			panic(err)
 		}
 	}()
+}
+
+func Main(args []string) {
 	os.Exit(run(args))
 }
 
@@ -233,6 +288,8 @@ func run(args []string) int {
 	kingpin.Version(version.Print("alertmanager"))
 	kingpin.CommandLine.GetFlag("help").Short('h')
 	kingpin.Parse()
+
+	startOpniServer(*configFile)
 
 	logger := promlog.New(&promlogConfig)
 

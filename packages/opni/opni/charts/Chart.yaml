@@ -5,7 +5,7 @@ annotations:
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.6.3
+appVersion: 0.7.0-rc1
 dependencies:
 - condition: opni-agent.kube-prometheus-stack.enabled
   name: kube-prometheus-stack
@@ -31,4 +31,4 @@ maintainers:
   name: Dan Bason
 name: opni
 type: application
-version: 0.6.3
+version: 0.7.0-rc1

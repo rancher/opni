@@ -2,14 +2,15 @@ package routing
 
 import (
 	"fmt"
+	"net/url"
+	"time"
+
 	"github.com/containerd/containerd/pkg/cri/config"
 	cfg "github.com/prometheus/alertmanager/config"
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"net/url"
-	"time"
 )
 
 var (
@@ -38,6 +39,23 @@ var (
 		Text: ``,
 	}
 	normalizeTitle = cases.Title(language.AmericanEnglish)
+
+	// DefaultPagerdutyConfig defines default values for PagerDuty configurations.
+	DefaultPagerdutyConfig = PagerdutyConfig{
+		NotifierConfig: &cfg.NotifierConfig{
+			VSendResolved: true,
+		},
+		Description: `{{ template "pagerduty.default.description" .}}`,
+		Client:      `{{ template "pagerduty.default.client" . }}`,
+		ClientURL:   `{{ template "pagerduty.default.clientURL" . }}`,
+	}
+	// DefaultPagerdutyDetails defines the default values for PagerDuty details.
+	DefaultPagerdutyDetails = map[string]string{
+		"firing":       `{{ template "pagerduty.default.instances" .Alerts.Firing }}`,
+		"resolved":     `{{ template "pagerduty.default.instances" .Alerts.Resolved }}`,
+		"num_firing":   `{{ .Alerts.Firing | len }}`,
+		"num_resolved": `{{ .Alerts.Resolved | len }}`,
+	}
 )
 
 // Receiver configuration provides configuration on how to contact a receiver.
@@ -47,7 +65,7 @@ type Receiver struct {
 	Name string `yaml:"name" json:"name"`
 
 	EmailConfigs     []*EmailConfig         `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
-	PagerdutyConfigs []*cfg.PagerdutyConfig `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
+	PagerdutyConfigs []*PagerdutyConfig     `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
 	SlackConfigs     []*SlackConfig         `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
 	WebhookConfigs   []*cfg.WebhookConfig   `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
 	OpsGenieConfigs  []*cfg.OpsGenieConfig  `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
@@ -155,6 +173,50 @@ func (c *SlackConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("at most one of api_url & api_url_file must be configured")
 	}
 
+	return nil
+}
+
+// PagerdutyConfig configures notifications via PagerDuty.
+type PagerdutyConfig struct {
+	*cfg.NotifierConfig `yaml:",inline" json:",inline"`
+
+	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+
+	// Change from secret to string since the string is stored in a kube secret anyways
+	ServiceKey string `yaml:"service_key,omitempty" json:"service_key,omitempty"`
+	// Change from secret to string since the string is stored in a kube secret anyways
+	RoutingKey  string                `yaml:"routing_key,omitempty" json:"routing_key,omitempty"`
+	URL         *cfg.URL              `yaml:"url,omitempty" json:"url,omitempty"`
+	Client      string                `yaml:"client,omitempty" json:"client,omitempty"`
+	ClientURL   string                `yaml:"client_url,omitempty" json:"client_url,omitempty"`
+	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
+	Details     map[string]string     `yaml:"details,omitempty" json:"details,omitempty"`
+	Images      []*cfg.PagerdutyImage `yaml:"images,omitempty" json:"images,omitempty"`
+	Links       []*cfg.PagerdutyLink  `yaml:"links,omitempty" json:"links,omitempty"`
+	Severity    string                `yaml:"severity,omitempty" json:"severity,omitempty"`
+	Class       string                `yaml:"class,omitempty" json:"class,omitempty"`
+	Component   string                `yaml:"component,omitempty" json:"component,omitempty"`
+	Group       string                `yaml:"group,omitempty" json:"group,omitempty"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *PagerdutyConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultPagerdutyConfig
+	type plain PagerdutyConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	if c.RoutingKey == "" && c.ServiceKey == "" {
+		return fmt.Errorf("missing service or routing key in PagerDuty config")
+	}
+	if c.Details == nil {
+		c.Details = make(map[string]string)
+	}
+	for k, v := range DefaultPagerdutyDetails {
+		if _, ok := c.Details[k]; !ok {
+			c.Details[k] = v
+		}
+	}
 	return nil
 }
 

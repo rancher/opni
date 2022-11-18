@@ -12,7 +12,10 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -150,16 +153,24 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	l.publishStatus(id, true)
 	defer func() { // 2nd
 		l.healthUpdate <- HealthUpdate{
-			ID:     id,
-			Health: &corev1.Health{},
+			ID: id,
+			Health: &corev1.Health{
+				Timestamp: timestamppb.Now(),
+				Ready:     false,
+			},
 		}
 		l.publishStatus(id, false)
 	}()
-	curHealth, err := clientset.GetHealth(ctx, &emptypb.Empty{})
+	curHealth, err := clientset.GetHealth(ctx, &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err == nil {
 		l.healthUpdate <- HealthUpdate{
-			ID:     id,
-			Health: util.ProtoClone(curHealth),
+			ID: id,
+			Health: &corev1.Health{
+				Timestamp:   timestamppb.Now(),
+				Ready:       curHealth.GetReady(),
+				Conditions:  slices.Clone(curHealth.GetConditions()),
+				Annotations: maps.Clone(curHealth.GetAnnotations()),
+			},
 		}
 	}
 

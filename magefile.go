@@ -203,6 +203,43 @@ func CRDGen() error {
 	if err := <-e2; err != nil {
 		return err
 	}
+
+	// prepend "---" to each file, otherwise kubernetes will think it's json
+	for _, f := range []string{"./packages/opni/opni/charts/crds/crds.yaml", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml"} {
+		if err := prependDocumentSeparator(f); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func prependDocumentSeparator(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	i, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	buf := make([]byte, i.Size()+4)
+	copy(buf[:4], "---\n")
+
+	_, err = f.Read(buf[4:])
+	if err != nil {
+		return err
+	}
+
+	f.Seek(0, 0)
+	f.Truncate(0)
+	_, err = f.Write(buf)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

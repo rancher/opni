@@ -36,6 +36,26 @@ func (m *MockExtClient) EXPECT() *MockExtClientMockRecorder {
 	return m.recorder
 }
 
+// Bar mocks base method.
+func (m *MockExtClient) Bar(ctx context.Context, in *ext.BarRequest, opts ...grpc.CallOption) (*ext.BarResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Bar", varargs...)
+	ret0, _ := ret[0].(*ext.BarResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Bar indicates an expected call of Bar.
+func (mr *MockExtClientMockRecorder) Bar(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bar", reflect.TypeOf((*MockExtClient)(nil).Bar), varargs...)
+}
+
 // Foo mocks base method.
 func (m *MockExtClient) Foo(ctx context.Context, in *ext.FooRequest, opts ...grpc.CallOption) (*ext.FooResponse, error) {
 	m.ctrl.T.Helper()
@@ -77,6 +97,21 @@ func NewMockExtServer(ctrl *gomock.Controller) *MockExtServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExtServer) EXPECT() *MockExtServerMockRecorder {
 	return m.recorder
+}
+
+// Bar mocks base method.
+func (m *MockExtServer) Bar(arg0 context.Context, arg1 *ext.BarRequest) (*ext.BarResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Bar", arg0, arg1)
+	ret0, _ := ret[0].(*ext.BarResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Bar indicates an expected call of Bar.
+func (mr *MockExtServerMockRecorder) Bar(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bar", reflect.TypeOf((*MockExtServer)(nil).Bar), arg0, arg1)
 }
 
 // Foo mocks base method.

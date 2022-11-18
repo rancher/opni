@@ -61,6 +61,16 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				}, nil
 			}).
 			AnyTimes()
+		extSrv.EXPECT().
+			Bar(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *ext.BarRequest) (*ext.BarResponse, error) {
+				return &ext.BarResponse{
+					Param1: req.Param1,
+					Param2: req.Param2,
+					Param3: req.Param3,
+				}, nil
+			}).
+			AnyTimes()
 		ext2Srv := mock_ext.NewMockExt2Server(tv.ctrl)
 		ext2Srv.EXPECT().
 			Foo(gomock.Any(), gomock.Any()).
@@ -142,7 +152,8 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items).To(HaveLen(1))
 		Expect(extensions.Items[0].ServiceDesc.GetName()).To(Equal("Ext"))
 		Expect(extensions.Items[0].ServiceDesc.Method[0].GetName()).To(Equal("Foo"))
-		Expect(extensions.Items[0].Rules).To(HaveLen(5))
+		Expect(extensions.Items[0].ServiceDesc.Method[1].GetName()).To(Equal("Bar"))
+		Expect(extensions.Items[0].Rules).To(HaveLen(7))
 		Expect(extensions.Items[0].Rules[0].Http.GetPost()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[0].Http.GetBody()).To(Equal("request"))
 		Expect(extensions.Items[0].Rules[1].Http.GetGet()).To(Equal("/foo"))
@@ -151,6 +162,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].Rules[3].Http.GetDelete()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[4].Http.GetPatch()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[4].Http.GetBody()).To(Equal("request"))
+		Expect(extensions.Items[0].Rules[5].Http.GetPost()).To(Equal("/bar/{param1}/{param2}"))
+		Expect(extensions.Items[0].Rules[5].Http.GetBody()).To(Equal("param3"))
+		Expect(extensions.Items[0].Rules[6].Http.GetGet()).To(Equal("/bar/{param1}/{param2}/{param3}"))
+
 	})
 	It("should forward gRPC calls to the plugin", func() {
 		cc, err := grpc.Dial(tv.grpcEndpoint,
@@ -182,6 +197,33 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			resp.Body.Close()
 			Expect(string(body)).To(Equal(`{"response":"HELLO"}`))
+			break
+		}
+	})
+	It("should forward HTTP calls containing path parameters to the plugin", func() {
+		tries := 10 // need to wait a bit for the server to become ready
+		for {
+			resp, err := http.Post(tv.httpEndpoint+"/Ext/bar/a/b",
+				"application/json", strings.NewReader(`{"param3": "c"}`))
+			if (err != nil || resp.StatusCode != 200) && tries > 0 {
+				tries--
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			resp.Body.Close()
+			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
+
+			resp, err = http.Get(tv.httpEndpoint + "/Ext/bar/a/b/c")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+			body, err = io.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			resp.Body.Close()
+			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
 			break
 		}
 	})

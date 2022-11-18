@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
@@ -227,6 +228,12 @@ func newHandler(
 		}
 
 		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
+		for k, v := range pathParams {
+			if err := decodeAndSetField(reqMsg, k, v); err != nil {
+				lg.Error("failed to decode field", zap.String("field", k), zap.Error(err))
+				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			}
+		}
 		body, err := io.ReadAll(req.Body)
 		req.Body.Close()
 		if err != nil {
@@ -234,7 +241,7 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		} else if len(body) > 0 {
-			if err := reqMsg.UnmarshalJSON(body); err != nil {
+			if err := reqMsg.UnmarshalMergeJSON(body); err != nil {
 				lg.Error(err)
 				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 				return
@@ -288,4 +295,55 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 		}
 		return stream.SendMsg(reply)
 	}
+}
+
+func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
+	fd := reqMsg.FindFieldDescriptorByJSONName(k)
+	if fd == nil {
+		return fmt.Errorf("field %s does not exist", k)
+	}
+	var decoded any
+	var err error
+	switch fd.GetType() {
+	case dpb.FieldDescriptorProto_TYPE_DOUBLE:
+		decoded, err = runtime.Float64(v)
+	case dpb.FieldDescriptorProto_TYPE_FLOAT:
+		decoded, err = runtime.Float32(v)
+	case dpb.FieldDescriptorProto_TYPE_INT64:
+		decoded, err = runtime.Int64(v)
+	case dpb.FieldDescriptorProto_TYPE_UINT64:
+		decoded, err = runtime.Uint64(v)
+	case dpb.FieldDescriptorProto_TYPE_INT32:
+		decoded, err = runtime.Int32(v)
+	case dpb.FieldDescriptorProto_TYPE_FIXED64:
+		decoded, err = runtime.Uint64(v)
+	case dpb.FieldDescriptorProto_TYPE_FIXED32:
+		decoded, err = runtime.Uint32(v)
+	case dpb.FieldDescriptorProto_TYPE_BOOL:
+		decoded, err = runtime.Bool(v)
+	case dpb.FieldDescriptorProto_TYPE_STRING:
+		decoded, err = runtime.String(v)
+	case dpb.FieldDescriptorProto_TYPE_GROUP:
+		return fmt.Errorf("field %s is of type group, which is not supported", k)
+	case dpb.FieldDescriptorProto_TYPE_MESSAGE:
+		return fmt.Errorf("field %s is of type message, which is not supported", k)
+	case dpb.FieldDescriptorProto_TYPE_BYTES:
+		decoded, err = runtime.Bytes(v)
+	case dpb.FieldDescriptorProto_TYPE_UINT32:
+		decoded, err = runtime.Uint32(v)
+	case dpb.FieldDescriptorProto_TYPE_ENUM:
+		decoded, err = runtime.Int32(v)
+	case dpb.FieldDescriptorProto_TYPE_SFIXED32:
+		decoded, err = runtime.Int32(v)
+	case dpb.FieldDescriptorProto_TYPE_SFIXED64:
+		decoded, err = runtime.Int64(v)
+	case dpb.FieldDescriptorProto_TYPE_SINT32:
+		decoded, err = runtime.Int32(v)
+	case dpb.FieldDescriptorProto_TYPE_SINT64:
+		decoded, err = runtime.Int64(v)
+	}
+	if err != nil {
+		return err
+	}
+	return reqMsg.TrySetField(fd, decoded)
 }

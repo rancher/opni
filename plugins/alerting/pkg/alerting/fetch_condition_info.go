@@ -11,6 +11,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
@@ -35,6 +36,8 @@ func handleChoicesByType(
 		return p.fetchMemorySaturationInfo(ctx)
 	case alertingv1.AlertType_FS_SATURATION:
 		return p.fetchFsSaturationInfo(ctx)
+	case alertingv1.AlertType_PROMETHEUS_QUERY:
+		return p.fetchPrometheusQueryInfo(ctx)
 	default:
 		return nil, shared.AlertingErrNotImplemented
 	}
@@ -588,4 +591,35 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 			},
 		},
 	}, nil
+}
+
+func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxca, ca := context.WithTimeout(ctx, time.Second*30)
+	defer ca()
+
+	mgmtClient, err := p.mgmtClient.GetContext(ctxca)
+	if err != nil {
+		return nil, err
+	}
+	cls, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, cl := range cls.Items {
+		for _, cap := range cl.GetCapabilities() {
+			if cap.Name == wellknown.CapabilityMetrics {
+				res = append(res, cl.Id)
+				break
+			}
+		}
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_PrometheusQuery{
+			PrometheusQuery: &alertingv1.ListAlertConditionPrometheusQuery{
+				Clusters: res,
+			},
+		},
+	}, nil
+
 }

@@ -25,6 +25,7 @@ func init() {
 	EnumConditionToDatasource[AlertType_FS_SATURATION] = &monitoring
 	EnumConditionToDatasource[AlertType_COMPOSITION] = &monitoring
 	EnumConditionToDatasource[AlertType_CONTROL_FLOW] = &monitoring
+	EnumConditionToDatasource[AlertType_PROMETHEUS_QUERY] = &monitoring
 
 	EnumConditionToImplementation[AlertType_SYSTEM] = AlertTypeDetails{
 		Type: &AlertTypeDetails_System{
@@ -60,6 +61,12 @@ func init() {
 	EnumConditionToImplementation[AlertType_CONTROL_FLOW] = AlertTypeDetails{
 		Type: &AlertTypeDetails_ControlFlow{
 			ControlFlow: &AlertConditionControlFlow{},
+		},
+	}
+
+	EnumConditionToImplementation[AlertType_PROMETHEUS_QUERY] = AlertTypeDetails{
+		Type: &AlertTypeDetails_PrometheusQuery{
+			PrometheusQuery: &AlertConditionPrometheusQuery{},
 		},
 	}
 }

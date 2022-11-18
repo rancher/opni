@@ -83,6 +83,7 @@ enum AlertType {
   COMPOSITION = 6;
   // Unimplemented
   CONTROL_FLOW = 7;
+  PROMETHEUS_QUERY = 9;
 }
 
 enum CompositionAction {
@@ -142,7 +143,12 @@ message ListAlertTypeDetails {
     ListAlertConditionCPUSaturation cpu = 5;
     ListAlertConditionMemorySaturation memory = 6;
     ListAlertConditionFilesystemSaturation fs = 7;
+    ListAlertConditionPrometheusQuery prometheusQuery = 8;
   }
+}
+
+message ListAlertConditionPrometheusQuery{
+  repeated string clusters = 1;
 }
 
 message InvolvedConditions {

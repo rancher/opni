@@ -107,6 +107,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 				},
 				Resources: []string{
 					"configmaps",
+					"pods",
 				},
 				Verbs: []string{
 					"get",

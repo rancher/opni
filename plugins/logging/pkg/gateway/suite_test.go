@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/test"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -46,7 +45,6 @@ var _ = BeforeSuite(func() {
 
 	k8sManager = env.StartManager(
 		restConfig,
-		&controllers.LoggingOpniOpensearchReconciler{},
 	)
 
 	DeferCleanup(func() {

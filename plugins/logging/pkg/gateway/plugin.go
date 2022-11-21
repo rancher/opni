@@ -233,22 +233,26 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 
 	if restconfig != nil {
-		loggingManager := &LoggingManagerV2{
-			k8sClient:         p.k8sClient,
-			logger:            p.logger.Named("opensearch-manager"),
-			opensearchCluster: p.opensearchCluster,
-			opensearchManager: p.opensearchManager,
-			storageNamespace:  p.storageNamespace,
-			natsRef:           p.natsRef,
-		}
 		scheme.Add(
 			managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(
 				util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p),
-				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
+				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, p.NewLoggingManagerForPlugin()),
 			),
 		)
 	}
 
 	return scheme
+}
+
+func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
+	return &LoggingManagerV2{
+		k8sClient:         p.k8sClient,
+		logger:            p.logger.Named("opensearch-manager"),
+		opensearchCluster: p.opensearchCluster,
+		opensearchManager: p.opensearchManager,
+		storageNamespace:  p.storageNamespace,
+		natsRef:           p.natsRef,
+		versionOverride:   p.version,
+	}
 }

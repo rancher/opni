@@ -83,6 +83,7 @@ type LoggingManagerV2 struct {
 	opensearchManager *opensearchdata.Manager
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
+	versionOverride   string
 }
 
 func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.OpensearchClusterV2, error) {
@@ -139,7 +140,23 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 			Namespace: m.storageNamespace,
 		},
 	}
-	return &emptypb.Empty{}, m.k8sClient.Delete(ctx, cluster)
+
+	err = m.k8sClient.Delete(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.k8sClient.Delete(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-user-password",
+			Namespace: m.storageNamespace,
+		},
+	})
+	if err != nil {
+		m.logger.Errorf("failed to cleanup user secret: %s", err)
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
@@ -194,9 +211,14 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
 				},
 				OpensearchVersion: opensearchVersion,
-				Version:           strings.TrimPrefix(util.Version, "v"),
-				ImageRepo:         "docker.io/rancher",
-				NatsRef:           m.natsRef,
+				Version: func() string {
+					if m.versionOverride != "" {
+						return m.versionOverride
+					}
+					return strings.TrimPrefix(util.Version, "v")
+				}(),
+				ImageRepo: "docker.io/rancher",
+				NatsRef:   m.natsRef,
 			},
 		}
 
@@ -279,6 +301,10 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 	}
 
 	version := strings.TrimPrefix(util.Version, "v")
+
+	if m.versionOverride != "" {
+		version = m.versionOverride
+	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := m.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
@@ -580,6 +606,7 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 		secondPool := initialPool.DeepCopy()
 		secondPool.Roles = util.RemoveFromArray(secondPool.Roles, "master")
 		secondPool.Replicas = *cluster.DataNodes.Replicas - 5
+		secondPool.Component = "datax"
 		pools = append(pools, *secondPool)
 	}
 
@@ -907,11 +934,8 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.6.2"
+	version := "0.6.3"
 	if cluster == nil {
-		if util.Version != "unversioned" {
-			version = strings.TrimPrefix(util.Version, "v")
-		}
 		osVersion = opensearchVersion
 	} else {
 		if cluster.Status.Version != nil {
@@ -927,7 +951,11 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.6.2"
+		version = "0.6.3"
+	}
+
+	if m.versionOverride != "" {
+		version = m.versionOverride
 	}
 
 	image := fmt.Sprintf(

@@ -514,7 +514,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -539,7 +539,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DeleteOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DeleteOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -564,7 +564,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/CreateOrUpdateOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/CreateOrUpdateOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -589,7 +589,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/v2/upgrade/available"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/upgrade/available"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -614,7 +614,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DoUpgrade", runtime.WithHTTPPathPattern("/logging/v2/upgrade/do"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DoUpgrade", runtime.WithHTTPPathPattern("/logging/upgrade/do"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -639,7 +639,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetStorageClasses", runtime.WithHTTPPathPattern("/logging/v2/storageclasses"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetStorageClasses", runtime.WithHTTPPathPattern("/logging/storageclasses"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -664,7 +664,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchStatus", runtime.WithHTTPPathPattern("/logging/v2/status"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchStatus", runtime.WithHTTPPathPattern("/logging/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -955,7 +955,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -977,7 +977,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DeleteOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DeleteOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -999,7 +999,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/CreateOrUpdateOpensearchCluster", runtime.WithHTTPPathPattern("/logging/v2/cluster"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/CreateOrUpdateOpensearchCluster", runtime.WithHTTPPathPattern("/logging/cluster"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1021,7 +1021,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/v2/upgrade/available"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/upgrade/available"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1043,7 +1043,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DoUpgrade", runtime.WithHTTPPathPattern("/logging/v2/upgrade/do"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/DoUpgrade", runtime.WithHTTPPathPattern("/logging/upgrade/do"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1065,7 +1065,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetStorageClasses", runtime.WithHTTPPathPattern("/logging/v2/storageclasses"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetStorageClasses", runtime.WithHTTPPathPattern("/logging/storageclasses"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1087,7 +1087,7 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchStatus", runtime.WithHTTPPathPattern("/logging/v2/status"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdminV2/GetOpensearchStatus", runtime.WithHTTPPathPattern("/logging/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1107,19 +1107,19 @@ func RegisterLoggingAdminV2HandlerClient(ctx context.Context, mux *runtime.Serve
 }
 
 var (
-	pattern_LoggingAdminV2_GetOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "v2", "cluster"}, ""))
+	pattern_LoggingAdminV2_GetOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "cluster"}, ""))
 
-	pattern_LoggingAdminV2_DeleteOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "v2", "cluster"}, ""))
+	pattern_LoggingAdminV2_DeleteOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "cluster"}, ""))
 
-	pattern_LoggingAdminV2_CreateOrUpdateOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "v2", "cluster"}, ""))
+	pattern_LoggingAdminV2_CreateOrUpdateOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "cluster"}, ""))
 
-	pattern_LoggingAdminV2_UpgradeAvailable_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"logging", "v2", "upgrade", "available"}, ""))
+	pattern_LoggingAdminV2_UpgradeAvailable_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "upgrade", "available"}, ""))
 
-	pattern_LoggingAdminV2_DoUpgrade_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"logging", "v2", "upgrade", "do"}, ""))
+	pattern_LoggingAdminV2_DoUpgrade_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "upgrade", "do"}, ""))
 
-	pattern_LoggingAdminV2_GetStorageClasses_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "v2", "storageclasses"}, ""))
+	pattern_LoggingAdminV2_GetStorageClasses_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "storageclasses"}, ""))
 
-	pattern_LoggingAdminV2_GetOpensearchStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "v2", "status"}, ""))
+	pattern_LoggingAdminV2_GetOpensearchStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "status"}, ""))
 )
 
 var (

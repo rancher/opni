@@ -50,38 +50,38 @@ service LoggingAdmin {
 service LoggingAdminV2 {
     rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchClusterV2) {
         option (google.api.http) = {
-            get: "/logging/v2/cluster"
+            get: "/logging/cluster"
         };
     }
     rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/logging/v2/cluster"
+            delete: "/logging/cluster"
         };
     }
     rpc CreateOrUpdateOpensearchCluster(OpensearchClusterV2) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            put: "/logging/v2/cluster"
+            put: "/logging/cluster"
             body: "*"
         };
     }
     rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
         option (google.api.http) = {
-            get: "/logging/v2/upgrade/available"
+            get: "/logging/upgrade/available"
         };
     }
     rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            post: "/logging/v2/upgrade/do"
+            post: "/logging/upgrade/do"
         };
     }
     rpc GetStorageClasses(google.protobuf.Empty) returns(StorageClassResponse) {
         option (google.api.http) = {
-            get: "/logging/v2/storageclasses"
+            get: "/logging/storageclasses"
         };
     }
     rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
         option (google.api.http) = {
-            get: "/logging/v2/status"
+            get: "/logging/status"
         };
     }
 }

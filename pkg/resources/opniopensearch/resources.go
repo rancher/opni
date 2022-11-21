@@ -33,7 +33,7 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.7.0-rc1"
+		version = "0.7.0-rc2"
 	}
 
 	image := fmt.Sprintf(

@@ -749,7 +749,7 @@ func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.
 	deployment := r.genericDeployment(v1beta2.TrainingControllerService)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
-	return deployment, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.TrainingController.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {

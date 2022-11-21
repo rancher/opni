@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -75,35 +76,20 @@ func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
 }
 
-func Contains[T comparable](items []T, itemToCheck T) bool {
-	for _, item := range items {
-		if item == itemToCheck {
-			return true
-		}
+func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {
+	index := slices.Index(items, old)
+	if index < 0 {
+		return items
 	}
-	return false
+	return slices.Replace(items, index, index+1, new)
 }
 
-func ReplaceInArray[T comparable](array []T, old T, new T) []T {
-	newArray := make([]T, 0, len(array))
-	for _, item := range array {
-		if item == old {
-			newArray = append(newArray, new)
-		} else {
-			newArray = append(newArray, item)
-		}
+func RemoveFirstOccurence[S ~[]T, T comparable](items S, remove T) S {
+	index := slices.Index(items, remove)
+	if index < 0 {
+		return items
 	}
-	return newArray
-}
-
-func RemoveFromArray[T comparable](items []T, remove T) []T {
-	newArray := []T{}
-	for _, item := range items {
-		if item != remove {
-			newArray = append(newArray, item)
-		}
-	}
-	return newArray
+	return slices.Delete(items, index, index+1)
 }
 
 func IsInterfaceNil(i interface{}) bool {

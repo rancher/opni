@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -409,7 +410,7 @@ func generateDataDetails(pools []opsterv1.NodePool) (*loggingadmin.DataDetails, 
 	)
 
 	for _, pool := range pools {
-		if util.Contains(pool.Roles, "data") {
+		if slices.Contains(pool.Roles, "data") {
 			replicas += pool.Replicas
 			referencePool = pool
 		}
@@ -445,8 +446,8 @@ func generateIngestDetails(pools []opsterv1.NodePool) *loggingadmin.IngestDetail
 	)
 
 	for _, pool := range pools {
-		if util.Contains(pool.Roles, "ingest") {
-			if util.Contains(pool.Roles, "data") {
+		if slices.Contains(pool.Roles, "ingest") {
+			if slices.Contains(pool.Roles, "data") {
 				return nil
 			}
 			replicas += pool.Replicas
@@ -475,8 +476,8 @@ func generateControlplaneDetails(pools []opsterv1.NodePool) (*loggingadmin.Contr
 	)
 
 	for _, pool := range pools {
-		if util.Contains(pool.Roles, "master") {
-			if util.Contains(pool.Roles, "data") {
+		if slices.Contains(pool.Roles, "master") {
+			if slices.Contains(pool.Roles, "data") {
 				return nil, nil
 			}
 			referencePool = pool
@@ -604,7 +605,7 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 
 	if splitPool {
 		secondPool := initialPool.DeepCopy()
-		secondPool.Roles = util.RemoveFromArray(secondPool.Roles, "master")
+		secondPool.Roles = util.RemoveFirstOccurence(secondPool.Roles, "master")
 		secondPool.Replicas = *cluster.DataNodes.Replicas - 5
 		secondPool.Component = "datax"
 		pools = append(pools, *secondPool)

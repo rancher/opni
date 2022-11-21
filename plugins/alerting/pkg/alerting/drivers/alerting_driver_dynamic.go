@@ -201,6 +201,31 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	if err != nil {
 		return nil, err
 	}
+	lg.Debug("checking config map")
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(10),
+		backoffv2.WithMinInterval(200*time.Millisecond),
+		backoffv2.WithMaxInterval(2*time.Second),
+		backoffv2.WithMultiplier(1.2),
+	)
+	b := retrier.Start(ctx)
+	for backoffv2.Continue(b) {
+		cfgMap := &k8scorev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.AlertingOptions.ConfigMap,
+				Namespace: a.gatewayRef.Namespace,
+			},
+		}
+		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfgMap), cfgMap)
+		if err != nil {
+			lg.Error(err)
+		}
+		if cfgMap.Data[a.configKey] == conf.RawAlertManagerConfig {
+			lg.Debug("config map updated")
+			break
+		}
+	}
+
 	lg.Debug("editing statefulsets...")
 	// !! must edit statefulset pod annotations to trigger a SELF_DELETE from the
 	// !! mounted config symlink inside the alertmanager pod
@@ -237,7 +262,9 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	var wg sync.WaitGroup
 	lg.Debugf("number of controller replicas : %d", *numReplicas)
 	lg.Debugf("number of worker replicas : %d", *numWorkerReplicas)
-	patch := fmt.Sprintf(`{"spec": {"template":{"metadata":{"annotations":{"%s":%s}}}}}`, opniReloadAnnotation, time.Now())
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, opniReloadAnnotation, time.Now().UnixNano())
+	// patch := fmt.Sprintf(`{"op" : "replace", "path" : "/spec/template/metadata/annotations/%s", "value" : "%d"}`, opniReloadAnnotation, time.Now().UnixNano())
+	lg.Debugf("patch is `%s`", patch)
 	for i := 0; i < int(*numReplicas); i++ {
 		i := i // capture loop variable in closure
 		wg.Add(1)
@@ -254,7 +281,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", i, err)
 				return
 			}
-			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.JSONPatchType, []byte(patch)))
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, []byte(patch)))
 			if err != nil {
 				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", i, err)
 			}
@@ -276,7 +303,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", j, err)
 				return
 			}
-			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.JSONPatchType, []byte(patch)))
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, []byte(patch)))
 			if err != nil {
 				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", j, err)
 			}

@@ -230,8 +230,6 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(workerSvcData), workerSvcData)
 	if k8serrors.IsNotFound(err) {
 		numWorkerReplicas = &zero
-	} else if numWorkerReplicas == nil {
-		numWorkerReplicas = &zero
 	} else {
 		numWorkerReplicas = workerSvcData.Spec.Replicas
 	}
@@ -260,23 +258,12 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 					lg.Error(err)
 					return err
 				}
-				clone := pod.DeepCopyObject().(client.Object)
-				annotationMutator(clone)
-
-				cmp, err := patch.DefaultPatchMaker.Calculate(pod, clone,
-					patch.IgnoreStatusFields(),
-					patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
-					patch.IgnorePDBSelector(),
-				)
-				if err == nil {
-					if cmp.IsEmpty() {
-						return status.Error(codes.FailedPrecondition, "no changes to apply")
-					}
-				}
-				return a.k8sClient.Update(ctx, clone)
+				updatedPod := pod.DeepCopyObject().(client.Object)
+				annotationMutator(updatedPod)
+				return a.k8sClient.Patch(ctx, updatedPod, client.MergeFrom(pod))
 			})
 			if err != nil {
-				lg.Error(err)
+				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", i, err)
 			}
 		}()
 	}
@@ -297,23 +284,12 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 					lg.Error(err)
 					return err
 				}
-				clone := pod.DeepCopyObject().(client.Object)
-				annotationMutator(clone)
-
-				cmp, err := patch.DefaultPatchMaker.Calculate(pod, clone,
-					patch.IgnoreStatusFields(),
-					patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
-					patch.IgnorePDBSelector(),
-				)
-				if err == nil {
-					if cmp.IsEmpty() {
-						return status.Error(codes.FailedPrecondition, "no changes to apply")
-					}
-				}
-				return a.k8sClient.Update(ctx, clone)
+				updatedPod := pod.DeepCopyObject().(client.Object)
+				annotationMutator(updatedPod)
+				return a.k8sClient.Patch(ctx, updatedPod, client.MergeFrom(pod))
 			})
 			if err != nil {
-				lg.Error(err)
+				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", j, err)
 			}
 		}()
 	}

@@ -253,9 +253,12 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	}
 	var numWorkerReplicas *int32
 	zero := int32(0)
+	one := int32(1)
 	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(workerSvcData), workerSvcData)
-	if k8serrors.IsNotFound(err) {
+	if err != nil {
 		numWorkerReplicas = &zero
+	} else if workerSvcData.Spec.Replicas == nil {
+		numWorkerReplicas = &one
 	} else {
 		numWorkerReplicas = workerSvcData.Spec.Replicas
 	}

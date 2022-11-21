@@ -23,6 +23,7 @@ import (
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -234,36 +235,28 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 		numWorkerReplicas = workerSvcData.Spec.Replicas
 	}
 	var wg sync.WaitGroup
-	annotationMutator := func(object client.Object) {
-		ann := object.GetAnnotations()
-		ann[opniReloadAnnotation] = fmt.Sprintf("%d", time.Now().UnixNano())
-		object.SetAnnotations(ann)
-	}
 	lg.Debugf("number of controller replicas : %d", *numReplicas)
 	lg.Debugf("number of worker replicas : %d", *numWorkerReplicas)
+	patch := fmt.Sprintf(`{"spec": {"template":{"metadata":{"annotations":{"%s":%s}}}}}`, opniReloadAnnotation, time.Now())
 	for i := 0; i < int(*numReplicas); i++ {
 		i := i // capture loop variable in closure
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-				pod := &k8scorev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%d", controllerSvcData.ObjectMeta.Name, i),
-						Namespace: a.gatewayRef.Namespace,
-					},
-				}
-				err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
-				if err != nil {
-					lg.Error(err)
-					return err
-				}
-				updatedPod := pod.DeepCopyObject().(client.Object)
-				annotationMutator(updatedPod)
-				return a.k8sClient.Patch(ctx, updatedPod, client.MergeFrom(pod))
-			})
+			pod := &k8scorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%d", controllerSvcData.ObjectMeta.Name, i),
+					Namespace: a.gatewayRef.Namespace,
+				},
+			}
+			err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
 			if err != nil {
 				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", i, err)
+				return
+			}
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.JSONPatchType, []byte(patch)))
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", i, err)
 			}
 		}()
 	}
@@ -272,24 +265,20 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-				pod := &k8scorev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%d", workerSvcData.ObjectMeta.Name, j),
-						Namespace: a.gatewayRef.Namespace,
-					},
-				}
-				err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
-				if err != nil {
-					lg.Error(err)
-					return err
-				}
-				updatedPod := pod.DeepCopyObject().(client.Object)
-				annotationMutator(updatedPod)
-				return a.k8sClient.Patch(ctx, updatedPod, client.MergeFrom(pod))
-			})
+			pod := &k8scorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%d", workerSvcData.ObjectMeta.Name, j),
+					Namespace: a.gatewayRef.Namespace,
+				},
+			}
+			err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
 			if err != nil {
 				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", j, err)
+				return
+			}
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.JSONPatchType, []byte(patch)))
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", j, err)
 			}
 		}()
 	}

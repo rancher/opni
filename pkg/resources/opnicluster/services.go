@@ -11,7 +11,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	"github.com/rancher/opni/pkg/util/nats"
@@ -797,9 +796,6 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		MountPath: "/var/opni-data",
 	}
 	deployment.Spec.Template.Spec.RuntimeClassName = r.spec.Services.GPUController.RuntimeClass
-	if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) && r.spec.Services.GPUController.RuntimeClass == nil {
-		deployment.Spec.Template.Spec.RuntimeClassName = lo.ToPtr("nvidia")
-	}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
 

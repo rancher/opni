@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,7 +26,15 @@ func BuildOpensearchUpgradeStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Opensearch upgrade status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			status, err := loggingAdminClient.UpgradeAvailable(cmd.Context(), &emptypb.Empty{})
+			var (
+				status *loggingadmin.UpgradeAvailableResponse
+				err    error
+			)
+			if forceLoggingAdminV1 {
+				status, err = loggingAdminClient.UpgradeAvailable(cmd.Context(), &emptypb.Empty{})
+			} else {
+				status, err = loggingAdminV2Client.UpgradeAvailable(cmd.Context(), &emptypb.Empty{})
+			}
 			if err != nil {
 				return err
 			}
@@ -44,11 +53,78 @@ func BuildOpensearchUpgradeDoCmd() *cobra.Command {
 		Use:   "do",
 		Short: "Initiate the Opensearch upgrade",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := loggingAdminClient.DoUpgrade(cmd.Context(), &emptypb.Empty{})
+			var err error
+			if forceLoggingAdminV1 {
+				_, err = loggingAdminClient.DoUpgrade(cmd.Context(), &emptypb.Empty{})
+			} else {
+				_, err = loggingAdminV2Client.DoUpgrade(cmd.Context(), &emptypb.Empty{})
+			}
 			if err != nil {
 				return err
 			}
 			fmt.Println(chalk.Green.Color("Opensearch upgrade initiated"))
+			return nil
+		},
+	}
+}
+
+func BuildLoggingBackendCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "backend",
+		Short: "Logging backend commands",
+	}
+	cmd.AddCommand(BuildOpensearchBackendDeleteCmd())
+	cmd.AddCommand(BuildOpensearchBackendStatusCmd())
+
+	return cmd
+}
+
+func BuildOpensearchBackendDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete",
+		Short: "Delete the logging backend",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var err error
+			if forceLoggingAdminV1 {
+				_, err = loggingAdminClient.DeleteOpensearchCluster(cmd.Context(), &emptypb.Empty{})
+			} else {
+				_, err = loggingAdminV2Client.DeleteOpensearchCluster(cmd.Context(), &emptypb.Empty{})
+			}
+			if err != nil {
+				return err
+			}
+			fmt.Println(chalk.Green.Color("Opensearch deleted"))
+			return nil
+		},
+	}
+}
+
+func BuildOpensearchBackendStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Opensearch backend status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var (
+				status *loggingadmin.StatusResponse
+				err    error
+			)
+			if forceLoggingAdminV1 {
+				status, err = loggingAdminClient.GetOpensearchStatus(cmd.Context(), &emptypb.Empty{})
+			} else {
+				status, err = loggingAdminV2Client.GetOpensearchStatus(cmd.Context(), &emptypb.Empty{})
+			}
+			if err != nil {
+				return err
+			}
+			if status.GetStatus() == 0 {
+				fmt.Println(chalk.Green.Color(status.Details))
+				return nil
+			}
+			if status.GetStatus() == 1 {
+				fmt.Println(chalk.Yellow.Color(status.Details))
+				return nil
+			}
+			fmt.Println(chalk.Red.Color(status.Details))
 			return nil
 		},
 	}

@@ -10,6 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
@@ -17,6 +19,29 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func redactSecrets(endp *alertingv1.AlertEndpoint) *alertingv1.AlertEndpoint {
+	if endp.GetPagerDuty() != nil {
+		endp.GetPagerDuty().IntegrationKey = storagev1.Redacted
+	}
+	return endp
+}
+
+func unredactSecrets(
+	ctx context.Context,
+	node *alertstorage.StorageNode,
+	endpointId string,
+	endp *alertingv1.AlertEndpoint,
+) *alertingv1.AlertEndpoint {
+	if endp.GetPagerDuty() != nil && endp.GetPagerDuty().IntegrationKey == storagev1.Redacted {
+		redactedEndp, err := node.GetEndpointStorage(ctx, endpointId)
+		if err != nil {
+			return endp
+		}
+		endp.GetPagerDuty().IntegrationKey = redactedEndp.GetPagerDuty().IntegrationKey
+	}
+	return endp
+}
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertEndpoint) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
@@ -30,13 +55,19 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertE
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertEndpoint, error) {
-	return p.storageNode.GetEndpointStorage(ctx, ref.Id)
+	endp, err := p.storageNode.GetEndpointStorage(ctx, ref.Id)
+	if err != nil {
+		return nil, err
+	}
+	// handle secrets
+	return redactSecrets(endp), nil
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	updateEndpoint := unredactSecrets(ctx, p.storageNode, req.Id.Id, req.GetUpdateAlert())
 	// List relationships
 	allRelationships, err := p.ListRoutingRelationships(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -57,13 +88,13 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 		}
 		_, err := p.UpdateIndividualEndpointInRoutingNode(ctx, &alertingv1.FullAttachedEndpoint{
 			EndpointId:    req.Id.Id,
-			AlertEndpoint: req.UpdateAlert,
+			AlertEndpoint: updateEndpoint,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.UpdateAlert); err != nil {
+	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, updateEndpoint); err != nil {
 		return nil, err
 	}
 	return &alertingv1.InvolvedConditions{
@@ -84,7 +115,7 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	for idx := range ids {
 		items = append(items, &alertingv1.AlertEndpointWithId{
 			Id:       &corev1.Reference{Id: ids[idx]},
-			Endpoint: endpoints[idx],
+			Endpoint: redactSecrets(endpoints[idx]),
 		})
 	}
 	return &alertingv1.AlertEndpointList{Items: items}, nil

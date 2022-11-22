@@ -209,3 +209,23 @@ func WithUnimplementedErrorf(format string, args ...interface{}) error {
 		message: fmt.Errorf(format, args...).Error(),
 	}
 }
+
+func (e *FailedPreconditionError) Error() string {
+	return e.message
+}
+
+func (e *FailedPreconditionError) GRPCStatus() *status.Status {
+	return status.New(codes.FailedPrecondition, e.message)
+}
+
+func WithFailedPreconditionError(msg string) error {
+	return &UnimplementedError{
+		message: msg,
+	}
+}
+
+func WithFailedPreconditionErrorf(format string, args ...interface{}) error {
+	return &UnimplementedError{
+		message: fmt.Errorf(format, args...).Error(),
+	}
+}

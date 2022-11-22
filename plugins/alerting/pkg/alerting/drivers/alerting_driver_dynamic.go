@@ -19,12 +19,16 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	appsv1 "k8s.io/api/apps/v1"
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const opniReloadAnnotation = "opni.io/reload-configmap"
 
 // Implementation of the AlertingDynamic Server for
 // AlertingManager
@@ -64,6 +68,7 @@ func (a *AlertingManager) ApplyConfigToBackend(
 	if err != nil {
 		return err
 	}
+	a.Logger.Debug("updating config map & pod annotations...")
 	_, err = a.Update(ctx, &alertops.AlertingConfig{
 		RawAlertManagerConfig: string(rawAlertManagerData),
 		RawInternalRouting:    string(rawInternalRoutingData),
@@ -71,6 +76,7 @@ func (a *AlertingManager) ApplyConfigToBackend(
 	if err != nil {
 		return err
 	}
+	a.Logger.Debug("triggering alertmanager reload + injected server hooks...")
 	_, err = a.Reload(ctx, &alertops.ReloadInfo{
 		UpdatedConfig: string(rawAlertManagerData),
 	})
@@ -184,6 +190,7 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
 			patch.IgnorePDBSelector(),
 		)
+
 		if err == nil {
 			if cmp.IsEmpty() {
 				return status.Error(codes.FailedPrecondition, "no changes to apply")
@@ -194,9 +201,119 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 	if err != nil {
 		return nil, err
 	}
+	lg.Debug("checking config map")
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(10),
+		backoffv2.WithMinInterval(200*time.Millisecond),
+		backoffv2.WithMaxInterval(2*time.Second),
+		backoffv2.WithMultiplier(1.2),
+	)
+	b := retrier.Start(ctx)
+	for backoffv2.Continue(b) {
+		cfgMap := &k8scorev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.AlertingOptions.ConfigMap,
+				Namespace: a.gatewayRef.Namespace,
+			},
+		}
+		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfgMap), cfgMap)
+		if err != nil {
+			lg.Error(err)
+		}
+		if cfgMap.Data[a.configKey] == conf.RawAlertManagerConfig {
+			lg.Debug("config map updated")
+			break
+		}
+	}
 
-	// FIXME? consider checking config map is updated before returning
-
+	lg.Debug("editing statefulsets...")
+	// !! must edit statefulset pod annotations to trigger a SELF_DELETE from the
+	// !! mounted config symlink inside the alertmanager pod
+	controllerSvcData := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      a.AlertingOptions.ControllerNodeService + "-internal",
+			Namespace: a.gatewayRef.Namespace,
+		},
+	}
+	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(controllerSvcData), controllerSvcData)
+	if err != nil {
+		lg.Error(err)
+		return nil, err
+	}
+	numReplicas := controllerSvcData.Spec.Replicas
+	if numReplicas == nil {
+		lg.Error(err)
+		return nil, err
+	}
+	workerSvcData := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      a.AlertingOptions.WorkerNodesService + "-internal",
+			Namespace: a.gatewayRef.Namespace,
+		},
+	}
+	var numWorkerReplicas *int32
+	zero := int32(0)
+	one := int32(1)
+	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(workerSvcData), workerSvcData)
+	if err != nil {
+		numWorkerReplicas = &zero
+	} else if workerSvcData.Spec.Replicas == nil {
+		numWorkerReplicas = &one
+	} else {
+		numWorkerReplicas = workerSvcData.Spec.Replicas
+	}
+	var wg sync.WaitGroup
+	lg.Debugf("number of controller replicas : %d", *numReplicas)
+	lg.Debugf("number of worker replicas : %d", *numWorkerReplicas)
+	patch := fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, opniReloadAnnotation, time.Now().UnixNano())
+	// patch := fmt.Sprintf(`{"op" : "replace", "path" : "/spec/template/metadata/annotations/%s", "value" : "%d"}`, opniReloadAnnotation, time.Now().UnixNano())
+	lg.Debugf("patch is `%s`", patch)
+	for i := 0; i < int(*numReplicas); i++ {
+		i := i // capture loop variable in closure
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pod := &k8scorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%d", controllerSvcData.ObjectMeta.Name, i),
+					Namespace: a.gatewayRef.Namespace,
+				},
+			}
+			err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", i, err)
+				return
+			}
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, []byte(patch)))
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", i, err)
+			}
+		}()
+	}
+	for j := 0; j < int(*numWorkerReplicas); j++ {
+		j := j // capture loop variable in closure
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pod := &k8scorev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%d", workerSvcData.ObjectMeta.Name, j),
+					Namespace: a.gatewayRef.Namespace,
+				},
+			}
+			err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), pod)
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting controller node(s) %d : %s", j, err)
+				return
+			}
+			err = a.k8sClient.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, []byte(patch)))
+			if err != nil {
+				lg.Errorf("could not patch pod annotations for alerting worker node(s) %d : %s", j, err)
+			}
+		}()
+	}
+	wg.Wait()
+	lg.Debug("updating annotations done")
 	return &emptypb.Empty{}, nil
 }
 

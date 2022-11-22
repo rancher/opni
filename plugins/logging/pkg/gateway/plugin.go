@@ -58,8 +58,7 @@ type Plugin struct {
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
-	opensearchManager   opensearchdata.Manager
-	manageFlag          featureflags.FeatureFlag
+	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 }
 
@@ -159,7 +158,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
-		opensearchManager: *opensearchdata.NewManager(
+		opensearchManager: opensearchdata.NewManager(
 			lg.Named("opensearch-manager"),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
@@ -193,6 +192,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 }
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
+var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
@@ -224,11 +224,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	if restconfig != nil {
 		features.PopulateFeatures(ctx, restconfig)
-		p.manageFlag = features.FeatureList.GetFeature("manage-opensearch")
-	}
-
-	if p.featureOverride != nil {
-		p.manageFlag = p.featureOverride
 	}
 
 	go p.opensearchManager.SetClient(p.setOpensearchClient)
@@ -237,10 +232,27 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 
-	if restconfig != nil && p.manageFlag != nil && p.manageFlag.IsEnabled() {
-		scheme.Add(managementext.ManagementAPIExtensionPluginID,
-			managementext.NewPlugin(util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p)))
+	if restconfig != nil {
+		scheme.Add(
+			managementext.ManagementAPIExtensionPluginID,
+			managementext.NewPlugin(
+				util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p),
+				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, p.NewLoggingManagerForPlugin()),
+			),
+		)
 	}
 
 	return scheme
+}
+
+func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
+	return &LoggingManagerV2{
+		k8sClient:         p.k8sClient,
+		logger:            p.logger.Named("opensearch-manager"),
+		opensearchCluster: p.opensearchCluster,
+		opensearchManager: p.opensearchManager,
+		storageNamespace:  p.storageNamespace,
+		natsRef:           p.natsRef,
+		versionOverride:   p.version,
+	}
 }

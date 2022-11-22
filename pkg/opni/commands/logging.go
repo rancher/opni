@@ -4,6 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var forceLoggingAdminV1 bool
+
 func BuildLoggingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logging",
@@ -11,6 +13,8 @@ func BuildLoggingCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(BuildLoggingUpgradeCmd())
+	cmd.AddCommand(BuildLoggingBackendCmd())
+	cmd.Flags().BoolVar(&forceLoggingAdminV1, "v1", false, "Force command to use the v1 api")
 
 	ConfigureManagementCommand(cmd)
 	ConfigureLoggingAdminCommand(cmd)

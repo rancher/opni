@@ -6,6 +6,7 @@ import (
 )
 
 var ErrNotFound = &NotFoundError{}
+var ErrAlreadyExists = &AlreadyExistsError{}
 
 type NotFoundError struct{}
 
@@ -15,4 +16,14 @@ func (e *NotFoundError) Error() string {
 
 func (e *NotFoundError) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, e.Error())
+}
+
+type AlreadyExistsError struct{}
+
+func (e *AlreadyExistsError) Error() string {
+	return "already exists"
+}
+
+func (e *AlreadyExistsError) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
 }

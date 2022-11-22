@@ -235,12 +235,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: r.spec.Alerting.ConfigName,
 									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  shared.AlertManagerConfigKey,
-											Path: shared.AlertManagerConfigKey,
-										},
-									},
 								},
 							},
 						},

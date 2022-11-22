@@ -19,9 +19,17 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal role: %w", err)
 	}
-	_, err = e.Client.Put(ctx, path.Join(e.Prefix, roleKey, role.Id), string(data))
+	key := path.Join(e.Prefix, roleKey, role.Id)
+	resp, err := e.Client.Txn(ctx).If(
+		clientv3.Compare(clientv3.Version(key), "=", 0),
+	).Then(
+		clientv3.OpPut(key, string(data)),
+	).Commit()
 	if err != nil {
 		return fmt.Errorf("failed to create role: %w", err)
+	}
+	if !resp.Succeeded {
+		return storage.ErrAlreadyExists
 	}
 	return nil
 }
@@ -57,9 +65,17 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *corev1.R
 	if err != nil {
 		return fmt.Errorf("failed to marshal role binding: %w", err)
 	}
-	_, err = e.Client.Put(ctx, path.Join(e.Prefix, roleBindingKey, roleBinding.Id), string(data))
+	key := path.Join(e.Prefix, roleBindingKey, roleBinding.Id)
+	resp, err := e.Client.Txn(ctx).If(
+		clientv3.Compare(clientv3.Version(key), "=", 0),
+	).Then(
+		clientv3.OpPut(key, string(data)),
+	).Commit()
 	if err != nil {
 		return fmt.Errorf("failed to create role binding: %w", err)
+	}
+	if !resp.Succeeded {
+		return storage.ErrAlreadyExists
 	}
 	return nil
 }

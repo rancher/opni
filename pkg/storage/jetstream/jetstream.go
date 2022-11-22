@@ -2,6 +2,7 @@ package jetstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -168,4 +169,14 @@ func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	return &jetstreamKeyValueStore{
 		kv: bucket,
 	}
+}
+
+func errIsKeyAlreadyExists(err error) bool {
+	// TODO: this error code is not exported by the nats.go client
+	// https://github.com/nats-io/nats.go/issues/1134
+	apierror := &nats.APIError{}
+	if errors.As(err, &apierror) {
+		return apierror.ErrorCode == 10071
+	}
+	return false
 }

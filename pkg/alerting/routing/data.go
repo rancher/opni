@@ -313,7 +313,7 @@ func (o *OpniInternalRouting) Add(
 				Position:     metadata.Position,
 			}
 		} else {
-			return fmt.Errorf("(conditionId, endpointId) key already exists and should not")
+			return shared.WithFailedPreconditionError("(conditionId, endpointId) key already exists and should not")
 		}
 	}
 	return nil

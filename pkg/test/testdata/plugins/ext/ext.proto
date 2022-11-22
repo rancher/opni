@@ -27,6 +27,15 @@ service Ext {
       }
     };
   }
+  rpc Bar(BarRequest) returns (BarResponse) {
+    option (google.api.http) = {
+      post: "/bar/{param1}/{param2}"
+      body: "param3"
+      additional_bindings {
+        get: "/bar/{param1}/{param2}/{param3}"
+      }
+    };
+  }
 }
 
 service Ext2 {
@@ -39,4 +48,16 @@ message FooRequest {
 
 message FooResponse {
   string response = 1;
+}
+
+message BarRequest {
+  string param1 = 1;
+  string param2 = 2;
+  string param3 = 3;
+}
+
+message BarResponse {
+  string param1 = 1;
+  string param2 = 2;
+  string param3 = 3;
 }

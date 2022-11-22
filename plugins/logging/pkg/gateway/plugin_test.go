@@ -43,7 +43,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging"
-		version = "0.7.0-rc1"
+		version = "0.7.0-rc2"
 		opensearchVersion = "1.3.3"
 
 		request = &loggingadmin.OpensearchCluster{
@@ -76,7 +76,11 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 			Replicas:  3,
 			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
-			Roles:     ReplaceInArray(request.NodePools[0].Roles, "controlplane", "master"),
+			Roles: []string{
+				"master",
+				"data",
+				"ingest",
+			},
 			Affinity: &corev1.Affinity{
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -123,7 +127,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.3-0.7.0-rc1"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.3-0.7.0-rc2"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -246,7 +250,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					return reflect.DeepEqual(object.Spec.NodePools[0], nodePool)
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.7.0-rc1"))
+				Expect(object.Spec.Version).To(Equal("0.7.0-rc2"))
 			})
 		})
 		Specify("check upgrade available should return false", func() {

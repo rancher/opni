@@ -5,7 +5,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var loggingAdminClient loggingadmin.LoggingAdminClient
+var (
+	loggingAdminClient   loggingadmin.LoggingAdminClient
+	loggingAdminV2Client loggingadmin.LoggingAdminV2Client
+)
 
 func ConfigureLoggingAdminCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {
@@ -31,6 +34,13 @@ func loggingAdminPreRunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	loggingAdminClient = ac
+
+	ac2, err := loggingadmin.NewV2Client(cmd.Context(),
+		loggingadmin.WithListenAddress(managementListenAddress))
+	if err != nil {
+		return err
+	}
+	loggingAdminV2Client = ac2
 
 	return nil
 }

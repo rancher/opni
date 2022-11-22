@@ -36,42 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	LabelOpsterCluster  = "opster.io/opensearch-cluster"
-	LabelOpsterNodePool = "opster.io/opensearch-nodepool"
-	TopologyKeyK8sHost  = "kubernetes.io/hostname"
-
-	opensearchVersion = "1.3.3"
-	defaultRepo       = "docker.io/rancher"
-)
-
-type ClusterStatus int
-
-const (
-	ClusterStatusPending ClusterStatus = iota + 1
-	ClusterStatusGreen
-	ClusterStatusYellow
-	ClusterStatusRed
-	ClusterStatusError
-)
-
-func ClusterStatusDescription(s ClusterStatus) string {
-	switch s {
-	case ClusterStatusPending:
-		return "Opensearch cluster is initializing"
-	case ClusterStatusGreen:
-		return "Opensearch cluster is green"
-	case ClusterStatusYellow:
-		return "Opensearch cluster is yellow"
-	case ClusterStatusRed:
-		return "Opensearch cluster is red"
-	case ClusterStatusError:
-		return "Error fetching status from Opensearch cluster"
-	default:
-		return "unknown status"
-	}
-}
-
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
@@ -401,25 +365,9 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		tolerations = append(tolerations, &toleration)
 	}
 
-	persistence := loggingadmin.DataPersistence{}
-	if pool.Persistence == nil {
-		persistence.Enabled = lo.ToPtr(true)
-	} else {
-		if pool.Persistence.EmptyDir != nil {
-			persistence.Enabled = lo.ToPtr(false)
-		} else {
-			if pool.Persistence.PVC != nil {
-				persistence.Enabled = lo.ToPtr(true)
-				persistence.StorageClass = func() *string {
-					if pool.Persistence.PVC.StorageClassName == "" {
-						return nil
-					}
-					return &pool.Persistence.PVC.StorageClassName
-				}()
-			} else {
-				return &loggingadmin.OpensearchNodeDetails{}, errors.ErrStoredClusterPersistence()
-			}
-		}
+	persistence, err := generatePersistence(pool)
+	if err != nil {
+		return &loggingadmin.OpensearchNodeDetails{}, err
 	}
 
 	return &loggingadmin.OpensearchNodeDetails{
@@ -448,8 +396,8 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		}(),
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
-		Persistence:  &persistence,
-		Roles:        ReplaceInArray(pool.Roles, "master", "controlplane"),
+		Persistence:  persistence,
+		Roles:        util.ReplaceFirstOccurrence(pool.Roles, "master", "controlplane"),
 		EnableAntiAffinity: func() *bool {
 			if pool.Affinity == nil {
 				return lo.ToPtr(false)
@@ -465,7 +413,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.7.0-rc1"
+	version := "0.7.0-rc2"
 	if cluster == nil {
 		if util.Version != "unversioned" {
 			version = strings.TrimPrefix(util.Version, "v")
@@ -491,7 +439,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.7.0-rc1"
+		version = "0.7.0-rc2"
 	}
 
 	image := fmt.Sprintf(
@@ -711,7 +659,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 		DiskSize:  pool.DiskSize,
 		Resources: resources,
 		Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal),
-		Roles:     ReplaceInArray(pool.Roles, "controlplane", "master"),
+		Roles:     util.ReplaceFirstOccurrence(pool.Roles, "controlplane", "master"),
 		Tolerations: func() []corev1.Toleration {
 			var tolerations []corev1.Toleration
 			for _, toleration := range pool.Tolerations {
@@ -812,16 +760,4 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 			return resources
 		}(),
 	}
-}
-
-func ReplaceInArray[T comparable](array []T, old T, new T) []T {
-	newArray := make([]T, 0, len(array))
-	for _, item := range array {
-		if item == old {
-			newArray = append(newArray, new)
-		} else {
-			newArray = append(newArray, item)
-		}
-	}
-	return newArray
 }

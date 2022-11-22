@@ -60,6 +60,16 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				Expect(err).NotTo(HaveOccurred())
 				Expect(all.Items).To(BeEmpty())
 			})
+			It("should fail if the role already exists", func() {
+				role := &corev1.Role{
+					Id: "foo",
+				}
+				err := ts.CreateRole(context.Background(), role)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = ts.CreateRole(context.Background(), role)
+				Expect(err).To(MatchError(storage.ErrAlreadyExists))
+			})
 		})
 		Context("Role Bindings", func() {
 			It("should initially have no role bindings", func() {
@@ -100,6 +110,16 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				all, err = ts.ListRoleBindings(context.Background())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(all.Items).To(BeEmpty())
+			})
+			It("should fail if the role binding already exists", func() {
+				rb := &corev1.RoleBinding{
+					Id: "foo",
+				}
+				err := ts.CreateRoleBinding(context.Background(), rb)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = ts.CreateRoleBinding(context.Background(), rb)
+				Expect(err).To(MatchError(storage.ErrAlreadyExists))
 			})
 		})
 	}

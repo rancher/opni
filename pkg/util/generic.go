@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -73,6 +74,22 @@ func DeepCopy[T any](in *T) *T {
 
 func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
+}
+
+func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {
+	index := slices.Index(items, old)
+	if index < 0 {
+		return items
+	}
+	return slices.Replace(items, index, index+1, new)
+}
+
+func RemoveFirstOccurence[S ~[]T, T comparable](items S, remove T) S {
+	index := slices.Index(items, remove)
+	if index < 0 {
+		return items
+	}
+	return slices.Delete(items, index, index+1)
 }
 
 func IsInterfaceNil(i interface{}) bool {

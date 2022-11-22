@@ -15,7 +15,10 @@ func (s *JetStreamStore) CreateRole(ctx context.Context, role *corev1.Role) erro
 	if err != nil {
 		return err
 	}
-	_, err = s.kv.Roles.Put(role.Id, data)
+	_, err = s.kv.Roles.Create(role.Id, data)
+	if errIsKeyAlreadyExists(err) {
+		return storage.ErrAlreadyExists
+	}
 	return err
 }
 
@@ -49,7 +52,10 @@ func (s *JetStreamStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleB
 	if err != nil {
 		return err
 	}
-	_, err = s.kv.RoleBindings.Put(rb.Id, data)
+	_, err = s.kv.RoleBindings.Create(rb.Id, data)
+	if errIsKeyAlreadyExists(err) {
+		return storage.ErrAlreadyExists
+	}
 	return err
 }
 

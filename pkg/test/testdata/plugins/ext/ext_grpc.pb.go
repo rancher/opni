@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExtClient interface {
 	Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error)
+	Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOption) (*BarResponse, error)
 }
 
 type extClient struct {
@@ -42,11 +43,21 @@ func (c *extClient) Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *extClient) Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOption) (*BarResponse, error) {
+	out := new(BarResponse)
+	err := c.cc.Invoke(ctx, "/ext.Ext/Bar", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExtServer is the server API for Ext service.
 // All implementations must embed UnimplementedExtServer
 // for forward compatibility
 type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
+	Bar(context.Context, *BarRequest) (*BarResponse, error)
 	mustEmbedUnimplementedExtServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedExtServer struct {
 
 func (UnimplementedExtServer) Foo(context.Context, *FooRequest) (*FooResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Foo not implemented")
+}
+func (UnimplementedExtServer) Bar(context.Context, *BarRequest) (*BarResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Bar not implemented")
 }
 func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
@@ -88,6 +102,24 @@ func _Ext_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ext_Bar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BarRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExtServer).Bar(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ext.Ext/Bar",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExtServer).Bar(ctx, req.(*BarRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Ext_ServiceDesc is the grpc.ServiceDesc for Ext service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -98,6 +130,10 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Foo",
 			Handler:    _Ext_Foo_Handler,
+		},
+		{
+			MethodName: "Bar",
+			Handler:    _Ext_Bar_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

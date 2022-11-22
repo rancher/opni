@@ -128,9 +128,6 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 						Namespace: cluster.Namespace,
 					},
 				})).Should(ExistAnd(
-					HaveMatchingContainer(
-						HaveImage(fmt.Sprintf("docker.biz/rancher/%s:test", kind.ImageName()), corev1.PullNever),
-					),
 					HaveImagePullSecrets("lorem-ipsum"),
 					HaveNodeSelector("foo", "bar"),
 					HaveTolerations("foo"),

@@ -13,7 +13,6 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
-	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -204,15 +203,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var policies []interface{}
 	if oldVersion {
-		if lo.FromPtrOr(r.spec.Opensearch.EnableLogIndexManagement, true) {
-			policies = append(policies, oldOpniLogPolicy)
-		}
 		policies = append(policies, oldOpniDrainModelStatusPolicy)
 		policies = append(policies, oldOpniMetricPolicy)
 	} else {
-		if lo.FromPtrOr(r.spec.Opensearch.EnableLogIndexManagement, true) {
-			policies = append(policies, OpniLogPolicy)
-		}
 		policies = append(policies, opniDrainModelStatusPolicy)
 		policies = append(policies, opniMetricPolicy)
 	}
@@ -230,10 +223,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		opniMetricTemplate,
 	}
 
-	if lo.FromPtrOr(r.spec.Opensearch.EnableLogIndexManagement, true) {
-		templates = append(templates, OpniLogTemplate)
-	}
-
 	for _, template := range templates {
 		err = r.osReconciler.MaybeCreateIndexTemplate(template)
 		if err != nil {
@@ -248,12 +237,8 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		metricIndexPrefix:      metricIndexAlias,
 	}
 
-	if lo.FromPtrOr(r.spec.Opensearch.EnableLogIndexManagement, true) {
-		prefixes[LogIndexPrefix] = LogIndexAlias
-	}
-
 	for prefix, alias := range prefixes {
-		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias, OldIndexPrefixes)
+		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

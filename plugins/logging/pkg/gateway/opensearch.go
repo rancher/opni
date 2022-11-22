@@ -4,7 +4,6 @@ import (
 	"context"
 
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
@@ -19,24 +18,13 @@ func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterRefe
 	var binding *loggingv1beta1.MulticlusterRoleBinding
 	var opnimgmt *loggingv1beta1.OpniOpensearch
 
-	if p.manageFlag.IsEnabled() {
-		opnimgmt = &loggingv1beta1.OpniOpensearch{}
-		if err := p.k8sClient.Get(ctx, types.NamespacedName{
-			Name:      p.opensearchCluster.Name,
-			Namespace: p.storageNamespace,
-		}, opnimgmt); err != nil {
-			p.logger.Errorf("unable to fetch opniopensearch object: %v", err)
-			return nil, err
-		}
-	} else {
-		binding = &loggingv1beta1.MulticlusterRoleBinding{}
-		if err := p.k8sClient.Get(ctx, types.NamespacedName{
-			Name:      OpensearchBindingName,
-			Namespace: p.storageNamespace,
-		}, binding); err != nil {
-			p.logger.Errorf("unable to fetch binding object: %v", err)
-			return nil, err
-		}
+	opnimgmt = &loggingv1beta1.OpniOpensearch{}
+	if err := p.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      p.opensearchCluster.Name,
+		Namespace: p.storageNamespace,
+	}, opnimgmt); err != nil {
+		p.logger.Errorf("unable to fetch opniopensearch object: %v", err)
+		return nil, err
 	}
 
 	labels := map[string]string{
@@ -65,6 +53,6 @@ func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterRefe
 			}
 			return ""
 		}(),
-		TracingEnabled: features.FeatureList.FeatureIsEnabled("tracing"),
+		TracingEnabled: true,
 	}, nil
 }

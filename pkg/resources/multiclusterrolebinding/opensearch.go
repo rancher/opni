@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rancher/opni/pkg/features"
-	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -35,9 +33,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 
 	isms := []osapiext.ISMPolicySpec{
 		r.logISMPolicy(),
-	}
-	if features.FeatureList.FeatureIsEnabled("tracing") {
-		isms = append(isms, r.traceISMPolicy())
+		r.traceISMPolicy(),
 	}
 
 	for _, ism := range isms {
@@ -53,11 +49,8 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 	}
 
 	templates := []osapiext.IndexTemplateSpec{
-		indices.OpniLogTemplate,
-		ingestPipelineTemplate,
-	}
-	if features.FeatureList.FeatureIsEnabled("tracing") {
-		templates = append(templates, opniSpanTemplate)
+		OpniLogTemplate,
+		opniSpanTemplate,
 	}
 
 	for _, template := range templates {
@@ -80,31 +73,29 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 	}
 
 	retErr = reconciler.UpdateDefaultIngestPipelineForIndex(
-		fmt.Sprintf("%s*", indices.LogIndexPrefix),
+		fmt.Sprintf("%s*", LogIndexPrefix),
 		preProcessingPipelineName,
 	)
 	if retErr != nil {
 		return
 	}
 
-	retErr = reconciler.MaybeBootstrapIndex(indices.LogIndexPrefix, indices.LogIndexAlias, indices.OldIndexPrefixes)
+	retErr = reconciler.MaybeBootstrapIndex(LogIndexPrefix, LogIndexAlias, OldIndexPrefixes)
 	if retErr != nil {
 		return
 	}
 
-	if features.FeatureList.FeatureIsEnabled("tracing") {
-		retErr = reconciler.MaybeBootstrapIndex(spanIndexPrefix, spanIndexAlias, oldTracingIndexPrefixes)
-		if retErr != nil {
-			return
-		}
+	retErr = reconciler.MaybeBootstrapIndex(spanIndexPrefix, spanIndexAlias, oldTracingIndexPrefixes)
+	if retErr != nil {
+		return
+	}
 
-		mappings := map[string]osapiext.TemplateMappingsSpec{
-			"mappings": opniServiceMapTemplate.Template.Mappings,
-		}
-		retErr = reconciler.MaybeCreateIndex(serviceMapIndexName, mappings)
-		if retErr != nil {
-			return
-		}
+	mappings := map[string]osapiext.TemplateMappingsSpec{
+		"mappings": opniServiceMapTemplate.Template.Mappings,
+	}
+	retErr = reconciler.MaybeCreateIndex(serviceMapIndexName, mappings)
+	if retErr != nil {
+		return
 	}
 
 	if opensearchCluster.Spec.Dashboards.Enable {

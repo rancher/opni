@@ -76,7 +76,11 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 			Replicas:  3,
 			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
-			Roles:     ReplaceInArray(request.NodePools[0].Roles, "controlplane", "master"),
+			Roles: []string{
+				"master",
+				"data",
+				"ingest",
+			},
 			Affinity: &corev1.Affinity{
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{

@@ -34,6 +34,7 @@ require (
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/go-test/deep v1.0.8
 	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
+	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
@@ -116,7 +117,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/crypto v0.1.0
-	golang.org/x/exp v0.0.0-20220927162542-c76eaa363f9d
+	golang.org/x/exp v0.0.0-20221114191408-850992195362
 	golang.org/x/mod v0.6.0
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
 	golang.org/x/sys v0.2.0
@@ -272,7 +273,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.7.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-jsonnet v0.19.1 // indirect

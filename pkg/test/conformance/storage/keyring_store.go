@@ -1,4 +1,4 @@
-package conformance
+package conformance_storage
 
 import (
 	"context"
@@ -17,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util/future"
 )
 
 func pkpKey(pinCount int) *keyring.PKPKey {
@@ -60,27 +59,29 @@ func (*testInvalidKeyring) Merge(keyring.Keyring) keyring.Keyring {
 	return nil
 }
 
-func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
-	tsF future.Future[T],
-) func() {
+func BuildKeyringStoreTestSuite[T storage.KeyringStoreBroker](pt *T) bool {
+	return Describe("Keyring Store", Ordered, Label("integration", "slow"), keyringStoreTestSuite(pt))
+}
+
+func keyringStoreTestSuite[T storage.KeyringStoreBroker](pt *T) func() {
 	return func() {
-		var ts storage.KeyringStore
+		var t storage.KeyringStore
 		BeforeAll(func() {
-			ts = tsF.Get().KeyringStore("test", &corev1.Reference{
+			t = (*pt).KeyringStore("test", &corev1.Reference{
 				Id: "test",
 			})
 		})
 		It("should initially be empty", func() {
-			_, err := ts.Get(context.Background())
+			_, err := t.Get(context.Background())
 			Expect(err).To(MatchError(storage.ErrNotFound))
 		})
 		DescribeTable("Keyring storage",
 			func(keys ...any) {
 				kr := keyring.New(keys...)
 				Eventually(func() error {
-					return ts.Put(context.Background(), kr)
+					return t.Put(context.Background(), kr)
 				}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
-				kr2, err := ts.Get(context.Background())
+				kr2, err := t.Get(context.Background())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(kr2).To(Equal(kr))
 			},
@@ -99,13 +100,13 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 		)
 		When("putting the keyring into the store", func() {
 			It("should error if the keyring is invalid", func() {
-				err := ts.Put(context.Background(), &testInvalidKeyring{})
+				err := t.Put(context.Background(), &testInvalidKeyring{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		It("should handle concurrent updates", func() {
 			kr := keyring.New(sharedKeys())
-			Expect(ts.Put(context.Background(), kr)).To(Succeed())
+			Expect(t.Put(context.Background(), kr)).To(Succeed())
 
 			kr = keyring.New(sharedKeys(), pkpKey(1))
 
@@ -117,23 +118,23 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 					defer GinkgoRecover()
 					defer wg.Done()
 					<-start
-					Expect(ts.Put(context.Background(), kr)).To(Succeed())
+					Expect(t.Put(context.Background(), kr)).To(Succeed())
 				}()
 			}
 			close(start)
 			wg.Wait()
 
-			kr2, err := ts.Get(context.Background())
+			kr2, err := t.Get(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kr2).To(Equal(kr))
 		})
 		It("should delete keyrings", func() {
 			kr := keyring.New(sharedKeys())
-			Expect(ts.Put(context.Background(), kr)).To(Succeed())
-			_, err := ts.Get(context.Background())
+			Expect(t.Put(context.Background(), kr)).To(Succeed())
+			_, err := t.Get(context.Background())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(ts.Delete(context.Background())).To(Succeed())
-			_, err = ts.Get(context.Background())
+			Expect(t.Delete(context.Background())).To(Succeed())
+			_, err = t.Get(context.Background())
 			Expect(err).To(MatchError(storage.ErrNotFound))
 		})
 	}

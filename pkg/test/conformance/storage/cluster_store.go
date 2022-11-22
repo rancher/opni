@@ -1,4 +1,4 @@
-package conformance
+package conformance_storage
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/future"
 )
 
 func newIdWithLine() string {
@@ -35,16 +34,18 @@ func line() string {
 	return strconv.Itoa(line)
 }
 
-func ClusterStoreTestSuite[T storage.ClusterStore](
-	tsF future.Future[T],
-) func() {
+func BuildClusterStoreTestSuite[T storage.ClusterStore](pt *T) bool {
+	return Describe("Cluster Store", Ordered, Label("integration", "slow"), clusterStoreTestSuite(pt))
+}
+
+func clusterStoreTestSuite[T storage.ClusterStore](pt *T) func() {
 	return func() {
-		var ts T
+		var t T
 		BeforeAll(func() {
-			ts = tsF.Get()
+			t = *pt
 		})
 		It("should initially have no clusters", func() {
-			clusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
+			clusters, err := t.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
 		})
@@ -65,9 +66,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				}
 				Eventually(func() error {
-					return ts.CreateCluster(context.Background(), cluster)
+					return t.CreateCluster(context.Background(), cluster)
 				}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
-				cluster, err := ts.GetCluster(context.Background(), cluster.Reference())
+				cluster, err := t.GetCluster(context.Background(), cluster.Reference())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster).NotTo(BeNil())
 				Expect(cluster.Id).To(Equal("foo"))
@@ -77,7 +78,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				Expect(cluster.Metadata.Capabilities[0].Name).To(Equal("foo"))
 			})
 			It("should appear in the list of clusters", func() {
-				clusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
+				clusters, err := t.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(clusters.Items).To(HaveLen(1))
 				Expect(clusters.Items[0].GetId()).To(Equal("foo"))
@@ -95,10 +96,10 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 						},
 					},
 				}
-				err := ts.CreateCluster(context.Background(), cluster)
+				err := t.CreateCluster(context.Background(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = ts.CreateCluster(context.Background(), cluster)
+				err = t.CreateCluster(context.Background(), cluster)
 				Expect(err).To(MatchError(storage.ErrAlreadyExists))
 			})
 		})
@@ -110,7 +111,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 						Labels: labels,
 					},
 				}
-				err := ts.CreateCluster(context.Background(), cluster)
+				err := t.CreateCluster(context.Background(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 				return cluster
 			}
@@ -127,7 +128,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			clusters, err := ts.ListClusters(context.Background(), sel.LabelSelector, 0)
+			clusters, err := t.ListClusters(context.Background(), sel.LabelSelector, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
@@ -140,7 +141,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			clusters, err = ts.ListClusters(context.Background(), sel.LabelSelector, 0)
+			clusters, err = t.ListClusters(context.Background(), sel.LabelSelector, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
@@ -148,13 +149,13 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}
 		})
 		It("should respect match options", func() {
-			clusters, err := ts.ListClusters(context.Background(), nil, corev1.MatchOptions_EmptySelectorMatchesNone)
+			clusters, err := t.ListClusters(context.Background(), nil, corev1.MatchOptions_EmptySelectorMatchesNone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
-			clusters, err = ts.ListClusters(context.Background(), &corev1.LabelSelector{}, corev1.MatchOptions_EmptySelectorMatchesNone)
+			clusters, err = t.ListClusters(context.Background(), &corev1.LabelSelector{}, corev1.MatchOptions_EmptySelectorMatchesNone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
-			clusters, err = ts.ListClusters(context.Background(), &corev1.LabelSelector{
+			clusters, err = t.ListClusters(context.Background(), &corev1.LabelSelector{
 				MatchLabels:      map[string]string{},
 				MatchExpressions: []*corev1.LabelSelectorRequirement{},
 			}, corev1.MatchOptions_EmptySelectorMatchesNone)
@@ -162,16 +163,16 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(clusters.Items).To(BeEmpty())
 		})
 		It("should delete clusters", func() {
-			all, err := ts.ListClusters(context.Background(), nil, 0)
+			all, err := t.ListClusters(context.Background(), nil, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(all.Items).NotTo(BeEmpty())
 
 			for _, cluster := range all.Items {
-				err := ts.DeleteCluster(context.Background(), cluster.Reference())
+				err := t.DeleteCluster(context.Background(), cluster.Reference())
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			all, err = ts.ListClusters(context.Background(), nil, 0)
+			all, err = t.ListClusters(context.Background(), nil, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(all.Items).To(BeEmpty())
 		})
@@ -184,14 +185,14 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster, err = ts.GetCluster(context.Background(), cluster.Reference())
+			cluster, err = t.GetCluster(context.Background(), cluster.Reference())
 			Expect(err).NotTo(HaveOccurred())
 
 			prevVersion := cluster.GetResourceVersion()
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *corev1.Cluster) {
+			cluster, err = t.UpdateCluster(context.Background(), cluster.Reference(), func(c *corev1.Cluster) {
 				c.Metadata.Labels["foo"] = "baz-180"
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -201,7 +202,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
 			}
 
-			cluster, err = ts.GetCluster(context.Background(), cluster.Reference())
+			cluster, err = t.GetCluster(context.Background(), cluster.Reference())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("foo", "baz-180"))
 		})
@@ -214,9 +215,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+			cluster, err = t.UpdateCluster(context.Background(), cluster.Reference(),
 				storage.NewAddCapabilityMutator[*corev1.Cluster](&corev1.ClusterCapability{
 					Name: "foo",
 				}),
@@ -234,10 +235,10 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+			cluster, err = t.UpdateCluster(context.Background(), cluster.Reference(),
 				storage.NewCompositeMutator(
 					storage.NewAddCapabilityMutator[*corev1.Cluster](&corev1.ClusterCapability{
 						Name: "foo",
@@ -261,7 +262,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			wg := sync.WaitGroup{}
@@ -272,7 +273,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				go func() {
 					defer wg.Done()
 					<-start
-					ts.UpdateCluster(context.Background(), cluster.Reference(),
+					t.UpdateCluster(context.Background(), cluster.Reference(),
 						func(c *corev1.Cluster) {
 							c.Metadata.Labels["value"] = strconv.Itoa(util.Must(strconv.Atoi(c.Metadata.Labels["value"])) + 1)
 						},
@@ -282,7 +283,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			close(start)
 			wg.Wait()
 
-			cluster, err = ts.GetCluster(context.Background(), cluster.Reference())
+			cluster, err = t.GetCluster(context.Background(), cluster.Reference())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("value", strconv.Itoa(count)))
 		})
@@ -296,20 +297,20 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				},
 			}
 			By("creating a cluster")
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			ctx, ca := context.WithCancel(context.Background())
 			defer ca()
 			By("starting a watch")
-			wc, err := ts.WatchCluster(ctx, cluster)
+			wc, err := t.WatchCluster(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring no updates are received")
 			Consistently(wc).ShouldNot(Receive())
 
 			By("updating the cluster")
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+			cluster, err = t.UpdateCluster(context.Background(), cluster.Reference(),
 				func(c *corev1.Cluster) {
 					c.Metadata.Labels["foo"] = "baz-299"
 				},
@@ -334,7 +335,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Consistently(wc, 1*time.Second, 100*time.Millisecond).ShouldNot(Receive())
 
 			By("deleting the cluster")
-			err = ts.DeleteCluster(context.Background(), cluster.Reference())
+			err = t.DeleteCluster(context.Background(), cluster.Reference())
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring a Delete update is received")
@@ -359,11 +360,11 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				},
 			}
 			By("creating a cluster")
-			err := ts.CreateCluster(context.Background(), cluster)
+			err := t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("updating the cluster")
-			_, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+			_, err = t.UpdateCluster(context.Background(), cluster.Reference(),
 				func(c *corev1.Cluster) {
 					c.Metadata.Labels["foo"] = "baz-353"
 				},
@@ -372,7 +373,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 			ctx, ca := context.WithCancel(context.Background())
 			By("starting a watch with the previous version")
-			wc, err := ts.WatchCluster(ctx, cluster)
+			wc, err := t.WatchCluster(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring an Update update is received")
@@ -397,11 +398,11 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			ctx, ca := context.WithCancel(context.Background())
 			defer ca()
 
-			allClusters, err := ts.ListClusters(ctx, &corev1.LabelSelector{}, 0)
+			allClusters, err := t.ListClusters(ctx, &corev1.LabelSelector{}, 0)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("starting a watch on all clusters")
-			wc, err := ts.WatchClusters(ctx, nil)
+			wc, err := t.WatchClusters(ctx, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring create events are received for all existing clusters")
@@ -437,7 +438,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err = ts.CreateCluster(context.Background(), cluster)
+			err = t.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("creating another cluster")
@@ -449,7 +450,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err = ts.CreateCluster(context.Background(), cluster2)
+			err = t.CreateCluster(context.Background(), cluster2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring Create events are received for both clusters")
@@ -470,7 +471,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(ids).To(ConsistOf(cluster.Id, cluster2.Id))
 
 			By("updating the first cluster")
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+			cluster, err = t.UpdateCluster(context.Background(), cluster.Reference(),
 				func(c *corev1.Cluster) {
 					c.Metadata.Labels["foo"] = "baz-458"
 				},
@@ -487,7 +488,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}))
 
 			By("deleting the second cluster")
-			err = ts.DeleteCluster(context.Background(), cluster2.Reference())
+			err = t.DeleteCluster(context.Background(), cluster2.Reference())
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring a Delete event is received for the second cluster")
@@ -498,7 +499,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 		})
 		It("should watch all clusters starting from a set of already-known clusters", func() {
 			By("adding all existing clusters to the known set")
-			allClusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
+			allClusters, err := t.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("creating a cluster which will not be known")
@@ -510,12 +511,12 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err = ts.CreateCluster(context.Background(), newCluster)
+			err = t.CreateCluster(context.Background(), newCluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("updating one of the existing clusters but keeping the previous version in the known set")
 			randomUpdatedLabelValue := newIdWithLine()
-			_, err = ts.UpdateCluster(context.Background(), allClusters.Items[0].Reference(),
+			_, err = t.UpdateCluster(context.Background(), allClusters.Items[0].Reference(),
 				func(c *corev1.Cluster) {
 					c.Metadata.Labels["foo"] = randomUpdatedLabelValue
 				},
@@ -524,7 +525,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			ctx, ca := context.WithCancel(context.Background())
 			defer ca()
 			By("starting a watch on all clusters")
-			wc, err := ts.WatchClusters(ctx, allClusters.Items)
+			wc, err := t.WatchClusters(ctx, allClusters.Items)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring one create and one update event are received")
@@ -569,7 +570,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					},
 				},
 			}
-			err = ts.CreateCluster(context.Background(), cluster2)
+			err = t.CreateCluster(context.Background(), cluster2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring a Create event is received for the second cluster")
@@ -581,7 +582,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(event.Current.Id).To(Equal(cluster2.Id))
 
 			By("updating the first cluster")
-			newCluster, err = ts.UpdateCluster(context.Background(), newCluster.Reference(),
+			newCluster, err = t.UpdateCluster(context.Background(), newCluster.Reference(),
 				func(c *corev1.Cluster) {
 					c.Metadata.Labels["foo"] = "baz-571"
 				},
@@ -598,7 +599,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}))
 
 			By("deleting the second cluster")
-			err = ts.DeleteCluster(context.Background(), cluster2.Reference())
+			err = t.DeleteCluster(context.Background(), cluster2.Reference())
 			Expect(err).NotTo(HaveOccurred())
 
 			By("ensuring a Delete event is received for the second cluster")
@@ -609,7 +610,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 		})
 		When("deleting a cluster", func() {
 			It("should fail if the cluster does not exist", func() {
-				err := ts.DeleteCluster(context.Background(), &corev1.Reference{
+				err := t.DeleteCluster(context.Background(), &corev1.Reference{
 					Id: newIdWithLine(),
 				})
 				Expect(err).To(MatchError(storage.ErrNotFound))

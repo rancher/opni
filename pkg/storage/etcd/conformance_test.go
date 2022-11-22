@@ -9,10 +9,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util/future"
+	conformance_storage "github.com/rancher/opni/pkg/test/conformance/storage"
 )
 
 func TestEtcd(t *testing.T) {
@@ -20,7 +19,7 @@ func TestEtcd(t *testing.T) {
 	RunSpecs(t, "Etcd Storage Suite")
 }
 
-var store = future.New[*etcd.EtcdStore]()
+var store = new(*etcd.EtcdStore)
 
 var _ = BeforeSuite(func() {
 	env := test.Environment{
@@ -35,15 +34,17 @@ var _ = BeforeSuite(func() {
 		test.WithEnableRealtimeServer(false),
 	)
 
-	store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
+	*store = etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
 		etcd.WithPrefix("test"),
-	))
+	)
 
 	DeferCleanup(env.Stop)
 })
 
-var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))
-var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), conformance.ClusterStoreTestSuite(store))
-var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), conformance.RBACStoreTestSuite(store))
-var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), conformance.KeyringStoreTestSuite(store))
-var _ = Describe("KV Store", Ordered, Label("integration", "slow"), conformance.KeyValueStoreTestSuite(store))
+func init() {
+	conformance_storage.BuildTokenStoreTestSuite(store)
+	conformance_storage.BuildClusterStoreTestSuite(store)
+	conformance_storage.BuildRBACStoreTestSuite(store)
+	conformance_storage.BuildKeyringStoreTestSuite(store)
+	conformance_storage.BuildKeyValueStoreTestSuite(store)
+}

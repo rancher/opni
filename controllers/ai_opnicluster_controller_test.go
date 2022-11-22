@@ -151,13 +151,6 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 				HaveVolumeSource("EmptyDir"),
 			)),
 			HaveMatchingContainer(And(
-				HaveName(aiv1beta1.GPUControllerService.ServiceName()),
-				HaveVolumeMounts(corev1.VolumeMount{
-					Name:      "data",
-					MountPath: "/var/opni-data",
-				}),
-			)),
-			HaveMatchingContainer(And(
 				HaveName("gpu-service-worker"),
 				HaveVolumeMounts(corev1.VolumeMount{
 					Name:      "data",

@@ -38,7 +38,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 23,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -388,7 +388,7 @@
           }
         ]
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "datasource": {
@@ -749,7 +749,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -862,7 +862,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "interval": "1m",
           "legendFormat": "[Rx] {{friendly_name}}",
           "range": true,
@@ -874,7 +874,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "hide": false,
           "interval": "1m",
           "legendFormat": "[Tx] {{friendly_name}}",
@@ -1047,7 +1047,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -1156,10 +1156,10 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kubelet_runtime_operations_errors_total{job=\"kubelet\",}[$__rate_interval])) by (__tenant_id__, operation_type) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum(rate(kubelet_runtime_operations_errors_total{job=\"kubelet\",}[$__rate_interval])) by (__tenant_id__, operation_type, node) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "format": "time_series",
           "intervalFactor": 4,
-          "legendFormat": "{{friendly_name}}",
+          "legendFormat": "{{friendly_name}} / {{node}}",
           "range": true,
           "refId": "A"
         }
@@ -1274,7 +1274,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "opni_agent_status_summary * on(cluster_id, instance) group_right(summary) (group without(pod) (opni_cluster_info))",
+          "expr": "opni_agent_status_summary * on(cluster_id, instance) group_right(summary) (group without(pod) (opni_cluster_info @ end()))",
           "format": "table",
           "instant": false,
           "legendFormat": "__auto",
@@ -1391,7 +1391,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -1494,7 +1494,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"cluster_id\", \"$1\", \"user\", \"(.*)\") * on(cluster_id) group_left(friendly_name) opni_cluster_info",
+          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"cluster_id\", \"$1\", \"user\", \"(.*)\") * on(cluster_id) group_left(friendly_name) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{friendly_name}}",
@@ -1545,6 +1545,6 @@
   "timezone": "",
   "title": "Infrastructure Overview",
   "uid": "1e83e204be502391f69d3a826675d3df",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }

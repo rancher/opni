@@ -105,8 +105,6 @@ func run(ctx *Context) (runErr error) {
 			RepositoryOpts: chartRepoOpts,
 			Version:        StringPtr(conf.ChartVersion),
 			Namespace:      String("opni"),
-			Atomic:         Bool(true),
-			ForceUpdate:    Bool(true),
 			Timeout:        Int(60),
 		}, Provider(k))
 		if err != nil {
@@ -168,8 +166,6 @@ func run(ctx *Context) (runErr error) {
 					},
 				},
 			},
-			Atomic:      Bool(true),
-			ForceUpdate: Bool(true),
 			Timeout:     Int(300),
 			WaitForJobs: Bool(true),
 		}, Provider(k), DependsOn([]Resource{opniCrd}), RetainOnDelete(true))

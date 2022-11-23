@@ -683,7 +683,7 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 }
 
 func deploymentState(enabled *bool) reconciler.DesiredState {
-	if enabled == nil || *enabled {
+	if lo.FromPtrOr(enabled, true) {
 		return reconciler.StatePresent
 	}
 	return reconciler.StateAbsent

@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -91,4 +92,13 @@ func ExternalNatsObjects(
 		})
 	}
 	return
+}
+
+func NatsObjectNameFromURL(url string) string {
+	re := regexp.MustCompile("nats://(.+)-nats-client")
+	matches := re.FindStringSubmatch(url)
+	if matches == nil {
+		return ""
+	}
+	return matches[1]
 }

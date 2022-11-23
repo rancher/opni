@@ -112,7 +112,7 @@ func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, in *emptyp
 
 func (p *AIOpsPlugin) GPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 	nodes := &k8scorev1.NodeList{}
-	if err := p.k8sClient.Get().List(ctx, nodes); err != nil {
+	if err := p.k8sClient.List(ctx, nodes); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, status.Errorf(codes.NotFound, "Failed to find nodes: %s", err)
 		} else {

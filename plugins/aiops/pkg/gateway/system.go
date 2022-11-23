@@ -42,44 +42,40 @@ func newNatsConnection() (*nats.Conn, error) {
 	)
 }
 
-func (p *AIOpsPlugin) newOpensearchConnection() (*opensearch.Client, error) {
-	namespace, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		namespace = "opni-cluster-system"
-	}
-	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", namespace)
+func (s *AIOpsPlugin) setOpensearchConnection() {
+	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", s.storageNamespace)
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
 		backoffv2.WithMinInterval(5*time.Second),
 		backoffv2.WithMaxInterval(1*time.Minute),
 		backoffv2.WithMultiplier(1.1),
 	)
-	b := retrier.Start(p.ctx)
+	b := retrier.Start(s.ctx)
 	cluster := &opsterv1.OpenSearchCluster{}
 FETCH:
 	for {
 		select {
 		case <-b.Done():
-			p.Logger.Warn("plugin context cancelled before Opensearch object created")
+			s.Logger.Warn("plugin context cancelled before Opensearch object created")
 		case <-b.Next():
-			err := p.k8sClient.Get().Get(p.ctx, types.NamespacedName{
+			err := s.k8sClient.Get(s.ctx, types.NamespacedName{
 				Name:      "opni",
-				Namespace: namespace,
+				Namespace: s.storageNamespace,
 			}, cluster)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					p.Logger.Info("waiting for k8s object")
+					s.Logger.Info("waiting for k8s object")
 					continue
 				}
-				p.Logger.Errorf("failed to check k8s object: %v", err)
+				s.Logger.Errorf("failed to check k8s object: %v", err)
 				continue
 			}
 			break FETCH
 		}
 	}
-	esUsername, esPassword, err := helpers.UsernameAndPassword(p.ctx, p.k8sClient.Get(), cluster)
+	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient, cluster)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	osClient, err := opensearch.NewClient(opensearch.Config{
 		Transport: &http.Transport{
@@ -89,5 +85,9 @@ FETCH:
 		Username:  esUsername,
 		Password:  esPassword,
 	})
-	return osClient, err
+	if err != nil {
+		panic(err)
+	}
+
+	s.osClient.Set(osClient)
 }

@@ -392,6 +392,7 @@ message AlertEndpoint {
   oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;
+    PagerDutyEndpoint pagerDuty = 6;
   }
 }
 
@@ -415,6 +416,11 @@ message EmailEndpoint {
   optional string smtpAuthPassword = 6;
   // does SMTP require TSL : yes or no
   optional bool smtpRequireTLS = 7;
+}
+
+message PagerDutyEndpoint {
+  // default global ruleset -> event rules screen
+  string integrationKey = 1;
 }
 
 message AlertEndpointList {

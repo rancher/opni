@@ -25,7 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertEndpointsClient interface {
-	CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*v11.Reference, error)
 	GetAlertEndpoint(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*v1.AlertEndpoint, error)
 	ListAlertEndpoints(ctx context.Context, in *v1.ListAlertEndpointsRequest, opts ...grpc.CallOption) (*v1.AlertEndpointList, error)
 	// when forceUpdate = false,
@@ -74,8 +74,8 @@ func NewAlertEndpointsClient(cc grpc.ClientConnInterface) AlertEndpointsClient {
 	return &alertEndpointsClient{cc}
 }
 
-func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *v1.AlertEndpoint, opts ...grpc.CallOption) (*v11.Reference, error) {
+	out := new(v11.Reference)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/CreateAlertEndpoint", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (c *alertEndpointsClient) DeleteIndividualEndpointInRoutingNode(ctx context
 // All implementations must embed UnimplementedAlertEndpointsServer
 // for forward compatibility
 type AlertEndpointsServer interface {
-	CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*emptypb.Empty, error)
+	CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*v11.Reference, error)
 	GetAlertEndpoint(context.Context, *v11.Reference) (*v1.AlertEndpoint, error)
 	ListAlertEndpoints(context.Context, *v1.ListAlertEndpointsRequest) (*v1.AlertEndpointList, error)
 	// when forceUpdate = false,
@@ -232,7 +232,7 @@ type AlertEndpointsServer interface {
 type UnimplementedAlertEndpointsServer struct {
 }
 
-func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*emptypb.Empty, error) {
+func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *v1.AlertEndpoint) (*v11.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertEndpoint not implemented")
 }
 func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v11.Reference) (*v1.AlertEndpoint, error) {

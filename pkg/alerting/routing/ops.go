@@ -120,6 +120,9 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 		if e := req.GetAlertEndpoint().GetEmail(); e != nil {
 			return EmailEndpointInternalId
 		}
+		if p := req.GetAlertEndpoint().GetPagerDuty(); p != nil {
+			return PagerDutyEndpointInternalId
+		}
 		return "unknown"
 	}
 	newEndpointType := newEndpointTypeFunc()
@@ -174,6 +177,16 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 					return err
 				}
 				r.Receivers[recvPos].EmailConfigs[toTraverseItem.position] = emailCfg
+			case PagerDutyEndpointInternalId:
+				pagerCfg, err := NewPagerDutyReceiverNode(req.GetAlertEndpoint().GetPagerDuty())
+				if err != nil {
+					return err
+				}
+				pagerCfg, err = WithPagerDutyImplementatino(pagerCfg, toTraverseItem.details)
+				if err != nil {
+					return err
+				}
+				r.Receivers[recvPos].PagerdutyConfigs[toTraverseItem.position] = pagerCfg
 			}
 		}
 	} else {
@@ -205,6 +218,12 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 					r.Receivers[recvPos].EmailConfigs,
 					toTraverseItem.position,
 					toTraverseItem.position+1)
+			case PagerDutyEndpointInternalId:
+				r.Receivers[recvPos].PagerdutyConfigs = slices.Delete(
+					r.Receivers[recvPos].PagerdutyConfigs,
+					toTraverseItem.position,
+					toTraverseItem.position+1)
+
 			}
 
 			newPos, newType, err := r.Receivers[recvPos].AddEndpoint(req.GetAlertEndpoint(), toTraverseItem.details)
@@ -269,6 +288,12 @@ func (r *RoutingTree) DeleteIndividualEndpointNode(
 				r.Receivers[recvPos].EmailConfigs,
 				toTraverseItem.position,
 				toTraverseItem.position+1)
+		case PagerDutyEndpointInternalId:
+			r.Receivers[recvPos].PagerdutyConfigs = slices.Delete(
+				r.Receivers[recvPos].PagerdutyConfigs,
+				toTraverseItem.position,
+				toTraverseItem.position+1,
+			)
 		}
 	}
 	// clean up

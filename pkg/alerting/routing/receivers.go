@@ -15,6 +15,7 @@ import (
 
 const SlackEndpointInternalId = "slack"
 const EmailEndpointInternalId = "email"
+const PagerDutyEndpointInternalId = "pagerduty"
 
 func (r *Receiver) AddEndpoint(
 	alertEndpoint *alertingv1.AlertEndpoint,
@@ -45,6 +46,19 @@ func (r *Receiver) AddEndpoint(
 		}
 		r.EmailConfigs = append(r.EmailConfigs, emailCfg)
 		return len(r.EmailConfigs) - 1, EmailEndpointInternalId, nil
+	}
+	if p := alertEndpoint.GetPagerDuty(); p != nil {
+		pagerCfg, err := NewPagerDutyReceiverNode(p)
+		if err != nil {
+			return -1, "", err
+		}
+
+		pagerCfg, err = WithPagerDutyImplementatino(pagerCfg, details)
+		if err != nil {
+			return -1, "", err
+		}
+		r.PagerdutyConfigs = append(r.PagerdutyConfigs, pagerCfg)
+		return len(r.PagerdutyConfigs) - 1, PagerDutyEndpointInternalId, nil
 	}
 	return -1, "", validation.Errorf("unknown endpoint type : %v", alertEndpoint)
 }
@@ -179,6 +193,27 @@ func WithEmailImplementation(email *EmailConfig, impl *alertingv1.EndpointImplem
 	return email, nil
 }
 
+func NewPagerDutyReceiverNode(endpoint *alertingv1.PagerDutyEndpoint) (*PagerdutyConfig, error) {
+	pg := &PagerdutyConfig{
+		ServiceKey: endpoint.IntegrationKey,
+	}
+	return pg, nil
+}
+
+func WithPagerDutyImplementatino(pg *PagerdutyConfig, impl *alertingv1.EndpointImplementation) (*PagerdutyConfig, error) {
+	if impl.SendResolved == nil {
+		pg.NotifierConfig = &cfg.NotifierConfig{
+			VSendResolved: false,
+		}
+	} else {
+		pg.NotifierConfig = &cfg.NotifierConfig{
+			VSendResolved: *impl.SendResolved,
+		}
+	}
+	pg.Description = impl.Title + "\n---\n" + impl.Body
+	return pg, nil
+}
+
 // does the opposite of WithXXXXImplementation
 func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType string, position int) (*alertingv1.EndpointImplementation, error) {
 	// find the condition Id receiver
@@ -199,6 +234,15 @@ func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType str
 			Title:        r.Receivers[recvIdx].EmailConfigs[position].Headers["Subject"],
 			Body:         r.Receivers[recvIdx].EmailConfigs[position].HTML,
 			SendResolved: &r.Receivers[recvIdx].EmailConfigs[position].VSendResolved,
+		}, nil
+	case PagerDutyEndpointInternalId:
+		strArr := strings.Split(r.Receivers[recvIdx].PagerdutyConfigs[position].Description, "\n")
+		title := strArr[0]
+		body := strings.Join(strArr[1:], "\n")
+		return &alertingv1.EndpointImplementation{
+			Title:        title,
+			Body:         body,
+			SendResolved: &r.Receivers[recvIdx].PagerdutyConfigs[position].VSendResolved,
 		}, nil
 	default:
 		return nil, validation.Errorf("unknown endpoint type %s", endpointType)

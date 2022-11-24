@@ -116,8 +116,8 @@ service-map-pipeline:
 func (r *Reconciler) config() (resources.Resource, []byte) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-config", r.instanceName),
-			Namespace: r.instanceNamespace,
+			Name:      fmt.Sprintf("%s-config", r.dataPrepper.Name),
+			Namespace: r.dataPrepper.Namespace,
 		},
 		Data: map[string][]byte{},
 	}
@@ -125,14 +125,14 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 	passwordSecret := &corev1.Secret{}
 
 	err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.spec.PasswordFrom.Name,
-		Namespace: r.instanceNamespace,
+		Name:      r.dataPrepper.Spec.PasswordFrom.Name,
+		Namespace: r.dataPrepper.Namespace,
 	}, passwordSecret)
 	if err != nil {
 		return resources.Error(secret, err), []byte{}
 	}
 
-	password, ok := passwordSecret.Data[r.spec.PasswordFrom.Key]
+	password, ok := passwordSecret.Data[r.dataPrepper.Spec.PasswordFrom.Key]
 	if !ok {
 		return resources.Error(secret, errors.New("password secret key does not exist")), []byte{}
 	}
@@ -145,17 +145,17 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		ClusterID          string
 		EnableTracing      bool
 	}{
-		Username: r.spec.Username,
+		Username: r.dataPrepper.Spec.Username,
 		Password: string(password),
 		OpensearchEndpoint: func() string {
 			if r.urlOverride != "" {
 				return r.urlOverride
 			}
-			return r.spec.Opensearch.Endpoint
+			return r.dataPrepper.Spec.Opensearch.Endpoint
 		}(),
-		Insecure:      r.spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
-		ClusterID:     r.spec.ClusterID,
-		EnableTracing: r.spec.EnableTracing,
+		Insecure:      r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
+		ClusterID:     r.dataPrepper.Spec.ClusterID,
+		EnableTracing: r.dataPrepper.Spec.EnableTracing,
 	}
 
 	var buffer bytes.Buffer
@@ -167,12 +167,7 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 
 	secret.Data["pipelines.yaml"] = buffer.Bytes()
 
-	if r.dataPrepper != nil {
-		ctrl.SetControllerReference(r.dataPrepper, secret, r.client.Scheme())
-	}
-	if r.loggingDataPrepper != nil {
-		ctrl.SetControllerReference(r.loggingDataPrepper, secret, r.client.Scheme())
-	}
+	ctrl.SetControllerReference(r.dataPrepper, secret, r.client.Scheme())
 
 	return resources.Present(secret), secret.Data["pipelines.yaml"]
 }
@@ -181,15 +176,15 @@ func (r *Reconciler) labels() map[string]string {
 	return map[string]string{
 		resources.AppNameLabel:  "dataprepper",
 		resources.PartOfLabel:   "opni",
-		resources.OpniClusterID: r.spec.ClusterID,
+		resources.OpniClusterID: r.dataPrepper.Spec.ClusterID,
 	}
 }
 
 func (r *Reconciler) service() resources.Resource {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.instanceName,
-			Namespace: r.instanceNamespace,
+			Name:      r.dataPrepper.Name,
+			Namespace: r.dataPrepper.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -203,30 +198,25 @@ func (r *Reconciler) service() resources.Resource {
 		},
 	}
 
-	if r.spec.EnableTracing {
+	if r.dataPrepper.Spec.EnableTracing {
 		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
 			Name: "traces",
 			Port: 21890,
 		})
 	}
 
-	if r.dataPrepper != nil {
-		ctrl.SetControllerReference(r.dataPrepper, service, r.client.Scheme())
-	}
-	if r.loggingDataPrepper != nil {
-		ctrl.SetControllerReference(r.loggingDataPrepper, service, r.client.Scheme())
-	}
+	ctrl.SetControllerReference(r.dataPrepper, service, r.client.Scheme())
 
 	return resources.Present(service)
 }
 
 func (r *Reconciler) deployment(configData []byte) resources.Resource {
 	imageSpec := opnimeta.ImageResolver{
-		Version:             r.spec.Version,
+		Version:             r.dataPrepper.Spec.Version,
 		ImageName:           "data-prepper",
 		DefaultRepo:         "docker.io/opensearchproject",
-		DefaultRepoOverride: r.spec.DefaultRepo,
-		ImageOverride:       r.spec.ImageSpec,
+		DefaultRepoOverride: r.dataPrepper.Spec.DefaultRepo,
+		ImageOverride:       r.dataPrepper.Spec.ImageSpec,
 	}.Resolve()
 
 	hash := sha1.New()
@@ -235,8 +225,8 @@ func (r *Reconciler) deployment(configData []byte) resources.Resource {
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.instanceName,
-			Namespace: r.instanceNamespace,
+			Name:      r.dataPrepper.Name,
+			Namespace: r.dataPrepper.Namespace,
 			Labels:    r.labels(),
 			Annotations: map[string]string{
 				configHashAnnotation: configHash,
@@ -278,30 +268,25 @@ func (r *Reconciler) deployment(configData []byte) resources.Resource {
 							Name: "config",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: fmt.Sprintf("%s-config", r.instanceName),
+									SecretName: fmt.Sprintf("%s-config", r.dataPrepper.Name),
 								},
 							},
 						},
 					},
-					NodeSelector: r.spec.NodeSelector,
-					Tolerations:  r.spec.Tolerations,
+					NodeSelector: r.dataPrepper.Spec.NodeSelector,
+					Tolerations:  r.dataPrepper.Spec.Tolerations,
 				},
 			},
 		},
 	}
 
-	if r.spec.EnableTracing {
+	if r.dataPrepper.Spec.EnableTracing {
 		deploy.Spec.Template.Spec.Containers[0].Ports = append(deploy.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 			ContainerPort: 21890,
 		})
 	}
 
-	if r.dataPrepper != nil {
-		ctrl.SetControllerReference(r.dataPrepper, deploy, r.client.Scheme())
-	}
-	if r.loggingDataPrepper != nil {
-		ctrl.SetControllerReference(r.loggingDataPrepper, deploy, r.client.Scheme())
-	}
+	ctrl.SetControllerReference(r.dataPrepper, deploy, r.client.Scheme())
 
 	return resources.Present(deploy)
 }

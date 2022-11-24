@@ -2,12 +2,9 @@ package monitoring
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
@@ -21,25 +18,20 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	ctx               context.Context
-	client            client.Client
-	mc                *v1beta2.MonitoringCluster
-	gw                *v1beta2.Gateway
-	coremc            *corev1beta1.MonitoringCluster
-	coregw            *corev1beta1.Gateway
-	instanceName      string
-	instanceNamespace string
-	spec              corev1beta1.MonitoringClusterSpec
-	logger            *zap.SugaredLogger
+	ctx    context.Context
+	client client.Client
+	mc     *corev1beta1.MonitoringCluster
+	gw     *corev1beta1.Gateway
+	logger *zap.SugaredLogger
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	instance interface{},
-) (*Reconciler, error) {
+	instance *corev1beta1.MonitoringCluster,
+) *Reconciler {
 	logger := logger.New().Named("controller").Named("monitoring")
-	r := &Reconciler{
+	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			reconciler.WithEnableRecreateWorkload(),
 			reconciler.WithRecreateErrorMessageCondition(reconciler.MatchImmutableErrorMessages),
@@ -49,60 +41,23 @@ func NewReconciler(
 		ctx:    ctx,
 		client: client,
 		logger: logger,
+		mc:     instance,
 	}
-
-	switch mc := instance.(type) {
-	case *v1beta2.MonitoringCluster:
-		r.instanceName = mc.Name
-		r.instanceNamespace = mc.Namespace
-		r.spec = convertSpec(mc.Spec)
-		r.mc = mc
-	case *corev1beta1.MonitoringCluster:
-		r.instanceName = mc.Name
-		r.instanceNamespace = mc.Namespace
-		r.spec = mc.Spec
-		r.coremc = mc
-	default:
-		return nil, errors.New("invalid monitoringcluster instance type")
-	}
-
-	return r, nil
 }
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
-	// Look up referenced gateway
-	// TODO: delete when v1beta2 is deleted
-	var mc any
-	if r.mc != nil {
-		mc = r.mc
-		gw := &v1beta2.Gateway{}
-		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.mc.Spec.Gateway.Name,
-			Namespace: r.mc.Namespace,
-		}, gw)
-		if err != nil {
-			return k8sutil.RequeueErr(err).Result()
-		}
-		r.gw = gw
+	gw := &corev1beta1.Gateway{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.mc.Spec.Gateway.Name,
+		Namespace: r.mc.Namespace,
+	}, gw)
+	if err != nil {
+		return k8sutil.RequeueErr(err).Result()
+	}
+	r.gw = gw
 
-		if gw.DeletionTimestamp != nil {
-			return k8sutil.DoNotRequeue().Result()
-		}
-	} else if r.coremc != nil {
-		mc = r.coremc
-		gw := &corev1beta1.Gateway{}
-		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.coremc.Spec.Gateway.Name,
-			Namespace: r.coremc.Namespace,
-		}, gw)
-		if err != nil {
-			return k8sutil.RequeueErr(err).Result()
-		}
-		r.coregw = gw
-
-		if gw.DeletionTimestamp != nil {
-			return k8sutil.DoNotRequeue().Result()
-		}
+	if gw.DeletionTimestamp != nil {
+		return k8sutil.DoNotRequeue().Result()
 	}
 
 	updated, err := r.updateImageStatus()
@@ -128,10 +83,7 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	cortexRec := cortex.NewReconciler(
 		r.ctx,
 		r.client,
-		mc,
-		r.spec,
-		r.instanceName,
-		r.instanceNamespace,
+		r.mc,
 	)
 	cortexResult, err := cortexRec.Reconcile()
 	if err != nil {
@@ -142,17 +94,4 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	}
 
 	return k8sutil.DoNotRequeue().Result()
-}
-
-func convertSpec(spec v1beta2.MonitoringClusterSpec) corev1beta1.MonitoringClusterSpec {
-	data, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	retSpec := corev1beta1.MonitoringClusterSpec{}
-	err = json.Unmarshal(data, &retSpec)
-	if err != nil {
-		panic(err)
-	}
-	return retSpec
 }

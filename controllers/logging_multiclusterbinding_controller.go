@@ -32,10 +32,7 @@ func (r *LoggingMulticlusterRoleBindingReconciler) Reconcile(ctx context.Context
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	multiclusterRoleBindingReconciler, err := multiclusterrolebinding.NewReconciler(ctx, multiclusterRoleBinding, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	multiclusterRoleBindingReconciler := multiclusterrolebinding.NewReconciler(ctx, multiclusterRoleBinding, r.Client)
 
 	reconcilers := []resources.ComponentReconciler{
 		multiclusterRoleBindingReconciler.Reconcile,

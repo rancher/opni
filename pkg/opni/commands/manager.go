@@ -95,18 +95,8 @@ func BuildManagerCmd() *cobra.Command {
 			defer upgradeChecker.Stop()
 		}
 
-		if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "OpniCluster")
-			return err
-		}
-
 		if err = (&controllers.AIOpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AI OpniCluster")
-			return err
-		}
-
-		if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 			return err
 		}
 
@@ -115,18 +105,8 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		if err = (&controllers.LoggingClusterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "LoggingCluster")
-			return err
-		}
-
 		if err = (&controllers.CoreLoggingClusterReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Core LoggingCluster")
-			return err
-		}
-
-		if err = (&controllers.MulticlusterRoleBindingReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MulticlusterRoleBinding")
 			return err
 		}
 
@@ -140,23 +120,8 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		if err = (&controllers.MulticlusterUserReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MulticlusterUser")
-			return err
-		}
-
-		if err = (&controllers.GatewayReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Gateway")
-			return err
-		}
-
 		if err = (&controllers.CoreGatewayReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Core Gateway")
-			return err
-		}
-
-		if err = (&controllers.MonitoringReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MonitoringCluster")
 			return err
 		}
 

@@ -11,10 +11,10 @@ func (r *Reconciler) serviceAccount() resources.Resource {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
-			Namespace: r.namespace,
+			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		AutomountServiceAccountToken: lo.ToPtr(true),
 	}
-	return resources.PresentIff(r.spec.Cortex.Enabled, sa)
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, sa)
 }

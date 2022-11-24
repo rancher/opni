@@ -11,7 +11,6 @@ import (
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -21,7 +20,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,7 +69,6 @@ type AlertingManagerDriverOptions struct {
 	Logger             *zap.SugaredLogger
 	k8sClient          client.Client
 	gatewayRef         types.NamespacedName
-	gatewayApiVersion  string
 	configKey          string
 	internalRoutingKey string
 	// ! must be mutable, as it needs to be updated on operator changes
@@ -111,12 +108,6 @@ func WithGatewayRef(ref types.NamespacedName) AlertingManagerDriverOption {
 	}
 }
 
-func WithGatewayApiVersion(version string) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.gatewayApiVersion = version
-	}
-}
-
 func WithLogger(logger *zap.SugaredLogger) AlertingManagerDriverOption {
 	return func(o *AlertingManagerDriverOptions) {
 		o.Logger = logger
@@ -129,7 +120,6 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 			Namespace: os.Getenv("POD_NAMESPACE"),
 			Name:      os.Getenv("GATEWAY_NAME"),
 		},
-		gatewayApiVersion:  os.Getenv("GATEWAY_API_VERSION"),
 		configKey:          shared.AlertManagerConfigKey,
 		internalRoutingKey: shared.InternalRoutingConfigKey,
 	}
@@ -153,50 +143,25 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 }
 
 func (a *AlertingManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
-	existing, err := a.newOpniGateway()
+	existing := a.newOpniGateway()
+
+	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
 
-	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-	if err != nil {
-		return nil, err
-	}
-
-	alertingSpec, err := extractGatewayAlertingSpec(existing)
-	if err != nil {
-		return nil, err
-	}
-
-	switch spec := alertingSpec.(type) {
-	case *corev1beta1.AlertingSpec:
-		return &alertops.ClusterConfiguration{
-			NumReplicas:             spec.Replicas,
-			ClusterSettleTimeout:    spec.ClusterSettleTimeout,
-			ClusterPushPullInterval: spec.ClusterPushPullInterval,
-			ClusterGossipInterval:   spec.ClusterGossipInterval,
-			ResourceLimits: &alertops.ResourceLimitSpec{
-				Cpu:     spec.CPU,
-				Memory:  spec.Memory,
-				Storage: spec.Storage,
-			},
-		}, nil
-	case *v1beta2.AlertingSpec:
-		return &alertops.ClusterConfiguration{
-			NumReplicas:             spec.Replicas,
-			ClusterSettleTimeout:    spec.ClusterSettleTimeout,
-			ClusterPushPullInterval: spec.ClusterPushPullInterval,
-			ClusterGossipInterval:   spec.ClusterGossipInterval,
-			ResourceLimits: &alertops.ResourceLimitSpec{
-				Cpu:     spec.CPU,
-				Memory:  spec.Memory,
-				Storage: spec.Storage,
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unkown alerting spec type %T", alertingSpec)
-	}
-
+	spec := extractGatewayAlertingSpec(existing)
+	return &alertops.ClusterConfiguration{
+		NumReplicas:             spec.Replicas,
+		ClusterSettleTimeout:    spec.ClusterSettleTimeout,
+		ClusterPushPullInterval: spec.ClusterPushPullInterval,
+		ClusterGossipInterval:   spec.ClusterGossipInterval,
+		ResourceLimits: &alertops.ResourceLimitSpec{
+			Cpu:     spec.CPU,
+			Memory:  spec.Memory,
+			Storage: spec.Storage,
+		},
+	}, nil
 }
 
 func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
@@ -205,60 +170,33 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	}
 	lg := a.Logger.With("action", "configure-cluster")
 	lg.Debugf("%v", conf)
-	existing, err := a.newOpniGateway()
-	if err != nil {
-		return nil, err
-	}
-	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	existing := a.newOpniGateway()
+
+	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
 	lg.Debug("got existing gateway")
-	mutator := func(gateway client.Object) error {
-		switch gateway := gateway.(type) {
-		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.Replicas = conf.NumReplicas
-			gateway.Spec.Alerting.ClusterGossipInterval = conf.ClusterGossipInterval
-			gateway.Spec.Alerting.ClusterPushPullInterval = conf.ClusterPushPullInterval
-			gateway.Spec.Alerting.ClusterSettleTimeout = conf.ClusterSettleTimeout
-			gateway.Spec.Alerting.Storage = conf.ResourceLimits.Storage
-			gateway.Spec.Alerting.CPU = conf.ResourceLimits.Cpu
-			gateway.Spec.Alerting.Memory = conf.ResourceLimits.Memory
-			return nil
-		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.Replicas = conf.NumReplicas
-			gateway.Spec.Alerting.ClusterGossipInterval = conf.ClusterGossipInterval
-			gateway.Spec.Alerting.ClusterPushPullInterval = conf.ClusterPushPullInterval
-			gateway.Spec.Alerting.ClusterSettleTimeout = conf.ClusterSettleTimeout
-			gateway.Spec.Alerting.Storage = conf.ResourceLimits.Storage
-			gateway.Spec.Alerting.CPU = conf.ResourceLimits.Cpu
-			gateway.Spec.Alerting.Memory = conf.ResourceLimits.Memory
-			return nil
-		default:
-			return fmt.Errorf("unkown gateway type %T", gateway)
-		}
+	mutator := func(gateway *corev1beta1.Gateway) {
+		gateway.Spec.Alerting.Replicas = conf.NumReplicas
+		gateway.Spec.Alerting.ClusterGossipInterval = conf.ClusterGossipInterval
+		gateway.Spec.Alerting.ClusterPushPullInterval = conf.ClusterPushPullInterval
+		gateway.Spec.Alerting.ClusterSettleTimeout = conf.ClusterSettleTimeout
+		gateway.Spec.Alerting.Storage = conf.ResourceLimits.Storage
+		gateway.Spec.Alerting.CPU = conf.ResourceLimits.Cpu
+		gateway.Spec.Alerting.Memory = conf.ResourceLimits.Memory
 	}
 
-	retryErr := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		lg.Debug("Starting external update reconciler...")
-		existing, err := a.newOpniGateway()
+		existing := a.newOpniGateway()
+		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
-		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		clone := existing.DeepCopyObject().(client.Object)
-		if err := mutator(clone); err != nil {
-			return err
-		}
-		switch gateway := clone.(type) {
-		case *corev1beta1.Gateway:
-			lg.Debugf("updated alerting spec : %v", gateway.Spec.Alerting)
-		case *v1beta2.Gateway:
-			lg.Debugf("updated alerting spec : %v", gateway.Spec.Alerting)
-		}
+		clone := existing.DeepCopy()
+		mutator(clone)
+		lg.Debugf("updated alerting spec : %v", existing.Spec.Alerting)
 		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 			patch.IgnoreStatusFields(),
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
@@ -270,7 +208,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
-		return a.k8sClient.Update(ctx, clone)
+		return a.k8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)
@@ -283,11 +221,8 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 }
 
 func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
-	existing, err := a.newOpniGateway()
-	if err != nil {
-		return nil, err
-	}
-	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	existing := a.newOpniGateway()
+	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
@@ -295,40 +230,14 @@ func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 }
 
 func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	existing, err := a.newOpniGateway()
-	if err != nil {
-		return nil, err
-	}
-	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-	if err != nil {
-		return nil, err
-	}
-	enableMutator := func(gateway client.Object) error {
-		switch gateway := gateway.(type) {
-		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.Enabled = true
-			return nil
-		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.Enabled = true
-			return nil
-		default:
-			return fmt.Errorf("unkown gateway type %T", gateway)
-		}
-	}
-	retryErr := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-		existing, err := a.newOpniGateway()
+	existing := a.newOpniGateway()
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
-		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		clone := existing.DeepCopyObject().(client.Object)
-		if err := enableMutator(clone); err != nil {
-			return err
-		}
-		return a.k8sClient.Update(ctx, clone)
+		existing.Spec.Alerting.Enabled = true
+		return a.k8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {
 		return nil, retryErr
@@ -351,40 +260,14 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 }
 
 func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	existing, err := a.newOpniGateway()
-	if err != nil {
-		return nil, err
-	}
-	err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-	if err != nil {
-		return nil, err
-	}
-	disableMutator := func(gateway client.Object) error {
-		switch gateway := gateway.(type) {
-		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.Enabled = false
-			return nil
-		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.Enabled = false
-			return nil
-		default:
-			return fmt.Errorf("unkown gateway type %T", gateway)
-		}
-	}
-	retryErr := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-		existing, err := a.newOpniGateway()
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		existing := a.newOpniGateway()
+		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
-		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		clone := existing.DeepCopyObject().(client.Object)
-		if err := disableMutator(clone); err != nil {
-			return err
-		}
-		return a.k8sClient.Update(ctx, clone)
+		existing.Spec.Alerting.Enabled = false
+		return a.k8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {
 		return nil, retryErr

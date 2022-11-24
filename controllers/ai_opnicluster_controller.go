@@ -29,7 +29,6 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
@@ -69,13 +68,10 @@ func (r *AIOpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	opniReconciler, err := opnicluster.NewReconciler(ctx, r, r.recorder, opniCluster,
+	opniReconciler := opnicluster.NewReconciler(ctx, r, r.recorder, opniCluster,
 		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
 	if err != nil {
@@ -104,7 +100,6 @@ func (r *AIOpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.recorder = mgr.GetEventRecorderFor("opni-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aiv1beta1.OpniCluster{}).
-		Owns(&v1beta2.LogAdapter{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).

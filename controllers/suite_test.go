@@ -111,14 +111,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	}
 	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
 		&GpuPolicyAdapterReconciler{},
-		&OpniClusterReconciler{},
-		&LogAdapterReconciler{},
-		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
-		&GatewayReconciler{},
 		&CoreGatewayReconciler{},
-		&MonitoringReconciler{},
-		&DataPrepperReconciler{},
+		&CoreMonitoringReconciler{},
 		&LoggingDataPrepperReconciler{},
 		&LoggingLogAdapterReconciler{},
 		&AIOpniClusterReconciler{},
@@ -241,117 +236,6 @@ type opniClusterOpts struct {
 	DisableOpniServices bool
 	PrometheusEndpoint  string
 	UsePrometheusRef    bool
-}
-
-func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
-	imageSpec := opnimeta.ImageSpec{
-		ImagePullPolicy: (*corev1.PullPolicy)(lo.ToPtr(string(corev1.PullNever))),
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{
-				Name: "lorem-ipsum",
-			},
-		},
-	}
-	return &v1beta2.OpniCluster{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta2.GroupVersion.String(),
-			Kind:       "OpniCluster",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: opts.Name,
-			Namespace: func() string {
-				if opts.Namespace == "" {
-					return makeTestNamespace()
-				}
-				return opts.Namespace
-			}(),
-		},
-		Spec: v1beta2.OpniClusterSpec{
-			Version:     "test",
-			DefaultRepo: lo.ToPtr("docker.biz/rancher"), // nonexistent repo
-			GlobalNodeSelector: map[string]string{
-				"foo": "bar",
-			},
-			GlobalTolerations: []corev1.Toleration{
-				{
-					Key:      "foo",
-					Operator: corev1.TolerationOpExists,
-				},
-			},
-			Nats: v1beta2.NatsSpec{
-				AuthMethod: v1beta2.NatsAuthUsername,
-			},
-			Opensearch: v1beta2.OpensearchClusterSpec{
-				Version: "1.0.0",
-			},
-			Services: v1beta2.ServicesSpec{
-				Inference: v1beta2.InferenceServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-					PretrainedModels: func() []corev1.LocalObjectReference {
-						var ret []corev1.LocalObjectReference
-						for _, model := range opts.Models {
-							ret = append(ret, corev1.LocalObjectReference{
-								Name: model,
-							})
-						}
-						return ret
-					}(),
-				},
-				Drain: v1beta2.DrainServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				Preprocessing: v1beta2.PreprocessingServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				PayloadReceiver: v1beta2.PayloadReceiverServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				TrainingController: v1beta2.TrainingControllerServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				GPUController: v1beta2.GPUControllerServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				Metrics: v1beta2.MetricsServiceSpec{
-					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-					PrometheusEndpoint: func() string {
-						if opts.PrometheusEndpoint != "" {
-							return opts.PrometheusEndpoint
-						}
-						if opts.UsePrometheusRef {
-							return ""
-						}
-						return "http://dummy-endpoint"
-					}(),
-					PrometheusReference: func() *opnimeta.PrometheusReference {
-						if opts.UsePrometheusRef {
-							return &opnimeta.PrometheusReference{
-								Name:      "test-prometheus",
-								Namespace: "prometheus",
-							}
-						}
-						return nil
-					}(),
-					ExtraVolumeMounts: []opnimeta.ExtraVolumeMount{
-						{
-							Name:      "test-volume",
-							MountPath: "/var/test-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func buildAICluster(opts opniClusterOpts) *aiv1beta1.OpniCluster {

@@ -2,13 +2,11 @@ package dataprepper
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/client-go/util/retry"
@@ -20,13 +18,9 @@ import (
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	ReconcilerOptions
-	client             client.Client
-	dataPrepper        *v1beta2.DataPrepper
-	loggingDataPrepper *loggingv1beta1.DataPrepper
-	ctx                context.Context
-	instanceName       string
-	instanceNamespace  string
-	spec               loggingv1beta1.DataPrepperSpec
+	client      client.Client
+	dataPrepper *loggingv1beta1.DataPrepper
+	ctx         context.Context
 }
 
 type ReconcilerOptions struct {
@@ -63,35 +57,20 @@ func WithResourceOptions(opts ...reconciler.ResourceReconcilerOption) Reconciler
 
 func NewReconciler(
 	ctx context.Context,
-	instance interface{},
+	instance *loggingv1beta1.DataPrepper,
 	c client.Client,
 	opts ...ReconcilerOption,
-) (*Reconciler, error) {
+) *Reconciler {
 	options := ReconcilerOptions{}
 	options.apply(opts...)
 
-	reconciler := &Reconciler{
+	return &Reconciler{
 		ReconcilerOptions: options,
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
 			append(options.resourceOptions, reconciler.WithLog(log.FromContext(ctx)))...),
-		client: c,
-		ctx:    ctx,
-	}
-	switch prepper := instance.(type) {
-	case *v1beta2.DataPrepper:
-		reconciler.dataPrepper = prepper
-		reconciler.instanceName = prepper.Name
-		reconciler.instanceNamespace = prepper.Namespace
-		reconciler.spec = convertSpec(prepper.Spec)
-		return reconciler, nil
-	case *loggingv1beta1.DataPrepper:
-		reconciler.loggingDataPrepper = prepper
-		reconciler.instanceName = prepper.Name
-		reconciler.instanceNamespace = prepper.Namespace
-		reconciler.spec = prepper.Spec
-		return reconciler, nil
-	default:
-		return nil, errors.New("invalid dataprepper instance type")
+		client:      c,
+		dataPrepper: instance,
+		ctx:         ctx,
 	}
 }
 
@@ -104,49 +83,25 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// is and set it in the state field accordingly.
 		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if r.dataPrepper != nil {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.dataPrepper), r.dataPrepper); err != nil {
-					return err
-				}
-				r.dataPrepper.Status.Conditions = conditions
-				if op.ShouldRequeue() {
-					if retErr != nil {
-						// If an error occurred, the state should be set to error
-						r.dataPrepper.Status.State = v1beta2.DataprepperStateError
-					} else {
-						// If no error occurred, but we need to requeue, the state should be
-						// set to working
-						r.dataPrepper.Status.State = v1beta2.DataPrepperStatePending
-					}
-				} else if len(r.dataPrepper.Status.Conditions) == 0 {
-					// If we are not requeueing and there are no conditions, the state should
-					// be set to ready
-					r.dataPrepper.Status.State = v1beta2.DataPrepperStateReady
-				}
-				return r.client.Status().Update(r.ctx, r.dataPrepper)
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.dataPrepper), r.dataPrepper); err != nil {
+				return err
 			}
-			if r.loggingDataPrepper != nil {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingDataPrepper), r.loggingDataPrepper); err != nil {
-					return err
+			r.dataPrepper.Status.Conditions = conditions
+			if op.ShouldRequeue() {
+				if retErr != nil {
+					// If an error occurred, the state should be set to error
+					r.dataPrepper.Status.State = loggingv1beta1.DataprepperStateError
+				} else {
+					// If no error occurred, but we need to requeue, the state should be
+					// set to working
+					r.dataPrepper.Status.State = loggingv1beta1.DataPrepperStatePending
 				}
-				r.loggingDataPrepper.Status.Conditions = conditions
-				if op.ShouldRequeue() {
-					if retErr != nil {
-						// If an error occurred, the state should be set to error
-						r.loggingDataPrepper.Status.State = loggingv1beta1.DataprepperStateError
-					} else {
-						// If no error occurred, but we need to requeue, the state should be
-						// set to working
-						r.loggingDataPrepper.Status.State = loggingv1beta1.DataPrepperStatePending
-					}
-				} else if len(r.loggingDataPrepper.Status.Conditions) == 0 {
-					// If we are not requeueing and there are no conditions, the state should
-					// be set to ready
-					r.loggingDataPrepper.Status.State = loggingv1beta1.DataPrepperStateReady
-				}
-				return r.client.Status().Update(r.ctx, r.loggingDataPrepper)
+			} else if len(r.dataPrepper.Status.Conditions) == 0 {
+				// If we are not requeueing and there are no conditions, the state should
+				// be set to ready
+				r.dataPrepper.Status.State = loggingv1beta1.DataPrepperStateReady
 			}
-			return errors.New("no datapreper instance to update")
+			return r.client.Status().Update(r.ctx, r.dataPrepper)
 		})
 
 		if err != nil {
@@ -154,21 +109,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
-	if r.dataPrepper != nil && r.dataPrepper.Spec.PasswordFrom == nil {
+	if r.dataPrepper.Spec.PasswordFrom == nil {
 		retErr = errors.New("missing password secret configuration")
 		return
 	}
 
-	if r.loggingDataPrepper != nil && r.loggingDataPrepper.Spec.PasswordFrom == nil {
-		retErr = errors.New("missing password secret configuration")
-		return
-	}
-
-	if r.dataPrepper != nil && r.dataPrepper.Spec.Opensearch == nil {
-		retErr = errors.New("missing opensearch configuration")
-	}
-
-	if r.loggingDataPrepper != nil && r.loggingDataPrepper.Spec.Opensearch == nil {
+	if r.dataPrepper.Spec.Opensearch == nil {
 		retErr = errors.New("missing opensearch configuration")
 	}
 
@@ -201,17 +147,4 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	return
-}
-
-func convertSpec(spec v1beta2.DataPrepperSpec) loggingv1beta1.DataPrepperSpec {
-	data, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	retSpec := loggingv1beta1.DataPrepperSpec{}
-	err = json.Unmarshal(data, &retSpec)
-	if err != nil {
-		panic(err)
-	}
-	return retSpec
 }

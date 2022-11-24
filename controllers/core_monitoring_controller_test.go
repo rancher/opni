@@ -8,7 +8,7 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/apis/v1beta2"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,13 +29,13 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 	})
 
 	BeforeEach(func() {
-		gw := &v1beta2.Gateway{
+		gw := &corev1beta1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: makeTestNamespace(),
 			},
-			Spec: v1beta2.GatewaySpec{
-				Auth: v1beta2.AuthSpec{
+			Spec: corev1beta1.GatewaySpec{
+				Auth: corev1beta1.AuthSpec{
 					Provider: cfgv1beta1.AuthProviderNoAuth,
 					Noauth:   &noauth.ServerConfig{},
 				},
@@ -52,18 +52,18 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 	Context("cortex configuration", func() {
 		When("using the AllInOne mode", func() {
 			It("should create a single workload with all cortex components", func() {
-				aio := &v1beta2.MonitoringCluster{
+				aio := &corev1beta1.MonitoringCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "cortex",
 						Namespace: gateway.Namespace,
 					},
-					Spec: v1beta2.MonitoringClusterSpec{
+					Spec: corev1beta1.MonitoringClusterSpec{
 						Gateway: corev1.LocalObjectReference{
 							Name: gateway.Name,
 						},
-						Cortex: v1beta2.CortexSpec{
+						Cortex: corev1beta1.CortexSpec{
 							Enabled:        true,
-							DeploymentMode: v1beta2.DeploymentModeAllInOne,
+							DeploymentMode: corev1beta1.DeploymentModeAllInOne,
 							ExtraEnvVars: []corev1.EnvVar{
 								{
 									Name:  "FOO",
@@ -71,7 +71,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 								},
 							},
 						},
-						Grafana: v1beta2.GrafanaSpec{
+						Grafana: corev1beta1.GrafanaSpec{
 							Enabled: true,
 						},
 					},
@@ -111,20 +111,20 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 		})
 		When("using the HighlyAvailable mode", func() {
 			It("should deploy separate workloads for cortex components", func() {
-				aio := &v1beta2.MonitoringCluster{
+				aio := &corev1beta1.MonitoringCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "cortex",
 						Namespace: gateway.Namespace,
 					},
-					Spec: v1beta2.MonitoringClusterSpec{
+					Spec: corev1beta1.MonitoringClusterSpec{
 						Gateway: corev1.LocalObjectReference{
 							Name: gateway.Name,
 						},
-						Cortex: v1beta2.CortexSpec{
+						Cortex: corev1beta1.CortexSpec{
 							Enabled:        true,
-							DeploymentMode: v1beta2.DeploymentModeHighlyAvailable,
+							DeploymentMode: corev1beta1.DeploymentModeHighlyAvailable,
 						},
-						Grafana: v1beta2.GrafanaSpec{
+						Grafana: corev1beta1.GrafanaSpec{
 							Enabled: true,
 						},
 					},

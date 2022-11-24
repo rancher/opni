@@ -32,6 +32,7 @@ type AlertConditionsClient interface {
 	ListAlertConditionChoices(ctx context.Context, in *v1.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*v1.ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AlertConditionStatus(ctx context.Context, in *v11.Reference, opts ...grpc.CallOption) (*v1.AlertStatusResponse, error)
+	CloneTo(ctx context.Context, in *v1.CloneToRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(ctx context.Context, in *v1.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id corresponds to conditionId
@@ -110,6 +111,15 @@ func (c *alertConditionsClient) AlertConditionStatus(ctx context.Context, in *v1
 	return out, nil
 }
 
+func (c *alertConditionsClient) CloneTo(ctx context.Context, in *v1.CloneToRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/CloneTo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *alertConditionsClient) ActivateSilence(ctx context.Context, in *v1.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/alerting.condition.AlertConditions/ActivateSilence", in, out, opts...)
@@ -148,6 +158,7 @@ type AlertConditionsServer interface {
 	ListAlertConditionChoices(context.Context, *v1.AlertDetailChoicesRequest) (*v1.ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v11.Reference) (*emptypb.Empty, error)
 	AlertConditionStatus(context.Context, *v11.Reference) (*v1.AlertStatusResponse, error)
+	CloneTo(context.Context, *v1.CloneToRequest) (*emptypb.Empty, error)
 	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(context.Context, *v1.SilenceRequest) (*emptypb.Empty, error)
 	// id corresponds to conditionId
@@ -180,6 +191,9 @@ func (UnimplementedAlertConditionsServer) DeleteAlertCondition(context.Context, 
 }
 func (UnimplementedAlertConditionsServer) AlertConditionStatus(context.Context, *v11.Reference) (*v1.AlertStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AlertConditionStatus not implemented")
+}
+func (UnimplementedAlertConditionsServer) CloneTo(context.Context, *v1.CloneToRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloneTo not implemented")
 }
 func (UnimplementedAlertConditionsServer) ActivateSilence(context.Context, *v1.SilenceRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateSilence not implemented")
@@ -329,6 +343,24 @@ func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertConditions_CloneTo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.CloneToRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertConditionsServer).CloneTo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.condition.AlertConditions/CloneTo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertConditionsServer).CloneTo(ctx, req.(*v1.CloneToRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AlertConditions_ActivateSilence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.SilenceRequest)
 	if err := dec(in); err != nil {
@@ -417,6 +449,10 @@ var AlertConditions_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AlertConditionStatus",
 			Handler:    _AlertConditions_AlertConditionStatus_Handler,
+		},
+		{
+			MethodName: "CloneTo",
+			Handler:    _AlertConditions_CloneTo_Handler,
 		},
 		{
 			MethodName: "ActivateSilence",

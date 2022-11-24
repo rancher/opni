@@ -4699,6 +4699,61 @@ func (x *ActiveWindows) GetWindows() []*ActiveWindow {
 	return nil
 }
 
+type CloneToRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AlertCondition *AlertCondition `protobuf:"bytes,1,opt,name=alertCondition,proto3" json:"alertCondition,omitempty"`
+	ToClusters     []string        `protobuf:"bytes,2,rep,name=toClusters,proto3" json:"toClusters,omitempty"`
+}
+
+func (x *CloneToRequest) Reset() {
+	*x = CloneToRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[70]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CloneToRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloneToRequest) ProtoMessage() {}
+
+func (x *CloneToRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[70]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloneToRequest.ProtoReflect.Descriptor instead.
+func (*CloneToRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *CloneToRequest) GetAlertCondition() *AlertCondition {
+	if x != nil {
+		return x.AlertCondition
+	}
+	return nil
+}
+
+func (x *CloneToRequest) GetToClusters() []string {
+	if x != nil {
+		return x.ToClusters
+	}
+	return nil
+}
+
 var File_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto protoreflect.FileDescriptor
 
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc = []byte{
@@ -6602,6 +6657,18 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_init() {
 		}
 		file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[71].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ActiveWindows); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[70].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CloneToRequest); i {
 			case 0:
 				return &v.state
 			case 1:

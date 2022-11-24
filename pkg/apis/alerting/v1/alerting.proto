@@ -522,3 +522,8 @@ message ActiveWindow {
 message ActiveWindows {
   repeated ActiveWindow windows = 1;
 }
+
+message CloneToRequest {
+  AlertCondition alertCondition = 1;
+  repeated string toClusters = 2;
+}

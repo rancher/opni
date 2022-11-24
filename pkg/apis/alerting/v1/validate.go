@@ -366,3 +366,13 @@ func (t *TimelineRequest) Validate() error {
 	}
 	return nil
 }
+
+func (c *CloneToRequest) Validate() error {
+	if len(c.GetToClusters()) == 0 {
+		return validation.Error("toClusters must have a least one cluster set")
+	}
+	if err := c.GetAlertCondition().Validate(); err != nil {
+		return err
+	}
+	return nil
+}

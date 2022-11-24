@@ -348,7 +348,7 @@ func (r *Reconciler) workloadDrainDeployment() (resources.Resource, error) {
 			},
 		}
 		r.setOwner(deployment)
-		return deployment, reconciler.StatePresent, nil
+		return deployment, deploymentStateDisabled(r.spec.Services.Drain.Enabled), nil
 	}, nil
 }
 
@@ -689,6 +689,13 @@ func deploymentState(enabled *bool) reconciler.DesiredState {
 	return reconciler.StateAbsent
 }
 
+func deploymentStateDisabled(enabled *bool) reconciler.DesiredState {
+	if enabled != nil || *enabled {
+		return reconciler.StatePresent
+	}
+	return reconciler.StateAbsent
+}
+
 func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredState, error) {
 	var data map[string]intstr.IntOrString
 	if len(r.spec.NulogHyperparameters) > 0 {
@@ -748,7 +755,7 @@ func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.
 	deployment := r.genericDeployment(v1beta2.TrainingControllerService)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
-	return deployment, deploymentState(r.spec.Services.TrainingController.Enabled), nil
+	return deployment, deploymentStateDisabled(r.spec.Services.TrainingController.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
@@ -814,7 +821,7 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.spec.Services.GPUController.Enabled), nil
+	return deployment, deploymentStateDisabled(r.spec.Services.GPUController.Enabled), nil
 }
 
 func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {

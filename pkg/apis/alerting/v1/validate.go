@@ -120,9 +120,25 @@ func (q *AlertConditionPrometheusQuery) Validate() error {
 	return nil
 }
 
+func (dc *AlertConditionDownstreamCapability) Validate() error {
+	if dc.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if dc.For.AsDuration() <= 0 {
+		return validation.Error("positive \"for\" duration must be set")
+	}
+	if len(dc.CapabilityState) == 0 {
+		return validation.Error("At least one bad capability state required for alerting")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
+	}
+	if d.GetDownstreamCapability() != nil {
+		return d.GetDownstreamCapability().Validate()
 	}
 	if d.GetKubeState() != nil {
 		return d.GetKubeState().Validate()

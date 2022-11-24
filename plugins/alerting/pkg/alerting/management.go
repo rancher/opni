@@ -42,6 +42,10 @@ func ListCapabilityStatuses(capabilityName string) map[string][]health.Condition
 	return RegisteredCapabilityStatuses[capabilityName]
 }
 
+func ListBadDefaultStatuses() []string {
+	return []string{health.StatusFailure.String(), health.StatusPending.String()}
+}
+
 func init() {
 	// metrics
 	RegisterCapabilityStatus(
@@ -158,48 +162,82 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 				p.Logger.Errorf("failed to receive cluster event : %s", err)
 			}
 			switch event.Type {
+			// FIXME: register default cluster creation hooks
 			case managementv1.WatchEventType_Created:
 				items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
 				if err != nil {
 					p.Logger.Errorf("failed to list alert conditions : %s", err)
 					continue
 				}
-				exists := false
+				disconnectExists := false
+				healthExists := false
 				for _, item := range items.Items {
 					if s := item.GetAlertCondition().GetAlertType().GetSystem(); s != nil {
 						if s.GetClusterId().Id == event.Cluster.Id {
-							exists = true
+							disconnectExists = true
+						}
+					}
+					if s := item.GetAlertCondition().GetAlertType().GetDownstreamCapability(); s != nil {
+						if s.GetClusterId().Id == event.Cluster.Id {
+							healthExists = true
 							break
 						}
 					}
 				}
-				if exists {
-					continue
-				}
-				_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
-					Name:        "agent-disconnect",
-					Description: "Alert when the downstream agent disconnects from the opni upstream",
-					Labels:      []string{"agent-disconnect", "opni", "automatic"},
-					Severity:    alertingv1.Severity_CRITICAL,
-					AlertType: &alertingv1.AlertTypeDetails{
-						Type: &alertingv1.AlertTypeDetails_System{
-							System: &alertingv1.AlertConditionSystem{
-								ClusterId: event.Cluster.Reference(),
-								Timeout:   durationpb.New(10 * time.Minute),
+				if !disconnectExists {
+					_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
+						Name:        "agent-disconnect",
+						Description: "Alert when the downstream agent disconnects from the opni upstream",
+						Labels:      []string{"agent-disconnect", "opni", "automatic"},
+						Severity:    alertingv1.Severity_CRITICAL,
+						AlertType: &alertingv1.AlertTypeDetails{
+							Type: &alertingv1.AlertTypeDetails_System{
+								System: &alertingv1.AlertConditionSystem{
+									ClusterId: event.Cluster.Reference(),
+									Timeout:   durationpb.New(10 * time.Minute),
+								},
 							},
 						},
-					},
-				})
-				if err != nil {
-					p.Logger.Warnf(
-						"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
-						event.Cluster.Id,
-					)
-				} else {
-					p.Logger.Debugf(
-						"downstream agent disconnect condition on cluster creation for cluster %s is now active",
-						event.Cluster.Id,
-					)
+					})
+					if err != nil {
+						p.Logger.Warnf(
+							"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
+							event.Cluster.Id,
+						)
+					} else {
+						p.Logger.Debugf(
+							"downstream agent disconnect condition on cluster creation for cluster %s is now active",
+							event.Cluster.Id,
+						)
+					}
+				}
+				if !healthExists {
+					_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
+						Name:        "agent-capability-unhealthy",
+						Description: "Alert when some downstream agent capability becomes unhealthy",
+						Labels:      []string{"agent-capability-health", "opni", "automatic"},
+						Severity:    alertingv1.Severity_CRITICAL,
+						AlertType: &alertingv1.AlertTypeDetails{
+							Type: &alertingv1.AlertTypeDetails_DownstreamCapability{
+								DownstreamCapability: &alertingv1.AlertConditionDownstreamCapability{
+									ClusterId:       event.Cluster.Reference(),
+									CapabilityState: ListBadDefaultStatuses(),
+									For:             durationpb.New(10 * time.Minute),
+								},
+							},
+						},
+					})
+					if err != nil {
+						p.Logger.Warnf(
+							"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
+							event.Cluster.Id,
+						)
+					} else {
+						p.Logger.Debugf(
+							"downstream agent disconnect condition on cluster creation for cluster %s is now active",
+							event.Cluster.Id,
+						)
+					}
 				}
 			case managementv1.WatchEventType_Deleted:
 				// delete any conditions that are associated with this cluster
@@ -210,6 +248,16 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 				for i, id := range ids {
 					if s := conds[i].GetAlertType().GetSystem(); s != nil {
 						if s.ClusterId.Id == event.Cluster.Id {
+							_, err = p.DeleteAlertCondition(p.Ctx, &corev1.Reference{
+								Id: id,
+							})
+							if err != nil {
+								p.Logger.Errorf("failed to delete condition %s : %s", id, err)
+							}
+						}
+					}
+					if dc := conds[i].GetAlertType().GetDownstreamCapability(); dc != nil {
+						if dc.ClusterId.Id == event.Cluster.Id {
 							_, err = p.DeleteAlertCondition(p.Ctx, &corev1.Reference{
 								Id: id,
 							})
@@ -264,14 +312,29 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 				ID:     clusterStatus.Cluster.Id,
 				Status: clusterStatus.HealthStatus.Status,
 			}
-			data, err := json.Marshal(msg)
-			if err != nil {
-				p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
-			}
-			_, err = js.PublishAsync(shared.NewAgentDisconnectSubject(clusterStatus.Cluster.GetId()), data)
-			if err != nil {
-				p.Logger.Errorf("failed to publish cluster health status update : %s", err)
-			}
+			// send to agent disconnect
+			go func() {
+				agentDisconnectData, err := json.Marshal(msg)
+				if err != nil {
+					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
+				}
+				_, err = js.PublishAsync(shared.NewAgentDisconnectSubject(clusterStatus.Cluster.GetId()), agentDisconnectData)
+				if err != nil {
+					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
+				}
+			}()
+
+			// send to health status
+			go func() {
+				healthStatusData, err := json.Marshal(clusterStatus)
+				if err != nil {
+					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
+				}
+				_, err = js.PublishAsync(shared.NewHealthStatusSubject(clusterStatus.Cluster.GetId()), healthStatusData)
+				if err != nil {
+					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
+				}
+			}()
 		}
 	}
 }

@@ -40,6 +40,13 @@ func setupCondition(
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
+	if dc := req.GetAlertType().GetDownstreamCapability(); dc != nil {
+		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName())
+		if err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
+	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
 		err := p.handleKubeAlertCreation(ctx, k, newConditionId, req.Name)
 		if err != nil {
@@ -83,6 +90,12 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		p.storageNode.DeleteConditionStatusTracker(ctx, id)
 		return nil
 	}
+	if r := req.AlertType.GetDownstreamCapability(); r != nil {
+		p.msgNode.RemoveConfigListener(id)
+		p.storageNode.DeleteIncidentTracker(ctx, id)
+		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		return nil
+	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
 			ClusterId: r.Id,
@@ -120,6 +133,19 @@ func (p *Plugin) handleSystemAlertCreation(
 	conditionName string,
 ) error {
 	err := p.onSystemConditionCreate(newConditionId, conditionName, k)
+	if err != nil {
+		p.Logger.Errorf("failed to create agent condition %s", err)
+	}
+	return nil
+}
+
+func (p *Plugin) handleDownstreamCapabilityAlertCreation(
+	ctx context.Context,
+	k *alertingv1.AlertConditionDownstreamCapability,
+	newConditionId string,
+	conditionName string,
+) error {
+	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -485,18 +511,77 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	return nil
 }
 
-func (p *Plugin) onCapabilityStatusCreate(conditionId string, condition alertingv1.AlertConditionDownstreamCapability) error {
+func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionDownstreamCapability) error {
 	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
-	lg.Debugf("Received condition update: %v", condition)
-	// jsCtx, cancel := context.WithCancel(p.Ctx)
-	// nc := p.natsConn.Get()
-	// js, err := nc.JetStream()
-	// if err != nil {
-	// 	cancel()
-	// 	return err
-	// }
-	lg.Debugf("Creating capability status condition with timeout %s", condition.GetFor().AsDuration())
-
+	lg.Debugf("received condition update: %v", condition)
+	jsCtx, cancel := context.WithCancel(p.Ctx)
+	nc := p.natsConn.Get()
+	js, err := nc.JetStream()
+	if err != nil {
+		cancel()
+		return err
+	}
+	fireOn := map[string]struct{}{}
+	for _, s := range condition.GetCapabilityState() {
+		fireOn[s] = struct{}{}
+	}
+	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetFor().AsDuration())
+	evaluator := &InternalConditionEvaluator[*corev1.ClusterHealthStatus]{
+		lg:                 lg,
+		conditionId:        conditionId,
+		conditionName:      conditionName,
+		storageNode:        p.storageNode,
+		evaluationCtx:      jsCtx,
+		parentCtx:          p.Ctx,
+		cancelEvaluation:   cancel,
+		evaluateDuration:   condition.GetFor().AsDuration(),
+		alertmanagerlabels: map[string]string{},
+		alpha: func(h *corev1.ClusterHealthStatus) (health bool, ts *timestamppb.Timestamp) {
+			healthy := false
+			lg.Debug("found health conditions %v", h.HealthStatus.Health.Conditions)
+			for _, s := range h.HealthStatus.Health.Conditions {
+				if _, ok := fireOn[s]; !ok {
+					healthy = true
+					break
+				}
+			}
+			return healthy, h.HealthStatus.Status.Timestamp
+		},
+		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+				ConditionId: &corev1.Reference{Id: conditionId},
+				Annotations: labels,
+			})
+		},
+	}
+	// handles re-entrant conditions
+	evaluator.CalculateInitialState()
+	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
+		for {
+			err = natsutil.NewPersistentStream(js, shared.NewAlertingHealthStream())
+			if err != nil {
+				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
+				continue
+			}
+			agentId := condition.GetClusterId().Id
+			msgCh := make(chan *nats.Msg, 32)
+			sub, err := js.ChanSubscribe(shared.NewHealthStatusSubject(agentId), msgCh)
+			defer sub.Unsubscribe()
+			if err != nil {
+				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
+				continue
+			}
+			evaluator.msgCh = msgCh
+			break
+		}
+		evaluator.SubscriberLoop()
+	}()
+	// spawn a watcher for the incidents
+	go func() {
+		evaluator.EvaluateLoop()
+	}()
+	p.msgNode.AddSystemConfigListener(conditionId, cancel)
 	return nil
 }
 

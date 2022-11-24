@@ -9,9 +9,13 @@ import (
 
 // Jetstream streams
 const (
-	AgentDisconnectStream         = "opni_alerting_agent"
-	AgentDisconnectStreamSubjects = "opni_alerting_agent.*"
-	AgentDisconnectBucket         = "opni-alerting-agent-bucket"
+	AgentDisconnectStream              = "opni_alerting_agent"
+	AgentDisconnectStreamSubjects      = "opni_alerting_agent.*"
+	AgentDisconnectBucket              = "opni-alerting-agent-bucket"
+	AgentStatusBucket                  = "opni-alerting-agent-status-bucket"
+	StatusBucketPerCondition           = "opni-alerting-condition-status-bucket"
+	StatusBucketPerClusterInternalType = "opni-alerting-cluster-condition-type-status-bucket"
+	GeneralIncidentStorage             = "opni-alerting-general-incident-bucket"
 )
 
 func NewAlertingDisconnectStream() *nats.StreamConfig {

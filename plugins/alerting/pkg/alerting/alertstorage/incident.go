@@ -2,20 +2,27 @@ package alertstorage
 
 import "google.golang.org/protobuf/types/known/timestamppb"
 
-type InternalIncidentStep interface {
-	IsFiring() bool
-	IsHealthy() bool
-	GetTimestamp() *timestamppb.Timestamp
-	MarshalJSON() ([]byte, error)
-	UnmarshalJSON([]byte) error
+type State struct {
+	Healthy   bool                   `json:"healthy"`
+	Firing    bool                   `json:"firing"`
+	Timestamp *timestamppb.Timestamp `json:"timestamp"`
 }
 
-type InternalIncident interface {
-	GetConditionId() string
-	isEquivalentState(other InternalIncidentStep) bool
-	GetSteps() []InternalIncidentStep
-	AddStep(step InternalIncidentStep)
-	New(conditionId string, steps ...InternalIncidentStep)
-	MarshalJSON() ([]byte, error)
-	UnmarshalJSON([]byte) error
+func (s *State) IsEquivalent(other *State) bool {
+	return s.Healthy == other.Healthy && s.Firing == other.Firing
+}
+
+type Interval struct {
+	Start *timestamppb.Timestamp `json:"start"`
+	End   *timestamppb.Timestamp `json:"end"`
+}
+
+type IncidentIntervals struct {
+	Values []Interval `json:"values"`
+}
+
+func NewIncidentIntervals() *IncidentIntervals {
+	return &IncidentIntervals{
+		Values: []Interval{},
+	}
 }

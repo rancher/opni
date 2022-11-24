@@ -87,9 +87,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	)
 	p.storageNode = alertstorage.NewStorageNode(
 		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions:           system.NewKVStoreClient[*alertingv1.AlertCondition](client),
-			Endpoints:            system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
-			SystemTrackerStorage: future.New[nats.KeyValue](),
+			Conditions:      system.NewKVStoreClient[*alertingv1.AlertCondition](client),
+			Endpoints:       system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
+			IncidentStorage: future.New[nats.KeyValue](),
+			StateStorage:    future.New[nats.KeyValue](),
 		}),
 	)
 
@@ -114,15 +115,33 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		panic(err)
 	}
-	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.AgentDisconnectBucket,
-		Description: "track system agent status updates",
+	incidentKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.GeneralIncidentStorage,
+		Description: "track internal incident changes over time for each condition id",
 		Storage:     nats.FileStorage,
 	})
 	if err != nil {
 		panic(err)
 	}
-	p.storageNode.SetSystemTrackerStorage(kv)
+	statusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.StatusBucketPerCondition,
+		Description: "track last known internal status for each condition id",
+		Storage:     nats.FileStorage,
+	})
+	if err != nil {
+		panic(err)
+	}
+	clusterWideStatusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.StatusBucketPerClusterInternalType,
+		Description: "track last known internal status for each condition type on each cluster",
+		Storage:     nats.FileStorage,
+	})
+	if err != nil {
+		panic(err)
+	}
+	p.storageNode.SetIncidentStorage(incidentKv)
+	p.storageNode.SetConditionStatusStorage(statusKv)
+	p.storageNode.SetClusterStateStorage(clusterWideStatusKv)
 	// spawn a reindexing task
 	go func() {
 		p.restartAgentDisconnectTrackers()

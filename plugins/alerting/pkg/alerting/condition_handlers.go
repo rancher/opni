@@ -7,7 +7,6 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
@@ -81,6 +80,7 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteIncidentTracker(ctx, id)
+		p.storageNode.DeleteConditionStatusTracker(ctx, id)
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
@@ -118,22 +118,16 @@ func (p *Plugin) handleSystemAlertCreation(
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 ) error {
-	_, err := p.storageNode.GetIncidentTracker(ctx, newConditionId)
-	if errors.Is(err, nats.ErrKeyNotFound) {
-		p.storageNode.CreateIncidentTracker(ctx, newConditionId, &alertstorage.AgentIncidentStep{
-			StatusUpdate: health.StatusUpdate{
-				ID: k.GetClusterId().Id,
-				Status: &corev1.Status{
-					Timestamp: nil,
-					Connected: true,
-				},
-			},
-			AlertFiring: false,
+	if _, err := p.storageNode.GetConditionStatusTracker(ctx, newConditionId); err != nil {
+		err := p.storageNode.CreateConditionStatusTracker(ctx, newConditionId, &alertstorage.State{
+			Healthy: true,
+			Firing:  false,
 		})
-	} else if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
-	err = p.onSystemConditionCreate(newConditionId, k)
+	err := p.onSystemConditionCreate(newConditionId, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -290,6 +284,38 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	return err
 }
 
+type InternalConditionEvaluator struct {
+	conditionId    string
+	inMemoryFiring bool
+	stateLock      sync.Mutex
+	firingLock     sync.RWMutex
+	storageNode    *alertstorage.StorageNode
+}
+
+func (c *InternalConditionEvaluator) SetFiring(firing bool) {
+	c.firingLock.Lock()
+	defer c.firingLock.Unlock()
+	c.inMemoryFiring = firing
+}
+
+func (c *InternalConditionEvaluator) IsFiring() bool {
+	c.firingLock.RLock()
+	defer c.firingLock.RUnlock()
+	return c.inMemoryFiring
+}
+
+func (c *InternalConditionEvaluator) UpdateState(ctx context.Context, s *alertstorage.State) error {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
+	return c.storageNode.UpdateConditionStatusTracker(ctx, c.conditionId, s)
+}
+
+func NewInternalConditionEvaluator(conditionId string, node *alertstorage.StorageNode) *InternalConditionEvaluator {
+	return &InternalConditionEvaluator{
+		storageNode: node,
+	}
+}
+
 func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
@@ -301,15 +327,26 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 		return err
 	}
 	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
-	var firingLock sync.RWMutex
-	currentlyFiring := false // last know firing state synced between the spawned goroutines
-	// for re-entrant conditions, check the last persisted state
-	st, err := p.storageNode.GetIncidentTracker(jsCtx, conditionId)
-	if err == nil && st != nil && len(st.GetSteps()) != 0 {
-		a := st.GetSteps()[len(st.GetSteps())-1]
-		currentlyFiring = a.IsFiring()
+	// for re-entrant condition
+	incomingState := &alertstorage.State{
+		Healthy:   true,
+		Firing:    false,
+		Timestamp: timestamppb.Now(),
 	}
-	// spawn async subscription stream
+	if st, err := p.storageNode.GetConditionStatusTracker(jsCtx, conditionId); err != nil {
+		err = p.storageNode.CreateConditionStatusTracker(jsCtx, conditionId, incomingState)
+		if err != nil {
+			cancel()
+			return err
+		}
+	} else {
+		incomingState = st
+	}
+	evaluator := NewInternalConditionEvaluator(conditionId, p.storageNode)
+	if incomingState.Firing {
+		evaluator.SetFiring(true)
+	}
+
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		for {
@@ -321,9 +358,6 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 			agentId := condition.GetClusterId().Id
 			msgCh := make(chan *nats.Msg, 32)
 			sub, err := js.ChanSubscribe(shared.NewAgentDisconnectSubject(agentId), msgCh)
-			if err != nil {
-				lg.Errorf("failed to chan subscribe %s", err)
-			}
 			defer sub.Unsubscribe()
 			if err != nil {
 				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
@@ -341,15 +375,12 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 					if err != nil {
 						lg.Error(err)
 					}
-					firingLock.RLock()
-					err = p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
-						StatusUpdate: status,
-						AlertFiring:  currentlyFiring,
-					})
-					if err != nil {
-						lg.Error(err)
+					incomingState := alertstorage.State{
+						Healthy:   status.Status.Connected,
+						Firing:    evaluator.IsFiring(),
+						Timestamp: status.Status.Timestamp,
 					}
-					firingLock.RUnlock()
+					evaluator.UpdateState(jsCtx, &incomingState)
 				}
 			}
 		}
@@ -366,22 +397,13 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 			case <-jsCtx.Done():
 				return
 			case <-ticker.C:
-				st, err := p.storageNode.GetIncidentTracker(jsCtx, conditionId)
-				if err != nil || st == nil {
-					lg.Warnf("failed to get agent incident tracker : %s", err)
+				lastKnownState, err := p.storageNode.GetConditionStatusTracker(jsCtx, conditionId)
+				if err != nil {
 					continue
 				}
-				steps := st.GetSteps()
-				if len(steps) == 0 {
-					panic("no system alert condition steps")
-				}
-				a := steps[len(steps)-1]
-				if a.GetTimestamp() == nil {
-					continue
-				}
-				if !a.IsHealthy() {
+				if !lastKnownState.Healthy {
 					lg.Debug("agent is disconnected")
-					interval := timestamppb.Now().AsTime().Sub(a.GetTimestamp().AsTime())
+					interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 					if interval > condition.GetTimeout().AsDuration() {
 						lg.Debug("triggering alert")
 						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
@@ -393,46 +415,51 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 						if err != nil {
 							lg.Error(err)
 						}
-						firingLock.Lock()
-						currentlyFiring = true
-						firingLock.Unlock() // in case Updating the incident tracker takes a while, but we still want to process incoming messages
-						firingLock.RLock()
-						p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
-							StatusUpdate: health.StatusUpdate{
-								ID: "", // don't need this
-								Status: &corev1.Status{
-									Timestamp: a.GetTimestamp(),
-									Connected: a.IsHealthy(),
-								},
-							}, //a.StatusUpdate, // must copy old timestamp
-							AlertFiring: currentlyFiring,
-						})
-						firingLock.RUnlock()
+						if !evaluator.IsFiring() {
+							evaluator.SetFiring(true)
+							err = evaluator.UpdateState(jsCtx, &alertstorage.State{
+								Healthy:   lastKnownState.Healthy,
+								Firing:    evaluator.IsFiring(),
+								Timestamp: timestamppb.Now(),
+							})
+							if err != nil {
+								lg.Error(err)
+							}
+							err = p.storageNode.OpenInterval(jsCtx, conditionId, timestamppb.Now())
+							if err != nil {
+								lg.Error(err)
+							}
+						}
 					} else {
-						currentlyFiring = false
+						evaluator.SetFiring(false)
 					}
-				} else if a.IsHealthy() && currentlyFiring {
+				} else if lastKnownState.Healthy && evaluator.IsFiring() {
 					lg.Debug("agent disconnect is firing : agent is reconnected")
-					firingLock.Lock()
-					currentlyFiring = false
-					firingLock.Unlock()
-					firingLock.RLock()
-					p.storageNode.AddToIncidentTracker(jsCtx, conditionId, &alertstorage.AgentIncidentStep{
-						StatusUpdate: health.StatusUpdate{
-							ID: "", // don't need this
-							Status: &corev1.Status{
-								Timestamp: a.GetTimestamp(),
-								Connected: a.IsHealthy(),
-							},
-						}, // must copy old timestamp
-						AlertFiring: currentlyFiring,
-					})
-					firingLock.RUnlock()
+					evaluator.SetFiring(false)
+					err = p.storageNode.CloseInterval(jsCtx, conditionId, timestamppb.Now())
+					if err != nil {
+						lg.Error(err)
+					}
 				}
 			}
 		}
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	return nil
+}
+
+func (p *Plugin) onCapabilityStatusCreate(conditionId string, condition alertingv1.AlertConditionDownstreamCapability) error {
+	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
+	lg.Debugf("Received condition update: %v", condition)
+	// jsCtx, cancel := context.WithCancel(p.Ctx)
+	// nc := p.natsConn.Get()
+	// js, err := nc.JetStream()
+	// if err != nil {
+	// 	cancel()
+	// 	return err
+	// }
+	lg.Debugf("Creating capability status condition with timeout %s", condition.GetFor().AsDuration())
+
 	return nil
 }
 

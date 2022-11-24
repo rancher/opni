@@ -4,48 +4,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
-
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-type EvaluatorOptions struct {
-	js          nats.JetStreamContext
-	storageNode *alertstorage.StorageNode
-}
-
-type EvaluatorOption func(*EvaluatorOptions)
-
-func WithStorageNode(storageNode *alertstorage.StorageNode) EvaluatorOption {
-	return func(o *EvaluatorOptions) {
-		o.storageNode = storageNode
-	}
-}
-
-func WithJetStream(js nats.JetStreamContext) EvaluatorOption {
-	return func(o *EvaluatorOptions) {
-		o.js = js
-	}
-}
-
-func (o *EvaluatorOptions) apply(opts ...EvaluatorOption) {
-	for _, opt := range opts {
-		opt(o)
-	}
-}
-
-type ConditionEvaluator interface {
-	Create(conditionId string, cond *alertingv1.AlertCondition)
-	Delete(conditionId string, cond *alertingv1.AlertCondition)
-	// the returned cancel func should not be a derivative of parentCtx
-	Evaluate(parentCtx, ctxWithCancel context.Context, opts ...EvaluatorOptions)
-	Ingester(parentCtx, ctxWithCancel context.Context, opts ...EvaluatorOptions)
-}
 
 type InternalConditionWatcher interface {
 	WatchEvents()
@@ -70,11 +34,6 @@ func (s *SimpleInternalConditionWatcher) WatchEvents() {
 			f()
 		}()
 	}
-}
-
-type EvaluationContext interface {
-	Spawn(...InternalConditionWatcher)
-	ReEntrantIndexing(evals ...ConditionEvaluator)
 }
 
 var AlertingBackends = map[alertingv1.AlertType]AlertTypeBackend{}

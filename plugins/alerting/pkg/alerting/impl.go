@@ -1,54 +1,10 @@
 package alerting
 
 import (
-	"context"
-	"sync"
-
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-type AgentDisconnect struct {
-	firingLock sync.Mutex
-	isFiring   bool
-}
-
-func NewAgentDisconnect(
-	conditionId string,
-	cond *alertingv1.AlertConditionSystem,
-	msgNode *messaging.MessagingNode,
-) *AgentDisconnect {
-	return &AgentDisconnect{}
-}
-
-func (a *AgentDisconnect) Create(conditionId string, cond *alertingv1.AlertCondition) {
-	// TODO
-	panic("implement me")
-}
-
-func (a *AgentDisconnect) Delete(conditionId string, cond *alertingv1.AlertCondition) {
-	// TODO
-	panic("implement me")
-}
-
-func (a *AgentDisconnect) Evaluate(parentCtx, ctxWithCancel context.Context, opts ...EvaluatorOptions) {
-	// TODO
-	panic("implement me")
-}
-
-func (a *AgentDisconnect) Ingester(parentCtx, ctxWithCancel context.Context, opts ...EvaluatorOptions) {
-	// TODO
-	panic("implement me")
-}
-
-func (a *AgentDisconnect) Aggregator() {
-	// TODO
-	panic("implement me")
-}
-
-var _ ConditionEvaluator = &AgentDisconnect{}
 
 type AlertTypeSystemBackend struct {
 	RequestBase

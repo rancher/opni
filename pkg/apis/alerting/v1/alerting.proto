@@ -287,10 +287,9 @@ message AlertConditionPrometheusQuery{
 
 message AlertConditionDownstreamCapability{
   core.Reference clusterId = 1;
-  string capability = 2;
   repeated string capabilityState = 3;
   // In the UI this should be "is in state : " versus "is not in state:"
-  bool contains = 4;
+  bool isInState = 4;
   google.protobuf.Duration for = 5;
 }
 

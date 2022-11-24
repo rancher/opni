@@ -3,7 +3,6 @@ package alertstorage
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"path"
 	"sync"
 	"time"
@@ -27,7 +26,9 @@ type StorageAPIs struct {
 	Endpoints  storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
 	// key : conditionId
 	// value  : AgentTracker
-	SystemTrackerStorage future.Future[nats.KeyValue]
+	IncidentStorage     future.Future[nats.KeyValue]
+	StateStorage        future.Future[nats.KeyValue]
+	ClusterStateStorage future.Future[nats.KeyValue]
 }
 
 // Responsible for anything related to persistent storage
@@ -56,8 +57,16 @@ func NewStorageNode(opts ...StorageNodeOption) *StorageNode {
 	}
 }
 
-func (s *StorageNode) SetSystemTrackerStorage(kv nats.KeyValue) {
-	s.storage.Get().SystemTrackerStorage.Set(kv)
+func (s *StorageNode) SetIncidentStorage(kv nats.KeyValue) {
+	s.storage.Get().IncidentStorage.Set(kv)
+}
+
+func (s *StorageNode) SetConditionStatusStorage(kv nats.KeyValue) {
+	s.storage.Get().StateStorage.Set(kv)
+}
+
+func (s *StorageNode) SetClusterStateStorage(kv nats.KeyValue) {
+	s.storage.Get().ClusterStateStorage.Set(kv)
 }
 
 type StorageNodeOption func(*StorageNodeOptions)
@@ -239,25 +248,21 @@ func (s *StorageNode) DeleteEndpoint(ctx context.Context, endpointId string) err
 	return storage.Endpoints.Delete(ctx, path.Join(endpointPrefix, endpointId))
 }
 
-func (s *StorageNode) CreateIncidentTracker(
+func (s *StorageNode) CreateConditionStatusTracker(
 	ctx context.Context,
 	conditionId string,
-	initialValue InternalIncidentStep) error {
-	// TODO : generic constructor
-	// FIXME: input the type ourselves
-	t := HandleInternalIncidentType(shared.AgentDisconnectStorageType)
-	t.New(conditionId, initialValue)
+	value *State) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	sts, err := storage.StateStorage.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(t)
+	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
@@ -265,14 +270,16 @@ func (s *StorageNode) CreateIncidentTracker(
 	return err
 }
 
-func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string) (InternalIncident, error) {
+func (s *StorageNode) GetConditionStatusTracker(
+	ctx context.Context,
+	conditionId string) (*State, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
 	if err != nil {
 		return nil, err
 	}
-	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	sts, err := storage.StateStorage.GetContext(ctxTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +287,7 @@ func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string
 	if err != nil {
 		return nil, err
 	}
-	var st *AgentIncident
+	var st *State
 	err = json.Unmarshal(entry.Value(), &st)
 	if err != nil {
 		return nil, err
@@ -288,58 +295,100 @@ func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string
 	return st, nil
 }
 
-func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
+func (s *StorageNode) UpdateConditionStatusTracker(
 	ctx context.Context,
 	conditionId string,
-	start,
-	end *timestamppb.Timestamp,
-) ([]*alertingv1.ActiveWindow, error) {
+	value *State) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	incident, err := s.GetIncidentTracker(ctxTimeout, conditionId)
+	storage, err := s.storage.GetContext(ctxTimeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	res := []*alertingv1.ActiveWindow{}
-	steps := incident.GetSteps()
-	if len(steps) == 0 {
-		return res, nil
+	sts, err := storage.StateStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
 	}
-	risingEdge := true
-	for _, step := range steps {
-		if step.GetTimestamp() == nil {
-			continue
-		}
-		if step.IsFiring() && risingEdge {
-			res = append(res, &alertingv1.ActiveWindow{
-				Start: step.GetTimestamp(),
-				End:   timestamppb.Now(), // overwritten if it is found later
-				Type:  alertingv1.TimelineType_Timeline_Alerting,
-			})
-			risingEdge = false
-		} else if !step.IsFiring() && !risingEdge {
-			res[len(res)-1].End = step.GetTimestamp()
-			risingEdge = true
-		}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
 	}
-	pruneIdx := 0
-	for _, window := range res {
-		if window.End.AsTime().Before(start.AsTime()) {
-			pruneIdx++
-		}
+	_, err = sts.Put(conditionId, data)
+	if err != nil {
+		return err
 	}
-	res = slices.Delete(res, 0, pruneIdx)
-	return res, nil
+	return nil
 }
 
-func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]InternalIncident, error) {
+func (s *StorageNode) DeleteConditionStatusTracker(
+	ctx context.Context,
+	conditionId string) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.StateStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	return sts.Delete(conditionId)
+}
+
+func (s *StorageNode) CreateIncidentTracker(
+	ctx context.Context,
+	conditionId string,
+) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(NewIncidentIntervals())
+	if err != nil {
+		return err
+	}
+	_, err = sts.Create(conditionId, data)
+	return err
+}
+
+func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string) (*IncidentIntervals, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
 	if err != nil {
 		return nil, err
 	}
-	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	entry, err := sts.Get(conditionId)
+	if err != nil {
+		return nil, err
+	}
+	var st *IncidentIntervals
+	err = json.Unmarshal(entry.Value(), &st)
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]*IncidentIntervals, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, err
+	}
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -347,13 +396,13 @@ func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]InternalIncid
 	if err != nil {
 		return nil, err
 	}
-	res := make([]InternalIncident, 0)
+	res := make([]*IncidentIntervals, 0)
 	for _, id := range ids {
 		entry, err := sts.Get(id)
 		if err != nil {
 			return nil, err
 		}
-		var st *AgentIncident
+		var st *IncidentIntervals
 		err = json.Unmarshal(entry.Value(), &st)
 		if err != nil {
 			continue
@@ -370,46 +419,115 @@ func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]InternalIncid
 	return res, nil
 }
 
-func (s *StorageNode) AddToIncidentTracker(ctx context.Context, conditionId string, updateValue InternalIncidentStep) error {
-	s.agentTrackerMu.Lock()
-	defer s.agentTrackerMu.Unlock()
+func (s *StorageNode) OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	storage, err := s.storage.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}
-	var agentEntry nats.KeyValueEntry
 	entry, err := sts.Get(conditionId)
-	if errors.Is(err, nats.ErrKeyNotFound) {
-		err := s.CreateIncidentTracker(ctx, conditionId, updateValue)
-		if err != nil {
-			return err
-		}
-		entry, err := sts.Get(conditionId)
-		if err != nil {
-			return err
-		}
-		agentEntry = entry
-	} else if err != nil {
-		return err
-	} else {
-		agentEntry = entry
-	}
-	var prev AgentIncident
-	err = json.Unmarshal(agentEntry.Value(), &prev)
 	if err != nil {
 		return err
 	}
-	if prev.isEquivalentState(updateValue) { // prevent filling up K,V with duplicate states
-		return nil
+	var st *IncidentIntervals
+	err = json.Unmarshal(entry.Value(), &st)
+	if err != nil {
+		return err
 	}
-	prev.AddStep(updateValue)
-	data, err := json.Marshal(prev)
+	if len(st.Values) == 0 {
+		st.Values = append(st.Values, Interval{
+			Start: start,
+			End:   nil,
+		})
+	} else {
+		last := st.Values[len(st.Values)-1]
+		if last.End != nil {
+			st.Values = append(st.Values, Interval{
+				Start: start,
+				End:   nil,
+			})
+		} else {
+			panic("old interval should be closed")
+		}
+	}
+	data, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	_, err = sts.Put(conditionId, data)
+	return err
+}
+
+func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
+	ctx context.Context,
+	conditionId string,
+	start,
+	end *timestamppb.Timestamp,
+) ([]*alertingv1.ActiveWindow, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	incident, err := s.GetIncidentTracker(ctxTimeout, conditionId)
+	if err != nil {
+		return nil, err
+	}
+	res := []*alertingv1.ActiveWindow{}
+	if len(incident.Values) == 0 {
+		return res, nil
+	}
+	for _, step := range incident.Values {
+		window := &alertingv1.ActiveWindow{
+			Start: step.Start,
+			End:   step.End, // overwritten if it is found later
+			Type:  alertingv1.TimelineType_Timeline_Alerting,
+		}
+		if window.End == nil {
+			window.End = end
+		}
+
+	}
+	pruneIdx := 0
+	for _, window := range res {
+		if window.End.AsTime().Before(start.AsTime()) {
+			pruneIdx++
+		}
+	}
+	res = slices.Delete(res, 0, pruneIdx)
+	return res, nil
+}
+
+func (s *StorageNode) CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error {
+	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	storage, err := s.storage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
+	if err != nil {
+		return err
+	}
+	entry, err := sts.Get(conditionId)
+	if err != nil {
+		return err
+	}
+	var st *IncidentIntervals
+	err = json.Unmarshal(entry.Value(), &st)
+	if err != nil {
+		return err
+	}
+	if len(st.Values) == 0 {
+		panic("no intervals of any kind")
+	}
+	if st.Values[len(st.Values)-1].End != nil {
+		panic("last interval should not be closed")
+	}
+	st.Values[len(st.Values)-1].End = end
+	data, err := json.Marshal(st)
 	if err != nil {
 		return err
 	}
@@ -424,7 +542,7 @@ func (s *StorageNode) DeleteIncidentTracker(ctx context.Context, conditionId str
 	if err != nil {
 		return err
 	}
-	sts, err := storage.SystemTrackerStorage.GetContext(ctxTimeout)
+	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
 	if err != nil {
 		return err
 	}

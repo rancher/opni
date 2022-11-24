@@ -79,45 +79,71 @@ func slackConfigsAreEqual(s1, s2 *SlackConfig) (equal bool, reason string) {
 }
 
 func emailConfigsAreEqual(e1, e2 *EmailConfig) (equal bool, reason string) {
-	if e1.To == e2.To {
+	if e1.To != e2.To {
 		return false, fmt.Sprintf("to mismatch %s <-> %s", e1.To, e2.To)
 	}
-	if e1.From == e2.From {
+	if e1.From != e2.From {
 		return false, fmt.Sprintf("from mismatch %s <-> %s ", e1.From, e2.From)
 	}
-	if e1.Smarthost == e2.Smarthost {
+	if e1.Smarthost != e2.Smarthost {
 		return false, fmt.Sprintf("smarthost mismatch %s <-> %s ", e1.Smarthost, e2.Smarthost)
 	}
-	if e1.AuthUsername == e2.AuthUsername {
+	if e1.AuthUsername != e2.AuthUsername {
 		return false, fmt.Sprintf("auth username mismatch %s <-> %s ", e1.AuthUsername, e2.AuthUsername)
 	}
-	if e1.AuthPassword == e2.AuthPassword {
+	if e1.AuthPassword != e2.AuthPassword {
 		return false, fmt.Sprintf("auth password mismatch %s <-> %s ", e1.AuthPassword, e2.AuthPassword)
 	}
-	if e1.AuthSecret == e2.AuthSecret {
+	if e1.AuthSecret != e2.AuthSecret {
 		return false, fmt.Sprintf("auth secret mismatch %s <-> %s ", e1.AuthSecret, e2.AuthSecret)
 	}
-	if e1.RequireTLS == e2.RequireTLS {
+	if e1.RequireTLS != e2.RequireTLS {
 		return false, fmt.Sprintf("require tls mismatch %v <-> %v ", e1.RequireTLS, e2.RequireTLS)
 	}
-	if e1.HTML == e2.HTML {
+	if e1.HTML != e2.HTML {
 		return false, fmt.Sprintf("html mismatch %s <-> %s ", e1.HTML, e2.HTML)
 	}
-	if e1.Text == e2.Text {
+	if e1.Text != e2.Text {
 		return false, fmt.Sprintf("text mismatch %s <-> %s ", e1.Text, e2.Text)
 	}
 	return true, ""
 }
 
+func pagerDutyConfigsAreEqual(p1, p2 *PagerdutyConfig) (equal bool, reason string) {
+	if p1.RoutingKey != p2.RoutingKey {
+		return false, fmt.Sprintf("routing key mismatch %s <-> %s ", p1.RoutingKey, p2.RoutingKey)
+	}
+	if p1.ServiceKey != p2.ServiceKey {
+		return false, fmt.Sprintf("service key mismatch %s <-> %s ", p1.ServiceKey, p2.ServiceKey)
+	}
+	if p1.URL != p2.URL {
+		return false, fmt.Sprintf("url mismatch %s <-> %s ", p1.URL, p2.URL)
+	}
+	if p1.Client != p2.Client {
+		return false, fmt.Sprintf("client mismatch %s <-> %s ", p1.Client, p2.Client)
+	}
+	if p1.ClientURL != p2.ClientURL {
+		return false, fmt.Sprintf("client url mismatch %s <-> %s ", p1.ClientURL, p2.ClientURL)
+	}
+	if p1.Description != p2.Description {
+		return false, fmt.Sprintf("description mismatch %s <-> %s ", p1.Description, p2.Description)
+	}
+	return true, ""
+}
+
 func receiversAreEqual(r1 *Receiver, r2 *Receiver) (equal bool, reason string) {
-	if r1.Name != r2.Name {
+	if r1.Name != r2.Name { // opni specific indexing
 		return false, fmt.Sprintf("receiver name mismatch %s <-> %s ", r1.Name, r2.Name)
 	}
 	if len(r1.EmailConfigs) != len(r2.EmailConfigs) {
-		return false, fmt.Sprintf("email config length mismatch %d <-> %d ", len(r1.EmailConfigs), len(r2.EmailConfigs))
+		return false, fmt.Sprintf("email configs are not yet synced: found num old %d <-> num new %d ", len(r1.EmailConfigs), len(r2.EmailConfigs))
 	}
+
 	if len(r1.SlackConfigs) != len(r2.SlackConfigs) {
-		return false, "slack config length mismatch"
+		return false, fmt.Sprintf("slack configs are not yet synced: found num old %d <-> num new %d ", len(r1.SlackConfigs), len(r2.SlackConfigs))
+	}
+	if len(r1.PagerdutyConfigs) != len(r2.PagerdutyConfigs) {
+		return false, fmt.Sprintf("pager duty configs are not yet synced: found num old %d <-> num new %d ", len(r1.PagerdutyConfigs), len(r2.PagerdutyConfigs))
 	}
 	for idx, emailConfig := range r1.EmailConfigs {
 		if equal, reason := emailConfigsAreEqual(emailConfig, r2.EmailConfigs[idx]); !equal {
@@ -127,6 +153,11 @@ func receiversAreEqual(r1 *Receiver, r2 *Receiver) (equal bool, reason string) {
 	for idx, slackConfig := range r1.SlackConfigs {
 		if equal, reason := slackConfigsAreEqual(slackConfig, r2.SlackConfigs[idx]); !equal {
 			return false, fmt.Sprintf("slack config mismatch %s", reason)
+		}
+	}
+	for idx, pagerDutyConfig := range r1.PagerdutyConfigs {
+		if equal, reason := pagerDutyConfigsAreEqual(pagerDutyConfig, r2.PagerdutyConfigs[idx]); !equal {
+			return false, fmt.Sprintf("pager duty config mismatch %s", reason)
 		}
 	}
 	return true, ""

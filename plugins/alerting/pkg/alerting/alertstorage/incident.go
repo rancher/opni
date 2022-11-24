@@ -12,6 +12,16 @@ func (s *State) IsEquivalent(other *State) bool {
 	return s.Healthy == other.Healthy && s.Firing == other.Firing
 }
 
+// if we can't read the last known state assume it is healthy
+// and not firing, set last known state to now
+func DefaultState() *State {
+	return &State{
+		Healthy:   true,
+		Firing:    false,
+		Timestamp: timestamppb.Now(),
+	}
+}
+
 type Interval struct {
 	Start *timestamppb.Timestamp `json:"start"`
 	End   *timestamppb.Timestamp `json:"end"`

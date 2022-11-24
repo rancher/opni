@@ -34,7 +34,7 @@ func setupCondition(
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
-		err := p.handleSystemAlertCreation(ctx, s, newConditionId)
+		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -117,17 +117,9 @@ func (p *Plugin) handleSystemAlertCreation(
 	ctx context.Context,
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
+	conditionName string,
 ) error {
-	if _, err := p.storageNode.GetConditionStatusTracker(ctx, newConditionId); err != nil {
-		err := p.storageNode.CreateConditionStatusTracker(ctx, newConditionId, &alertstorage.State{
-			Healthy: true,
-			Firing:  false,
-		})
-		if err != nil {
-			return err
-		}
-	}
-	err := p.onSystemConditionCreate(newConditionId, k)
+	err := p.onSystemConditionCreate(newConditionId, conditionName, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -284,39 +276,154 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	return err
 }
 
-type InternalConditionEvaluator struct {
-	conditionId    string
+type InternalConditionEvaluator[T any] struct {
+	// metadata
+	lg                 *zap.SugaredLogger
+	conditionName      string
+	conditionId        string
+	clusterId          string
+	alertmanagerlabels map[string]string
+	// contexts
+	parentCtx        context.Context
+	cancelEvaluation context.CancelFunc
+	evaluateDuration time.Duration
+	evaluationCtx    context.Context
+
 	inMemoryFiring bool
 	stateLock      sync.Mutex
 	firingLock     sync.RWMutex
-	storageNode    *alertstorage.StorageNode
+
+	// closure to evaluate health from the subscriber
+	alpha       func(h T) (healthy bool, ts *timestamppb.Timestamp)
+	triggerHook func(ctx context.Context, conditionId string, annotations map[string]string)
+	storageNode *alertstorage.StorageNode
+	msgCh       chan *nats.Msg
 }
 
-func (c *InternalConditionEvaluator) SetFiring(firing bool) {
+// infinite & blocking : must be run in a goroutine
+func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
+	defer c.cancelEvaluation()
+	if c.msgCh == nil { // TODO : mark this condition as manually invalid if this happens
+		c.lg.Errorf("msgCh is not initialized for condition %s", c.conditionName)
+		return
+	}
+	for {
+		select {
+		case <-c.parentCtx.Done():
+			return
+		case <-c.evaluationCtx.Done():
+			return
+		case msg := <-c.msgCh:
+			var status T
+			err := json.Unmarshal(msg.Data, &status)
+			if err != nil {
+				c.lg.Error(err)
+			}
+			healthy, ts := c.alpha(status)
+			incomingState := alertstorage.State{
+				Healthy:   healthy,
+				Firing:    c.IsFiring(),
+				Timestamp: ts,
+			}
+			c.UpdateState(c.evaluationCtx, &incomingState)
+		}
+	}
+}
+
+// infinite & blocking : must be run in a goroutine
+func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
+	defer c.cancelEvaluation() // cancel parent context, if we return (non-recoverable)
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.parentCtx.Done():
+			return
+		case <-c.evaluationCtx.Done():
+			return
+		case <-ticker.C:
+			lastKnownState, err := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId)
+			if err != nil {
+				continue
+			}
+			if !lastKnownState.Healthy {
+				c.lg.Debugf("condition %s is unhealthy", c.conditionName)
+				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
+				if interval > c.evaluateDuration {
+					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
+					c.triggerHook(c.evaluationCtx, c.conditionId, metrics.MergeLabels(c.alertmanagerlabels, map[string]string{
+						shared.BackendConditionIdLabel: c.conditionId,
+					}))
+					if err != nil {
+						c.lg.Error(err)
+					}
+					if !c.IsFiring() {
+						c.SetFiring(true)
+						err = c.UpdateState(c.evaluationCtx, &alertstorage.State{
+							Healthy:   lastKnownState.Healthy,
+							Firing:    c.IsFiring(),
+							Timestamp: timestamppb.Now(),
+						})
+						if err != nil {
+							c.lg.Error(err)
+						}
+						err = c.storageNode.OpenInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+						if err != nil {
+							c.lg.Error(err)
+						}
+					}
+				} else {
+					c.SetFiring(false)
+				}
+			} else if lastKnownState.Healthy && c.IsFiring() {
+				c.lg.Debugf("condition %s is finally healthy after having fired", c.conditionName)
+				c.SetFiring(false)
+				err = c.storageNode.CloseInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+				if err != nil {
+					c.lg.Error(err)
+				}
+			}
+		}
+	}
+}
+
+func (c *InternalConditionEvaluator[T]) SetFiring(firing bool) {
 	c.firingLock.Lock()
 	defer c.firingLock.Unlock()
 	c.inMemoryFiring = firing
 }
 
-func (c *InternalConditionEvaluator) IsFiring() bool {
+func (c *InternalConditionEvaluator[T]) IsFiring() bool {
 	c.firingLock.RLock()
 	defer c.firingLock.RUnlock()
 	return c.inMemoryFiring
 }
 
-func (c *InternalConditionEvaluator) UpdateState(ctx context.Context, s *alertstorage.State) error {
+func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *alertstorage.State) error {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 	return c.storageNode.UpdateConditionStatusTracker(ctx, c.conditionId, s)
 }
 
-func NewInternalConditionEvaluator(conditionId string, node *alertstorage.StorageNode) *InternalConditionEvaluator {
-	return &InternalConditionEvaluator{
-		storageNode: node,
+func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
+	incomingState := alertstorage.DefaultState()
+	if st, getErr := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId); getErr != nil {
+		if err := c.storageNode.CreateConditionStatusTracker(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+			// TODO : mark this condition as manually invalid when this happens
+			c.cancelEvaluation()
+			return
+		}
+
+	} else {
+		incomingState = st
 	}
+	if incomingState.Firing { // need to update this in memory value
+		c.SetFiring(true)
+	}
+	c.UpdateState(c.evaluationCtx, incomingState)
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alertingv1.AlertConditionSystem) error {
+func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionSystem) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -327,26 +434,28 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 		return err
 	}
 	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
-	// for re-entrant condition
-	incomingState := &alertstorage.State{
-		Healthy:   true,
-		Firing:    false,
-		Timestamp: timestamppb.Now(),
+	evaluator := &InternalConditionEvaluator[health.StatusUpdate]{
+		lg:                 lg,
+		conditionId:        conditionId,
+		conditionName:      conditionName,
+		storageNode:        p.storageNode,
+		evaluationCtx:      jsCtx,
+		parentCtx:          p.Ctx,
+		cancelEvaluation:   cancel,
+		evaluateDuration:   condition.GetTimeout().AsDuration(),
+		alertmanagerlabels: map[string]string{},
+		alpha: func(h health.StatusUpdate) (health bool, ts *timestamppb.Timestamp) {
+			return h.Status.Connected, h.Status.Timestamp
+		},
+		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+				ConditionId: &corev1.Reference{Id: conditionId},
+				Annotations: labels,
+			})
+		},
 	}
-	if st, err := p.storageNode.GetConditionStatusTracker(jsCtx, conditionId); err != nil {
-		err = p.storageNode.CreateConditionStatusTracker(jsCtx, conditionId, incomingState)
-		if err != nil {
-			cancel()
-			return err
-		}
-	} else {
-		incomingState = st
-	}
-	evaluator := NewInternalConditionEvaluator(conditionId, p.storageNode)
-	if incomingState.Firing {
-		evaluator.SetFiring(true)
-	}
-
+	// handles re-entrant conditions
+	evaluator.CalculateInitialState()
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		for {
@@ -363,86 +472,14 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
 				continue
 			}
-			for {
-				select {
-				case <-p.Ctx.Done():
-					return
-				case <-jsCtx.Done():
-					return
-				case msg := <-msgCh:
-					var status health.StatusUpdate
-					err := json.Unmarshal(msg.Data, &status)
-					if err != nil {
-						lg.Error(err)
-					}
-					incomingState := alertstorage.State{
-						Healthy:   status.Status.Connected,
-						Firing:    evaluator.IsFiring(),
-						Timestamp: status.Status.Timestamp,
-					}
-					evaluator.UpdateState(jsCtx, &incomingState)
-				}
-			}
+			evaluator.msgCh = msgCh
+			break
 		}
+		evaluator.SubscriberLoop()
 	}()
 	// spawn a watcher for the incidents
 	go func() {
-		defer cancel() // cancel parent context, if we return (non-recoverable)
-		ticker := time.NewTicker(time.Second * 10)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-p.Ctx.Done():
-				return
-			case <-jsCtx.Done():
-				return
-			case <-ticker.C:
-				lastKnownState, err := p.storageNode.GetConditionStatusTracker(jsCtx, conditionId)
-				if err != nil {
-					continue
-				}
-				if !lastKnownState.Healthy {
-					lg.Debug("agent is disconnected")
-					interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
-					if interval > condition.GetTimeout().AsDuration() {
-						lg.Debug("triggering alert")
-						_, err := p.TriggerAlerts(jsCtx, &alertingv1.TriggerAlertsRequest{
-							ConditionId: &corev1.Reference{Id: conditionId},
-							Annotations: map[string]string{
-								shared.BackendConditionIdLabel: conditionId,
-							},
-						})
-						if err != nil {
-							lg.Error(err)
-						}
-						if !evaluator.IsFiring() {
-							evaluator.SetFiring(true)
-							err = evaluator.UpdateState(jsCtx, &alertstorage.State{
-								Healthy:   lastKnownState.Healthy,
-								Firing:    evaluator.IsFiring(),
-								Timestamp: timestamppb.Now(),
-							})
-							if err != nil {
-								lg.Error(err)
-							}
-							err = p.storageNode.OpenInterval(jsCtx, conditionId, timestamppb.Now())
-							if err != nil {
-								lg.Error(err)
-							}
-						}
-					} else {
-						evaluator.SetFiring(false)
-					}
-				} else if lastKnownState.Healthy && evaluator.IsFiring() {
-					lg.Debug("agent disconnect is firing : agent is reconnected")
-					evaluator.SetFiring(false)
-					err = p.storageNode.CloseInterval(jsCtx, conditionId, timestamppb.Now())
-					if err != nil {
-						lg.Error(err)
-					}
-				}
-			}
-		}
+		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, cancel)
 	return nil

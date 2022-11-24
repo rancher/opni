@@ -131,17 +131,8 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		panic(err)
 	}
-	clusterWideStatusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.StatusBucketPerClusterInternalType,
-		Description: "track last known internal status for each condition type on each cluster",
-		Storage:     nats.FileStorage,
-	})
-	if err != nil {
-		panic(err)
-	}
 	p.storageNode.SetIncidentStorage(incidentKv)
 	p.storageNode.SetConditionStatusStorage(statusKv)
-	p.storageNode.SetClusterStateStorage(clusterWideStatusKv)
 	// spawn a reindexing task
 	go func() {
 		p.restartAgentDisconnectTrackers()
@@ -160,7 +151,7 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
 			// this checks that we won't crash when importing existing conditions from versions < 0.6
 			if s.GetClusterId() != nil && s.GetTimeout() != nil {
-				p.onSystemConditionCreate(id, s)
+				p.onSystemConditionCreate(id, conds[i].Name, s)
 			} else {
 				// delete invalid conditions that won't do anything
 				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})

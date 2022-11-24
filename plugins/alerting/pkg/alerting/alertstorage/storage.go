@@ -26,9 +26,8 @@ type StorageAPIs struct {
 	Endpoints  storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
 	// key : conditionId
 	// value  : AgentTracker
-	IncidentStorage     future.Future[nats.KeyValue]
-	StateStorage        future.Future[nats.KeyValue]
-	ClusterStateStorage future.Future[nats.KeyValue]
+	IncidentStorage future.Future[nats.KeyValue]
+	StateStorage    future.Future[nats.KeyValue]
 }
 
 // Responsible for anything related to persistent storage
@@ -63,10 +62,6 @@ func (s *StorageNode) SetIncidentStorage(kv nats.KeyValue) {
 
 func (s *StorageNode) SetConditionStatusStorage(kv nats.KeyValue) {
 	s.storage.Get().StateStorage.Set(kv)
-}
-
-func (s *StorageNode) SetClusterStateStorage(kv nats.KeyValue) {
-	s.storage.Get().ClusterStateStorage.Set(kv)
 }
 
 type StorageNodeOption func(*StorageNodeOptions)

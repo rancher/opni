@@ -208,7 +208,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
-		return a.k8sClient.Update(ctx, existing)
+		return a.k8sClient.Update(ctx, clone)
 	})
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)

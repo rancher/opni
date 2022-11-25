@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
@@ -689,6 +690,7 @@ func (p *CortexAdminServer) GetCortexStatus(ctx context.Context, _ *emptypb.Empt
 		).Error("failed to get cluster status")
 		return nil, err
 	}
+	stat.Ts = timestamppb.Now()
 	return stat, nil
 }
 

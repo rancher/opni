@@ -101,6 +101,28 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 	}, nil
 }
 
+func (p *Plugin) adminListAlertEndpoints(
+	ctx context.Context,
+	req *alertingv1.ListAlertEndpointsRequest,
+) (*alertingv1.AlertEndpointList, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	ids, endpoints, err := p.storageNode.ListWithKeyEndpointStorage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := []*alertingv1.AlertEndpointWithId{}
+	for idx := range ids {
+		endp := endpoints[idx]
+		items = append(items, &alertingv1.AlertEndpointWithId{
+			Id:       &corev1.Reference{Id: ids[idx]},
+			Endpoint: endp,
+		})
+	}
+	return &alertingv1.AlertEndpointList{Items: items}, nil
+}
+
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	req *alertingv1.ListAlertEndpointsRequest) (*alertingv1.AlertEndpointList, error) {
 	if err := req.Validate(); err != nil {

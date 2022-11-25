@@ -37,7 +37,7 @@ func (p *Plugin) createRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (p *Plugin) updateRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}

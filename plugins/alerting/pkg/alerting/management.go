@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
@@ -18,7 +17,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -146,7 +144,10 @@ func (p *Plugin) watchCortexClusterStatus() {
 }
 
 // blocking
-func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
+func (p *Plugin) watchGlobalCluster(
+	client managementv1.ManagementClient,
+	watcher *ClusterWatcherHooks[*managementv1.WatchEvent],
+) {
 	clusterClient, err := client.WatchClusters(p.Ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
 		p.Logger.Error("failed to watch clusters, exiting...")
@@ -161,113 +162,7 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 			if err != nil {
 				p.Logger.Errorf("failed to receive cluster event : %s", err)
 			}
-			switch event.Type {
-			// FIXME: register default cluster creation hooks
-			case managementv1.WatchEventType_Created:
-				items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
-				if err != nil {
-					p.Logger.Errorf("failed to list alert conditions : %s", err)
-					continue
-				}
-				disconnectExists := false
-				healthExists := false
-				for _, item := range items.Items {
-					if s := item.GetAlertCondition().GetAlertType().GetSystem(); s != nil {
-						if s.GetClusterId().Id == event.Cluster.Id {
-							disconnectExists = true
-						}
-					}
-					if s := item.GetAlertCondition().GetAlertType().GetDownstreamCapability(); s != nil {
-						if s.GetClusterId().Id == event.Cluster.Id {
-							healthExists = true
-							break
-						}
-					}
-				}
-				if !disconnectExists {
-					_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
-						Name:        "agent-disconnect",
-						Description: "Alert when the downstream agent disconnects from the opni upstream",
-						Labels:      []string{"agent-disconnect", "opni", "automatic"},
-						Severity:    alertingv1.Severity_CRITICAL,
-						AlertType: &alertingv1.AlertTypeDetails{
-							Type: &alertingv1.AlertTypeDetails_System{
-								System: &alertingv1.AlertConditionSystem{
-									ClusterId: event.Cluster.Reference(),
-									Timeout:   durationpb.New(10 * time.Minute),
-								},
-							},
-						},
-					})
-					if err != nil {
-						p.Logger.Warnf(
-							"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
-							event.Cluster.Id,
-						)
-					} else {
-						p.Logger.Debugf(
-							"downstream agent disconnect condition on cluster creation for cluster %s is now active",
-							event.Cluster.Id,
-						)
-					}
-				}
-				if !healthExists {
-					_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
-						Name:        "agent-capability-unhealthy",
-						Description: "Alert when some downstream agent capability becomes unhealthy",
-						Labels:      []string{"agent-capability-health", "opni", "automatic"},
-						Severity:    alertingv1.Severity_CRITICAL,
-						AlertType: &alertingv1.AlertTypeDetails{
-							Type: &alertingv1.AlertTypeDetails_DownstreamCapability{
-								DownstreamCapability: &alertingv1.AlertConditionDownstreamCapability{
-									ClusterId:       event.Cluster.Reference(),
-									CapabilityState: ListBadDefaultStatuses(),
-									For:             durationpb.New(10 * time.Minute),
-								},
-							},
-						},
-					})
-					if err != nil {
-						p.Logger.Warnf(
-							"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
-							event.Cluster.Id,
-						)
-					} else {
-						p.Logger.Debugf(
-							"downstream agent disconnect condition on cluster creation for cluster %s is now active",
-							event.Cluster.Id,
-						)
-					}
-				}
-			case managementv1.WatchEventType_Deleted:
-				// delete any conditions that are associated with this cluster
-				ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
-				if err != nil {
-					p.Logger.Errorf("failed to list conditions from storage : %s", err)
-				}
-				for i, id := range ids {
-					if s := conds[i].GetAlertType().GetSystem(); s != nil {
-						if s.ClusterId.Id == event.Cluster.Id {
-							_, err = p.DeleteAlertCondition(p.Ctx, &corev1.Reference{
-								Id: id,
-							})
-							if err != nil {
-								p.Logger.Errorf("failed to delete condition %s : %s", id, err)
-							}
-						}
-					}
-					if dc := conds[i].GetAlertType().GetDownstreamCapability(); dc != nil {
-						if dc.ClusterId.Id == event.Cluster.Id {
-							_, err = p.DeleteAlertCondition(p.Ctx, &corev1.Reference{
-								Id: id,
-							})
-							if err != nil {
-								p.Logger.Errorf("failed to delete condition %s : %s", id, err)
-							}
-						}
-					}
-				}
-			}
+			watcher.HandleEvent(event)
 		}
 	}
 }

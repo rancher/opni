@@ -212,7 +212,6 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.Logger.With("Handler", "DeleteAlertCondition")
-	lg.Debugf("Deleting alert condition %s", ref.Id)
 	existing, err := p.storageNode.GetCondition(ctx, ref.Id)
 	if err != nil {
 		return nil, err
@@ -232,6 +231,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
+	lg.Debug("Deleted alert condition")
 	return &emptypb.Empty{}, nil
 }
 
@@ -247,6 +247,14 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 
 	if a := cond.GetAlertType().GetSystem(); a != nil {
 		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
+		if err != nil {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+	if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
+		_, err := p.mgmtClient.Get().GetCluster(ctx, dc.ClusterId)
 		if err != nil {
 			return &alertingv1.AlertStatusResponse{
 				State: alertingv1.AlertConditionState_INVALIDATED,

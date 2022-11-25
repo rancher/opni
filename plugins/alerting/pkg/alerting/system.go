@@ -68,15 +68,23 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			drivers.WithManagementClient(client),
 		)
 	})
+	p.UseWatchers(client)
+	<-p.Ctx.Done()
+}
+
+func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
+	cw := p.newClusterWatcherHooks(p.Ctx)
 	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
-		func() { p.watchGlobalCluster(client) },
+		func() { p.watchGlobalCluster(client, cw) },
 		func() { p.watchGlobalClusterHealthStatus(client) },
 		func() { p.watchCortexClusterStatus() }
 
 	p.globalWatchers = NewSimpleInternalConditionWatcher(
-		clusterCrud, clusterHealthStatus, cortexBackendStatus)
+		clusterCrud,
+		clusterHealthStatus,
+		cortexBackendStatus,
+	)
 	p.globalWatchers.WatchEvents()
-	<-p.Ctx.Done()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -165,39 +173,16 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-	go func() {
-		for {
-			breakOut := false
-			ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
-			if err != nil {
-				p.Logger.Errorf("alerting failed to get cortex admin client conn %s", err)
-				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
-				UnregisterDatasource(shared.MonitoringDatasource)
-			} else {
-				adminClient := cortexadmin.NewCortexAdminClient(ccCortexAdmin)
-				p.adminClient.Set(adminClient)
-				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.Logger))
-			}
-
-			ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
-			if err != nil {
-				p.Logger.Errorf("alerting failed to get cortex ops client conn %s", err)
-				p.cortexOpsClient = future.New[cortexops.CortexOpsClient]()
-			} else {
-				opsClient := cortexops.NewCortexOpsClient(ccCortexOps)
-				p.cortexOpsClient.Set(opsClient)
-			}
-
-			select {
-			case <-p.Ctx.Done():
-				breakOut = true
-			default:
-				continue
-			}
-			if breakOut {
-				break
-			}
-			time.Sleep(ApiExtensionBackoff)
-		}
-	}()
+	ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get cortex admin client")
+		os.Exit(1)
+	}
+	p.adminClient.Set(cortexadmin.NewCortexAdminClient(ccCortexAdmin))
+	ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get cortex ops client")
+		os.Exit(1)
+	}
+	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(ccCortexOps))
 }

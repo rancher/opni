@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -108,6 +109,7 @@ type InternalConditionEvaluator[T any] struct {
 	cancelEvaluation context.CancelFunc
 	evaluateDuration time.Duration
 	evaluationCtx    context.Context
+	evaluateInterval time.Duration
 
 	inMemoryFiring bool
 	stateLock      sync.Mutex
@@ -152,7 +154,7 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 	defer c.cancelEvaluation() // cancel parent context, if we return (non-recoverable)
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(c.evaluateInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -226,7 +228,15 @@ func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *aler
 
 func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	incomingState := alertstorage.DefaultState()
-	if st, getErr := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId); getErr != nil {
+	if _, getErr := c.storageNode.GetIncidentTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
+		err := c.storageNode.CreateIncidentTracker(c.evaluationCtx, c.conditionId)
+		if err != nil { // TODO : mark this condition as manually invalid if this happens
+			c.lg.Error(err)
+		}
+	} else if getErr != nil {
+		c.lg.Error(getErr)
+	}
+	if st, getErr := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
 		if err := c.storageNode.CreateConditionStatusTracker(c.evaluationCtx, c.conditionId, incomingState); err != nil {
 			// TODO : mark this condition as manually invalid when this happens
 			c.cancelEvaluation()

@@ -143,13 +143,13 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storageNode.SetConditionStatusStorage(statusKv)
 	// spawn a reindexing task
 	go func() {
-		p.restartAgentDisconnectTrackers()
+		p.reindexAlarms()
 	}()
 	<-p.Ctx.Done()
 }
 
-func (p *Plugin) restartAgentDisconnectTrackers() {
-	lg := p.Logger.With("re-indexing", "agent-disconnect-trackers")
+func (p *Plugin) reindexAlarms() {
+	lg := p.Logger.With("re-indexing")
 	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
@@ -167,9 +167,15 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 					lg.With("err", err).Error("failed to delete invalid condition")
 				}
 			}
+			if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
+				p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
+			}
+			if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
+				p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
+			}
 		}
 	}
-	lg.Info("re-indexing complete")
+	lg.Info("re-indexing alarms complete")
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {

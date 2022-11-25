@@ -520,6 +520,33 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 				}
 				addMu.Unlock()
 			}
+			if dc := condition.GetAlertType().GetDownstreamCapability(); dc != nil {
+				// check system tracker
+				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}
+				addMu.Unlock()
+			}
+			if mb := condition.GetAlertType().GetMonitoringBackend(); mb != nil {
+				// check system tracker
+				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}
+				addMu.Unlock()
+			}
+
 			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
 					Tenants: []string{r.Id},

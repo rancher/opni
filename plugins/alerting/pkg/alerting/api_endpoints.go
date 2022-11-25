@@ -108,7 +108,7 @@ func (p *Plugin) adminListAlertEndpoints(
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, endpoints, err := p.storageNode.ListWithKeyEndpointStorage(ctx)
+	ids, endpoints, err := p.storageNode.ListWithKeysEndpoints(ctx)
 	if err != nil {
 		return nil, err
 	}

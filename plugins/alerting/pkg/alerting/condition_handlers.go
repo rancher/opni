@@ -7,6 +7,7 @@ package alerting
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
@@ -342,6 +343,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 		conditionName:      conditionName,
 		storageNode:        p.storageNode,
 		evaluationCtx:      jsCtx,
+		evaluateInterval:   time.Second * 10,
 		parentCtx:          p.Ctx,
 		cancelEvaluation:   cancel,
 		evaluateDuration:   condition.GetTimeout().AsDuration(),
@@ -404,6 +406,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 		conditionName:      conditionName,
 		storageNode:        p.storageNode,
 		evaluationCtx:      jsCtx,
+		evaluateInterval:   time.Second * 10,
 		parentCtx:          p.Ctx,
 		cancelEvaluation:   cancel,
 		evaluateDuration:   condition.GetFor().AsDuration(),
@@ -558,6 +561,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 		conditionName:      conditionName,
 		storageNode:        p.storageNode,
 		evaluationCtx:      jsCtx,
+		evaluateInterval:   time.Minute,
 		parentCtx:          p.Ctx,
 		cancelEvaluation:   cancel,
 		evaluateDuration:   condition.GetFor().AsDuration(),

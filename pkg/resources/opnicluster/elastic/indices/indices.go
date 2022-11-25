@@ -30,22 +30,20 @@ type Reconciler struct {
 	ctx          context.Context
 }
 
-func NewReconciler(ctx context.Context, instance *aiv1beta1.OpniCluster, c client.Client) (*Reconciler, error) {
+func NewReconciler(
+	ctx context.Context,
+	instance *aiv1beta1.OpniCluster,
+	opensearchCluster *opensearchv1.OpenSearchCluster,
+	c client.Client,
+) (*Reconciler, error) {
 	// Need to fetch the elasticsearch password from the status
 	reconciler := &Reconciler{
-		ctx:     ctx,
-		client:  c,
-		cluster: instance,
+		ctx:        ctx,
+		client:     c,
+		cluster:    instance,
+		opensearch: opensearchCluster,
 	}
 	lg := log.FromContext(ctx)
-
-	opensearchCluster := &opensearchv1.OpenSearchCluster{}
-	err := c.Get(ctx, reconciler.cluster.Spec.Opensearch.ObjectKeyFromRef(), opensearchCluster)
-	if err != nil {
-		return nil, err
-	}
-
-	reconciler.opensearch = opensearchCluster
 
 	username, password, err := helpers.UsernameAndPassword(ctx, c, opensearchCluster)
 	if err != nil {

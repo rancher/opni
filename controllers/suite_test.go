@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/test/testutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
@@ -116,7 +117,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&CoreMonitoringReconciler{},
 		&LoggingDataPrepperReconciler{},
 		&LoggingLogAdapterReconciler{},
-		&AIOpniClusterReconciler{},
+		&AIOpniClusterReconciler{
+			Opts: []opnicluster.ReconcilerOption{
+				opnicluster.WithContinueOnIndexError(),
+			},
+		},
 		&LoggingOpniOpensearchReconciler{},
 		&AIPretrainedModelReconciler{},
 		&NatsClusterReonciler{},

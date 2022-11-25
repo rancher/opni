@@ -10,6 +10,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +34,7 @@ var (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
+	ReconcilerOptions
 	ctx               context.Context
 	client            client.Client
 	recorder          record.EventRecorder
@@ -40,16 +42,45 @@ type Reconciler struct {
 	opensearchCluster *opensearchv1.OpenSearchCluster
 }
 
+type ReconcilerOptions struct {
+	continueOnIndexError bool
+	resourceOptions      []reconciler.ResourceReconcilerOption
+}
+
+type ReconcilerOption func(*ReconcilerOptions)
+
+func (o *ReconcilerOptions) apply(opts ...ReconcilerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithContinueOnIndexError() ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.continueOnIndexError = true
+	}
+}
+
+func WithResourceOptions(opts ...reconciler.ResourceReconcilerOption) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.resourceOptions = opts
+	}
+}
+
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
 	recorder record.EventRecorder,
 	instance *aiv1beta1.OpniCluster,
-	opts ...reconciler.ResourceReconcilerOption,
+	opts ...ReconcilerOption,
 ) *Reconciler {
+	options := ReconcilerOptions{}
+	options.apply(opts...)
+
 	return &Reconciler{
+		ReconcilerOptions: options,
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
-			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
+			append(options.resourceOptions, reconciler.WithLog(log.FromContext(ctx)))...),
 		ctx:         ctx,
 		client:      client,
 		recorder:    recorder,
@@ -58,12 +89,17 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
+	allResults := reconciler.CombinedResult{}
+	result := reconciler.CombinedResult{}
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
 
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
+		if r.continueOnIndexError {
+			retErr = result.Err
+		}
 		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
@@ -100,25 +136,38 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
+	if r.opniCluster.Spec.Opensearch == nil {
+		retErr = errors.New("opensearch cluster reference not specified")
+		return
+	}
+
 	r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
 	err := r.client.Get(r.ctx, r.opniCluster.Spec.Opensearch.ObjectKeyFromRef(), r.opensearchCluster)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return nil, err
+		retErr = errors.Wrap(err, "could not fetch opensearch object")
+		return
+	}
+
+	allResults.Combine(r.reconcileIndices())
+	if !r.continueOnIndexError {
+		if allResults.Err != nil {
+			return nil, allResults.Err
 		}
-		lg.V(1).Error(err, "external opensearch object does not exist")
 	}
 
 	allResources := []resources.Resource{}
 	opniServices, err := r.opniServices()
 	if err != nil {
-		retErr = errors.Combine(retErr, err)
+		result.CombineErr(err)
+		allResults.CombineErr(err)
+		retErr = allResults.Err
 		conditions = append(conditions, err.Error())
 		return nil, err
 	}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
-		retErr = errors.Combine(retErr, err)
+		result.CombineErr(err)
+		allResults.CombineErr(err)
 		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling pretrained models, will retry.")
 		// Keep going, we can reconcile the rest of the deployments and come back
@@ -133,13 +182,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	var es []resources.Resource
-	if r.opensearchCluster == nil {
-		lg.Error(err, "external opensearch not found")
-		return
-	}
 	es, err = r.externalOpensearchConfig()
 	if err != nil {
-		retErr = errors.Combine(retErr, err)
+		result.CombineErr(err)
+		allResults.CombineErr(err)
+		retErr = allResults.Err
 		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when setting external opensearch config")
 		return
@@ -148,14 +195,18 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	var s3 []resources.Resource
 	intS3, err := r.internalS3()
 	if err != nil {
-		retErr = errors.Combine(retErr, err)
+		result.CombineErr(err)
+		allResults.CombineErr(err)
+		retErr = allResults.Err
 		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling s3, cannot continue.")
 		return
 	}
 	extS3, err := r.externalS3()
 	if err != nil {
-		retErr = errors.Combine(retErr, err)
+		result.CombineErr(err)
+		allResults.CombineErr(err)
+		retErr = allResults.Err
 		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling s3, cannot continue.")
 		return
@@ -175,25 +226,31 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	for _, factory := range allResources {
 		o, state, err := factory()
 		if err != nil {
-			retErr = errors.WrapIf(err, "failed to create object")
+			err = errors.WrapIf(err, "failed to create object")
+			result.CombineErr(err)
+			allResults.CombineErr(err)
+			retErr = allResults.Err
 			return
 		}
 		if o == nil {
 			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
 		}
-		result, err := r.ReconcileResource(o, state)
+		recResult, err := r.ReconcileResource(o, state)
 		if err != nil {
-			retErr = errors.WrapWithDetails(err, "failed to reconcile resource",
+			err = errors.WrapWithDetails(err, "failed to reconcile resource",
 				"resource", o.GetObjectKind().GroupVersionKind())
-			return
+			result.CombineErr(err)
+			allResults.CombineErr(err)
+			retErr = allResults.Err
 		}
-		if result != nil {
-			retResult = result
+		if recResult != nil {
+			allResults.Combine(recResult, err)
+			retResult = &allResults.Result
 		}
 	}
 
-	if err != nil {
-		return nil, err
+	if allResults.Err != nil {
+		return nil, result.Err
 	}
 
 	return
@@ -228,6 +285,20 @@ func (r *Reconciler) cleanupPrometheusRule() (retResult *reconcile.Result, retEr
 		return
 	}
 	return &reconcile.Result{RequeueAfter: time.Second}, nil
+}
+
+func (r *Reconciler) reconcileIndices() (*reconcile.Result, error) {
+	indicesReconciler, err := indices.NewReconciler(
+		r.ctx,
+		r.opniCluster,
+		r.opensearchCluster,
+		r.client,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return indicesReconciler.Reconcile()
+
 }
 
 func RegisterWatches(builder *builder.Builder) *builder.Builder {

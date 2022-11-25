@@ -13,6 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -120,7 +121,6 @@ func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeD
 }
 
 func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchDownstreamCapabilityInfo")
 	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
@@ -132,34 +132,12 @@ func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1
 		return nil, err
 	}
 	resChoices := &alertingv1.ListAlertConditionDownstreamCapability{
-		Clusters: make(map[string]*alertingv1.ClusterCapabilityInfo),
+		Clusters: make(map[string]*alertingv1.CapabilityState),
 	}
 
 	for _, cl := range clusters.Items {
-		lg.Debugf("found cluster name : %s", cl.Id)
-		lg.Debugf("found num capabilities %d", len(cl.GetCapabilities()))
-		for _, cap := range cl.GetCapabilities() {
-			lg.Debugf("found capability `%s`", cap.Name)
-			if _, ok := resChoices.Clusters[cl.Id]; !ok {
-				resChoices.Clusters[cl.Id] = &alertingv1.ClusterCapabilityInfo{
-					Capabilities: make(map[string]*alertingv1.ClusterCapabilityConditions),
-				}
-				if _, ok := resChoices.Clusters[cl.Id].Capabilities[cap.Name]; !ok {
-					resChoices.Clusters[cl.Id].Capabilities[cap.Name] = &alertingv1.ClusterCapabilityConditions{
-						Conditions: make(map[string]*alertingv1.StringArray),
-					}
-					lg.Debugf("found num conditions %d", len(ListCapabilityStatuses(cap.Name)))
-					for condName, statuses := range ListCapabilityStatuses(cap.Name) {
-						resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName] = &alertingv1.StringArray{
-							Items: []string{},
-						}
-						for _, status := range statuses {
-							resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName].Items = append(resChoices.Clusters[cl.Id].Capabilities[cap.Name].Conditions[condName].Items, status.String())
-							lg.Debugf("Found condition mapping %s->%s", condName, status.String())
-						}
-					}
-				}
-			}
+		resChoices.Clusters[cl.Id] = &alertingv1.CapabilityState{
+			States: []string{health.StatusPending.String(), health.StatusFailure.String()},
 		}
 	}
 	return &alertingv1.ListAlertTypeDetails{

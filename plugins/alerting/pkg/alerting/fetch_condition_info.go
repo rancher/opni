@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -13,11 +14,14 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func handleChoicesByType(
@@ -40,10 +44,13 @@ func handleChoicesByType(
 		return p.fetchFsSaturationInfo(ctx)
 	case alertingv1.AlertType_PROMETHEUS_QUERY:
 		return p.fetchPrometheusQueryInfo(ctx)
+	case alertingv1.AlertType_MONITORING_BACKEND:
+		return p.fetchMonitoringBackendInfo(ctx)
 	default:
 		return nil, shared.AlertingErrNotImplemented
 	}
 }
+
 func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
 	q, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{cl.Id},
@@ -674,4 +681,27 @@ func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.List
 		},
 	}, nil
 
+}
+
+func (p *Plugin) fetchMonitoringBackendInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxca, ca := context.WithTimeout(ctx, time.Second*3)
+	defer ca()
+	cortexOps, err := p.cortexOpsClient.GetContext(ctxca)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire cortex ops client %s", err)
+	}
+	state, err := cortexOps.GetClusterStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monitoring backend status %s", err)
+	}
+	if state.State == cortexops.InstallState_NotInstalled || state.State == cortexops.InstallState_Unknown {
+		return nil, validation.Error("monitoring backend is not installed")
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_MonitoringBackend{
+			MonitoringBackend: &alertingv1.ListAlertConditionMonitoringBackend{
+				BackendComponents: shared.CortexComponents,
+			},
+		},
+	}, nil
 }

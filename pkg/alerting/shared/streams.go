@@ -14,6 +14,8 @@ const (
 	AgentDisconnectStreamSubjects = "opni_alerting_agent.*"
 	AgentHealthStream             = "opni_alerting_health"
 	AgentHealthStreamSubjects     = "opni_alerting_health.*"
+	CortexStatusStream            = "opni_alerting_cortex_status"
+	CortexStatusStreamSubjects    = "opni_alerting_cortex_status.*"
 	// buckets
 	AgentDisconnectBucket              = "opni-alerting-agent-bucket"
 	AgentStatusBucket                  = "opni-alerting-agent-status-bucket"
@@ -40,6 +42,20 @@ func NewAlertingHealthStream() *nats.StreamConfig {
 		MaxAge:    1 * time.Hour,
 		MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
 	}
+}
+
+func NewCortexStatusStream() *nats.StreamConfig {
+	return &nats.StreamConfig{
+		Name:      CortexStatusStream,
+		Subjects:  []string{CortexStatusStreamSubjects},
+		Retention: nats.LimitsPolicy,
+		MaxAge:    1 * time.Hour,
+		MaxBytes:  1 * 1024 * 50, //50KB
+	}
+}
+
+func NewCortexStatusSubject() string {
+	return fmt.Sprintf("%s.%s", CortexStatusStream, "cortex")
 }
 
 func NewAgentDisconnectSubject(agentId string) string {

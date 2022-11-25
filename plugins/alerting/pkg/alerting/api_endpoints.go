@@ -29,7 +29,7 @@ func unredactSecrets(
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {
-	unredacted, err := node.GetEndpointStorage(ctx, endpointId)
+	unredacted, err := node.GetEndpoint(ctx, endpointId)
 	if err != nil {
 		return err
 	}

@@ -120,6 +120,12 @@ func (p *Plugin) watchCortexClusterStatus() {
 			break
 		}
 	}
+	conn := p.natsConn.Get()
+	js, err := conn.JetStream()
+	if err != nil {
+		p.Logger.Error("failed to acquire jetstream context for global health status stream, exiting...")
+		os.Exit(1)
+	}
 
 	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary
 	defer ticker.Stop()
@@ -133,12 +139,16 @@ func (p *Plugin) watchCortexClusterStatus() {
 				lg.Debugf("failed to get cortex cluster status %s", err)
 				continue
 			}
-			for _, cortexMsgReceiver := range p.msgNode.ListCortexStatusListeners() {
-				select {
-				case cortexMsgReceiver <- status:
-				default:
+			go func() {
+				cortexStatusData, err := json.Marshal(status)
+				if err != nil {
+					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
 				}
-			}
+				_, err = js.PublishAsync(shared.NewCortexStatusSubject(), cortexStatusData)
+				if err != nil {
+					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
+				}
+			}()
 		}
 	}
 }

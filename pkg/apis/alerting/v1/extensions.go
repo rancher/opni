@@ -28,6 +28,7 @@ func init() {
 	EnumConditionToDatasource[AlertType_COMPOSITION] = &monitoring
 	EnumConditionToDatasource[AlertType_CONTROL_FLOW] = &monitoring
 	EnumConditionToDatasource[AlertType_PROMETHEUS_QUERY] = &monitoring
+	EnumConditionToDatasource[AlertType_MONITORING_BACKEND] = &system
 
 	EnumConditionToImplementation[AlertType_SYSTEM] = AlertTypeDetails{
 		Type: &AlertTypeDetails_System{
@@ -74,6 +75,11 @@ func init() {
 	EnumConditionToImplementation[AlertType_DOWNSTREAM_CAPABILTIY] = AlertTypeDetails{
 		Type: &AlertTypeDetails_DownstreamCapability{
 			DownstreamCapability: &AlertConditionDownstreamCapability{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_MONITORING_BACKEND] = AlertTypeDetails{
+		Type: &AlertTypeDetails_MonitoringBackend{
+			MonitoringBackend: &AlertConditionMonitoringBackend{},
 		},
 	}
 }

@@ -19,6 +19,26 @@ import (
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
+const CortexDistributor = "distributor"
+const CortexIngester = "ingester"
+const CortexRuler = "ruler"
+const CortexPurger = "purger"
+const CortexCompactor = "compactor"
+const CortexStoreGateway = "store-gateway"
+const CortexQueryFrontend = "query-frontend"
+const CortexQuerier = "querier"
+
+var CortexComponents = []string{
+	CortexDistributor,
+	CortexIngester,
+	CortexRuler,
+	CortexPurger,
+	CortexCompactor,
+	CortexStoreGateway,
+	CortexQueryFrontend,
+	CortexQuerier,
+}
+
 // Storage types
 
 const AgentDisconnectStorageType = "agent-disconnect"

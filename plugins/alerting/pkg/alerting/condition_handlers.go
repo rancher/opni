@@ -7,8 +7,6 @@ package alerting
 import (
 	"context"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
@@ -41,6 +39,13 @@ func setupCondition(
 	}
 	if dc := req.GetAlertType().GetDownstreamCapability(); dc != nil {
 		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName())
+		if err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
+	}
+	if cs := req.GetAlertType().GetMonitoringBackend(); cs != nil {
+		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -90,6 +95,12 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		return nil
 	}
 	if r := req.AlertType.GetDownstreamCapability(); r != nil {
+		p.msgNode.RemoveConfigListener(id)
+		p.storageNode.DeleteIncidentTracker(ctx, id)
+		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		return nil
+	}
+	if r := req.AlertType.GetMonitoringBackend(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteIncidentTracker(ctx, id)
 		p.storageNode.DeleteConditionStatusTracker(ctx, id)
@@ -147,6 +158,19 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
+	}
+	return nil
+}
+
+func (p *Plugin) handleMonitoringBackendAlertCreation(
+	ctx context.Context,
+	k *alertingv1.AlertConditionMonitoringBackend,
+	newConditionId string,
+	conditionName string,
+) error {
+	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, k)
+	if err != nil {
+		p.Logger.Errorf("failed to create cortex cluster condition %s", err)
 	}
 	return nil
 }
@@ -436,59 +460,144 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	return nil
 }
 
-func (p *Plugin) onCortexClusterStatusCreate(conditionId string, cond interface{}) context.CancelFunc {
-	//lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
-	/*msgCtx*/
-	_, cancel := context.WithCancel(p.Ctx)
-	var firingLock sync.RWMutex
-	//currentlyFiring := false
-
-	// spawn subscription/ aggregation stream
-	go func() {
-		defer cancel()
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-p.Ctx.Done():
-				return
-			case <-ticker.C:
-				select {
-				default:
-					for el := range p.msgNode.GetWatcher(conditionId) {
-						if el == nil {
-							continue
-						}
-						firingLock.RLock()
-						// TODO
-						//err := p.storageNode.AddToCortexClusterStatusIncidentTracker(msgCtx, conditionId, alertstorage.CortexClusterStatusIncidentStep{
-						//	AlertFiring:   currentlyFiring,
-						//	ClusterStatus: el.ClusterStatus,
-						//})
-						//if err != nil {
-						//	lg.Error(err)
-						//}
-						firingLock.RUnlock()
-					}
+func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+	ts = cStatus.GetTs()
+	for _, cmp := range componentsToTrack {
+		switch cmp {
+		case shared.CortexDistributor:
+			if cStatus.Distributor == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Distributor.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexIngester:
+			if cStatus.Ingester == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Ingester.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexRuler:
+			if cStatus.Ruler == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Ruler.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexPurger:
+			if cStatus.Purger == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Purger.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexCompactor:
+			if cStatus.Compactor == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Compactor.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexStoreGateway:
+			if cStatus.StoreGateway == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.StoreGateway.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexQueryFrontend:
+			if cStatus.QueryFrontend == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.QueryFrontend.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
+				}
+			}
+		case shared.CortexQuerier:
+			if cStatus.Querier == nil {
+				return false, ts
+			}
+			for _, svc := range cStatus.Querier.GetServices().GetServices() {
+				if svc.GetStatus() != "Running" {
+					return false, ts
 				}
 			}
 		}
-	}()
+	}
+	return true, ts
+}
 
-	// spawn a watcher for triggering alerts
+func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionMonitoringBackend) error {
+	lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
+	lg.Debugf("received condition update: %v", condition)
+	jsCtx, cancel := context.WithCancel(p.Ctx)
+	nc := p.natsConn.Get()
+	js, err := nc.JetStream()
+	if err != nil {
+		cancel()
+		return err
+	}
+	lg.Debugf("Creating cortex status with timeout %s", condition.GetFor().AsDuration())
+	evaluator := &InternalConditionEvaluator[*cortexadmin.CortexStatus]{
+		lg:                 lg,
+		conditionId:        conditionId,
+		conditionName:      conditionName,
+		storageNode:        p.storageNode,
+		evaluationCtx:      jsCtx,
+		parentCtx:          p.Ctx,
+		cancelEvaluation:   cancel,
+		evaluateDuration:   condition.GetFor().AsDuration(),
+		alertmanagerlabels: map[string]string{},
+		healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+			return reduceCortexAdminStates(condition.GetBackendComponents(), h)
+		},
+		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+				ConditionId: &corev1.Reference{Id: conditionId},
+				Annotations: labels,
+			})
+		},
+	}
+	// handles re-entrant conditions
+	evaluator.CalculateInitialState()
 	go func() {
-		defer cancel()
-		ticker := time.NewTicker(time.Second * 10)
-		defer ticker.Stop()
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		for {
-			select {
-			case <-p.Ctx.Done():
-				return
-			case <-ticker.C:
-				// get storage tracker
+			err = natsutil.NewPersistentStream(js, shared.NewCortexStatusStream())
+			if err != nil {
+				lg.Errorf("cortex status persistent stream does not exist and cannot be created %s", err)
+				continue
 			}
+			msgCh := make(chan *nats.Msg, 32)
+			sub, err := js.ChanSubscribe(shared.NewCortexStatusSubject(), msgCh)
+			defer sub.Unsubscribe()
+			if err != nil {
+				lg.Errorf("failed to subscribe to %s : %s", shared.NewCortexStatusSubject(), err)
+				continue
+			}
+			evaluator.msgCh = msgCh
+			break
 		}
+		evaluator.SubscriberLoop()
 	}()
-
-	return cancel
+	// spawn a watcher for the incidents
+	go func() {
+		evaluator.EvaluateLoop()
+	}()
+	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	return nil
 }

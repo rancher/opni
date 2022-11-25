@@ -133,6 +133,16 @@ func (dc *AlertConditionDownstreamCapability) Validate() error {
 	return nil
 }
 
+func (m *AlertConditionMonitoringBackend) Validate() error {
+	if m.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be some positive time")
+	}
+	if len(m.BackendComponents) == 0 {
+		return validation.Error("At least one backend component must be set to track")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
@@ -160,6 +170,9 @@ func (d *AlertTypeDetails) Validate() error {
 	}
 	if d.GetControlFlow() != nil {
 		return d.GetControlFlow().Validate()
+	}
+	if d.GetMonitoringBackend() != nil {
+		return d.GetMonitoringBackend().Validate()
 	}
 	return validation.Errorf("Backend does not handle alert type provided %v", d)
 }

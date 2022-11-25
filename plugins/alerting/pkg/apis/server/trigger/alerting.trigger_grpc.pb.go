@@ -25,6 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 type AlertingClient interface {
 	// opni internal use
 	TriggerAlerts(ctx context.Context, in *v1.TriggerAlertsRequest, opts ...grpc.CallOption) (*v1.TriggerAlertsResponse, error)
+	ResolveAlerts(ctx context.Context, in *v1.ResolveAlertsRequest, opts ...grpc.CallOption) (*v1.ResolveAlertsResponse, error)
 }
 
 type alertingClient struct {
@@ -44,12 +45,22 @@ func (c *alertingClient) TriggerAlerts(ctx context.Context, in *v1.TriggerAlerts
 	return out, nil
 }
 
+func (c *alertingClient) ResolveAlerts(ctx context.Context, in *v1.ResolveAlertsRequest, opts ...grpc.CallOption) (*v1.ResolveAlertsResponse, error) {
+	out := new(v1.ResolveAlertsResponse)
+	err := c.cc.Invoke(ctx, "/alerting.Alerting/ResolveAlerts", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertingServer is the server API for Alerting service.
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
 type AlertingServer interface {
 	// opni internal use
 	TriggerAlerts(context.Context, *v1.TriggerAlertsRequest) (*v1.TriggerAlertsResponse, error)
+	ResolveAlerts(context.Context, *v1.ResolveAlertsRequest) (*v1.ResolveAlertsResponse, error)
 	mustEmbedUnimplementedAlertingServer()
 }
 
@@ -59,6 +70,9 @@ type UnimplementedAlertingServer struct {
 
 func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *v1.TriggerAlertsRequest) (*v1.TriggerAlertsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerAlerts not implemented")
+}
+func (UnimplementedAlertingServer) ResolveAlerts(context.Context, *v1.ResolveAlertsRequest) (*v1.ResolveAlertsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveAlerts not implemented")
 }
 func (UnimplementedAlertingServer) mustEmbedUnimplementedAlertingServer() {}
 
@@ -91,6 +105,24 @@ func _Alerting_TriggerAlerts_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Alerting_ResolveAlerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.ResolveAlertsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ResolveAlerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.Alerting/ResolveAlerts",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ResolveAlerts(ctx, req.(*v1.ResolveAlertsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Alerting_ServiceDesc is the grpc.ServiceDesc for Alerting service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -101,6 +133,10 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TriggerAlerts",
 			Handler:    _Alerting_TriggerAlerts_Handler,
+		},
+		{
+			MethodName: "ResolveAlerts",
+			Handler:    _Alerting_ResolveAlerts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

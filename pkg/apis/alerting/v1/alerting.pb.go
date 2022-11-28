@@ -4699,6 +4699,61 @@ func (x *ActiveWindows) GetWindows() []*ActiveWindow {
 	return nil
 }
 
+type CloneToRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AlertCondition *AlertCondition `protobuf:"bytes,1,opt,name=alertCondition,proto3" json:"alertCondition,omitempty"`
+	ToClusters     []string        `protobuf:"bytes,2,rep,name=toClusters,proto3" json:"toClusters,omitempty"`
+}
+
+func (x *CloneToRequest) Reset() {
+	*x = CloneToRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[72]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CloneToRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloneToRequest) ProtoMessage() {}
+
+func (x *CloneToRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[72]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloneToRequest.ProtoReflect.Descriptor instead.
+func (*CloneToRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *CloneToRequest) GetAlertCondition() *AlertCondition {
+	if x != nil {
+		return x.AlertCondition
+	}
+	return nil
+}
+
+func (x *CloneToRequest) GetToClusters() []string {
+	if x != nil {
+		return x.ToClusters
+	}
+	return nil
+}
+
 var File_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto protoreflect.FileDescriptor
 
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc = []byte{
@@ -5455,40 +5510,48 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc = [
 	0x6e, 0x64, 0x6f, 0x77, 0x73, 0x12, 0x30, 0x0a, 0x07, 0x77, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x73,
 	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e,
 	0x67, 0x2e, 0x41, 0x63, 0x74, 0x69, 0x76, 0x65, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x52, 0x07,
-	0x77, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x73, 0x2a, 0x3a, 0x0a, 0x08, 0x53, 0x65, 0x76, 0x65, 0x72,
-	0x69, 0x74, 0x79, 0x12, 0x08, 0x0a, 0x04, 0x49, 0x4e, 0x46, 0x4f, 0x10, 0x00, 0x12, 0x0b, 0x0a,
-	0x07, 0x57, 0x41, 0x52, 0x4e, 0x49, 0x4e, 0x47, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x52,
-	0x52, 0x4f, 0x52, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x52, 0x49, 0x54, 0x49, 0x43, 0x41,
-	0x4c, 0x10, 0x03, 0x2a, 0x9e, 0x01, 0x0a, 0x09, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x54, 0x79, 0x70,
-	0x65, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x59, 0x53, 0x54, 0x45, 0x4d, 0x10, 0x00, 0x12, 0x0e, 0x0a,
-	0x0a, 0x4b, 0x55, 0x42, 0x45, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x10, 0x01, 0x12, 0x12, 0x0a,
-	0x0e, 0x43, 0x50, 0x55, 0x5f, 0x53, 0x41, 0x54, 0x55, 0x52, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x10,
-	0x02, 0x12, 0x15, 0x0a, 0x11, 0x4d, 0x45, 0x4d, 0x4f, 0x52, 0x59, 0x5f, 0x53, 0x41, 0x54, 0x55,
-	0x52, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x03, 0x12, 0x11, 0x0a, 0x0d, 0x46, 0x53, 0x5f, 0x53,
-	0x41, 0x54, 0x55, 0x52, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x04, 0x12, 0x0f, 0x0a, 0x0b, 0x43,
-	0x4f, 0x4d, 0x50, 0x4f, 0x53, 0x49, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x06, 0x12, 0x10, 0x0a, 0x0c,
-	0x43, 0x4f, 0x4e, 0x54, 0x52, 0x4f, 0x4c, 0x5f, 0x46, 0x4c, 0x4f, 0x57, 0x10, 0x07, 0x12, 0x14,
-	0x0a, 0x10, 0x50, 0x52, 0x4f, 0x4d, 0x45, 0x54, 0x48, 0x45, 0x55, 0x53, 0x5f, 0x51, 0x55, 0x45,
-	0x52, 0x59, 0x10, 0x09, 0x2a, 0x24, 0x0a, 0x11, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x69, 0x74,
-	0x69, 0x6f, 0x6e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4e, 0x44,
-	0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x52, 0x10, 0x01, 0x2a, 0x31, 0x0a, 0x11, 0x43, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x46, 0x6c, 0x6f, 0x77, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12,
-	0x0b, 0x0a, 0x07, 0x49, 0x46, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b,
-	0x49, 0x46, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10, 0x01, 0x2a, 0x54, 0x0a,
-	0x13, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53,
-	0x74, 0x61, 0x74, 0x65, 0x12, 0x0a, 0x0a, 0x06, 0x55, 0x4e, 0x4b, 0x4f, 0x57, 0x4e, 0x10, 0x00,
-	0x12, 0x06, 0x0a, 0x02, 0x4f, 0x4b, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x46, 0x49, 0x52, 0x49,
-	0x4e, 0x47, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x53, 0x49, 0x4c, 0x45, 0x4e, 0x43, 0x45, 0x44,
-	0x10, 0x03, 0x12, 0x0f, 0x0a, 0x0b, 0x49, 0x4e, 0x56, 0x41, 0x4c, 0x49, 0x44, 0x41, 0x54, 0x45,
-	0x44, 0x10, 0x04, 0x2a, 0x52, 0x0a, 0x0c, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x54,
-	0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x10, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x5f,
-	0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x15, 0x0a, 0x11, 0x54, 0x69, 0x6d,
-	0x65, 0x6c, 0x69, 0x6e, 0x65, 0x5f, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x10, 0x01,
-	0x12, 0x15, 0x0a, 0x11, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x5f, 0x53, 0x69, 0x6c,
-	0x65, 0x6e, 0x63, 0x65, 0x64, 0x10, 0x02, 0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70,
-	0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72,
-	0x74, 0x69, 0x6e, 0x67, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x77, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x73, 0x22, 0x72, 0x0a, 0x0e, 0x43, 0x6c, 0x6f, 0x6e, 0x65,
+	0x54, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x40, 0x0a, 0x0e, 0x61, 0x6c, 0x65,
+	0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x18, 0x2e, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2e, 0x41, 0x6c, 0x65,
+	0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0e, 0x61, 0x6c, 0x65,
+	0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1e, 0x0a, 0x0a, 0x74,
+	0x6f, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52,
+	0x0a, 0x74, 0x6f, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x73, 0x2a, 0x3a, 0x0a, 0x08, 0x53,
+	0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x12, 0x08, 0x0a, 0x04, 0x49, 0x4e, 0x46, 0x4f, 0x10,
+	0x00, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x41, 0x52, 0x4e, 0x49, 0x4e, 0x47, 0x10, 0x01, 0x12, 0x09,
+	0x0a, 0x05, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x43, 0x52, 0x49,
+	0x54, 0x49, 0x43, 0x41, 0x4c, 0x10, 0x03, 0x2a, 0x9e, 0x01, 0x0a, 0x09, 0x41, 0x6c, 0x65, 0x72,
+	0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x59, 0x53, 0x54, 0x45, 0x4d, 0x10,
+	0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x4b, 0x55, 0x42, 0x45, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x10,
+	0x01, 0x12, 0x12, 0x0a, 0x0e, 0x43, 0x50, 0x55, 0x5f, 0x53, 0x41, 0x54, 0x55, 0x52, 0x41, 0x54,
+	0x49, 0x4f, 0x4e, 0x10, 0x02, 0x12, 0x15, 0x0a, 0x11, 0x4d, 0x45, 0x4d, 0x4f, 0x52, 0x59, 0x5f,
+	0x53, 0x41, 0x54, 0x55, 0x52, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x03, 0x12, 0x11, 0x0a, 0x0d,
+	0x46, 0x53, 0x5f, 0x53, 0x41, 0x54, 0x55, 0x52, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x04, 0x12,
+	0x0f, 0x0a, 0x0b, 0x43, 0x4f, 0x4d, 0x50, 0x4f, 0x53, 0x49, 0x54, 0x49, 0x4f, 0x4e, 0x10, 0x06,
+	0x12, 0x10, 0x0a, 0x0c, 0x43, 0x4f, 0x4e, 0x54, 0x52, 0x4f, 0x4c, 0x5f, 0x46, 0x4c, 0x4f, 0x57,
+	0x10, 0x07, 0x12, 0x14, 0x0a, 0x10, 0x50, 0x52, 0x4f, 0x4d, 0x45, 0x54, 0x48, 0x45, 0x55, 0x53,
+	0x5f, 0x51, 0x55, 0x45, 0x52, 0x59, 0x10, 0x09, 0x2a, 0x24, 0x0a, 0x11, 0x43, 0x6f, 0x6d, 0x70,
+	0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x07, 0x0a,
+	0x03, 0x41, 0x4e, 0x44, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x52, 0x10, 0x01, 0x2a, 0x31,
+	0x0a, 0x11, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x46, 0x6c, 0x6f, 0x77, 0x41, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x12, 0x0b, 0x0a, 0x07, 0x49, 0x46, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10, 0x00,
+	0x12, 0x0f, 0x0a, 0x0b, 0x49, 0x46, 0x5f, 0x4e, 0x4f, 0x54, 0x5f, 0x54, 0x48, 0x45, 0x4e, 0x10,
+	0x01, 0x2a, 0x54, 0x0a, 0x13, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
+	0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0a, 0x0a, 0x06, 0x55, 0x4e, 0x4b, 0x4f,
+	0x57, 0x4e, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x4b, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06,
+	0x46, 0x49, 0x52, 0x49, 0x4e, 0x47, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x53, 0x49, 0x4c, 0x45,
+	0x4e, 0x43, 0x45, 0x44, 0x10, 0x03, 0x12, 0x0f, 0x0a, 0x0b, 0x49, 0x4e, 0x56, 0x41, 0x4c, 0x49,
+	0x44, 0x41, 0x54, 0x45, 0x44, 0x10, 0x04, 0x2a, 0x52, 0x0a, 0x0c, 0x54, 0x69, 0x6d, 0x65, 0x6c,
+	0x69, 0x6e, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x10, 0x54, 0x69, 0x6d, 0x65, 0x6c,
+	0x69, 0x6e, 0x65, 0x5f, 0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x15, 0x0a,
+	0x11, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65, 0x5f, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x69,
+	0x6e, 0x67, 0x10, 0x01, 0x12, 0x15, 0x0a, 0x11, 0x54, 0x69, 0x6d, 0x65, 0x6c, 0x69, 0x6e, 0x65,
+	0x5f, 0x53, 0x69, 0x6c, 0x65, 0x6e, 0x63, 0x65, 0x64, 0x10, 0x02, 0x42, 0x2e, 0x5a, 0x2c, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65,
+	0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f,
+	0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -5504,7 +5567,7 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZI
 }
 
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes = make([]protoimpl.MessageInfo, 89)
+var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes = make([]protoimpl.MessageInfo, 90)
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_goTypes = []interface{}{
 	(Severity)(0),                                  // 0: alerting.Severity
 	(AlertType)(0),                                 // 1: alerting.AlertType
@@ -5584,27 +5647,28 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_goTypes = [
 	(*TimelineResponse)(nil),                       // 75: alerting.TimelineResponse
 	(*ActiveWindow)(nil),                           // 76: alerting.ActiveWindow
 	(*ActiveWindows)(nil),                          // 77: alerting.ActiveWindows
-	nil,                                            // 78: alerting.ListAlertConditionKubeState.ClustersEntry
-	nil,                                            // 79: alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry
-	nil,                                            // 80: alerting.ListAlertConditionCPUSaturation.ClustersEntry
-	nil,                                            // 81: alerting.CpuNodeGroup.NodesEntry
-	nil,                                            // 82: alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry
-	nil,                                            // 83: alerting.ListAlertConditionMemorySaturation.ClustersEntry
-	nil,                                            // 84: alerting.MemoryNodeGroup.NodesEntry
-	nil,                                            // 85: alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry
-	nil,                                            // 86: alerting.ListAlertConditionFilesystemSaturation.ClustersEntry
-	nil,                                            // 87: alerting.FilesystemNodeGroup.NodesEntry
-	nil,                                            // 88: alerting.NamespaceObjects.NamespacesEntry
-	nil,                                            // 89: alerting.KubeObjectGroups.ResourceTypesEntry
-	nil,                                            // 90: alerting.EndpointRoutingMap.EndpointsEntry
-	nil,                                            // 91: alerting.RoutingRelationships.ConditionsEntry
-	nil,                                            // 92: alerting.TriggerAlertsRequest.AnnotationsEntry
-	nil,                                            // 93: alerting.ResolveAlertsRequest.AnnotationsEntry
-	nil,                                            // 94: alerting.TimelineResponse.ItemsEntry
-	(*durationpb.Duration)(nil),                    // 95: google.protobuf.Duration
-	(*v1.Reference)(nil),                           // 96: core.Reference
-	(*timestamppb.Timestamp)(nil),                  // 97: google.protobuf.Timestamp
-	(*v1.AlertLog)(nil),                            // 98: core.AlertLog
+	(*CloneToRequest)(nil),                         // 78: alerting.CloneToRequest
+	nil,                                            // 79: alerting.ListAlertConditionKubeState.ClustersEntry
+	nil,                                            // 80: alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry
+	nil,                                            // 81: alerting.ListAlertConditionCPUSaturation.ClustersEntry
+	nil,                                            // 82: alerting.CpuNodeGroup.NodesEntry
+	nil,                                            // 83: alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry
+	nil,                                            // 84: alerting.ListAlertConditionMemorySaturation.ClustersEntry
+	nil,                                            // 85: alerting.MemoryNodeGroup.NodesEntry
+	nil,                                            // 86: alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry
+	nil,                                            // 87: alerting.ListAlertConditionFilesystemSaturation.ClustersEntry
+	nil,                                            // 88: alerting.FilesystemNodeGroup.NodesEntry
+	nil,                                            // 89: alerting.NamespaceObjects.NamespacesEntry
+	nil,                                            // 90: alerting.KubeObjectGroups.ResourceTypesEntry
+	nil,                                            // 91: alerting.EndpointRoutingMap.EndpointsEntry
+	nil,                                            // 92: alerting.RoutingRelationships.ConditionsEntry
+	nil,                                            // 93: alerting.TriggerAlertsRequest.AnnotationsEntry
+	nil,                                            // 94: alerting.ResolveAlertsRequest.AnnotationsEntry
+	nil,                                            // 95: alerting.TimelineResponse.ItemsEntry
+	(*durationpb.Duration)(nil),                    // 96: google.protobuf.Duration
+	(*v1.Reference)(nil),                           // 97: core.Reference
+	(*timestamppb.Timestamp)(nil),                  // 98: google.protobuf.Timestamp
+	(*v1.AlertLog)(nil),                            // 99: core.AlertLog
 }
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_depIdxs = []int32{
 	0,   // 0: alerting.AlertCondition.severity:type_name -> alerting.Severity
@@ -5612,16 +5676,16 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_depIdxs = [
 	9,   // 2: alerting.AlertCondition.attachedEndpoints:type_name -> alerting.AttachedEndpoints
 	48,  // 3: alerting.AlertCondition.silence:type_name -> alerting.SilenceInfo
 	8,   // 4: alerting.FullAttachedEndpoints.items:type_name -> alerting.FullAttachedEndpoint
-	95,  // 5: alerting.FullAttachedEndpoints.initialDelay:type_name -> google.protobuf.Duration
-	95,  // 6: alerting.FullAttachedEndpoints.repeatInterval:type_name -> google.protobuf.Duration
-	95,  // 7: alerting.FullAttachedEndpoints.throttlingDuration:type_name -> google.protobuf.Duration
+	96,  // 5: alerting.FullAttachedEndpoints.initialDelay:type_name -> google.protobuf.Duration
+	96,  // 6: alerting.FullAttachedEndpoints.repeatInterval:type_name -> google.protobuf.Duration
+	96,  // 7: alerting.FullAttachedEndpoints.throttlingDuration:type_name -> google.protobuf.Duration
 	50,  // 8: alerting.FullAttachedEndpoints.details:type_name -> alerting.EndpointImplementation
 	55,  // 9: alerting.FullAttachedEndpoint.alertEndpoint:type_name -> alerting.AlertEndpoint
 	50,  // 10: alerting.FullAttachedEndpoint.details:type_name -> alerting.EndpointImplementation
 	10,  // 11: alerting.AttachedEndpoints.items:type_name -> alerting.AttachedEndpoint
-	95,  // 12: alerting.AttachedEndpoints.initialDelay:type_name -> google.protobuf.Duration
-	95,  // 13: alerting.AttachedEndpoints.repeatInterval:type_name -> google.protobuf.Duration
-	95,  // 14: alerting.AttachedEndpoints.throttlingDuration:type_name -> google.protobuf.Duration
+	96,  // 12: alerting.AttachedEndpoints.initialDelay:type_name -> google.protobuf.Duration
+	96,  // 13: alerting.AttachedEndpoints.repeatInterval:type_name -> google.protobuf.Duration
+	96,  // 14: alerting.AttachedEndpoints.throttlingDuration:type_name -> google.protobuf.Duration
 	50,  // 15: alerting.AttachedEndpoints.details:type_name -> alerting.EndpointImplementation
 	1,   // 16: alerting.AlertDetailChoicesRequest.alertType:type_name -> alerting.AlertType
 	13,  // 17: alerting.AlertDetailChoicesResponse.choices:type_name -> alerting.AlertTypeDetails
@@ -5641,105 +5705,106 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_depIdxs = [
 	27,  // 31: alerting.ListAlertTypeDetails.memory:type_name -> alerting.ListAlertConditionMemorySaturation
 	31,  // 32: alerting.ListAlertTypeDetails.fs:type_name -> alerting.ListAlertConditionFilesystemSaturation
 	15,  // 33: alerting.ListAlertTypeDetails.prometheusQuery:type_name -> alerting.ListAlertConditionPrometheusQuery
-	96,  // 34: alerting.InvolvedConditions.items:type_name -> core.Reference
-	96,  // 35: alerting.AlertConditionSystem.clusterId:type_name -> core.Reference
-	95,  // 36: alerting.AlertConditionSystem.timeout:type_name -> google.protobuf.Duration
-	95,  // 37: alerting.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
-	78,  // 38: alerting.ListAlertConditionKubeState.clusters:type_name -> alerting.ListAlertConditionKubeState.ClustersEntry
-	95,  // 39: alerting.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
-	96,  // 40: alerting.AlertConditionCPUSaturation.clusterId:type_name -> core.Reference
-	79,  // 41: alerting.AlertConditionCPUSaturation.nodeCoreFilters:type_name -> alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry
-	95,  // 42: alerting.AlertConditionCPUSaturation.for:type_name -> google.protobuf.Duration
-	80,  // 43: alerting.ListAlertConditionCPUSaturation.clusters:type_name -> alerting.ListAlertConditionCPUSaturation.ClustersEntry
-	81,  // 44: alerting.CpuNodeGroup.nodes:type_name -> alerting.CpuNodeGroup.NodesEntry
-	96,  // 45: alerting.AlertConditionMemorySaturation.clusterId:type_name -> core.Reference
-	82,  // 46: alerting.AlertConditionMemorySaturation.nodeMemoryFilters:type_name -> alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry
-	95,  // 47: alerting.AlertConditionMemorySaturation.for:type_name -> google.protobuf.Duration
-	83,  // 48: alerting.ListAlertConditionMemorySaturation.clusters:type_name -> alerting.ListAlertConditionMemorySaturation.ClustersEntry
-	84,  // 49: alerting.MemoryNodeGroup.nodes:type_name -> alerting.MemoryNodeGroup.NodesEntry
-	96,  // 50: alerting.AlertConditionFilesystemSaturation.clusterId:type_name -> core.Reference
-	85,  // 51: alerting.AlertConditionFilesystemSaturation.nodeFilters:type_name -> alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry
-	95,  // 52: alerting.AlertConditionFilesystemSaturation.for:type_name -> google.protobuf.Duration
-	86,  // 53: alerting.ListAlertConditionFilesystemSaturation.clusters:type_name -> alerting.ListAlertConditionFilesystemSaturation.ClustersEntry
-	87,  // 54: alerting.FilesystemNodeGroup.nodes:type_name -> alerting.FilesystemNodeGroup.NodesEntry
-	96,  // 55: alerting.AlertConditionPrometheusQuery.clusterId:type_name -> core.Reference
-	95,  // 56: alerting.AlertConditionPrometheusQuery.for:type_name -> google.protobuf.Duration
-	88,  // 57: alerting.NamespaceObjects.namespaces:type_name -> alerting.NamespaceObjects.NamespacesEntry
-	89,  // 58: alerting.KubeObjectGroups.resourceTypes:type_name -> alerting.KubeObjectGroups.ResourceTypesEntry
+	97,  // 34: alerting.InvolvedConditions.items:type_name -> core.Reference
+	97,  // 35: alerting.AlertConditionSystem.clusterId:type_name -> core.Reference
+	96,  // 36: alerting.AlertConditionSystem.timeout:type_name -> google.protobuf.Duration
+	96,  // 37: alerting.AlertConditionKubeState.for:type_name -> google.protobuf.Duration
+	79,  // 38: alerting.ListAlertConditionKubeState.clusters:type_name -> alerting.ListAlertConditionKubeState.ClustersEntry
+	96,  // 39: alerting.ListAlertConditionKubeState.fors:type_name -> google.protobuf.Duration
+	97,  // 40: alerting.AlertConditionCPUSaturation.clusterId:type_name -> core.Reference
+	80,  // 41: alerting.AlertConditionCPUSaturation.nodeCoreFilters:type_name -> alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry
+	96,  // 42: alerting.AlertConditionCPUSaturation.for:type_name -> google.protobuf.Duration
+	81,  // 43: alerting.ListAlertConditionCPUSaturation.clusters:type_name -> alerting.ListAlertConditionCPUSaturation.ClustersEntry
+	82,  // 44: alerting.CpuNodeGroup.nodes:type_name -> alerting.CpuNodeGroup.NodesEntry
+	97,  // 45: alerting.AlertConditionMemorySaturation.clusterId:type_name -> core.Reference
+	83,  // 46: alerting.AlertConditionMemorySaturation.nodeMemoryFilters:type_name -> alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry
+	96,  // 47: alerting.AlertConditionMemorySaturation.for:type_name -> google.protobuf.Duration
+	84,  // 48: alerting.ListAlertConditionMemorySaturation.clusters:type_name -> alerting.ListAlertConditionMemorySaturation.ClustersEntry
+	85,  // 49: alerting.MemoryNodeGroup.nodes:type_name -> alerting.MemoryNodeGroup.NodesEntry
+	97,  // 50: alerting.AlertConditionFilesystemSaturation.clusterId:type_name -> core.Reference
+	86,  // 51: alerting.AlertConditionFilesystemSaturation.nodeFilters:type_name -> alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry
+	96,  // 52: alerting.AlertConditionFilesystemSaturation.for:type_name -> google.protobuf.Duration
+	87,  // 53: alerting.ListAlertConditionFilesystemSaturation.clusters:type_name -> alerting.ListAlertConditionFilesystemSaturation.ClustersEntry
+	88,  // 54: alerting.FilesystemNodeGroup.nodes:type_name -> alerting.FilesystemNodeGroup.NodesEntry
+	97,  // 55: alerting.AlertConditionPrometheusQuery.clusterId:type_name -> core.Reference
+	96,  // 56: alerting.AlertConditionPrometheusQuery.for:type_name -> google.protobuf.Duration
+	89,  // 57: alerting.NamespaceObjects.namespaces:type_name -> alerting.NamespaceObjects.NamespacesEntry
+	90,  // 58: alerting.KubeObjectGroups.resourceTypes:type_name -> alerting.KubeObjectGroups.ResourceTypesEntry
 	1,   // 59: alerting.ListSelectAlertInfo.alertType:type_name -> alerting.AlertType
 	44,  // 60: alerting.AlertConditionList.items:type_name -> alerting.AlertConditionWithId
 	2,   // 61: alerting.AlertConditionComposition.action:type_name -> alerting.CompositionAction
-	96,  // 62: alerting.AlertConditionComposition.x:type_name -> core.Reference
-	96,  // 63: alerting.AlertConditionComposition.y:type_name -> core.Reference
-	96,  // 64: alerting.ListAlertConditionComposition.x:type_name -> core.Reference
-	96,  // 65: alerting.ListAlertConditionComposition.y:type_name -> core.Reference
+	97,  // 62: alerting.AlertConditionComposition.x:type_name -> core.Reference
+	97,  // 63: alerting.AlertConditionComposition.y:type_name -> core.Reference
+	97,  // 64: alerting.ListAlertConditionComposition.x:type_name -> core.Reference
+	97,  // 65: alerting.ListAlertConditionComposition.y:type_name -> core.Reference
 	3,   // 66: alerting.AlertConditionControlFlow.action:type_name -> alerting.ControlFlowAction
-	96,  // 67: alerting.AlertConditionControlFlow.x:type_name -> core.Reference
-	96,  // 68: alerting.AlertConditionControlFlow.y:type_name -> core.Reference
-	95,  // 69: alerting.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
-	96,  // 70: alerting.ListAlertConditionControlFlow.x:type_name -> core.Reference
-	96,  // 71: alerting.ListAlertConditionControlFlow.y:type_name -> core.Reference
-	95,  // 72: alerting.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
-	96,  // 73: alerting.AlertConditionWithId.id:type_name -> core.Reference
+	97,  // 67: alerting.AlertConditionControlFlow.x:type_name -> core.Reference
+	97,  // 68: alerting.AlertConditionControlFlow.y:type_name -> core.Reference
+	96,  // 69: alerting.AlertConditionControlFlow.for:type_name -> google.protobuf.Duration
+	97,  // 70: alerting.ListAlertConditionControlFlow.x:type_name -> core.Reference
+	97,  // 71: alerting.ListAlertConditionControlFlow.y:type_name -> core.Reference
+	96,  // 72: alerting.ListAlertConditionControlFlow.fors:type_name -> google.protobuf.Duration
+	97,  // 73: alerting.AlertConditionWithId.id:type_name -> core.Reference
 	6,   // 74: alerting.AlertConditionWithId.alertCondition:type_name -> alerting.AlertCondition
-	96,  // 75: alerting.UpdateAlertConditionRequest.id:type_name -> core.Reference
+	97,  // 75: alerting.UpdateAlertConditionRequest.id:type_name -> core.Reference
 	6,   // 76: alerting.UpdateAlertConditionRequest.updateAlert:type_name -> alerting.AlertCondition
-	96,  // 77: alerting.SilenceRequest.conditionId:type_name -> core.Reference
-	95,  // 78: alerting.SilenceRequest.duration:type_name -> google.protobuf.Duration
-	97,  // 79: alerting.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
-	97,  // 80: alerting.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
+	97,  // 77: alerting.SilenceRequest.conditionId:type_name -> core.Reference
+	96,  // 78: alerting.SilenceRequest.duration:type_name -> google.protobuf.Duration
+	98,  // 79: alerting.SilenceInfo.startsAt:type_name -> google.protobuf.Timestamp
+	98,  // 80: alerting.SilenceInfo.endsAt:type_name -> google.protobuf.Timestamp
 	4,   // 81: alerting.AlertStatusResponse.state:type_name -> alerting.AlertConditionState
-	96,  // 82: alerting.RoutingNode.conditionId:type_name -> core.Reference
+	97,  // 82: alerting.RoutingNode.conditionId:type_name -> core.Reference
 	7,   // 83: alerting.RoutingNode.fullAttachedEndpoints:type_name -> alerting.FullAttachedEndpoints
-	90,  // 84: alerting.EndpointRoutingMap.endpoints:type_name -> alerting.EndpointRoutingMap.EndpointsEntry
-	91,  // 85: alerting.RoutingRelationships.conditions:type_name -> alerting.RoutingRelationships.ConditionsEntry
+	91,  // 84: alerting.EndpointRoutingMap.endpoints:type_name -> alerting.EndpointRoutingMap.EndpointsEntry
+	92,  // 85: alerting.RoutingRelationships.conditions:type_name -> alerting.RoutingRelationships.ConditionsEntry
 	56,  // 86: alerting.AlertEndpoint.slack:type_name -> alerting.SlackEndpoint
 	57,  // 87: alerting.AlertEndpoint.email:type_name -> alerting.EmailEndpoint
 	58,  // 88: alerting.AlertEndpoint.pagerDuty:type_name -> alerting.PagerDutyEndpoint
 	60,  // 89: alerting.AlertEndpointList.items:type_name -> alerting.AlertEndpointWithId
 	55,  // 90: alerting.AlertEndpointWithId.endpoint:type_name -> alerting.AlertEndpoint
-	96,  // 91: alerting.AlertEndpointWithId.id:type_name -> core.Reference
-	96,  // 92: alerting.UpdateAlertEndpointRequest.id:type_name -> core.Reference
+	97,  // 91: alerting.AlertEndpointWithId.id:type_name -> core.Reference
+	97,  // 92: alerting.UpdateAlertEndpointRequest.id:type_name -> core.Reference
 	55,  // 93: alerting.UpdateAlertEndpointRequest.updateAlert:type_name -> alerting.AlertEndpoint
-	96,  // 94: alerting.DeleteAlertEndpointRequest.id:type_name -> core.Reference
+	97,  // 94: alerting.DeleteAlertEndpointRequest.id:type_name -> core.Reference
 	55,  // 95: alerting.TestAlertEndpointRequest.endpoint:type_name -> alerting.AlertEndpoint
-	97,  // 96: alerting.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
-	97,  // 97: alerting.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
-	98,  // 98: alerting.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
-	96,  // 99: alerting.InformativeAlertLog.conditionId:type_name -> core.Reference
+	98,  // 96: alerting.ListAlertLogRequest.startTimestamp:type_name -> google.protobuf.Timestamp
+	98,  // 97: alerting.ListAlertLogRequest.endTimestamp:type_name -> google.protobuf.Timestamp
+	99,  // 98: alerting.UpdateAlertLogRequest.UpdateAlert:type_name -> core.AlertLog
+	97,  // 99: alerting.InformativeAlertLog.conditionId:type_name -> core.Reference
 	6,   // 100: alerting.InformativeAlertLog.condition:type_name -> alerting.AlertCondition
-	98,  // 101: alerting.InformativeAlertLog.log:type_name -> core.AlertLog
+	99,  // 101: alerting.InformativeAlertLog.log:type_name -> core.AlertLog
 	68,  // 102: alerting.InformativeAlertLogList.items:type_name -> alerting.InformativeAlertLog
-	96,  // 103: alerting.TriggerAlertsRequest.conditionId:type_name -> core.Reference
-	92,  // 104: alerting.TriggerAlertsRequest.annotations:type_name -> alerting.TriggerAlertsRequest.AnnotationsEntry
-	96,  // 105: alerting.ResolveAlertsRequest.conditionId:type_name -> core.Reference
-	93,  // 106: alerting.ResolveAlertsRequest.annotations:type_name -> alerting.ResolveAlertsRequest.AnnotationsEntry
-	95,  // 107: alerting.TimelineRequest.lookbackWindow:type_name -> google.protobuf.Duration
-	94,  // 108: alerting.TimelineResponse.items:type_name -> alerting.TimelineResponse.ItemsEntry
-	97,  // 109: alerting.ActiveWindow.start:type_name -> google.protobuf.Timestamp
-	97,  // 110: alerting.ActiveWindow.end:type_name -> google.protobuf.Timestamp
+	97,  // 103: alerting.TriggerAlertsRequest.conditionId:type_name -> core.Reference
+	93,  // 104: alerting.TriggerAlertsRequest.annotations:type_name -> alerting.TriggerAlertsRequest.AnnotationsEntry
+	97,  // 105: alerting.ResolveAlertsRequest.conditionId:type_name -> core.Reference
+	94,  // 106: alerting.ResolveAlertsRequest.annotations:type_name -> alerting.ResolveAlertsRequest.AnnotationsEntry
+	96,  // 107: alerting.TimelineRequest.lookbackWindow:type_name -> google.protobuf.Duration
+	95,  // 108: alerting.TimelineResponse.items:type_name -> alerting.TimelineResponse.ItemsEntry
+	98,  // 109: alerting.ActiveWindow.start:type_name -> google.protobuf.Timestamp
+	98,  // 110: alerting.ActiveWindow.end:type_name -> google.protobuf.Timestamp
 	5,   // 111: alerting.ActiveWindow.type:type_name -> alerting.TimelineType
 	76,  // 112: alerting.ActiveWindows.windows:type_name -> alerting.ActiveWindow
-	37,  // 113: alerting.ListAlertConditionKubeState.ClustersEntry.value:type_name -> alerting.KubeObjectGroups
-	22,  // 114: alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry.value:type_name -> alerting.Cores
-	24,  // 115: alerting.ListAlertConditionCPUSaturation.ClustersEntry.value:type_name -> alerting.CpuNodeGroup
-	25,  // 116: alerting.CpuNodeGroup.NodesEntry.value:type_name -> alerting.CpuInfo
-	29,  // 117: alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry.value:type_name -> alerting.MemoryInfo
-	28,  // 118: alerting.ListAlertConditionMemorySaturation.ClustersEntry.value:type_name -> alerting.MemoryNodeGroup
-	29,  // 119: alerting.MemoryNodeGroup.NodesEntry.value:type_name -> alerting.MemoryInfo
-	33,  // 120: alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry.value:type_name -> alerting.FilesystemInfo
-	32,  // 121: alerting.ListAlertConditionFilesystemSaturation.ClustersEntry.value:type_name -> alerting.FilesystemNodeGroup
-	33,  // 122: alerting.FilesystemNodeGroup.NodesEntry.value:type_name -> alerting.FilesystemInfo
-	35,  // 123: alerting.NamespaceObjects.NamespacesEntry.value:type_name -> alerting.ObjectList
-	36,  // 124: alerting.KubeObjectGroups.ResourceTypesEntry.value:type_name -> alerting.NamespaceObjects
-	52,  // 125: alerting.EndpointRoutingMap.EndpointsEntry.value:type_name -> alerting.EndpointMetadata
-	53,  // 126: alerting.RoutingRelationships.ConditionsEntry.value:type_name -> alerting.EndpointRoutingMap
-	77,  // 127: alerting.TimelineResponse.ItemsEntry.value:type_name -> alerting.ActiveWindows
-	128, // [128:128] is the sub-list for method output_type
-	128, // [128:128] is the sub-list for method input_type
-	128, // [128:128] is the sub-list for extension type_name
-	128, // [128:128] is the sub-list for extension extendee
-	0,   // [0:128] is the sub-list for field type_name
+	6,   // 113: alerting.CloneToRequest.alertCondition:type_name -> alerting.AlertCondition
+	37,  // 114: alerting.ListAlertConditionKubeState.ClustersEntry.value:type_name -> alerting.KubeObjectGroups
+	22,  // 115: alerting.AlertConditionCPUSaturation.NodeCoreFiltersEntry.value:type_name -> alerting.Cores
+	24,  // 116: alerting.ListAlertConditionCPUSaturation.ClustersEntry.value:type_name -> alerting.CpuNodeGroup
+	25,  // 117: alerting.CpuNodeGroup.NodesEntry.value:type_name -> alerting.CpuInfo
+	29,  // 118: alerting.AlertConditionMemorySaturation.NodeMemoryFiltersEntry.value:type_name -> alerting.MemoryInfo
+	28,  // 119: alerting.ListAlertConditionMemorySaturation.ClustersEntry.value:type_name -> alerting.MemoryNodeGroup
+	29,  // 120: alerting.MemoryNodeGroup.NodesEntry.value:type_name -> alerting.MemoryInfo
+	33,  // 121: alerting.AlertConditionFilesystemSaturation.NodeFiltersEntry.value:type_name -> alerting.FilesystemInfo
+	32,  // 122: alerting.ListAlertConditionFilesystemSaturation.ClustersEntry.value:type_name -> alerting.FilesystemNodeGroup
+	33,  // 123: alerting.FilesystemNodeGroup.NodesEntry.value:type_name -> alerting.FilesystemInfo
+	35,  // 124: alerting.NamespaceObjects.NamespacesEntry.value:type_name -> alerting.ObjectList
+	36,  // 125: alerting.KubeObjectGroups.ResourceTypesEntry.value:type_name -> alerting.NamespaceObjects
+	52,  // 126: alerting.EndpointRoutingMap.EndpointsEntry.value:type_name -> alerting.EndpointMetadata
+	53,  // 127: alerting.RoutingRelationships.ConditionsEntry.value:type_name -> alerting.EndpointRoutingMap
+	77,  // 128: alerting.TimelineResponse.ItemsEntry.value:type_name -> alerting.ActiveWindows
+	129, // [129:129] is the sub-list for method output_type
+	129, // [129:129] is the sub-list for method input_type
+	129, // [129:129] is the sub-list for extension type_name
+	129, // [129:129] is the sub-list for extension extendee
+	0,   // [0:129] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_init() }
@@ -6612,6 +6677,18 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_init() {
 				return nil
 			}
 		}
+		file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[72].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CloneToRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[1].OneofWrappers = []interface{}{}
 	file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes[3].OneofWrappers = []interface{}{}
@@ -6648,7 +6725,7 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc,
 			NumEnums:      6,
-			NumMessages:   89,
+			NumMessages:   90,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

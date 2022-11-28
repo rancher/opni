@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 // EnumConditionToDatasource
@@ -164,4 +165,56 @@ func ShouldDeleteRoutingNode(new, old *AttachedEndpoints) bool {
 		return true
 	}
 	return false
+}
+
+// stop-gap solution, until we move to the new versin of the API
+func (a *AlertCondition) GetClusterId() *corev1.Reference {
+	if a.GetAlertType().GetSystem() != nil {
+		return a.GetAlertType().GetSystem().GetClusterId()
+	}
+	if a.GetAlertType().GetPrometheusQuery() != nil {
+		return a.GetAlertType().GetPrometheusQuery().GetClusterId()
+	}
+	if a.GetAlertType().GetKubeState() != nil {
+		return &corev1.Reference{Id: a.GetAlertType().GetKubeState().ClusterId}
+	}
+	if a.GetAlertType().GetCpu() != nil {
+		return a.GetAlertType().GetCpu().GetClusterId()
+	}
+	if a.GetAlertType().GetMemory() != nil {
+		return a.GetAlertType().GetMemory().GetClusterId()
+	}
+	if a.GetAlertType().GetFs() != nil {
+		return a.GetAlertType().GetFs().GetClusterId()
+	}
+	return nil
+}
+
+// stop-gap solution until we move to the new version of the API
+func (a *AlertCondition) SetClusterId(clusterId *corev1.Reference) error {
+	if a.GetAlertType().GetSystem() != nil {
+		a.GetAlertType().GetSystem().ClusterId = clusterId
+		return nil
+	}
+	if a.GetAlertType().GetPrometheusQuery() != nil {
+		a.GetAlertType().GetPrometheusQuery().ClusterId = clusterId
+		return nil
+	}
+	if a.GetAlertType().GetKubeState() != nil {
+		a.GetAlertType().GetKubeState().ClusterId = clusterId.Id
+		return nil
+	}
+	if a.GetAlertType().GetCpu() != nil {
+		a.GetAlertType().GetCpu().ClusterId = clusterId
+		return nil
+	}
+	if a.GetAlertType().GetMemory() != nil {
+		a.GetAlertType().GetMemory().ClusterId = clusterId
+		return nil
+	}
+	if a.GetAlertType().GetFs() != nil {
+		a.GetAlertType().GetFs().ClusterId = clusterId
+		return nil
+	}
+	return shared.WithInternalServerErrorf("AlertCondition could not find its clusterId")
 }

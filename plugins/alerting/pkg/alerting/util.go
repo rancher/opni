@@ -2,7 +2,9 @@ package alerting
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	prommodel "github.com/prometheus/common/model"
@@ -74,4 +76,44 @@ func NewCortexAlertingRule(alertId, alertName string, info alertingv1.IndexableM
 		Interval: promInterval,
 		Rules:    []rulefmt.Rule{*actualRuleFmt, *recordingRuleFmt},
 	}, nil
+}
+
+type independentErrGroup struct {
+	errMu sync.Mutex
+	errs  []error
+	sync.WaitGroup
+}
+
+func (i *independentErrGroup) Add(tasks int) {
+	i.WaitGroup.Add(tasks)
+}
+
+func (i *independentErrGroup) Done() {
+	i.WaitGroup.Done()
+}
+
+func (i *independentErrGroup) Wait() {
+	i.WaitGroup.Wait()
+}
+
+func (i *independentErrGroup) AddError(err error) {
+	i.errMu.Lock()
+	defer i.errMu.Unlock()
+	i.errs = append(i.errs, err)
+}
+
+func (i *independentErrGroup) Error() error {
+	if len(i.errs) == 0 {
+		return nil
+	}
+	duped := map[string]struct{}{}
+	resErr := []string{}
+	for _, err := range i.errs {
+		if _, ok := duped[err.Error()]; !ok {
+			duped[err.Error()] = struct{}{}
+			resErr = append(resErr, err.Error())
+		}
+	}
+	sort.Strings(resErr)
+	return fmt.Errorf(strings.Join(resErr, ","))
 }

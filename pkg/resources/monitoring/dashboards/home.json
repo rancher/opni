@@ -713,6 +713,7 @@
               }
             ]
           },
+          "min": 0,
           "unit": "percentunit"
         },
         "overrides": []
@@ -1017,6 +1018,7 @@
               }
             ]
           },
+          "min": 0,
           "unit": "percentunit"
         },
         "overrides": []

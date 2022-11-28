@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -105,12 +106,14 @@ func (i *independentErrGroup) Error() error {
 	if len(i.errs) == 0 {
 		return nil
 	}
-	resErr := ""
+	duped := map[string]struct{}{}
+	resErr := []string{}
 	for _, err := range i.errs {
-		if resErr != "" {
-			resErr += ", "
+		if _, ok := duped[err.Error()]; !ok {
+			duped[err.Error()] = struct{}{}
+			resErr = append(resErr, err.Error())
 		}
-		resErr += err.Error()
 	}
-	return fmt.Errorf(resErr)
+	sort.Strings(resErr)
+	return fmt.Errorf(strings.Join(resErr, ","))
 }

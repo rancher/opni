@@ -74,9 +74,14 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
 	cw := p.newClusterWatcherHooks(p.Ctx)
+	agentClusterStatusReplay := p.newClusterStatusWatcherHooks(
+		p.Ctx,
+		shared.NewGlobalAgentClusterHealthStream(),
+		shared.NewGlobalAgentClusterHealthDurableReplayConsumer(),
+	)
 	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
 		func() { p.watchGlobalCluster(client, cw) },
-		func() { p.watchGlobalClusterHealthStatus(client) },
+		func() { p.watchGlobalClusterHealthStatus(client, agentClusterStatusReplay) },
 		func() { p.watchCortexClusterStatus() }
 
 	p.globalWatchers = NewSimpleInternalConditionWatcher(
@@ -123,6 +128,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		panic(err)
 	}
+	p.js.Set(mgr)
 	incidentKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      shared.GeneralIncidentStorage,
 		Description: "track internal incident changes over time for each condition id",

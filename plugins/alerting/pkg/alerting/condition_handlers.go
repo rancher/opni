@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/health"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -22,7 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	natsutil "github.com/rancher/opni/pkg/util/nats"
 )
 
 func setupCondition(
@@ -330,55 +328,48 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	nc := p.natsConn.Get()
-	js, err := nc.JetStream()
-	if err != nil {
-		cancel()
-		return err
-	}
 	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
-	evaluator := &InternalConditionEvaluator[health.StatusUpdate]{
-		lg:                 lg,
-		conditionId:        conditionId,
-		conditionName:      conditionName,
-		storageNode:        p.storageNode,
-		evaluationCtx:      jsCtx,
-		evaluateInterval:   time.Second * 10,
-		parentCtx:          p.Ctx,
-		cancelEvaluation:   cancel,
-		evaluateDuration:   condition.GetTimeout().AsDuration(),
-		alertmanagerlabels: map[string]string{},
-		healthOnMessage: func(h health.StatusUpdate) (health bool, ts *timestamppb.Timestamp) {
-			return h.Status.Connected, h.Status.Timestamp
+	agentId := condition.GetClusterId().Id
+
+	evaluator := NewInternalConditionEvaluator(
+		&internalConditionMetadata{
+			conditionId:        conditionId,
+			conditionName:      conditionName,
+			lg:                 lg,
+			clusterId:          agentId,
+			alertmanagerlabels: map[string]string{},
 		},
-		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
-			p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-				ConditionId: &corev1.Reference{Id: conditionId},
-				Annotations: labels,
-			})
+		&internalConditionContext{
+			parentCtx:        p.Ctx,
+			evaluationCtx:    jsCtx,
+			evaluateInterval: time.Second * 10,
+			cancelEvaluation: cancel,
+			evaluateDuration: condition.GetTimeout().AsDuration(),
 		},
-	}
+		&internalConditionStorage{
+			js:            p.js.Get(),
+			stream:        shared.NewAlertingDisconnectStream(),
+			streamSubject: shared.NewAgentDisconnectSubject(agentId),
+			storageNode:   p.storageNode,
+		},
+		&internalConditionState{},
+		&internalConditionHooks[health.StatusUpdate]{
+			healthOnMessage: func(h health.StatusUpdate) (health bool, ts *timestamppb.Timestamp) {
+				return h.Status.Connected, h.Status.Timestamp
+			},
+			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
+		},
+	)
 	// handles re-entrant conditions
 	evaluator.CalculateInitialState()
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
-		for {
-			err = natsutil.NewPersistentStream(js, shared.NewAlertingDisconnectStream())
-			if err != nil {
-				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
-				continue
-			}
-			agentId := condition.GetClusterId().Id
-			msgCh := make(chan *nats.Msg, 32)
-			sub, err := js.ChanSubscribe(shared.NewAgentDisconnectSubject(agentId), msgCh)
-			defer sub.Unsubscribe()
-			if err != nil {
-				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
-				continue
-			}
-			evaluator.msgCh = msgCh
-			break
-		}
 		evaluator.SubscriberLoop()
 	}()
 	// spawn a watcher for the incidents
@@ -393,66 +384,58 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	nc := p.natsConn.Get()
-	js, err := nc.JetStream()
-	if err != nil {
-		cancel()
-		return err
-	}
-	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetFor().AsDuration())
-	evaluator := &InternalConditionEvaluator[*corev1.ClusterHealthStatus]{
-		lg:                 lg,
-		conditionId:        conditionId,
-		conditionName:      conditionName,
-		storageNode:        p.storageNode,
-		evaluationCtx:      jsCtx,
-		evaluateInterval:   time.Second * 10,
-		parentCtx:          p.Ctx,
-		cancelEvaluation:   cancel,
-		evaluateDuration:   condition.GetFor().AsDuration(),
-		alertmanagerlabels: map[string]string{},
-		healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
-			healthy = true
-			lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
-			for _, s := range h.HealthStatus.Health.Conditions {
-				for _, badState := range condition.GetCapabilityState() {
-					if strings.Contains(s, badState) {
-						healthy = false
-						break
+	lg.Debugf("Creating agent capability unhealthy with timeout %s", condition.GetFor().AsDuration())
+	agentId := condition.GetClusterId().Id
+	evaluator := NewInternalConditionEvaluator(
+		&internalConditionMetadata{
+			conditionId:        conditionId,
+			conditionName:      conditionName,
+			lg:                 lg,
+			clusterId:          agentId,
+			alertmanagerlabels: map[string]string{},
+		},
+		&internalConditionContext{
+			parentCtx:        p.Ctx,
+			evaluationCtx:    jsCtx,
+			evaluateInterval: time.Second * 10,
+			cancelEvaluation: cancel,
+			evaluateDuration: condition.GetFor().AsDuration(),
+		},
+		&internalConditionStorage{
+			js:            p.js.Get(),
+			stream:        shared.NewAlertingHealthStream(),
+			streamSubject: shared.NewHealthStatusSubject(agentId),
+			storageNode:   p.storageNode,
+		},
+		&internalConditionState{},
+		&internalConditionHooks[*corev1.ClusterHealthStatus]{
+			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				healthy = true
+				lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
+				for _, s := range h.HealthStatus.Health.Conditions {
+					for _, badState := range condition.GetCapabilityState() {
+						if strings.Contains(s, badState) {
+							healthy = false
+							break
+						}
 					}
-				}
 
-			}
-			return healthy, h.HealthStatus.Status.Timestamp
+				}
+				return healthy, h.HealthStatus.Status.Timestamp
+			},
+			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
 		},
-		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
-			_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-				ConditionId: &corev1.Reference{Id: conditionId},
-				Annotations: labels,
-			})
-		},
-	}
+	)
 	// handles re-entrant conditions
 	evaluator.CalculateInitialState()
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
-		for {
-			err = natsutil.NewPersistentStream(js, shared.NewAlertingHealthStream())
-			if err != nil {
-				lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
-				continue
-			}
-			agentId := condition.GetClusterId().Id
-			msgCh := make(chan *nats.Msg, 32)
-			sub, err := js.ChanSubscribe(shared.NewHealthStatusSubject(agentId), msgCh)
-			defer sub.Unsubscribe()
-			if err != nil {
-				lg.Errorf("failed  to subscribe to %s : %s", shared.NewAgentDisconnectSubject(agentId), err)
-				continue
-			}
-			evaluator.msgCh = msgCh
-			break
-		}
 		evaluator.SubscriberLoop()
 	}()
 	// spawn a watcher for the incidents
@@ -548,54 +531,47 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 	lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	nc := p.natsConn.Get()
-	js, err := nc.JetStream()
-	if err != nil {
-		cancel()
-		return err
-	}
 	lg.Debugf("Creating cortex status with timeout %s", condition.GetFor().AsDuration())
-	evaluator := &InternalConditionEvaluator[*cortexadmin.CortexStatus]{
-		lg:                 lg,
-		conditionId:        conditionId,
-		conditionName:      conditionName,
-		storageNode:        p.storageNode,
-		evaluationCtx:      jsCtx,
-		evaluateInterval:   time.Minute,
-		parentCtx:          p.Ctx,
-		cancelEvaluation:   cancel,
-		evaluateDuration:   condition.GetFor().AsDuration(),
-		alertmanagerlabels: map[string]string{},
-		healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
-			return reduceCortexAdminStates(condition.GetBackendComponents(), h)
+
+	evaluator := NewInternalConditionEvaluator(
+		&internalConditionMetadata{
+			conditionId:        conditionId,
+			conditionName:      conditionName,
+			lg:                 lg,
+			clusterId:          "", // unused here
+			alertmanagerlabels: map[string]string{},
 		},
-		triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
-			_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-				ConditionId: &corev1.Reference{Id: conditionId},
-				Annotations: labels,
-			})
+		&internalConditionContext{
+			parentCtx:        p.Ctx,
+			evaluationCtx:    jsCtx,
+			evaluateInterval: time.Minute,
+			cancelEvaluation: cancel,
+			evaluateDuration: condition.GetFor().AsDuration(),
 		},
-	}
+		&internalConditionStorage{
+			js:            p.js.Get(),
+			stream:        shared.NewCortexStatusStream(),
+			streamSubject: shared.NewCortexStatusSubject(),
+			storageNode:   p.storageNode,
+		},
+		&internalConditionState{},
+		&internalConditionHooks[*cortexadmin.CortexStatus]{
+			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
+			},
+			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
+		},
+	)
 	// handles re-entrant conditions
 	evaluator.CalculateInitialState()
 	go func() {
 		defer cancel() // cancel parent context, if we return (non-recoverable)
-		for {
-			err = natsutil.NewPersistentStream(js, shared.NewCortexStatusStream())
-			if err != nil {
-				lg.Errorf("cortex status persistent stream does not exist and cannot be created %s", err)
-				continue
-			}
-			msgCh := make(chan *nats.Msg, 32)
-			sub, err := js.ChanSubscribe(shared.NewCortexStatusSubject(), msgCh)
-			defer sub.Unsubscribe()
-			if err != nil {
-				lg.Errorf("failed to subscribe to %s : %s", shared.NewCortexStatusSubject(), err)
-				continue
-			}
-			evaluator.msgCh = msgCh
-			break
-		}
 		evaluator.SubscriberLoop()
 	}()
 	// spawn a watcher for the incidents

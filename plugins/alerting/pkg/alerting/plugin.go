@@ -48,6 +48,7 @@ type Plugin struct {
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
 	natsConn        future.Future[*nats.Conn]
+	js              future.Future[nats.JetStreamContext]
 	globalWatchers  InternalConditionWatcher
 }
 
@@ -73,6 +74,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
+		js:              future.New[nats.JetStreamContext](),
 	}
 	return p
 }

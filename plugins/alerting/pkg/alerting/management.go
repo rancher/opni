@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // capability name ---> condition name ---> condition status
@@ -171,7 +170,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 // blocking
 func (p *Plugin) watchGlobalCluster(
 	client managementv1.ManagementClient,
-	watcher *ClusterWatcherHooks[*managementv1.WatchEvent],
+	watcher *ManagementWatcherHooks[*managementv1.WatchEvent],
 ) {
 	clusterClient, err := client.WatchClusters(p.Ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
@@ -193,20 +192,34 @@ func (p *Plugin) watchGlobalCluster(
 }
 
 // blocking
-func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient) {
+func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient, alertingReplayStreamHooks *AlertingStreamHooks[*corev1.ClusterHealthStatus]) {
 	clusterStatusClient, err := client.WatchClusterHealthStatus(p.Ctx, &emptypb.Empty{})
 	if err != nil {
 		p.Logger.Error("failed to watch cluster health status, exiting...")
 		os.Exit(1)
 	}
-	p.Logger.Debug("acquiring jetstream context for global health status stream...")
-	conn := p.natsConn.Get()
-	js, err := conn.JetStream()
+	// on startup always send a manual read in case the gateway was down when the agent status changed
+	cls, err := client.ListClusters(p.Ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
-		p.Logger.Error("failed to acquire jetstream context for global health status stream, exiting...")
+		p.Logger.Error("failed to list clusters, exiting...")
 		os.Exit(1)
 	}
-	p.Logger.Debug("acquired jetstream context for global health status stream")
+	for _, cl := range cls.Items {
+		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
+		if err == nil {
+			clusterStatusData, err := json.Marshal(clusterStatus)
+			if err != nil {
+				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
+				continue
+			}
+			_, err = p.js.Get().PublishAsync(alertingReplayStreamHooks.GetIngressStream(), clusterStatusData)
+			if err != nil {
+				p.Logger.Errorf("failed to publish cluster health status : %s", err)
+			}
+		} else {
+			p.Logger.Warnf("failed to read cluster health status on startup for cluster %s : %s", cl.GetId(), err.Error())
+		}
+	}
 	for {
 		select {
 		case <-p.Ctx.Done():
@@ -214,47 +227,20 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 		default:
 			clusterStatus, err := clusterStatusClient.Recv()
 			if err != nil {
-				p.Logger.Error()
-			}
-			if clusterStatus.HealthStatus == nil { // isn't clear if this should be explicitly checked
+				p.Logger.Warn("failed to receive cluster health status from grpc stream, retrying...")
 				continue
 			}
-			if clusterStatus.HealthStatus.Health == nil {
-				clusterStatus.HealthStatus.Health = &corev1.Health{
-					Timestamp: timestamppb.Now(),
-					Ready:     false,
-				}
+			clusterStatusData, err := json.Marshal(clusterStatus)
+			if err != nil {
+				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
+				continue
 			}
-			if clusterStatus.HealthStatus.Health.Timestamp == nil {
-				clusterStatus.HealthStatus.Health.Timestamp = timestamppb.Now()
+			_, err = p.js.Get().PublishAsync(alertingReplayStreamHooks.GetIngressStream(), clusterStatusData)
+			if err != nil {
+				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}
-			msg := &health.StatusUpdate{
-				ID:     clusterStatus.Cluster.Id,
-				Status: clusterStatus.HealthStatus.Status,
-			}
-			// send to agent disconnect
-			go func() {
-				agentDisconnectData, err := json.Marshal(msg)
-				if err != nil {
-					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
-				}
-				_, err = js.PublishAsync(shared.NewAgentDisconnectSubject(clusterStatus.Cluster.GetId()), agentDisconnectData)
-				if err != nil {
-					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
-				}
-			}()
-
-			// send to health status
-			go func() {
-				healthStatusData, err := json.Marshal(clusterStatus)
-				if err != nil {
-					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
-				}
-				_, err = js.PublishAsync(shared.NewHealthStatusSubject(clusterStatus.Cluster.GetId()), healthStatusData)
-				if err != nil {
-					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
-				}
-			}()
+			info, _ := p.js.Get().StreamInfo(alertingReplayStreamHooks.GetIngressStream())
+			p.Logger.Debugf("stream state %v\n", info.State)
 		}
 	}
 }

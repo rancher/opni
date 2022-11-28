@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -163,6 +164,22 @@ func newNatsConnection(lg *zap.SugaredLogger, options ...nats.Option) (*nats.Con
 func NewPersistentStream(mgr nats.JetStreamContext, streamConfig *nats.StreamConfig) error {
 	if stream, _ := mgr.StreamInfo(streamConfig.Name); stream == nil {
 		_, err := mgr.AddStream(streamConfig)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewDurableReplayConsumer(mgr nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
+	if consumerConfig.Durable == "" {
+		return fmt.Errorf("consumer config must be durable")
+	}
+	if consumerConfig.ReplayPolicy != nats.ReplayOriginalPolicy {
+		return fmt.Errorf("consumer config must be replay original policy")
+	}
+	if consumer, _ := mgr.ConsumerInfo(streamName, consumerConfig.Durable); consumer == nil {
+		_, err := mgr.AddConsumer(streamName, consumerConfig)
 		if err != nil {
 			return err
 		}

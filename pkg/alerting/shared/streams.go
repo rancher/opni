@@ -9,6 +9,11 @@ import (
 
 // Jetstream streams
 const (
+	// global streams
+	AgentClusterHealthStatusStream        = "agent-cluster-health-status"
+	AgentClusterHealthStatusSubjects      = "agent-cluster-health-status.*"
+	AgentClusterHealthStatusDurableReplay = "agent-cluster-health-status-consumer"
+
 	//streams
 	AgentDisconnectStream         = "opni_alerting_agent"
 	AgentDisconnectStreamSubjects = "opni_alerting_agent.*"
@@ -23,6 +28,24 @@ const (
 	StatusBucketPerClusterInternalType = "opni-alerting-cluster-condition-type-status-bucket"
 	GeneralIncidentStorage             = "opni-alerting-general-incident-bucket"
 )
+
+func NewGlobalAgentClusterHealthStream() *nats.StreamConfig {
+	return &nats.StreamConfig{
+		Name:      AgentClusterHealthStatusStream,
+		Subjects:  []string{AgentClusterHealthStatusSubjects},
+		Retention: nats.LimitsPolicy,
+		MaxAge:    1 * time.Hour,
+		MaxBytes:  1 * 1024 * 50, //50KB
+	}
+}
+
+func NewGlobalAgentClusterHealthDurableReplayConsumer() *nats.ConsumerConfig {
+	return &nats.ConsumerConfig{
+		Durable: AgentClusterHealthStatusDurableReplay,
+		//AckPolicy:      nats.AckExplicitPolicy,
+		ReplayPolicy: nats.ReplayOriginalPolicy,
+	}
+}
 
 func NewAlertingDisconnectStream() *nats.StreamConfig {
 	return &nats.StreamConfig{

@@ -690,7 +690,7 @@ func deploymentState(enabled *bool) reconciler.DesiredState {
 }
 
 func deploymentStateDisabled(enabled *bool) reconciler.DesiredState {
-	if enabled != nil || *enabled {
+	if lo.FromPtrOr(enabled, false) {
 		return reconciler.StatePresent
 	}
 	return reconciler.StateAbsent
@@ -733,7 +733,7 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 	})
 
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.spec.Services.Inference.Enabled), nil
+	return deployment, deploymentStateDisabled(r.spec.Services.Inference.Enabled), nil
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {

@@ -486,6 +486,13 @@ message TriggerAlertsRequest {
 // opni-alerting internal use
 message TriggerAlertsResponse {}
 
+message ResolveAlertsRequest {
+  core.Reference conditionId = 1;
+  map<string,string> annotations = 2;
+}
+
+message ResolveAlertsResponse {}
+
 
 enum TimelineType {
   // do not show, backend error 

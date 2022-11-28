@@ -14,6 +14,7 @@ import (
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -132,6 +133,30 @@ func WithPostAlertBody(conditionId string, annotations map[string]string) AlertM
 		var alertsArr []*PostableAlert
 		alert := &PostableAlert{}
 		alert.WithCondition(conditionId)
+		for annotationName, annotationValue := range annotations {
+			alert.WithRuntimeInfo(annotationName, annotationValue)
+		}
+		alertsArr = append(alertsArr, alert)
+		for _, alert := range alertsArr {
+			if err := alert.Must(); err != nil {
+				panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+			}
+		}
+		b, err := json.Marshal(alertsArr)
+		if err != nil {
+			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+		}
+		o.body = b
+	}
+}
+
+func WithPostResolveAlertBody(conditionId string, annotations map[string]string) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		var alertsArr []*PostableAlert
+		alert := &PostableAlert{}
+		alert.WithCondition(conditionId)
+		alert.StartsAt = lo.ToPtr(time.Now().Add(-time.Minute * 5))
+		alert.EndsAt = lo.ToPtr(time.Now().Add(-time.Minute))
 		for annotationName, annotationValue := range annotations {
 			alert.WithRuntimeInfo(annotationName, annotationValue)
 		}

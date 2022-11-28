@@ -17,6 +17,8 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -134,19 +136,32 @@ func (p *Plugin) watchCortexClusterStatus() {
 		case <-p.Ctx.Done():
 			lg.Debug("closing cortex cluster status watcher...")
 		case <-ticker.C:
-			status, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
+			ccStatus, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
 			if err != nil {
-				lg.Debugf("failed to get cortex cluster status %s", err)
-				continue
+				if e, ok := status.FromError(err); ok {
+					switch e.Code() {
+					case codes.Unavailable:
+						lg.Debugf("Cortex cluster status unavailable : not yet installed")
+						continue
+					case codes.Internal:
+						// status is so badly messed up assume nothing is working
+						// mark all sub-statues as nil so they are always evaluated as unhealthy
+						ccStatus = &cortexadmin.CortexStatus{}
+					case codes.Unknown:
+						lg.Warnf("Cortex cluster status unknown : %v", err)
+						continue
+					}
+
+				}
 			}
 			go func() {
-				cortexStatusData, err := json.Marshal(status)
+				cortexStatusData, err := json.Marshal(ccStatus)
 				if err != nil {
-					p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
+					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
 				}
 				_, err = js.PublishAsync(shared.NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
-					p.Logger.Errorf("failed to publish cluster health status update : %s", err)
+					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
 				}
 			}()
 		}

@@ -25,6 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModelTrainingClient interface {
 	TrainModel(ctx context.Context, in *ModelTrainingParametersList, opts ...grpc.CallOption) (*ModelTrainingResponse, error)
+	PostModelTrainingStatus(ctx context.Context, in *ModelTrainingStatistics, opts ...grpc.CallOption) (*ModelTrainingResponse, error)
 	ClusterWorkloadAggregation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadAggregationList, error)
 	GetModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelStatus, error)
 	GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelTrainingParametersList, error)
@@ -42,6 +43,15 @@ func NewModelTrainingClient(cc grpc.ClientConnInterface) ModelTrainingClient {
 func (c *modelTrainingClient) TrainModel(ctx context.Context, in *ModelTrainingParametersList, opts ...grpc.CallOption) (*ModelTrainingResponse, error) {
 	out := new(ModelTrainingResponse)
 	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/TrainModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *modelTrainingClient) PostModelTrainingStatus(ctx context.Context, in *ModelTrainingStatistics, opts ...grpc.CallOption) (*ModelTrainingResponse, error) {
+	out := new(ModelTrainingResponse)
+	err := c.cc.Invoke(ctx, "/modeltraining.ModelTraining/PostModelTrainingStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +99,7 @@ func (c *modelTrainingClient) GPUInfo(ctx context.Context, in *emptypb.Empty, op
 // for forward compatibility
 type ModelTrainingServer interface {
 	TrainModel(context.Context, *ModelTrainingParametersList) (*ModelTrainingResponse, error)
+	PostModelTrainingStatus(context.Context, *ModelTrainingStatistics) (*ModelTrainingResponse, error)
 	ClusterWorkloadAggregation(context.Context, *v1.Reference) (*WorkloadAggregationList, error)
 	GetModelStatus(context.Context, *emptypb.Empty) (*ModelStatus, error)
 	GetModelTrainingParameters(context.Context, *emptypb.Empty) (*ModelTrainingParametersList, error)
@@ -102,6 +113,9 @@ type UnimplementedModelTrainingServer struct {
 
 func (UnimplementedModelTrainingServer) TrainModel(context.Context, *ModelTrainingParametersList) (*ModelTrainingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TrainModel not implemented")
+}
+func (UnimplementedModelTrainingServer) PostModelTrainingStatus(context.Context, *ModelTrainingStatistics) (*ModelTrainingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PostModelTrainingStatus not implemented")
 }
 func (UnimplementedModelTrainingServer) ClusterWorkloadAggregation(context.Context, *v1.Reference) (*WorkloadAggregationList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClusterWorkloadAggregation not implemented")
@@ -142,6 +156,24 @@ func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ModelTrainingServer).TrainModel(ctx, req.(*ModelTrainingParametersList))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ModelTraining_PostModelTrainingStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModelTrainingStatistics)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModelTrainingServer).PostModelTrainingStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/modeltraining.ModelTraining/PostModelTrainingStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModelTrainingServer).PostModelTrainingStatus(ctx, req.(*ModelTrainingStatistics))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -228,6 +260,10 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TrainModel",
 			Handler:    _ModelTraining_TrainModel_Handler,
+		},
+		{
+			MethodName: "PostModelTrainingStatus",
+			Handler:    _ModelTraining_PostModelTrainingStatus_Handler,
 		},
 		{
 			MethodName: "ClusterWorkloadAggregation",

@@ -53,9 +53,7 @@ message GPUInfoList {
 
 message ModelStatus {
   string status = 1;
-  int64 timeTraining = 2;
-  int64 percentageCompleted = 3;
-  int64 remainingTime = 4;
+  ModelTrainingStatistics statistics = 2;
 }
 
 message ModelTrainingResponse {

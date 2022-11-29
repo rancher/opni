@@ -10,6 +10,7 @@ import (
 	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,19 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
 	}, nil
+}
+
+func (c *ModelTrainingPlugin) PostModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*modeltraining.ModelTrainingResponse, error) {
+	jsonParameters, err := protojson.Marshal(in)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
+	}
+	bytesAggregation := []byte(jsonParameters)
+	c.kv.Get().Put("modelTrainingStatus", bytesAggregation)
+	return &modeltraining.ModelTrainingResponse{
+		Response: "Model training statistics successfully posted and updated.",
+	}, nil
+
 }
 
 func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
@@ -77,8 +91,18 @@ func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Em
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
+	result, err := c.kv.Get().Get("modelTrainingStatus")
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
+	}
+	jsonRes := result.Value()
+	var resultsStorage = modeltraining.ModelTrainingStatistics{}
+	if err := json.Unmarshal(jsonRes, &resultsStorage); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %s", err)
+	}
 	return &modeltraining.ModelStatus{
-		Status: string(msg.Data),
+		Status:     string(msg.Data),
+		Statistics: &resultsStorage,
 	}, nil
 }
 

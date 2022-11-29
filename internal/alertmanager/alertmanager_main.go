@@ -226,7 +226,7 @@ func startOpniServer(configFile string) {
 			http.Error(wr, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if equal, reason := r1.IsEqual(r2); !equal {
+		if equal, reason := r1.Equal(r2); !equal {
 			lg.Errorf("config is not equal to persisted config: %s", reason)
 			http.Error(wr, fmt.Sprintf("config not yet equal : %s", reason), http.StatusConflict)
 			return

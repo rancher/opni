@@ -13,10 +13,6 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-const SlackEndpointInternalId = "slack"
-const EmailEndpointInternalId = "email"
-const PagerDutyEndpointInternalId = "pagerduty"
-
 func (r *Receiver) AddEndpoint(
 	alertEndpoint *alertingv1.AlertEndpoint,
 	details *alertingv1.EndpointImplementation) (int, string, error) {
@@ -33,7 +29,7 @@ func (r *Receiver) AddEndpoint(
 			return -1, "", err
 		}
 		r.SlackConfigs = append(r.SlackConfigs, slackCfg)
-		return len(r.SlackConfigs) - 1, SlackEndpointInternalId, nil
+		return len(r.SlackConfigs) - 1, slackCfg.InternalId(), nil
 	}
 	if e := alertEndpoint.GetEmail(); e != nil {
 		emailCfg, err := NewEmailReceiverNode(e)
@@ -45,7 +41,7 @@ func (r *Receiver) AddEndpoint(
 			return -1, "", err
 		}
 		r.EmailConfigs = append(r.EmailConfigs, emailCfg)
-		return len(r.EmailConfigs) - 1, EmailEndpointInternalId, nil
+		return len(r.EmailConfigs) - 1, emailCfg.InternalId(), nil
 	}
 	if p := alertEndpoint.GetPagerDuty(); p != nil {
 		pagerCfg, err := NewPagerDutyReceiverNode(p)
@@ -58,7 +54,7 @@ func (r *Receiver) AddEndpoint(
 			return -1, "", err
 		}
 		r.PagerdutyConfigs = append(r.PagerdutyConfigs, pagerCfg)
-		return len(r.PagerdutyConfigs) - 1, PagerDutyEndpointInternalId, nil
+		return len(r.PagerdutyConfigs) - 1, pagerCfg.InternalId(), nil
 	}
 	return -1, "", validation.Errorf("unknown endpoint type : %v", alertEndpoint)
 }
@@ -223,19 +219,19 @@ func (r *RoutingTree) ExtractImplementationDetails(conditionId, endpointType str
 	}
 
 	switch endpointType {
-	case SlackEndpointInternalId:
+	case (&SlackConfig{}).InternalId():
 		return &alertingv1.EndpointImplementation{
 			Title:        r.Receivers[recvIdx].SlackConfigs[position].Title,
 			Body:         r.Receivers[recvIdx].SlackConfigs[position].Text,
 			SendResolved: &r.Receivers[recvIdx].SlackConfigs[position].VSendResolved,
 		}, nil
-	case EmailEndpointInternalId:
+	case (&EmailConfig{}).InternalId():
 		return &alertingv1.EndpointImplementation{
 			Title:        r.Receivers[recvIdx].EmailConfigs[position].Headers["Subject"],
 			Body:         r.Receivers[recvIdx].EmailConfigs[position].HTML,
 			SendResolved: &r.Receivers[recvIdx].EmailConfigs[position].VSendResolved,
 		}, nil
-	case PagerDutyEndpointInternalId:
+	case (&PagerdutyConfig{}).InternalId():
 		strArr := strings.Split(r.Receivers[recvIdx].PagerdutyConfigs[position].Description, "\n")
 		title := strArr[0]
 		body := strings.Join(strArr[1:], "\n")

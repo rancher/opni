@@ -445,7 +445,7 @@ func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 		if err != nil {
 			return err
 		}
-		if isEqual, reason := r1.IsEqual(r2); !isEqual {
+		if isEqual, reason := r1.Equal(r2); !isEqual {
 			lg.Debug(fmt.Sprintf("config not equal : %s", reason))
 			return fmt.Errorf("%s", reason)
 		}

@@ -68,69 +68,6 @@ func areDurationsEqual(m1, m2 *model.Duration) (equal bool, reason string) {
 
 }
 
-func slackConfigsAreEqual(s1, s2 *SlackConfig) (equal bool, reason string) {
-	if s1.Channel != s2.Channel {
-		return false, fmt.Sprintf("channel mismatch  %s <-> %s ", s1.Channel, s2.Channel)
-	}
-	if s1.APIURL != s2.APIURL {
-		return false, fmt.Sprintf("api url mismatch  %s <-> %s ", s1.APIURL, s2.APIURL)
-	}
-	return true, ""
-}
-
-func emailConfigsAreEqual(e1, e2 *EmailConfig) (equal bool, reason string) {
-	if e1.To != e2.To {
-		return false, fmt.Sprintf("to mismatch %s <-> %s", e1.To, e2.To)
-	}
-	if e1.From != e2.From {
-		return false, fmt.Sprintf("from mismatch %s <-> %s ", e1.From, e2.From)
-	}
-	if e1.Smarthost != e2.Smarthost {
-		return false, fmt.Sprintf("smarthost mismatch %s <-> %s ", e1.Smarthost, e2.Smarthost)
-	}
-	if e1.AuthUsername != e2.AuthUsername {
-		return false, fmt.Sprintf("auth username mismatch %s <-> %s ", e1.AuthUsername, e2.AuthUsername)
-	}
-	if e1.AuthPassword != e2.AuthPassword {
-		return false, fmt.Sprintf("auth password mismatch %s <-> %s ", e1.AuthPassword, e2.AuthPassword)
-	}
-	if e1.AuthSecret != e2.AuthSecret {
-		return false, fmt.Sprintf("auth secret mismatch %s <-> %s ", e1.AuthSecret, e2.AuthSecret)
-	}
-	if e1.RequireTLS != e2.RequireTLS {
-		return false, fmt.Sprintf("require tls mismatch %v <-> %v ", e1.RequireTLS, e2.RequireTLS)
-	}
-	if e1.HTML != e2.HTML {
-		return false, fmt.Sprintf("html mismatch %s <-> %s ", e1.HTML, e2.HTML)
-	}
-	if e1.Text != e2.Text {
-		return false, fmt.Sprintf("text mismatch %s <-> %s ", e1.Text, e2.Text)
-	}
-	return true, ""
-}
-
-func pagerDutyConfigsAreEqual(p1, p2 *PagerdutyConfig) (equal bool, reason string) {
-	if p1.RoutingKey != p2.RoutingKey {
-		return false, fmt.Sprintf("routing key mismatch %s <-> %s ", p1.RoutingKey, p2.RoutingKey)
-	}
-	if p1.ServiceKey != p2.ServiceKey {
-		return false, fmt.Sprintf("service key mismatch %s <-> %s ", p1.ServiceKey, p2.ServiceKey)
-	}
-	if p1.URL != p2.URL {
-		return false, fmt.Sprintf("url mismatch %s <-> %s ", p1.URL, p2.URL)
-	}
-	if p1.Client != p2.Client {
-		return false, fmt.Sprintf("client mismatch %s <-> %s ", p1.Client, p2.Client)
-	}
-	if p1.ClientURL != p2.ClientURL {
-		return false, fmt.Sprintf("client url mismatch %s <-> %s ", p1.ClientURL, p2.ClientURL)
-	}
-	if p1.Description != p2.Description {
-		return false, fmt.Sprintf("description mismatch %s <-> %s ", p1.Description, p2.Description)
-	}
-	return true, ""
-}
-
 func receiversAreEqual(r1 *Receiver, r2 *Receiver) (equal bool, reason string) {
 	if r1.Name != r2.Name { // opni specific indexing
 		return false, fmt.Sprintf("receiver name mismatch %s <-> %s ", r1.Name, r2.Name)
@@ -146,17 +83,17 @@ func receiversAreEqual(r1 *Receiver, r2 *Receiver) (equal bool, reason string) {
 		return false, fmt.Sprintf("pager duty configs are not yet synced: found num old %d <-> num new %d ", len(r1.PagerdutyConfigs), len(r2.PagerdutyConfigs))
 	}
 	for idx, emailConfig := range r1.EmailConfigs {
-		if equal, reason := emailConfigsAreEqual(emailConfig, r2.EmailConfigs[idx]); !equal {
+		if equal, reason := emailConfig.Equal(r2.EmailConfigs[idx]); !equal {
 			return false, fmt.Sprintf("email config mismatch : %s", reason)
 		}
 	}
 	for idx, slackConfig := range r1.SlackConfigs {
-		if equal, reason := slackConfigsAreEqual(slackConfig, r2.SlackConfigs[idx]); !equal {
+		if equal, reason := slackConfig.Equal(r2.SlackConfigs[idx]); !equal {
 			return false, fmt.Sprintf("slack config mismatch %s", reason)
 		}
 	}
 	for idx, pagerDutyConfig := range r1.PagerdutyConfigs {
-		if equal, reason := pagerDutyConfigsAreEqual(pagerDutyConfig, r2.PagerdutyConfigs[idx]); !equal {
+		if equal, reason := pagerDutyConfig.Equal(r2.PagerdutyConfigs[idx]); !equal {
 			return false, fmt.Sprintf("pager duty config mismatch %s", reason)
 		}
 	}
@@ -236,15 +173,21 @@ func areMatchersEqual(m1, m2 cfg.Matchers) bool {
 	return true
 }
 
+var _ EqualityComparer[any] = (*RoutingTree)(nil)
+
 // for our purposes we will only treat receivers and routes as opni config equality
-func (r *RoutingTree) IsEqual(other *RoutingTree) (equal bool, reason string) {
+func (r *RoutingTree) Equal(input any) (equal bool, reason string) {
+	if _, ok := input.(*RoutingTree); !ok {
+		return false, "input is not a routing tree"
+	}
+	other := input.(*RoutingTree)
 	selfReceiverIndex := r.indexOpniReceivers()
 	otherReceiverIndex := other.indexOpniReceivers()
 	for id, r1 := range selfReceiverIndex {
 		if r2, ok := otherReceiverIndex[id]; !ok {
 			return false, fmt.Sprintf("configurations do not have matching receiver : %s", id)
 		} else {
-			if equal, reason := receiversAreEqual(r1, r2); !equal {
+			if equal, reason := r1.Equal(r2); !equal {
 				return false, fmt.Sprintf("configurations do not have equal receivers '%s' : %s", id, reason)
 			}
 		}

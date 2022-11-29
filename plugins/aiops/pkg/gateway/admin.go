@@ -2,12 +2,12 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/Masterminds/semver"
-	"github.com/gogo/status"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/nats"
@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
@@ -35,7 +36,7 @@ const (
 )
 
 const (
-	opniServicesName = "opni"
+	OpniServicesName = "opni"
 )
 
 var (
@@ -148,7 +149,7 @@ func (s *AIOpsPlugin) putPretrainedModel(
 func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*admin.AISettings, error) {
 	opni := &aiv1beta1.OpniCluster{}
 	err := s.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      opniServicesName,
+		Name:      OpniServicesName,
 		Namespace: s.storageNamespace,
 	}, opni)
 
@@ -242,7 +243,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 	exists := true
 	opniCluster := &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniServicesName,
+			Name:      OpniServicesName,
 			Namespace: s.storageNamespace,
 		},
 		Spec: aiv1beta1.OpniClusterSpec{
@@ -292,16 +293,24 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 }
 
 func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, s.k8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
+	err := s.k8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniServicesName,
+			Name:      OpniServicesName,
 			Namespace: s.storageNamespace,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+	err = s.k8sClient.DeleteAllOf(ctx, &aiv1beta1.PretrainedModel{}, client.InNamespace(s.storageNamespace))
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*admin.UpgradeAvailableResponse, error) {
-	version := "0.7.0"
+	version := s.version
 	if util.Version != "" && util.Version != "unversioned" {
 		version = util.Version
 	}
@@ -311,7 +320,7 @@ func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*
 	}
 	opniCluster := &aiv1beta1.OpniCluster{}
 	err = s.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      opniServicesName,
+		Name:      OpniServicesName,
 		Namespace: s.storageNamespace,
 	}, opniCluster)
 	if err != nil {
@@ -329,24 +338,41 @@ func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*
 }
 
 func (s *AIOpsPlugin) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	version := "0.7.0"
+	version := s.version
 	if util.Version != "" && util.Version != "unversioned" {
-		version = strings.TrimPrefix(util.Version, "v")
+		version = util.Version
+	}
+	newVersion, err := semver.NewVersion(version)
+	if err != nil {
+		return nil, err
 	}
 
 	opniCluster := &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniServicesName,
+			Name:      OpniServicesName,
 			Namespace: s.storageNamespace,
 		},
 	}
+	err = s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+	if err != nil {
+		return nil, err
+	}
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	oldVersion, err := semver.NewVersion(opniCluster.Spec.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	if newVersion.LessThan(oldVersion) {
+		return nil, errors.New("new version is older, can't upgrade")
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 		if err != nil {
 			return err
 		}
-		opniCluster.Spec.Version = "v" + version
+		opniCluster.Spec.Version = "v" + strings.TrimPrefix(version, "v")
 		return s.k8sClient.Update(ctx, opniCluster)
 	})
 	return &emptypb.Empty{}, err

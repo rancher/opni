@@ -14,11 +14,12 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,7 +38,9 @@ type AIOpsPlugin struct {
 
 type PluginOptions struct {
 	storageNamespace  string
+	version           string
 	opensearchCluster *opnimeta.OpensearchClusterRef
+	restconfig        *rest.Config
 }
 
 type PluginOption func(*PluginOptions)
@@ -54,9 +57,21 @@ func WithNamespace(namespace string) PluginOption {
 	}
 }
 
+func WithVersion(version string) PluginOption {
+	return func(o *PluginOptions) {
+		o.version = version
+	}
+}
+
 func WithOpensearchCluster(cluster *opnimeta.OpensearchClusterRef) PluginOption {
 	return func(o *PluginOptions) {
 		o.opensearchCluster = cluster
+	}
+}
+
+func WithRestConfig(restconfig *rest.Config) PluginOption {
+	return func(o *PluginOptions) {
+		o.restconfig = restconfig
 	}
 }
 
@@ -67,8 +82,23 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
+		version: "v0.7.0",
 	}
 	options.apply(opts...)
+
+	var restconfig *rest.Config
+	if options.restconfig != nil {
+		restconfig = options.restconfig
+	} else {
+		restconfig = ctrl.GetConfigOrDie()
+	}
+
+	cli, err := client.New(restconfig, client.Options{
+		Scheme: apis.NewScheme(),
+	})
+	if err != nil {
+		panic(err)
+	}
 
 	return &AIOpsPlugin{
 		PluginOptions:  options,
@@ -77,6 +107,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		natsConnection: future.New[*nats.Conn](),
 		kv:             future.New[nats.KeyValue](),
 		osClient:       future.New[*opensearch.Client](),
+		k8sClient:      cli,
 	}
 }
 
@@ -114,14 +145,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 
 	p.storageNamespace = os.Getenv("POD_NAMESPACE")
-
-	k8sClient, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-		Scheme: apis.NewScheme(),
-	})
-	if err != nil {
-		p.Logger.Fatal(err)
-	}
-	p.k8sClient = k8sClient
 
 	go p.setOpensearchConnection()
 

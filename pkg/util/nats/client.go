@@ -175,12 +175,12 @@ func NewDurableReplayConsumer(mgr nats.JetStreamContext, streamName string, cons
 	if consumerConfig.Durable == "" {
 		return fmt.Errorf("consumer config must be durable")
 	}
-	if consumerConfig.ReplayPolicy != nats.ReplayOriginalPolicy {
-		return fmt.Errorf("consumer config must be replay original policy")
+	if consumerConfig.ReplayPolicy != nats.ReplayInstantPolicy {
+		return fmt.Errorf("consumer config must be replay instant policy")
 	}
-	if consumer, _ := mgr.ConsumerInfo(streamName, consumerConfig.Durable); consumer == nil {
+	if _, err := mgr.ConsumerInfo(streamName, consumerConfig.Durable); err != nil {
 		_, err := mgr.AddConsumer(streamName, consumerConfig)
-		if err != nil {
+		if err != nats.ErrConsumerNameAlreadyInUse {
 			return err
 		}
 	}

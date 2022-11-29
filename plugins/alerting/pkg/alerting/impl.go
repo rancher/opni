@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/health"
+	"google.golang.org/protobuf/proto"
+
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 
 	"github.com/nats-io/nats.go"
@@ -21,9 +21,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ WatcherHooks[any] = &ManagementWatcherHooks[any]{}
+var _ WatcherHooks[proto.Message] = &ManagementWatcherHooks[proto.Message]{}
 
-type ManagementWatcherHooks[T any] struct {
+type ManagementWatcherHooks[T proto.Message] struct {
 	parentCtx context.Context
 	cases     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]
 }
@@ -42,177 +42,30 @@ func (c *ManagementWatcherHooks[T]) HandleEvent(event T) {
 	}
 }
 
-var _ ReplayJetStreamHooks[any] = &AlertingStreamHooks[any]{}
-
-type AlertingStreamHooks[T any] struct {
-	lg            *zap.SugaredLogger
-	js            nats.JetStreamContext
-	parentCtx     context.Context
-	msgCh         chan *nats.Msg
-	sub           *nats.Subscription
-	ingressStream *nats.StreamConfig
-	// allows ingress stream to be replayed for new subscribers
-	durableOrderedConsumer *nats.ConsumerConfig
-	derivedStreams         []lo.Tuple2[func(T) bool, []func(context.Context, T) error]
-}
-
-func NewAlertingStreamHooks[T any](
-	js nats.JetStreamContext,
-	parentCtx context.Context,
-	lg *zap.SugaredLogger,
-	ingressStream *nats.StreamConfig,
-	durableOrderedConsumer *nats.ConsumerConfig,
-) *AlertingStreamHooks[T] {
-	res := &AlertingStreamHooks[T]{
-		js:            js,
-		lg:            lg,
-		parentCtx:     parentCtx,
-		ingressStream: ingressStream,
-	}
-	streamErr := natsutil.NewPersistentStream(js, ingressStream)
-	if streamErr != nil {
-		panic(streamErr)
-	}
-	consumerErr := res.SetDurableOrderedPushConsumer(durableOrderedConsumer)
-	if consumerErr != nil {
-		panic(consumerErr)
-	}
-	//sub, err := r.js.Subscribe
-	msgCh := make(chan *nats.Msg, 32)
-	sub, err := js.ChanSubscribe(ingressStream.Subjects[0], msgCh, nats.Bind(ingressStream.Name, durableOrderedConsumer.Durable))
-	if err != nil {
-		panic(err)
-	}
-	res.sub = sub
-	res.msgCh = msgCh
-	return res
-}
-
-func (r *AlertingStreamHooks[T]) GetIngressStream() string {
-	return r.ingressStream.Name
-}
-
-func (r *AlertingStreamHooks[T]) SetDurableOrderedPushConsumer(durableConsumer *nats.ConsumerConfig) error {
-	r.durableOrderedConsumer = durableConsumer
-	err := natsutil.NewDurableReplayConsumer(r.js, r.ingressStream.Name, durableConsumer)
-	return err
-}
-
-func (r *AlertingStreamHooks[T]) PublishLoop() {
-	t := time.NewTicker(time.Second * 10)
-	defer func(sub *nats.Subscription, t *time.Ticker) {
-		t.Stop()
-		err := sub.Unsubscribe()
-		if err != nil {
-			r.lg.Error(err)
-		}
-		r.lg.Debugf("exiting from publish loop for %s/%s", r.ingressStream.Name, r.durableOrderedConsumer.Name)
-	}(r.sub, t)
-	for {
-		select {
-		case <-r.parentCtx.Done():
-			return
-		case msg := <-r.msgCh:
-			var event T
-			err := json.Unmarshal(msg.Data, &event)
-			if err != nil {
-				r.lg.Errorf("failed to unmarshal event: %s", err)
-			}
-			r.HandleEvent(event)
-		case <-t.C:
-			info, _ := r.sub.ConsumerInfo()
-			r.lg.Debugf("max stream sequence delivered: %d\n", info.Delivered.Stream)
-			r.lg.Debugf("max consumer sequence delivered: %d\n", info.Delivered.Consumer)
-			r.lg.Debugf("num ack pending: %d\n", info.NumAckPending)
-			r.lg.Debugf("num redelivered: %d\n", info.NumRedelivered)
-		}
-	}
-}
-
-func (r *AlertingStreamHooks[T]) RegisterEvent(eventFilter func(T) bool, hooks ...func(context.Context, T) error) {
-	r.derivedStreams = append(r.derivedStreams, lo.Tuple2[func(T) bool, []func(context.Context, T) error]{A: eventFilter, B: hooks})
-}
-
-func (r *AlertingStreamHooks[T]) HandleEvent(event T) {
-	for _, stream := range r.derivedStreams {
-		for _, hook := range stream.B {
-			_ = hook(r.parentCtx, event)
-		}
-	}
-}
-
-func isClusterStatusWellFormed(status *corev1.ClusterHealthStatus) bool {
-	if status.HealthStatus == nil ||
-		status.HealthStatus.Status.Timestamp == nil ||
-		status.Cluster.Id == "" {
-		return false
-	}
-	return true
-}
-
-func (p *Plugin) agentDisconnectPublishHook(ctx context.Context, status *corev1.ClusterHealthStatus) error {
-	msg := &health.StatusUpdate{
-		ID:     status.Cluster.Id,
-		Status: status.HealthStatus.Status,
-	}
-	agentDisconnectData, err := json.Marshal(msg)
-	if err != nil {
-		p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
-	}
-	_, err = p.js.Get().PublishAsync(shared.NewAgentDisconnectSubject(status.Cluster.GetId()), agentDisconnectData)
-	if err != nil {
-		p.Logger.Errorf("failed to publish cluster health status update : %s", err)
-	}
-	return nil
-}
-
-func (p *Plugin) downstreamCapabilityPublishHook(ctx context.Context, status *corev1.ClusterHealthStatus) error {
-	healthStatusData, err := json.Marshal(status)
-	if err != nil {
-		p.Logger.Errorf("failed to marshal cluster health status update : %s", err)
-	}
-	_, err = p.js.Get().PublishAsync(shared.NewHealthStatusSubject(status.Cluster.GetId()), healthStatusData)
-	return err
-}
-
-// cluster watcher hooks
-func NewDefaultClusterWatcherHooks[T any](parentCtx context.Context) *ManagementWatcherHooks[T] {
+func NewDefaultClusterWatcherHooks[T proto.Message](parentCtx context.Context) *ManagementWatcherHooks[T] {
 	return &ManagementWatcherHooks[T]{
 		parentCtx: parentCtx,
 		cases:     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]{},
 	}
 }
 
-func (p *Plugin) newClusterStatusWatcherHooks(
-	ctx context.Context,
-	streamConfig *nats.StreamConfig,
-	durableConsumer *nats.ConsumerConfig,
-) *AlertingStreamHooks[*corev1.ClusterHealthStatus] {
-	csw := NewAlertingStreamHooks[*corev1.ClusterHealthStatus](
-		p.js.Get(),
-		ctx,
-		p.Logger.With("watcher", "global-status-health"),
-		streamConfig,
-		durableConsumer,
-	)
-	// register agent disconnect / downstream capability hook for durable consumer
-	csw.RegisterEvent(
-		isClusterStatusWellFormed,
-		func(ctx context.Context, event *corev1.ClusterHealthStatus) error {
-			return p.agentDisconnectPublishHook(ctx, event)
-		},
-		func(ctx context.Context, event *corev1.ClusterHealthStatus) error {
-			return p.downstreamCapabilityPublishHook(ctx, event)
-		},
-	)
-	return csw
-}
-
-// opni-alerting implementation of cluster management hooks
-func (p *Plugin) newClusterWatcherHooks(ctx context.Context) *ManagementWatcherHooks[*managementv1.WatchEvent] {
+func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *ManagementWatcherHooks[*managementv1.WatchEvent] {
+	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
+	if err != nil {
+		panic(err)
+	}
 	cw := NewDefaultClusterWatcherHooks[*managementv1.WatchEvent](ctx)
 	cw.RegisterEvent(
 		createClusterEvent,
+		func(ctx context.Context, event *managementv1.WatchEvent) error {
+			err := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, shared.NewAgentDurableReplayConsumer(event.Cluster.Id))
+			p.Logger.Info("added durable ordered push consumer for cluster %s", event.Cluster.Id)
+			if err != nil {
+				panic(err)
+			}
+			return nil
+
+		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			return p.createDefaultDisconnect(ctx, event.Cluster.Id)
 		},
@@ -278,11 +131,11 @@ type internalConditionContext struct {
 }
 
 type internalConditionStorage struct {
-	js            nats.JetStreamContext
-	stream        *nats.StreamConfig
-	streamSubject string
-	storageNode   *alertstorage.StorageNode
-	msgCh         chan *nats.Msg
+	js              nats.JetStreamContext
+	streamSubject   string
+	durableConsumer *nats.ConsumerConfig
+	storageNode     *alertstorage.StorageNode
+	msgCh           chan *nats.Msg
 }
 
 type internalConditionState struct {
@@ -291,13 +144,13 @@ type internalConditionState struct {
 	firingLock     sync.RWMutex
 }
 
-type internalConditionHooks[T any] struct {
+type internalConditionHooks[T proto.Message] struct {
 	healthOnMessage func(h T) (healthy bool, ts *timestamppb.Timestamp)
 	triggerHook     func(ctx context.Context, conditionId string, annotations map[string]string)
 	resolveHook     func(ctx context.Context, conditionId string, annotations map[string]string)
 }
 
-func NewInternalConditionEvaluator[T any](
+func NewInternalConditionEvaluator[T proto.Message](
 	metadata *internalConditionMetadata,
 	context *internalConditionContext,
 	storage *internalConditionStorage,
@@ -314,7 +167,7 @@ func NewInternalConditionEvaluator[T any](
 }
 
 // --------------------------------
-type InternalConditionEvaluator[T any] struct {
+type InternalConditionEvaluator[T proto.Message] struct {
 	*internalConditionMetadata
 	*internalConditionContext
 	*internalConditionStorage
@@ -325,21 +178,62 @@ type InternalConditionEvaluator[T any] struct {
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	defer c.cancelEvaluation()
-	for {
-		err := natsutil.NewPersistentStream(c.js, c.stream)
-		if err != nil {
-			c.lg.Errorf("alerting disconnect stream does not exist and cannot be created %s", err)
-			continue
+	//replay consumer if it exists
+	t := time.NewTicker(c.evaluateInterval)
+	defer t.Stop()
+	if c.durableConsumer != nil {
+		for {
+			shouldExit := false
+			select {
+			case <-c.evaluationCtx.Done():
+				return
+			case <-t.C:
+				subDurable, err := c.js.SubscribeSync(
+					c.durableConsumer.FilterSubject,
+					nats.Durable(c.durableConsumer.Durable))
+				if err != nil {
+					c.lg.Warnf("failed to subscribe to stream %s", err)
+					continue
+				}
+				msg, err := subDurable.NextMsgWithContext(c.evaluationCtx)
+				if err != nil {
+					c.lg.Warnf("failed to get next message from stream %s", err)
+					continue
+				}
+				if msg != nil {
+					c.lg.Debug("sending replay message %v", msg)
+					c.msgCh <- msg
+				}
+				subDurable.Unsubscribe()
+				shouldExit = true
+			}
+			if shouldExit {
+				break
+			}
 		}
-		msgCh := make(chan *nats.Msg, 32)
-		sub, err := c.js.ChanSubscribe(c.streamSubject, msgCh)
-		defer sub.Unsubscribe()
-		if err != nil {
-			c.lg.Errorf("failed  to subscribe to %s : %s", c.streamSubject, err)
-			continue
-		}
-		break
 	}
+	for {
+		shouldExit := false
+		select {
+		case <-c.evaluationCtx.Done():
+			return
+		case <-t.C:
+			subStream, err := c.js.ChanSubscribe(c.streamSubject, c.msgCh)
+			if err != nil {
+				c.lg.Warn("failed to subscribe to stream %s", err)
+				continue
+			}
+			defer subStream.Unsubscribe()
+			if err != nil {
+				continue
+			}
+			shouldExit = true
+		}
+		if shouldExit {
+			break
+		}
+	}
+	t.Stop()
 	for {
 		select {
 		case <-c.parentCtx.Done():
@@ -359,6 +253,7 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 				Timestamp: ts,
 			}
 			c.UpdateState(c.evaluationCtx, &incomingState)
+			msg.Ack()
 		}
 	}
 }
@@ -445,7 +340,7 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	incomingState := alertstorage.DefaultState()
 	if _, getErr := c.storageNode.GetIncidentTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
 		err := c.storageNode.CreateIncidentTracker(c.evaluationCtx, c.conditionId)
-		if err != nil { // TODO : mark this condition as manually invalid if this happens
+		if err != nil {
 			c.lg.Error(err)
 		}
 	} else if getErr != nil {
@@ -453,7 +348,6 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	}
 	if st, getErr := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
 		if err := c.storageNode.CreateConditionStatusTracker(c.evaluationCtx, c.conditionId, incomingState); err != nil {
-			// TODO : mark this condition as manually invalid when this happens
 			c.cancelEvaluation()
 			return
 		}

@@ -237,7 +237,6 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
 	lg := p.Logger.With("handler", "AlertConditionStatus")
-	lg.Debugf("Getting alert condition status %s", ref.Id)
 
 	cond, err := p.storageNode.GetCondition(ctx, ref.Id)
 	if err != nil {

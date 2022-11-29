@@ -29,7 +29,7 @@ const (
 	GeneralIncidentStorage             = "opni-alerting-general-incident-bucket"
 )
 
-func NewGlobalAgentClusterHealthStream() *nats.StreamConfig {
+func NewAgentStream() *nats.StreamConfig {
 	return &nats.StreamConfig{
 		Name:      AgentClusterHealthStatusStream,
 		Subjects:  []string{AgentClusterHealthStatusSubjects},
@@ -39,32 +39,23 @@ func NewGlobalAgentClusterHealthStream() *nats.StreamConfig {
 	}
 }
 
-func NewGlobalAgentClusterHealthDurableReplayConsumer() *nats.ConsumerConfig {
+func NewAgentDurableReplayConsumer(clusterId string) *nats.ConsumerConfig {
 	return &nats.ConsumerConfig{
-		Durable: AgentClusterHealthStatusDurableReplay,
-		//AckPolicy:      nats.AckExplicitPolicy,
-		ReplayPolicy: nats.ReplayOriginalPolicy,
+		Durable:        NewDurableAgentReplaySubject(clusterId),
+		DeliverSubject: NewDurableAgentReplaySubject(clusterId),
+		DeliverPolicy:  nats.DeliverNewPolicy,
+		FilterSubject:  NewAgentStreamSubject(clusterId),
+		AckPolicy:      nats.AckExplicitPolicy,
+		ReplayPolicy:   nats.ReplayInstantPolicy,
 	}
 }
 
-func NewAlertingDisconnectStream() *nats.StreamConfig {
-	return &nats.StreamConfig{
-		Name:      AgentDisconnectStream,
-		Subjects:  []string{AgentDisconnectStreamSubjects},
-		Retention: nats.LimitsPolicy,
-		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
-	}
+func NewDurableAgentReplaySubject(clusterId string) string {
+	return fmt.Sprintf("%s-%s", AgentClusterHealthStatusDurableReplay, clusterId)
 }
 
-func NewAlertingHealthStream() *nats.StreamConfig {
-	return &nats.StreamConfig{
-		Name:      AgentHealthStream,
-		Subjects:  []string{AgentHealthStreamSubjects},
-		Retention: nats.LimitsPolicy,
-		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB (allocation for all agents)
-	}
+func NewAgentStreamSubject(clusterId string) string {
+	return fmt.Sprintf("%s.%s", AgentClusterHealthStatusStream, clusterId)
 }
 
 func NewCortexStatusStream() *nats.StreamConfig {
@@ -79,12 +70,4 @@ func NewCortexStatusStream() *nats.StreamConfig {
 
 func NewCortexStatusSubject() string {
 	return fmt.Sprintf("%s.%s", CortexStatusStream, "cortex")
-}
-
-func NewAgentDisconnectSubject(agentId string) string {
-	return fmt.Sprintf("%s.%s", AgentDisconnectStream, agentId)
-}
-
-func NewHealthStatusSubject(clusterId string) string {
-	return fmt.Sprintf("%s.%s", AgentHealthStream, clusterId)
 }

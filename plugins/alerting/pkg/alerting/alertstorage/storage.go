@@ -446,9 +446,7 @@ func (s *StorageNode) OpenInterval(ctx context.Context, conditionId string, star
 				Start: start,
 				End:   nil,
 			})
-		} else {
-			panic("old interval should be closed")
-		}
+		} //else do nothing
 	}
 	data, err := json.Marshal(st)
 	if err != nil {
@@ -517,9 +515,6 @@ func (s *StorageNode) CloseInterval(ctx context.Context, conditionId string, end
 	}
 	if len(st.Values) == 0 {
 		panic("no intervals of any kind")
-	}
-	if st.Values[len(st.Values)-1].End != nil {
-		panic("last interval should not be closed")
 	}
 	st.Values[len(st.Values)-1].End = end
 	data, err := json.Marshal(st)

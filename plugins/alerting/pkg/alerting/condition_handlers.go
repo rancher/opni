@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
-	"github.com/rancher/opni/pkg/health"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
@@ -347,15 +347,17 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 			evaluateDuration: condition.GetTimeout().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:            p.js.Get(),
-			stream:        shared.NewAlertingDisconnectStream(),
-			streamSubject: shared.NewAgentDisconnectSubject(agentId),
-			storageNode:   p.storageNode,
+			js:              p.js.Get(),
+			durableConsumer: shared.NewAgentDurableReplayConsumer(agentId),
+			streamSubject:   shared.NewAgentStreamSubject(agentId),
+			storageNode:     p.storageNode,
+			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
-		&internalConditionHooks[health.StatusUpdate]{
-			healthOnMessage: func(h health.StatusUpdate) (health bool, ts *timestamppb.Timestamp) {
-				return h.Status.Connected, h.Status.Timestamp
+		&internalConditionHooks[*corev1.ClusterHealthStatus]{
+			healthOnMessage: func(h *corev1.ClusterHealthStatus) (health bool, ts *timestamppb.Timestamp) {
+				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
+				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
 				p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
@@ -363,7 +365,12 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 					Annotations: labels,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
 		},
 	)
 	// handles re-entrant conditions
@@ -402,15 +409,19 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:            p.js.Get(),
-			stream:        shared.NewAlertingHealthStream(),
-			streamSubject: shared.NewHealthStatusSubject(agentId),
-			storageNode:   p.storageNode,
+			js:              p.js.Get(),
+			durableConsumer: shared.NewAgentDurableReplayConsumer(agentId),
+			streamSubject:   shared.NewAgentStreamSubject(agentId),
+			storageNode:     p.storageNode,
+			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
 			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				healthy = true
+				if h.HealthStatus.Health == nil {
+					return false, h.HealthStatus.Status.Timestamp
+				}
 				lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
 				for _, s := range h.HealthStatus.Health.Conditions {
 					for _, badState := range condition.GetCapabilityState() {
@@ -429,7 +440,12 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					Annotations: labels,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
 		},
 	)
 	// handles re-entrant conditions
@@ -549,14 +565,16 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:            p.js.Get(),
-			stream:        shared.NewCortexStatusStream(),
-			streamSubject: shared.NewCortexStatusSubject(),
-			storageNode:   p.storageNode,
+			js:              p.js.Get(),
+			durableConsumer: nil,
+			streamSubject:   shared.NewCortexStatusSubject(),
+			storageNode:     p.storageNode,
+			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				lg.Debugf("received cortex status message : %v", h)
 				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
@@ -565,7 +583,12 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 					Annotations: labels,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
 		},
 	)
 	// handles re-entrant conditions

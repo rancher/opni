@@ -73,15 +73,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx)
-	agentClusterStatusReplay := p.newClusterStatusWatcherHooks(
-		p.Ctx,
-		shared.NewGlobalAgentClusterHealthStream(),
-		shared.NewGlobalAgentClusterHealthDurableReplayConsumer(),
-	)
+	cw := p.newClusterWatcherHooks(p.Ctx, shared.NewAgentStream())
 	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
 		func() { p.watchGlobalCluster(client, cw) },
-		func() { p.watchGlobalClusterHealthStatus(client, agentClusterStatusReplay) },
+		func() { p.watchGlobalClusterHealthStatus(client, shared.NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 
 	p.globalWatchers = NewSimpleInternalConditionWatcher(
@@ -155,7 +150,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 }
 
 func (p *Plugin) reindexAlarms() {
-	lg := p.Logger.With("re-indexing")
+	lg := p.Logger.With("re-indexing", "in-progress")
 	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
@@ -165,6 +160,7 @@ func (p *Plugin) reindexAlarms() {
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
 			// this checks that we won't crash when importing existing conditions from versions < 0.6
 			if s.GetClusterId() != nil && s.GetTimeout() != nil {
+				lg.Debug("re-indexing agent disconnect")
 				p.onSystemConditionCreate(id, conds[i].Name, s)
 			} else {
 				// delete invalid conditions that won't do anything
@@ -173,12 +169,14 @@ func (p *Plugin) reindexAlarms() {
 					lg.With("err", err).Error("failed to delete invalid condition")
 				}
 			}
-			if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
-				p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
-			}
-			if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
-				p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
-			}
+		}
+		if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
+			lg.Debug("re-indexing downstream capability")
+			p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
+		}
+		if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
+			lg.Debug("re-indexing monitoring backend")
+			p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
 		}
 	}
 	lg.Info("re-indexing alarms complete")

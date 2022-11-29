@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -121,11 +123,9 @@ func (p *Plugin) watchCortexClusterStatus() {
 			break
 		}
 	}
-	conn := p.natsConn.Get()
-	js, err := conn.JetStream()
+	err := natsutil.NewPersistentStream(p.js.Get(), shared.NewCortexStatusStream())
 	if err != nil {
-		p.Logger.Error("failed to acquire jetstream context for global health status stream, exiting...")
-		os.Exit(1)
+		panic(err)
 	}
 
 	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary
@@ -158,7 +158,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 				if err != nil {
 					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
 				}
-				_, err = js.PublishAsync(shared.NewCortexStatusSubject(), cortexStatusData)
+				_, err = p.js.Get().PublishAsync(shared.NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
 					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
 				}
@@ -192,7 +192,11 @@ func (p *Plugin) watchGlobalCluster(
 }
 
 // blocking
-func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient, alertingReplayStreamHooks *AlertingStreamHooks[*corev1.ClusterHealthStatus]) {
+func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient, ingressStream *nats.StreamConfig) {
+	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
+	if err != nil {
+		panic(err)
+	}
 	clusterStatusClient, err := client.WatchClusterHealthStatus(p.Ctx, &emptypb.Empty{})
 	if err != nil {
 		p.Logger.Error("failed to watch cluster health status, exiting...")
@@ -206,13 +210,19 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 	}
 	for _, cl := range cls.Items {
 		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
+		//make sure durable consumer is setup
+		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, shared.NewAgentDurableReplayConsumer(cl.GetId()))
+		if replayErr != nil {
+			panic(replayErr)
+		}
 		if err == nil {
 			clusterStatusData, err := json.Marshal(clusterStatus)
 			if err != nil {
 				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
 				continue
 			}
-			_, err = p.js.Get().PublishAsync(alertingReplayStreamHooks.GetIngressStream(), clusterStatusData)
+
+			_, err = p.js.Get().PublishAsync(ingressStream.Name, clusterStatusData)
 			if err != nil {
 				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}
@@ -235,12 +245,10 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
 				continue
 			}
-			_, err = p.js.Get().PublishAsync(alertingReplayStreamHooks.GetIngressStream(), clusterStatusData)
+			_, err = p.js.Get().PublishAsync(shared.NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
 			if err != nil {
 				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}
-			info, _ := p.js.Get().StreamInfo(alertingReplayStreamHooks.GetIngressStream())
-			p.Logger.Debugf("stream state %v\n", info.State)
 		}
 	}
 }

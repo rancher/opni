@@ -10,6 +10,7 @@ import (
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,17 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
 	}, nil
+}
+
+func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
+	jsonParameters, err := protojson.Marshal(in)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
+	}
+	bytesAggregation := []byte(jsonParameters)
+	p.kv.Get().Put("modelTrainingStatus", bytesAggregation)
+	return nil, nil
+
 }
 
 func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
@@ -77,8 +89,18 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
+	result, err := p.kv.Get().Get("modelTrainingStatus")
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
+	}
+	jsonRes := result.Value()
+	var resultsStorage = modeltraining.ModelTrainingStatistics{}
+	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %s", err)
+	}
 	return &modeltraining.ModelStatus{
-		Status: string(msg.Data),
+		Status:     string(msg.Data),
+		Statistics: &resultsStorage,
 	}, nil
 }
 

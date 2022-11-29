@@ -13,6 +13,12 @@ service ModelTraining {
       body: "*"
     };
   }
+  rpc PutModelTrainingStatus(ModelTrainingStatistics) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/model/statistics"
+      body: "*"
+    };
+  }
   rpc ClusterWorkloadAggregation(core.Reference) returns (WorkloadAggregationList) {
     option (google.api.http) = {
       get: "/workload_aggregation/{id}"
@@ -47,6 +53,7 @@ message GPUInfoList {
 
 message ModelStatus {
   string status = 1;
+  ModelTrainingStatistics statistics = 2;
 }
 
 message ModelTrainingResponse {
@@ -61,6 +68,15 @@ message ModelTrainingParameters {
 
 message ModelTrainingParametersList {
   repeated ModelTrainingParameters items = 1;
+}
+
+message ModelTrainingStatistics {
+  int64 timeElapsed = 1;
+  int64 percentageCompleted = 2;
+  int64 remainingTime = 3;
+  int64 currentEpoch = 4;
+  double modelAccuracy = 5;
+  string stage = 6;
 }
 
 message WorkloadAggregation {

@@ -23,7 +23,7 @@ func (s *JetStreamStore) CreateCluster(ctx context.Context, cluster *corev1.Clus
 	}
 	rev, err := s.kv.Clusters.Create(cluster.Id, data)
 	if err != nil {
-		if errIsKeyAlreadyExists(err) {
+		if errors.Is(err, nats.ErrKeyExists) {
 			return storage.ErrAlreadyExists
 		}
 		return fmt.Errorf("failed to create cluster: %w", err)

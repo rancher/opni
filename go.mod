@@ -69,7 +69,7 @@ require (
 	github.com/mattn/go-tty v0.0.4
 	github.com/mikefarah/yq/v4 v4.30.4
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/nats-io/nats.go v1.20.0
+	github.com/nats-io/nats.go v1.21.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
 	github.com/onsi/ginkgo/v2 v2.5.0

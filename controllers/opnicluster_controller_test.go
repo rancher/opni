@@ -46,10 +46,10 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller", "depreca
 
 		for _, kind := range []v1beta2.ServiceKind{
 			v1beta2.DrainService,
-			//v1beta2.InferenceService,
+			v1beta2.InferenceService,
 			v1beta2.PayloadReceiverService,
 			v1beta2.PreprocessingService,
-			//v1beta2.GPUControllerService,
+			v1beta2.GPUControllerService,
 			v1beta2.MetricsService,
 		} {
 			wg.Add(1)
@@ -88,32 +88,25 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller", "depreca
 		}
 		wg.Wait()
 
-		// By("checking the gpu service data mount exists")
-		// Eventually(Object(&appsv1.Deployment{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      v1beta2.GPUControllerService.ServiceName(),
-		// 		Namespace: cluster.Namespace,
-		// 	},
-		// })).Should(ExistAnd(
-		// 	HaveMatchingVolume(And(
-		// 		HaveName("data"),
-		// 		HaveVolumeSource("EmptyDir"),
-		// 	)),
-		// 	HaveMatchingContainer(And(
-		// 		HaveName(v1beta2.GPUControllerService.ServiceName()),
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "data",
-		// 			MountPath: "/var/opni-data",
-		// 		}),
-		// 	)),
-		// 	HaveMatchingContainer(And(
-		// 		HaveName("gpu-service-worker"),
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "data",
-		// 			MountPath: "/var/opni-data",
-		// 		}),
-		// 	)),
-		// ))
+		By("checking the gpu service data mount exists")
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta2.GPUControllerService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("data"),
+				HaveVolumeSource("EmptyDir"),
+			)),
+			HaveMatchingContainer(And(
+				HaveName("gpu-service-worker"),
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "data",
+					MountPath: "/var/opni-data",
+				}),
+			)),
+		))
 		By("checking that pretrained model services are not created yet")
 		// Identify pretrained model services with the label "opni.io/pretrained-model"
 		req, err := labels.NewRequirement(

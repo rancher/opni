@@ -11,7 +11,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	"github.com/rancher/opni/pkg/util/nats"
@@ -35,17 +34,18 @@ import (
 func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 	return []resources.Resource{
 		r.nulogHyperparameters,
-		//r.inferenceDeployment,
+		r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
-		//r.gpuCtrlDeployment,
+		r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
 		r.metricsServiceMonitor,
 		r.metricsPrometheusRule,
 		r.opensearchUpdateDeployment,
+		r.trainingControllerDeployment,
 	}, nil
 }
 
@@ -285,6 +285,73 @@ func (r *Reconciler) pretrainedModelDeployment(
 	}
 }
 
+func (r *Reconciler) workloadDrain() (resourceList []resources.Resource, retError error) {
+	resourceList = []resources.Resource{}
+	workloadDeployment, err := r.workloadDrainDeployment()
+	if err != nil {
+		return nil, err
+	}
+	resourceList = append(resourceList, workloadDeployment)
+	return resourceList, nil
+}
+
+func (r *Reconciler) workloadDrainDeployment() (resources.Resource, error) {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		labels := resources.CombineLabels(
+			r.serviceLabels(v1beta2.DrainService),
+		)
+		imageSpec := r.serviceImageSpec(v1beta2.DrainService)
+		lg, _ := logr.FromContext(r.ctx)
+		lg.V(1).Info("generating workload DRAIN deployment")
+		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+		s3EnvVars := r.s3EnvVars()
+		envVars = append(envVars, s3EnvVars...)
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  "FAIL_KEYWORDS",
+				Value: "fail,error,missing,unable",
+			})
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  "IS_PRETRAINED_SERVICE",
+				Value: "false",
+			})
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-workload-drain"),
+				Namespace: r.instanceNamespace,
+				Labels:    labels,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: labels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: labels,
+					},
+					Spec: corev1.PodSpec{
+						Volumes: volumes,
+						Containers: []corev1.Container{
+							{
+								Name:            "workload-drain-service",
+								Image:           imageSpec.GetImage(),
+								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+								VolumeMounts:    volumeMounts,
+								Env:             envVars,
+							},
+						},
+						Tolerations:  r.serviceTolerations(v1beta2.DrainService),
+						NodeSelector: r.serviceNodeSelector(v1beta2.DrainService),
+					},
+				},
+			},
+		}
+		r.setOwner(deployment)
+		return deployment, deploymentStateDisabled(r.spec.Services.Drain.Enabled), nil
+	}, nil
+}
+
 func maybeImagePullSecrets(instance interface{}) []corev1.LocalObjectReference {
 	switch model := instance.(type) {
 	case *v1beta2.PretrainedModel:
@@ -347,15 +414,15 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 	envVars = append(envVars, []corev1.EnvVar{
 		{
 			Name:  "MODEL_THRESHOLD",
-			Value: "0.5",
+			Value: "0.7",
 		},
 		{
 			Name:  "MIN_LOG_TOKENS",
-			Value: "5",
+			Value: "1",
 		},
 		{
-			Name:  "IS_GPU_SERVICE",
-			Value: "True",
+			Name:  "SERVICE_TYPE",
+			Value: "gpu",
 		},
 		{
 			Name:  "NVIDIA_VISIBLE_DEVICES",
@@ -622,6 +689,13 @@ func deploymentState(enabled *bool) reconciler.DesiredState {
 	return reconciler.StateAbsent
 }
 
+func deploymentStateDisabled(enabled *bool) reconciler.DesiredState {
+	if lo.FromPtrOr(enabled, false) {
+		return reconciler.StatePresent
+	}
+	return reconciler.StateAbsent
+}
+
 func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredState, error) {
 	var data map[string]intstr.IntOrString
 	if len(r.spec.NulogHyperparameters) > 0 {
@@ -653,18 +727,17 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 				Value: r.spec.S3.NulogS3Bucket,
 			})
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "SERVICE_TYPE",
+		Value: "cpu",
+	})
+
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.spec.Services.Inference.Enabled), nil
+	return deployment, deploymentStateDisabled(r.spec.Services.Inference.Enabled), nil
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.DrainService)
-	// temporary
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
-		corev1.EnvVar{
-			Name:  "FAIL_KEYWORDS",
-			Value: "fail,error,missing,unable",
-		})
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
 	if r.spec.S3.DrainS3Bucket != "" {
@@ -676,6 +749,13 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 	}
 	deployment.Spec.Replicas = r.spec.Services.Drain.Replicas
 	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
+}
+
+func (r *Reconciler) trainingControllerDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.TrainingControllerService)
+	s3EnvVars := r.s3EnvVars()
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
+	return deployment, deploymentStateDisabled(r.spec.Services.TrainingController.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
@@ -723,11 +803,9 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		MountPath: "/var/opni-data",
 	}
 	deployment.Spec.Template.Spec.RuntimeClassName = r.spec.Services.GPUController.RuntimeClass
-	if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) && r.spec.Services.GPUController.RuntimeClass == nil {
-		deployment.Spec.Template.Spec.RuntimeClassName = lo.ToPtr("nvidia")
-	}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
+	deployment.Spec.Template.Spec.Containers = deployment.Spec.Template.Spec.Containers[1:]
 
 	// TODO: workaround for clone3 seccomp issues - remove when fixed
 	for i, container := range deployment.Spec.Template.Spec.Containers {
@@ -743,7 +821,7 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.spec.Services.GPUController.Enabled), nil
+	return deployment, deploymentStateDisabled(r.spec.Services.GPUController.Enabled), nil
 }
 
 func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {

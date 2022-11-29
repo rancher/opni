@@ -163,17 +163,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
-	// GPU learning is currently unsupported but will be added back in soon
-	if lo.FromPtrOr(r.spec.Services.GPUController.Enabled, true) {
-		lg.Info("gpu learning is currently not supported, but will return in a later release")
-		if r.opniCluster != nil {
-			r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
-		}
-		if r.aiOpniCluster != nil {
-			r.recorder.Event(r.aiOpniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
-		}
-	}
-
 	if r.spec.Opensearch.ExternalOpensearch != nil {
 		r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
 		err := r.client.Get(r.ctx, r.spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
@@ -199,6 +188,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		lg.Error(err, "Error when reconciling pretrained models, will retry.")
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
+	}
+
+	workloadDrain, err := r.workloadDrain()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		conditions = append(conditions, err.Error())
+		lg.Error(err, "Error when reconciling workload drain, will retry.")
 	}
 
 	var es []resources.Resource
@@ -255,6 +251,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	allResources = append(allResources, s3...)
 	allResources = append(allResources, es...)
 	allResources = append(allResources, opniServices...)
+	allResources = append(allResources, workloadDrain...)
 	allResources = append(allResources, pretrained...)
 
 	for _, factory := range allResources {

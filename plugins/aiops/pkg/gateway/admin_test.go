@@ -93,6 +93,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should not create pretrained models", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -138,6 +141,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should create a control plane pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -200,6 +206,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should create a control plane pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -265,6 +274,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should create a rancher pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -327,6 +339,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should create a rancher pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -392,6 +407,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(false)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(false)))
 				})
 				It("should create a longhorn pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}
@@ -451,6 +469,9 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Internal: &aiv1beta1.InternalSpec{},
 					}))
 					Expect(cluster.Spec.Services.GPUController.Enabled).To(Equal(lo.ToPtr(true)))
+					Expect(cluster.Spec.Services.Inference.Enabled).To(Equal(lo.ToPtr(true)))
+					Expect(cluster.Spec.Services.TrainingController.Enabled).To(Equal(lo.ToPtr(true)))
+					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(true)))
 				})
 				Specify("get should return an equivalent settings object", func() {
 					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})

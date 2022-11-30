@@ -235,9 +235,9 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		}
 	}
 
-	version := "0.7.0"
+	version := s.version
 	if util.Version != "" && util.Version != "unversioned" {
-		version = strings.TrimPrefix(util.Version, "v")
+		version = util.Version
 	}
 
 	exists := true
@@ -273,9 +273,9 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 	}
 
 	if !exists {
-		opniCluster.Spec.Version = "v" + version
+		opniCluster.Spec.Version = "v" + strings.TrimPrefix(version, "v")
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
-		opniCluster.Spec.Services.GPUController = convertGPUSettings(settings.GpuSettings)
+		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
 
 		return &emptypb.Empty{}, s.k8sClient.Create(ctx, opniCluster)
 	}
@@ -286,7 +286,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 			return err
 		}
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
-		opniCluster.Spec.Services.GPUController = convertGPUSettings(settings.GpuSettings)
+		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
 		return s.k8sClient.Update(ctx, opniCluster)
 	})
 	return &emptypb.Empty{}, err
@@ -424,10 +424,6 @@ func updateModelSpec(modelType pretrainedModelType, modelRequest *admin.Pretrain
 	}
 }
 
-func gpuEnabled(opni *aiv1beta1.OpniCluster) bool {
-	return lo.FromPtrOr(opni.Spec.Services.GPUController.Enabled, true)
-}
-
 func modelObjectName(modelType pretrainedModelType) string {
 	return fmt.Sprintf("opni-model-%s", modelType)
 }
@@ -438,14 +434,15 @@ func modelEnabled(models []corev1.LocalObjectReference, modelType pretrainedMode
 	})
 }
 
-func convertGPUSettings(settings *admin.GPUSettings) aiv1beta1.GPUControllerServiceSpec {
-	return aiv1beta1.GPUControllerServiceSpec{
-		Enabled: lo.ToPtr(settings != nil),
-		RuntimeClass: func() *string {
-			if settings == nil {
-				return nil
-			}
-			return settings.RuntimeClass
-		}(),
-	}
+func gpuSettingsMutator(settings *admin.GPUSettings, cluster *aiv1beta1.OpniCluster) {
+	cluster.Spec.Services.GPUController.Enabled = lo.ToPtr(settings != nil)
+	cluster.Spec.Services.GPUController.RuntimeClass = func() *string {
+		if settings == nil {
+			return nil
+		}
+		return settings.RuntimeClass
+	}()
+	cluster.Spec.Services.TrainingController.Enabled = lo.ToPtr(settings != nil)
+	cluster.Spec.Services.Inference.Enabled = lo.ToPtr(settings != nil)
+	cluster.Spec.Services.Drain.Workload.Enabled = lo.ToPtr(settings != nil)
 }

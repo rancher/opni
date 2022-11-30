@@ -14,7 +14,7 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
-	github.com/banzaicloud/operator-tools v0.28.5
+	github.com/banzaicloud/operator-tools v0.28.8
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
@@ -139,7 +139,7 @@ require (
 	k8s.io/client-go v0.25.4
 	k8s.io/component-base v0.25.3
 	k8s.io/kubectl v0.25.3
-	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
+	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/controller-tools v0.8.1-0.20220428122951-32ad71090a62
@@ -488,8 +488,8 @@ require (
 	k8s.io/apiserver v0.25.0 // indirect
 	k8s.io/cri-api v0.23.1 // indirect
 	k8s.io/klog v1.0.0 // indirect
-	k8s.io/klog/v2 v2.80.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
+	k8s.io/klog/v2 v2.80.1 // indirect
+	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	oras.land/oras-go v1.2.0 // indirect
 	rsc.io/binaryregexp v0.2.0 // indirect
@@ -521,7 +521,7 @@ replace (
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	go.uber.org/zap => github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db
 	google.golang.org/protobuf => github.com/kralicky/protobuf-go v0.0.0-20221006220753-31c095bd9720
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221007053522-739447fc3dce
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221129201655-ff86f2e94249
 )
 
 // Cortex replacements

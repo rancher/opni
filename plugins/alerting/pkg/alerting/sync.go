@@ -63,6 +63,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 	}
 	var wg sync.WaitGroup
 	for i, id := range ids {
+		id := id //capture loop variable
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
 			if s.GetClusterId().Id == clusterId {
 				wg.Add(1)
@@ -138,6 +139,7 @@ func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId st
 	}
 	var wg sync.WaitGroup
 	for i, id := range ids {
+		id := id // capture loop variable
 		if dc := conds[i].GetAlertType().GetDownstreamCapability(); dc != nil {
 			if dc.ClusterId.Id == clusterId {
 				wg.Add(1)

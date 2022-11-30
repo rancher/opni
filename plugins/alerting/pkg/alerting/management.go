@@ -110,6 +110,10 @@ func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, o
 // blocking
 func (p *Plugin) watchCortexClusterStatus() {
 	lg := p.Logger.With("watcher", "cortex-cluster-status")
+	err := natsutil.NewPersistentStream(p.js.Get(), shared.NewCortexStatusStream())
+	if err != nil {
+		panic(err)
+	}
 	// acquire cortex client
 	var adminClient cortexadmin.CortexAdminClient
 	for {
@@ -122,10 +126,6 @@ func (p *Plugin) watchCortexClusterStatus() {
 			adminClient = acquiredClient
 			break
 		}
-	}
-	err := natsutil.NewPersistentStream(p.js.Get(), shared.NewCortexStatusStream())
-	if err != nil {
-		panic(err)
 	}
 
 	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary

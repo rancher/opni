@@ -545,7 +545,6 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 				}
 				addMu.Unlock()
 			}
-
 			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
 					Tenants: []string{r.Id},

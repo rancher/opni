@@ -195,6 +195,9 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	if e := req.Endpoint.GetEmail(); e != nil {
 		typeName = "email"
 	}
+	if pg := req.Endpoint.GetPagerDuty(); pg != nil {
+		typeName = "pagerduty"
+	}
 	if typeName == "" {
 		typeName = "unknown"
 	}

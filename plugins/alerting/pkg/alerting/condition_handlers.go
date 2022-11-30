@@ -620,6 +620,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				lg.Debug("resolve cortex status condition")
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
 					ConditionId: &corev1.Reference{Id: conditionId},
 					Annotations: labels,

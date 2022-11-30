@@ -481,6 +481,7 @@ func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
 		if window.End == nil {
 			window.End = end
 		}
+		res = append(res, window)
 
 	}
 	pruneIdx := 0

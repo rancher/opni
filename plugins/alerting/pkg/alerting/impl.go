@@ -181,37 +181,6 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	//replay consumer if it exists
 	t := time.NewTicker(c.evaluateInterval)
 	defer t.Stop()
-	if c.durableConsumer != nil {
-		for {
-			shouldExit := false
-			select {
-			case <-c.evaluationCtx.Done():
-				return
-			case <-t.C:
-				subDurable, err := c.js.SubscribeSync(
-					c.durableConsumer.FilterSubject,
-					nats.Durable(c.durableConsumer.Durable))
-				if err != nil {
-					c.lg.Warnf("failed to subscribe to stream %s", err)
-					continue
-				}
-				msg, err := subDurable.NextMsgWithContext(c.evaluationCtx)
-				if err != nil {
-					c.lg.Warnf("failed to get next message from stream %s", err)
-					continue
-				}
-				if msg != nil {
-					c.lg.Debug("sending replay message %v", msg)
-					c.msgCh <- msg
-				}
-				subDurable.Unsubscribe()
-				shouldExit = true
-			}
-			if shouldExit {
-				break
-			}
-		}
-	}
 	for {
 		shouldExit := false
 		select {

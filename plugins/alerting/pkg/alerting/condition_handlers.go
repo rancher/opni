@@ -463,7 +463,12 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 }
 
 func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+	if cStatus == nil {
+		return false, timestamppb.Now()
+	}
 	ts = cStatus.GetTs()
+	// helps track status errors to particular components, like having 3 expected replicas, but only 1-2 are running
+	memberReports := map[string]bool{}
 	for _, cmp := range componentsToTrack {
 		switch cmp {
 		case shared.CortexDistributor:
@@ -471,6 +476,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 				return false, ts
 			}
 			for _, svc := range cStatus.Distributor.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -479,7 +485,13 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Ingester == nil {
 				return false, ts
 			}
+			for _, member := range cStatus.Ingester.Memberlist.Members.Items {
+				if _, ok := memberReports[member.Name]; !ok {
+					memberReports[member.Name] = true
+				}
+			}
 			for _, svc := range cStatus.Ingester.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -488,7 +500,13 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Ruler == nil {
 				return false, ts
 			}
+			for _, member := range cStatus.Ruler.Memberlist.Members.Items {
+				if _, ok := memberReports[member.Name]; !ok {
+					memberReports[member.Name] = true
+				}
+			}
 			for _, svc := range cStatus.Ruler.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -498,6 +516,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 				return false, ts
 			}
 			for _, svc := range cStatus.Purger.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -506,7 +525,13 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Compactor == nil {
 				return false, ts
 			}
+			for _, member := range cStatus.Compactor.Memberlist.Members.Items {
+				if _, ok := memberReports[member.Name]; !ok {
+					memberReports[member.Name] = true
+				}
+			}
 			for _, svc := range cStatus.Compactor.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -516,6 +541,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 				return false, ts
 			}
 			for _, svc := range cStatus.StoreGateway.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -525,6 +551,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 				return false, ts
 			}
 			for _, svc := range cStatus.QueryFrontend.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
@@ -534,9 +561,18 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 				return false, ts
 			}
 			for _, svc := range cStatus.Querier.GetServices().GetServices() {
+				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
 				}
+			}
+		}
+	}
+	// on cortex-status error, if a specific component is not reported, we assume it is unhealthy
+	for _, component := range componentsToTrack {
+		for member, reportedOn := range memberReports {
+			if strings.Contains(member, component) && !reportedOn {
+				return false, ts
 			}
 		}
 	}

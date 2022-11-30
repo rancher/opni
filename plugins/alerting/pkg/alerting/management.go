@@ -143,14 +143,16 @@ func (p *Plugin) watchCortexClusterStatus() {
 						lg.Debugf("Cortex cluster status unavailable : not yet installed")
 						continue
 					case codes.Internal:
-						// status is so badly messed up assume nothing is working
+						if ccStatus == nil {
+							ccStatus = &cortexadmin.CortexStatus{}
+						}
+						// status is so badly messed up we can assume nothing is working
 						// mark all sub-statues as nil so they are always evaluated as unhealthy
+					case codes.Unknown: // this might be a blip, but mark this as unhealthy for everything
 						ccStatus = &cortexadmin.CortexStatus{}
-					case codes.Unknown:
 						lg.Warnf("Cortex cluster status unknown : %v", err)
 						continue
 					}
-
 				}
 			}
 			go func() {

@@ -152,14 +152,14 @@ type servicesStatusClient struct {
 func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexadmin.ServiceStatusList, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/services", c.url), nil)
 	if err != nil {
-		if errors.Is(err, syscall.ECONNREFUSED) {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		var e *net.DNSError // net.DNSError is not compatible with errors.Is
 		if errors.As(err, &e) {
 			return nil, status.Error(codes.Internal, err.Error()) // means configuration is unhealthy
@@ -195,14 +195,14 @@ type memberlistResponse struct {
 func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexadmin.MemberlistStatus, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/memberlist", c.url), nil)
 	if err != nil {
-		if errors.Is(err, syscall.ECONNREFUSED) {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		var e *net.DNSError // net.DNSError is not compatible with errors.Is
 		if errors.As(err, &e) {
 			return nil, status.Error(codes.Internal, err.Error()) //means configuration is unhealthy
@@ -258,14 +258,14 @@ type ringStatusClient struct {
 func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexadmin.RingStatus, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/ring", c.url), nil)
 	if err != nil {
-		if errors.Is(err, syscall.ECONNREFUSED) {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		var e *net.DNSError // net.DNSError is not compatible with errors.Is
 		if errors.As(err, &e) {
 			return nil, status.Error(codes.Internal, err.Error()) // means configuration is unhealthy

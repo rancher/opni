@@ -97,7 +97,7 @@ func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Em
 	}
 	jsonRes := result.Value()
 	var resultsStorage = modeltraining.ModelTrainingStatistics{}
-	if err := json.Unmarshal(jsonRes, &resultsStorage); err != nil {
+	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %s", err)
 	}
 	return &modeltraining.ModelStatus{

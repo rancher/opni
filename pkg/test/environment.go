@@ -266,7 +266,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableGateway:          true,
 		enableCortex:           true,
 		enableDisconnectServer: true,
-		enableRealtimeServer:   true,
+		enableRealtimeServer:   false,
 		agentIdSeed:            time.Now().UnixNano(),
 		defaultAgentVersion:    defaultAgentVersion(),
 		storageBackend:         defaultStorageBackend(),

@@ -168,7 +168,7 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 		By("checking hyperparameters config")
 		defaultHyperParameters, _ := json.MarshalIndent(map[string]intstr.IntOrString{
 			"modelThreshold": intstr.FromString("0.7"),
-			"minLogTokens":   intstr.FromInt(5),
+			"minLogTokens":   intstr.FromInt(1),
 		}, "", "  ")
 		Eventually(Object(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

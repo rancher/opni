@@ -636,8 +636,8 @@ github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116 h1:h
 github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116/go.mod h1:pzDiuRy1QgnVI8yq1e3d7WvuofNAzgj/c48IRNX2n38=
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2 h1:GPBUVhDuyLGWicbQ0FPVF1ZxCOI/0rJ7C3b64nN16oY=
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2/go.mod h1:ew+9wAV4nyz0ZKybKcM4cMosZwggyAkzU3BU/wZxHTA=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221129201655-ff86f2e94249 h1:Ts9p80ozZwsYxAxAAQp4hpwlnWMTZ1zTOdxw8Z/G3ZY=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221129201655-ff86f2e94249/go.mod h1:7+UV1t6oAdGcEHBH4tbRJfpSaaYWYYCLuJnOk0MEhtU=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221201014907-afe8889d0719 h1:ONFI6uCstUacZO3vCEiQBdpb6ResKSZ3Qoei3ZXICQ0=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221201014907-afe8889d0719/go.mod h1:7+UV1t6oAdGcEHBH4tbRJfpSaaYWYYCLuJnOk0MEhtU=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d h1:1iy2qD6JEhHKKhUOA9IWs7mjco7lnw2qx8FsRI2wirE=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d/go.mod h1:tmAIfUFEirG/Y8jhZ9M+h36obRZAk/1fcSpXwAVlfqE=
@@ -3483,7 +3483,6 @@ golang.org/x/sys v0.0.0-20220209214540-3681064d5158/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220328115105-d36c6a25d886/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220406163625-3f8b81556e12/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220412211240-33da011f77ad/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220422013727-9388b58f7150/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

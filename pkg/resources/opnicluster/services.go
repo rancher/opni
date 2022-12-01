@@ -703,7 +703,7 @@ func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredS
 	} else {
 		data = map[string]intstr.IntOrString{
 			"modelThreshold": intstr.FromString("0.7"),
-			"minLogTokens":   intstr.FromInt(5),
+			"minLogTokens":   intstr.FromInt(1),
 		}
 	}
 	cm, err := hyperparameters.GenerateHyperparametersConfigMap("nulog", r.instanceNamespace, data)

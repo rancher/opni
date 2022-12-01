@@ -51,6 +51,62 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  lastKnownConnectionDetails:
+                    properties:
+                      address:
+                        type: string
+                      agentBuildInfo:
+                        properties:
+                          deps:
+                            items:
+                              properties:
+                                path:
+                                  type: string
+                                replace: {}
+                                sum:
+                                  type: string
+                                version:
+                                  type: string
+                              type: object
+                            type: array
+                          goVersion:
+                            type: string
+                          main:
+                            properties:
+                              path:
+                                type: string
+                              replace: {}
+                              sum:
+                                type: string
+                              version:
+                                type: string
+                            type: object
+                          path:
+                            type: string
+                          settings:
+                            items:
+                              properties:
+                                key:
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                        type: object
+                      pluginVersions:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      time:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
                   resourceVersion:
                     type: string
                 type: object

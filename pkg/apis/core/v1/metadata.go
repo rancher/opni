@@ -1,6 +1,9 @@
 package v1
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type Capability[T any] interface {
 	Comparator[T]
@@ -80,4 +83,20 @@ func (c *Cluster) SetResourceVersion(version string) {
 		c.Metadata = &ClusterMetadata{}
 	}
 	c.Metadata.ResourceVersion = version
+}
+
+type lastKnownConnectionDetailsKeyType struct{}
+var lastKnownConnectionDetailsKey lastKnownConnectionDetailsKeyType
+
+func LastKnownConnectionDetailsFromContext(ctx context.Context) (*LastKnownConnectionDetails, bool) {
+	v := ctx.Value(lastKnownConnectionDetailsKey)
+	if v == nil {
+		return nil, false
+	}
+	details, ok := v.(*LastKnownConnectionDetails)
+	return details, ok
+}
+
+func NewContextWithLastKnownConnectionDetails(ctx context.Context, details *LastKnownConnectionDetails) context.Context {
+	return context.WithValue(ctx, lastKnownConnectionDetailsKey, details)
 }

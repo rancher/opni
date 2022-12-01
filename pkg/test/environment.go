@@ -481,6 +481,24 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	return nil
 }
 
+func (e *Environment) PutTestData(inputPath string, data []byte) string {
+	testPath := filepath.Join(e.tempDir, inputPath)
+	mkdir := filepath.Dir(testPath)
+	err := os.MkdirAll(mkdir, 0777)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(testPath, data, 0777)
+	if err != nil {
+		panic(err)
+	}
+	return testPath
+}
+
+func (e *Environment) GenerateNewTempDirectory(prefix string) string {
+	return e.tempDir + fmt.Sprintf("/%s-%s", prefix, uuid.New().String())
+}
+
 func (e *Environment) Context() context.Context {
 	return e.ctx
 }
@@ -957,7 +975,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 //
 // Returns port number of the server & a channel that shutdowns the server
 func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan struct{}) {
-	// lg := e.Logger
+	// lg := e.logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -1201,7 +1219,7 @@ func (e *Environment) simulateKubeObject(kPort int) {
 	}()
 }
 
-func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
+func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := TestData("root_ca.crt")
 	servingCertData := TestData("localhost.crt")
 	servingKeyData := TestData("localhost.key")
@@ -1224,6 +1242,15 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				CACertData:      caCertData,
 				ServingCertData: servingCertData,
 				ServingKeyData:  servingKeyData,
+			},
+			Plugins: v1beta1.PluginsSpec{
+				Cache: v1beta1.CacheSpec{
+					Backend:     v1beta1.CacheBackendFilesystem,
+					PatchEngine: v1beta1.PatchEngineBsdiff,
+					Filesystem: v1beta1.FilesystemCacheSpec{
+						Dir: e.tempDir + "/cache",
+					},
+				},
 			},
 			Cortex: v1beta1.CortexSpec{
 				Management: v1beta1.ClusterManagementSpec{
@@ -1363,7 +1390,7 @@ func (e *Environment) startGateway() {
 		e.Logger.Panic("gateway disabled")
 	}
 	lg := e.Logger
-	e.gatewayConfig = e.newGatewayConfig()
+	e.gatewayConfig = e.NewGatewayConfig()
 	pluginLoader := plugins.NewPluginLoader()
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{

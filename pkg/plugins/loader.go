@@ -51,7 +51,7 @@ type hook[T any] struct {
 }
 
 type PluginLoader struct {
-	logger *zap.SugaredLogger
+	PluginLoaderOptions
 
 	hooksMu        sync.RWMutex
 	pluginsMu      sync.RWMutex
@@ -61,10 +61,36 @@ type PluginLoader struct {
 	completed      *atomic.Bool
 }
 
-func NewPluginLoader() *PluginLoader {
+type PluginLoaderOptions struct {
+	logger *zap.SugaredLogger
+}
+
+type PluginLoaderOption func(*PluginLoaderOptions)
+
+func (o *PluginLoaderOptions) apply(opts ...PluginLoaderOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithLogger(lg *zap.SugaredLogger) PluginLoaderOption {
+	return func(o *PluginLoaderOptions) {
+		o.logger = lg
+	}
+}
+
+func NewPluginLoader(opts ...PluginLoaderOption) *PluginLoader {
+	options := PluginLoaderOptions{}
+	options.apply(opts...)
+	if options.logger == nil {
+		options.logger = logger.New().Named("pluginloader")
+	} else {
+		options.logger = options.logger.Named("pluginloader")
+	}
+
 	return &PluginLoader{
-		logger:    logger.New().Named("pluginloader"),
-		completed: atomic.NewBool(false),
+		PluginLoaderOptions: options,
+		completed:           atomic.NewBool(false),
 	}
 }
 
@@ -208,7 +234,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 		pluginPaths = append(pluginPaths, paths...)
 	}
 	for _, path := range lo.Uniq(pluginPaths) {
-		md, err := meta.ReadMetadata(path)
+		md, err := meta.ReadPath(path)
 		if err != nil {
 			p.logger.With(
 				zap.String("plugin", path),

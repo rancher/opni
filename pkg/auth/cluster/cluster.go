@@ -146,20 +146,20 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		nonce := uuid.New()
 		if err := ss.SendHeader(metadata.Pairs(ChallengeKey, nonce.String())); err != nil {
-			return grpc.Errorf(codes.Aborted, "failed to send challenge: %v", err)
+			return status.Errorf(codes.Aborted, "failed to send challenge: %v", err)
 		}
 		challengeResponse := &corev1.ChallengeResponse{}
 		select {
 		case <-ss.Context().Done():
 			return ss.Context().Err()
 		case <-time.After(1 * time.Second):
-			return grpc.Errorf(codes.DeadlineExceeded, "timed out waiting for challenge response")
+			return status.Errorf(codes.DeadlineExceeded, "timed out waiting for challenge response")
 		case err := <-lo.Async(func() error { return ss.RecvMsg(challengeResponse) }):
 			if err != nil {
-				return grpc.Errorf(codes.Aborted, "error receiving challenge response: %v", err)
+				return status.Errorf(codes.Aborted, "error receiving challenge response: %v", err)
 			}
 			if len(challengeResponse.ProtoReflect().GetUnknown()) > 0 {
-				err := grpc.Errorf(codes.InvalidArgument, "expected challenge response, but received incorrect message data (agent possibly incompatible or misconfigured)")
+				err := status.Errorf(codes.InvalidArgument, "expected challenge response, but received incorrect message data (agent possibly incompatible or misconfigured)")
 				m.logger.With(
 					zap.Error(err),
 					"challengeResponse", fmt.Sprintf("[redacted (len: %d)]", len(challengeResponse.GetAuthorization())),
@@ -168,7 +168,7 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 				return err
 			}
 			if challengeResponse.GetAuthorization() == "" {
-				return grpc.Errorf(codes.InvalidArgument, "empty challenge response received")
+				return status.Errorf(codes.InvalidArgument, "empty challenge response received")
 			}
 		}
 
@@ -178,7 +178,7 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 		}
 
 		ctx := context.WithValue(ss.Context(), SharedKeysKey, sharedKeys)
-		ctx = context.WithValue(ctx, ClusterIDKey, string(clusterID))
+		ctx = context.WithValue(ctx, ClusterIDKey, clusterID)
 
 		return handler(srv, &util.ServerStreamWithContext{
 			Stream: ss,

@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-contrib/pprof"
@@ -72,10 +73,17 @@ func NewHTTPServer(
 		},
 	)
 
+	var healthz atomic.Int32
+	healthz.Store(http.StatusServiceUnavailable)
+
 	metricsRouter := gin.New()
 	metricsRouter.GET("/healthz", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+		c.Status(int(healthz.Load()))
 	})
+
+	pl.Hook(hooks.OnLoadingCompleted(func(i int) {
+		healthz.Store(http.StatusOK)
+	}))
 
 	if cfg.Profiling.Path != "" {
 		pprof.Register(metricsRouter, cfg.Profiling.Path)

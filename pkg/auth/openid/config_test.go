@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/openid"
 )
 
-var _ = Describe("Config", Ordered, Label("unit"), func() {
+var _ = Describe("config", Ordered, Label("unit"), func() {
 	It("should properly check required fields", func() {
 		cfg := openid.WellKnownConfiguration{}
 		Expect(cfg.CheckRequiredFields()).To(MatchError(openid.ErrMissingRequiredField))

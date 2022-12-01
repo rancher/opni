@@ -26,7 +26,7 @@ package v2_test
 //			shared.PluginPathTemplate = template.Must(
 //				template.New("").Parse(dirRoot + "bin/plugins/plugin_{{.MatchExpr}}"))
 //			a := &v2.Agent{
-//				Logger: logger.NewPluginLogger().Named("agentv2"),
+//				logger: logger.NewPluginLogger().Named("agentv2"),
 //			}
 //			res, err := a.GetPluginManifests(ctx, &emptypb.Empty{})
 //			Expect(err).To(Succeed())
@@ -116,7 +116,7 @@ package v2_test
 //}
 //`))
 //			a := &v2.Agent{
-//				Logger: logger.NewPluginLogger().Named("agentv2"),
+//				logger: logger.NewPluginLogger().Named("agentv2"),
 //			}
 //			gatewayPluginDir := "/tmp/testbin/plugins/gateway/"
 //			err := os.RemoveAll(gatewayPluginDir)

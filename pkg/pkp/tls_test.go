@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 )
 
-var _ = Describe("TLS Config", Label("unit"), func() {
+var _ = Describe("TLS config", Label("unit"), func() {
 	When("creating a tls config with no pins", func() {
 		It("should error", func() {
 			conf, err := pkp.TLSConfig([]*pkp.PublicKeyPin{})

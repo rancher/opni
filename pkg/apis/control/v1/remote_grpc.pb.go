@@ -192,158 +192,122 @@ var HealthListener_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
 
-// PluginManifestClient is the client API for PluginManifest service.
+// PluginSyncClient is the client API for PluginSync service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PluginManifestClient interface {
-	SendManifestsOrKnownPatch(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*ManifestList, error)
-	GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error)
-	UploadPatch(ctx context.Context, in *PatchSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type PluginSyncClient interface {
+	SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*PluginArchive, error)
+	GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginManifest, error)
 }
 
-type pluginManifestClient struct {
+type pluginSyncClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewPluginManifestClient(cc grpc.ClientConnInterface) PluginManifestClient {
-	return &pluginManifestClient{cc}
+func NewPluginSyncClient(cc grpc.ClientConnInterface) PluginSyncClient {
+	return &pluginSyncClient{cc}
 }
 
-func (c *pluginManifestClient) SendManifestsOrKnownPatch(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*ManifestList, error) {
-	out := new(ManifestList)
-	err := c.cc.Invoke(ctx, "/control.PluginManifest/SendManifestsOrKnownPatch", in, out, opts...)
+func (c *pluginSyncClient) SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*PluginArchive, error) {
+	out := new(PluginArchive)
+	err := c.cc.Invoke(ctx, "/control.PluginSync/SyncPluginManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *pluginManifestClient) GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error) {
-	out := new(ManifestMetadataList)
-	err := c.cc.Invoke(ctx, "/control.PluginManifest/GetPluginManifests", in, out, opts...)
+func (c *pluginSyncClient) GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginManifest, error) {
+	out := new(PluginManifest)
+	err := c.cc.Invoke(ctx, "/control.PluginSync/GetPluginManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *pluginManifestClient) UploadPatch(ctx context.Context, in *PatchSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/control.PluginManifest/UploadPatch", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// PluginManifestServer is the server API for PluginManifest service.
-// All implementations must embed UnimplementedPluginManifestServer
+// PluginSyncServer is the server API for PluginSync service.
+// All implementations must embed UnimplementedPluginSyncServer
 // for forward compatibility
-type PluginManifestServer interface {
-	SendManifestsOrKnownPatch(context.Context, *ManifestMetadataList) (*ManifestList, error)
-	GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error)
-	UploadPatch(context.Context, *PatchSpec) (*emptypb.Empty, error)
-	mustEmbedUnimplementedPluginManifestServer()
+type PluginSyncServer interface {
+	SyncPluginManifest(context.Context, *PluginManifest) (*PluginArchive, error)
+	GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error)
+	mustEmbedUnimplementedPluginSyncServer()
 }
 
-// UnimplementedPluginManifestServer must be embedded to have forward compatible implementations.
-type UnimplementedPluginManifestServer struct {
+// UnimplementedPluginSyncServer must be embedded to have forward compatible implementations.
+type UnimplementedPluginSyncServer struct {
 }
 
-func (UnimplementedPluginManifestServer) SendManifestsOrKnownPatch(context.Context, *ManifestMetadataList) (*ManifestList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendManifestsOrKnownPatch not implemented")
+func (UnimplementedPluginSyncServer) SyncPluginManifest(context.Context, *PluginManifest) (*PluginArchive, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncPluginManifest not implemented")
 }
-func (UnimplementedPluginManifestServer) GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifests not implemented")
+func (UnimplementedPluginSyncServer) GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifest not implemented")
 }
-func (UnimplementedPluginManifestServer) UploadPatch(context.Context, *PatchSpec) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadPatch not implemented")
-}
-func (UnimplementedPluginManifestServer) mustEmbedUnimplementedPluginManifestServer() {}
+func (UnimplementedPluginSyncServer) mustEmbedUnimplementedPluginSyncServer() {}
 
-// UnsafePluginManifestServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PluginManifestServer will
+// UnsafePluginSyncServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PluginSyncServer will
 // result in compilation errors.
-type UnsafePluginManifestServer interface {
-	mustEmbedUnimplementedPluginManifestServer()
+type UnsafePluginSyncServer interface {
+	mustEmbedUnimplementedPluginSyncServer()
 }
 
-func RegisterPluginManifestServer(s grpc.ServiceRegistrar, srv PluginManifestServer) {
-	s.RegisterService(&PluginManifest_ServiceDesc, srv)
+func RegisterPluginSyncServer(s grpc.ServiceRegistrar, srv PluginSyncServer) {
+	s.RegisterService(&PluginSync_ServiceDesc, srv)
 }
 
-func _PluginManifest_SendManifestsOrKnownPatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ManifestMetadataList)
+func _PluginSync_SyncPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PluginManifest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginManifestServer).SendManifestsOrKnownPatch(ctx, in)
+		return srv.(PluginSyncServer).SyncPluginManifest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/control.PluginManifest/SendManifestsOrKnownPatch",
+		FullMethod: "/control.PluginSync/SyncPluginManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginManifestServer).SendManifestsOrKnownPatch(ctx, req.(*ManifestMetadataList))
+		return srv.(PluginSyncServer).SyncPluginManifest(ctx, req.(*PluginManifest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PluginManifest_GetPluginManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PluginSync_GetPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginManifestServer).GetPluginManifests(ctx, in)
+		return srv.(PluginSyncServer).GetPluginManifest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/control.PluginManifest/GetPluginManifests",
+		FullMethod: "/control.PluginSync/GetPluginManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginManifestServer).GetPluginManifests(ctx, req.(*emptypb.Empty))
+		return srv.(PluginSyncServer).GetPluginManifest(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PluginManifest_UploadPatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PatchSpec)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PluginManifestServer).UploadPatch(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/control.PluginManifest/UploadPatch",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginManifestServer).UploadPatch(ctx, req.(*PatchSpec))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// PluginManifest_ServiceDesc is the grpc.ServiceDesc for PluginManifest service.
+// PluginSync_ServiceDesc is the grpc.ServiceDesc for PluginSync service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var PluginManifest_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "control.PluginManifest",
-	HandlerType: (*PluginManifestServer)(nil),
+var PluginSync_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.PluginSync",
+	HandlerType: (*PluginSyncServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SendManifestsOrKnownPatch",
-			Handler:    _PluginManifest_SendManifestsOrKnownPatch_Handler,
+			MethodName: "SyncPluginManifest",
+			Handler:    _PluginSync_SyncPluginManifest_Handler,
 		},
 		{
-			MethodName: "GetPluginManifests",
-			Handler:    _PluginManifest_GetPluginManifests_Handler,
-		},
-		{
-			MethodName: "UploadPatch",
-			Handler:    _PluginManifest_UploadPatch_Handler,
+			MethodName: "GetPluginManifest",
+			Handler:    _PluginSync_GetPluginManifest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

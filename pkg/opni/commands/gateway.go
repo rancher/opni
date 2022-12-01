@@ -84,7 +84,9 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 		)
 		if !found {
-			lg.Fatal("config file does not contain a GatewayConfig object")
+			lg.With(
+				zap.String("config", configLocation),
+			).Fatal("config file does not contain a GatewayConfig object")
 		}
 
 		lg.With(

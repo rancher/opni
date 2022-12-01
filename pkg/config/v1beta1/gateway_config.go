@@ -197,9 +197,35 @@ type CertsSpec struct {
 	ServingKeyData []byte `json:"servingKeyData,omitempty"`
 }
 
+type (
+	CacheBackend string
+	PatchEngine  string
+)
+
+const (
+	CacheBackendFilesystem CacheBackend = "filesystem"
+)
+
+const (
+	PatchEngineBsdiff PatchEngine = "bsdiff"
+)
+
 type PluginsSpec struct {
 	// Directories to look for plugins in
 	Dirs []string `json:"dirs,omitempty"`
+	// Options for caching plugins
+	Cache CacheSpec `json:"cache,omitempty"`
+}
+
+type CacheSpec struct {
+	PatchEngine PatchEngine `json:"patchEngine,omitempty"`
+
+	Backend    CacheBackend        `json:"backend,omitempty"`
+	Filesystem FilesystemCacheSpec `json:"filesystem,omitempty"`
+}
+
+type FilesystemCacheSpec struct {
+	Dir string `json:"dir,omitempty"`
 }
 
 func (s *GatewayConfigSpec) SetDefaults() {

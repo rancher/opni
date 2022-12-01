@@ -31,7 +31,7 @@ func (s ConditionStatus) String() string {
 }
 
 const (
-	CondConfigSync = "Config Sync"
+	CondConfigSync = "config Sync"
 	CondBackend    = "Backend"
 )
 

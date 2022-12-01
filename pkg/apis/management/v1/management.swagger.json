@@ -1232,6 +1232,43 @@
         }
       }
     },
+    "coreBuildInfo": {
+      "type": "object",
+      "properties": {
+        "goVersion": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "main": {
+          "$ref": "#/definitions/coreModule"
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreModule"
+          }
+        },
+        "settings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreBuildSetting"
+          }
+        }
+      }
+    },
+    "coreBuildSetting": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
     "coreCertInfo": {
       "type": "object",
       "properties": {
@@ -1322,6 +1359,9 @@
         "resourceVersion": {
           "type": "string",
           "title": "read-only"
+        },
+        "lastKnownConnectionDetails": {
+          "$ref": "#/definitions/coreLastKnownConnectionDetails"
         }
       }
     },
@@ -1394,6 +1434,28 @@
         }
       }
     },
+    "coreLastKnownConnectionDetails": {
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "address": {
+          "type": "string"
+        },
+        "agentBuildInfo": {
+          "$ref": "#/definitions/coreBuildInfo"
+        },
+        "pluginVersions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "plugin package id -\u003e hash"
+        }
+      }
+    },
     "coreLogEntry": {
       "type": "object",
       "properties": {
@@ -1418,6 +1480,23 @@
         "EmptySelectorMatchesNone"
       ],
       "default": "Default"
+    },
+    "coreModule": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "sum": {
+          "type": "string"
+        },
+        "replace": {
+          "$ref": "#/definitions/coreModule"
+        }
+      }
     },
     "coreProgress": {
       "type": "object",

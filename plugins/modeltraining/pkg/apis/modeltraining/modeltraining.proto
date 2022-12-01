@@ -75,6 +75,7 @@ message ModelTrainingStatistics {
   int64 percentageCompleted = 2;
   int64 remainingTime = 3;
   int64 currentEpoch = 4;
+  double modelAccuracy = 5;
 }
 
 message WorkloadAggregation {

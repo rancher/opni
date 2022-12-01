@@ -47,7 +47,12 @@ const AgentDisconnectStorageType = "agent-disconnect"
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
 const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
+
+// labels
 const BackendConditionIdLabel = "conditionId"
+const BackendConditionNameLabel = "opniname"
+const BackendConditionClusterIdLabel = "clusterId"
+const BackendConditionSeverityLabel = "severity"
 
 const (
 	AlertingV1Alpha      = "v1alpha"

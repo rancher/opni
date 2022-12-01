@@ -337,7 +337,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          agentId,
-			alertmanagerlabels: map[string]string{},
+			alertmanagerlabels: condition.GetTriggerAnnotations(),
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,
@@ -399,7 +399,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          agentId,
-			alertmanagerlabels: map[string]string{},
+			alertmanagerlabels: condition.GetTriggerAnnotations(),
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,
@@ -591,7 +591,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          "", // unused here
-			alertmanagerlabels: map[string]string{},
+			alertmanagerlabels: condition.GetTriggerAnnotations(),
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,

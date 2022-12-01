@@ -2,6 +2,7 @@ package v1
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -229,4 +230,54 @@ func (a *AlertCondition) SetClusterId(clusterId *corev1.Reference) error {
 		return nil
 	}
 	return shared.WithInternalServerErrorf("AlertCondition could not find its clusterId")
+}
+
+func mergeLabels(ms ...map[string]string) map[string]string {
+	res := map[string]string{}
+	for _, m := range ms {
+		for k, v := range m {
+			res[k] = v
+		}
+	}
+	return res
+}
+
+func (a *AlertCondition) GetTriggerAnnotations(conditionId string) map[string]string {
+	res := map[string]string{}
+	res[shared.BackendConditionSeverityLabel] = a.GetSeverity().String()
+	res[shared.BackendConditionNameLabel] = a.GetName()
+	res[shared.BackendConditionIdLabel] = conditionId
+	res[shared.BackendConditionClusterIdLabel] = a.GetClusterId().Id
+	if a.GetAlertType().GetSystem() != nil {
+		res = mergeLabels(res, a.GetAlertType().GetSystem().GetTriggerAnnotations())
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		res = mergeLabels(res, a.GetAlertType().GetDownstreamCapability().GetTriggerAnnotations())
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		res = mergeLabels(res, a.GetAlertType().GetMonitoringBackend().GetTriggerAnnotations())
+	}
+
+	// prometheus query won't have specific template args
+	return res
+}
+
+func (a *AlertConditionSystem) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"disconnectTimeout": a.GetTimeout().String(),
+	}
+}
+
+func (a *AlertConditionDownstreamCapability) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"capabilitiesTracked": strings.Join(a.GetCapabilityState(), ","),
+		"unhealthyThreshold":  a.GetFor().String(),
+	}
+}
+
+func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
+		"unhealthyThreshold": a.GetFor().String(),
+	}
 }

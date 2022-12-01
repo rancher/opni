@@ -702,7 +702,7 @@ func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredS
 		data = r.spec.NulogHyperparameters
 	} else {
 		data = map[string]intstr.IntOrString{
-			"modelThreshold": intstr.FromString("0.5"),
+			"modelThreshold": intstr.FromString("0.7"),
 			"minLogTokens":   intstr.FromInt(5),
 		}
 	}

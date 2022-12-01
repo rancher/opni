@@ -6,15 +6,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
+
+const currentTrainingJobKey = "modeltraining.current.job"
 
 func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
@@ -36,12 +40,28 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to train model: %v", err)
 	}
+	uuid := uuid.New()
+	_, err = c.kv.Get().Put(currentTrainingJobKey, []byte(uuid.String()))
+	if err != nil {
+		c.Logger.Warnf("Failed to update current training job key %s", err)
+	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
 	}, nil
 }
 
 func (c *ModelTrainingPlugin) PostModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*modeltraining.ModelTrainingResponse, error) {
+	if in.GetLastReportedUpdate() == nil {
+		in.LastReportedUpdate = timestamppb.Now()
+	}
+	if in.Uuid == "" {
+		curUuid, err := c.kv.Get().Get(currentTrainingJobKey)
+		if err == nil {
+			in.Uuid = string(curUuid.Value())
+		} else {
+			in.Uuid = "undefined"
+		}
+	}
 	jsonParameters, err := protojson.Marshal(in)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
@@ -91,13 +111,13 @@ func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Em
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
-	result, err := c.kv.Get().Get("modelTrainingStatus")
+	trainingStats, err := c.kv.Get().Get("modelTrainingStatus")
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
 	}
-	jsonRes := result.Value()
+	trainingStatsBytes := trainingStats.Value()
 	var resultsStorage = modeltraining.ModelTrainingStatistics{}
-	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
+	if err := protojson.Unmarshal(trainingStatsBytes, &resultsStorage); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %s", err)
 	}
 	return &modeltraining.ModelStatus{

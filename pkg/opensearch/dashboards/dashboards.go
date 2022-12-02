@@ -1,4 +1,4 @@
-package kibana
+package dashboards
 
 import (
 	"bytes"
@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	headerContentType        = "Content-Type"
-	kibanaCrossHeaderType    = "osd-xsrf"
-	securityTenantHeaderType = "securitytenant"
+	headerContentType         = "Content-Type"
+	dashboardsCrossHeaderType = "osd-xsrf"
+	securityTenantHeaderType  = "securitytenant"
 )
 
 type Client struct {
@@ -91,7 +91,7 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 	}
 
 	req.Header.Add(headerContentType, writer.FormDataContentType())
-	req.Header.Add(kibanaCrossHeaderType, "true")
+	req.Header.Add(dashboardsCrossHeaderType, "true")
 	req.Header.Add(securityTenantHeaderType, "global")
 
 	password, set := c.url.User.Password()
@@ -109,5 +109,4 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 	}
 
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
-
 }

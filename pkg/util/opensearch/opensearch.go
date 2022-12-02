@@ -15,7 +15,7 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	"github.com/rancher/opni/pkg/util/kibana"
+	"github.com/rancher/opni/pkg/opensearch/dashboards"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -36,7 +36,7 @@ const (
 
 type Reconciler struct {
 	osClient     ExtendedClient
-	kibanaClient *kibana.Client
+	kibanaClient *dashboards.Client
 	ctx          context.Context
 }
 
@@ -67,13 +67,13 @@ func NewReconciler(
 		UseResponseCheckOnly: true,
 		Transport:            transport,
 	}
-	kbCfg := kibana.Config{
+	kbCfg := dashboards.Config{
 		URL:       fmt.Sprintf("https://%s.%s:5601", kbServiceName, namespace),
 		Username:  username,
 		Password:  password,
 		Transport: transport,
 	}
-	kbClient, _ := kibana.NewClient(kbCfg)
+	kbClient, _ := dashboards.NewClient(kbCfg)
 	esClient, _ := opensearch.NewClient(esCfg)
 	esExtendedclient := ExtendedClient{
 		Client:   esClient,
@@ -98,13 +98,13 @@ func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace stri
 		UseResponseCheckOnly: true,
 		Transport:            transport,
 	}
-	kbCfg := kibana.Config{
+	kbCfg := dashboards.Config{
 		URL:       fmt.Sprintf("http://opni-es-kibana.%s:5601", namespace),
 		Username:  "admin",
 		Password:  "admin",
 		Transport: transport,
 	}
-	kbClient, _ := kibana.NewClient(kbCfg)
+	kbClient, _ := dashboards.NewClient(kbCfg)
 	esClient, _ := opensearch.NewClient(esCfg)
 	esExtendedclient := ExtendedClient{
 		Client:   esClient,

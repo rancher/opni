@@ -1,22 +1,19 @@
-package opensearch
+package reconciler
 
-// TODO move opensearch out of util
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 
-	"github.com/opensearch-project/opensearch-go"
-	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/opensearch/dashboards"
-	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/rancher/opni/pkg/opensearch/opensearch"
+	"github.com/rancher/opni/pkg/opensearch/opensearch/api"
+	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -24,106 +21,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	headerContentType        = "Content-Type"
-	kibanaCrossHeaderType    = "kbn-xsrf"
-	securityTenantHeaderType = "securitytenant"
-
-	jsonContentHeader = "application/json"
-
-	ISMChangeVersion = "1.1.0"
-)
-
 type Reconciler struct {
-	osClient     ExtendedClient
-	kibanaClient *dashboards.Client
-	ctx          context.Context
-}
-
-type ExtendedClient struct {
-	*opensearch.Client
-	ISM      *ISMApi
-	Security *SecurityAPI
+	osClient         *opensearch.Client
+	dashboardsClient *dashboards.Client
+	ctx              context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
 	namespace string,
-	username string,
 	password string,
+	username string,
+	certReader certs.OpensearchCertReader,
 	osServiceName string,
 	kbServiceName string,
-) *Reconciler {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	esCfg := opensearch.Config{
-		Addresses: []string{
+) (*Reconciler, error) {
+	oscfg := opensearch.ClientConfig{
+		URLs: []string{
 			fmt.Sprintf("https://%s.%s:9200", osServiceName, namespace),
 		},
-		Username:             username,
-		Password:             password,
-		UseResponseCheckOnly: true,
-		Transport:            transport,
+		Username:   username,
+		CertReader: certReader,
 	}
-	kbCfg := dashboards.Config{
+	osClient, err := opensearch.NewClient(oscfg)
+	if err != nil {
+		return nil, err
+	}
+
+	dashboardscfg := dashboards.Config{
 		URL:      fmt.Sprintf("https://%s.%s:5601", kbServiceName, namespace),
 		Username: username,
 		Password: password,
 	}
-	kbClient, _ := dashboards.NewClient(kbCfg)
-	esClient, _ := opensearch.NewClient(esCfg)
-	esExtendedclient := ExtendedClient{
-		Client:   esClient,
-		ISM:      &ISMApi{Client: esClient},
-		Security: &SecurityAPI{Client: esClient},
+	dashboardsClient, err := dashboards.NewClient(dashboardscfg)
+	if err != nil {
+		return nil, err
 	}
-	return &Reconciler{
-		osClient:     esExtendedclient,
-		kibanaClient: kbClient,
-		ctx:          ctx,
-	}
-}
 
-// TODO Refactor into options function
-func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace string, transport http.RoundTripper) *Reconciler {
-	esCfg := opensearch.Config{
-		Addresses: []string{
-			fmt.Sprintf("https://opni-es-client.%s:9200", namespace),
-		},
-		Username:             "admin",
-		Password:             "admin",
-		UseResponseCheckOnly: true,
-		Transport:            transport,
-	}
-	kbCfg := dashboards.Config{
-		URL:      fmt.Sprintf("http://opni-es-kibana.%s:5601", namespace),
-		Username: "admin",
-		Password: "admin",
-	}
-	kbClient, _ := dashboards.NewClient(kbCfg)
-	esClient, _ := opensearch.NewClient(esCfg)
-	esExtendedclient := ExtendedClient{
-		Client:   esClient,
-		ISM:      &ISMApi{Client: esClient},
-		Security: &SecurityAPI{Client: esClient},
-	}
 	return &Reconciler{
-		osClient:     esExtendedclient,
-		kibanaClient: kbClient,
-		ctx:          ctx,
-	}
+		osClient:         osClient,
+		dashboardsClient: dashboardsClient,
+		ctx:              ctx,
+	}, nil
 }
 
 func (r *Reconciler) indexExists(name string) (bool, error) {
-	req := opensearchapi.CatIndicesRequest{
-		Index: []string{
-			name,
-		},
-		Format: "json",
-	}
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.CatIndices(r.ctx, []string{name})
 	if err != nil {
 		return false, err
 	}
@@ -137,14 +80,10 @@ func (r *Reconciler) indexExists(name string) (bool, error) {
 	return true, nil
 }
 
-func (r *Reconciler) shouldCreateTemplate(template opensearchapiext.IndexTemplateSpec) (bool, error) {
+func (r *Reconciler) shouldCreateTemplate(template types.IndexTemplateSpec) (bool, error) {
 	lg := log.FromContext(r.ctx)
-	req := opensearchapi.IndicesGetIndexTemplateRequest{
-		Name: []string{
-			template.TemplateName,
-		},
-	}
-	resp, err := req.Do(r.ctx, r.osClient)
+
+	resp, err := r.osClient.Indices.GetIndexTemplates(r.ctx, []string{template.TemplateName})
 	if err != nil {
 		return false, err
 	}
@@ -155,7 +94,7 @@ func (r *Reconciler) shouldCreateTemplate(template opensearchapiext.IndexTemplat
 		return false, fmt.Errorf("failed to check index template %s: %s", template.TemplateName, resp.String())
 	}
 
-	getTemplateResp := &opensearchapiext.GetIndexTemplateResponse{}
+	getTemplateResp := &types.GetIndexTemplateResponse{}
 	err = json.NewDecoder(resp.Body).Decode(getTemplateResp)
 	if err != nil {
 		return false, err
@@ -176,12 +115,7 @@ func (r *Reconciler) shouldCreateTemplate(template opensearchapiext.IndexTemplat
 }
 
 func (r *Reconciler) TemplateExists(name string) (bool, error) {
-	req := opensearchapi.IndicesGetIndexTemplateRequest{
-		Name: []string{
-			name,
-		},
-	}
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.GetIndexTemplates(r.ctx, []string{name})
 	if err != nil {
 		return false, err
 	}
@@ -196,13 +130,10 @@ func (r *Reconciler) TemplateExists(name string) (bool, error) {
 }
 
 func (r *Reconciler) prefixIndicesAbsent(prefix string) (bool, error) {
-	req := opensearchapi.CatIndicesRequest{
-		Index: []string{
-			fmt.Sprintf("%s*", prefix),
-		},
-		Format: "json",
+	names := []string{
+		fmt.Sprintf("%s*", prefix),
 	}
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.CatIndices(r.ctx, names)
 	if err != nil {
 		return false, err
 	}
@@ -220,9 +151,8 @@ func (r *Reconciler) prefixIndicesAbsent(prefix string) (bool, error) {
 	return len(indices) == 0, nil
 }
 
-func (r *Reconciler) checkISMPolicy(policy interface{}) (bool, bool, int, int, error) {
-	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
-	resp, err := r.osClient.ISM.GetISM(r.ctx, policyID)
+func (r *Reconciler) checkISMPolicy(policy types.ISMPolicySpec) (bool, bool, int, int, error) {
+	resp, err := r.osClient.ISM.GetISM(r.ctx, policy.PolicyID)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
@@ -230,37 +160,21 @@ func (r *Reconciler) checkISMPolicy(policy interface{}) (bool, bool, int, int, e
 	if resp.StatusCode == 404 {
 		return true, false, 0, 0, nil
 	} else if resp.IsError() {
-		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.Status())
+		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.String())
 	}
-	switch ism := policy.(type) {
-	case opensearchapiext.OldISMPolicySpec:
-		ismResponse := &opensearchapiext.OldISMGetResponse{}
-		err = json.NewDecoder(resp.Body).Decode(ismResponse)
-		if err != nil {
-			return false, false, 0, 0, err
-		}
-		if reflect.DeepEqual(ismResponse.Policy, ism) {
-			return false, false, 0, 0, nil
-		}
-		return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
-	case opensearchapiext.ISMPolicySpec:
-		ismResponse := &opensearchapiext.ISMGetResponse{}
-		err = json.NewDecoder(resp.Body).Decode(ismResponse)
-		if err != nil {
-			return false, false, 0, 0, err
-		}
-		if reflect.DeepEqual(ismResponse.Policy, ism) {
-			return false, false, 0, 0, nil
-		}
-		return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
-	default:
-		return false, false, 0, 0, errors.New("invalid ISM policy type")
+	ismResponse := &types.ISMGetResponse{}
+	err = json.NewDecoder(resp.Body).Decode(ismResponse)
+	if err != nil {
+		return false, false, 0, 0, err
 	}
+	if reflect.DeepEqual(ismResponse.Policy, policy) {
+		return false, false, 0, 0, nil
+	}
+	return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
 }
 
-func (r *Reconciler) ReconcileISM(policy interface{}) error {
+func (r *Reconciler) ReconcileISM(policy types.ISMPolicySpec) error {
 	lg := log.FromContext(r.ctx)
-	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
 	policyBody := map[string]interface{}{
 		"policy": policy,
 	}
@@ -270,8 +184,8 @@ func (r *Reconciler) ReconcileISM(policy interface{}) error {
 	}
 
 	if createIsm {
-		lg.Info("creating ism", "policy", policyID)
-		resp, err := r.osClient.ISM.CreateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody))
+		lg.Info("creating ism", "policy", policy.PolicyID)
+		resp, err := r.osClient.ISM.CreateISM(r.ctx, policy.PolicyID, opensearchutil.NewJSONReader(policyBody))
 		if err != nil {
 			return err
 		}
@@ -283,8 +197,8 @@ func (r *Reconciler) ReconcileISM(policy interface{}) error {
 	}
 
 	if updateIsm {
-		lg.Info("updating existing ism", "policy", policyID)
-		resp, err := r.osClient.ISM.UpdateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
+		lg.Info("updating existing ism", "policy", policy.PolicyID)
+		resp, err := r.osClient.ISM.UpdateISM(r.ctx, policy.PolicyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
 		if err != nil {
 			return err
 		}
@@ -294,22 +208,18 @@ func (r *Reconciler) ReconcileISM(policy interface{}) error {
 		}
 		return nil
 	}
-	lg.V(1).Info("ism in sync", "policy", policyID)
+	lg.V(1).Info("ism in sync", "policy", policy.PolicyID)
 	return nil
 }
 
-func (r *Reconciler) MaybeCreateIndexTemplate(template opensearchapiext.IndexTemplateSpec) error {
+func (r *Reconciler) MaybeCreateIndexTemplate(template types.IndexTemplateSpec) error {
 	createTemplate, err := r.shouldCreateTemplate(template)
 	if err != nil {
 		return err
 	}
 
 	if createTemplate {
-		req := opensearchapi.IndicesPutIndexTemplateRequest{
-			Body: opensearchutil.NewJSONReader(template),
-			Name: template.TemplateName,
-		}
-		resp, err := req.Do(r.ctx, r.osClient)
+		resp, err := r.osClient.Indices.PutIndexTemplate(r.ctx, template.TemplateName, opensearchutil.NewJSONReader(template))
 		if err != nil {
 			return err
 		}
@@ -332,10 +242,7 @@ func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
 		return nil
 	}
 
-	resp, err := r.osClient.Indices.DeleteIndexTemplate(
-		name,
-		r.osClient.Indices.DeleteIndexTemplate.WithContext(r.ctx),
-	)
+	resp, err := r.osClient.Indices.DeleteIndexTemplate(r.ctx, name)
 	if err != nil {
 		return err
 	}
@@ -355,11 +262,9 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 		return err
 	}
 	if bootstrap {
-		indexReq := opensearchapi.IndicesCreateRequest{
-			Index: fmt.Sprintf("%s-000001", prefix),
-		}
+		name := fmt.Sprintf("%s-000001", prefix)
 		lg.Info(fmt.Sprintf("creating index %s-000001", prefix))
-		indexResp, err := indexReq.Do(r.ctx, r.osClient)
+		indexResp, err := r.osClient.Indices.CreateIndex(r.ctx, name, nil)
 		if err != nil {
 			return err
 		}
@@ -380,14 +285,14 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 				return err
 			}
 		}
-		aliasRequestBody := opensearchapiext.UpdateAliasRequest{
-			Actions: []opensearchapiext.AliasActionSpec{
+		aliasRequestBody := types.UpdateAliasRequest{
+			Actions: []types.AliasActionSpec{
 				{
-					AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
-						Add: &opensearchapiext.AliasGenericAction{
+					AliasAtomicAction: &types.AliasAtomicAction{
+						Add: &types.AliasGenericAction{
 							Index:        fmt.Sprintf("%s-000001", prefix),
 							Alias:        alias,
-							IsWriteIndex: opensearchapi.BoolPtr(true),
+							IsWriteIndex: lo.ToPtr(true),
 						},
 					},
 				},
@@ -399,9 +304,9 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 				for _, prefix := range oldPrefixes {
 					exists, _ := r.oldIndicesExist([]string{prefix})
 					if exists {
-						aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
-							AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
-								Remove: &opensearchapiext.AliasGenericAction{
+						aliasRequestBody.Actions = append(aliasRequestBody.Actions, types.AliasActionSpec{
+							AliasAtomicAction: &types.AliasAtomicAction{
+								Remove: &types.AliasGenericAction{
 									Index: prefix,
 									Alias: alias,
 								},
@@ -410,11 +315,8 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 					}
 				}
 			}
-			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
-				Body: opensearchutil.NewJSONReader(aliasRequestBody),
-			}
 
-			aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
+			aliasResp, err := r.osClient.Indices.UpdateAlias(r.ctx, opensearchutil.NewJSONReader(aliasRequestBody))
 			if err != nil {
 				return err
 			}
@@ -425,8 +327,8 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 		}
 
 		if oldPrefixesExist || aliasIsIndex {
-			body := opensearchapiext.ReindexSpec{
-				Source: opensearchapiext.ReindexSourceSpec{
+			body := types.ReindexSpec{
+				Source: types.ReindexSourceSpec{
 					Index: func() []string {
 						if oldPrefixesExist {
 							return oldPrefixes
@@ -434,16 +336,12 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 						return []string{alias}
 					}(),
 				},
-				Destination: opensearchapiext.ReindexDestSpec{
+				Destination: types.ReindexDestSpec{
 					Index: fmt.Sprintf("%s-000001", prefix),
 				},
 			}
-			reindexReq := opensearchapi.ReindexRequest{
-				Body:              opensearchutil.NewJSONReader(body),
-				WaitForCompletion: opensearchapi.BoolPtr(true),
-			}
 			lg.Info(fmt.Sprintf("reindexing %s into %s-000001", alias, prefix))
-			reindexResp, err := reindexReq.Do(r.ctx, r.osClient)
+			reindexResp, err := r.osClient.Indices.SynchronousReindex(r.ctx, opensearchutil.NewJSONReader(body))
 			if err != nil {
 				return err
 			}
@@ -454,10 +352,7 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 		}
 
 		if oldPrefixesExist {
-			deleteResp, err := r.osClient.Indices.Delete(
-				oldPrefixes,
-				r.osClient.Indices.Delete.WithContext(r.ctx),
-			)
+			deleteResp, err := r.osClient.Indices.DeleteIndices(r.ctx, oldPrefixes)
 			if err != nil {
 				return err
 			}
@@ -466,18 +361,14 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 				return fmt.Errorf("failed to delete old indices %s", deleteResp.String())
 			}
 		} else if aliasIsIndex {
-			aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
-				AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
-					RemoveIndex: &opensearchapiext.AliasGenericAction{
+			aliasRequestBody.Actions = append(aliasRequestBody.Actions, types.AliasActionSpec{
+				AliasAtomicAction: &types.AliasAtomicAction{
+					RemoveIndex: &types.AliasGenericAction{
 						Index: alias,
 					},
 				},
 			})
-			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
-				Body: opensearchutil.NewJSONReader(aliasRequestBody),
-			}
-
-			aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
+			aliasResp, err := r.osClient.Indices.UpdateAlias(r.ctx, opensearchutil.NewJSONReader(aliasRequestBody))
 			if err != nil {
 				return err
 			}
@@ -493,11 +384,7 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 }
 
 func (r *Reconciler) oldIndicesExist(oldPrexifes []string) (bool, error) {
-	req := opensearchapi.CatIndicesRequest{
-		Index:  oldPrexifes,
-		Format: "json",
-	}
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.CatIndices(r.ctx, oldPrexifes)
 	if err != nil {
 		return false, err
 	}
@@ -517,18 +404,14 @@ func (r *Reconciler) oldIndicesExist(oldPrexifes []string) (bool, error) {
 	return len(indices) > 0, nil
 }
 
-func (r *Reconciler) MaybeCreateIndex(name string, settings map[string]opensearchapiext.TemplateMappingsSpec) error {
+func (r *Reconciler) MaybeCreateIndex(name string, settings map[string]types.TemplateMappingsSpec) error {
 	indexExists, err := r.indexExists(name)
 	if err != nil {
 		return err
 	}
 
 	if !indexExists {
-		indexReq := opensearchapi.IndicesCreateRequest{
-			Index: name,
-			Body:  opensearchutil.NewJSONReader(settings),
-		}
-		resp, err := indexReq.Do(r.ctx, r.osClient)
+		resp, err := r.osClient.Indices.CreateIndex(r.ctx, name, opensearchutil.NewJSONReader(settings))
 		if err != nil {
 			return err
 		}
@@ -541,7 +424,7 @@ func (r *Reconciler) MaybeCreateIndex(name string, settings map[string]opensearc
 	return nil
 }
 
-func (r *Reconciler) shouldUpdateKibana(indexName string, docID string, version string) (retBool bool, retErr error) {
+func (r *Reconciler) shouldUpdateDashboards(indexName string, docID string, version string) (retBool bool, retErr error) {
 	exists, err := r.indexExists(indexName)
 	if err != nil {
 		return false, err
@@ -551,13 +434,9 @@ func (r *Reconciler) shouldUpdateKibana(indexName string, docID string, version 
 		return true, nil
 	}
 
-	respDoc := &opensearchapiext.KibanaDocResponse{}
-	req := opensearchapi.GetRequest{
-		Index:      indexName,
-		DocumentID: docID,
-	}
+	respDoc := &types.DashboardsDocResponse{}
 
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.GetDocument(r.ctx, indexName, docID)
 	if err != nil {
 		return false, err
 	}
@@ -566,7 +445,7 @@ func (r *Reconciler) shouldUpdateKibana(indexName string, docID string, version 
 	if resp.StatusCode == 404 {
 		return true, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("failed to check kibana version doc: %s", resp.String())
+		return false, fmt.Errorf("failed to check dashboards version doc: %s", resp.String())
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(respDoc)
@@ -581,22 +460,17 @@ func (r *Reconciler) shouldUpdateKibana(indexName string, docID string, version 
 	return
 }
 
-func (r *Reconciler) upsertKibanaObjectDoc(indexName string, docID string, version string) error {
-	kibanaDoc := opensearchapiext.KibanaVersionDoc{
+func (r *Reconciler) upsertDashboardsObjectDoc(indexName string, docID string, version string) error {
+	kibanaDoc := types.DashboardsVersionDoc{
 		DashboardVersion: version,
 	}
 
-	upsertRequest := opensearchapiext.UpsertKibanaDoc{
+	upsertRequest := types.UpsertDashboardsDoc{
 		Document:         kibanaDoc,
-		DocumentAsUpsert: opensearchapi.BoolPtr(true),
+		DocumentAsUpsert: lo.ToPtr(true),
 	}
 
-	req := opensearchapi.UpdateRequest{
-		Index:      indexName,
-		DocumentID: docID,
-		Body:       opensearchutil.NewJSONReader(upsertRequest),
-	}
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.UpdateDocument(r.ctx, indexName, docID, opensearchutil.NewJSONReader(upsertRequest))
 	if err != nil {
 		return err
 	}
@@ -608,16 +482,16 @@ func (r *Reconciler) upsertKibanaObjectDoc(indexName string, docID string, versi
 	return nil
 }
 
-func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version string, kibanaObjects string) error {
+func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version string, dashboardsObjects string) error {
 	lg := log.FromContext(r.ctx)
-	update, err := r.shouldUpdateKibana(indexName, docID, version)
+	update, err := r.shouldUpdateDashboards(indexName, docID, version)
 	if err != nil {
 		return err
 	}
 
 	if update {
 		lg.Info("updating kibana saved objects")
-		resp, err := r.kibanaClient.ImportObjects(r.ctx, kibanaObjects, "objects.ndjson")
+		resp, err := r.dashboardsClient.ImportObjects(r.ctx, dashboardsObjects, "objects.ndjson")
 		if err != nil {
 			return err
 		}
@@ -626,14 +500,13 @@ func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version
 			return fmt.Errorf("unable to import kibana objects: %s", resp.String())
 		}
 
-		return r.upsertKibanaObjectDoc(indexName, docID, version)
+		return r.upsertDashboardsObjectDoc(indexName, docID, version)
 	}
 
 	lg.V(1).Info("kibana objects on latest version")
 	return nil
 }
 
-// TODO check role content to see if role should be updated.
 func (r *Reconciler) shouldCreateRole(name string) (bool, error) {
 	resp, err := r.osClient.Security.GetRole(r.ctx, name)
 	if err != nil {
@@ -644,13 +517,13 @@ func (r *Reconciler) shouldCreateRole(name string) (bool, error) {
 	if resp.StatusCode == 404 {
 		return true, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("response from API is %s", resp.Status())
+		return false, fmt.Errorf("response from API is %s", resp.String())
 	}
 
 	return false, nil
 }
 
-func (r *Reconciler) MaybeCreateRole(role opensearchapiext.RoleSpec) error {
+func (r *Reconciler) MaybeCreateRole(role types.RoleSpec) error {
 	createRole, err := r.shouldCreateRole(role.RoleName)
 	if err != nil {
 		return err
@@ -700,13 +573,13 @@ func (r *Reconciler) shouldCreateUser(name string) (bool, error) {
 	if resp.StatusCode == 404 {
 		return true, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("response from API is %s", resp.Status())
+		return false, fmt.Errorf("response from API is %s", resp.String())
 	}
 
 	return false, nil
 }
 
-func (r *Reconciler) MaybeCreateUser(user opensearchapiext.UserSpec) error {
+func (r *Reconciler) MaybeCreateUser(user types.UserSpec) error {
 	createUser, err := r.shouldCreateUser(user.UserName)
 	if err != nil {
 		return err
@@ -746,8 +619,8 @@ func (r *Reconciler) MaybeDeleteUser(username string) error {
 	return nil
 }
 
-func (r *Reconciler) checkRolesMapping(roleName string, userName string) (bool, opensearchapiext.RoleMappingSpec, error) {
-	mapping := opensearchapiext.RoleMappingSpec{}
+func (r *Reconciler) checkRolesMapping(roleName string, userName string) (bool, types.RoleMappingSpec, error) {
+	mapping := types.RoleMappingSpec{}
 
 	resp, err := r.osClient.Security.GetRolesMapping(r.ctx, roleName)
 
@@ -761,7 +634,7 @@ func (r *Reconciler) checkRolesMapping(roleName string, userName string) (bool, 
 		return true, mapping, nil
 	}
 
-	mappingResp := opensearchapiext.RoleMappingReponse{}
+	mappingResp := types.RoleMappingReponse{}
 	json.NewDecoder(resp.Body).Decode(&mappingResp)
 	mapping = mappingResp[roleName]
 	for _, user := range mapping.Users {
@@ -811,7 +684,7 @@ func (r *Reconciler) MaybeRemoveRolesMapping(roleName string, userName string) e
 		}
 	}
 
-	var resp *opensearchapi.Response
+	var resp *api.Response
 	if len(users) == 0 {
 		resp, err = r.osClient.Security.DeleteRolesMapping(r.ctx, roleName)
 	} else {
@@ -829,13 +702,10 @@ func (r *Reconciler) MaybeRemoveRolesMapping(roleName string, userName string) e
 	return nil
 }
 
-func (r *Reconciler) shouldUpdateIngestPipeline(name string, new opensearchapiext.IngestPipeline) (bool, error) {
+func (r *Reconciler) shouldUpdateIngestPipeline(name string, new types.IngestPipeline) (bool, error) {
 	lg := log.FromContext(r.ctx)
 
-	resp, err := r.osClient.Ingest.GetPipeline(
-		r.osClient.Ingest.GetPipeline.WithContext(r.ctx),
-		r.osClient.Ingest.GetPipeline.WithPipelineID(name),
-	)
+	resp, err := r.osClient.Ingest.GetIngestPipeline(r.ctx, name)
 	if err != nil {
 		return false, err
 	}
@@ -844,10 +714,10 @@ func (r *Reconciler) shouldUpdateIngestPipeline(name string, new opensearchapiex
 	if resp.StatusCode == 404 {
 		return true, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("response from API is %s", resp.Status())
+		return false, fmt.Errorf("response from API is %s", resp.String())
 	}
 
-	existing := opensearchapiext.IngestPipeline{}
+	existing := types.IngestPipeline{}
 	err = json.NewDecoder(resp.Body).Decode(&existing)
 	if err != nil {
 		return false, err
@@ -862,10 +732,7 @@ func (r *Reconciler) shouldUpdateIngestPipeline(name string, new opensearchapiex
 }
 
 func (r *Reconciler) ingestPipelineExists(name string) (bool, error) {
-	resp, err := r.osClient.Ingest.GetPipeline(
-		r.osClient.Ingest.GetPipeline.WithContext(r.ctx),
-		r.osClient.Ingest.GetPipeline.WithPipelineID(name),
-	)
+	resp, err := r.osClient.Ingest.GetIngestPipeline(r.ctx, name)
 	if err != nil {
 		return false, err
 	}
@@ -874,14 +741,13 @@ func (r *Reconciler) ingestPipelineExists(name string) (bool, error) {
 	if resp.StatusCode == 404 {
 		return false, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("response from API is %s", resp.Status())
+		return false, fmt.Errorf("response from API is %s", resp.String())
 	}
 
-	// TODO compare content of pipeline
 	return true, nil
 }
 
-func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline opensearchapiext.IngestPipeline) error {
+func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline types.IngestPipeline) error {
 	shouldCreate, err := r.shouldUpdateIngestPipeline(name, pipeline)
 	if err != nil {
 		return err
@@ -891,12 +757,7 @@ func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline opensearcha
 		return nil
 	}
 
-	req := opensearchapi.IngestPutPipelineRequest{
-		PipelineID: name,
-		Body:       opensearchutil.NewJSONReader(pipeline),
-	}
-
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Ingest.PutIngestTemplate(r.ctx, name, opensearchutil.NewJSONReader(pipeline))
 	if err != nil {
 		return err
 	}
@@ -918,10 +779,7 @@ func (r *Reconciler) MaybeDeleteIngestPipeline(name string) error {
 		return nil
 	}
 
-	resp, err := r.osClient.Ingest.DeletePipeline(
-		name,
-		r.osClient.Ingest.DeletePipeline.WithContext(r.ctx),
-	)
+	resp, err := r.osClient.Ingest.DeleteIngestPipeline(r.ctx, name)
 	if err != nil {
 		return err
 	}
@@ -960,15 +818,11 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 		return err
 	}
 
-	req := opensearchapi.IndicesPutSettingsRequest{
-		Index: []string{
-			index,
-		},
-		Body:             strings.NewReader(setting),
-		PreserveExisting: lo.ToPtr(true),
-	}
-
-	resp, err := req.Do(r.ctx, r.osClient)
+	resp, err := r.osClient.Indices.UpdateIndicesSettings(
+		r.ctx,
+		[]string{index},
+		strings.NewReader(setting),
+	)
 	if err != nil {
 		return err
 	}

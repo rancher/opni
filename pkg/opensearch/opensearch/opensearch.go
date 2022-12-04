@@ -18,6 +18,8 @@ import (
 type Client struct {
 	ISM      api.ISMApi
 	Security api.SecurityAPI
+	Indices  api.IndicesAPI
+	Ingest   api.IngestAPI
 }
 
 type ClientConfig struct {
@@ -71,6 +73,12 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 			Client: client,
 		},
 		Security: api.SecurityAPI{
+			Client: client,
+		},
+		Indices: api.IndicesAPI{
+			Client: client,
+		},
+		Ingest: api.IngestAPI{
 			Client: client,
 		},
 	}, nil

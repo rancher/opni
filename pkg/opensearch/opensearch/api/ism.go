@@ -29,7 +29,7 @@ func generateISMPath(name string) strings.Builder {
 }
 
 func (c *ISMApi) GetISM(ctx context.Context, name string) (*Response, error) {
-	method := "GET"
+	method := http.MethodGet
 	path := generateISMPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
@@ -46,7 +46,7 @@ func (c *ISMApi) GetISM(ctx context.Context, name string) (*Response, error) {
 }
 
 func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*Response, error) {
-	method := "PUT"
+	method := http.MethodPut
 	path := generateISMPath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
@@ -63,7 +63,7 @@ func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*R
 }
 
 func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*Response, error) {
-	method := "PUT"
+	method := http.MethodPut
 
 	path := generateISMPath(name)
 

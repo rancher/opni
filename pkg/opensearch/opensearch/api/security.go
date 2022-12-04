@@ -158,7 +158,7 @@ func (c *SecurityAPI) DeleteUser(ctx context.Context, name string) (*Response, e
 }
 
 func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*Response, error) {
-	method := "GET"
+	method := http.MethodGet
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
@@ -175,7 +175,7 @@ func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*Respon
 }
 
 func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body io.Reader) (*Response, error) {
-	method := "PUT"
+	method := http.MethodPut
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
@@ -192,7 +192,7 @@ func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body 
 }
 
 func (c *SecurityAPI) DeleteRolesMapping(ctx context.Context, name string) (*Response, error) {
-	method := "DELETE"
+	method := http.MethodDelete
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)

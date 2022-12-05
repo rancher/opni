@@ -8,17 +8,17 @@ import (
 func (r *Reconciler) highlyAvailableDeployments() []*appsv1.Deployment {
 	distributor := r.buildCortexDeployment("distributor",
 		Replicas(1),
-		WithOverrides(r.spec.Cortex.Workloads.Distributor),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Distributor),
 	)
 	queryFrontend := r.buildCortexDeployment("query-frontend",
 		Replicas(1),
 		Ports(HTTP, GRPC),
-		WithOverrides(r.spec.Cortex.Workloads.QueryFrontend),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.QueryFrontend),
 	)
 	purger := r.buildCortexDeployment("purger",
 		Replicas(1),
 		Ports(HTTP),
-		WithOverrides(r.spec.Cortex.Workloads.Purger),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Purger),
 	)
 	ruler := r.buildCortexDeployment("ruler",
 		Ports(HTTP, Gossip),
@@ -32,7 +32,7 @@ func (r *Reconciler) highlyAvailableDeployments() []*appsv1.Deployment {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		}),
-		WithOverrides(r.spec.Cortex.Workloads.Ruler),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Ruler),
 	)
 	return []*appsv1.Deployment{
 		distributor,

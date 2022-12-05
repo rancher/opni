@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/pkg/util/opensearch"
@@ -45,23 +45,26 @@ var (
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
 	indexUser.Attributes = map[string]string{
-		"cluster": r.labels[v1beta2.IDLabel],
+		"cluster": r.loggingCluster.Labels[corev1beta1.IDLabel],
 	}
 
-	clusterReadRole.RoleName = r.instanceName
-	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id": "%s"}}`, r.labels[resources.OpniClusterID])
+	clusterReadRole.RoleName = r.loggingCluster.Name
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(
+		`{"term":{"cluster_id": "%s"}}`,
+		r.loggingCluster.Labels[resources.OpniClusterID],
+	)
 
 	secret := &corev1.Secret{}
 
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf(r.spec.IndexUserSecret.Name),
-		Namespace: r.instanceNamespace,
+		Name:      fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name),
+		Namespace: r.loggingCluster.Namespace,
 	}, secret)
 	if retErr != nil {
 		return
 	}
 
-	indexUser.UserName = fmt.Sprintf(r.spec.IndexUserSecret.Name)
+	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
 	username, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
@@ -94,45 +97,38 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 }
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
-	if err != nil {
-		return err
-	}
+	// If the opensearch cluster exists delete the role and user
+	if cluster != nil {
+		username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+		if err != nil {
+			return err
+		}
 
-	osReconciler := opensearch.NewReconciler(
-		r.ctx,
-		cluster.Namespace,
-		username,
-		password,
-		cluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
-	)
+		osReconciler := opensearch.NewReconciler(
+			r.ctx,
+			cluster.Namespace,
+			username,
+			password,
+			cluster.Spec.General.ServiceName,
+			"todo", // TODO fix dashboards name
+		)
 
-	err = osReconciler.MaybeDeleteRole(r.instanceName)
-	if err != nil {
-		return err
-	}
+		err = osReconciler.MaybeDeleteRole(r.loggingCluster.Name)
+		if err != nil {
+			return err
+		}
 
-	err = osReconciler.MaybeDeleteUser(r.spec.IndexUserSecret.Name)
-	if err != nil {
-		return err
+		err = osReconciler.MaybeDeleteUser(r.loggingCluster.Spec.IndexUserSecret.Name)
+		if err != nil {
+			return err
+		}
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if r.loggingCluster != nil {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
-				return err
-			}
-			controllerutil.RemoveFinalizer(r.loggingCluster, meta.OpensearchFinalizer)
-			return r.client.Update(r.ctx, r.loggingCluster)
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
+			return err
 		}
-		if r.coreLoggingCluster != nil {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreLoggingCluster), r.coreLoggingCluster); err != nil {
-				return err
-			}
-			controllerutil.RemoveFinalizer(r.coreLoggingCluster, meta.OpensearchFinalizer)
-			return r.client.Update(r.ctx, r.coreLoggingCluster)
-		}
-		return errors.New("no loggingcluster instance to update")
+		controllerutil.RemoveFinalizer(r.loggingCluster, meta.OpensearchFinalizer)
+		return r.client.Update(r.ctx, r.loggingCluster)
 	})
 }

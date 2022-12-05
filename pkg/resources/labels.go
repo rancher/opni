@@ -1,9 +1,5 @@
 package resources
 
-import (
-	"github.com/rancher/opni/apis/v1beta2"
-)
-
 const (
 	PretrainedModelLabel = "opni.io/pretrained-model"
 	ServiceLabel         = "opni.io/service"
@@ -39,21 +35,4 @@ func NewGatewayLabels() map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/name": "opni-gateway",
 	}
-}
-
-func (l OpensearchLabels) WithRole(role v1beta2.OpensearchRole) OpensearchLabels {
-	copied := map[string]string{}
-	for k, v := range l {
-		copied[k] = v
-	}
-	copied["role"] = string(role)
-	return copied
-}
-
-func (l OpensearchLabels) Role() v1beta2.OpensearchRole {
-	role, ok := l["role"]
-	if !ok {
-		return ""
-	}
-	return v1beta2.OpensearchRole(role)
 }

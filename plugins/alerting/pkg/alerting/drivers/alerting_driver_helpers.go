@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,26 +13,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *AlertingManager) newOpniGateway() (client.Object, error) {
-	switch a.gatewayApiVersion {
-	case corev1beta1.GroupVersion.Identifier():
-
-		return &corev1beta1.Gateway{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      a.gatewayRef.Name,
-				Namespace: a.gatewayRef.Namespace,
-			},
-		}, nil
-	case v1beta2.GroupVersion.Identifier():
-		return &v1beta2.Gateway{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      a.gatewayRef.Name,
-				Namespace: a.gatewayRef.Namespace,
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown gateway api version %s", a.gatewayApiVersion)
+func (a *AlertingManager) newOpniGateway() *corev1beta1.Gateway {
+	return &corev1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      a.gatewayRef.Name,
+			Namespace: a.gatewayRef.Namespace,
+		},
 	}
+
 }
 
 func (a *AlertingManager) newOpniControllerSet() (client.Object, error) {
@@ -45,36 +32,19 @@ func (a *AlertingManager) newOpniControllerSet() (client.Object, error) {
 	}, nil
 }
 
-func extractGatewayAlertingSpec(gw client.Object) (interface{}, error) {
-	switch cl := gw.(type) {
-	case *corev1beta1.Gateway:
-		alerting := cl.Spec.Alerting.DeepCopy()
-		return alerting, nil
-	case *v1beta2.Gateway:
-		alerting := cl.Spec.Alerting.DeepCopy()
-		return alerting, nil
-	default:
-		return nil, fmt.Errorf("unknown gateway type %T", gw)
-	}
+func extractGatewayAlertingSpec(gw *corev1beta1.Gateway) *corev1beta1.AlertingSpec {
+	alerting := gw.Spec.Alerting.DeepCopy()
+	return alerting
 }
 
-func (a *AlertingManager) alertingControllerStatus(object client.Object) (*alertops.InstallStatus, error) {
-	var isEnabled bool
-	switch object := object.(type) {
-	case *corev1beta1.Gateway:
-		isEnabled = object.Spec.Alerting.Enabled
-	case *v1beta2.Gateway:
-		isEnabled = object.Spec.Alerting.Enabled
-	default:
-		return nil, fmt.Errorf("unknown gateway type %T", object)
-	}
+func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*alertops.InstallStatus, error) {
 	ss, err := a.newOpniControllerSet()
 	if err != nil {
 		return nil, err
 	}
 	k8serr := a.k8sClient.Get(context.Background(), client.ObjectKeyFromObject(ss), ss)
 
-	if isEnabled {
+	if gw.Spec.Alerting.Enabled {
 		if k8serr != nil {
 			if k8serrors.IsNotFound(k8serr) {
 				return &alertops.InstallStatus{

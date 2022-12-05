@@ -2,19 +2,15 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -22,47 +18,28 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	ctx       context.Context
-	client    client.Client
-	gw        *v1beta2.Gateway
-	coreGW    *corev1beta1.Gateway
-	logger    *zap.SugaredLogger
-	name      string
-	namespace string
-	spec      corev1beta1.GatewaySpec
+	ctx    context.Context
+	client client.Client
+	gw     *corev1beta1.Gateway
+	logger *zap.SugaredLogger
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	instance interface{},
-) (*Reconciler, error) {
-	r := &Reconciler{
+	instance *corev1beta1.Gateway,
+) *Reconciler {
+	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			reconciler.WithEnableRecreateWorkload(),
 			reconciler.WithRecreateErrorMessageCondition(reconciler.MatchImmutableErrorMessages),
 			reconciler.WithLog(log.FromContext(ctx)),
 			reconciler.WithScheme(client.Scheme()),
 		),
+		gw:     instance,
 		ctx:    ctx,
 		client: client,
 		logger: logger.New().Named("controller").Named("gateway"),
-	}
-	switch gw := instance.(type) {
-	case *v1beta2.Gateway:
-		r.gw = gw
-		r.name = gw.Name
-		r.namespace = gw.Namespace
-		r.spec = convertSpec(gw.Spec)
-		return r, nil
-	case *corev1beta1.Gateway:
-		r.coreGW = gw
-		r.name = gw.Name
-		r.namespace = gw.Namespace
-		r.spec = gw.Spec
-		return r, nil
-	default:
-		return nil, errors.New("invalid gateway instance type")
 	}
 }
 
@@ -132,91 +109,24 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	if op := r.waitForServiceEndpoints(); op.ShouldRequeue() {
 		return op.Result()
 	}
-	if r.spec.ServiceType == corev1.ServiceTypeLoadBalancer {
+	if r.gw.Spec.ServiceType == corev1.ServiceTypeLoadBalancer {
 		if op := r.waitForLoadBalancer(); op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	if r.gw != nil {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
-			if err != nil {
-				return err
-			}
-			r.gw.Status.Ready = true
-
-			return r.client.Status().Update(r.ctx, r.gw)
-		})
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
 		if err != nil {
-			return k8sutil.RequeueErr(err).Result()
+			return err
 		}
-	}
+		r.gw.Status.Ready = true
 
-	if r.coreGW != nil {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
-			if err != nil {
-				return err
-			}
-
-			r.coreGW.Status.Ready = true
-
-			return r.client.Status().Update(r.ctx, r.coreGW)
-		})
-		if err != nil {
-			return k8sutil.RequeueErr(err).Result()
-		}
+		return r.client.Status().Update(r.ctx, r.gw)
+	})
+	if err != nil {
+		return k8sutil.RequeueErr(err).Result()
 	}
 
 	return k8sutil.DoNotRequeue().Result()
-}
-
-func (r *Reconciler) statusImage() string {
-	if r.gw != nil {
-		return r.gw.Status.Image
-	}
-	if r.coreGW != nil {
-		return r.coreGW.Status.Image
-	}
-	return ""
-}
-
-func (r *Reconciler) statusImagePullPolicy() corev1.PullPolicy {
-	if r.gw != nil {
-		return r.gw.Status.ImagePullPolicy
-	}
-	if r.coreGW != nil {
-		return r.coreGW.Status.ImagePullPolicy
-	}
-	return corev1.PullIfNotPresent
-}
-
-func (r *Reconciler) setOwner(obj client.Object) error {
-	if r.gw != nil {
-		err := ctrl.SetControllerReference(r.gw, obj, r.client.Scheme())
-		if err != nil {
-			return err
-		}
-	}
-	if r.coreGW != nil {
-		err := ctrl.SetControllerReference(r.coreGW, obj, r.client.Scheme())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func convertSpec(spec v1beta2.GatewaySpec) corev1beta1.GatewaySpec {
-	data, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	retSpec := corev1beta1.GatewaySpec{}
-	err = json.Unmarshal(data, &retSpec)
-	if err != nil {
-		panic(err)
-	}
-	return retSpec
 }

@@ -42,10 +42,7 @@ func (r *CoreGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rec, err := gateway.NewReconciler(ctx, r.Client, mc)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	rec := gateway.NewReconciler(ctx, r.Client, mc)
 
 	result, err := rec.Reconcile()
 	if err != nil {

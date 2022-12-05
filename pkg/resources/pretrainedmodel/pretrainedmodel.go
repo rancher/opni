@@ -2,7 +2,6 @@ package pretrainedmodel
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -10,7 +9,6 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,64 +19,34 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	ctx               context.Context
-	client            client.Client
-	model             *v1beta2.PretrainedModel
-	aiModel           *aiv1beta1.PretrainedModel
-	instanceName      string
-	instanceNamespace string
-	spec              aiv1beta1.PretrainedModelSpec
+	ctx    context.Context
+	client client.Client
+	model  *aiv1beta1.PretrainedModel
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	instance interface{},
+	instance *aiv1beta1.PretrainedModel,
 	opts ...reconciler.ResourceReconcilerOption,
-) (*Reconciler, error) {
-	r := &Reconciler{
+) *Reconciler {
+	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
 		ctx:    ctx,
+		model:  instance,
 		client: client,
 	}
-
-	switch model := instance.(type) {
-	case *v1beta2.PretrainedModel:
-		r.instanceName = model.Name
-		r.instanceNamespace = model.Namespace
-		r.spec = convertSpec(model.Spec)
-		r.model = model
-	case *aiv1beta1.PretrainedModel:
-		r.instanceName = model.Name
-		r.instanceNamespace = model.Namespace
-		r.spec = model.Spec
-		r.aiModel = model
-	default:
-		return nil, errors.New("invalid pretrained model instance")
-	}
-
-	return r, nil
 }
 
 func (r *Reconciler) hyperparameters() (runtime.Object, reconciler.DesiredState, error) {
-	cm, err := hyperparameters.GenerateHyperparametersConfigMap(r.instanceName, r.instanceNamespace, r.spec.Hyperparameters)
+	cm, err := hyperparameters.GenerateHyperparametersConfigMap(r.model.Name, r.model.Namespace, r.model.Spec.Hyperparameters)
 	if err != nil {
 		return nil, nil, err
 	}
-	cm.Labels[resources.PretrainedModelLabel] = r.instanceName
-	err = r.setOwner(&cm)
+	cm.Labels[resources.PretrainedModelLabel] = r.model.Name
+	ctrl.SetControllerReference(r.model, &cm, r.client.Scheme())
 	return &cm, reconciler.StatePresent, err
-}
-
-func (r *Reconciler) setOwner(obj client.Object) error {
-	if r.model != nil {
-		return ctrl.SetControllerReference(r.model, obj, r.client.Scheme())
-	}
-	if r.aiModel != nil {
-		return ctrl.SetControllerReference(r.aiModel, obj, r.client.Scheme())
-	}
-	return errors.New("no pretrained model instance")
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
@@ -102,17 +70,4 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		}
 	}
 	return nil, nil
-}
-
-func convertSpec(spec v1beta2.PretrainedModelSpec) aiv1beta1.PretrainedModelSpec {
-	data, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	retSpec := aiv1beta1.PretrainedModelSpec{}
-	err = json.Unmarshal(data, &retSpec)
-	if err != nil {
-		panic(err)
-	}
-	return retSpec
 }

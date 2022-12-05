@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,23 +22,18 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "opni",
-			Namespace:   r.namespace,
+			Namespace:   r.gw.Namespace,
 			Labels:      publicSvcLabels,
-			Annotations: r.spec.ServiceAnnotations,
+			Annotations: r.gw.Spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.spec.ServiceType,
+			Type:     r.gw.Spec.ServiceType,
 			Selector: resources.NewGatewayLabels(),
 			Ports:    servicePorts(publicPorts),
 		},
 	}
 
-	if r.gw != nil {
-		r.gw.Status.ServiceName = publicSvc.Name
-	}
-	if r.coreGW != nil {
-		r.coreGW.Status.ServiceName = publicSvc.Name
-	}
+	r.gw.Status.ServiceName = publicSvc.Name
 
 	internalPorts, err := r.internalContainerPorts()
 	if err != nil {
@@ -48,7 +44,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	internalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-internal",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    internalSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -66,7 +62,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	adminDashboardSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-admin-dashboard",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    adminDashboardSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -80,19 +76,19 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	legacyPublicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 		},
 	}
 	legacyInternalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-internal",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 		},
 	}
 
-	r.setOwner(publicSvc)
-	r.setOwner(internalSvc)
-	r.setOwner(adminDashboardSvc)
+	ctrl.SetControllerReference(r.gw, publicSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, internalSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, adminDashboardSvc, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(publicSvc),
 		resources.Present(internalSvc),
@@ -106,7 +102,7 @@ func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
@@ -116,32 +112,16 @@ func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 		return k8sutil.Requeue()
 	}
 
-	if r.gw != nil {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
-			if err != nil {
-				return err
-			}
-			r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
-			return r.client.Status().Update(r.ctx, r.gw)
-		})
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
 		if err != nil {
-			return k8sutil.RequeueErr(err)
+			return err
 		}
-	}
-
-	if r.coreGW != nil {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
-			if err != nil {
-				return err
-			}
-			r.coreGW.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
-			return r.client.Status().Update(r.ctx, r.coreGW)
-		})
-		if err != nil {
-			return k8sutil.RequeueErr(err)
-		}
+		r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+		return r.client.Status().Update(r.ctx, r.gw)
+	})
+	if err != nil {
+		return k8sutil.RequeueErr(err)
 	}
 
 	return k8sutil.DoNotRequeue()
@@ -151,7 +131,7 @@ func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
@@ -166,61 +146,30 @@ func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 		addresses = append(addresses, subset.Addresses...)
 	}
 	if len(addresses) == 0 {
-		if r.gw != nil {
-			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
-				if err != nil {
-					return err
-				}
-				r.gw.Status.Endpoints = nil
-				return r.client.Status().Update(r.ctx, r.gw)
-			})
-			if err != nil {
-				return k8sutil.RequeueErr(err)
-			}
-			return k8sutil.RequeueAfter(1 * time.Second)
-		}
-		if r.coreGW != nil {
-			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
-				if err != nil {
-					return err
-				}
-				r.coreGW.Status.Endpoints = nil
-				return r.client.Status().Update(r.ctx, r.coreGW)
-			})
-			if err != nil {
-				return k8sutil.RequeueErr(err)
-			}
-			return k8sutil.RequeueAfter(1 * time.Second)
-		}
-	}
-
-	if r.gw != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
 			if err != nil {
 				return err
 			}
-			r.gw.Status.Endpoints = addresses
+			r.gw.Status.Endpoints = nil
 			return r.client.Status().Update(r.ctx, r.gw)
 		})
 		if err != nil {
 			return k8sutil.RequeueErr(err)
 		}
+		return k8sutil.RequeueAfter(1 * time.Second)
 	}
-	if r.coreGW != nil {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
-			if err != nil {
-				return err
-			}
-			r.coreGW.Status.Endpoints = addresses
-			return r.client.Status().Update(r.ctx, r.coreGW)
-		})
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
 		if err != nil {
-			return k8sutil.RequeueErr(err)
+			return err
 		}
+		r.gw.Status.Endpoints = addresses
+		return r.client.Status().Update(r.ctx, r.gw)
+	})
+	if err != nil {
+		return k8sutil.RequeueErr(err)
 	}
 
 	return k8sutil.DoNotRequeue()

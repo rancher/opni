@@ -10,7 +10,7 @@ import (
 
 func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 	compactor := r.buildCortexStatefulSet("compactor",
-		WithOverrides(r.spec.Cortex.Workloads.Compactor),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Compactor),
 	)
 	storeGateway := r.buildCortexStatefulSet("store-gateway",
 		ServiceName("cortex-store-gateway-headless"),
@@ -24,7 +24,7 @@ func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 				},
 			},
 		}),
-		WithOverrides(r.spec.Cortex.Workloads.Ingester),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Ingester),
 		NoLivenessProbe(),
 		NoStartupProbe(),
 		TerminationGracePeriodSeconds(600),
@@ -69,7 +69,7 @@ func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 	)
 	querier := r.buildCortexStatefulSet("querier",
 		Ports(HTTP),
-		WithOverrides(r.spec.Cortex.Workloads.Querier),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.Querier),
 	)
 	return []*appsv1.StatefulSet{
 		alertmanager,
@@ -82,7 +82,7 @@ func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 
 func (r *Reconciler) allInOneStatefulSets() []*appsv1.StatefulSet {
 	all := r.buildCortexStatefulSet("all",
-		WithOverrides(r.spec.Cortex.Workloads.AllInOne),
+		WithOverrides(r.mc.Spec.Cortex.Workloads.AllInOne),
 		ExtraVolumeMounts(corev1.VolumeMount{
 			Name:      "tmp",
 			MountPath: "/rules",

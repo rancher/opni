@@ -47,13 +47,10 @@ func (r *AIPretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rec, err := pretrainedmodel.NewReconciler(ctx, r, model,
+	rec := pretrainedmodel.NewReconciler(ctx, r, model,
 		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	return k8sutil.LoadResult(rec.Reconcile()).Result()
 }

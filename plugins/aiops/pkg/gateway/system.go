@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"crypto/tls"
@@ -42,12 +42,8 @@ func newNatsConnection() (*nats.Conn, error) {
 	)
 }
 
-func (s *ModelTrainingPlugin) newOpensearchConnection() (*opensearch.Client, error) {
-	namespace, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		namespace = "opni-cluster-system"
-	}
-	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", namespace)
+func (s *AIOpsPlugin) setOpensearchConnection() {
+	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", s.storageNamespace)
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
 		backoffv2.WithMinInterval(5*time.Second),
@@ -62,9 +58,9 @@ FETCH:
 		case <-b.Done():
 			s.Logger.Warn("plugin context cancelled before Opensearch object created")
 		case <-b.Next():
-			err := s.k8sClient.Get().Get(s.ctx, types.NamespacedName{
+			err := s.k8sClient.Get(s.ctx, types.NamespacedName{
 				Name:      "opni",
-				Namespace: namespace,
+				Namespace: s.storageNamespace,
 			}, cluster)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -77,9 +73,9 @@ FETCH:
 			break FETCH
 		}
 	}
-	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient.Get(), cluster)
+	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient, cluster)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	osClient, err := opensearch.NewClient(opensearch.Config{
 		Transport: &http.Transport{
@@ -89,5 +85,9 @@ FETCH:
 		Username:  esUsername,
 		Password:  esPassword,
 	})
-	return osClient, err
+	if err != nil {
+		panic(err)
+	}
+
+	s.osClient.Set(osClient)
 }

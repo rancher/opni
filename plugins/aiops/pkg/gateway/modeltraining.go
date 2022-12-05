@@ -1,4 +1,4 @@
-package modeltraining
+package gateway
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	modeltraining "github.com/rancher/opni/plugins/modeltraining/pkg/apis/modeltraining"
+	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -15,7 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
+func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.Items {
 		clusterId := item.ClusterId
@@ -31,7 +31,7 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training parameters: %v", err)
 	}
-	msg, err := c.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
+	msg, err := p.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to train model: %v", err)
 	}
@@ -40,8 +40,8 @@ func (c *ModelTrainingPlugin) TrainModel(ctx context.Context, in *modeltraining.
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
-	result, err := c.kv.Get().Get("aggregation")
+func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
+	result, err := p.kv.Get().Get("aggregation")
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %s", err)
 	}
@@ -71,9 +71,9 @@ func (c *ModelTrainingPlugin) ClusterWorkloadAggregation(ctx context.Context, in
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelStatus, error) {
+func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelStatus, error) {
 	b := []byte("model_status")
-	msg, err := c.natsConnection.Get().Request("model_status", b, time.Minute)
+	msg, err := p.natsConnection.Get().Request("model_status", b, time.Minute)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
@@ -82,9 +82,9 @@ func (c *ModelTrainingPlugin) GetModelStatus(ctx context.Context, in *emptypb.Em
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
+func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
 	b := []byte("model_training_parameters")
-	msg, err := c.natsConnection.Get().Request("workload_parameters", b, time.Minute)
+	msg, err := p.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %s", err)
 	}
@@ -110,9 +110,9 @@ func (c *ModelTrainingPlugin) GetModelTrainingParameters(ctx context.Context, in
 	}, nil
 }
 
-func (c *ModelTrainingPlugin) GPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
+func (p *AIOpsPlugin) GPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 	nodes := &k8scorev1.NodeList{}
-	if err := c.k8sClient.Get().List(ctx, nodes); err != nil {
+	if err := p.k8sClient.List(ctx, nodes); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, status.Errorf(codes.NotFound, "Failed to find nodes: %s", err)
 		} else {

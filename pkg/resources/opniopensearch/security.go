@@ -26,7 +26,7 @@ var (
 
 # Define your internal users here
 
-internalopni:
+{{ .AdminUser }}:
   hash: "{{ .Admin }}"
   reserved: true
   backend_roles:
@@ -40,6 +40,7 @@ kibanaserver:
 )
 
 type internalUsersHashes struct {
+	AdminUser  string
 	Admin      string
 	Dashboards string
 }
@@ -80,6 +81,7 @@ func (r *Reconciler) generateInternalUsers(passwords internalUsersPasswords) (ru
 
 	var buffer bytes.Buffer
 	err = internalUsersTemplate.Execute(&buffer, internalUsersHashes{
+		AdminUser:  internalUsername,
 		Admin:      string(adminHash),
 		Dashboards: string(dashHash),
 	})

@@ -83,6 +83,17 @@ func generateIndicesSettingsPath(indices []string) strings.Builder {
 	return path
 }
 
+func generateDeleteByQueryPath(indices []string) strings.Builder {
+	var path strings.Builder
+	path.Grow(1 + len(strings.Join(indices, ",")) + 1 + len("_doc") + 1 + len("_delete_by_query"))
+	path.WriteString("/")
+	path.WriteString(strings.Join(indices, ","))
+	path.WriteString("_doc")
+	path.WriteString("/")
+	path.WriteString("_delete_by_query")
+	return path
+}
+
 func (a *IndicesAPI) CatIndices(ctx context.Context, indices []string) (*Response, error) {
 	method := http.MethodGet
 	path := generateCatIndicesPath(indices)
@@ -186,9 +197,36 @@ func (a *IndicesAPI) DeleteIndices(ctx context.Context, names []string) (*Respon
 	return (*Response)(res), err
 }
 
+func (a *IndicesAPI) AsyncDeleteByQuery(ctx context.Context, indices []string, body io.Reader) (*Response, error) {
+	method := http.MethodPost
+	path := generateDeleteByQueryPath(indices)
+
+	req, err := http.NewRequest(method, path.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Set("wait_for_completion", "false")
+	q.Set("refresh", "true")
+	q.Set("search_type", "dfs_query_then_fetch")
+	req.URL.RawQuery = q.Encode()
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	if body != nil {
+		req.Header.Add(headerContentType, jsonContentHeader)
+	}
+
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
+
 func (a *IndicesAPI) UpdateIndicesSettings(ctx context.Context, indices []string, body io.Reader) (*Response, error) {
 	method := http.MethodPut
-	path := generateIndicesPath(indices)
+	path := generateIndicesSettingsPath(indices)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {

@@ -21,6 +21,8 @@ type Client struct {
 	Security api.SecurityAPI
 	Indices  api.IndicesAPI
 	Ingest   api.IngestAPI
+	Tasks    api.TasksAPI
+	Cluster  api.ClusterAPI
 }
 
 type ClientConfig struct {
@@ -103,6 +105,12 @@ func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 			Client: client,
 		},
 		Ingest: api.IngestAPI{
+			Client: client,
+		},
+		Tasks: api.TasksAPI{
+			Client: client,
+		},
+		Cluster: api.ClusterAPI{
 			Client: client,
 		},
 	}, nil

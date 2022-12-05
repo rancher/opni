@@ -5,8 +5,8 @@ import (
 
 	_ "embed" // embed should be a blank import
 
+	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"k8s.io/utils/pointer"
 )
 
@@ -34,32 +34,32 @@ var (
 		"logs-v0.1.3*",
 		"logs-v0.5.1*",
 	}
-	DefaultRetry = osapiext.RetrySpec{
+	DefaultRetry = opensearchtypes.RetrySpec{
 		Count:   3,
 		Backoff: "exponential",
 		Delay:   "1m",
 	}
-	OpniLogPolicy = osapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+	OpniLogPolicy = opensearchtypes.ISMPolicySpec{
+		ISMPolicyIDSpec: &opensearchtypes.ISMPolicyIDSpec{
 			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
-		States: []osapiext.StateSpec{
+		States: []opensearchtypes.StateSpec{
 			{
 				Name: "hot",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Rollover: &osapiext.RolloverOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Rollover: &opensearchtypes.RolloverOperation{
 								MinIndexAge: "1d",
 								MinSize:     "20gb",
 							},
 						},
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -67,33 +67,33 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReplicaCount: &osapiext.ReplicaCountOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReplicaCount: &opensearchtypes.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							IndexPriority: &osapiext.IndexPriorityOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							IndexPriority: &opensearchtypes.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ForceMerge: &osapiext.ForceMergeOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ForceMerge: &opensearchtypes.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &osapiext.ConditionSpec{
+						Conditions: &opensearchtypes.ConditionSpec{
 							MinIndexAge: "2d",
 						},
 					},
@@ -101,17 +101,17 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReadOnly: &osapiext.ReadOnlyOperation{},
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReadOnly: &opensearchtypes.ReadOnlyOperation{},
 						},
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &osapiext.ConditionSpec{
+						Conditions: &opensearchtypes.ConditionSpec{
 							MinIndexAge: "7d",
 						},
 					},
@@ -119,17 +119,17 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Delete: &osapiext.DeleteOperation{},
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Delete: &opensearchtypes.DeleteOperation{},
 						},
 					},
 				},
-				Transitions: make([]osapiext.TransitionSpec, 0),
+				Transitions: make([]opensearchtypes.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []osapiext.ISMTemplateSpec{
+		ISMTemplate: []opensearchtypes.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", LogIndexPrefix),
@@ -139,13 +139,13 @@ var (
 		},
 	}
 
-	clusterIndexRole = osapiext.RoleSpec{
+	clusterIndexRole = opensearchtypes.RoleSpec{
 		RoleName: "cluster_index",
 		ClusterPermissions: []string{
 			"cluster_composite_ops",
 			"cluster_monitor",
 		},
-		IndexPermissions: []osapiext.IndexPermissionSpec{
+		IndexPermissions: []opensearchtypes.IndexPermissionSpec{
 			{
 				IndexPatterns: []string{
 					"logs*",
@@ -161,39 +161,39 @@ var (
 		},
 	}
 
-	opniSpanTemplate = osapiext.IndexTemplateSpec{
+	opniSpanTemplate = opensearchtypes.IndexTemplateSpec{
 		TemplateName: spanIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", spanIndexPrefix),
 		},
-		Template: osapiext.TemplateSpec{
-			Settings: osapiext.TemplateSettingsSpec{
+		Template: opensearchtypes.TemplateSpec{
+			Settings: opensearchtypes.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
 				ISMPolicyID:      tracingPolicyName,
 				RolloverAlias:    spanIndexAlias,
 			},
-			Mappings: osapiext.TemplateMappingsSpec{
+			Mappings: opensearchtypes.TemplateMappingsSpec{
 				DateDetection: pointer.BoolPtr(false),
-				DynamicTemplates: []map[string]osapiext.DynamicTemplateSpec{
+				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
-						"resource_attributes_map": osapiext.DynamicTemplateSpec{
-							Mapping: osapiext.PropertySettings{
+						"resource_attributes_map": opensearchtypes.DynamicTemplateSpec{
+							Mapping: opensearchtypes.PropertySettings{
 								Type: "keyword",
 							},
 							PathMatch: "resource.attributes.*",
 						},
 					},
 					{
-						"span_attributes_map": osapiext.DynamicTemplateSpec{
-							Mapping: osapiext.PropertySettings{
+						"span_attributes_map": opensearchtypes.DynamicTemplateSpec{
+							Mapping: opensearchtypes.PropertySettings{
 								Type: "keyword",
 							},
 							PathMatch: "span.attributes.*",
 						},
 					},
 				},
-				Properties: map[string]osapiext.PropertySettings{
+				Properties: map[string]opensearchtypes.PropertySettings{
 					"cluster_id": {
 						Type: "keyword",
 					},
@@ -218,7 +218,7 @@ var (
 						Type:        "keyword",
 					},
 					"traceGroupFields": {
-						Properties: map[string]osapiext.PropertySettings{
+						Properties: map[string]opensearchtypes.PropertySettings{
 							"endTime": {
 								Type: "date_nanos",
 							},
@@ -241,7 +241,7 @@ var (
 						Type: "date_nanos",
 					},
 					"status": {
-						Properties: map[string]osapiext.PropertySettings{
+						Properties: map[string]opensearchtypes.PropertySettings{
 							"code": {
 								Type: "integer",
 							},
@@ -258,7 +258,7 @@ var (
 					},
 					"events": {
 						Type: "nested",
-						Properties: map[string]osapiext.PropertySettings{
+						Properties: map[string]opensearchtypes.PropertySettings{
 							"time": {
 								Type: "date_nanos",
 							},
@@ -273,22 +273,22 @@ var (
 		Priority: 100,
 	}
 
-	opniServiceMapTemplate = osapiext.IndexTemplateSpec{
+	opniServiceMapTemplate = opensearchtypes.IndexTemplateSpec{
 		TemplateName: serviceMapTemplateName,
 		IndexPatterns: []string{
 			serviceMapIndexName,
 		},
-		Template: osapiext.TemplateSpec{
-			Settings: osapiext.TemplateSettingsSpec{
+		Template: opensearchtypes.TemplateSpec{
+			Settings: opensearchtypes.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
 			},
-			Mappings: osapiext.TemplateMappingsSpec{
+			Mappings: opensearchtypes.TemplateMappingsSpec{
 				DateDetection: pointer.BoolPtr(false),
-				DynamicTemplates: []map[string]osapiext.DynamicTemplateSpec{
+				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"strings_as_keyword": {
-							Mapping: osapiext.PropertySettings{
+							Mapping: opensearchtypes.PropertySettings{
 								IgnoreAbove: 1024,
 								Type:        "keyword",
 							},
@@ -296,7 +296,7 @@ var (
 						},
 					},
 				},
-				Properties: map[string]osapiext.PropertySettings{
+				Properties: map[string]opensearchtypes.PropertySettings{
 					"cluster_id": {
 						Type: "keyword",
 					},
@@ -313,7 +313,7 @@ var (
 						Type:        "keyword",
 					},
 					"destination": {
-						Properties: map[string]osapiext.PropertySettings{
+						Properties: map[string]opensearchtypes.PropertySettings{
 							"domain": {
 								IgnoreAbove: 1024,
 								Type:        "keyword",
@@ -325,7 +325,7 @@ var (
 						},
 					},
 					"target": {
-						Properties: map[string]osapiext.PropertySettings{
+						Properties: map[string]opensearchtypes.PropertySettings{
 							"domain": {
 								IgnoreAbove: 1024,
 								Type:        "keyword",
@@ -345,33 +345,33 @@ var (
 		},
 	}
 
-	preprocessingPipeline = osapiext.IngestPipeline{
+	preprocessingPipeline = opensearchtypes.IngestPipeline{
 		Description: "Opni preprocessing ingest pipeline",
-		Processors: []osapiext.Processor{
+		Processors: []opensearchtypes.Processor{
 			{
-				OpniLoggingProcessor: &osapiext.OpniProcessorConfig{},
+				OpniLoggingProcessor: &opensearchtypes.OpniProcessorConfig{},
 			},
 			{
-				OpniPreProcessor: &osapiext.OpniProcessorConfig{},
+				OpniPreProcessor: &opensearchtypes.OpniProcessorConfig{},
 			},
 		},
 	}
 
-	OpniLogTemplate = osapiext.IndexTemplateSpec{
+	OpniLogTemplate = opensearchtypes.IndexTemplateSpec{
 		TemplateName: LogIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", LogIndexPrefix),
 		},
-		Template: osapiext.TemplateSpec{
-			Settings: osapiext.TemplateSettingsSpec{
+		Template: opensearchtypes.TemplateSpec{
+			Settings: opensearchtypes.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
 				ISMPolicyID:      LogPolicyName,
 				RolloverAlias:    LogIndexAlias,
 				DefaultPipeline:  preProcessingPipelineName,
 			},
-			Mappings: osapiext.TemplateMappingsSpec{
-				Properties: map[string]osapiext.PropertySettings{
+			Mappings: opensearchtypes.TemplateMappingsSpec{
+				Properties: map[string]opensearchtypes.PropertySettings{
 					"timestamp": {
 						Type: "date",
 					},
@@ -408,21 +408,21 @@ var (
 	kibanaObjects string
 )
 
-func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
-	return osapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+func (r *Reconciler) logISMPolicy() opensearchtypes.ISMPolicySpec {
+	return opensearchtypes.ISMPolicySpec{
+		ISMPolicyIDSpec: &opensearchtypes.ISMPolicyIDSpec{
 			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
-		States: []osapiext.StateSpec{
+		States: []opensearchtypes.StateSpec{
 			{
 				Name: "hot",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Rollover: &osapiext.RolloverOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Rollover: &opensearchtypes.RolloverOperation{
 								MinIndexAge: "1d",
 								MinSize:     "20gb",
 							},
@@ -430,7 +430,7 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -438,36 +438,36 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 			},
 			{
 				Name: "warm",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReplicaCount: &osapiext.ReplicaCountOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReplicaCount: &opensearchtypes.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							IndexPriority: &osapiext.IndexPriorityOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							IndexPriority: &opensearchtypes.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ForceMerge: &osapiext.ForceMergeOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ForceMerge: &opensearchtypes.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &osapiext.ConditionSpec{
+						Conditions: &opensearchtypes.ConditionSpec{
 							MinIndexAge: func() string {
 								if r.multiClusterRoleBinding.Spec.OpensearchConfig != nil {
 									return r.multiClusterRoleBinding.Spec.OpensearchConfig.IndexRetention
@@ -480,18 +480,18 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 			},
 			{
 				Name: "delete",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Delete: &osapiext.DeleteOperation{},
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Delete: &opensearchtypes.DeleteOperation{},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: make([]osapiext.TransitionSpec, 0),
+				Transitions: make([]opensearchtypes.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []osapiext.ISMTemplateSpec{
+		ISMTemplate: []opensearchtypes.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", LogIndexPrefix),
@@ -502,21 +502,21 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 	}
 }
 
-func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
-	return osapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+func (r *Reconciler) traceISMPolicy() opensearchtypes.ISMPolicySpec {
+	return opensearchtypes.ISMPolicySpec{
+		ISMPolicyIDSpec: &opensearchtypes.ISMPolicyIDSpec{
 			PolicyID:   tracingPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
-		States: []osapiext.StateSpec{
+		States: []opensearchtypes.StateSpec{
 			{
 				Name: "hot",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Rollover: &osapiext.RolloverOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Rollover: &opensearchtypes.RolloverOperation{
 								MinIndexAge: "1d",
 								MinSize:     "20gb",
 							},
@@ -524,7 +524,7 @@ func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -532,36 +532,36 @@ func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
 			},
 			{
 				Name: "warm",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReplicaCount: &osapiext.ReplicaCountOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReplicaCount: &opensearchtypes.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							IndexPriority: &osapiext.IndexPriorityOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							IndexPriority: &opensearchtypes.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ForceMerge: &osapiext.ForceMergeOperation{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ForceMerge: &opensearchtypes.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &osapiext.ConditionSpec{
+						Conditions: &opensearchtypes.ConditionSpec{
 							MinIndexAge: "2d",
 						},
 					},
@@ -569,18 +569,18 @@ func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
 			},
 			{
 				Name: "cold",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReadOnly: &osapiext.ReadOnlyOperation{},
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReadOnly: &opensearchtypes.ReadOnlyOperation{},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: []osapiext.TransitionSpec{
+				Transitions: []opensearchtypes.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &osapiext.ConditionSpec{
+						Conditions: &opensearchtypes.ConditionSpec{
 							MinIndexAge: func() string {
 								if r.multiClusterRoleBinding.Spec.OpensearchConfig != nil {
 									return r.multiClusterRoleBinding.Spec.OpensearchConfig.IndexRetention
@@ -593,18 +593,18 @@ func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
 			},
 			{
 				Name: "delete",
-				Actions: []osapiext.ActionSpec{
+				Actions: []opensearchtypes.ActionSpec{
 					{
-						ActionOperation: &osapiext.ActionOperation{
-							Delete: &osapiext.DeleteOperation{},
+						ActionOperation: &opensearchtypes.ActionOperation{
+							Delete: &opensearchtypes.DeleteOperation{},
 						},
 						Retry: &indices.DefaultRetry,
 					},
 				},
-				Transitions: make([]osapiext.TransitionSpec, 0),
+				Transitions: make([]opensearchtypes.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []osapiext.ISMTemplateSpec{
+		ISMTemplate: []opensearchtypes.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", spanIndexPrefix),

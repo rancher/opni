@@ -5,9 +5,10 @@ import (
 
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
+	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/pkg/util/opensearch"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
@@ -72,37 +73,57 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 		return err
 	}
 
-	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+	username, _, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
 	if err != nil {
 		return err
 	}
 
-	osReconciler := opensearch.NewReconciler(
+	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
-		cluster.Namespace,
-		username,
-		password,
-		cluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
+		certs.WithNamespace(cluster.Namespace),
+		certs.WithCluster(cluster.Name),
 	)
+
+	osReconciler, err := opensearch.NewReconciler(
+		r.ctx,
+		opensearch.ReconcilerConfig{
+			Namespace:             cluster.Namespace,
+			Username:              username,
+			CertReader:            certMgr,
+			OpensearchServiceName: cluster.Spec.General.ServiceName,
+		},
+	)
+	if err != nil {
+		return err
+	}
 
 	return osReconciler.MaybeUpdateRolesMapping(loggingCluster.Name, user.Name)
 }
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+	username, _, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
 	if err != nil {
 		return err
 	}
 
-	osReconciler := opensearch.NewReconciler(
+	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
-		cluster.Namespace,
-		username,
-		password,
-		cluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
+		certs.WithNamespace(cluster.Namespace),
+		certs.WithCluster(cluster.Name),
 	)
+
+	osReconciler, err := opensearch.NewReconciler(
+		r.ctx,
+		opensearch.ReconcilerConfig{
+			Namespace:             cluster.Namespace,
+			Username:              username,
+			CertReader:            certMgr,
+			OpensearchServiceName: cluster.Spec.General.ServiceName,
+		},
+	)
+	if err != nil {
+		return err
+	}
 
 	err = osReconciler.MaybeRemoveRolesMapping(r.loggingClusterBinding.Status.Rolename, r.loggingClusterBinding.Status.Username)
 	if err != nil {

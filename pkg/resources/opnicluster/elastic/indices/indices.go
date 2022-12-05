@@ -2,14 +2,13 @@ package indices
 
 import (
 	"context"
-	"fmt"
 
 	"emperror.dev/errors"
-	"github.com/hashicorp/go-version"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
+	esapiext "github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"github.com/rancher/opni/pkg/util/opensearch"
-	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
@@ -43,24 +42,29 @@ func NewReconciler(
 		cluster:    instance,
 		opensearch: opensearchCluster,
 	}
-	lg := log.FromContext(ctx)
-
-	username, password, err := helpers.UsernameAndPassword(ctx, c, opensearchCluster)
+	username, _, err := helpers.UsernameAndPassword(ctx, c, opensearchCluster)
 	if err != nil {
-		lg.Error(err, "fetching username from opensearch failed")
+		return nil, err
+	}
+	certMgr := certs.NewCertMgrOpensearchCertManager(
+		ctx,
+		certs.WithNamespace(opensearchCluster.Namespace),
+		certs.WithCluster(opensearchCluster.Name),
+	)
+
+	reconciler.osReconciler, err = opensearch.NewReconciler(
+		ctx,
+		opensearch.ReconcilerConfig{
+			Namespace:             opensearchCluster.Namespace,
+			Username:              username,
+			CertReader:            certMgr,
+			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	osSvcName := opensearchCluster.Spec.General.ServiceName
-	kbSvcName := fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName)
-
-	reconciler.osReconciler = opensearch.NewReconciler(
-		ctx,
-		reconciler.cluster.Spec.Opensearch.Namespace,
-		username,
-		password,
-		osSvcName,
-		kbSvcName,
-	)
 	return reconciler, nil
 }
 
@@ -98,26 +102,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
-	oldVersion := false
-	changeVersion, _ := version.NewVersion(ISMChangeVersion)
-
-	desiredVersion, err := version.NewVersion(r.opensearch.Spec.General.Version)
-	if err != nil {
-		lg.V(1).Error(err, "failed to parse opensearch version")
-	} else {
-		oldVersion = desiredVersion.LessThan(changeVersion)
-	}
-
-	var policies []interface{}
-	if oldVersion {
-		policies = append(policies, oldOpniDrainModelStatusPolicy)
-		policies = append(policies, oldOpniMetricPolicy)
-	} else {
-		policies = append(policies, opniDrainModelStatusPolicy)
-		policies = append(policies, opniMetricPolicy)
+	policies := []esapiext.ISMPolicySpec{
+		opniDrainModelStatusPolicy,
+		opniMetricPolicy,
 	}
 	for _, policy := range policies {
-		err = r.osReconciler.ReconcileISM(policy)
+		err := r.osReconciler.ReconcileISM(policy)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -131,7 +121,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for _, template := range templates {
-		err = r.osReconciler.MaybeCreateIndexTemplate(template)
+		err := r.osReconciler.MaybeCreateIndexTemplate(template)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -145,7 +135,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for prefix, alias := range prefixes {
-		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias, []string{})
+		err := r.osReconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -153,7 +143,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
-	err = r.osReconciler.MaybeCreateIndex(logTemplateIndexName, logTemplateIndexSettings)
+	err := r.osReconciler.MaybeCreateIndex(logTemplateIndexName, logTemplateIndexSettings)
 	if err != nil {
 		conditions = append(conditions, err.Error())
 		retErr = errors.Combine(retErr, err)

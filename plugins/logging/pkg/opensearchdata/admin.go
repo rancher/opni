@@ -7,7 +7,7 @@ import (
 
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 )
 
 func (m *Manager) CreateInitialAdmin(password []byte) {
@@ -17,7 +17,7 @@ func (m *Manager) CreateInitialAdmin(password []byte) {
 
 	ctx := context.Background()
 
-	user := opensearchapiext.UserSpec{
+	user := opensearchtypes.UserSpec{
 		UserName: "opni",
 		Password: string(password),
 		BackendRoles: []string{
@@ -59,13 +59,13 @@ func (m *Manager) userExists(ctx context.Context, name string) (bool, error) {
 	if resp.StatusCode == 404 {
 		return false, nil
 	} else if resp.IsError() {
-		return false, fmt.Errorf("response from API is %s", resp.Status())
+		return false, fmt.Errorf("response from API is %s", resp.String())
 	}
 
 	return true, nil
 }
 
-func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchapiext.UserSpec) error {
+func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.UserSpec) error {
 	m.logger.Debug("creating opensearch admin user")
 	exists, err := m.userExists(ctx, user.UserName)
 	if err != nil {

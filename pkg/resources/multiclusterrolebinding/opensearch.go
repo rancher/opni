@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rancher/opni/pkg/util/opensearch"
-	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/rancher/opni/pkg/opensearch/certs"
+	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -17,21 +18,33 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	reconciler := opensearch.NewReconciler(
+	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
-		opensearchCluster.Namespace,
-		username,
-		password,
-		opensearchCluster.Spec.General.ServiceName,
-		fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName),
+		certs.WithNamespace(opensearchCluster.Namespace),
+		certs.WithCluster(opensearchCluster.Name),
 	)
+
+	reconciler, retErr := opensearch.NewReconciler(
+		r.ctx,
+		opensearch.ReconcilerConfig{
+			Namespace:             opensearchCluster.Namespace,
+			Username:              username,
+			CertReader:            certMgr,
+			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
+			DashboardsServiceName: fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName),
+		},
+		opensearch.WithDashboardsPassword(password),
+	)
+	if retErr != nil {
+		return
+	}
 
 	retErr = reconciler.MaybeCreateRole(clusterIndexRole)
 	if retErr != nil {
 		return
 	}
 
-	isms := []osapiext.ISMPolicySpec{
+	isms := []opensearchtypes.ISMPolicySpec{
 		r.logISMPolicy(),
 		r.traceISMPolicy(),
 	}
@@ -48,7 +61,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	templates := []osapiext.IndexTemplateSpec{
+	templates := []opensearchtypes.IndexTemplateSpec{
 		OpniLogTemplate,
 		opniSpanTemplate,
 	}
@@ -90,7 +103,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	mappings := map[string]osapiext.TemplateMappingsSpec{
+	mappings := map[string]opensearchtypes.TemplateMappingsSpec{
 		"mappings": opniServiceMapTemplate.Template.Mappings,
 	}
 	retErr = reconciler.MaybeCreateIndex(serviceMapIndexName, mappings)

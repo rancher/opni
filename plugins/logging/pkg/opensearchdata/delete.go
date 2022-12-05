@@ -45,16 +45,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string) error {
 			return err
 		}
 
-		resp, err := m.Client.DeleteByQuery(
-			[]string{
-				"logs",
-			},
-			strings.NewReader(query),
-			m.Client.DeleteByQuery.WithWaitForCompletion(false),
-			m.Client.DeleteByQuery.WithRefresh(true),
-			m.Client.DeleteByQuery.WithSearchType("dfs_query_then_fetch"),
-			m.Client.DeleteByQuery.WithContext(ctx),
-		)
+		resp, err := m.Client.Indices.AsyncDeleteByQuery(ctx, []string{"logs"}, strings.NewReader(query))
 		if err != nil {
 			return err
 		}
@@ -105,10 +96,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string) (DeleteStatus
 		return DeletePending, nil
 	}
 
-	resp, err := m.Client.Tasks.Get(
-		taskID,
-		m.Client.Tasks.Get.WithContext(ctx),
-	)
+	resp, err := m.Client.Tasks.GetTask(ctx, taskID)
 	if err != nil {
 		return DeleteError, err
 	}

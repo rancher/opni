@@ -30,7 +30,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
+	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/test/testutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
@@ -57,6 +59,7 @@ import (
 var (
 	// all processes
 	k8sClient client.Client
+	certMgr   *certs.TestCertManager
 	scheme    = apis.NewScheme()
 
 	// process 1 only
@@ -110,6 +113,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			},
 		},
 	}
+
+	certMgr = &certs.TestCertManager{}
+
 	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
 		&GpuPolicyAdapterReconciler{},
 		&LoggingReconciler{},
@@ -120,9 +126,14 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&AIOpniClusterReconciler{
 			Opts: []opnicluster.ReconcilerOption{
 				opnicluster.WithContinueOnIndexError(),
+				opnicluster.WithCertManager(certMgr),
 			},
 		},
-		&LoggingOpniOpensearchReconciler{},
+		&LoggingOpniOpensearchReconciler{
+			Opts: []opniopensearch.ReconcilerOption{
+				opniopensearch.WithCertManager(certMgr),
+			},
+		},
 		&AIPretrainedModelReconciler{},
 		&NatsClusterReonciler{},
 	)

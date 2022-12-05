@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,6 +28,7 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 	)
 	Specify("setup", func() {
 		testNs = makeTestNamespace()
+		certMgr.PopulateK8sObjects(context.Background(), k8sClient, testNs)
 		nats = &opnicorev1beta1.NatsCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "natstest",
@@ -191,6 +193,16 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 				},
 				AdminCredentialsSecret: corev1.LocalObjectReference{
 					Name: fmt.Sprintf("%s-internal-auth", object.Name),
+				},
+			}
+			security.Tls.Transport.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
+				CaSecret: corev1.LocalObjectReference{
+					Name: certs.MockCAName,
+				},
+			}
+			security.Tls.Http.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
+				CaSecret: corev1.LocalObjectReference{
+					Name: certs.MockCAName,
 				},
 			}
 			Expect(cluster.Spec.Security).To(Equal(security))

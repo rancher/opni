@@ -13,6 +13,11 @@ type OpensearchCertManager interface {
 	OpensearchCertReader
 }
 
+type OpensearchCertReconcile interface {
+	OpensearchCertManager
+	K8sOpensearchCertManager
+}
+
 type OpensearchCertWriter interface {
 	GenerateRootCACert() error
 	GenerateTransportCA() error

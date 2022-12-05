@@ -22,6 +22,7 @@ const (
 )
 
 type Reconciler struct {
+	ReconcilerOptions
 	osReconciler *opensearch.Reconciler
 	client       client.Client
 	cluster      *aiv1beta1.OpniCluster
@@ -29,11 +30,30 @@ type Reconciler struct {
 	ctx          context.Context
 }
 
+type ReconcilerOptions struct {
+	certMgr certs.OpensearchCertReader
+}
+
+type ReconcilerOption func(*ReconcilerOptions)
+
+func (o *ReconcilerOptions) apply(opts ...ReconcilerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithCertManager(certMgr certs.OpensearchCertReader) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.certMgr = certMgr
+	}
+}
+
 func NewReconciler(
 	ctx context.Context,
 	instance *aiv1beta1.OpniCluster,
 	opensearchCluster *opensearchv1.OpenSearchCluster,
 	c client.Client,
+	opts ...ReconcilerOption,
 ) (*Reconciler, error) {
 	// Need to fetch the elasticsearch password from the status
 	reconciler := &Reconciler{
@@ -42,22 +62,27 @@ func NewReconciler(
 		cluster:    instance,
 		opensearch: opensearchCluster,
 	}
+	options := ReconcilerOptions{}
+	options.apply(opts...)
+	if options.certMgr == nil {
+		options.certMgr = certs.NewCertMgrOpensearchCertManager(
+			ctx,
+			certs.WithNamespace(opensearchCluster.Namespace),
+			certs.WithCluster(opensearchCluster.Name),
+		)
+	}
+
 	username, _, err := helpers.UsernameAndPassword(ctx, c, opensearchCluster)
 	if err != nil {
 		return nil, err
 	}
-	certMgr := certs.NewCertMgrOpensearchCertManager(
-		ctx,
-		certs.WithNamespace(opensearchCluster.Namespace),
-		certs.WithCluster(opensearchCluster.Name),
-	)
 
 	reconciler.osReconciler, err = opensearch.NewReconciler(
 		ctx,
 		opensearch.ReconcilerConfig{
 			Namespace:             opensearchCluster.Namespace,
 			Username:              username,
-			CertReader:            certMgr,
+			CertReader:            options.certMgr,
 			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
 		},
 	)

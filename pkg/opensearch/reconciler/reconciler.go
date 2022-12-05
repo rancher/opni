@@ -22,46 +22,89 @@ import (
 )
 
 type Reconciler struct {
-	osClient         *opensearch.Client
-	dashboardsClient *dashboards.Client
-	ctx              context.Context
+	ReconcilerOptions
+	ctx context.Context
+}
+
+type ReconcilerConfig struct {
+	Namespace             string
+	Username              string
+	CertReader            certs.OpensearchCertReader
+	OpensearchServiceName string
+	DashboardsServiceName string
+}
+
+type ReconcilerOptions struct {
+	osClient           *opensearch.Client
+	dashboardsClient   *dashboards.Client
+	dashboardsPassword string
+}
+
+type ReconcilerOption func(*ReconcilerOptions)
+
+func (o *ReconcilerOptions) apply(opts ...ReconcilerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithOpensearchClient(client *opensearch.Client) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.osClient = client
+	}
+}
+
+func WithDashboardshClient(client *dashboards.Client) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.dashboardsClient = client
+	}
+}
+
+func WithDashboardsPassword(password string) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.dashboardsPassword = password
+	}
 }
 
 func NewReconciler(
 	ctx context.Context,
-	namespace string,
-	password string,
-	username string,
-	certReader certs.OpensearchCertReader,
-	osServiceName string,
-	kbServiceName string,
+	cfg ReconcilerConfig,
+	opts ...ReconcilerOption,
 ) (*Reconciler, error) {
-	oscfg := opensearch.ClientConfig{
-		URLs: []string{
-			fmt.Sprintf("https://%s.%s:9200", osServiceName, namespace),
-		},
-		Username:   username,
-		CertReader: certReader,
-	}
-	osClient, err := opensearch.NewClient(oscfg)
-	if err != nil {
-		return nil, err
+	options := ReconcilerOptions{}
+	options.apply(opts...)
+
+	if options.osClient == nil {
+		oscfg := opensearch.ClientConfig{
+			URLs: []string{
+				fmt.Sprintf("https://%s.%s:9200", cfg.OpensearchServiceName, cfg.Namespace),
+			},
+			Username:   cfg.Username,
+			CertReader: cfg.CertReader,
+		}
+		osClient, err := opensearch.NewClient(oscfg)
+		if err != nil {
+			return nil, err
+		}
+		options.osClient = osClient
 	}
 
-	dashboardscfg := dashboards.Config{
-		URL:      fmt.Sprintf("https://%s.%s:5601", kbServiceName, namespace),
-		Username: username,
-		Password: password,
-	}
-	dashboardsClient, err := dashboards.NewClient(dashboardscfg)
-	if err != nil {
-		return nil, err
+	if options.dashboardsClient == nil {
+		dashboardscfg := dashboards.Config{
+			URL:      fmt.Sprintf("https://%s.%s:5601", cfg.DashboardsServiceName, cfg.Namespace),
+			Username: cfg.Username,
+			Password: options.dashboardsPassword,
+		}
+		dashboardsClient, err := dashboards.NewClient(dashboardscfg)
+		if err != nil {
+			return nil, err
+		}
+		options.dashboardsClient = dashboardsClient
 	}
 
 	return &Reconciler{
-		osClient:         osClient,
-		dashboardsClient: dashboardsClient,
-		ctx:              ctx,
+		ReconcilerOptions: options,
+		ctx:               ctx,
 	}, nil
 }
 

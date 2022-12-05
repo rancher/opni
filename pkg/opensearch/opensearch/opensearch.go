@@ -16,6 +16,7 @@ import (
 )
 
 type Client struct {
+	ClientOptions
 	ISM      api.ISMApi
 	Security api.SecurityAPI
 	Indices  api.IndicesAPI
@@ -28,7 +29,25 @@ type ClientConfig struct {
 	CertReader certs.OpensearchCertReader
 }
 
-func NewClient(cfg ClientConfig) (*Client, error) {
+type ClientOptions struct {
+	transport http.RoundTripper
+}
+
+type ClientOption func(*ClientOptions)
+
+func (o *ClientOptions) apply(opts ...ClientOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithTransport(transport http.RoundTripper) ClientOption {
+	return func(o *ClientOptions) {
+		o.transport = transport
+	}
+}
+
+func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 	if cfg.CertReader == nil {
 		return nil, fmt.Errorf("cert reader is required: %w", errors.ErrConfigMissing)
 	}
@@ -60,9 +79,14 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		RootCAs: cacerts,
 	}
 
+	options := ClientOptions{
+		transport: transport,
+	}
+	options.apply(opts...)
+
 	client, err := opensearchtransport.New(opensearchtransport.Config{
 		URLs:      urls,
-		Transport: transport,
+		Transport: options.transport,
 	})
 	if err != nil {
 		return nil, err

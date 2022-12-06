@@ -116,23 +116,17 @@ async def update_template_data(es, df):
                 logging.error("failed to {} document {}".format())
     except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
         logging.error(
-            "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
+            "Failed to index data. Re-adding to queue"
         )
         logging.error(exception)
-    except TransportError as exception:
-        logging.info(f"Error in async_streaming_bulk {exception}")
-        if exception.status_code == "N/A":
-            logging.info("Elasticsearch connection error")
-            es = await setup_es_connection()
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
     model_keywords_dict = {"drain":  ["_id", "masked_log", "template_matched","template_cluster_id","inference_model", "anomaly_level"],
                           "opnilog":  ["_id", "masked_log", "anomaly_level", "template_matched","template_cluster_id","opnilog_confidence", "inference_model"]}
     anomaly_level_options = ["Normal", "Anomaly"]
-    pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:
-        model_df = pretrained_model_logs_df[pretrained_model_logs_df["inference_model"] == model_name]
+        model_df = df[df["inference_model"] == model_name]
         for anomaly_level in anomaly_level_options:
             anomaly_level_df = model_df[model_df["anomaly_level"] == anomaly_level]
             if len(anomaly_level_df) == 0:
@@ -144,7 +138,7 @@ async def update_logs(es, df):
                             anomaly_level_df[model_keywords_dict[model_name]],
                             "logs",
                         ),
-                        max_retries=1,
+                        max_retries=5,
                         initial_backoff=1,
                         request_timeout=5,
                 ):
@@ -153,14 +147,10 @@ async def update_logs(es, df):
                         logging.error("failed to {} document {}".format())
             except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
                 logging.error(
-                    "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
+                    "Failed to index data. Re-adding to queue"
                 )
                 logging.error(exception)
-            except TransportError as exception:
-                logging.info(f"Error in async_streaming_bulk {exception}")
-                if exception.status_code == "N/A":
-                    logging.info("Elasticsearch connection error")
-                    es = await setup_es_connection()
+
 
 async def init_nats():
     from opni_nats import NatsWrapper

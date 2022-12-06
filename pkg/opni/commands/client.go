@@ -1,3 +1,5 @@
+//go:build !nomanager
+
 package commands
 
 import (
@@ -17,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -43,7 +46,7 @@ func BuildClientCmd() *cobra.Command {
 		tracing.Configure("client")
 
 		if echoVersion {
-			fmt.Println(util.Version)
+			fmt.Println(versions.Version)
 			return nil
 		}
 
@@ -71,11 +74,11 @@ func BuildClientCmd() *cobra.Command {
 		var upgradeChecker *upgraderesponder.UpgradeChecker
 		if !(disableUsage || common.DisableUsage) {
 			upgradeRequester := manager.UpgradeRequester{
-				Version:     util.Version,
+				Version:     versions.Version,
 				InstallType: manager.InstallTypeAgent,
 			}
 			upgradeRequester.SetupLoggerWithManager(mgr)
-			setupLog.Info("Usage tracking enabled", "current-version", util.Version)
+			setupLog.Info("Usage tracking enabled", "current-version", versions.Version)
 			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
 			upgradeChecker.Start()
 			defer upgradeChecker.Stop()

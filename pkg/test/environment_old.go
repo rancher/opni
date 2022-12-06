@@ -12,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -53,14 +52,15 @@ func RunTestEnvironment(
 		StartControllerManager(ctx, testEnv)
 	}
 
-	apis.InitScheme(scheme.Scheme)
+	scheme := apis.NewScheme()
+	apis.InitScheme(scheme)
 
 	ports, err := freeport.GetFreePorts(2)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// add the opnicluster manager
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:                 scheme.Scheme,
+		Scheme:                 scheme,
 		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
 		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
 	})

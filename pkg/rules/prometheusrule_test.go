@@ -6,15 +6,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -98,11 +96,8 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow
 		restConfig, _, err := env.StartK8s()
 		Expect(err).NotTo(HaveOccurred())
 
-		scheme := runtime.NewScheme()
-		util.Must(clientgoscheme.AddToScheme(scheme))
-		util.Must(monitoringv1.AddToScheme(scheme))
 		k8sClient, err = client.New(restConfig, client.Options{
-			Scheme: scheme,
+			Scheme: apis.NewScheme(),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(env.Stop)

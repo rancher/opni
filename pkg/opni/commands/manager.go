@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,7 +57,7 @@ func BuildManagerCmd() *cobra.Command {
 		tracing.Configure("manager")
 
 		if echoVersion {
-			fmt.Println(util.Version)
+			fmt.Println(versions.Version)
 			return nil
 		}
 
@@ -85,11 +86,11 @@ func BuildManagerCmd() *cobra.Command {
 		var upgradeChecker *upgraderesponder.UpgradeChecker
 		if !(disableUsage || common.DisableUsage) {
 			upgradeRequester := manager.UpgradeRequester{
-				Version:     util.Version,
+				Version:     versions.Version,
 				InstallType: manager.InstallTypeManager,
 			}
 			upgradeRequester.SetupLoggerWithManager(mgr)
-			setupLog.Info("Usage tracking enabled", "current-version", util.Version)
+			setupLog.Info("Usage tracking enabled", "current-version", versions.Version)
 			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
 			upgradeChecker.Start()
 			defer upgradeChecker.Stop()

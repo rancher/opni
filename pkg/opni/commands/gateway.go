@@ -90,7 +90,7 @@ func BuildGatewayCmd() *cobra.Command {
 		lg.With(
 			"dirs", gatewayConfig.Spec.Plugins.Dirs,
 		).Info("loading plugins")
-		pluginLoader := plugins.NewPluginLoader()
+		pluginLoader := plugins.NewPluginLoader(plugins.WithLogger(lg.Named("gateway")))
 
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig, pluginLoader,

@@ -480,9 +480,9 @@ func Minimal() error {
 		}
 	}
 
-	if upx, err := exec.LookPath("upx"); err == nil {
-		return sh.Run(upx, "-q", "bin/opni")
-	}
+	// if upx, err := exec.LookPath("upx"); err == nil {
+	// 	return sh.Run(upx, "-q", "bin/opni")
+	// }
 	return nil
 }
 

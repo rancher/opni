@@ -34,7 +34,7 @@ const (
 	secretName         = "opni-opensearch-auth"
 	secretKey          = "password"
 	dataPrepperName    = "opni-shipper"
-	dataPrepperVersion = "1.5.1"
+	dataPrepperVersion = "2.0.1"
 	clusterOutputName  = "opni-output"
 	clusterFlowName    = "opni-flow"
 )

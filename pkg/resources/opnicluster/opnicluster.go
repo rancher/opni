@@ -9,6 +9,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -44,6 +45,7 @@ type Reconciler struct {
 
 type ReconcilerOptions struct {
 	continueOnIndexError bool
+	certMgr              certs.OpensearchCertReader
 	resourceOptions      []reconciler.ResourceReconcilerOption
 }
 
@@ -58,6 +60,12 @@ func (o *ReconcilerOptions) apply(opts ...ReconcilerOption) {
 func WithContinueOnIndexError() ReconcilerOption {
 	return func(o *ReconcilerOptions) {
 		o.continueOnIndexError = true
+	}
+}
+
+func WithCertManager(certMgr certs.OpensearchCertReader) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.certMgr = certMgr
 	}
 }
 
@@ -293,6 +301,7 @@ func (r *Reconciler) reconcileIndices() (*reconcile.Result, error) {
 		r.opniCluster,
 		r.opensearchCluster,
 		r.client,
+		indices.WithCertManager(r.certMgr),
 	)
 	if err != nil {
 		return nil, err

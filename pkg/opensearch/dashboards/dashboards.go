@@ -1,54 +1,84 @@
-package kibana
+package dashboards
 
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 )
 
 const (
-	headerContentType        = "Content-Type"
-	kibanaCrossHeaderType    = "osd-xsrf"
-	securityTenantHeaderType = "securitytenant"
+	headerContentType         = "Content-Type"
+	dashboardsCrossHeaderType = "osd-xsrf"
+	securityTenantHeaderType  = "securitytenant"
 )
 
 type Client struct {
+	ClientOptions
 	*http.Client
 	url *url.URL
 }
 
 type Config struct {
-	Username  string
-	Password  string
-	URL       string
-	Transport http.RoundTripper
+	Username string
+	Password string
+	URL      string
 }
 
-func NewClient(cfg Config) (*Client, error) {
+type ClientOptions struct {
+	transport http.RoundTripper
+}
+
+type ClientOption func(*ClientOptions)
+
+func (o *ClientOptions) apply(opts ...ClientOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithTransport(transport http.RoundTripper) ClientOption {
+	return func(o *ClientOptions) {
+		o.transport = transport
+	}
+}
+
+func NewClient(cfg Config, opts ...ClientOption) (*Client, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{
+		Timeout: 5 * time.Second,
+	}).DialContext
+	transport.TLSHandshakeTimeout = 5 * time.Second
+	// #nosec G402 interal usage only
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	o := ClientOptions{
+		transport: transport,
+	}
+
+	o.apply(opts...)
+
 	newURL, err := url.Parse(cfg.URL)
 	if err != nil {
 		return nil, err
 	}
 	newURL.User = url.UserPassword(cfg.Username, cfg.Password)
 
-	var client *http.Client
-
-	if cfg.Transport == nil {
-		client = &http.Client{}
-	} else {
-		client = &http.Client{
-			Transport: cfg.Transport,
-		}
-	}
-
 	return &Client{
-		Client: client,
-		url:    newURL,
+		ClientOptions: o,
+		Client: &http.Client{
+			Transport: o.transport,
+		},
+		url: newURL,
 	}, nil
 }
 
@@ -91,7 +121,7 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 	}
 
 	req.Header.Add(headerContentType, writer.FormDataContentType())
-	req.Header.Add(kibanaCrossHeaderType, "true")
+	req.Header.Add(dashboardsCrossHeaderType, "true")
 	req.Header.Add(securityTenantHeaderType, "global")
 
 	password, set := c.url.User.Password()
@@ -109,5 +139,4 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 	}
 
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
-
 }

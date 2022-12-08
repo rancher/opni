@@ -55,7 +55,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 	BeforeEach(func() {
 		namespace = "test-logging-v2"
 		version = "0.7.0"
-		opensearchVersion = "1.3.3"
+		opensearchVersion = "2.4.0"
 
 		security = &opsterv1.Security{
 			Tls: &opsterv1.TlsConfig{
@@ -70,7 +70,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.3-0.7.0"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.7.0"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -1034,7 +1034,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Namespace: namespace,
 					}, object)
 					Expect(err).NotTo(HaveOccurred())
-					object.Status.OpensearchVersion = lo.ToPtr("1.3.3")
+					object.Status.OpensearchVersion = lo.ToPtr("2.4.0")
 					object.Status.Version = lo.ToPtr("0.7.0")
 					Expect(k8sClient.Status().Update(context.Background(), object)).To(Succeed())
 				})

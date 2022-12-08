@@ -2,21 +2,18 @@ package gateway
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
-	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
+	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/pkg/util/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -45,7 +42,7 @@ const (
 	LabelOpniNodeGroup  = "opni.io/node-group"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion = "1.3.3"
+	opensearchVersion = "2.4.0"
 	defaultRepo       = "docker.io/rancher"
 )
 
@@ -834,7 +831,7 @@ func (m *LoggingManagerV2) validDurationString(duration string) bool {
 	return match
 }
 
-func (m *LoggingManagerV2) setOpensearchClient() opensearch.ExtendedClient {
+func (m *LoggingManagerV2) setOpensearchClient() *opensearch.Client {
 	ctx := context.TODO()
 	expBackoff := backoff.Exponential(
 		backoff.WithMaxRetries(0),
@@ -851,7 +848,7 @@ FETCH:
 		select {
 		case <-b.Done():
 			m.logger.Warn("plugin context cancelled before Opensearch object created")
-			return opensearch.ExtendedClient{}
+			return nil
 		case <-b.Next():
 			err := m.k8sClient.Get(ctx, types.NamespacedName{
 				Name:      m.opensearchCluster.Name,
@@ -873,45 +870,33 @@ FETCH:
 		}
 	}
 
-	username, password, err := helpers.UsernameAndPassword(ctx, m.k8sClient, cluster)
+	username, _, err := helpers.UsernameAndPassword(ctx, m.k8sClient, cluster)
 	if err != nil {
 		m.logger.Errorf("failed to get cluster details: %v", err)
 		panic(err)
 	}
 
-	// Set sane transport timeouts
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = (&net.Dialer{
-		Timeout: 5 * time.Second,
-	}).DialContext
-	transport.TLSHandshakeTimeout = 5 * time.Second
-	transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
-	}
+	certMgr := certs.NewCertMgrOpensearchCertManager(
+		context.TODO(),
+		certs.WithNamespace(cluster.Namespace),
+		certs.WithCluster(cluster.Name),
+	)
 
-	osCfg := osclient.Config{
-		Addresses: []string{
-			fmt.Sprintf("https://%s.%s:9200", cluster.Spec.General.ServiceName, cluster.Namespace),
+	client, err := opensearch.NewClient(
+		opensearch.ClientConfig{
+			URLs: []string{
+				fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName),
+			},
+			Username:   username,
+			CertReader: certMgr,
 		},
-		Username:             username,
-		Password:             password,
-		UseResponseCheckOnly: true,
-		Transport:            transport,
-	}
-
-	osClient, err := osclient.NewClient(osCfg)
+	)
 	if err != nil {
-		m.logger.Errorf("failed to create opensearch client: %v", err)
+		m.logger.Errorf("failed to create client: %v", err)
 		panic(err)
 	}
 
-	extendedClient := opensearch.ExtendedClient{
-		Client:   osClient,
-		ISM:      &opensearch.ISMApi{Client: osClient},
-		Security: &opensearch.SecurityAPI{Client: osClient},
-	}
-
-	return extendedClient
+	return client
 }
 
 func (m *LoggingManagerV2) generateAdminPassword(cluster *loggingv1beta1.OpniOpensearch) (password []byte, retErr error) {

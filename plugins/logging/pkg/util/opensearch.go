@@ -3,11 +3,11 @@ package util
 import (
 	"sync"
 
-	"github.com/rancher/opni/pkg/util/opensearch"
+	"github.com/rancher/opni/pkg/opensearch/opensearch"
 )
 
 type AsyncOpensearchClient struct {
-	opensearch.ExtendedClient
+	*opensearch.Client
 
 	initCond    *sync.Cond
 	initialized bool
@@ -28,7 +28,7 @@ func (c *AsyncOpensearchClient) WaitForInit() {
 	c.initCond.L.Unlock()
 }
 
-func (c *AsyncOpensearchClient) SetClient(setter func() opensearch.ExtendedClient) {
+func (c *AsyncOpensearchClient) SetClient(setter func() *opensearch.Client) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
@@ -38,7 +38,7 @@ func (c *AsyncOpensearchClient) SetClient(setter func() opensearch.ExtendedClien
 	if c.initialized {
 		return
 	}
-	c.ExtendedClient = setter()
+	c.Client = setter()
 	c.initialized = true
 	c.initCond.Broadcast()
 }
@@ -52,6 +52,7 @@ func (c *AsyncOpensearchClient) UnsetClient() {
 	if !c.initialized {
 		return
 	}
+	c.Client = nil
 	c.initialized = false
 }
 

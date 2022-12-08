@@ -1,30 +1,33 @@
 package multiclusteruser
 
 import (
+	"github.com/rancher/opni/pkg/opensearch/certs"
+	osapiext "github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/pkg/util/opensearch"
-	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+	certMgr := certs.NewCertMgrOpensearchCertManager(
+		r.ctx,
+		certs.WithNamespace(cluster.Namespace),
+		certs.WithCluster(cluster.Name),
+	)
+
+	osReconciler, err := opensearch.NewReconciler(
+		r.ctx,
+		opensearch.ReconcilerConfig{
+			CertReader:            certMgr,
+			OpensearchServiceName: cluster.Spec.General.ServiceName,
+		},
+	)
 	if err != nil {
 		return err
 	}
-
-	osReconciler := opensearch.NewReconciler(
-		r.ctx,
-		cluster.Namespace,
-		username,
-		password,
-		cluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
-	)
 
 	osUser := osapiext.UserSpec{
 		UserName: r.multiclusterUser.Name,
@@ -39,19 +42,22 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
 	if cluster != nil {
-		username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+		certMgr := certs.NewCertMgrOpensearchCertManager(
+			r.ctx,
+			certs.WithNamespace(cluster.Namespace),
+			certs.WithCluster(cluster.Name),
+		)
+
+		osReconciler, err := opensearch.NewReconciler(
+			r.ctx,
+			opensearch.ReconcilerConfig{
+				CertReader:            certMgr,
+				OpensearchServiceName: cluster.Spec.General.ServiceName,
+			},
+		)
 		if err != nil {
 			return err
 		}
-
-		osReconciler := opensearch.NewReconciler(
-			r.ctx,
-			cluster.Namespace,
-			username,
-			password,
-			cluster.Spec.General.ServiceName,
-			"todo", // TODO fix dashboards name
-		)
 
 		err = osReconciler.MaybeDeleteUser(r.multiclusterUser.Name)
 		if err != nil {

@@ -1,4 +1,4 @@
-package opensearch
+package api
 
 import (
 	"context"
@@ -6,12 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/opensearch-project/opensearch-go"
-	"github.com/opensearch-project/opensearch-go/opensearchapi"
+	"github.com/opensearch-project/opensearch-go/v2/opensearchtransport"
 )
 
 type SecurityAPI struct {
-	*opensearch.Client
+	*opensearchtransport.Client
 }
 
 func generateRolesPath(name string) strings.Builder {
@@ -62,7 +61,7 @@ func generateRolesMappingPath(name string) strings.Builder {
 	return path
 }
 
-func (c *SecurityAPI) GetRole(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) GetRole(ctx context.Context, name string) (*Response, error) {
 	path := generateRolesPath(name)
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -75,14 +74,10 @@ func (c *SecurityAPI) GetRole(ctx context.Context, name string) (*opensearchapi.
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) CreateRole(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) CreateRole(ctx context.Context, name string, body io.Reader) (*Response, error) {
 	path := generateRolesPath(name)
 
 	req, err := http.NewRequest(http.MethodPut, path.String(), body)
@@ -95,14 +90,10 @@ func (c *SecurityAPI) CreateRole(ctx context.Context, name string, body io.Reade
 	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) DeleteRole(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) DeleteRole(ctx context.Context, name string) (*Response, error) {
 	path := generateRolesPath(name)
 
 	req, err := http.NewRequest(http.MethodDelete, path.String(), nil)
@@ -115,14 +106,10 @@ func (c *SecurityAPI) DeleteRole(ctx context.Context, name string) (*opensearcha
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) GetUser(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) GetUser(ctx context.Context, name string) (*Response, error) {
 	path := generateUserPath(name)
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -135,14 +122,10 @@ func (c *SecurityAPI) GetUser(ctx context.Context, name string) (*opensearchapi.
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) CreateUser(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) CreateUser(ctx context.Context, name string, body io.Reader) (*Response, error) {
 	path := generateUserPath(name)
 
 	req, err := http.NewRequest(http.MethodPut, path.String(), body)
@@ -155,14 +138,10 @@ func (c *SecurityAPI) CreateUser(ctx context.Context, name string, body io.Reade
 	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) DeleteUser(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) DeleteUser(ctx context.Context, name string) (*Response, error) {
 	path := generateUserPath(name)
 
 	req, err := http.NewRequest(http.MethodDelete, path.String(), nil)
@@ -175,15 +154,11 @@ func (c *SecurityAPI) DeleteUser(ctx context.Context, name string) (*opensearcha
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*opensearchapi.Response, error) {
-	method := "GET"
+func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*Response, error) {
+	method := http.MethodGet
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
@@ -196,15 +171,11 @@ func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*opense
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
-	method := "PUT"
+func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body io.Reader) (*Response, error) {
+	method := http.MethodPut
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
@@ -217,15 +188,11 @@ func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body 
 	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *SecurityAPI) DeleteRolesMapping(ctx context.Context, name string) (*opensearchapi.Response, error) {
-	method := "DELETE"
+func (c *SecurityAPI) DeleteRolesMapping(ctx context.Context, name string) (*Response, error) {
+	method := http.MethodDelete
 	path := generateRolesMappingPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
@@ -238,9 +205,5 @@ func (c *SecurityAPI) DeleteRolesMapping(ctx context.Context, name string) (*ope
 	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }

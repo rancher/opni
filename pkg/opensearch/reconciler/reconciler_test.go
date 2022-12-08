@@ -1,8 +1,9 @@
-package opensearch
+package reconciler
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -10,7 +11,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
-	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/rancher/opni/pkg/opensearch/dashboards"
+	"github.com/rancher/opni/pkg/opensearch/opensearch"
+	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 )
 
 var _ = Describe("Opensearch", Label("unit"), func() {
@@ -23,6 +26,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		kibanaDashboardVersionDocID = "latest"
 		kibanaDashboardVersion      = "v0.1.3"
 		kibanaDashboardVersionIndex = "opni-dashboard-version"
+
+		opensearchURL          = "https://mock-opensearch.example.com"
+		dashboardsURL          = "https://mock-dashboards.example.com"
+		dashboardsUser         = "test"
+		dashboardsPassword     = "test"
+		dashboardsURLWithCreds = "https://test:test@mock-dashboards.example.com"
 	)
 
 	BeforeEach(func() {
@@ -31,35 +40,62 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 	})
 
 	JustBeforeEach(func() {
-		reconciler = newElasticsearchReconcilerWithTransport(context.Background(), "test", transport)
+		opensearchClient, err := opensearch.NewClient(
+			opensearch.ClientConfig{
+				URLs: []string{
+					opensearchURL,
+				},
+				Username:   "test-user",
+				CertReader: &mockCertReader{},
+			},
+			opensearch.WithTransport(transport),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		dashboardsClient, err := dashboards.NewClient(
+			dashboards.Config{
+				URL:      dashboardsURL,
+				Username: dashboardsUser,
+				Password: dashboardsPassword,
+			},
+			dashboards.WithTransport(transport),
+		)
+
+		reconciler, err = NewReconciler(
+			context.Background(),
+			ReconcilerConfig{},
+			WithOpensearchClient(opensearchClient),
+			WithDashboardshClient(dashboardsClient),
+		)
+		Expect(err).NotTo(HaveOccurred())
 	})
 	Context("reconciling ISM policies", func() {
 		var (
-			policy         opensearchapiext.ISMPolicySpec
-			policyResponse *opensearchapiext.ISMGetResponse
+			policy         types.ISMPolicySpec
+			policyResponse *types.ISMGetResponse
 		)
 		BeforeEach(func() {
-			policy = opensearchapiext.ISMPolicySpec{
-				ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
+			policy = types.ISMPolicySpec{
+				ISMPolicyIDSpec: &types.ISMPolicyIDSpec{
 					PolicyID:   "testpolicy",
 					MarshallID: false,
 				},
 				Description:  "testing policy",
 				DefaultState: "test",
-				States: []opensearchapiext.StateSpec{
+				States: []types.StateSpec{
 					{
 						Name: "test",
-						Actions: []opensearchapiext.ActionSpec{
+						Actions: []types.ActionSpec{
 							{
-								ActionOperation: &opensearchapiext.ActionOperation{
-									ReadOnly: &opensearchapiext.ReadOnlyOperation{},
+								ActionOperation: &types.ActionOperation{
+									ReadOnly: &types.ReadOnlyOperation{},
 								},
 							},
 						},
-						Transitions: make([]opensearchapiext.TransitionSpec, 0),
+						Transitions: make([]types.TransitionSpec, 0),
 					},
 				},
-				ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+				ISMTemplate: []types.ISMTemplateSpec{
 					{
 						IndexPatterns: []string{
 							"test*",
@@ -68,32 +104,32 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					},
 				},
 			}
-			policyResponse = &opensearchapiext.ISMGetResponse{
+			policyResponse = &types.ISMGetResponse{
 				ID:          "testid",
 				Version:     1,
 				PrimaryTerm: 1,
 				SeqNo:       1,
-				Policy: opensearchapiext.ISMPolicySpec{
-					ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
+				Policy: types.ISMPolicySpec{
+					ISMPolicyIDSpec: &types.ISMPolicyIDSpec{
 						PolicyID:   "testpolicy",
 						MarshallID: true,
 					},
 					Description:  "testing policy",
 					DefaultState: "test",
-					States: []opensearchapiext.StateSpec{
+					States: []types.StateSpec{
 						{
 							Name: "test",
-							Actions: []opensearchapiext.ActionSpec{
+							Actions: []types.ActionSpec{
 								{
-									ActionOperation: &opensearchapiext.ActionOperation{
-										ReadOnly: &opensearchapiext.ReadOnlyOperation{},
+									ActionOperation: &types.ActionOperation{
+										ReadOnly: &types.ReadOnlyOperation{},
 									},
 								},
 							},
-							Transitions: make([]opensearchapiext.TransitionSpec, 0),
+							Transitions: make([]types.TransitionSpec, 0),
 						},
 					},
-					ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+					ISMTemplate: []types.ISMTemplateSpec{
 						{
 							IndexPatterns: []string{
 								"test*",
@@ -108,12 +144,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create a new ISM", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
+					fmt.Sprintf("%s/_plugins/_ism/policies/testpolicy", opensearchURL),
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
+					fmt.Sprintf("%s/_plugins/_ism/policies/testpolicy", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -131,7 +167,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
+					fmt.Sprintf("%s/_plugins/_ism/policies/testpolicy", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -147,32 +183,32 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		})
 		When("ISM exists and is different", func() {
 			It("should update the policy", func() {
-				policyResponseNew := &opensearchapiext.ISMGetResponse{
+				policyResponseNew := &types.ISMGetResponse{
 					ID:          "testid",
 					Version:     1,
 					PrimaryTerm: 1,
 					SeqNo:       2,
-					Policy: opensearchapiext.ISMPolicySpec{
-						ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
+					Policy: types.ISMPolicySpec{
+						ISMPolicyIDSpec: &types.ISMPolicyIDSpec{
 							PolicyID:   "testpolicy",
 							MarshallID: true,
 						},
 						Description:  "testing policy",
 						DefaultState: "test",
-						States: []opensearchapiext.StateSpec{
+						States: []types.StateSpec{
 							{
 								Name: "test",
-								Actions: []opensearchapiext.ActionSpec{
+								Actions: []types.ActionSpec{
 									{
-										ActionOperation: &opensearchapiext.ActionOperation{
-											ReadOnly: &opensearchapiext.ReadOnlyOperation{},
+										ActionOperation: &types.ActionOperation{
+											ReadOnly: &types.ReadOnlyOperation{},
 										},
 									},
 								},
-								Transitions: make([]opensearchapiext.TransitionSpec, 0),
+								Transitions: make([]types.TransitionSpec, 0),
 							},
 						},
-						ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+						ISMTemplate: []types.ISMTemplateSpec{
 							{
 								IndexPatterns: []string{
 									"test*",
@@ -185,12 +221,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				policy.Description = "this is a different description"
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
+					fmt.Sprintf("%s/_plugins/_ism/policies/testpolicy", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				transport.RegisterResponderWithQuery(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
+					fmt.Sprintf("%s/_plugins/_ism/policies/testpolicy", opensearchURL),
 					map[string]string{
 						"if_seq_no":       "1",
 						"if_primary_term": "1",
@@ -210,22 +246,22 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		})
 	})
 	Context("reconciling index templates", func() {
-		var indexTemplate opensearchapiext.IndexTemplateSpec
+		var indexTemplate types.IndexTemplateSpec
 		BeforeEach(func() {
-			indexTemplate = opensearchapiext.IndexTemplateSpec{
+			indexTemplate = types.IndexTemplateSpec{
 				TemplateName: "testtemplate",
 				IndexPatterns: []string{
 					"test*",
 				},
-				Template: opensearchapiext.TemplateSpec{
-					Settings: opensearchapiext.TemplateSettingsSpec{
+				Template: types.TemplateSpec{
+					Settings: types.TemplateSettingsSpec{
 						NumberOfShards:   1,
 						NumberOfReplicas: 1,
 						ISMPolicyID:      logPolicyName,
 						RolloverAlias:    logIndexAlias,
 					},
-					Mappings: opensearchapiext.TemplateMappingsSpec{
-						Properties: map[string]opensearchapiext.PropertySettings{
+					Mappings: types.TemplateMappingsSpec{
+						Properties: map[string]types.PropertySettings{
 							"timestamp": {
 								Type: "date",
 							},
@@ -238,12 +274,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create the index template", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_index_template/testtemplate",
+					fmt.Sprintf("%s/_index_template/testtemplate", opensearchURL),
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_index_template/testtemplate",
+					fmt.Sprintf("%s/_index_template/testtemplate", opensearchURL),
 					httpmock.NewStringResponder(200, `{"status": "complete"}`).Once(),
 				)
 				Expect(func() error {
@@ -261,7 +297,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_index_template/testtemplate",
+					fmt.Sprintf("%s/_index_template/testtemplate", opensearchURL),
 					httpmock.NewStringResponder(200, `{"mesg": "found it"}`).Once(),
 				)
 				Expect(func() error {
@@ -285,7 +321,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should bootstrap the index", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test*",
+					fmt.Sprintf("%s/_cat/indices/test*", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -293,7 +329,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test",
+					fmt.Sprintf("%s/_cat/indices/test", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -301,12 +337,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					"https://opni-es-client.test:9200/_aliases",
+					fmt.Sprintf("%s/_aliases", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/test-000001",
+					fmt.Sprintf("%s/test-000001", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -324,7 +360,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should reindex into the bootstrap index", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test*",
+					fmt.Sprintf("%s/_cat/indices/test*", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -332,7 +368,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test",
+					fmt.Sprintf("%s/_cat/indices/test", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -340,12 +376,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/test-000001",
+					fmt.Sprintf("%s/test-000001", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				transport.RegisterResponderWithQuery(
 					"POST",
-					"https://opni-es-client.test:9200/_reindex",
+					fmt.Sprintf("%s/_reindex", opensearchURL),
 					map[string]string{
 						"wait_for_completion": "true",
 					},
@@ -353,7 +389,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					"https://opni-es-client.test:9200/_aliases",
+					fmt.Sprintf("%s/_aliases", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -371,7 +407,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test*",
+					fmt.Sprintf("%s/_cat/indices/test*", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -392,13 +428,13 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 	Context("reconciling indices", func() {
 		var (
 			indexName     string
-			indexSettings = map[string]opensearchapiext.TemplateMappingsSpec{}
+			indexSettings = map[string]types.TemplateMappingsSpec{}
 		)
 		BeforeEach(func() {
 			indexName = "test"
-			indexSettings = map[string]opensearchapiext.TemplateMappingsSpec{
+			indexSettings = map[string]types.TemplateMappingsSpec{
 				"mappings": {
-					Properties: map[string]opensearchapiext.PropertySettings{
+					Properties: map[string]types.PropertySettings{
 						"start_ts": {
 							Type:   "date",
 							Format: "epoch_millis",
@@ -415,7 +451,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create the index settings", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test",
+					fmt.Sprintf("%s/_cat/indices/test", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -423,7 +459,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/test",
+					fmt.Sprintf("%s/test", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -441,7 +477,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/test",
+					fmt.Sprintf("%s/_cat/indices/test", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -461,17 +497,17 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 	})
 	Context("reconciling security objects", func() {
 		var (
-			role  opensearchapiext.RoleSpec
-			user  opensearchapiext.UserSpec
+			role  types.RoleSpec
+			user  types.UserSpec
 			users []string
 		)
 		BeforeEach(func() {
-			role = opensearchapiext.RoleSpec{
+			role = types.RoleSpec{
 				RoleName: "test_role",
 				ClusterPermissions: []string{
 					"cluster_composite_ops_ro",
 				},
-				IndexPermissions: []opensearchapiext.IndexPermissionSpec{
+				IndexPermissions: []types.IndexPermissionSpec{
 					{
 						IndexPatterns: []string{
 							"logs*",
@@ -483,12 +519,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					},
 				},
 			}
-			user = opensearchapiext.UserSpec{
+			user = types.UserSpec{
 				UserName: "test",
 				Password: "test",
 			}
-			// roleMapping = map[string]opensearchapiext.RoleMappingSpec{
-			// 	role.RoleName: opensearchapiext.RoleMappingSpec{
+			// roleMapping = map[string]types.RoleMappingSpec{
+			// 	role.RoleName: types.RoleMappingSpec{
 			// 		Users: []string{
 			// 			user.UserName,
 			// 		},
@@ -499,12 +535,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should the role", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/roles/test_role", opensearchURL),
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/roles/test_role", opensearchURL),
 					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
 				)
 				Expect(func() error {
@@ -521,7 +557,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/roles/test_role", opensearchURL),
 					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
 				)
 				Expect(func() error {
@@ -538,12 +574,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create the user", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					fmt.Sprintf("%s/_plugins/_security/api/internalusers/test", opensearchURL),
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					fmt.Sprintf("%s/_plugins/_security/api/internalusers/test", opensearchURL),
 					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
 				)
 				Expect(func() error {
@@ -560,7 +596,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					fmt.Sprintf("%s/_plugins/_security/api/internalusers/test", opensearchURL),
 					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
 				)
 				Expect(func() error {
@@ -577,14 +613,14 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create the role mapping", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/rolesmapping/test_role", opensearchURL),
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/rolesmapping/test_role", opensearchURL),
 					func(req *http.Request) (*http.Response, error) {
-						mapping := &opensearchapiext.RoleMappingSpec{}
+						mapping := &types.RoleMappingSpec{}
 						if err := json.NewDecoder(req.Body).Decode(&mapping); err != nil {
 							return httpmock.NewStringResponse(501, ""), nil
 						}
@@ -608,21 +644,21 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				users = []string{
 					"otheruser",
 				}
-				roleMappingBody := opensearchapiext.RoleMappingReponse{
-					role.RoleName: opensearchapiext.RoleMappingSpec{
+				roleMappingBody := types.RoleMappingReponse{
+					role.RoleName: types.RoleMappingSpec{
 						Users: users,
 					},
 				}
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/rolesmapping/test_role", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, roleMappingBody).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/rolesmapping/test_role", opensearchURL),
 					func(req *http.Request) (*http.Response, error) {
-						mapping := &opensearchapiext.RoleMappingSpec{}
+						mapping := &types.RoleMappingSpec{}
 						if err := json.NewDecoder(req.Body).Decode(&mapping); err != nil {
 							return httpmock.NewStringResponse(501, ""), nil
 						}
@@ -644,14 +680,14 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		})
 		When("role mapping exists and contains the user", func() {
 			It("should do nothing", func() {
-				roleMappingBody := opensearchapiext.RoleMappingReponse{
-					role.RoleName: opensearchapiext.RoleMappingSpec{
+				roleMappingBody := types.RoleMappingReponse{
+					role.RoleName: types.RoleMappingSpec{
 						Users: users,
 					},
 				}
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					fmt.Sprintf("%s/_plugins/_security/api/rolesmapping/test_role", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, roleMappingBody).Once(),
 				)
 				Expect(func() error {
@@ -670,7 +706,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			It("should create the tracking index and the kibana objects", func() {
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/opni-dashboard-version",
+					fmt.Sprintf("%s/_cat/indices/opni-dashboard-version", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -678,7 +714,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponderWithQuery(
 					"POST",
-					"http://admin:admin@opni-es-kibana.test:5601/api/saved_objects/_import",
+					fmt.Sprintf("%s/api/saved_objects/_import", dashboardsURLWithCreds),
 					map[string]string{
 						"overwrite": "true",
 					},
@@ -686,7 +722,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					"https://opni-es-client.test:9200/opni-dashboard-version/_doc/latest/_update",
+					fmt.Sprintf("%s/opni-dashboard-version/_update/latest", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -702,19 +738,19 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		})
 		When("kibana tracking index has version that is old", func() {
 			It("should update the tracking index and the kibana objects", func() {
-				kibanaResponse := opensearchapiext.KibanaDocResponse{
+				kibanaResponse := types.DashboardsDocResponse{
 					Index:       "opni-dashboard-version",
 					ID:          "latest",
 					SeqNo:       1,
 					PrimaryTerm: 1,
 					Found:       opensearchapi.BoolPtr(true),
-					Source: opensearchapiext.KibanaVersionDoc{
+					Source: types.DashboardsVersionDoc{
 						DashboardVersion: "0.0.1",
 					},
 				}
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/opni-dashboard-version",
+					fmt.Sprintf("%s/_cat/indices/opni-dashboard-version", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -722,12 +758,12 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/opni-dashboard-version/_doc/latest",
+					fmt.Sprintf("%s/opni-dashboard-version/_doc/latest", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, kibanaResponse).Once(),
 				)
 				transport.RegisterResponderWithQuery(
 					"POST",
-					"http://admin:admin@opni-es-kibana.test:5601/api/saved_objects/_import",
+					fmt.Sprintf("%s/api/saved_objects/_import", dashboardsURLWithCreds),
 					map[string]string{
 						"overwrite": "true",
 					},
@@ -735,7 +771,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					"https://opni-es-client.test:9200/opni-dashboard-version/_doc/latest/_update",
+					fmt.Sprintf("%s/opni-dashboard-version/_update/latest", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -751,19 +787,19 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 		})
 		When("kibana tracking index exists and is up to date", func() {
 			It("should do nothing", func() {
-				kibanaResponse := opensearchapiext.KibanaDocResponse{
+				kibanaResponse := types.DashboardsDocResponse{
 					Index:       "opni-dashboard-version",
 					ID:          "latest",
 					SeqNo:       1,
 					PrimaryTerm: 1,
 					Found:       opensearchapi.BoolPtr(true),
-					Source: opensearchapiext.KibanaVersionDoc{
+					Source: types.DashboardsVersionDoc{
 						DashboardVersion: kibanaDashboardVersion,
 					},
 				}
 				transport.RegisterResponderWithQuery(
 					"GET",
-					"https://opni-es-client.test:9200/_cat/indices/opni-dashboard-version",
+					fmt.Sprintf("%s/_cat/indices/opni-dashboard-version", opensearchURL),
 					map[string]string{
 						"format": "json",
 					},
@@ -771,7 +807,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/opni-dashboard-version/_doc/latest",
+					fmt.Sprintf("%s/opni-dashboard-version/_doc/latest", opensearchURL),
 					httpmock.NewJsonResponderOrPanic(200, kibanaResponse).Once(),
 				)
 				Expect(func() error {

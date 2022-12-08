@@ -1,4 +1,4 @@
-package opensearch
+package api
 
 import (
 	"context"
@@ -7,12 +7,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/opensearch-project/opensearch-go"
-	"github.com/opensearch-project/opensearch-go/opensearchapi"
+	"github.com/opensearch-project/opensearch-go/v2/opensearchtransport"
 )
 
 type ISMApi struct {
-	*opensearch.Client
+	*opensearchtransport.Client
 }
 
 func generateISMPath(name string) strings.Builder {
@@ -29,8 +28,8 @@ func generateISMPath(name string) strings.Builder {
 	return path
 }
 
-func (c *ISMApi) GetISM(ctx context.Context, name string) (*opensearchapi.Response, error) {
-	method := "GET"
+func (c *ISMApi) GetISM(ctx context.Context, name string) (*Response, error) {
+	method := http.MethodGet
 	path := generateISMPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
@@ -43,15 +42,11 @@ func (c *ISMApi) GetISM(ctx context.Context, name string) (*opensearchapi.Respon
 	}
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
-	method := "PUT"
+func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*Response, error) {
+	method := http.MethodPut
 	path := generateISMPath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
@@ -64,15 +59,11 @@ func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*o
 	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }
 
-func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*opensearchapi.Response, error) {
-	method := "PUT"
+func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*Response, error) {
+	method := http.MethodPut
 
 	path := generateISMPath(name)
 
@@ -92,9 +83,5 @@ func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seq
 	req.URL.RawQuery = query.Encode()
 
 	res, err := c.Perform(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return (*Response)(res), err
 }

@@ -7,6 +7,7 @@ import (
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +16,7 @@ import (
 	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -29,7 +31,11 @@ type natsConfig struct {
 	Namespace string
 }
 
-func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.OpenSearchCluster {
+func (r *Reconciler) buildOpensearchCluster(
+	natsAuthSecret string,
+	certs certs.K8sOpensearchCertManager,
+) *opsterv1.OpenSearchCluster {
+	lg := log.FromContext(r.ctx)
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
@@ -51,6 +57,25 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 		AdminCredentialsSecret: corev1.LocalObjectReference{
 			Name: fmt.Sprintf("%s-internal-auth", r.instance.Name),
 		},
+	}
+
+	// Set CA certs
+	transportSecret, err := certs.GetTransportCARef()
+	if err != nil {
+		lg.Error(err, "failed to get transport ca")
+	} else {
+		updatedSecurityConfig.Tls.Transport.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
+			CaSecret: transportSecret,
+		}
+	}
+
+	httpSecret, err := certs.GetHTTPCARef()
+	if err != nil {
+		lg.Error(err, "failed to get http ca")
+	} else {
+		updatedSecurityConfig.Tls.Http.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
+			CaSecret: httpSecret,
+		}
 	}
 
 	updatedDashboards := r.instance.Spec.Dashboards.DeepCopy()
@@ -102,6 +127,9 @@ func (r *Reconciler) buildOpensearchCluster(natsAuthSecret string) *opsterv1.Ope
 						},
 					}
 				}(),
+				AdditionalConfig: map[string]string{
+					"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
+				},
 			},
 			NodePools:  r.instance.Spec.NodePools,
 			Security:   updatedSecurityConfig,

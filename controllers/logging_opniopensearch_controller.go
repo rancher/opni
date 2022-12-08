@@ -16,6 +16,7 @@ import (
 type LoggingOpniOpensearchReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
+	Opts   []opniopensearch.ReconcilerOption
 }
 
 // +kubebuilder:rbac:groups=logging.opni.io,resources=opniopensearches,verbs=get;list;watch;create;update;patch;delete
@@ -32,7 +33,7 @@ func (r *LoggingOpniOpensearchReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	opniOpensearchReconciler := opniopensearch.NewReconciler(ctx, opniOpensearch, r.Client)
+	opniOpensearchReconciler := opniopensearch.NewReconciler(ctx, opniOpensearch, r.Client, r.Opts...)
 
 	reconcilers := []resources.ComponentReconciler{
 		opniOpensearchReconciler.Reconcile,

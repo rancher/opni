@@ -650,8 +650,8 @@ github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2 h1:GPBUVhDuyLG
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2/go.mod h1:ew+9wAV4nyz0ZKybKcM4cMosZwggyAkzU3BU/wZxHTA=
 github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41 h1:YhfKUAl5zCycdjDw8/nFN8wodEbaXzovvtMmaFDmWYE=
 github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41/go.mod h1:Ny7Xx3xtC8YRYICmolmndYzxD8sTDFhJfgs3UW/IIj4=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221201014907-afe8889d0719 h1:ONFI6uCstUacZO3vCEiQBdpb6ResKSZ3Qoei3ZXICQ0=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221201014907-afe8889d0719/go.mod h1:7+UV1t6oAdGcEHBH4tbRJfpSaaYWYYCLuJnOk0MEhtU=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221206210856-99cb51e2d10a h1:rVczL7+hbUVApACmYPHJvGTgAk9dGta3YTtf/HVYAPQ=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221206210856-99cb51e2d10a/go.mod h1:7+UV1t6oAdGcEHBH4tbRJfpSaaYWYYCLuJnOk0MEhtU=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d h1:1iy2qD6JEhHKKhUOA9IWs7mjco7lnw2qx8FsRI2wirE=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d/go.mod h1:tmAIfUFEirG/Y8jhZ9M+h36obRZAk/1fcSpXwAVlfqE=

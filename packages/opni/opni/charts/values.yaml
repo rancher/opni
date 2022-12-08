@@ -46,9 +46,6 @@ gateway:
   # Alerting
   alerting:
     enabled: false
-
-ai:
-  enabled: false
   s3:
     internal: {}
 

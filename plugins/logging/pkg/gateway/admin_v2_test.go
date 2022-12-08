@@ -54,7 +54,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging-v2"
-		version = "0.7.0"
+		version = "0.8.0-rc1"
 		opensearchVersion = "2.4.0"
 
 		security = &opsterv1.Security{
@@ -70,7 +70,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.7.0"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.8.0-rc1"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -945,7 +945,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 		})
 		When("updating the cluster", func() {
 			BeforeEach(func() {
-				version = "0.7.0"
+				version = "0.8.0-rc1"
 			})
 			newRequest := createRequest()
 			newRequest.DataNodes.Persistence = &loggingadmin.DataPersistence{
@@ -1035,7 +1035,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					}, object)
 					Expect(err).NotTo(HaveOccurred())
 					object.Status.OpensearchVersion = lo.ToPtr("2.4.0")
-					object.Status.Version = lo.ToPtr("0.7.0")
+					object.Status.Version = lo.ToPtr("0.8.0-rc1")
 					Expect(k8sClient.Status().Update(context.Background(), object)).To(Succeed())
 				})
 				Specify("check upgrade available should return true", func() {
@@ -1054,7 +1054,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						if err != nil {
 							return false
 						}
-						return object.Spec.Version == "0.7.0"
+						return object.Spec.Version == "0.8.0-rc1"
 					}, timeout, interval).Should(BeTrue())
 				})
 			})

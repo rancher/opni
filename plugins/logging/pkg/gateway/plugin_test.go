@@ -43,7 +43,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging"
-		version = "0.7.0"
+		version = "0.8.0-rc1"
 		opensearchVersion = "2.4.0"
 
 		request = &loggingadmin.OpensearchCluster{
@@ -127,7 +127,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.7.0"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.8.0-rc1"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -234,7 +234,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 				nodePool.Jvm = fmt.Sprintf("-Xmx%d -Xms%d", 2*giBytes, 2*giBytes)
 				nodePool.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("4Gi")
 				nodePool.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("4Gi")
-				version = "0.7.0"
+				version = "0.8.0-rc1"
 			})
 			It("should succeed and update the cluster, excluding the version", func() {
 				_, err := plugin.CreateOrUpdateOpensearchCluster(context.Background(), request)

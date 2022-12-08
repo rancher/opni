@@ -250,7 +250,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					return reflect.DeepEqual(object.Spec.NodePools[0], nodePool)
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.7.0"))
+				Expect(object.Spec.Version).To(Equal("0.8.0-rc1"))
 			})
 		})
 		Specify("check upgrade available should return false", func() {
@@ -260,10 +260,10 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		})
 		XWhen("new version is available", func() {
 			BeforeEach(func() {
-				version = "0.7.0"
+				version = "0.8.0-rc1"
 			})
 			Specify("upgrade available should return true", func() {
-				Expect(version).To(Equal("0.7.0"))
+				Expect(version).To(Equal("0.8.0-rc1"))
 				response, err := plugin.UpgradeAvailable(context.Background(), nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.UpgradePending).To(BeTrue())

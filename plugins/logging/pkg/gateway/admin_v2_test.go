@@ -1024,7 +1024,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.7.0"))
+				Expect(object.Spec.Version).To(Equal("0.8.0-rc1"))
 				Expect(len(object.Spec.NodePools)).To(Equal(2))
 			})
 			When("upgrade is available", func() {

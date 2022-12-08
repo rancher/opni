@@ -1,7 +1,6 @@
 package certs
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 
@@ -22,16 +21,18 @@ type OpensearchCertWriter interface {
 	GenerateRootCACert() error
 	GenerateTransportCA() error
 	GenerateHTTPCA() error
+	GenerateAdminClientCert() error
 	GenerateClientCert(user string) error
 }
 
 type OpensearchCertReader interface {
 	GetTransportRootCAs() (*x509.CertPool, error)
 	GetHTTPRootCAs() (*x509.CertPool, error)
-	GetClientCertificate(user string) (tls.Certificate, error)
+	GetClientCert(user string) (tls.Certificate, error)
+	GetAdminClientCert() (tls.Certificate, error)
 }
 
 type K8sOpensearchCertManager interface {
-	GetTransportCARef(context.Context) (corev1.LocalObjectReference, error)
-	GetHTTPCARef(context.Context) (corev1.LocalObjectReference, error)
+	GetTransportCARef() (corev1.LocalObjectReference, error)
+	GetHTTPCARef() (corev1.LocalObjectReference, error)
 }

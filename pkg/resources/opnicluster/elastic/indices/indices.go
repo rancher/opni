@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -72,16 +71,10 @@ func NewReconciler(
 		)
 	}
 
-	username, _, err := helpers.UsernameAndPassword(ctx, c, opensearchCluster)
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	reconciler.osReconciler, err = opensearch.NewReconciler(
 		ctx,
 		opensearch.ReconcilerConfig{
-			Namespace:             opensearchCluster.Namespace,
-			Username:              username,
 			CertReader:            options.certMgr,
 			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
 		},

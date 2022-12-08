@@ -60,14 +60,13 @@ func generateDocumentPath(index, documentID string) strings.Builder {
 
 func generateDocumentUpdatePath(index, documentID string) strings.Builder {
 	var path strings.Builder
-	path.Grow(1 + len(index) + 1 + len("_doc") + 1 + len(documentID) + 1 + len("_update"))
+	path.Grow(1 + len(index) + 1 + len("_update") + 1 + len(documentID))
 	path.WriteString("/")
 	path.WriteString(index)
-	path.WriteString("/_doc")
-	path.WriteString("/")
-	path.WriteString(documentID)
 	path.WriteString("/")
 	path.WriteString("_update")
+	path.WriteString("/")
+	path.WriteString(documentID)
 	return path
 }
 

@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -68,11 +67,6 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
-	username, _, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
-	if retErr != nil {
-		return
-	}
-
 	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
 		certs.WithNamespace(opensearchCluster.Namespace),
@@ -82,8 +76,6 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	reconciler, retErr := opensearch.NewReconciler(
 		r.ctx,
 		opensearch.ReconcilerConfig{
-			Namespace:             opensearchCluster.Namespace,
-			Username:              username,
 			CertReader:            certMgr,
 			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
 		},
@@ -110,11 +102,6 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
 	// If the opensearch cluster exists delete the role and user
 	if cluster != nil {
-		username, _, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
-		if err != nil {
-			return err
-		}
-
 		certMgr := certs.NewCertMgrOpensearchCertManager(
 			r.ctx,
 			certs.WithNamespace(cluster.Namespace),
@@ -124,8 +111,6 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		osReconciler, err := opensearch.NewReconciler(
 			r.ctx,
 			opensearch.ReconcilerConfig{
-				Namespace:             cluster.Namespace,
-				Username:              username,
 				CertReader:            certMgr,
 				OpensearchServiceName: cluster.Spec.General.ServiceName,
 			},

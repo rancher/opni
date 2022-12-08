@@ -562,7 +562,7 @@ FETCH:
 	client, err := opensearch.NewClient(
 		opensearch.ClientConfig{
 			URLs: []string{
-				fmt.Sprintf("https://%s.%s:9200", cluster.Spec.General.ServiceName, cluster.Namespace),
+				fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName),
 			},
 			Username:   username,
 			CertReader: certMgr,

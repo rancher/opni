@@ -100,6 +100,10 @@ func (m *TestCertManager) GenerateClientCert(user string) error {
 	return nil
 }
 
+func (m *TestCertManager) GenerateAdminClientCert() error {
+	return nil
+}
+
 func (m *TestCertManager) GetTransportRootCAs() (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM([]byte(cacrtpem))
@@ -112,17 +116,21 @@ func (m *TestCertManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func (m *TestCertManager) GetClientCertificate(user string) (tls.Certificate, error) {
+func (m *TestCertManager) GetClientCert(user string) (tls.Certificate, error) {
 	return tls.Certificate{}, nil
 }
 
-func (m *TestCertManager) GetTransportCARef(_ context.Context) (corev1.LocalObjectReference, error) {
+func (m *TestCertManager) GetAdminClientCert() (tls.Certificate, error) {
+	return tls.Certificate{}, nil
+}
+
+func (m *TestCertManager) GetTransportCARef() (corev1.LocalObjectReference, error) {
 	return corev1.LocalObjectReference{
 		Name: MockCAName,
 	}, nil
 }
 
-func (m *TestCertManager) GetHTTPCARef(_ context.Context) (corev1.LocalObjectReference, error) {
+func (m *TestCertManager) GetHTTPCARef() (corev1.LocalObjectReference, error) {
 	return corev1.LocalObjectReference{
 		Name: MockCAName,
 	}, nil

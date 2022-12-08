@@ -162,6 +162,9 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 					ServiceName:      fmt.Sprintf("%s-opensearch-svc", object.Name),
 					HttpPort:         9200,
 					SetVMMaxMapCount: true,
+					AdditionalConfig: map[string]string{
+						"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
+					},
 					AdditionalVolumes: []opsterv1.AdditionalVolume{
 						{
 							Name: "nkey",

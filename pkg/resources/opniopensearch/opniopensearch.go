@@ -129,7 +129,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = r.certMgr.GenerateClientCert(internalUsername)
+	err = r.certMgr.GenerateAdminClientCert()
 	if err != nil {
 		return nil, err
 	}

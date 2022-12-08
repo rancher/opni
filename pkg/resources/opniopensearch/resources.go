@@ -60,7 +60,7 @@ func (r *Reconciler) buildOpensearchCluster(
 	}
 
 	// Set CA certs
-	transportSecret, err := certs.GetTransportCARef(r.ctx)
+	transportSecret, err := certs.GetTransportCARef()
 	if err != nil {
 		lg.Error(err, "failed to get transport ca")
 	} else {
@@ -69,7 +69,7 @@ func (r *Reconciler) buildOpensearchCluster(
 		}
 	}
 
-	httpSecret, err := certs.GetHTTPCARef(r.ctx)
+	httpSecret, err := certs.GetHTTPCARef()
 	if err != nil {
 		lg.Error(err, "failed to get http ca")
 	} else {
@@ -127,6 +127,9 @@ func (r *Reconciler) buildOpensearchCluster(
 						},
 					}
 				}(),
+				AdditionalConfig: map[string]string{
+					"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
+				},
 			},
 			NodePools:  r.instance.Spec.NodePools,
 			Security:   updatedSecurityConfig,

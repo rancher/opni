@@ -24,17 +24,29 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		certs.WithCluster(opensearchCluster.Name),
 	)
 
+	//Generate admin user cert to use
+	retErr = certMgr.GenerateClientCert(username)
+	if retErr != nil {
+		return
+	}
+
 	reconciler, retErr := opensearch.NewReconciler(
 		r.ctx,
 		opensearch.ReconcilerConfig{
-			Namespace:             opensearchCluster.Namespace,
-			Username:              username,
+
 			CertReader:            certMgr,
 			OpensearchServiceName: opensearchCluster.Spec.General.ServiceName,
 			DashboardsServiceName: fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName),
 		},
+		opensearch.WithDashboardsUsername(username),
 		opensearch.WithDashboardsPassword(password),
 	)
+	if retErr != nil {
+		return
+	}
+
+	// Need to explicitly bind the admin role for cert auth
+	retErr = reconciler.MaybeUpdateRolesMapping("all_access", username)
 	if retErr != nil {
 		return
 	}

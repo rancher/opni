@@ -139,6 +139,12 @@ func (m *certMgrOpensearchManager) GenerateClientCert(user string) error {
 	return ctrlclient.IgnoreAlreadyExists(err)
 }
 
+func (m *certMgrOpensearchManager) GenerateAdminClientCert() error {
+	cert := m.generateAdminCert()
+	err := m.k8sClient.Create(m.ctx, cert)
+	return ctrlclient.IgnoreAlreadyExists(err)
+}
+
 func (m *certMgrOpensearchManager) GetTransportRootCAs() (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 
@@ -183,7 +189,7 @@ func (m *certMgrOpensearchManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func (m *certMgrOpensearchManager) GetClientCertificate(user string) (tls.Certificate, error) {
+func (m *certMgrOpensearchManager) GetClientCert(user string) (tls.Certificate, error) {
 	cert := &corev1.Secret{}
 	err := m.k8sClient.Get(m.ctx, types.NamespacedName{
 		Name:      m.clientCertName(user),
@@ -194,6 +200,31 @@ func (m *certMgrOpensearchManager) GetClientCertificate(user string) (tls.Certif
 	}
 
 	return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
+}
+
+func (m *certMgrOpensearchManager) GetAdminClientCert() (tls.Certificate, error) {
+	cert := &corev1.Secret{}
+	err := m.k8sClient.Get(m.ctx, types.NamespacedName{
+		Name:      m.adminCertName(),
+		Namespace: m.storageNamespace,
+	}, cert)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
+}
+
+func (m *certMgrOpensearchManager) GetTransportCARef() (corev1.LocalObjectReference, error) {
+	return corev1.LocalObjectReference{
+		Name: m.transportSecretName(),
+	}, nil
+}
+
+func (m *certMgrOpensearchManager) GetHTTPCARef() (corev1.LocalObjectReference, error) {
+	return corev1.LocalObjectReference{
+		Name: m.httpSecretName(),
+	}, nil
 }
 
 func (m *certMgrOpensearchManager) generateSelfSignedIssuer() *cmv1.ClusterIssuer {
@@ -221,7 +252,7 @@ func (m *certMgrOpensearchManager) generateRootCA() *cmv1.Certificate {
 			CommonName: "opensearch-root-ca",
 			SecretName: m.caSecretName(),
 			PrivateKey: &cmv1.CertificatePrivateKey{
-				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Algorithm: cmv1.ECDSAKeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
 			},
 			IssuerRef: cmmetav1.ObjectReference{
@@ -260,7 +291,7 @@ func (m *certMgrOpensearchManager) generateTransportIntermediateCA() *cmv1.Certi
 			CommonName: "opensearch-transport-intermediate",
 			SecretName: m.transportSecretName(),
 			PrivateKey: &cmv1.CertificatePrivateKey{
-				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Algorithm: cmv1.ECDSAKeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
 			},
 			DNSNames: []string{
@@ -268,7 +299,7 @@ func (m *certMgrOpensearchManager) generateTransportIntermediateCA() *cmv1.Certi
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Group: "cert-manager.io",
-				Kind:  "ClusterIssuer",
+				Kind:  "Issuer",
 				Name:  m.caSecretName(),
 			},
 		},
@@ -302,7 +333,7 @@ func (m *certMgrOpensearchManager) generateHTTPIntermediateCA() *cmv1.Certificat
 			CommonName: "opensearch-http-intermediate",
 			SecretName: m.httpSecretName(),
 			PrivateKey: &cmv1.CertificatePrivateKey{
-				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Algorithm: cmv1.ECDSAKeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
 			},
 			DNSNames: []string{
@@ -310,7 +341,7 @@ func (m *certMgrOpensearchManager) generateHTTPIntermediateCA() *cmv1.Certificat
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Group: "cert-manager.io",
-				Kind:  "ClusterIssuer",
+				Kind:  "Issuer",
 				Name:  m.caSecretName(),
 			},
 		},
@@ -343,7 +374,7 @@ func (m *certMgrOpensearchManager) generateClientCert(user string) *cmv1.Certifi
 			CommonName: user,
 			SecretName: m.clientCertName(user),
 			PrivateKey: &cmv1.CertificatePrivateKey{
-				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Algorithm: cmv1.ECDSAKeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
 			},
 			DNSNames: []string{
@@ -354,7 +385,40 @@ func (m *certMgrOpensearchManager) generateClientCert(user string) *cmv1.Certifi
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Group: "cert-manager.io",
-				Kind:  "ClusterIssuer",
+				Kind:  "Issuer",
+				Name:  m.httpSecretName(),
+			},
+		},
+	}
+}
+
+func (m *certMgrOpensearchManager) generateAdminCert() *cmv1.Certificate {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      m.adminCertName(),
+			Namespace: m.storageNamespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			Subject: &cmv1.X509Subject{
+				OrganizationalUnits: []string{
+					m.cluster,
+				},
+			},
+			CommonName: "admin",
+			SecretName: m.adminCertName(),
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.ECDSAKeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			DNSNames: []string{
+				"admin",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageClientAuth,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
 				Name:  m.httpSecretName(),
 			},
 		},
@@ -378,6 +442,10 @@ func (m *certMgrOpensearchManager) httpSecretName() string {
 
 func (m *certMgrOpensearchManager) clientCertName(user string) string {
 	return fmt.Sprintf("opensearch-%s-%s", m.cluster, user)
+}
+
+func (m *certMgrOpensearchManager) adminCertName() string {
+	return fmt.Sprintf("opensearch-%s-admin", m.cluster)
 }
 
 func init() {

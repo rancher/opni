@@ -722,7 +722,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					fmt.Sprintf("%s/opni-dashboard-version/_doc/latest/_update", opensearchURL),
+					fmt.Sprintf("%s/opni-dashboard-version/_update/latest", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
@@ -771,7 +771,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 				)
 				transport.RegisterResponder(
 					"POST",
-					fmt.Sprintf("%s/opni-dashboard-version/_doc/latest/_update", opensearchURL),
+					fmt.Sprintf("%s/opni-dashboard-version/_update/latest", opensearchURL),
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {

@@ -27,8 +27,6 @@ type Reconciler struct {
 }
 
 type ReconcilerConfig struct {
-	Namespace             string
-	Username              string
 	CertReader            certs.OpensearchCertReader
 	OpensearchServiceName string
 	DashboardsServiceName string
@@ -37,6 +35,7 @@ type ReconcilerConfig struct {
 type ReconcilerOptions struct {
 	osClient           *opensearch.Client
 	dashboardsClient   *dashboards.Client
+	dashboardsUsername string
 	dashboardsPassword string
 }
 
@@ -66,6 +65,12 @@ func WithDashboardsPassword(password string) ReconcilerOption {
 	}
 }
 
+func WithDashboardsUsername(username string) ReconcilerOption {
+	return func(o *ReconcilerOptions) {
+		o.dashboardsUsername = username
+	}
+}
+
 func NewReconciler(
 	ctx context.Context,
 	cfg ReconcilerConfig,
@@ -77,9 +82,8 @@ func NewReconciler(
 	if options.osClient == nil {
 		oscfg := opensearch.ClientConfig{
 			URLs: []string{
-				fmt.Sprintf("https://%s.%s:9200", cfg.OpensearchServiceName, cfg.Namespace),
+				fmt.Sprintf("https://%s:9200", cfg.OpensearchServiceName),
 			},
-			Username:   cfg.Username,
 			CertReader: cfg.CertReader,
 		}
 		osClient, err := opensearch.NewClient(oscfg)
@@ -91,8 +95,8 @@ func NewReconciler(
 
 	if options.dashboardsClient == nil {
 		dashboardscfg := dashboards.Config{
-			URL:      fmt.Sprintf("https://%s.%s:5601", cfg.DashboardsServiceName, cfg.Namespace),
-			Username: cfg.Username,
+			URL:      fmt.Sprintf("https://%s:5601", cfg.DashboardsServiceName),
+			Username: options.dashboardsUsername,
 			Password: options.dashboardsPassword,
 		}
 		dashboardsClient, err := dashboards.NewClient(dashboardscfg)

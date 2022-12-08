@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	bcryptCost       = 12
-	internalUsersKey = "internal_users.yml"
+	bcryptCost        = 12
+	internalUsersKey  = "internal_users.yml"
+	securityConfigKey = "config.yml"
 )
 
 var (
@@ -37,6 +38,50 @@ kibanaserver:
   hash: "{{ .Dashboards }}"
   reserved: true
   description: "Demo OpenSearch Dashboards user"`))
+
+	securityConfig = `
+---
+_meta:
+  type: "config"
+  config_version: 2
+
+config:
+  dynamic:
+    http:
+      anonymous_auth_enabled: false
+      xff:
+        enabled: false
+        internalProxies: '192\.168\.0\.10|192\.168\.0\.11' # regex pattern
+        #internalProxies: '.*' # trust all internal proxies, regex pattern
+        #remoteIpHeader:  'x-forwarded-for'
+        ###### see https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html for regex help
+        ###### more information about XFF https://en.wikipedia.org/wiki/X-Forwarded-For
+        ###### and here https://tools.ietf.org/html/rfc7239
+        ###### and https://tomcat.apache.org/tomcat-8.0-doc/config/valve.html#Remote_IP_Valve
+    authc:
+      basic_internal_auth_domain:
+        description: "Authenticate via HTTP Basic against internal users database"
+        http_enabled: true
+        transport_enabled: true
+        order: 2
+        http_authenticator:
+          type: basic
+          challenge: true
+        authentication_backend:
+          type: intern
+      clientcert_auth_domain:
+        description: "Authenticate via SSL client certificates"
+        http_enabled: true
+        transport_enabled: false
+        order: 1
+        http_authenticator:
+          type: clientcert
+          config:
+            username_attribute: cn #optional, if omitted DN becomes username
+            challenge: false
+        authentication_backend:
+          type: noop
+`
 )
 
 type internalUsersHashes struct {
@@ -95,7 +140,8 @@ func (r *Reconciler) generateInternalUsers(passwords internalUsersPasswords) (ru
 			Namespace: r.instance.Namespace,
 		},
 		Data: map[string][]byte{
-			internalUsersKey: buffer.Bytes(),
+			internalUsersKey:  buffer.Bytes(),
+			securityConfigKey: []byte(securityConfig),
 		},
 	}
 	ctrl.SetControllerReference(r.instance, secret, r.client.Scheme())

@@ -64,7 +64,12 @@ func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 	}).DialContext
 	transport.TLSHandshakeTimeout = 5 * time.Second
 
-	usercerts, err := cfg.CertReader.GetClientCertificate(cfg.Username)
+	var usercerts tls.Certificate
+	if cfg.Username == "" {
+		usercerts, err = cfg.CertReader.GetAdminClientCert()
+	} else {
+		usercerts, err = cfg.CertReader.GetClientCert(cfg.Username)
+	}
 	if err != nil {
 		return nil, err
 	}

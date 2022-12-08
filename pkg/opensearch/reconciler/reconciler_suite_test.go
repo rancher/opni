@@ -26,6 +26,10 @@ func (m *mockCertReader) GetHTTPRootCAs() (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func (m *mockCertReader) GetClientCertificate(user string) (tls.Certificate, error) {
+func (m *mockCertReader) GetClientCert(user string) (tls.Certificate, error) {
+	return tls.Certificate{}, nil
+}
+
+func (m *mockCertReader) GetAdminClientCert() (tls.Certificate, error) {
 	return tls.Certificate{}, nil
 }

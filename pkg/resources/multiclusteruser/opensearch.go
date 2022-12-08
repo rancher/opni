@@ -7,17 +7,11 @@ import (
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, _, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
-	if err != nil {
-		return err
-	}
-
 	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
 		certs.WithNamespace(cluster.Namespace),
@@ -27,8 +21,6 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 	osReconciler, err := opensearch.NewReconciler(
 		r.ctx,
 		opensearch.ReconcilerConfig{
-			Namespace:             cluster.Namespace,
-			Username:              username,
 			CertReader:            certMgr,
 			OpensearchServiceName: cluster.Spec.General.ServiceName,
 		},
@@ -50,11 +42,6 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
 	if cluster != nil {
-		username, _, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
-		if err != nil {
-			return err
-		}
-
 		certMgr := certs.NewCertMgrOpensearchCertManager(
 			r.ctx,
 			certs.WithNamespace(cluster.Namespace),
@@ -64,8 +51,6 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		osReconciler, err := opensearch.NewReconciler(
 			r.ctx,
 			opensearch.ReconcilerConfig{
-				Namespace:             cluster.Namespace,
-				Username:              username,
 				CertReader:            certMgr,
 				OpensearchServiceName: cluster.Spec.General.ServiceName,
 			},

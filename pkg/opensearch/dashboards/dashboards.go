@@ -56,6 +56,7 @@ func NewClient(cfg Config, opts ...ClientOption) (*Client, error) {
 		Timeout: 5 * time.Second,
 	}).DialContext
 	transport.TLSHandshakeTimeout = 5 * time.Second
+	// #nosec G402 interal usage only
 	transport.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}

@@ -19,6 +19,7 @@ import (
 
 const (
 	configHashAnnotation = "opni.io/config"
+	pipelineFilename     = "pipelines.yaml"
 )
 
 var (
@@ -52,7 +53,6 @@ entry-pipeline:
   source:
     otel_trace_source:
       ssl: false
-      record_type: event
   sink:
   - pipeline:
       name: "raw-pipeline"
@@ -165,11 +165,11 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		return resources.Error(secret, err), []byte{}
 	}
 
-	secret.Data["pipelines.yaml"] = buffer.Bytes()
+	secret.Data[pipelineFilename] = buffer.Bytes()
 
 	ctrl.SetControllerReference(r.dataPrepper, secret, r.client.Scheme())
 
-	return resources.Present(secret), secret.Data["pipelines.yaml"]
+	return resources.Present(secret), secret.Data[pipelineFilename]
 }
 
 func (r *Reconciler) labels() map[string]string {
@@ -256,8 +256,8 @@ func (r *Reconciler) deployment(configData []byte) resources.Resource {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",
-									MountPath: "/usr/share/data-prepper/pipelines.yaml",
-									SubPath:   "pipelines.yaml",
+									MountPath: fmt.Sprintf("/usr/share/data-prepper/pipelines/%s", pipelineFilename),
+									SubPath:   pipelineFilename,
 								},
 							},
 						},

@@ -34,7 +34,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	}
 	msg, err := p.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to train model: %v", err)
+		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
 	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{RemainingTime: 3600})
 	if err != nil {

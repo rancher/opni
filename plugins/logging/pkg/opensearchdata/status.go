@@ -3,7 +3,6 @@ package opensearchdata
 import (
 	"context"
 
-	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/tidwall/gjson"
 )
@@ -13,8 +12,7 @@ func (m *Manager) GetClusterStatus() ClusterStatus {
 	m.Lock()
 	defer m.Unlock()
 
-	req := opensearchapi.ClusterHealthRequest{}
-	resp, err := req.Do(context.TODO(), m.Client)
+	resp, err := m.Client.Cluster.GetClusterHealth(context.TODO())
 	if err != nil {
 		m.logger.With("err", err).Error("failed to fetch opensearch cluster status")
 		return ClusterStatusError

@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) deployment() (resources.Resource, error) {
@@ -27,17 +28,12 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		return nil, err
 	}
 
-	var gatewayApiVersion string
-	if r.gw != nil {
-		gatewayApiVersion = r.gw.APIVersion
-	} else if r.coreGW != nil {
-		gatewayApiVersion = r.coreGW.APIVersion
-	}
+	gatewayApiVersion := r.gw.APIVersion
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -53,11 +49,11 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 					Containers: []corev1.Container{
 						{
 							Name:            "gateway",
-							Image:           r.statusImage(),
-							ImagePullPolicy: r.statusImagePullPolicy(),
+							Image:           r.gw.Status.Image,
+							ImagePullPolicy: r.gw.Status.ImagePullPolicy,
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
-							Env: append(r.spec.ExtraEnvVars,
+							Env: append(r.gw.Spec.ExtraEnvVars,
 								corev1.EnvVar{
 									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
@@ -68,7 +64,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								},
 								corev1.EnvVar{
 									Name:  "GATEWAY_NAME",
-									Value: r.name,
+									Value: r.gw.Name,
 								},
 								corev1.EnvVar{
 									Name:  "GATEWAY_API_VERSION",
@@ -238,30 +234,28 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							},
 						},
 					},
-					NodeSelector:       r.spec.NodeSelector,
-					Affinity:           r.spec.Affinity,
-					Tolerations:        r.spec.Tolerations,
+					NodeSelector:       r.gw.Spec.NodeSelector,
+					Affinity:           r.gw.Spec.Affinity,
+					Tolerations:        r.gw.Spec.Tolerations,
 					ServiceAccountName: "opni",
 				},
 			},
 		},
 	}
 
-	if r.coreGW != nil {
-		newEnvVars, newVolumeMounts, newVolumes := nats.ExternalNatsObjects(
-			r.ctx,
-			r.client,
-			types.NamespacedName{
-				Name:      r.coreGW.Spec.NatsRef.Name,
-				Namespace: r.namespace,
-			},
-		)
-		dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, newVolumes...)
-		dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, newVolumeMounts...)
-		dep.Spec.Template.Spec.Containers[0].Env = append(dep.Spec.Template.Spec.Containers[0].Env, newEnvVars...)
-	}
+	newEnvVars, newVolumeMounts, newVolumes := nats.ExternalNatsObjects(
+		r.ctx,
+		r.client,
+		types.NamespacedName{
+			Name:      r.gw.Spec.NatsRef.Name,
+			Namespace: r.gw.Namespace,
+		},
+	)
+	dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, newVolumes...)
+	dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, newVolumeMounts...)
+	dep.Spec.Template.Spec.Containers[0].Env = append(dep.Spec.Template.Spec.Containers[0].Env, newEnvVars...)
 
-	for _, extraVol := range r.spec.ExtraVolumeMounts {
+	for _, extraVol := range r.gw.Spec.ExtraVolumeMounts {
 		vol := corev1.Volume{
 			Name:         extraVol.Name,
 			VolumeSource: extraVol.VolumeSource,
@@ -276,8 +270,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
-	if r.spec.Alerting.Enabled && r.spec.Alerting.GatewayVolumeMounts != nil {
-		for _, alertVol := range r.spec.Alerting.GatewayVolumeMounts {
+	if r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
+		for _, alertVol := range r.gw.Spec.Alerting.GatewayVolumeMounts {
 			vol := corev1.Volume{
 				Name:         alertVol.Name,
 				VolumeSource: alertVol.VolumeSource,
@@ -291,6 +285,6 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		}
 	}
 
-	r.setOwner(dep)
+	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
 	return resources.Present(dep), nil
 }

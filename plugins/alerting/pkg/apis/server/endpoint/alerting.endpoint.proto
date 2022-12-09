@@ -18,7 +18,7 @@ package alerting.endpoint;
 service AlertEndpoints{
     // -------- CRUD for alerting endpoints ----
 
-  rpc CreateAlertEndpoint(alerting.AlertEndpoint) returns (google.protobuf.Empty) {
+  rpc CreateAlertEndpoint(alerting.AlertEndpoint) returns (core.Reference) {
     option (google.api.http) = {
       post : "/configure"
       body : "*"

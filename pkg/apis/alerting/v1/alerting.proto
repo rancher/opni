@@ -392,6 +392,7 @@ message AlertEndpoint {
   oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;
+    PagerDutyEndpoint pagerDuty = 6;
   }
 }
 
@@ -415,6 +416,11 @@ message EmailEndpoint {
   optional string smtpAuthPassword = 6;
   // does SMTP require TSL : yes or no
   optional bool smtpRequireTLS = 7;
+}
+
+message PagerDutyEndpoint {
+  // default global ruleset -> event rules screen
+  string integrationKey = 1;
 }
 
 message AlertEndpointList {
@@ -480,6 +486,13 @@ message TriggerAlertsRequest {
 // opni-alerting internal use
 message TriggerAlertsResponse {}
 
+message ResolveAlertsRequest {
+  core.Reference conditionId = 1;
+  map<string,string> annotations = 2;
+}
+
+message ResolveAlertsResponse {}
+
 
 enum TimelineType {
   // do not show, backend error 
@@ -508,4 +521,9 @@ message ActiveWindow {
 
 message ActiveWindows {
   repeated ActiveWindow windows = 1;
+}
+
+message CloneToRequest {
+  AlertCondition alertCondition = 1;
+  repeated string toClusters = 2;
 }

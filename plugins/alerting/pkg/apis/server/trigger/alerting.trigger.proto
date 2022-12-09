@@ -25,5 +25,7 @@ service Alerting {
       body : "*"
     };
   }
+
+  rpc ResolveAlerts(alerting.ResolveAlertsRequest) returns (alerting.ResolveAlertsResponse) {}
 }
 

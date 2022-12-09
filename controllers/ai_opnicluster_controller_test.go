@@ -96,11 +96,12 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 
 		for _, kind := range []aiv1beta1.ServiceKind{
 			aiv1beta1.DrainService,
-			//v1beta2.InferenceService,
+			aiv1beta1.InferenceService,
 			aiv1beta1.PayloadReceiverService,
 			aiv1beta1.PreprocessingService,
-			//v1beta2.GPUControllerService,
+			aiv1beta1.GPUControllerService,
 			aiv1beta1.MetricsService,
+			aiv1beta1.TrainingControllerService,
 		} {
 			wg.Add(1)
 
@@ -127,9 +128,6 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 						Namespace: cluster.Namespace,
 					},
 				})).Should(ExistAnd(
-					HaveMatchingContainer(
-						HaveImage(fmt.Sprintf("docker.biz/rancher/%s:test", kind.ImageName()), corev1.PullNever),
-					),
 					HaveImagePullSecrets("lorem-ipsum"),
 					HaveNodeSelector("foo", "bar"),
 					HaveTolerations("foo"),
@@ -138,32 +136,25 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 		}
 		wg.Wait()
 
-		// By("checking the gpu service data mount exists")
-		// Eventually(Object(&appsv1.Deployment{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      v1beta2.GPUControllerService.ServiceName(),
-		// 		Namespace: cluster.Namespace,
-		// 	},
-		// })).Should(ExistAnd(
-		// 	HaveMatchingVolume(And(
-		// 		HaveName("data"),
-		// 		HaveVolumeSource("EmptyDir"),
-		// 	)),
-		// 	HaveMatchingContainer(And(
-		// 		HaveName(v1beta2.GPUControllerService.ServiceName()),
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "data",
-		// 			MountPath: "/var/opni-data",
-		// 		}),
-		// 	)),
-		// 	HaveMatchingContainer(And(
-		// 		HaveName("gpu-service-worker"),
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "data",
-		// 			MountPath: "/var/opni-data",
-		// 		}),
-		// 	)),
-		// ))
+		By("checking the gpu service data mount exists")
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      aiv1beta1.GPUControllerService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("data"),
+				HaveVolumeSource("EmptyDir"),
+			)),
+			HaveMatchingContainer(And(
+				HaveName("gpu-service-worker"),
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "data",
+					MountPath: "/var/opni-data",
+				}),
+			)),
+		))
 		By("checking that pretrained model services are not created yet")
 		// Identify pretrained model services with the label "opni.io/pretrained-model"
 		req, err := labels.NewRequirement(
@@ -176,8 +167,8 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 
 		By("checking hyperparameters config")
 		defaultHyperParameters, _ := json.MarshalIndent(map[string]intstr.IntOrString{
-			"modelThreshold": intstr.FromString("0.5"),
-			"minLogTokens":   intstr.FromInt(5),
+			"modelThreshold": intstr.FromString("0.7"),
+			"minLogTokens":   intstr.FromInt(1),
 		}, "", "  ")
 		Eventually(Object(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -188,45 +179,45 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 			HaveData("hyperparameters.json", string(defaultHyperParameters)),
 			HaveOwner(cluster),
 		))
-		// Eventually(Object(&appsv1.Deployment{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      v1beta2.InferenceService.ServiceName(),
-		// 		Namespace: cluster.Namespace,
-		// 	},
-		// })).Should(ExistAnd(
-		// 	HaveMatchingVolume(And(
-		// 		HaveName("hyperparameters"),
-		// 		HaveVolumeSource("ConfigMap"),
-		// 	)),
-		// 	HaveMatchingContainer(
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "hyperparameters",
-		// 			MountPath: "/etc/opni/hyperparameters.json",
-		// 			SubPath:   "hyperparameters.json",
-		// 			ReadOnly:  true,
-		// 		}),
-		// 	),
-		// ))
-		// Eventually(Object(&appsv1.Deployment{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name:      v1beta2.GPUControllerService.ServiceName(),
-		// 		Namespace: cluster.Namespace,
-		// 	},
-		// })).Should(ExistAnd(
-		// 	HaveMatchingVolume(And(
-		// 		HaveName("hyperparameters"),
-		// 		HaveVolumeSource("ConfigMap"),
-		// 	)),
-		// 	HaveMatchingContainer(And(
-		// 		HaveName("gpu-service-worker"),
-		// 		HaveVolumeMounts(corev1.VolumeMount{
-		// 			Name:      "hyperparameters",
-		// 			MountPath: "/etc/opni/hyperparameters.json",
-		// 			SubPath:   "hyperparameters.json",
-		// 			ReadOnly:  true,
-		// 		}),
-		// 	)),
-		// ))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      aiv1beta1.InferenceService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("hyperparameters"),
+				HaveVolumeSource("ConfigMap"),
+			)),
+			HaveMatchingContainer(
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "hyperparameters",
+					MountPath: "/etc/opni/hyperparameters.json",
+					SubPath:   "hyperparameters.json",
+					ReadOnly:  true,
+				}),
+			),
+		))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      aiv1beta1.GPUControllerService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("hyperparameters"),
+				HaveVolumeSource("ConfigMap"),
+			)),
+			HaveMatchingContainer(And(
+				HaveName("gpu-service-worker"),
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "hyperparameters",
+					MountPath: "/etc/opni/hyperparameters.json",
+					SubPath:   "hyperparameters.json",
+					ReadOnly:  true,
+				}),
+			)),
+		))
 	})
 	It("should not create the metrics service when the prometheus endpoint is invalid", func() {
 		By("waiting for the cluster to be created")

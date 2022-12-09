@@ -204,6 +204,9 @@ func (a *AlertEndpoint) Validate() error {
 	if a.GetEmail() != nil {
 		return a.GetEmail().Validate()
 	}
+	if a.GetPagerDuty() != nil {
+		return a.GetPagerDuty().Validate()
+	}
 	return shared.WithUnimplementedErrorf("AlertEndpoint type %v not implemented yet", a)
 }
 
@@ -245,6 +248,13 @@ func (e *EmailEndpoint) Validate() error {
 		if len(arr) != 2 {
 			return validation.Errorf("SMTP smart host must be in the form <address>:<port>, but got : %s", *e.SmtpSmartHost)
 		}
+	}
+	return nil
+}
+
+func (a *PagerDutyEndpoint) Validate() error {
+	if a.GetIntegrationKey() == "" {
+		return validation.Error("integration key must be set for pager duty endpoint")
 	}
 	return nil
 }
@@ -353,6 +363,16 @@ func (t *TimelineRequest) Validate() error {
 	}
 	if t.GetLookbackWindow().GetSeconds() == 0 {
 		return validation.Error("lookbackWindow must have a non zero time")
+	}
+	return nil
+}
+
+func (c *CloneToRequest) Validate() error {
+	if len(c.GetToClusters()) == 0 {
+		return validation.Error("toClusters must have a least one cluster set")
+	}
+	if err := c.GetAlertCondition().Validate(); err != nil {
+		return err
 	}
 	return nil
 }

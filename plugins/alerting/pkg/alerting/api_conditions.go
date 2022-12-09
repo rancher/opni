@@ -29,6 +29,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -37,7 +38,7 @@ func (p *Plugin) createRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func (p *Plugin) updateRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
 	}
@@ -573,4 +574,41 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	wg.Wait()
 
 	return resp, nil
+}
+
+func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*emptypb.Empty, error) {
+	lg := p.Logger.With("handler", "CloneTo")
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	clusterLookup := map[string]struct{}{}
+	cl, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cl.Items {
+		clusterLookup[c.Id] = struct{}{}
+	}
+	for _, ref := range req.ToClusters {
+		if _, ok := clusterLookup[ref]; !ok {
+			return nil, validation.Errorf("cluster could not be found %s", ref)
+		}
+	}
+	iErrGroup := &independentErrGroup{}
+	iErrGroup.Add(len(req.ToClusters))
+	for _, ref := range req.ToClusters {
+		ref := ref // capture in closure
+		go func() {
+			defer iErrGroup.Done()
+			cond := util.ProtoClone(req.AlertCondition)
+			cond.SetClusterId(&corev1.Reference{Id: ref})
+			_, err := p.CreateAlertCondition(ctx, cond)
+			if err != nil {
+				lg.Errorf("failed to create alert condition %s", err)
+				iErrGroup.AddError(err)
+			}
+		}()
+	}
+	iErrGroup.Wait()
+	return &emptypb.Empty{}, iErrGroup.Error()
 }

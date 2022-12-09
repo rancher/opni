@@ -11,11 +11,11 @@ func (r *Reconciler) deployments() []resources.Resource {
 	list := []resources.Resource{}
 	for _, res := range aio {
 		list = append(list, resources.PresentIff(
-			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
+			r.mc.Spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
 	}
 	for _, res := range ha {
 		list = append(list, resources.PresentIff(
-			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
+			r.mc.Spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
 	}
 	return list
 }
@@ -26,11 +26,11 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 	list := []resources.Resource{}
 	for _, res := range aio {
 		list = append(list, resources.PresentIff(
-			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
+			r.mc.Spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
 	}
 	for _, res := range ha {
 		list = append(list, resources.PresentIff(
-			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
+			r.mc.Spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
 	}
 	return list
 }

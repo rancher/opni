@@ -97,31 +97,31 @@ func (r *Reconciler) alerting() []resources.Resource {
 	publicControllerLabels := labelWithCluster(labelWithAlert(map[string]string{}))
 	publicControllerSvcLabels := publicControllerLabels
 
-	alertingMutator(&r.spec.Alerting)
+	alertingMutator(&r.gw.Spec.Alerting)
 	dataMountPath := shared.DataMountPath
 	configMountPath := shared.ConfigMountPath
 
 	// to be mounted into the alertmanager controller node
 	alertManagerConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.spec.Alerting.ConfigName,
-			Namespace: r.namespace,
+			Name:      r.gw.Spec.Alerting.ConfigName,
+			Namespace: r.gw.Namespace,
 		},
 
 		Data: map[string]string{
-			shared.AlertManagerConfigKey:    r.spec.Alerting.RawAlertManagerConfig,
-			shared.InternalRoutingConfigKey: r.spec.Alerting.RawInternalRouting,
+			shared.AlertManagerConfigKey:    r.gw.Spec.Alerting.RawAlertManagerConfig,
+			shared.InternalRoutingConfigKey: r.gw.Spec.Alerting.RawInternalRouting,
 		},
 	}
 
 	alertingControllerSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName,
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    publicControllerSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.spec.Alerting.ServiceType,
+			Type:     r.gw.Spec.Alerting.ServiceType,
 			Selector: publicControllerLabels,
 			Ports:    r.serviceAlertManagerPorts(r.controllerAlertManagerPorts()),
 		},
@@ -129,7 +129,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	var resourceRequirements corev1.ResourceRequirements
 
-	if value, err := resource.ParseQuantity(r.spec.Alerting.Storage); err == nil {
+	if value, err := resource.ParseQuantity(r.gw.Spec.Alerting.Storage); err == nil {
 		resourceRequirements = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: value,
@@ -140,7 +140,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	controllerDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    publicControllerLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -175,28 +175,28 @@ func (r *Reconciler) alerting() []resources.Resource {
 								},
 							},
 							Name:            "opni-alertmanager",
-							Image:           r.statusImage(),
+							Image:           r.gw.Status.Image,
 							ImagePullPolicy: "Always",
 							// Defaults to
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
 							Args: []string{
 								"alertmanager",
-								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.spec.Alerting.ClusterPort),
+								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.gw.Spec.Alerting.ClusterPort),
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
 								fmt.Sprintf("--log.level=%s", "debug"),
 								"--log.format=json",
 								// Maximum time to wait for cluster connections to settle before evaluating notifications.
-								fmt.Sprintf("--cluster.settle-timeout=%s", r.spec.Alerting.ClusterSettleTimeout),
+								fmt.Sprintf("--cluster.settle-timeout=%s", r.gw.Spec.Alerting.ClusterSettleTimeout),
 								//Interval for gossip state syncs. Setting this interval lower (more frequent)
 								// will increase convergence speeds across larger clusters at the expense
 								// of increased bandwidth usage.
-								fmt.Sprintf("--cluster.pushpull-interval=%s", r.spec.Alerting.ClusterPushPullInterval),
+								fmt.Sprintf("--cluster.pushpull-interval=%s", r.gw.Spec.Alerting.ClusterPushPullInterval),
 								// Interval between sending gossip messages. By lowering this value (more frequent)
 								// gossip messages are propagated across the cluster more quickly at the expense of increased
 								// bandwidth.
-								fmt.Sprintf("--cluster.gossip-interval=%s", r.spec.Alerting.ClusterGossipInterval),
+								fmt.Sprintf("--cluster.gossip-interval=%s", r.gw.Spec.Alerting.ClusterGossipInterval),
 								// Time to wait between peers to send notifications
 								"--cluster.peer-timeout=1s",
 							},
@@ -233,7 +233,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 								//},
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.spec.Alerting.ConfigName,
+										Name: r.gw.Spec.Alerting.ConfigName,
 									},
 								},
 							},
@@ -259,12 +259,12 @@ func (r *Reconciler) alerting() []resources.Resource {
 	alertingClusterNodeSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        shared.OperatorAlertingClusterNodeServiceName,
-			Namespace:   r.namespace,
+			Namespace:   r.gw.Namespace,
 			Labels:      publicNodeSvcLabels,
-			Annotations: r.spec.ServiceAnnotations,
+			Annotations: r.gw.Spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.spec.Alerting.ServiceType,
+			Type:     r.gw.Spec.Alerting.ServiceType,
 			Selector: publicNodeLabels,
 			Ports:    r.serviceAlertManagerPorts(r.nodeAlertManagerPorts()),
 		},
@@ -272,11 +272,11 @@ func (r *Reconciler) alerting() []resources.Resource {
 	nodeDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    publicNodeLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(r.spec.Alerting.Replicas - 1),
+			Replicas: lo.ToPtr(r.gw.Spec.Alerting.Replicas - 1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: publicNodeLabels,
 			},
@@ -294,7 +294,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 						{
 							Name:            "opni-alertmanager",
-							Image:           r.statusImage(),
+							Image:           r.gw.Status.Image,
 							ImagePullPolicy: "Always",
 							Env: []corev1.EnvVar{
 								{
@@ -314,7 +314,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 								// join to controller
 								fmt.Sprintf("--cluster.peer=%s:%d",
 									shared.OperatorAlertingControllerServiceName,
-									r.spec.Alerting.ClusterPort,
+									r.gw.Spec.Alerting.ClusterPort,
 								),
 								//fmt.Sprintf(
 								//	"--cluster.advertise-address=%s:%d",
@@ -350,7 +350,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.spec.Alerting.ConfigName,
+										Name: r.gw.Spec.Alerting.ConfigName,
 									},
 									Items: []corev1.KeyToPath{
 										{
@@ -383,33 +383,18 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	}
-	if r.gw != nil {
-		ctrl.SetControllerReference(r.gw, nodeDeploy, r.client.Scheme())
-		ctrl.SetControllerReference(r.gw, alertingClusterNodeSvc, r.client.Scheme())
-		ctrl.SetControllerReference(r.gw, controllerDeploy, r.client.Scheme())
-		ctrl.SetControllerReference(r.gw, alertingControllerSvc, r.client.Scheme())
-		ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
-		return []resources.Resource{
-			resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
-			resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
-			resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
-			resources.PresentIff(r.spec.Alerting.Enabled && r.spec.Alerting.Replicas > 1, nodeDeploy),
-			resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
-		}
-	}
-	ctrl.SetControllerReference(r.coreGW, nodeDeploy, r.client.Scheme())
-	ctrl.SetControllerReference(r.coreGW, alertingClusterNodeSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.coreGW, controllerDeploy, r.client.Scheme())
-	ctrl.SetControllerReference(r.coreGW, alertingControllerSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.coreGW, alertManagerConfigMap, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, nodeDeploy, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, alertingClusterNodeSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, controllerDeploy, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, alertingControllerSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
 	return []resources.Resource{
-		resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
-		resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
-		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
-		resources.PresentIff(r.spec.Alerting.Enabled && r.spec.Alerting.Replicas > 1, nodeDeploy),
-		resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, controllerDeploy),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingControllerSvc),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertManagerConfigMap),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.Replicas > 1, nodeDeploy),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingClusterNodeSvc),
 	}
-
 }
 
 func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {

@@ -16,20 +16,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 )
 
 var _ = Describe("Logging LogAdapter Controller", Ordered, Label("controller"), func() {
 	var (
 		logadapter opniloggingv1beta1.LogAdapter
-		cluster    v1beta2.OpniCluster
+		cluster    aiv1beta1.OpniCluster
 		err        error
 		testNs     string
 	)
 	Specify("setup", func() {
 		testNs = makeTestNamespace()
-		cluster = v1beta2.OpniCluster{
+		cluster = aiv1beta1.OpniCluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: opniloggingv1beta1.GroupVersion.String(),
 				Kind:       "OpniCluster",
@@ -38,12 +38,7 @@ var _ = Describe("Logging LogAdapter Controller", Ordered, Label("controller"), 
 				Name:      "test",
 				Namespace: testNs,
 			},
-			Spec: v1beta2.OpniClusterSpec{
-				Opensearch: v1beta2.OpensearchClusterSpec{},
-				Nats: v1beta2.NatsSpec{
-					AuthMethod: v1beta2.NatsAuthUsername,
-				},
-			},
+			Spec: aiv1beta1.OpniClusterSpec{},
 		}
 		k8sClient.Create(context.Background(), &cluster)
 		logadapter = opniloggingv1beta1.LogAdapter{

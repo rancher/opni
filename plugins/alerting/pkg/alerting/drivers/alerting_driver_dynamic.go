@@ -11,7 +11,6 @@ import (
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -21,7 +20,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	appsv1 "k8s.io/api/apps/v1"
 	k8scorev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -149,42 +147,19 @@ func (a *AlertingManager) Update(ctx context.Context, conf *alertops.AlertingCon
 		return nil, shared.WithInternalServerError(fmt.Sprintf("failed to reconcile config : %s", loopError))
 	}
 
-	mutator := func(object client.Object) error {
-		switch gateway := object.(type) {
-		case *corev1beta1.Gateway:
-			gateway.Spec.Alerting.RawAlertManagerConfig = conf.RawAlertManagerConfig
-			gateway.Spec.Alerting.RawInternalRouting = conf.RawInternalRouting
-			return nil
-		case *v1beta2.Gateway:
-			gateway.Spec.Alerting.RawAlertManagerConfig = conf.RawAlertManagerConfig
-			gateway.Spec.Alerting.RawInternalRouting = conf.RawInternalRouting
-			return nil
-		default:
-			return fmt.Errorf("unkown gateway type %T", gateway)
-		}
+	mutator := func(gateway *corev1beta1.Gateway) {
+		gateway.Spec.Alerting.RawAlertManagerConfig = conf.RawAlertManagerConfig
+		gateway.Spec.Alerting.RawInternalRouting = conf.RawInternalRouting
 	}
 
-	err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-		existing, err := a.newOpniGateway()
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		existing := a.newOpniGateway()
+		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
-		err = a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		var clone client.Object
-		switch gateway := existing.(type) {
-		case *corev1beta1.Gateway:
-			clone = gateway.DeepCopyObject().(client.Object)
-		case *v1beta2.Gateway:
-			clone = gateway.DeepCopyObject().(client.Object)
-		default:
-			return fmt.Errorf("unkown gateway type %T", gateway)
-		}
-		if err := mutator(clone); err != nil {
-			return err
-		}
+		clone := existing.DeepCopy()
+		mutator(clone)
 		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 			patch.IgnoreStatusFields(),
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),

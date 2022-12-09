@@ -39,10 +39,7 @@ func (r *LoggingDataPrepperReconciler) Reconcile(ctx context.Context, req ctrl.R
 		opts = append(opts, dataprepper.WithURLOverride(fmt.Sprintf("https://opni-opensearch-svc.%s:9200", req.Namespace)))
 	}
 
-	DataPrepperReconciler, err := dataprepper.NewReconciler(ctx, DataPrepper, r.Client, opts...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	DataPrepperReconciler := dataprepper.NewReconciler(ctx, DataPrepper, r.Client, opts...)
 
 	reconcilers := []resources.ComponentReconciler{
 		DataPrepperReconciler.Reconcile,

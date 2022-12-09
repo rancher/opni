@@ -1,7 +1,6 @@
 package cortex
 
 import (
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
@@ -49,39 +47,19 @@ func (r *Reconciler) updateCortexVersionStatus() (bool, error) {
 		panic("could not find cortex dependency in build info")
 	})
 
-	switch cluster := r.mc.(type) {
-	case *v1beta2.MonitoringCluster:
-		if cluster.Status.Cortex.Version != cortexVersion {
-			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
-					return err
-				}
-				cluster.Status.Cortex.Version = cortexVersion
-				return r.client.Status().Update(r.ctx, cluster)
-			})
-			if err != nil {
-				lg.Error(err, "failed to update cortex version status")
-				return false, err
+	if r.mc.Status.Cortex.Version != cortexVersion {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.mc), r.mc); err != nil {
+				return err
 			}
+			r.mc.Status.Cortex.Version = cortexVersion
+			return r.client.Status().Update(r.ctx, r.mc)
+		})
+		if err != nil {
+			lg.Error(err, "failed to update cortex version status")
+			return false, err
 		}
-	case *corev1beta1.MonitoringCluster:
-		if cluster.Status.Cortex.Version != cortexVersion {
-			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
-					return err
-				}
-				cluster.Status.Cortex.Version = cortexVersion
-				return r.client.Status().Update(r.ctx, cluster)
-			})
-			if err != nil {
-				lg.Error(err, "failed to update cortex version status")
-				return false, err
-			}
-		}
-	default:
-		return false, errors.New("unsupported monitoring type")
 	}
-
 	return false, nil
 }
 
@@ -201,42 +179,17 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) k8sutil.Re
 	}
 	workloadsReady := len(conditions) == 0
 
-	switch cluster := r.mc.(type) {
-	case *v1beta2.MonitoringCluster:
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
-				return err
-			}
-			cluster.Status.Cortex.WorkloadsReady = workloadsReady
-			cluster.Status.Cortex.Conditions = conditions
-			cluster.Status.Cortex.WorkloadStatus = make(map[string]v1beta2.WorkloadStatus)
-			for k, v := range wlStatus {
-				cluster.Status.Cortex.WorkloadStatus[k] = v1beta2.WorkloadStatus{
-					Ready:   v.Ready,
-					Message: v.Message,
-				}
-			}
-			return r.client.Status().Update(r.ctx, cluster)
-		})
-		if err != nil {
-			return k8sutil.RequeueErr(err)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.mc), r.mc); err != nil {
+			return err
 		}
-	case *corev1beta1.MonitoringCluster:
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
-				return err
-			}
-			cluster.Status.Cortex.WorkloadsReady = workloadsReady
-			cluster.Status.Cortex.Conditions = conditions
-			cluster.Status.Cortex.WorkloadStatus = wlStatus
-			return r.client.Status().Update(r.ctx, cluster)
-		})
-		if err != nil {
-			return k8sutil.RequeueErr(err)
-		}
-	default:
-		return k8sutil.RequeueErr(errors.New("unsupported monitoring type"))
-
+		r.mc.Status.Cortex.WorkloadsReady = workloadsReady
+		r.mc.Status.Cortex.Conditions = conditions
+		r.mc.Status.Cortex.WorkloadStatus = wlStatus
+		return r.client.Status().Update(r.ctx, r.mc)
+	})
+	if err != nil {
+		return k8sutil.RequeueErr(err)
 	}
 
 	if len(conditions) > 0 {

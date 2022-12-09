@@ -234,7 +234,8 @@ func startOpniServer(configFile string) {
 		lg.Info("request configs are equal")
 	})
 	hookServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", shared.AlertingDefaultHookPort),
+		// explicitly set this to 0.0.0.0 for test environment
+		Addr:    fmt.Sprintf("0.0.0.0:%d", shared.AlertingDefaultHookPort),
 		Handler: mux,
 	}
 	go func() {

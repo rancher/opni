@@ -24,9 +24,6 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 	if err != nil {
 		return nil, err
 	}
-	// FIXME: submitting this during a reload can lead to a context.Cancel
-	// on this post operation, however its unclear if this would lead to actual
-	// problems in this function
 	apiNode := backend.NewAlertManagerPostAlertClient(
 		ctx,
 		availableEndpoint,
@@ -39,4 +36,30 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 		return nil, err
 	}
 	return &alertingv1.TriggerAlertsResponse{}, nil
+}
+
+func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
+	lg := p.Logger.With("Handler", "ResolveAlerts")
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
+		return nil, err
+	}
+	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	apiNode := backend.NewAlertManagerPostAlertClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(lg),
+		backend.WithExpectClosure(backend.NewExpectStatusOk()),
+		backend.WithPostResolveAlertBody(req.ConditionId.Id, req.Annotations),
+	)
+	err = apiNode.DoRequest()
+	if err != nil {
+		return nil, err
+	}
+	return &alertingv1.ResolveAlertsResponse{}, nil
 }

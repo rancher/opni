@@ -5,6 +5,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) services() []resources.Resource {
@@ -49,7 +50,7 @@ func (r *Reconciler) memberlistService() resources.Resource {
 	memberlist := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-memberlist",
-			Namespace: r.namespace,
+			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		Spec: corev1.ServiceSpec{
@@ -69,6 +70,6 @@ func (r *Reconciler) memberlistService() resources.Resource {
 			},
 		},
 	}
-	r.setOwner(memberlist)
-	return resources.PresentIff(r.spec.Cortex.Enabled, memberlist)
+	ctrl.SetControllerReference(r.mc, memberlist, r.client.Scheme())
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, memberlist)
 }

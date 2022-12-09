@@ -44,10 +44,7 @@ func (r *CoreLoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	loggingClusterReconciler, err := loggingcluster.NewReconciler(ctx, loggingCluster, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	loggingClusterReconciler := loggingcluster.NewReconciler(ctx, loggingCluster, r.Client)
 
 	reconcilers := []resources.ComponentReconciler{
 		loggingClusterReconciler.Reconcile,

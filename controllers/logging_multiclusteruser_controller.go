@@ -43,11 +43,7 @@ func (r *LoggingMulticlusterUserReconciler) Reconcile(ctx context.Context, req c
 		}
 	}
 
-	multiclusterUserReconciler, err := multiclusteruser.NewReconciler(ctx, multiclusterUser, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	multiclusterUserReconciler := multiclusteruser.NewReconciler(ctx, multiclusterUser, r.Client)
 	reconcilers := []resources.ComponentReconciler{
 		multiclusterUserReconciler.Reconcile,
 	}

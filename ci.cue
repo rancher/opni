@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/images"
 )
 
-opniVersion: "0.7.0-dev"
+opniVersion: "0.8.0-rc1"
 
 dagger.#Plan & {
 	client: {
@@ -35,8 +35,8 @@ dagger.#Plan & {
 			OPNI_UI_BRANCH:         string | *"main"
 			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
 			HELM_OCI_REPO:          string | *"ghcr.io/rancher"
-			DASHBOARDS_VERSION:     string | *"1.3.3"
-			OPENSEARCH_VERSION:     string | *"1.3.3"
+			DASHBOARDS_VERSION:     string | *"2.4.0"
+			OPENSEARCH_VERSION:     string | *"2.4.0"
 			PLUGIN_VERSION:         string | *opniVersion
 			PLUGIN_PUBLISH:         string | *opniVersion
 			CHARTS_VERSION:         string | *opniVersion

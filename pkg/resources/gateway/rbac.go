@@ -7,20 +7,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-crd",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -141,7 +142,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	// TODO: This will leak.  Add a finalizer to fix it up or come up with alternative
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("opni-ns-%s", r.name),
+			Name:   fmt.Sprintf("opni-ns-%s", r.gw.Name),
 			Labels: resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -153,13 +154,13 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccount.Name,
-				Namespace: r.namespace,
+				Namespace: r.gw.Namespace,
 			},
 		},
 	}
 	nodeViewerBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("opni-node-viewer-%s", r.name),
+			Name:   fmt.Sprintf("opni-node-viewer-%s", r.gw.Name),
 			Labels: resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -171,7 +172,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccount.Name,
-				Namespace: r.namespace,
+				Namespace: r.gw.Namespace,
 			},
 		},
 	}
@@ -179,7 +180,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-crd",
-			Namespace: r.namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -191,14 +192,14 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccount.Name,
-				Namespace: r.namespace,
+				Namespace: r.gw.Namespace,
 			},
 		},
 	}
 
-	r.setOwner(serviceAccount)
-	r.setOwner(role)
-	r.setOwner(roleBinding)
+	ctrl.SetControllerReference(r.gw, serviceAccount, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, role, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, roleBinding, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(serviceAccount),
 		resources.Present(role),

@@ -50,7 +50,7 @@ func buildMinimalAgent() (string, error) {
 }
 
 // this test takes approx. 2 minutes
-var _ = XDescribe("Agent Memory Tests", Ordered, Label("slow", "integration"), func() {
+var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -134,9 +134,7 @@ var _ = XDescribe("Agent Memory Tests", Ordered, Label("slow", "integration"), f
 
 		gatewayConfig = environment.NewGatewayConfig()
 		gatewayConfig.Spec.Plugins = v1beta1.PluginsSpec{
-			Dirs: []string{
-				path.Join(tempDir, "plugins"),
-			},
+			Dir: path.Join(tempDir, "plugins"),
 			Cache: v1beta1.CacheSpec{
 				PatchEngine: v1beta1.PatchEngineBsdiff,
 				Backend:     v1beta1.CacheBackendFilesystem,
@@ -211,7 +209,7 @@ var _ = XDescribe("Agent Memory Tests", Ordered, Label("slow", "integration"), f
 						Pins:  []string{fingerprint},
 					},
 					Plugins: v1beta1.PluginsSpec{
-						Dirs: []string{path.Join(tempDir, "plugins")},
+						Dir: path.Join(tempDir, "plugins"),
 						Cache: v1beta1.CacheSpec{
 							Backend: v1beta1.CacheBackendFilesystem,
 							Filesystem: v1beta1.FilesystemCacheSpec{

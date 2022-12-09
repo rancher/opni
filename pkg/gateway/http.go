@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -183,7 +182,7 @@ func (s *GatewayHTTPServer) setupPluginRoutes(
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithTLS(tlsConfig),
 		fwd.WithLogger(sampledLogger),
-		fwd.WithDestHint(path.Base(pluginMeta.BinaryPath)),
+		fwd.WithDestHint(pluginMeta.Filename()),
 	)
 ROUTES:
 	for _, route := range cfg.Routes {

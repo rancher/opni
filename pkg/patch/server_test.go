@@ -48,9 +48,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 
 	newServer := func() (*patch.FilesystemPluginSyncServer, error) {
 		return patch.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-			Dirs: []string{
-				filepath.Join(tmpDir, "plugins"),
-			},
+			Dir: filepath.Join(tmpDir, "plugins"),
 			Cache: v1beta1.CacheSpec{
 				PatchEngine: v1beta1.PatchEngineBsdiff,
 				Backend:     v1beta1.CacheBackendFilesystem,
@@ -77,18 +75,13 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			manifest, err := srv.GetPluginManifest(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
-			manifest.Sort() // sort by module name
 			Expect(manifest.Items).To(HaveLen(2))
 			Expect(manifest.Items[0].Module).To(Equal(test1Module))
 			Expect(manifest.Items[1].Module).To(Equal(test2Module))
-			Expect(manifest.Items[0].Digest).To(Equal(v1Manifest.Items[0].Digest))
-			Expect(manifest.Items[1].Digest).To(Equal(v1Manifest.Items[1].Digest))
-			Expect(manifest.Items[0].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test1")))
-			Expect(manifest.Items[1].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test2")))
-			Expect(manifest.Items[0].GoVersion).To(Equal(runtime.Version()))
-			Expect(manifest.Items[1].GoVersion).To(Equal(runtime.Version()))
-			Expect(manifest.Items[0].ShortName).To(Equal("plugin_test1"))
-			Expect(manifest.Items[1].ShortName).To(Equal("plugin_test2"))
+			Expect(manifest.Items[0].Digest).To(Equal(v1Manifest.Items[0].Metadata.Digest))
+			Expect(manifest.Items[1].Digest).To(Equal(v1Manifest.Items[1].Metadata.Digest))
+			Expect(manifest.Items[0].Filename).To(Equal("plugin_test1"))
+			Expect(manifest.Items[1].Filename).To(Equal("plugin_test2"))
 
 			srvManifestV1 = manifest
 		})
@@ -98,7 +91,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 
 			Expect(items).To(HaveLen(2))
 			names := []string{items[0].Name(), items[1].Name()}
-			Expect(names).To(ConsistOf(v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest))
+			Expect(names).To(ConsistOf(v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest))
 		})
 	})
 
@@ -118,18 +111,13 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			manifest, err := srv.GetPluginManifest(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
-			manifest.Sort()
 			Expect(manifest.Items).To(HaveLen(2))
 			Expect(manifest.Items[0].Module).To(Equal(test1Module))
 			Expect(manifest.Items[1].Module).To(Equal(test2Module))
-			Expect(manifest.Items[0].Digest).To(Equal(v2Manifest.Items[0].Digest))
-			Expect(manifest.Items[1].Digest).To(Equal(v2Manifest.Items[1].Digest))
-			Expect(manifest.Items[0].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test1")))
-			Expect(manifest.Items[1].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test2")))
-			Expect(manifest.Items[0].GoVersion).To(Equal(runtime.Version()))
-			Expect(manifest.Items[1].GoVersion).To(Equal(runtime.Version()))
-			Expect(manifest.Items[0].ShortName).To(Equal("plugin_test1"))
-			Expect(manifest.Items[1].ShortName).To(Equal("plugin_test2"))
+			Expect(manifest.Items[0].Digest).To(Equal(v2Manifest.Items[0].Metadata.Digest))
+			Expect(manifest.Items[1].Digest).To(Equal(v2Manifest.Items[1].Metadata.Digest))
+			Expect(manifest.Items[0].Filename).To(Equal("plugin_test1"))
+			Expect(manifest.Items[1].Filename).To(Equal("plugin_test2"))
 
 			srvManifestV2 = manifest
 		})
@@ -144,38 +132,36 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				items[2].Name(), items[3].Name(),
 			}
 			Expect(names).To(ConsistOf(
-				v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest,
-				v2Manifest.Items[0].Digest, v2Manifest.Items[1].Digest,
+				v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest,
+				v2Manifest.Items[0].Metadata.Digest, v2Manifest.Items[1].Metadata.Digest,
 			))
 		})
 	})
 	When("a client connects to sync their plugins", func() {
-		var initialPatchResponse *controlv1.PluginArchive
+		var initialPatchResponse *controlv1.PatchList
 		var initialCacheItems []os.DirEntry
 		When("the client has old v1 plugins", func() {
 			It("should return patch operations", func() {
-				arc, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
+				results, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
 				Expect(err).NotTo(HaveOccurred())
 
-				arc.Sort()
-				Expect(arc.Items).To(HaveLen(2))
-				Expect(arc.Items[0].Module).To(Equal(test1Module))
-				Expect(arc.Items[0].Op).To(Equal(controlv1.PatchOp_Update))
-				Expect(arc.Items[0].AgentPath).To(Equal(srvManifestV1.Items[0].BinaryPath))
-				Expect(arc.Items[0].OldDigest).To(Equal(srvManifestV1.Items[0].Digest))
-				Expect(arc.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
-				Expect(arc.Items[0].ShortName).To(Equal(srvManifestV1.Items[0].ShortName))
-				Expect(arc.Items[0].Data).To(Equal(test1v1tov2Patch.Bytes()))
+				patches := results.RequiredPatches
+				Expect(patches.Items).To(HaveLen(2))
+				Expect(patches.Items[0].Module).To(Equal(test1Module))
+				Expect(patches.Items[0].Op).To(Equal(controlv1.PatchOp_Update))
+				Expect(patches.Items[0].OldDigest).To(Equal(srvManifestV1.Items[0].Digest))
+				Expect(patches.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
+				Expect(patches.Items[0].Filename).To(Equal(srvManifestV1.Items[0].Filename))
+				Expect(patches.Items[0].Data).To(Equal(test1v1tov2Patch.Bytes()))
 
-				Expect(arc.Items[1].Module).To(Equal(test2Module))
-				Expect(arc.Items[1].Op).To(Equal(controlv1.PatchOp_Update))
-				Expect(arc.Items[1].AgentPath).To(Equal(srvManifestV1.Items[1].BinaryPath))
-				Expect(arc.Items[1].OldDigest).To(Equal(srvManifestV1.Items[1].Digest))
-				Expect(arc.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
-				Expect(arc.Items[1].ShortName).To(Equal(srvManifestV1.Items[1].ShortName))
-				Expect(arc.Items[1].Data).To(Equal(test2v1tov2Patch.Bytes()))
+				Expect(patches.Items[1].Module).To(Equal(test2Module))
+				Expect(patches.Items[1].Op).To(Equal(controlv1.PatchOp_Update))
+				Expect(patches.Items[1].OldDigest).To(Equal(srvManifestV1.Items[1].Digest))
+				Expect(patches.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
+				Expect(patches.Items[1].Filename).To(Equal(srvManifestV1.Items[1].Filename))
+				Expect(patches.Items[1].Data).To(Equal(test2v1tov2Patch.Bytes()))
 
-				initialPatchResponse = arc
+				initialPatchResponse = patches
 			})
 			It("should cache the patches", func() {
 				items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
@@ -200,9 +186,9 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 		})
 		When("another client connects", func() {
 			It("should return patch operations using cached patches", func() {
-				arc, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
+				results, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(arc).To(testutil.ProtoEqual(initialPatchResponse))
+				Expect(results.RequiredPatches).To(testutil.ProtoEqual(initialPatchResponse))
 			})
 			It("should not modify the cache", func() {
 				items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
@@ -213,38 +199,36 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 		})
 		When("the server is unable to provide patches for the request", func() {
 			It("should return a create op with the full plugin contents", func() {
-				arc, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
+				results, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
 					Items: []*controlv1.PluginManifestEntry{
 						{
-							Module:     test1Module,
-							Digest:     "deadbeef",
-							BinaryPath: filepath.Join(tmpDir, "plugins", "plugin_test1"),
-							ShortName:  "plugin_test1",
+							Module:   test1Module,
+							Digest:   "deadbeef",
+							Filename: "plugin_test1",
 						},
 						{
-							Module:     test2Module,
-							Digest:     "deadbeef",
-							BinaryPath: filepath.Join(tmpDir, "plugins", "plugin_test2"),
-							ShortName:  "plugin_test2",
+							Module:   test2Module,
+							Digest:   "deadbeef",
+							Filename: "plugin_test2",
 						},
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(arc.Items).To(HaveLen(2))
-				Expect(arc.Items[0].Module).To(Equal(test1Module))
-				Expect(arc.Items[0].Op).To(Equal(controlv1.PatchOp_Create))
-				Expect(arc.Items[0].AgentPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test1")))
-				Expect(arc.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
-				Expect(arc.Items[0].ShortName).To(Equal("plugin_test1"))
-				Expect(arc.Items[0].Data).To(Equal(testutil.Must(os.ReadFile(*test1v2BinaryPath))))
+				patches := results.RequiredPatches
 
-				Expect(arc.Items[1].Module).To(Equal(test2Module))
-				Expect(arc.Items[1].Op).To(Equal(controlv1.PatchOp_Create))
-				Expect(arc.Items[1].AgentPath).To(Equal(filepath.Join(tmpDir, "plugins", "plugin_test2")))
-				Expect(arc.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
-				Expect(arc.Items[1].ShortName).To(Equal("plugin_test2"))
-				Expect(arc.Items[1].Data).To(Equal(testutil.Must(os.ReadFile(*test2v2BinaryPath))))
+				Expect(patches.Items).To(HaveLen(2))
+				Expect(patches.Items[0].Module).To(Equal(test1Module))
+				Expect(patches.Items[0].Op).To(Equal(controlv1.PatchOp_Create))
+				Expect(patches.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
+				Expect(patches.Items[0].Filename).To(Equal("plugin_test1"))
+				Expect(patches.Items[0].Data).To(Equal(testutil.Must(os.ReadFile(*test1v2BinaryPath))))
+
+				Expect(patches.Items[1].Module).To(Equal(test2Module))
+				Expect(patches.Items[1].Op).To(Equal(controlv1.PatchOp_Create))
+				Expect(patches.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
+				Expect(patches.Items[1].Filename).To(Equal("plugin_test2"))
+				Expect(patches.Items[1].Data).To(Equal(testutil.Must(os.ReadFile(*test2v2BinaryPath))))
 			})
 			When("the server is unable to read a plugin on disk", func() {
 				It("should succeed if it still has the relevant patch", func() {
@@ -256,10 +240,9 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 					_, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
 						Items: []*controlv1.PluginManifestEntry{
 							{
-								Module:     test1Module,
-								Digest:     "deadbeef",
-								BinaryPath: filepath.Join(tmpDir, "plugins", "plugin_test1"),
-								ShortName:  "plugin_test1",
+								Module:   test1Module,
+								Digest:   "deadbeef",
+								Filename: "plugin_test1",
 							},
 						},
 					})
@@ -325,10 +308,10 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 						defer wg.Done()
 						<-start
 						startTime := time.Now()
-						arc, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
+						results, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
 						exp.RecordDuration("SyncPluginManifest", time.Since(startTime), gmeasure.Precision(time.Nanosecond))
 						Expect(err).NotTo(HaveOccurred())
-						Expect(arc.Items).To(HaveLen(2))
+						Expect(results.RequiredPatches.Items).To(HaveLen(2))
 					}()
 				}
 
@@ -424,8 +407,8 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				Metadata: &corev1.ClusterMetadata{
 					LastKnownConnectionDetails: &corev1.LastKnownConnectionDetails{
 						PluginVersions: map[string]string{
-							test1Module: v1Manifest.Items[0].Digest,
-							test2Module: v1Manifest.Items[1].Digest,
+							test1Module: v1Manifest.Items[0].Metadata.Digest,
+							test2Module: v1Manifest.Items[1].Metadata.Digest,
 						},
 					},
 				},
@@ -459,7 +442,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			When("an unknown patch engine is specified", func() {
 				It("should return an error", func() {
 					_, err := patch.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-						Dirs: []string{tmpDir},
+						Dir: tmpDir,
 						Cache: v1beta1.CacheSpec{
 							PatchEngine: "unknown",
 						},
@@ -470,7 +453,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			When("an unknown cache backend is specified", func() {
 				It("should return an error", func() {
 					_, err := patch.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-						Dirs: []string{tmpDir},
+						Dir: tmpDir,
 						Cache: v1beta1.CacheSpec{
 							PatchEngine: v1beta1.PatchEngineBsdiff,
 							Backend:     "unknown",
@@ -482,7 +465,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			When("the filesystem cache cannot be created", func() {
 				It("should return an error", func() {
 					_, err := patch.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-						Dirs: []string{tmpDir},
+						Dir: tmpDir,
 						Cache: v1beta1.CacheSpec{
 							PatchEngine: v1beta1.PatchEngineBsdiff,
 							Backend:     v1beta1.CacheBackendFilesystem,

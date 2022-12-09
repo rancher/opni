@@ -211,8 +211,8 @@ const (
 )
 
 type PluginsSpec struct {
-	// Directories to look for plugins in
-	Dirs []string `json:"dirs,omitempty"`
+	// Directory to search for plugins
+	Dir string `json:"dirs,omitempty"`
 	// Options for caching plugins
 	Cache CacheSpec `json:"cache,omitempty"`
 }

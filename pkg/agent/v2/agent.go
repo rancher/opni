@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -273,14 +272,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	pl.Hook(hooks.OnLoadMC(func(hc controlv1.HealthClient, m meta.PluginMeta, cc *grpc.ClientConn) {
 		client := controlv1.NewHealthClient(cc)
-		hm.AddClient(path.Base(m.BinaryPath), client)
+		hm.AddClient(m.Filename(), client)
 	}))
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		lg.With(
 			zap.String("plugin", md.Module),
 		).Debug("loaded stream api extension plugin")
-		gatewayClient.RegisterSplicedStream(cc, md.ShortName())
+		gatewayClient.RegisterSplicedStream(cc, md.Filename())
 	}))
 
 	return &Agent{
@@ -355,7 +354,9 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			close(done)
 		}))
 
-		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme)
+		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme,
+			plugins.WithManifest(manifests),
+		)
 
 		select {
 		case <-done:
@@ -410,7 +411,7 @@ func setupPluginRoutes(
 	).Named("api")
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithLogger(sampledLogger),
-		fwd.WithDestHint(path.Base(pluginMeta.BinaryPath)),
+		fwd.WithDestHint(pluginMeta.Filename()),
 	)
 ROUTES:
 	for _, route := range cfg.Routes {
@@ -490,12 +491,12 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, r
 
 	manifestClient := controlv1.NewPluginSyncClient(a.gatewayClient.ClientConn())
 	// read local plugins on disk here
-	localManifests, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	archive, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	patchList, err := manifestClient.SyncPluginManifest(ctx, localManifests, grpc.UseCompressor("zstd"))
+	syncResp, err := manifestClient.SyncPluginManifest(ctx, archive.ToManifest(), grpc.UseCompressor("zstd"))
 	if err != nil {
 		return nil, err
 	}
@@ -505,15 +506,10 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, r
 	if err != nil {
 		return nil, err
 	}
-	if err := patchClient.Patch(patchList); err != nil {
-		return nil, err
-	}
-
-	// read local manifests again
-	localManifests, err = patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	err = patchClient.Patch(syncResp.RequiredPatches)
 	if err != nil {
 		return nil, err
 	}
 
-	return localManifests, nil
+	return syncResp.DesiredState, nil
 }

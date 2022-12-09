@@ -105,13 +105,13 @@ func (f *FilesystemPluginSyncServer) loadPluginManifest() {
 	if err := f.patchCache.Archive(md); err != nil {
 		panic(fmt.Sprintf("failed to archive plugin manifest: %v", err))
 	}
-	f.manifest = md
+	f.manifest = md.ToManifest()
 }
 
 func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	ctx context.Context,
 	theirManifest *controlv1.PluginManifest,
-) (*controlv1.PluginArchive, error) {
+) (*controlv1.SyncResults, error) {
 	// on startup
 	ourManifest := f.getPluginManifest()
 	archive := LeftJoinOn(ourManifest, theirManifest)
@@ -127,7 +127,7 @@ func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 					f.logger.With(
 						zap.Error(err),
 						"plugin", entry.Module,
-						"path", entry.GatewayPath,
+						"filename", entry.Filename,
 					).Errorf("lost plugin in cache")
 					return status.Errorf(codes.Internal, "lost plugin in cache: %s", entry.Module)
 				}
@@ -166,7 +166,10 @@ func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	if err := errg.Wait(); err != nil {
 		return nil, err
 	}
-	return archive, nil
+	return &controlv1.SyncResults{
+		DesiredState:    ourManifest,
+		RequiredPatches: archive,
+	}, nil
 }
 
 func (f *FilesystemPluginSyncServer) GetPluginManifest(ctx context.Context, _ *emptypb.Empty) (*controlv1.PluginManifest, error) {

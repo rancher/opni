@@ -64,7 +64,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				By("listing the plugins")
 				plugins, err := cache.ListDigests()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest))
+				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest))
 			})
 		})
 		When("archiving the same manifest twice", func() {
@@ -80,7 +80,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				By("listing the plugins")
 				plugins, err := cache.ListDigests()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest))
+				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest))
 			})
 			When("an archived plugin is modified on disk", func() {
 				It("should replace plugins that do not match the hash", func() {
@@ -89,7 +89,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("modifying one of the saved plugins")
-					f, err := cache.openSavedPlugin(v1Manifest.Items[0].Digest, os.O_WRONLY|os.O_APPEND)
+					f, err := cache.openSavedPlugin(v1Manifest.Items[0].Metadata.Digest, os.O_WRONLY|os.O_APPEND)
 					Expect(err).NotTo(HaveOccurred())
 					f.Write([]byte("hello world"))
 					f.Close()
@@ -101,10 +101,10 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 					By("listing the plugins")
 					plugins, err := cache.ListDigests()
 					Expect(err).NotTo(HaveOccurred())
-					Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest))
+					Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest))
 
 					By("checking the modified plugin")
-					f, err = cache.openSavedPlugin(v1Manifest.Items[0].Digest, os.O_RDONLY)
+					f, err = cache.openSavedPlugin(v1Manifest.Items[0].Metadata.Digest, os.O_RDONLY)
 					Expect(err).NotTo(HaveOccurred())
 					defer f.Close()
 					f.Seek(-11, io.SeekEnd)
@@ -128,7 +128,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				By("listing the plugins")
 				plugins, err := cache.ListDigests()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Digest, v1Manifest.Items[1].Digest, v2Manifest.Items[0].Digest, v2Manifest.Items[1].Digest))
+				Expect(plugins).To(ConsistOf(v1Manifest.Items[0].Metadata.Digest, v1Manifest.Items[1].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest, v2Manifest.Items[1].Metadata.Digest))
 			})
 			It("should allow requesting patches", func() {
 				By("archiving the first manifest")
@@ -140,11 +140,11 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("requesting patches")
-				patch, err := cache.RequestPatch(v1Manifest.Items[0].Digest, v2Manifest.Items[0].Digest)
+				patch, err := cache.RequestPatch(v1Manifest.Items[0].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(patch).To(Equal(test1v1tov2Patch.Bytes()))
 
-				patch, err = cache.RequestPatch(v1Manifest.Items[1].Digest, v2Manifest.Items[1].Digest)
+				patch, err = cache.RequestPatch(v1Manifest.Items[1].Metadata.Digest, v2Manifest.Items[1].Metadata.Digest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(patch).To(Equal(test2v1tov2Patch.Bytes()))
 			})
@@ -161,7 +161,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 
 				By("requesting a patch")
 				before := cache.MetricsSnapshot()
-				from, to := v1Manifest.Items[0].Digest, v2Manifest.Items[0].Digest
+				from, to := v1Manifest.Items[0].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest
 				patch, err := cache.RequestPatch(from, to)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(patch).To(Equal(test1v1tov2Patch.Bytes()))
@@ -201,7 +201,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 					go func() {
 						defer GinkgoRecover()
 						defer wg.Done()
-						patch, err := cache.RequestPatch(v1Manifest.Items[0].Digest, v2Manifest.Items[0].Digest)
+						patch, err := cache.RequestPatch(v1Manifest.Items[0].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(patch).To(Equal(test1v1tov2Patch.Bytes()))
 					}()
@@ -228,18 +228,18 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("requesting a patch")
-				patch, err := cache.RequestPatch(v1Manifest.Items[0].Digest, v2Manifest.Items[0].Digest)
+				patch, err := cache.RequestPatch(v1Manifest.Items[0].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(patch).To(Equal(test1v1tov2Patch.Bytes()))
 
-				from, to := v1Manifest.Items[0].Digest, v2Manifest.Items[0].Digest
+				from, to := v1Manifest.Items[0].Metadata.Digest, v2Manifest.Items[0].Metadata.Digest
 				// make sure this file exists
 				info, err := cache.statPatch(from, to)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(info).NotTo(BeNil())
 
 				By("cleaning the plugin")
-				cache.Clean(v1Manifest.Items[0].Digest)
+				cache.Clean(v1Manifest.Items[0].Metadata.Digest)
 
 				By("checking the cache")
 				// make sure the patch file is gone
@@ -248,7 +248,7 @@ func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
 				Expect(info).To(BeNil())
 
 				// make sure the plugin file is gone
-				_, err = cache.openSavedPlugin(v1Manifest.Items[0].Digest, os.O_RDONLY)
+				_, err = cache.openSavedPlugin(v1Manifest.Items[0].Metadata.Digest, os.O_RDONLY)
 				Expect(err).To(HaveOccurred())
 			})
 		})

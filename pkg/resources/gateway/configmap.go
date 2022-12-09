@@ -27,7 +27,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		},
 		Spec: cfgv1beta1.GatewayConfigSpec{
 			Plugins: cfgv1beta1.PluginsSpec{
-				Dirs: append([]string{"/var/lib/opni/plugins"}, r.gw.Spec.PluginSearchDirs...),
+				Dir: "/var/lib/opni/plugins",
 			},
 			Hostname: r.gw.Spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{

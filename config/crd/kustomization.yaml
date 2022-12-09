@@ -28,7 +28,6 @@ resources:
 - bases/logging.opni.io_multiclusterusers.yaml
 - bases/logging.opni.io_opniopensearches.yaml
 - bases/monitoring.opni.io_bootstraptokens.yaml
-- bases/monitoring.opni.io_clusters.yaml
 - bases/monitoring.opni.io_keyrings.yaml
 - bases/monitoring.opni.io_rolebindings.yaml
 - bases/monitoring.opni.io_roles.yaml

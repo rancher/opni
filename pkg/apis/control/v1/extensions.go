@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/hex"
+	"hash"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/exp/slices"
@@ -27,15 +28,45 @@ func (m *PluginManifestEntry) GetId() string {
 	return m.GetModule()
 }
 
+func (m *PluginManifestEntry) DigestBytes() []byte {
+	decoded, _ := hex.DecodeString(m.GetDigest())
+	return decoded
+}
+
+func (m *PluginManifestEntry) DigestHash() hash.Hash {
+	h, _ := blake2b.New256(nil)
+	return h
+}
+
 func (m *PluginManifest) Sort() {
 	slices.SortFunc(m.Items, func(a, b *PluginManifestEntry) bool {
-		return a.Module < b.Module
+		return a.GetModule() < b.GetModule()
 	})
 }
 
-func (a *PluginArchive) Sort() {
-	slices.SortFunc(a.Items, func(a, b *PluginArchiveEntry) bool {
-		return a.Op < b.Op && a.Module < b.Module
+func (m *PluginArchive) Sort() {
+	slices.SortFunc(m.Items, func(a, b *PluginArchiveEntry) bool {
+		return a.GetMetadata().GetModule() < b.GetMetadata().GetModule()
+	})
+}
+
+func (a *PluginArchive) ToManifest() *PluginManifest {
+	manifest := &PluginManifest{}
+	for _, entry := range a.Items {
+		manifest.Items = append(manifest.Items, entry.Metadata)
+	}
+	return manifest
+}
+
+func (a *PatchList) Sort() {
+	slices.SortFunc(a.Items, func(a, b *PatchSpec) bool {
+		if a.GetOp() != b.GetOp() {
+			return a.GetOp() < b.GetOp()
+		}
+		if a.GetModule() != b.GetModule() {
+			return a.GetModule() < b.GetModule()
+		}
+		return a.GetFilename() < b.GetFilename()
 	})
 }
 
@@ -49,10 +80,10 @@ const (
 func (m *PluginManifest) Digest() string {
 	m.Sort()
 	hash, _ := blake2b.New256(nil)
-	for _, entry := range m.Items {
-		hash.Write([]byte(entry.Module))
-		hash.Write([]byte(entry.ShortName))
-		hash.Write([]byte(entry.Digest))
+	for _, entry := range m.GetItems() {
+		hash.Write([]byte(entry.GetModule()))
+		hash.Write([]byte(entry.GetFilename()))
+		hash.Write([]byte(entry.GetDigest()))
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

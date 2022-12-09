@@ -27,7 +27,7 @@ import (
 	}
 	Build: {
 		Race:                 bool | *true
-		Cover:                true
+		Cover:                bool | *true
 		CoverMode:            string | *"atomic"
 		CoverPkg:             string | *""
 		Vet:                  string | *""

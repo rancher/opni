@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"os"
-	"runtime"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,6 +12,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 )
@@ -64,8 +64,8 @@ func b2sum(filename string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-var v1Manifest *controlv1.PluginManifest
-var v2Manifest *controlv1.PluginManifest
+var v1Manifest *controlv1.PluginArchive
+var v2Manifest *controlv1.PluginArchive
 
 var ctrl *gomock.Controller
 
@@ -131,39 +131,43 @@ var _ = BeforeSuite(func() {
 
 	Expect(eg.Wait()).To(Succeed())
 
-	v1Manifest = &controlv1.PluginManifest{
-		Items: []*controlv1.PluginManifestEntry{
+	v1Manifest = &controlv1.PluginArchive{
+		Items: []*controlv1.PluginArchiveEntry{
 			{
-				BinaryPath: *test1v1BinaryPath,
-				GoVersion:  runtime.Version(),
-				Module:     test1Module,
-				ShortName:  "test1",
-				Digest:     b2sum(*test1v1BinaryPath),
+				Metadata: &controlv1.PluginManifestEntry{
+					Module:   test1Module,
+					Filename: "test1",
+					Digest:   b2sum(*test1v1BinaryPath),
+				},
+				Data: testutil.Must(os.ReadFile(*test1v1BinaryPath)),
 			},
 			{
-				BinaryPath: *test2v1BinaryPath,
-				GoVersion:  runtime.Version(),
-				Module:     test2Module,
-				ShortName:  "test2",
-				Digest:     b2sum(*test2v1BinaryPath),
+				Metadata: &controlv1.PluginManifestEntry{
+					Module:   test2Module,
+					Filename: "test2",
+					Digest:   b2sum(*test2v1BinaryPath),
+				},
+				Data: testutil.Must(os.ReadFile(*test2v1BinaryPath)),
 			},
 		},
 	}
-	v2Manifest = &controlv1.PluginManifest{
-		Items: []*controlv1.PluginManifestEntry{
+	v2Manifest = &controlv1.PluginArchive{
+		Items: []*controlv1.PluginArchiveEntry{
 			{
-				BinaryPath: *test1v2BinaryPath,
-				GoVersion:  runtime.Version(),
-				Module:     test1Module,
-				ShortName:  "test1",
-				Digest:     b2sum(*test1v2BinaryPath),
+				Metadata: &controlv1.PluginManifestEntry{
+					Module:   test1Module,
+					Filename: "test1",
+					Digest:   b2sum(*test1v2BinaryPath),
+				},
+				Data: testutil.Must(os.ReadFile(*test1v2BinaryPath)),
 			},
 			{
-				BinaryPath: *test2v2BinaryPath,
-				GoVersion:  runtime.Version(),
-				Module:     test2Module,
-				ShortName:  "test2",
-				Digest:     b2sum(*test2v2BinaryPath),
+				Metadata: &controlv1.PluginManifestEntry{
+					Module:   test2Module,
+					Filename: "test2",
+					Digest:   b2sum(*test2v2BinaryPath),
+				},
+				Data: testutil.Must(os.ReadFile(*test2v2BinaryPath)),
 			},
 		},
 	}

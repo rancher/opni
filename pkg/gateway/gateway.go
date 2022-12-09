@@ -202,7 +202,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		if err := streamSvc.AddRemote(cc, md.ShortName()); err != nil {
+		if err := streamSvc.AddRemote(cc, md.Filename()); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,

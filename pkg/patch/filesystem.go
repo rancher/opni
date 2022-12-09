@@ -50,11 +50,11 @@ func NewFilesystemCache(conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher,
 	return cache, nil
 }
 
-func (p *FilesystemCache) Archive(manifest *controlv1.PluginManifest) error {
+func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 	var group errgroup.Group
 	p.logger.Infof("compressing and archiving plugins...")
 	for _, item := range manifest.Items {
-		destPath := p.path("plugins", item.Digest)
+		destPath := p.path("plugins", item.Metadata.Digest)
 		// check if the plugin already exists
 		if _, err := os.Stat(destPath); err == nil {
 			src, err := os.Open(destPath)
@@ -69,25 +69,19 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginManifest) error {
 			}
 			_, err = io.Copy(b2hash, srcDecoder)
 			src.Close()
-			if err == nil && hex.EncodeToString(b2hash.Sum(nil)) == item.Digest {
+			if err == nil && hex.EncodeToString(b2hash.Sum(nil)) == item.Metadata.Digest {
 				// the plugin already exists and its hash matches
 				continue
 			}
 
 			p.logger.With(
-				"plugin", item.BinaryPath,
+				"plugin", item.Metadata.Filename,
 			).Warn("existing cached plugin is corrupted, overwriting")
 		}
 
-		binaryPath := item.BinaryPath
-
+		item := item
 		// copy plugins into the cache
 		group.Go(func() error {
-			src, err := os.Open(binaryPath)
-			if err != nil {
-				return err
-			}
-			defer src.Close()
 			dest, err := os.Create(destPath)
 			if err != nil {
 				return err
@@ -98,7 +92,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginManifest) error {
 				return err
 			}
 			defer destEncoder.Close()
-			if bytes, err := io.Copy(destEncoder, src); err != nil {
+			if bytes, err := io.Copy(destEncoder, bytes.NewReader(item.Data)); err != nil {
 				return err
 			} else {
 				p.AddToTotalSizeBytes(bytes)

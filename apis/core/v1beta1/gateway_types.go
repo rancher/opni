@@ -38,8 +38,10 @@ type OpenIDConfigSpec struct {
 type GatewaySpec struct {
 	Image *opnimeta.ImageSpec `json:"image,omitempty"`
 	//+kubebuilder:validation:Required
-	Auth             AuthSpec `json:"auth,omitempty"`
-	Hostname         string   `json:"hostname,omitempty"`
+	Auth     AuthSpec `json:"auth,omitempty"`
+	Hostname string   `json:"hostname,omitempty"`
+
+	// Deprecated: this field is ignored.
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 
 	Alerting AlertingSpec                `json:"alerting,omitempty"`

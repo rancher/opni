@@ -12,7 +12,7 @@ type PluginMeta struct {
 	Module     string
 }
 
-func (pm PluginMeta) ShortName() string {
+func (pm PluginMeta) Filename() string {
 	return filepath.Base(pm.BinaryPath)
 }
 

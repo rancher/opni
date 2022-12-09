@@ -14,14 +14,14 @@ func (m *PluginManifest) Validate() error {
 	return nil
 }
 
-func (a *PluginArchiveEntry) Validate() error {
+func (a *PatchSpec) Validate() error {
 	if a.GetOldDigest() == "" {
 		return validation.Error("OldHash is required for patching")
 	}
 	if a.GetNewDigest() == "" {
 		return validation.Error("NewHash is required for patching")
 	}
-	if a.GetShortName() == "" {
+	if a.GetFilename() == "" {
 		return validation.Error("Short name must be set")
 	}
 	switch a.GetOp() {
@@ -37,7 +37,7 @@ func (a *PluginArchiveEntry) Validate() error {
 	return nil
 }
 
-func (a *PluginArchive) Validate() error {
+func (a *PatchList) Validate() error {
 	// TODO finalize format
 	return nil
 }

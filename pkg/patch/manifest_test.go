@@ -1,9 +1,9 @@
 package patch_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +22,7 @@ func NewDigest4() (string, string, string, string) {
 type testLeftJoinData struct {
 	leftConfig  *controlv1.PluginManifest
 	rightConfig *controlv1.PluginManifest
-	expected    *controlv1.PluginArchive
+	expected    *controlv1.PatchList
 }
 
 var _ = Describe("Patch Manifest Operations", func() {
@@ -32,17 +32,15 @@ var _ = Describe("Patch Manifest Operations", func() {
 		metrics := &controlv1.PluginManifest{
 			Items: []*controlv1.PluginManifestEntry{
 				{
-					BinaryPath: "/home/test/plugin_metrics",
-					GoVersion:  "1.19.3",
-					Module:     "metrics",
-					ShortName:  "metrics",
-					Digest:     hash1,
+					Module:   "metrics",
+					Filename: "plugin_metrics",
+					Digest:   hash1,
 				},
 			},
 		}
 		metricsRenamed := func() *controlv1.PluginManifest {
 			t := util.ProtoClone(metrics)
-			t.Items[0].ShortName = "renamed"
+			t.Items[0].Filename = "renamed"
 			return t
 		}()
 
@@ -62,11 +60,9 @@ var _ = Describe("Patch Manifest Operations", func() {
 		_ = &controlv1.PluginManifest{
 			Items: []*controlv1.PluginManifestEntry{
 				{
-					BinaryPath: "/home/test/plugin_metrics",
-					GoVersion:  "1.19.3",
-					Module:     "metrics",
-					ShortName:  "metrics",
-					Digest:     hash3,
+					Module:   "metrics",
+					Filename: "plugin_metrics",
+					Digest:   hash3,
 				},
 			},
 		}
@@ -75,11 +71,9 @@ var _ = Describe("Patch Manifest Operations", func() {
 			Items: []*controlv1.PluginManifestEntry{
 				metrics.Items[0],
 				{
-					BinaryPath: "/home/test/plugin_logging",
-					GoVersion:  "1.19.3",
-					Module:     "logging",
-					ShortName:  "logging",
-					Digest:     hash4,
+					Module:   "logging",
+					Filename: "plugin_logging",
+					Digest:   hash4,
 				},
 			},
 		}
@@ -94,16 +88,14 @@ var _ = Describe("Patch Manifest Operations", func() {
 		scenario1 := testLeftJoinData{
 			leftConfig:  metricsUpdate,
 			rightConfig: metrics,
-			expected: &controlv1.PluginArchive{
-				Items: []*controlv1.PluginArchiveEntry{
+			expected: &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
 					{
-						Op:          controlv1.PatchOp_Update,
-						GatewayPath: metricsUpdate.Items[0].GetBinaryPath(),
-						AgentPath:   metrics.Items[0].GetBinaryPath(),
-						Module:      metricsUpdate.Items[0].GetModule(),
-						OldDigest:   metrics.Items[0].GetDigest(),
-						NewDigest:   metricsUpdate.Items[0].GetDigest(),
-						ShortName:   metricsUpdate.Items[0].GetShortName(),
+						Op:        controlv1.PatchOp_Update,
+						Module:    metricsUpdate.Items[0].GetModule(),
+						OldDigest: metrics.Items[0].GetDigest(),
+						NewDigest: metricsUpdate.Items[0].GetDigest(),
+						Filename:  metricsUpdate.Items[0].GetFilename(),
 					},
 				},
 			},
@@ -112,16 +104,15 @@ var _ = Describe("Patch Manifest Operations", func() {
 		scenario2 := testLeftJoinData{
 			leftConfig:  metricsRenamed,
 			rightConfig: metrics,
-			expected: &controlv1.PluginArchive{
-				Items: []*controlv1.PluginArchiveEntry{
+			expected: &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
 					{
-						Op:          controlv1.PatchOp_Rename,
-						GatewayPath: metricsRenamed.Items[0].GetBinaryPath(),
-						AgentPath:   metrics.Items[0].GetBinaryPath(),
-						Module:      metrics.Items[0].GetModule(),
-						OldDigest:   metrics.Items[0].GetDigest(),
-						NewDigest:   metricsRenamed.Items[0].GetDigest(),
-						ShortName:   "renamed",
+						Op:        controlv1.PatchOp_Rename,
+						Module:    metrics.Items[0].GetModule(),
+						OldDigest: metrics.Items[0].GetDigest(),
+						NewDigest: metricsRenamed.Items[0].GetDigest(),
+						Filename:  "plugin_metrics",
+						Data:      []byte("renamed"),
 					},
 				},
 			},
@@ -130,25 +121,21 @@ var _ = Describe("Patch Manifest Operations", func() {
 		scenario3 := testLeftJoinData{
 			leftConfig:  addlogging,
 			rightConfig: metricsUpdate,
-			expected: &controlv1.PluginArchive{
-				Items: []*controlv1.PluginArchiveEntry{
+			expected: &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
 					{
-						Op:          controlv1.PatchOp_Update,
-						GatewayPath: addlogging.Items[0].GetBinaryPath(),
-						AgentPath:   metricsUpdate.Items[0].GetBinaryPath(),
-						Module:      addlogging.Items[0].GetModule(),
-						OldDigest:   metricsUpdate.Items[0].GetDigest(),
-						NewDigest:   addlogging.Items[0].GetDigest(),
-						ShortName:   addlogging.Items[0].GetShortName(),
+						Op:        controlv1.PatchOp_Update,
+						Module:    addlogging.Items[0].GetModule(),
+						OldDigest: metricsUpdate.Items[0].GetDigest(),
+						NewDigest: addlogging.Items[0].GetDigest(),
+						Filename:  addlogging.Items[0].GetFilename(),
 					},
 					{
-						Op:          controlv1.PatchOp_Create,
-						GatewayPath: addlogging.Items[1].GetBinaryPath(),
-						AgentPath:   "",
-						Module:      addlogging.Items[1].GetModule(),
-						OldDigest:   "",
-						NewDigest:   addlogging.Items[1].GetDigest(),
-						ShortName:   addlogging.Items[1].GetShortName(),
+						Op:        controlv1.PatchOp_Create,
+						Module:    addlogging.Items[1].GetModule(),
+						OldDigest: "",
+						NewDigest: addlogging.Items[1].GetDigest(),
+						Filename:  addlogging.Items[1].GetFilename(),
 					},
 				},
 			},
@@ -157,16 +144,14 @@ var _ = Describe("Patch Manifest Operations", func() {
 		scenario4 := testLeftJoinData{
 			leftConfig:  removeLogging,
 			rightConfig: addlogging,
-			expected: &controlv1.PluginArchive{
-				Items: []*controlv1.PluginArchiveEntry{
+			expected: &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
 					{
-						Op:          controlv1.PatchOp_Remove,
-						GatewayPath: "",
-						AgentPath:   addlogging.Items[1].GetBinaryPath(),
-						Module:      addlogging.Items[1].GetModule(),
-						OldDigest:   addlogging.Items[1].GetDigest(),
-						NewDigest:   "",
-						ShortName:   addlogging.Items[1].GetShortName(),
+						Op:        controlv1.PatchOp_Remove,
+						Module:    addlogging.Items[1].GetModule(),
+						OldDigest: addlogging.Items[1].GetDigest(),
+						NewDigest: "",
+						Filename:  addlogging.Items[1].GetFilename(),
 					},
 				},
 			},
@@ -174,25 +159,21 @@ var _ = Describe("Patch Manifest Operations", func() {
 		scenario5 := testLeftJoinData{
 			leftConfig:  metricsRenamedModule,
 			rightConfig: metrics,
-			expected: &controlv1.PluginArchive{
-				Items: []*controlv1.PluginArchiveEntry{
+			expected: &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
 					{
-						Op:          controlv1.PatchOp_Create,
-						GatewayPath: metricsRenamedModule.Items[0].GetBinaryPath(),
-						AgentPath:   "",
-						Module:      metricsRenamedModule.Items[0].GetModule(),
-						OldDigest:   "",
-						NewDigest:   metricsRenamedModule.Items[0].GetDigest(),
-						ShortName:   metricsRenamedModule.Items[0].GetShortName(),
+						Op:        controlv1.PatchOp_Create,
+						Module:    metricsRenamedModule.Items[0].GetModule(),
+						OldDigest: "",
+						NewDigest: metricsRenamedModule.Items[0].GetDigest(),
+						Filename:  metricsRenamedModule.Items[0].GetFilename(),
 					},
 					{
-						Op:          controlv1.PatchOp_Remove,
-						GatewayPath: "",
-						AgentPath:   metrics.Items[0].GetBinaryPath(),
-						Module:      metrics.Items[0].GetModule(),
-						OldDigest:   metrics.Items[0].GetDigest(),
-						NewDigest:   "",
-						ShortName:   metrics.Items[0].GetShortName(),
+						Op:        controlv1.PatchOp_Remove,
+						Module:    metrics.Items[0].GetModule(),
+						OldDigest: metrics.Items[0].GetDigest(),
+						NewDigest: "",
+						Filename:  metrics.Items[0].GetFilename(),
 					},
 				},
 			},
@@ -207,18 +188,17 @@ var _ = Describe("Patch Manifest Operations", func() {
 		}
 
 		It("should calculate what actions to undertake", func() {
-			for _, sc := range scenarios {
+			for i, sc := range scenarios {
 				ls := patch.LeftJoinOn(sc.leftConfig, sc.rightConfig)
 				Expect(ls.Validate()).To(Succeed())
 				Expect(len(ls.Items)).To(Equal(len(sc.expected.Items)))
-				for i, data := range ls.Items {
-					Expect(data.Op).To(Equal(sc.expected.Items[i].Op))
-					Expect(data.AgentPath).To(Equal(sc.expected.Items[i].AgentPath))
-					Expect(data.GatewayPath).To(Equal(sc.expected.Items[i].GatewayPath))
-					Expect(data.NewDigest).To(Equal(sc.expected.Items[i].NewDigest))
-					Expect(data.OldDigest).To(Equal(sc.expected.Items[i].OldDigest))
-					Expect(data.Module).To(Equal(sc.expected.Items[i].Module))
-					Expect(data.ShortName).To(Equal(sc.expected.Items[i].ShortName))
+				for j, data := range ls.Items {
+					By(fmt.Sprintf("scenario %d, item %d", i+1, j+1))
+					Expect(data.Op).To(Equal(sc.expected.Items[j].Op))
+					Expect(data.NewDigest).To(Equal(sc.expected.Items[j].NewDigest))
+					Expect(data.OldDigest).To(Equal(sc.expected.Items[j].OldDigest))
+					Expect(data.Module).To(Equal(sc.expected.Items[j].Module))
+					Expect(data.Filename).To(Equal(sc.expected.Items[j].Filename))
 				}
 			}
 		})
@@ -237,22 +217,17 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 		Expect(os.Link(*test2v1BinaryPath, filepath.Join(tmpDir, "plugin_test2"))).To(Succeed())
 
 		mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-			Dirs: []string{tmpDir},
+			Dir: tmpDir,
 		}, test.Log)
 		Expect(err).NotTo(HaveOccurred())
 
-		mv1.Sort() // sort by module name
 		Expect(mv1.Items).To(HaveLen(2))
-		Expect(mv1.Items[0].Module).To(Equal(test1Module))
-		Expect(mv1.Items[1].Module).To(Equal(test2Module))
-		Expect(mv1.Items[0].Digest).To(Equal(v1Manifest.Items[0].Digest))
-		Expect(mv1.Items[1].Digest).To(Equal(v1Manifest.Items[1].Digest))
-		Expect(mv1.Items[0].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugin_test1")))
-		Expect(mv1.Items[1].BinaryPath).To(Equal(filepath.Join(tmpDir, "plugin_test2")))
-		Expect(mv1.Items[0].GoVersion).To(Equal(runtime.Version()))
-		Expect(mv1.Items[1].GoVersion).To(Equal(runtime.Version()))
-		Expect(mv1.Items[0].ShortName).To(Equal("plugin_test1"))
-		Expect(mv1.Items[1].ShortName).To(Equal("plugin_test2"))
+		Expect(mv1.Items[0].Metadata.Module).To(Equal(test1Module))
+		Expect(mv1.Items[1].Metadata.Module).To(Equal(test2Module))
+		Expect(mv1.Items[0].Metadata.Digest).To(Equal(v1Manifest.Items[0].Metadata.Digest))
+		Expect(mv1.Items[1].Metadata.Digest).To(Equal(v1Manifest.Items[1].Metadata.Digest))
+		Expect(mv1.Items[0].Metadata.Filename).To(Equal("plugin_test1"))
+		Expect(mv1.Items[1].Metadata.Filename).To(Equal("plugin_test2"))
 	})
 	When("a plugin has invalid contents", func() {
 		It("should log an error and skip it", func() {
@@ -266,12 +241,12 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), []byte("invalid"), 0755)).To(Succeed())
 
 			mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-				Dirs: []string{tmpDir},
+				Dir: tmpDir,
 			}, test.Log)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mv1.Items).To(HaveLen(1))
-			Expect(mv1.Items[0].Module).To(Equal(test1Module))
+			Expect(mv1.Items[0].Metadata.Module).To(Equal(test1Module))
 		})
 	})
 	When("a plugin cannot be opened for reading", func() {
@@ -288,13 +263,13 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), test2Data, 0000)).To(Succeed())
 
 			mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-				Dirs: []string{tmpDir},
+				Dir: tmpDir,
 			}, test.Log)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mv1.Items).To(HaveLen(1))
 
-			Expect(mv1.Items[0].Module).To(Equal(test1Module))
+			Expect(mv1.Items[0].Metadata.Module).To(Equal(test1Module))
 		})
 	})
 })

@@ -20,7 +20,7 @@ type Cache interface {
 	PatchKey(oldHash, newHash string) string
 
 	// Archive compresses and saves all plugins in the given plugin manifest to the cache, if they do not exist.
-	Archive(manifest *controlv1.PluginManifest) error
+	Archive(manifest *controlv1.PluginArchive) error
 
 	// GetPlugin returns the plugin with the given hash, if it exists.
 	GetPlugin(hash string) ([]byte, error)

@@ -196,7 +196,7 @@ var HealthListener_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PluginSyncClient interface {
-	SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*PluginArchive, error)
+	SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*SyncResults, error)
 	GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginManifest, error)
 }
 
@@ -208,8 +208,8 @@ func NewPluginSyncClient(cc grpc.ClientConnInterface) PluginSyncClient {
 	return &pluginSyncClient{cc}
 }
 
-func (c *pluginSyncClient) SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*PluginArchive, error) {
-	out := new(PluginArchive)
+func (c *pluginSyncClient) SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*SyncResults, error) {
+	out := new(SyncResults)
 	err := c.cc.Invoke(ctx, "/control.PluginSync/SyncPluginManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func (c *pluginSyncClient) GetPluginManifest(ctx context.Context, in *emptypb.Em
 // All implementations must embed UnimplementedPluginSyncServer
 // for forward compatibility
 type PluginSyncServer interface {
-	SyncPluginManifest(context.Context, *PluginManifest) (*PluginArchive, error)
+	SyncPluginManifest(context.Context, *PluginManifest) (*SyncResults, error)
 	GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error)
 	mustEmbedUnimplementedPluginSyncServer()
 }
@@ -239,7 +239,7 @@ type PluginSyncServer interface {
 type UnimplementedPluginSyncServer struct {
 }
 
-func (UnimplementedPluginSyncServer) SyncPluginManifest(context.Context, *PluginManifest) (*PluginArchive, error) {
+func (UnimplementedPluginSyncServer) SyncPluginManifest(context.Context, *PluginManifest) (*SyncResults, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncPluginManifest not implemented")
 }
 func (UnimplementedPluginSyncServer) GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error) {

@@ -150,8 +150,7 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 			ReattachConfigCh: ch,
 		}
 		go plugin.Serve(sc)
-		rc := <-ch
-		cc := plugins.ClientConfig(p.Metadata, scheme, rc)
+		cc := plugins.ClientConfig(p.Metadata, scheme, plugins.WithReattachConfig(<-ch))
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

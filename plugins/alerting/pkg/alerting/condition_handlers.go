@@ -339,17 +339,24 @@ func (p *Plugin) onSystemConditionCreate(conditionId string, condition *alerting
 					var status health.StatusUpdate
 					err := json.Unmarshal(msg.Data, &status)
 					if err != nil {
-						lg.Error(err)
+						lg.With(
+							zap.Error(err),
+						).Error("failed to unmarshal status update")
+						continue
 					}
 					firingLock.RLock()
-					err = p.storageNode.AddToAgentIncidentTracker(jsCtx, conditionId, alertstorage.AgentIncidentStep{
+					ctx, ca := context.WithTimeout(jsCtx, time.Second*5)
+					err = p.storageNode.AddToAgentIncidentTracker(ctx, conditionId, alertstorage.AgentIncidentStep{
 						StatusUpdate: status,
 						AlertFiring:  currentlyFiring,
 					})
 					if err != nil {
-						lg.Error(err)
+						lg.With(
+							zap.Error(err),
+						).Error("failed to update agent incident tracker")
 					}
 					firingLock.RUnlock()
+					ca()
 				}
 			}
 		}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 	_ "github.com/rancher/opni/internal/mage/dev"
 	// mage:import charts
 	charts "github.com/rancher/charts-build-scripts/pkg/actions"
+
 	// mage:import test
 	"github.com/rancher/opni/internal/mage/test"
 )
@@ -492,4 +494,31 @@ func Charts() {
 	}, func() {
 		charts.Charts("opni-agent")
 	})
+}
+
+func ChartsV(version string) error {
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
+	fmt.Println("Patching chart version to " + version)
+	for _, packageSpec := range []string{
+		"./packages/opni-agent/opni-agent/package.yaml",
+		"./packages/opni-agent/opni-agent/charts/Chart.yaml",
+		"./packages/opni/opni/package.yaml",
+		"./packages/opni/opni/charts/Chart.yaml",
+	} {
+		contents, err := os.ReadFile(packageSpec)
+		if err != nil {
+			return err
+		}
+		contents = regexp.MustCompile(`(?m)^(app)?([vV])ersion: .*$`).
+			ReplaceAll(contents, []byte(fmt.Sprintf("${1}${2}ersion: %s", version)))
+
+		if err := os.WriteFile(packageSpec, contents, 0644); err != nil {
+			return err
+		}
+		fmt.Printf("%s => %s\n", packageSpec, version)
+	}
+	Charts()
+	return nil
 }

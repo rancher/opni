@@ -15,7 +15,7 @@ steps:
       # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
-      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.35 sh
+      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.36 sh
       - bin/dagger version
       - bin/dagger do build
     volumes: &volumes
@@ -56,6 +56,10 @@ steps:
       HELM_OCI_USERNAME: rancher
       HELM_OCI_PASSWORD:
         from_secret: github_token
+      GITHUB_TOKEN:
+        from_secret: github_token
+      GIT_USER: Rancher Bot
+      GIT_EMAIL: rancherbot@rancher.com
       TAG: ${DRONE_TAG}
     commands:
       - bin/dagger do push
@@ -80,6 +84,10 @@ steps:
       HELM_OCI_USERNAME: rancher
       HELM_OCI_PASSWORD:
         from_secret: github_token
+      GITHUB_TOKEN:
+        from_secret: github_token
+      GIT_USER: Rancher Bot
+      GIT_EMAIL: rancherbot@rancher.com
       TAG: latest
     commands:
       - bin/dagger do push
@@ -104,6 +112,10 @@ steps:
       HELM_OCI_USERNAME: rancher
       HELM_OCI_PASSWORD:
         from_secret: github_token
+      GITHUB_TOKEN:
+        from_secret: github_token
+      GIT_USER: Rancher Bot
+      GIT_EMAIL: rancherbot@rancher.com
       TAG: main
     commands:
       - bin/dagger do push

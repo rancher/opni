@@ -19,6 +19,8 @@ import (
 	"github.com/rancher/opni/images"
 )
 
+opniVersion: "0.8.0-rc1"
+
 dagger.#Plan & {
 	client: {
 		env: {
@@ -35,8 +37,9 @@ dagger.#Plan & {
 			HELM_OCI_REPO:          string | *"ghcr.io/rancher"
 			DASHBOARDS_VERSION:     string | *"2.4.0"
 			OPENSEARCH_VERSION:     string | *"2.4.0"
-			PLUGIN_VERSION:         string | *"0.8.0-rc1"
-			PLUGIN_PUBLISH:         string | *"0.8.0-rc1"
+			PLUGIN_VERSION:         string | *opniVersion
+			PLUGIN_PUBLISH:         string | *opniVersion
+			CHARTS_VERSION:         string | *opniVersion
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret
@@ -48,6 +51,9 @@ dagger.#Plan & {
 			TWINE_USERNAME:         string | *"__token__"
 			TWINE_PASSWORD?:        dagger.#Secret
 			WEB_DEBUG:              string | *"false"
+			GITHUB_TOKEN?:          dagger.#Secret
+			GIT_USER?:              string
+			GIT_EMAIL?:             string
 		}
 		filesystem: {
 			".": read: {
@@ -104,9 +110,10 @@ dagger.#Plan & {
 		// Build with mage using the builder image
 
 		#_build: {
-			target:   string | *"all"
-			_minimal: target == "minimal"
-			_exec:    docker.#Build & {
+			target:     string | *"all"
+			targetArgs: [...string] | *[]
+			_minimal:   target == "minimal"
+			_exec:      docker.#Build & {
 				steps: [
 					docker.#Copy & {
 						input:    _mageImage.output
@@ -137,7 +144,7 @@ dagger.#Plan & {
 				}
 				command: {
 					name: "mage"
-					args: ["-v", target]
+					args: ["-v", target] + targetArgs
 				}
 				export: directories: {
 					"/opt":             _
@@ -158,7 +165,8 @@ dagger.#Plan & {
 			target: "minimal"
 		}
 		#_chartsBuild: #_build & {
-			target: "charts"
+			target: "chartsv"
+			targetArgs: [client.env.CHARTS_VERSION]
 		}
 
 		_defaultBuild: #_defaultBuild
@@ -467,9 +475,36 @@ dagger.#Plan & {
 						auth: _auth
 					}
 				}
+
+				dev: helm.#PublishToChartsRepo & {
+					dev:    true
+					remote: client.env.REPO
+					source: _chartsBuild.output.rootfs
+					if client.env.GITHUB_TOKEN != _|_ && client.env.GIT_USER != _|_ && client.env.GIT_EMAIL != _|_ {
+						auth: {
+							token: client.env.GITHUB_TOKEN
+							user:  client.env.GIT_USER
+							email: client.env.GIT_EMAIL
+						}
+					}
+				}
+				prod: helm.#PublishToChartsRepo & {
+					dev:    false
+					remote: client.env.REPO
+					source: _chartsBuild.output.rootfs
+					if client.env.GITHUB_TOKEN != _|_ && client.env.GIT_USER != _|_ && client.env.GIT_EMAIL != _|_ {
+						auth: {
+							token: client.env.GITHUB_TOKEN
+							user:  client.env.GIT_USER
+							email: client.env.GIT_EMAIL
+						}
+					}
+				}
 			}
 		}
 
+		_pluginVersion: strings.TrimPrefix(client.env.PLUGIN_VERSION, "v")
+		_pluginPublish: strings.TrimPrefix(client.env.PLUGIN_PUBLISH, "v")
 		dashboards: {
 			build: docker.#Build & {
 				steps: [
@@ -481,14 +516,14 @@ dagger.#Plan & {
 							name: "opensearch-dashboards-plugin"
 							args: [
 								"install",
-								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION).zip",
+								"https://github.com/rancher/opni-ui/releases/download/plugin-\(_pluginVersion)/opni-dashboards-plugin-\(_pluginVersion).zip",
 							]
 						}
 					},
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_PUBLISH)"
+				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(_pluginPublish)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
@@ -511,7 +546,7 @@ dagger.#Plan & {
 								"-s",
 								"install",
 								"-b",
-								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(client.env.PLUGIN_VERSION)/opnipreprocessing.zip",
+								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(_pluginVersion)/opnipreprocessing.zip",
 							]
 						}
 					},
@@ -529,7 +564,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(client.env.PLUGIN_PUBLISH)"
+				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(_pluginPublish)"
 				image: opensearch.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {

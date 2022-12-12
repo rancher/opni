@@ -80,6 +80,9 @@ type Server struct {
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
+
+	statusMu    sync.RWMutex
+	statusDescs []statusHTTPDesc
 }
 
 var _ managementv1.ManagementServer = (*Server)(nil)
@@ -140,6 +143,7 @@ func NewServer(
 	}
 
 	director := m.configureApiExtensionDirector(ctx, pluginLoader)
+	m.configureStatusEndpoints(ctx, pluginLoader)
 	m.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
@@ -242,6 +246,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 		).Panic("failed to register management handler")
 	}
 	m.configureHttpApiExtensions(gwmux)
+	m.configureStatusHTTPHandler(gwmux)
 	mux.Handle("/", gwmux)
 	server := &http.Server{
 		Addr:    m.config.HTTPListenAddress,

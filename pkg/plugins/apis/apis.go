@@ -9,5 +9,6 @@ import (
 	_ "github.com/rancher/opni/pkg/plugins/apis/capability"
 	_ "github.com/rancher/opni/pkg/plugins/apis/health"
 	_ "github.com/rancher/opni/pkg/plugins/apis/metrics"
+	_ "github.com/rancher/opni/pkg/plugins/apis/status"
 	_ "github.com/rancher/opni/pkg/plugins/apis/system"
 )

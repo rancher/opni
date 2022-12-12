@@ -95,7 +95,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 			if bytes, err := io.Copy(destEncoder, bytes.NewReader(item.Data)); err != nil {
 				return err
 			} else {
-				p.AddToTotalSizeBytes(bytes)
+				p.AddToTotalSizeBytes(item.Metadata.Digest, bytes)
 			}
 			p.AddToPluginCount(1)
 			return nil
@@ -134,7 +134,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 	patchDataValue, err, shared := p.cacheGroup.Do(key, func() (any, error) {
 		isCaller = true
 		if _, err := os.Stat(patchPath); err != nil {
-			p.CacheMiss()
+			p.CacheMiss(oldDigest, newDigest)
 			lg := p.logger.With(
 				"from", oldDigest,
 				"to", newDigest,
@@ -157,12 +157,13 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 					).Error("failed to write patch to disk")
 					return nil, err
 				}
-				p.AddToTotalSizeBytes(int64(len(patchData)))
+				p.IncPatchCalcSecsTotal(oldDigest, newDigest, float64(time.Since(start).Seconds()))
+				p.AddToTotalSizeBytes(oldDigest+"-to-"+newDigest, int64(len(patchData)))
 				p.AddToPatchCount(1)
 				return patchData, nil
 			}
 		} else {
-			p.CacheHit()
+			p.CacheHit(oldDigest, newDigest)
 		}
 		return os.ReadFile(patchPath)
 	})
@@ -170,7 +171,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 		return nil, err
 	}
 	if shared && !isCaller {
-		p.CacheHit()
+		p.CacheHit(oldDigest, newDigest)
 	}
 	return patchDataValue.([]byte), nil
 }
@@ -260,7 +261,6 @@ func (p *FilesystemCache) path(parts ...string) string {
 }
 
 func (p *FilesystemCache) recomputeDiskStats() {
-	var totalSizeBytes int64
 	var pluginCount, patchCount int64
 	if entries, err := os.ReadDir(p.path("plugins")); err == nil {
 		for _, e := range entries {
@@ -268,7 +268,7 @@ func (p *FilesystemCache) recomputeDiskStats() {
 			if err != nil {
 				continue
 			}
-			totalSizeBytes += info.Size()
+			p.SetTotalSizeBytes(info.Name(), info.Size())
 			pluginCount++
 		}
 	}
@@ -278,11 +278,10 @@ func (p *FilesystemCache) recomputeDiskStats() {
 			if err != nil {
 				continue
 			}
-			totalSizeBytes += info.Size()
+			p.SetTotalSizeBytes(info.Name(), info.Size())
 			patchCount++
 		}
 	}
-	p.SetTotalSizeBytes(totalSizeBytes)
 	p.SetPluginCount(pluginCount)
 	p.SetPatchCount(patchCount)
 }

@@ -4,30 +4,71 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 )
 
+func (a *PluginArchive) Validate() error {
+	for _, item := range a.Items {
+		if err := item.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *PluginArchiveEntry) Validate() error {
+	if a.Metadata.GetDigest() == "" {
+		return validation.Error("digest is required for plugin archive entries")
+	}
+	if a.Metadata.GetFilename() == "" {
+		return validation.Error("filename is required for plugin archive entries")
+	}
+	if a.Metadata.GetModule() == "" {
+		return validation.Error("module is required for plugin archive entries")
+	}
+	if a.Metadata.GetId() == "" {
+		return validation.Error("id is required for plugin archive entries")
+	}
+	return nil
+}
+
 func (m *PluginManifestEntry) Validate() error {
-	// TODO finalize format
+	if m.Digest == "" {
+		return validation.Error("digest is required for plugin manifest entries")
+	}
+	if m.Filename == "" {
+		return validation.Error("Filename is required for plugin manifest entries")
+	}
+	if m.Module == "" {
+		return validation.Error("Module is required for plugin manifest entries")
+	}
 	return nil
 }
 
 func (m *PluginManifest) Validate() error {
-	// TODO finalize format
+	for _, item := range m.Items {
+		if err := item.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (a *PatchSpec) Validate() error {
-	if a.GetOldDigest() == "" {
-		return validation.Error("OldHash is required for patching")
-	}
-	if a.GetNewDigest() == "" {
-		return validation.Error("NewHash is required for patching")
-	}
 	if a.GetFilename() == "" {
-		return validation.Error("Short name must be set")
+		return validation.Error("filename must be set")
+	}
+	if a.GetModule() == "" {
+		return validation.Error("module must be set")
 	}
 	switch a.GetOp() {
-	case PatchOp_Rename:
-		if a.GetModule() == "" {
-			return validation.Error("module name is required for a rename operation")
+	case PatchOp_Update, PatchOp_Rename:
+		if a.GetOldDigest() == "" {
+			return validation.Error("OldHash is required for patching")
+		}
+		if a.GetNewDigest() == "" {
+			return validation.Error("NewHash is required for patching")
+		}
+	case PatchOp_Create:
+		if a.GetNewDigest() == "" {
+			return validation.Error("NewHash is required for creating")
 		}
 	case PatchOp_None, PatchOp_Remove:
 		if len(a.Data) != 0 {
@@ -38,22 +79,10 @@ func (a *PatchSpec) Validate() error {
 }
 
 func (a *PatchList) Validate() error {
-	// TODO finalize format
+	for _, patch := range a.Items {
+		if err := patch.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
-
-// func (x *PatchSpec) Validate() error {
-// 	if x.GetOldHash() == "" {
-// 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "oldHash")
-// 	}
-// 	if x.GetNewHash() == "" {
-// 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "newHash")
-// 	}
-// 	if x.GetPluginName() == "" {
-// 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "pluginName")
-// 	}
-// 	if len(x.Patch) == 0 {
-// 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "patch")
-// 	}
-// 	return nil
-// }

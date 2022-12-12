@@ -1,7 +1,6 @@
 package patch_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -83,123 +82,174 @@ var _ = Describe("Patch Manifest Operations", func() {
 				addlogging.Items[0],
 			},
 		}
-
-		// only the hashes differ
-		scenario1 := testLeftJoinData{
-			leftConfig:  metricsUpdate,
-			rightConfig: metrics,
-			expected: &controlv1.PatchList{
-				Items: []*controlv1.PatchSpec{
-					{
-						Op:        controlv1.PatchOp_Update,
-						Module:    metricsUpdate.Items[0].GetModule(),
-						OldDigest: metrics.Items[0].GetDigest(),
-						NewDigest: metricsUpdate.Items[0].GetDigest(),
-						Filename:  metricsUpdate.Items[0].GetFilename(),
+		It("should determine when to update plugins", func() {
+			// only the hashes differ
+			scenario1 := testLeftJoinData{
+				leftConfig:  metricsUpdate,
+				rightConfig: metrics,
+				expected: &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						{
+							Op:        controlv1.PatchOp_Update,
+							Module:    metricsUpdate.Items[0].GetModule(),
+							OldDigest: metrics.Items[0].GetDigest(),
+							NewDigest: metricsUpdate.Items[0].GetDigest(),
+							Filename:  metricsUpdate.Items[0].GetFilename(),
+						},
 					},
 				},
-			},
-		}
-		// rename a plugin
-		scenario2 := testLeftJoinData{
-			leftConfig:  metricsRenamed,
-			rightConfig: metrics,
-			expected: &controlv1.PatchList{
-				Items: []*controlv1.PatchSpec{
-					{
-						Op:        controlv1.PatchOp_Rename,
-						Module:    metrics.Items[0].GetModule(),
-						OldDigest: metrics.Items[0].GetDigest(),
-						NewDigest: metricsRenamed.Items[0].GetDigest(),
-						Filename:  "plugin_metrics",
-						Data:      []byte("renamed"),
+			}
+			res := patch.LeftJoinOn(scenario1.leftConfig, scenario1.rightConfig)
+			By("checking that the output from the two manifests is well formed")
+			Expect(res.Validate()).To(Succeed())
+			Expect(len(res.Items)).To(Equal(len(scenario1.expected.Items)))
+			for i, item := range res.Items {
+				By("checking that the generated operation is update")
+				Expect(item.Op).To(Equal(controlv1.PatchOp_Update))
+				By("checking that the metadata is generated correctly")
+				Expect(item.Module).To(Equal(scenario1.expected.Items[i].Module))
+				Expect(item.NewDigest).To(Equal(scenario1.expected.Items[i].NewDigest))
+				Expect(item.OldDigest).To(Equal(scenario1.expected.Items[i].OldDigest))
+				Expect(item.Filename).To(Equal(scenario1.expected.Items[i].Filename))
+			}
+		})
+
+		It("should determine when to rename plugins", func() {
+			scenario2 := testLeftJoinData{
+				leftConfig:  metricsRenamed,
+				rightConfig: metrics,
+				expected: &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						{
+							Op:        controlv1.PatchOp_Rename,
+							Module:    metrics.Items[0].GetModule(),
+							OldDigest: metrics.Items[0].GetDigest(),
+							NewDigest: metricsRenamed.Items[0].GetDigest(),
+							Filename:  "plugin_metrics",
+							Data:      []byte("renamed"),
+						},
 					},
 				},
-			},
-		}
+			}
+			res := patch.LeftJoinOn(scenario2.leftConfig, scenario2.rightConfig)
+			By("checking that the output from the two manifests is well formed")
+			Expect(res.Validate()).To(Succeed())
+			Expect(len(res.Items)).To(Equal(len(scenario2.expected.Items)))
+			for i, item := range res.Items {
+				By("checking that the generated operation is rename")
+				Expect(item.Op).To(Equal(controlv1.PatchOp_Rename))
+				By("checking that the metadata is generated correctly")
+				Expect(item.Module).To(Equal(scenario2.expected.Items[i].Module))
+				Expect(item.NewDigest).To(Equal(scenario2.expected.Items[i].NewDigest))
+				Expect(item.OldDigest).To(Equal(scenario2.expected.Items[i].OldDigest))
+				Expect(item.Filename).To(Equal(scenario2.expected.Items[i].Filename))
+			}
+		})
 
-		scenario3 := testLeftJoinData{
-			leftConfig:  addlogging,
-			rightConfig: metricsUpdate,
-			expected: &controlv1.PatchList{
-				Items: []*controlv1.PatchSpec{
-					{
-						Op:        controlv1.PatchOp_Update,
-						Module:    addlogging.Items[0].GetModule(),
-						OldDigest: metricsUpdate.Items[0].GetDigest(),
-						NewDigest: addlogging.Items[0].GetDigest(),
-						Filename:  addlogging.Items[0].GetFilename(),
-					},
-					{
-						Op:        controlv1.PatchOp_Create,
-						Module:    addlogging.Items[1].GetModule(),
-						OldDigest: "",
-						NewDigest: addlogging.Items[1].GetDigest(),
-						Filename:  addlogging.Items[1].GetFilename(),
+		It("should determine when to add plugins", func() {
+			scenario3 := testLeftJoinData{
+				leftConfig:  addlogging,
+				rightConfig: metricsUpdate,
+				expected: &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						{
+							Op:        controlv1.PatchOp_Update,
+							Module:    addlogging.Items[0].GetModule(),
+							OldDigest: metricsUpdate.Items[0].GetDigest(),
+							NewDigest: addlogging.Items[0].GetDigest(),
+							Filename:  addlogging.Items[0].GetFilename(),
+						},
+						{
+							Op:        controlv1.PatchOp_Create,
+							Module:    addlogging.Items[1].GetModule(),
+							OldDigest: "",
+							NewDigest: addlogging.Items[1].GetDigest(),
+							Filename:  addlogging.Items[1].GetFilename(),
+						},
 					},
 				},
-			},
-		}
+			}
+			res := patch.LeftJoinOn(scenario3.leftConfig, scenario3.rightConfig)
+			By("checking that the output from the two manifests is well formed")
+			Expect(res.Validate()).To(Succeed())
+			Expect(len(res.Items)).To(Equal(len(scenario3.expected.Items)))
+			for i, item := range res.Items {
+				By("checking that the generated operation is create or update")
+				Expect(item.Op).To(Equal(scenario3.expected.Items[i].Op))
+				By("checking that the metadata is generated correctly")
+				Expect(item.Module).To(Equal(scenario3.expected.Items[i].Module))
+				Expect(item.NewDigest).To(Equal(scenario3.expected.Items[i].NewDigest))
+				Expect(item.OldDigest).To(Equal(scenario3.expected.Items[i].OldDigest))
+				Expect(item.Filename).To(Equal(scenario3.expected.Items[i].Filename))
+			}
+		})
 
-		scenario4 := testLeftJoinData{
-			leftConfig:  removeLogging,
-			rightConfig: addlogging,
-			expected: &controlv1.PatchList{
-				Items: []*controlv1.PatchSpec{
-					{
-						Op:        controlv1.PatchOp_Remove,
-						Module:    addlogging.Items[1].GetModule(),
-						OldDigest: addlogging.Items[1].GetDigest(),
-						NewDigest: "",
-						Filename:  addlogging.Items[1].GetFilename(),
+		It("should determine when to remove plugins", func() {
+			scenario4 := testLeftJoinData{
+				leftConfig:  removeLogging,
+				rightConfig: addlogging,
+				expected: &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						{
+							Op:        controlv1.PatchOp_Remove,
+							Module:    addlogging.Items[1].GetModule(),
+							OldDigest: addlogging.Items[1].GetDigest(),
+							NewDigest: "",
+							Filename:  addlogging.Items[1].GetFilename(),
+						},
 					},
 				},
-			},
-		}
-		scenario5 := testLeftJoinData{
-			leftConfig:  metricsRenamedModule,
-			rightConfig: metrics,
-			expected: &controlv1.PatchList{
-				Items: []*controlv1.PatchSpec{
-					{
-						Op:        controlv1.PatchOp_Create,
-						Module:    metricsRenamedModule.Items[0].GetModule(),
-						OldDigest: "",
-						NewDigest: metricsRenamedModule.Items[0].GetDigest(),
-						Filename:  metricsRenamedModule.Items[0].GetFilename(),
-					},
-					{
-						Op:        controlv1.PatchOp_Remove,
-						Module:    metrics.Items[0].GetModule(),
-						OldDigest: metrics.Items[0].GetDigest(),
-						NewDigest: "",
-						Filename:  metrics.Items[0].GetFilename(),
+			}
+			res := patch.LeftJoinOn(scenario4.leftConfig, scenario4.rightConfig)
+			By("checking that the output from the two manifests is well formed")
+			Expect(res.Validate()).To(Succeed())
+			Expect(len(res.Items)).To(Equal(len(scenario4.expected.Items)))
+			for i, item := range res.Items {
+				By("checking that the generated operation is remove")
+				Expect(item.Op).To(Equal(controlv1.PatchOp_Remove))
+				By("checking that the metadata is generated correctly")
+				Expect(item.Module).To(Equal(scenario4.expected.Items[i].Module))
+				Expect(item.NewDigest).To(Equal(scenario4.expected.Items[i].NewDigest))
+				Expect(item.OldDigest).To(Equal(scenario4.expected.Items[i].OldDigest))
+				Expect(item.Filename).To(Equal(scenario4.expected.Items[i].Filename))
+			}
+		})
+
+		It("should determine when to replace plugins with new contents", func() {
+			scenario5 := testLeftJoinData{
+				leftConfig:  metricsRenamedModule,
+				rightConfig: metrics,
+				expected: &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						{
+							Op:        controlv1.PatchOp_Create,
+							Module:    metricsRenamedModule.Items[0].GetModule(),
+							OldDigest: "",
+							NewDigest: metricsRenamedModule.Items[0].GetDigest(),
+							Filename:  metricsRenamedModule.Items[0].GetFilename(),
+						},
+						{
+							Op:        controlv1.PatchOp_Remove,
+							Module:    metrics.Items[0].GetModule(),
+							OldDigest: metrics.Items[0].GetDigest(),
+							NewDigest: "",
+							Filename:  metrics.Items[0].GetFilename(),
+						},
 					},
 				},
-			},
-		}
-
-		scenarios := []testLeftJoinData{
-			scenario1,
-			scenario2,
-			scenario3,
-			scenario4,
-			scenario5,
-		}
-
-		It("should calculate what actions to undertake", func() {
-			for i, sc := range scenarios {
-				ls := patch.LeftJoinOn(sc.leftConfig, sc.rightConfig)
-				Expect(ls.Validate()).To(Succeed())
-				Expect(len(ls.Items)).To(Equal(len(sc.expected.Items)))
-				for j, data := range ls.Items {
-					By(fmt.Sprintf("scenario %d, item %d", i+1, j+1))
-					Expect(data.Op).To(Equal(sc.expected.Items[j].Op))
-					Expect(data.NewDigest).To(Equal(sc.expected.Items[j].NewDigest))
-					Expect(data.OldDigest).To(Equal(sc.expected.Items[j].OldDigest))
-					Expect(data.Module).To(Equal(sc.expected.Items[j].Module))
-					Expect(data.Filename).To(Equal(sc.expected.Items[j].Filename))
-				}
+			}
+			res := patch.LeftJoinOn(scenario5.leftConfig, scenario5.rightConfig)
+			By("checking that the output from the two manifests is well formed")
+			Expect(res.Validate()).To(Succeed())
+			Expect(len(res.Items)).To(Equal(len(scenario5.expected.Items)))
+			for i, item := range res.Items {
+				By("checking that the generated operation is create or remove")
+				Expect(item.Op).To(Equal(scenario5.expected.Items[i].Op))
+				By("checking that the metadata is generated correctly")
+				Expect(item.Module).To(Equal(scenario5.expected.Items[i].Module))
+				Expect(item.NewDigest).To(Equal(scenario5.expected.Items[i].NewDigest))
+				Expect(item.OldDigest).To(Equal(scenario5.expected.Items[i].OldDigest))
+				Expect(item.Filename).To(Equal(scenario5.expected.Items[i].Filename))
 			}
 		})
 	})

@@ -113,10 +113,13 @@ func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	theirManifest *controlv1.PluginManifest,
 ) (*controlv1.SyncResults, error) {
 	// on startup
+	if err := theirManifest.Validate(); err != nil {
+		return nil, err
+	}
 	ourManifest := f.getPluginManifest()
 	archive := LeftJoinOn(ourManifest, theirManifest)
 
-	errg, ctx := errgroup.WithContext(ctx)
+	errg, _ := errgroup.WithContext(ctx)
 	for _, entry := range archive.Items {
 		entry := entry
 		errg.Go(func() error {

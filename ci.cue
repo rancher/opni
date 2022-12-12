@@ -150,7 +150,7 @@ dagger.#Plan & {
 					"/opt":             _
 					"/src/bin":         _
 					"/src/bin/plugins": _
-					if target == "charts" {
+					if target == "chartsv" {
 						"/src/charts": _
 						"/src/assets": _
 					}

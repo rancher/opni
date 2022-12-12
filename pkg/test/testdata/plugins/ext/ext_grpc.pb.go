@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,6 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 type ExtClient interface {
 	Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error)
 	Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOption) (*BarResponse, error)
+	Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type extClient struct {
@@ -52,12 +54,22 @@ func (c *extClient) Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *extClient) Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/ext.Ext/Baz", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExtServer is the server API for Ext service.
 // All implementations must embed UnimplementedExtServer
 // for forward compatibility
 type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
 	Bar(context.Context, *BarRequest) (*BarResponse, error)
+	Baz(context.Context, *BazRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedExtServer()
 }
 
@@ -70,6 +82,9 @@ func (UnimplementedExtServer) Foo(context.Context, *FooRequest) (*FooResponse, e
 }
 func (UnimplementedExtServer) Bar(context.Context, *BarRequest) (*BarResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Bar not implemented")
+}
+func (UnimplementedExtServer) Baz(context.Context, *BazRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Baz not implemented")
 }
 func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
@@ -120,6 +135,24 @@ func _Ext_Bar_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ext_Baz_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BazRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExtServer).Baz(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ext.Ext/Baz",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExtServer).Baz(ctx, req.(*BazRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Ext_ServiceDesc is the grpc.ServiceDesc for Ext service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +167,10 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Bar",
 			Handler:    _Ext_Bar_Handler,
+		},
+		{
+			MethodName: "Baz",
+			Handler:    _Ext_Baz_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

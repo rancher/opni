@@ -71,6 +71,12 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				}, nil
 			}).
 			AnyTimes()
+		extSrv.EXPECT().
+			Baz(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *ext.BazRequest) (*emptypb.Empty, error) {
+				return &emptypb.Empty{}, nil
+			}).
+			AnyTimes()
 		ext2Srv := mock_ext.NewMockExt2Server(tv.ctrl)
 		ext2Srv.EXPECT().
 			Foo(gomock.Any(), gomock.Any()).
@@ -153,7 +159,8 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].ServiceDesc.GetName()).To(Equal("Ext"))
 		Expect(extensions.Items[0].ServiceDesc.Method[0].GetName()).To(Equal("Foo"))
 		Expect(extensions.Items[0].ServiceDesc.Method[1].GetName()).To(Equal("Bar"))
-		Expect(extensions.Items[0].Rules).To(HaveLen(7))
+		Expect(extensions.Items[0].ServiceDesc.Method[2].GetName()).To(Equal("Baz"))
+		Expect(extensions.Items[0].Rules).To(HaveLen(8))
 		Expect(extensions.Items[0].Rules[0].Http.GetPost()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[0].Http.GetBody()).To(Equal("request"))
 		Expect(extensions.Items[0].Rules[1].Http.GetGet()).To(Equal("/foo"))
@@ -165,6 +172,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].Rules[5].Http.GetPost()).To(Equal("/bar/{param1}/{param2}"))
 		Expect(extensions.Items[0].Rules[5].Http.GetBody()).To(Equal("param3"))
 		Expect(extensions.Items[0].Rules[6].Http.GetGet()).To(Equal("/bar/{param1}/{param2}/{param3}"))
+		Expect(extensions.Items[0].Rules[7].Http.GetPost()).To(Equal("/baz"))
 
 	})
 	It("should forward gRPC calls to the plugin", func() {
@@ -210,6 +218,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
+			By("testing valid requests")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			body, err := io.ReadAll(resp.Body)
@@ -224,6 +233,45 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			resp.Body.Close()
 			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
+
+			By("testing error messages and response codes")
+			badRequests := []struct {
+				param string
+				value string
+				err   any
+			}{
+				{"paramInt64", `true`, `failed to unmarshal request body: bad input: expecting number ; instead got true`},
+				{"paramBool", `"asdf"`, `failed to unmarshal request body: bad input: expecting boolean ; instead got asdf`},
+				{"paramString", `123`, `failed to unmarshal request body: bad input: expecting string ; instead got 123`},
+				{"paramBytes", `false`, `failed to unmarshal request body: bad input: expecting string ; instead got false`},
+				{"paramRepeatedString", `[1, 2]`, `failed to unmarshal request body: bad input: expecting string ; instead got 1`},
+				{"paramFloat64", `"a"`, `failed to unmarshal request body: strconv.ParseFloat: parsing "a": invalid syntax`},
+				{"paramEnum", `"1.5"`, `failed to unmarshal request body: enum "ext.BazRequest.BazEnum" does not have value named "1.5"`},
+				{"paramInt64", "1.5", `failed to unmarshal request body: strconv.ParseInt: parsing "1.5": invalid syntax`},
+				{"paramBool", `"true"`, nil},
+				{"paramString", `"asdf"`, nil},
+				{"paramBytes", `"asdf"`, nil},
+				{"paramRepeatedString", `["a", "b"]`, nil},
+				{"paramFloat64", "1.5", nil},
+				{"paramEnum", `"BAR"`, nil},
+				{"paramInt64", "1", nil},
+			}
+			for _, req := range badRequests {
+				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz",
+					"application/json", strings.NewReader(fmt.Sprintf(`{%q: %s}`, req.param, req.value)))
+				Expect(err).NotTo(HaveOccurred())
+				body, err = io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				resp.Body.Close()
+				msg := string(body)
+				test.Log.Debugf("code: %d, msg: %s", resp.StatusCode, msg)
+				if req.err != nil {
+					Expect(resp.StatusCode).To(Equal(400))
+					Expect(msg).To(Equal(req.err))
+				} else {
+					Expect(resp.StatusCode).To(Equal(200))
+				}
+			}
 			break
 		}
 	})

@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"context"
+
 	"github.com/hashicorp/go-plugin"
 )
 
@@ -9,6 +11,8 @@ type Scheme interface {
 	PluginMap() map[string]plugin.Plugin
 	Mode() PluginMode
 }
+
+type SchemeFunc = func(context.Context) Scheme
 
 type scheme struct {
 	SchemeOptions

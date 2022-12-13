@@ -64,9 +64,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 		ConfigureSysProcAttr(cmd)
 
 		switch mode := scheme.Mode(); mode {
-		case meta.ModeUnknown:
 		case meta.ModeGateway, meta.ModeAgent:
-			cmd.Env = append(cmd.Environ(), fmt.Sprintf("OPNI_PLUGIN_MODE=%s", mode))
+			cmd.Env = append(cmd.Environ(), fmt.Sprintf("%s=%s", meta.PluginModeEnvVar, mode))
 		default:
 			panic(fmt.Sprintf("unknown plugin mode: %s", mode))
 		}

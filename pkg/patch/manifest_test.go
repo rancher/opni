@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -266,9 +266,10 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 		Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugin_test1"))).To(Succeed())
 		Expect(os.Link(*test2v1BinaryPath, filepath.Join(tmpDir, "plugin_test2"))).To(Succeed())
 
-		mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-			Dir: tmpDir,
-		}, test.Log)
+		mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
+			Dir:    tmpDir,
+			Logger: test.Log,
+		})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(mv1.Items).To(HaveLen(2))
@@ -290,9 +291,10 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugin_test1"))).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), []byte("invalid"), 0755)).To(Succeed())
 
-			mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-				Dir: tmpDir,
-			}, test.Log)
+			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
+				Dir:    tmpDir,
+				Logger: test.Log,
+			})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mv1.Items).To(HaveLen(1))
@@ -312,9 +314,10 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), test2Data, 0000)).To(Succeed())
 
-			mv1, err := patch.GetFilesystemPlugins(v1beta1.PluginsSpec{
-				Dir: tmpDir,
-			}, test.Log)
+			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
+				Dir:    tmpDir,
+				Logger: test.Log,
+			})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mv1.Items).To(HaveLen(1))

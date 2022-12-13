@@ -12,6 +12,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ var _ controlv1.PluginSyncServer = (*FilesystemPluginSyncServer)(nil)
 
 type FilesystemPluginSyncServer struct {
 	controlv1.UnsafePluginSyncServer
+	SyncServerOptions
 	logger           *zap.SugaredLogger
 	config           v1beta1.PluginsSpec
 	loadMetadataOnce sync.Once
@@ -34,7 +36,32 @@ type FilesystemPluginSyncServer struct {
 	patchCache       Cache
 }
 
-func NewFilesystemPluginSyncServer(cfg v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*FilesystemPluginSyncServer, error) {
+type SyncServerOptions struct {
+	filters []plugins.Filter
+}
+
+type SyncServerOption func(*SyncServerOptions)
+
+func (o *SyncServerOptions) apply(opts ...SyncServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithPluginSyncFilters(filters plugins.Filter) SyncServerOption {
+	return func(o *SyncServerOptions) {
+		o.filters = append(o.filters, filters)
+	}
+}
+
+func NewFilesystemPluginSyncServer(
+	cfg v1beta1.PluginsSpec,
+	lg *zap.SugaredLogger,
+	opts ...SyncServerOption,
+) (*FilesystemPluginSyncServer, error) {
+	options := SyncServerOptions{}
+	options.apply(opts...)
+
 	var patchEngine BinaryPatcher
 	switch cfg.Cache.PatchEngine {
 	case v1beta1.PatchEngineBsdiff:
@@ -98,7 +125,12 @@ func (f *FilesystemPluginSyncServer) loadPluginManifest() {
 	if f.manifest != nil {
 		panic("bug: tried to call loadPluginManifest twice")
 	}
-	md, err := GetFilesystemPlugins(f.config, f.logger)
+	md, err := GetFilesystemPlugins(plugins.DiscoveryConfig{
+		Dir:        f.config.Dir,
+		Logger:     f.logger,
+		Filters:    f.filters,
+		QueryModes: len(f.filters) > 0,
+	})
 	if err != nil {
 		panic(err)
 	}

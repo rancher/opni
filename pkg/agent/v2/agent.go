@@ -491,7 +491,10 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, r
 
 	manifestClient := controlv1.NewPluginSyncClient(a.gatewayClient.ClientConn())
 	// read local plugins on disk here
-	archive, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	archive, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
+		Dir:    a.config.Plugins.Dir,
+		Logger: a.Logger,
+	})
 	if err != nil {
 		return nil, err
 	}

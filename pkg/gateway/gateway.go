@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -160,8 +161,16 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create cluster auth")
 	}
 
-	// set up plugin syncServer server
-	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+	// set up plugin sync server
+	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
+		patch.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
+			if pm.ExtendedMetadata != nil {
+				// only sync plugins that have the agent mode set
+				return slices.Contains(pm.ExtendedMetadata.ModeList.Modes, meta.ModeAgent)
+			}
+			return true // default to syncing all plugins
+		}),
+	)
 	if err != nil {
 		lg.With(
 			zap.Error(err),

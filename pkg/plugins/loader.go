@@ -268,30 +268,22 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
 
 	wg := &sync.WaitGroup{}
-	var pluginPaths []string
-	for _, dir := range []string{conf.Dir} {
-		paths, err := plugin.Discover(DefaultPluginGlob, dir)
-		if err != nil {
-			continue
-		}
-		pluginPaths = append(pluginPaths, paths...)
-	}
-	for _, path := range lo.Uniq(pluginPaths) {
-		md, err := meta.ReadPath(path)
-		if err != nil {
-			p.logger.With(
-				zap.String("plugin", path),
-			).Error("failed to read plugin metadata", zap.Error(err))
-			continue
-		}
 
+	dc := DiscoveryConfig{
+		Dir:    conf.Dir,
+		Logger: p.logger,
+	}
+	plugins := dc.Discover()
+
+	for _, md := range plugins {
+		md := md
 		clientOpts := options.clientOptions
 		if secureConfig, ok := secureConfigs[md.Module]; ok {
 			clientOpts = append(clientOpts, WithSecureConfig(secureConfig))
 		} else {
 			p.logger.With(
 				"module", md.Module,
-				"path", path,
+				"path", md.BinaryPath,
 			).Warn("plugin is not present in manifest, skipping")
 			continue
 		}

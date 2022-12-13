@@ -4,12 +4,20 @@ import (
 	"debug/buildinfo"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 )
 
 type PluginMeta struct {
 	BinaryPath string
 	GoVersion  string
 	Module     string
+
+	// Extended metadata not populated from build info.
+	ExtendedMetadata *ExtendedPluginMeta
+}
+
+type ExtendedPluginMeta struct {
+	ModeList ModeList
 }
 
 func (pm PluginMeta) Filename() string {
@@ -41,4 +49,20 @@ func ReadFile(file *os.File) (PluginMeta, error) {
 		GoVersion:  info.GoVersion,
 		Module:     info.Path,
 	}, nil
+}
+
+func ReadMetadata() PluginMeta {
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		panic("could not read build info")
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	return PluginMeta{
+		BinaryPath: executable,
+		GoVersion:  buildInfo.GoVersion,
+		Module:     buildInfo.Main.Path,
+	}
 }

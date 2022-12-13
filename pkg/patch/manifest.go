@@ -8,11 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/hashicorp/go-plugin"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
@@ -85,23 +82,24 @@ func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
 	return res
 }
 
-func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*controlv1.PluginArchive, error) {
-	matches, err := plugin.Discover(plugins.DefaultPluginGlob, config.Dir)
-	if err != nil {
-		return nil, err
-	}
+func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive, error) {
+	matches := dc.Discover()
 	res := &controlv1.PluginArchive{
 		Items: make([]*controlv1.PluginArchiveEntry, len(matches)),
 	}
+	lg := dc.Logger
+	if lg == nil {
+		lg = zap.NewNop().Sugar()
+	}
 	lg.Debugf("found %d plugins", len(matches))
 	var wg sync.WaitGroup
-	for i, pluginPath := range matches {
-		i, pluginPath := i, pluginPath
+	for i, md := range matches {
+		i, md := i, md
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			lg := lg.With("path", pluginPath)
-			f, err := os.Open(pluginPath)
+			lg := lg.With("path", md.BinaryPath)
+			f, err := os.Open(md.BinaryPath)
 			if err != nil {
 				lg.With(
 					zap.Error(err),
@@ -109,13 +107,6 @@ func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*c
 				return
 			}
 			defer f.Close()
-			pluginMetadata, err := meta.ReadFile(f)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("failed to read plugin metadata, skipping")
-				return
-			}
 
 			fileInfo, _ := f.Stat()
 			fileSize := fileInfo.Size()
@@ -132,8 +123,8 @@ func GetFilesystemPlugins(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (*c
 			sum := hex.EncodeToString(hash.Sum(nil))
 			res.Items[i] = &controlv1.PluginArchiveEntry{
 				Metadata: &controlv1.PluginManifestEntry{
-					Module:   pluginMetadata.Module,
-					Filename: filepath.Base(pluginPath),
+					Module:   md.Module,
+					Filename: filepath.Base(md.BinaryPath),
 					Digest:   sum,
 				},
 				Data: contents.Bytes(),

@@ -3,9 +3,11 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
@@ -104,7 +106,7 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	}
 	result, err := p.kv.Get().Get("modelTrainingStatus")
 	if err != nil {
-		if strings.Contains(err.Error(), "nats: key not found") {
+		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{
 				Status: string(msg.Data),
 			}, nil

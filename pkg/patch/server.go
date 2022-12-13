@@ -83,9 +83,10 @@ func NewFilesystemPluginSyncServer(
 	}
 
 	return &FilesystemPluginSyncServer{
-		config:     cfg,
-		logger:     lg,
-		patchCache: pluginCache,
+		SyncServerOptions: options,
+		config:            cfg,
+		logger:            lg,
+		patchCache:        pluginCache,
 	}, nil
 }
 

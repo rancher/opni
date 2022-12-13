@@ -140,10 +140,6 @@ func (pc *patchClient) doCreate(entry *controlv1.PatchSpec) error {
 		"path", entry.Filename,
 		"size", len(entry.Data),
 	).Infof("writing new plugin")
-	// ensure the file does not exist
-	if _, err := pc.fs.Stat(entry.Filename); err == nil {
-		return unavailableErrf("could not write plugin %s: file already exists", entry.Filename)
-	}
 	err := pc.fs.WriteFile(entry.Filename, entry.Data, 0755)
 	if err != nil {
 		return osErrf("could not write plugin %s: %v", entry.Filename, err)

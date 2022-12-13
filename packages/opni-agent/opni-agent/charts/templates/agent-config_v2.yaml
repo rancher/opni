@@ -18,8 +18,7 @@ stringData:
       storage:
         type: customResources
       plugins:
-        dirs:
-          - /var/lib/opni-agent/plugins
+        dir: /var/lib/opni-agent/plugins
       bootstrap:
         {{- if .Values.bootstrapInCluster.enabled }}
         inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}

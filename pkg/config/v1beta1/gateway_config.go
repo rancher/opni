@@ -212,7 +212,7 @@ const (
 
 type PluginsSpec struct {
 	// Directory to search for plugins
-	Dir string `json:"dirs,omitempty"`
+	Dir string `json:"dir,omitempty"`
 	// Options for caching plugins
 	Cache CacheSpec `json:"cache,omitempty"`
 }
@@ -294,6 +294,18 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.Purger.HTTPAddress == "" {
 		s.Cortex.Purger.HTTPAddress = "cortex-purger:8080"
+	}
+	if s.Plugins.Dir == "" {
+		s.Plugins.Dir = "/var/lib/opni/plugins"
+	}
+	if s.Plugins.Cache.PatchEngine == "" {
+		s.Plugins.Cache.PatchEngine = PatchEngineBsdiff
+	}
+	if s.Plugins.Cache.Backend == "" {
+		s.Plugins.Cache.Backend = CacheBackendFilesystem
+	}
+	if s.Plugins.Cache.Filesystem.Dir == "" {
+		s.Plugins.Cache.Filesystem.Dir = "/var/lib/opni/plugin-cache"
 	}
 }
 

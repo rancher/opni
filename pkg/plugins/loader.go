@@ -255,8 +255,9 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	options := LoadOptions{}
 	options.apply(opts...)
 
+	verifyManifest := (options.manifest != nil)
 	secureConfigs := make(map[string]*plugin.SecureConfig)
-	if options.manifest != nil {
+	if verifyManifest {
 		for _, entry := range options.manifest.Items {
 			secureConfigs[entry.Module] = &plugin.SecureConfig{
 				Checksum: entry.DigestBytes(),
@@ -278,14 +279,16 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	for _, md := range plugins {
 		md := md
 		clientOpts := options.clientOptions
-		if secureConfig, ok := secureConfigs[md.Module]; ok {
-			clientOpts = append(clientOpts, WithSecureConfig(secureConfig))
-		} else {
-			p.logger.With(
-				"module", md.Module,
-				"path", md.BinaryPath,
-			).Warn("plugin is not present in manifest, skipping")
-			continue
+		if verifyManifest {
+			if secureConfig, ok := secureConfigs[md.Module]; ok {
+				clientOpts = append(clientOpts, WithSecureConfig(secureConfig))
+			} else {
+				p.logger.With(
+					"module", md.Module,
+					"path", md.BinaryPath,
+				).Warn("plugin is not present in manifest, skipping")
+				continue
+			}
 		}
 		cc := ClientConfig(md, scheme, clientOpts...)
 

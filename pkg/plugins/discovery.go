@@ -21,6 +21,7 @@ func (dc DiscoveryConfig) Discover() []meta.PluginMeta {
 		panic(err)
 	}
 	var result []meta.PluginMeta
+PLUGINS:
 	for _, path := range paths {
 		md, err := meta.ReadPath(path)
 		if err != nil {
@@ -31,17 +32,6 @@ func (dc DiscoveryConfig) Discover() []meta.PluginMeta {
 				).Error("failed to read plugin metadata")
 			}
 			continue
-		}
-		for i, filter := range dc.Filters {
-			if !filter(md) {
-				if dc.Logger != nil {
-					dc.Logger.With(
-						"plugin", path,
-						"filter", i,
-					).Debug("plugin ignored due to filter")
-					continue
-				}
-			}
 		}
 		if dc.QueryModes {
 			modes, err := meta.QueryPluginModes(md.BinaryPath)
@@ -60,6 +50,17 @@ func (dc DiscoveryConfig) Discover() []meta.PluginMeta {
 			md.ExtendedMetadata.ModeList = modes
 		}
 
+		for i, filter := range dc.Filters {
+			if !filter(md) {
+				if dc.Logger != nil {
+					dc.Logger.With(
+						"plugin", path,
+						"filter", i,
+					).Debug("plugin ignored due to filter")
+				}
+				continue PLUGINS
+			}
+		}
 		result = append(result, md)
 	}
 	return result

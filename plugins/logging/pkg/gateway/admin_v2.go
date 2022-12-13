@@ -162,6 +162,10 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
 		return &emptypb.Empty{}, errors.ErrInvalidRetention()
 	}
+	// Input should always have a data nodes field
+	if cluster.GetDataNodes() == nil {
+		return &emptypb.Empty{}, errors.ErrMissingDataNode()
+	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
@@ -553,7 +557,10 @@ func antiAffinityEnabled(pool opsterv1.NodePool) *bool {
 }
 
 func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClusterV2) (pools []opsterv1.NodePool, retErr error) {
-	resources, jvm, retErr := generateK8sResources(cluster.DataNodes.MemoryLimit, cluster.DataNodes.CpuResources)
+	resources, jvm, retErr := generateK8sResources(
+		cluster.GetDataNodes().GetMemoryLimit(),
+		cluster.GetDataNodes().GetCpuResources(),
+	)
 	if retErr != nil {
 		return
 	}
@@ -564,18 +571,18 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 		Labels: map[string]string{
 			LabelOpniNodeGroup: "data",
 		},
-		DiskSize:     cluster.DataNodes.DiskSize,
-		NodeSelector: cluster.DataNodes.NodeSelector,
+		DiskSize:     cluster.GetDataNodes().GetDiskSize(),
+		NodeSelector: cluster.GetDataNodes().GetNodeSelector(),
 		Resources:    resources,
 		Jvm:          jvm,
-		Tolerations:  convertTolerations(cluster.DataNodes.Tolerations),
+		Tolerations:  convertTolerations(cluster.GetDataNodes().GetTolerations()),
 		Affinity: func() *corev1.Affinity {
-			if lo.FromPtrOr(cluster.DataNodes.EnableAntiAffinity, false) {
+			if lo.FromPtrOr(cluster.GetDataNodes().EnableAntiAffinity, false) {
 				return m.generateAntiAffinity("data")
 			}
 			return nil
 		}(),
-		Persistence: convertPersistence(cluster.DataNodes.Persistence),
+		Persistence: convertPersistence(cluster.GetDataNodes().GetPersistence()),
 	}
 
 	var extraControlPlanePool, splitPool bool

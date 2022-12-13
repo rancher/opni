@@ -64,6 +64,10 @@ func ErrInvalidRetention() error {
 	return fmt.Errorf("duration must be integer and time unit, e.g 7d: %w", ErrInvalidCluster)
 }
 
+func ErrMissingDataNode() error {
+	return fmt.Errorf("request must contain data nodes: %w", ErrInvalidCluster)
+}
+
 func ErrOpensearchRequestFailed(status string) error {
 	return fmt.Errorf("%s: %w", status, ErrOpensearchResponse)
 }

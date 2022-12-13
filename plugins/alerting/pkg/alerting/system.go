@@ -73,10 +73,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx, shared.NewAgentStream())
+	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
 	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
 		func() { p.watchGlobalCluster(client, cw) },
-		func() { p.watchGlobalClusterHealthStatus(client, shared.NewAgentStream()) },
+		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 
 	p.globalWatchers = NewSimpleInternalConditionWatcher(

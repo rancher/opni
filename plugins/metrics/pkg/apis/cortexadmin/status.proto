@@ -14,7 +14,7 @@ message CortexStatus {
   StoreGatewayStatus storeGateway = 6;
   QueryFrontendStatus queryFrontend = 7;
   QuerierStatus querier = 8;
-  google.protobuf.Timestamp ts = 9;
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 // Status of an individual cortex service (module)

@@ -31,21 +31,21 @@ func handleChoicesByType(
 	req *alertingv1.AlertDetailChoicesRequest,
 ) (*alertingv1.ListAlertTypeDetails, error) {
 	switch req.GetAlertType() {
-	case alertingv1.AlertType_SYSTEM:
+	case alertingv1.AlertType_System:
 		return p.fetchAgentInfo(ctx)
-	case alertingv1.AlertType_DOWNSTREAM_CAPABILTIY:
+	case alertingv1.AlertType_DownstreamCapability:
 		return p.fetchDownstreamCapabilityInfo(ctx)
-	case alertingv1.AlertType_KUBE_STATE:
+	case alertingv1.AlertType_KubeState:
 		return p.fetchKubeStateInfo(ctx)
-	case alertingv1.AlertType_CPU_SATURATION:
+	case alertingv1.AlertType_CpuSaturation:
 		return p.fetchCPUSaturationInfo(ctx)
-	case alertingv1.AlertType_MEMORY_SATURATION:
+	case alertingv1.AlertType_MemorySaturation:
 		return p.fetchMemorySaturationInfo(ctx)
-	case alertingv1.AlertType_FS_SATURATION:
+	case alertingv1.AlertType_FsSaturation:
 		return p.fetchFsSaturationInfo(ctx)
-	case alertingv1.AlertType_PROMETHEUS_QUERY:
+	case alertingv1.AlertType_PrometheusQuery:
 		return p.fetchPrometheusQueryInfo(ctx)
-	case alertingv1.AlertType_MONITORING_BACKEND:
+	case alertingv1.AlertType_MonitoringBackend:
 		return p.fetchMonitoringBackendInfo(ctx)
 	default:
 		return nil, shared.AlertingErrNotImplemented

@@ -690,7 +690,7 @@ func (p *CortexAdminServer) GetCortexStatus(ctx context.Context, _ *emptypb.Empt
 		).Error("failed to get cluster status")
 		return nil, err
 	}
-	stat.Ts = timestamppb.Now()
+	stat.Timestamp = timestamppb.Now()
 	return stat, nil
 }
 

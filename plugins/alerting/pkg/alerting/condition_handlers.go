@@ -348,8 +348,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 		},
 		&internalConditionStorage{
 			js:              p.js.Get(),
-			durableConsumer: shared.NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   shared.NewAgentStreamSubject(agentId),
+			durableConsumer: NewAgentDurableReplayConsumer(agentId),
+			streamSubject:   NewAgentStreamSubject(agentId),
 			storageNode:     p.storageNode,
 			msgCh:           make(chan *nats.Msg, 32),
 		},
@@ -410,8 +410,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 		},
 		&internalConditionStorage{
 			js:              p.js.Get(),
-			durableConsumer: shared.NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   shared.NewAgentStreamSubject(agentId),
+			durableConsumer: NewAgentDurableReplayConsumer(agentId),
+			streamSubject:   NewAgentStreamSubject(agentId),
 			storageNode:     p.storageNode,
 			msgCh:           make(chan *nats.Msg, 32),
 		},
@@ -466,7 +466,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 	if cStatus == nil {
 		return false, timestamppb.Now()
 	}
-	ts = cStatus.GetTs()
+	ts = cStatus.GetTimestamp()
 	// helps track status errors to particular components, like having 3 expected replicas, but only 1-2 are running
 	memberReports := map[string]bool{}
 	for _, cmp := range componentsToTrack {
@@ -603,7 +603,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 		&internalConditionStorage{
 			js:              p.js.Get(),
 			durableConsumer: nil,
-			streamSubject:   shared.NewCortexStatusSubject(),
+			streamSubject:   NewCortexStatusSubject(),
 			storageNode:     p.storageNode,
 			msgCh:           make(chan *nats.Msg, 32),
 		},

@@ -74,18 +74,18 @@ message AttachedEndpoint {
 }
 
 enum AlertType {
-  SYSTEM = 0;
-  KUBE_STATE = 1;
-  CPU_SATURATION = 2;
-  MEMORY_SATURATION = 3;
-  FS_SATURATION = 4;
-  DOWNSTREAM_CAPABILTIY = 5;
+  System = 0;
+  KubeState = 1;
+  CpuSaturation = 2;
+  MemorySaturation = 3;
+  FsSaturation = 4;
+  DownstreamCapability = 5;
   // Unimplemented
-  COMPOSITION = 6;
+  Composition = 6;
   // Unimplemented
-  CONTROL_FLOW = 7;
-  PROMETHEUS_QUERY = 9;
-  MONITORING_BACKEND = 10;
+  ControlFlow = 7;
+  PrometheusQuery = 9;
+  MonitoringBackend = 10;
 }
 
 enum CompositionAction {

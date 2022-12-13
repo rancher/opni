@@ -110,7 +110,7 @@ func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, o
 // blocking
 func (p *Plugin) watchCortexClusterStatus() {
 	lg := p.Logger.With("watcher", "cortex-cluster-status")
-	err := natsutil.NewPersistentStream(p.js.Get(), shared.NewCortexStatusStream())
+	err := natsutil.NewPersistentStream(p.js.Get(), NewCortexStatusStream())
 	if err != nil {
 		panic(err)
 	}
@@ -160,7 +160,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 				if err != nil {
 					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
 				}
-				_, err = p.js.Get().PublishAsync(shared.NewCortexStatusSubject(), cortexStatusData)
+				_, err = p.js.Get().PublishAsync(NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
 					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
 				}
@@ -213,7 +213,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 	for _, cl := range cls.Items {
 		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
 		//make sure durable consumer is setup
-		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, shared.NewAgentDurableReplayConsumer(cl.GetId()))
+		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, NewAgentDurableReplayConsumer(cl.GetId()))
 		if replayErr != nil {
 			panic(replayErr)
 		}
@@ -247,7 +247,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
 				continue
 			}
-			_, err = p.js.Get().PublishAsync(shared.NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
+			_, err = p.js.Get().PublishAsync(NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
 			if err != nil {
 				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}

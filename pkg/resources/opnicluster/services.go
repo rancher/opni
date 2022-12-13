@@ -266,7 +266,11 @@ func (r *Reconciler) workloadDrainDeployment() (resources.Resource, error) {
 			},
 		}
 		ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
-		return deployment, deploymentStateDisabled(r.opniCluster.Spec.Services.Drain.Enabled), nil
+		var state = reconciler.StateAbsent
+		if lo.FromPtrOr(r.opniCluster.Spec.Services.Drain.Workload.Enabled, false) && lo.FromPtrOr(r.opniCluster.Spec.Services.Drain.Enabled, true) {
+			state = reconciler.StatePresent
+		}
+		return deployment, state, nil
 	}, nil
 }
 

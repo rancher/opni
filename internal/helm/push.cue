@@ -144,7 +144,13 @@ import (
 			name: "sh"
 			args: [
 				"-c",
-				"gh auth setup-git && git config user.name \"$GIT_AUTHOR_NAME\" && git config user.email \"$GIT_AUTHOR_EMAIL\" && git remote -v && git add charts/ assets/ index.yaml && git commit -m 'Update charts' && git push origin refs/heads/\(branch):refs/heads/\(branch)",
+				"""
+				gh auth setup-git && \\
+				git config user.name \"$GIT_AUTHOR_NAME\" && \\
+				git config user.email \"$GIT_AUTHOR_EMAIL\" && \\
+				git add charts/ assets/ index.yaml && \\
+				git diff-index --quiet HEAD || git commit -m 'Update charts' && git push origin refs/heads/\(branch):refs/heads/\(branch)
+				""",
 			]
 		}
 	}

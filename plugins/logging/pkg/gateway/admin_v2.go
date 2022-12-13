@@ -234,7 +234,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 			return nil, err
 		}
 
-		go m.opensearchManager.CreateInitialAdmin(password)
+		go m.opensearchManager.CreateInitialAdmin(password, m.opensearchClusterReady)
 
 		return &emptypb.Empty{}, nil
 	}
@@ -875,6 +875,42 @@ func (m *LoggingManagerV2) validDurationString(duration string) bool {
 	return match
 }
 
+func (m *LoggingManagerV2) opensearchClusterReady() bool {
+	ctx := context.TODO()
+	expBackoff := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(5*time.Second),
+		backoff.WithMaxInterval(1*time.Minute),
+		backoff.WithMultiplier(1.1),
+	)
+	b := expBackoff.Start(ctx)
+
+	cluster := &opsterv1.OpenSearchCluster{}
+
+FETCH:
+	for {
+		select {
+		case <-b.Done():
+			m.logger.Warn("plugin context cancelled before Opensearch object created")
+			return true
+		case <-b.Next():
+			err := m.k8sClient.Get(ctx, types.NamespacedName{
+				Name:      m.opensearchCluster.Name,
+				Namespace: m.storageNamespace,
+			}, cluster)
+			if err != nil {
+				m.logger.Error("failed to fetch opensearch cluster, can't check readiness")
+				return true
+			}
+			if !cluster.Status.Initialized {
+				continue
+			}
+			break FETCH
+		}
+	}
+	return false
+}
+
 func (m *LoggingManagerV2) setOpensearchClient() *opensearch.Client {
 	ctx := context.TODO()
 	expBackoff := backoff.Exponential(
@@ -904,10 +940,6 @@ FETCH:
 					continue
 				}
 				m.logger.Errorf("failed to check k8s object: %v", err)
-				continue
-			}
-			if !cluster.Status.Initialized {
-				m.logger.Info("waiting for cluster to be initialized")
 				continue
 			}
 			break FETCH

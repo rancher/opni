@@ -10,8 +10,18 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-func (m *Manager) DoClusterDataDelete(ctx context.Context, id string) error {
+func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc ...ReadyFunc) error {
 	m.WaitForInit()
+
+	for _, r := range readyFunc {
+		exitEarly := r()
+		if exitEarly {
+			m.logger.Warn("opensearch cluster is never able to receive queries")
+			return nil
+		}
+
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -67,8 +77,18 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (m *Manager) DeleteTaskStatus(ctx context.Context, id string) (DeleteStatus, error) {
+func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...ReadyFunc) (DeleteStatus, error) {
 	m.WaitForInit()
+
+	for _, r := range readyFunc {
+		exitEarly := r()
+		if exitEarly {
+			m.logger.Warn("opensearch cluster is never able to receive queries")
+			return DeleteFinishedWithErrors, nil
+		}
+
+	}
+
 	m.Lock()
 	defer m.Unlock()
 

@@ -108,7 +108,8 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{
-				Status: string(msg.Data),
+				Status:     string(msg.Data),
+				Statistics: &modeltraining.ModelTrainingStatistics{},
 			}, nil
 		} else {
 			return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)

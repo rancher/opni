@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -383,7 +384,10 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	go func() {
 		evaluator.EvaluateLoop()
 	}()
-	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
+		Ctx:    evaluator.evaluationCtx,
+		Cancel: evaluator.cancelEvaluation,
+	})
 	return nil
 }
 
@@ -458,7 +462,10 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	go func() {
 		evaluator.EvaluateLoop()
 	}()
-	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
+		Ctx:    evaluator.evaluationCtx,
+		Cancel: evaluator.cancelEvaluation,
+	})
 	return nil
 }
 
@@ -638,6 +645,9 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 	go func() {
 		evaluator.EvaluateLoop()
 	}()
-	p.msgNode.AddSystemConfigListener(conditionId, cancel)
+	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
+		Ctx:    evaluator.evaluationCtx,
+		Cancel: evaluator.cancelEvaluation,
+	})
 	return nil
 }

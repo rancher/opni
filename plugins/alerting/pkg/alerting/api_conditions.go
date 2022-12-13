@@ -246,7 +246,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 
 	if a := cond.GetAlertType().GetSystem(); a != nil {
 		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
-		if err != nil {
+		if err != nil || !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
 				State: alertingv1.AlertConditionState_INVALIDATED,
 			}, nil
@@ -254,7 +254,14 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	}
 	if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
 		_, err := p.mgmtClient.Get().GetCluster(ctx, dc.ClusterId)
-		if err != nil {
+		if err != nil || !p.msgNode.IsRunning(ref.Id) {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+	if cc := cond.GetAlertType().GetMonitoringBackend(); cc != nil {
+		if !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
 				State: alertingv1.AlertConditionState_INVALIDATED,
 			}, nil

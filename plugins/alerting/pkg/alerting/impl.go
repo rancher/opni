@@ -311,6 +311,8 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 		err := c.storageNode.CreateIncidentTracker(c.evaluationCtx, c.conditionId)
 		if err != nil {
 			c.lg.Error(err)
+			c.cancelEvaluation()
+			return
 		}
 	} else if getErr != nil {
 		c.lg.Error(getErr)
@@ -321,7 +323,7 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 			return
 		}
 
-	} else {
+	} else if getErr != nil {
 		incomingState = st
 	}
 	if incomingState.Firing { // need to update this in memory value

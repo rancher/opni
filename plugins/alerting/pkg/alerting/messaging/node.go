@@ -3,34 +3,53 @@ package messaging
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 )
+
+type EvaluatorContext struct {
+	Ctx     context.Context
+	Cancel  context.CancelFunc
+	running atomic.Bool
+}
 
 type MessagingNode struct {
 	// conditionId -> subsriber pull context cancel func
-	systemConditionUpdateListeners map[string]context.CancelFunc
+	systemConditionUpdateListeners map[string]EvaluatorContext
 	systemConditionMu              sync.Mutex
 }
 
 func NewMessagingNode() *MessagingNode {
 	return &MessagingNode{
-		systemConditionUpdateListeners: make(map[string]context.CancelFunc),
+		systemConditionUpdateListeners: make(map[string]EvaluatorContext),
 	}
 }
-func (n *MessagingNode) AddSystemConfigListener(conditionId string, ca context.CancelFunc) {
+func (n *MessagingNode) AddSystemConfigListener(conditionId string, eCtx EvaluatorContext) {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
-	if oldCa, ok := n.systemConditionUpdateListeners[conditionId]; ok {
+	if oldContext, ok := n.systemConditionUpdateListeners[conditionId]; ok {
 		//existing goroutine, cancel it
-		oldCa()
+		oldContext.Cancel()
 	}
-	n.systemConditionUpdateListeners[conditionId] = ca
+	eCtx.running.Store(true)
+	n.systemConditionUpdateListeners[conditionId] = eCtx
+	go func() {
+		defer eCtx.running.Store(false)
+		<-eCtx.Ctx.Done()
+	}()
 }
 
 func (n *MessagingNode) RemoveConfigListener(conditionId string) {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
-	if ca, ok := n.systemConditionUpdateListeners[conditionId]; ok {
-		ca()
+	if oldContext, ok := n.systemConditionUpdateListeners[conditionId]; ok {
+		oldContext.Cancel()
 	}
 	delete(n.systemConditionUpdateListeners, conditionId)
+}
+
+func (n *MessagingNode) IsRunning(conditionId string) bool {
+	n.systemConditionMu.Lock()
+	defer n.systemConditionMu.Unlock()
+	eCtx, ok := n.systemConditionUpdateListeners[conditionId]
+	return ok && eCtx.running.Load()
 }

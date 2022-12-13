@@ -18,15 +18,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func stringInKeys(key string, keys []string) bool {
-	for _, k := range keys {
-		if k == key {
-			return true
-		}
-	}
-	return false
-}
-
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.Items {

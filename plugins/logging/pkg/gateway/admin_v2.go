@@ -622,7 +622,14 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 	}
 
 	if extraControlPlanePool {
-		resources, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+		_, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+			Request: "100m",
+		})
+		if err != nil {
+			retErr = err
+			return
+		}
+		resources, _, err := generateK8sResources("640Mi", &loggingadmin.CPUResource{
 			Request: "100m",
 		})
 		if err != nil {
@@ -657,6 +664,10 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 			Env: []corev1.EnvVar{
 				{
 					Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+					Value: "true",
+				},
+				{
+					Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
 					Value: "true",
 				},
 			},

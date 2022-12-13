@@ -583,6 +583,12 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 			return nil
 		}(),
 		Persistence: convertPersistence(cluster.GetDataNodes().GetPersistence()),
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+		},
 	}
 
 	var extraControlPlanePool, splitPool bool
@@ -648,6 +654,12 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 				}
 				return nil
 			}(),
+			Env: []corev1.EnvVar{
+				{
+					Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+					Value: "true",
+				},
+			},
 		}
 		pools = append(pools, cpPool)
 	}
@@ -799,11 +811,26 @@ func (m *LoggingManagerV2) convertIngestDetails(details *loggingadmin.IngestDeta
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+		},
 	}, nil
 }
 
 func (m *LoggingManagerV2) convertControlplaneDetails(details *loggingadmin.ControlplaneDetails) (opsterv1.NodePool, error) {
-	resources, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+	_, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+		Request: "100m",
+	})
+	if err != nil {
+		return opsterv1.NodePool{}, err
+	}
+
+	// Give the controlplane nodes slightly more memory that double the jvm
+	// testing has shown the GC can spike at lower memory levels
+	resources, _, err := generateK8sResources("640Mi", &loggingadmin.CPUResource{
 		Request: "100m",
 	})
 	if err != nil {
@@ -826,6 +853,16 @@ func (m *LoggingManagerV2) convertControlplaneDetails(details *loggingadmin.Cont
 		Tolerations:  convertTolerations(details.Tolerations),
 		Affinity:     m.generateAntiAffinity("controlplane"),
 		Persistence:  convertPersistence(details.Persistence),
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+			{
+				Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+				Value: "true",
+			},
+		},
 	}, nil
 }
 

@@ -927,7 +927,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.6.3"
+	version := "0.8.0-rc1"
 	if cluster == nil {
 		osVersion = opensearchVersion
 	} else {
@@ -944,7 +944,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.6.3"
+		version = "0.8.0-rc1"
 	}
 
 	if m.versionOverride != "" {

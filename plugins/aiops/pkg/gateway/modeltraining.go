@@ -16,6 +16,15 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+func stringInKeys(key string, keys []string) bool {
+	for _, k := range keys {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.Items {
@@ -95,7 +104,13 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	}
 	result, err := p.kv.Get().Get("modelTrainingStatus")
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
+		if strings.Contains(err.Error(), "nats: key not found") {
+			return &modeltraining.ModelStatus{
+				Status: string(msg.Data),
+			}, nil
+		} else {
+			return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
+		}
 	}
 	jsonRes := result.Value()
 	var resultsStorage = modeltraining.ModelTrainingStatistics{}

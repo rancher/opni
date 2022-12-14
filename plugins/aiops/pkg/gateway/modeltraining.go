@@ -99,12 +99,10 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{
-				Status:     string(msg.Data),
-				Statistics: &modeltraining.ModelTrainingStatistics{},
+				Status: string(msg.Data),
 			}, nil
-		} else {
-			return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %v", err)
 		}
+		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %v", err)
 	}
 	jsonRes := result.Value()
 	var resultsStorage = modeltraining.ModelTrainingStatistics{}

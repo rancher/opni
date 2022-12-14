@@ -6,10 +6,16 @@ import (
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimonitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	nodev1 "k8s.io/api/node/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 // InitScheme adds all the types needed by opni to the provided scheme.
@@ -26,7 +32,13 @@ func NewScheme() *runtime.Scheme {
 }
 
 var schemeBuilders = []func(*runtime.Scheme) error{
-	clientgoscheme.AddToScheme,
+	appsv1.AddToScheme,
+	batchv1.AddToScheme,
+	corev1.AddToScheme,
+	networkingv1.AddToScheme,
+	nodev1.AddToScheme,
+	rbacv1.AddToScheme,
+	storagev1.AddToScheme,
 	apiextv1.AddToScheme,
 	opniv1beta2.AddToScheme,
 	opniloggingv1beta1.AddToScheme,

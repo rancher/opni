@@ -33,6 +33,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// UI identifier for upstream cluster
+const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
+
 func (p *Plugin) createRoutingNode(
 	ctx context.Context,
 	req *alertingv1.AttachedEndpoints,
@@ -125,6 +128,11 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	_, err := setupCondition(p, lg, ctx, req, newId)
 	if err != nil {
 		return nil, err
+	}
+	if mb := req.GetAlertType().GetMonitoringBackend(); mb != nil {
+		mb.ClusterId = &corev1.Reference{
+			Id: upstreamClusterId,
+		}
 	}
 	if alertingv1.ShouldCreateRoutingNode(req.AttachedEndpoints, nil) {
 		lg.Debug("must create routing node")

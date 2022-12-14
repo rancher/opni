@@ -307,6 +307,7 @@ message AlertConditionMonitoringBackend{
   // this will alert if these any of these components are unhealthy
   repeated string backendComponents = 1;
   google.protobuf.Duration for = 2;
+  core.Reference clusterId = 3;
 }
 
 message ListAlertConditionMonitoringBackend{

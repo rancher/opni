@@ -617,7 +617,6 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
-				lg.Debugf("received cortex status message : %v", h)
 				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {

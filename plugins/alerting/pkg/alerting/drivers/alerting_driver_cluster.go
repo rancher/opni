@@ -176,6 +176,14 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	if err != nil {
 		return nil, err
 	}
+	clusterStatus, err := a.GetClusterStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if clusterStatus.State != alertops.InstallState_Installed {
+		lg.Warn("alerting cluster is not yet installed, skipping application of configuration")
+		return &emptypb.Empty{}, nil
+	}
 	lg.Debug("got existing gateway")
 	mutator := func(gateway *corev1beta1.Gateway) {
 		gateway.Spec.Alerting.Replicas = conf.NumReplicas
@@ -204,7 +212,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 		)
 		if err == nil {
 			if cmp.IsEmpty() {
-				return status.Error(codes.FailedPrecondition, "no changes to apply")
+				return status.Error(codes.FailedPrecondition, "Alerting cluster : no changes to apply")
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
@@ -266,7 +274,14 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty
 		if err != nil {
 			return err
 		}
+		// remove applied configurations when uninstalling
 		existing.Spec.Alerting.Enabled = false
+		existing.Spec.Alerting.CPU = ""
+		existing.Spec.Alerting.Memory = ""
+		existing.Spec.Alerting.Storage = ""
+		existing.Spec.Alerting.ClusterGossipInterval = ""
+		existing.Spec.Alerting.ClusterPushPullInterval = ""
+		existing.Spec.Alerting.ClusterSettleTimeout = ""
 		return a.k8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {

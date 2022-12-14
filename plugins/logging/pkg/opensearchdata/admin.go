@@ -10,8 +10,18 @@ import (
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 )
 
-func (m *Manager) CreateInitialAdmin(password []byte) {
+func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.WaitForInit()
+
+	for _, r := range readyFunc {
+		exitEarly := r()
+		if exitEarly {
+			m.logger.Warn("opensearch cluster is never able to receive queries")
+			return
+		}
+
+	}
+
 	m.Lock()
 	defer m.Unlock()
 

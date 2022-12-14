@@ -29,6 +29,10 @@ const (
 
 type ClusterStatus int
 
+// Ready func should return true if there is a critical error
+// That would stop the opensearch query from running.
+type ReadyFunc func() bool
+
 const (
 	ClusterStatusGreen = iota
 	ClusterStatusYellow

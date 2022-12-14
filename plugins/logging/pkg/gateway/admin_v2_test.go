@@ -174,6 +174,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 							Labels: map[string]string{
 								LabelOpniNodeGroup: "data",
 							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+									Value: "true",
+								},
+							},
 						}))
 						Expect(len(object.Spec.NodePools)).To(Equal(1))
 					})
@@ -246,6 +252,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 									},
 								},
 							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+									Value: "true",
+								},
+							},
 						}))
 						Expect(len(object.Spec.NodePools)).To(Equal(1))
 					})
@@ -305,6 +317,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 							Persistence: &opsterv1.PersistenceConfig{
 								PersistenceSource: opsterv1.PersistenceSource{
 									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+									Value: "true",
 								},
 							},
 						}))
@@ -374,6 +392,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 									},
 								},
 							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+									Value: "true",
+								},
+							},
 						}))
 					})
 					Specify("cleanup", func() {
@@ -432,6 +456,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 							Labels: map[string]string{
 								LabelOpniNodeGroup: "data",
 							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+									Value: "true",
+								},
+							},
 						}))
 						Expect(len(object.Spec.NodePools)).To(Equal(1))
 					})
@@ -487,6 +517,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
 						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+						},
 					}))
 					Expect(object.Spec.NodePools[1]).To(Equal(opsterv1.NodePool{
 						Component: "quorum",
@@ -498,15 +534,25 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 							},
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 								corev1.ResourceCPU:    resource.MustParse("100m"),
 							},
 						},
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+							{
+								Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+								Value: "true",
+							},
 						},
 					}))
 					Expect(len(object.Spec.NodePools)).To(Equal(2))
@@ -562,6 +608,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
 						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+						},
 					}))
 					Expect(object.Spec.NodePools[1]).To(Equal(opsterv1.NodePool{
 						Component: "datax",
@@ -582,6 +634,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
 						},
 					}))
 					Expect(len(object.Spec.NodePools)).To(Equal(2))
@@ -639,6 +697,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
 						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+						},
 					}))
 					Expect(object.Spec.NodePools[1]).To(Equal(opsterv1.NodePool{
 						Component: "ingest",
@@ -662,6 +726,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Persistence: &opsterv1.PersistenceConfig{
 							PersistenceSource: opsterv1.PersistenceSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
 							},
 						},
 					}))
@@ -719,6 +789,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
 						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+						},
 					}))
 					Expect(object.Spec.NodePools[1]).To(Equal(opsterv1.NodePool{
 						Component: "controlplane",
@@ -730,10 +806,10 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 							},
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 								corev1.ResourceCPU:    resource.MustParse("100m"),
 							},
 						},
@@ -756,6 +832,16 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 										},
 									},
 								},
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+							{
+								Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+								Value: "true",
 							},
 						},
 					}))
@@ -817,6 +903,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						Labels: map[string]string{
 							LabelOpniNodeGroup: "data",
 						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+						},
 					}))
 					Expect(object.Spec.NodePools[1]).To(Equal(opsterv1.NodePool{
 						Component: "controlplane",
@@ -828,10 +920,10 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 							},
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 								corev1.ResourceCPU:    resource.MustParse("100m"),
 							},
 						},
@@ -864,6 +956,16 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 										corev1.ReadWriteOnce,
 									},
 								},
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+							{
+								Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+								Value: "true",
 							},
 						},
 					}))
@@ -935,6 +1037,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 					},
 				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+						Value: "true",
+					},
+				},
 			}))
 			Expect(len(object.Spec.NodePools)).To(Equal(1))
 		})
@@ -983,10 +1091,10 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						},
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 							},
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
+								corev1.ResourceMemory: resource.MustParse("640Mi"),
 								corev1.ResourceCPU:    resource.MustParse("100m"),
 							},
 						},
@@ -1019,6 +1127,16 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 										corev1.ReadWriteOnce,
 									},
 								},
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+								Value: "true",
+							},
+							{
+								Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+								Value: "true",
 							},
 						},
 					})

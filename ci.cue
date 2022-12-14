@@ -561,6 +561,11 @@ dagger.#Plan & {
 							]
 						}
 					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "images/opensearch/entrypoint.sh"
+						dest:     "/usr/share/opensearch/opensearch-docker-entrypoint.sh"
+					},
 				]
 			}
 			push: docker.#Push & {

@@ -226,7 +226,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 		features.PopulateFeatures(ctx, restconfig)
 	}
 
-	go p.opensearchManager.SetClient(p.setOpensearchClient)
+	loggingManager := p.NewLoggingManagerForPlugin()
+
+	go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
@@ -237,7 +239,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 			managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(
 				util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p),
-				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, p.NewLoggingManagerForPlugin()),
+				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
 			),
 		)
 	}

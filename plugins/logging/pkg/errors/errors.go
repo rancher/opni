@@ -68,6 +68,14 @@ func ErrMissingDataNode() error {
 	return fmt.Errorf("request must contain data nodes: %w", ErrInvalidCluster)
 }
 
+func ErrRequestGtLimits() error {
+	return fmt.Errorf("cpu requests must not be more than cpu limits: %w", ErrInvalidCluster)
+}
+
+func ErrReplicasZero(nodeType string) error {
+	return fmt.Errorf("replicas for %s must be a positive nonzero integer: %w", nodeType, ErrInvalidCluster)
+}
+
 func ErrOpensearchRequestFailed(status string) error {
 	return fmt.Errorf("%s: %w", status, ErrOpensearchResponse)
 }

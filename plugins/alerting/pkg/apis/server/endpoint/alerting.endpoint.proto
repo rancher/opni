@@ -62,6 +62,14 @@ service AlertEndpoints{
     };
   }
 
+  rpc EphemeralDispatcher(alerting.EphemeralDispatcherRequest)
+      returns (alerting.EphemeralDispatcherResponse) {
+      option (google.api.http) = {
+        post : "/ephemeral"
+        body : "*"
+      };
+  }
+
   rpc TestAlertEndpoint(alerting.TestAlertEndpointRequest)
       returns (alerting.TestAlertEndpointResponse) {
     option (google.api.http) = {

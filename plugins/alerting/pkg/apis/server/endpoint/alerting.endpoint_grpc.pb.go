@@ -39,6 +39,7 @@ type AlertEndpointsClient interface {
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
 	DeleteAlertEndpoint(ctx context.Context, in *v1.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error)
+	EphemeralDispatcher(ctx context.Context, in *v1.EphemeralDispatcherRequest, opts ...grpc.CallOption) (*v1.EphemeralDispatcherResponse, error)
 	TestAlertEndpoint(ctx context.Context, in *v1.TestAlertEndpointRequest, opts ...grpc.CallOption) (*v1.TestAlertEndpointResponse, error)
 	// alerting internal use only
 	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoutingRelationships, error)
@@ -113,6 +114,15 @@ func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *v1.U
 func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *v1.DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*v1.InvolvedConditions, error) {
 	out := new(v1.InvolvedConditions)
 	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/DeleteAlertEndpoint", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertEndpointsClient) EphemeralDispatcher(ctx context.Context, in *v1.EphemeralDispatcherRequest, opts ...grpc.CallOption) (*v1.EphemeralDispatcherResponse, error) {
+	out := new(v1.EphemeralDispatcherResponse)
+	err := c.cc.Invoke(ctx, "/alerting.endpoint.AlertEndpoints/EphemeralDispatcher", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +210,7 @@ type AlertEndpointsServer interface {
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
 	DeleteAlertEndpoint(context.Context, *v1.DeleteAlertEndpointRequest) (*v1.InvolvedConditions, error)
+	EphemeralDispatcher(context.Context, *v1.EphemeralDispatcherRequest) (*v1.EphemeralDispatcherResponse, error)
 	TestAlertEndpoint(context.Context, *v1.TestAlertEndpointRequest) (*v1.TestAlertEndpointResponse, error)
 	// alerting internal use only
 	ListRoutingRelationships(context.Context, *emptypb.Empty) (*v1.RoutingRelationships, error)
@@ -246,6 +257,9 @@ func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *v
 }
 func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *v1.DeleteAlertEndpointRequest) (*v1.InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
+}
+func (UnimplementedAlertEndpointsServer) EphemeralDispatcher(context.Context, *v1.EphemeralDispatcherRequest) (*v1.EphemeralDispatcherResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EphemeralDispatcher not implemented")
 }
 func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *v1.TestAlertEndpointRequest) (*v1.TestAlertEndpointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
@@ -367,6 +381,24 @@ func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertEndpointsServer).DeleteAlertEndpoint(ctx, req.(*v1.DeleteAlertEndpointRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AlertEndpoints_EphemeralDispatcher_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.EphemeralDispatcherRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertEndpointsServer).EphemeralDispatcher(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.endpoint.AlertEndpoints/EphemeralDispatcher",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertEndpointsServer).EphemeralDispatcher(ctx, req.(*v1.EphemeralDispatcherRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -523,6 +555,10 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAlertEndpoint",
 			Handler:    _AlertEndpoints_DeleteAlertEndpoint_Handler,
+		},
+		{
+			MethodName: "EphemeralDispatcher",
+			Handler:    _AlertEndpoints_EphemeralDispatcher_Handler,
 		},
 		{
 			MethodName: "TestAlertEndpoint",

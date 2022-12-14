@@ -61,12 +61,12 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
 	result, err := p.kv.Get().Get("aggregation")
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %s", err)
+		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %v", err)
 	}
 	jsonRes := result.Value()
 	var resultsStorage = Aggregations{}
 	if err := json.Unmarshal(jsonRes, &resultsStorage); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal workload aggregation from Jetstream: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal workload aggregation from Jetstream: %v", err)
 	}
 	clusterAggregationResults, ok := resultsStorage.ByCluster[in.Id]
 	if !ok {
@@ -103,13 +103,13 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 				Statistics: &modeltraining.ModelTrainingStatistics{},
 			}, nil
 		} else {
-			return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %s", err)
+			return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %v", err)
 		}
 	}
 	jsonRes := result.Value()
 	var resultsStorage = modeltraining.ModelTrainingStatistics{}
 	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %v", err)
 	}
 	return &modeltraining.ModelStatus{
 		Status:     string(msg.Data),
@@ -121,12 +121,12 @@ func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, in *emptyp
 	b := []byte("model_training_parameters")
 	msg, err := p.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %v", err)
 	}
 	var parametersArray []*modeltraining.ModelTrainingParameters
 	var resultsStorage = map[string]map[string][]string{}
 	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JSON: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JSON: %v", err)
 	}
 	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {

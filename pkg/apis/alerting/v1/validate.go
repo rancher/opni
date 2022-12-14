@@ -376,3 +376,22 @@ func (c *CloneToRequest) Validate() error {
 	}
 	return nil
 }
+
+func (e *EphemeralDispatcherRequest) Validate() error {
+	if e.GetPrefix() == "" {
+		return validation.Error("prefix must be set for ephemeral dispatchers")
+	}
+	if e.GetNumDispatches() <= 0 {
+		return validation.Error("numDispatches must be non-zero for ephemeral dispatchers")
+	}
+	if e.GetTtl().AsDuration() == 0 {
+		return validation.Error("numDuration must be non-zero for ephemeral dispatchers")
+	}
+	if err := e.GetDetails().Validate(); err != nil {
+		return validation.Errorf("details must be valid for ephemeral dispatchers: %s", err)
+	}
+	if err := e.GetEndpoint().Validate(); err != nil {
+		return validation.Errorf("endpoints must be valid for ephemeral dispatchers: %s", err)
+	}
+	return nil
+}

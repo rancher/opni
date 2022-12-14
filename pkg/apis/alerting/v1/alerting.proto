@@ -527,3 +527,15 @@ message CloneToRequest {
   AlertCondition alertCondition = 1;
   repeated string toClusters = 2;
 }
+
+message EphemeralDispatcherRequest {
+  google.protobuf.Duration ttl = 1;
+  int64 numDispatches = 2;
+  string prefix = 3;
+  AlertEndpoint endpoint = 4;
+  EndpointImplementation details = 5;
+}
+
+message EphemeralDispatcherResponse{
+  TriggerAlertsRequest triggerAlertsRequest = 1;
+}

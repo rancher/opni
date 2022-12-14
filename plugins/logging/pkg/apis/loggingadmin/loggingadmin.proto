@@ -99,18 +99,18 @@ message OpensearchClusterV2 {
     DataDetails dataNodes = 2;
     optional IngestDetails ingestNodes = 3;
     optional ControlplaneDetails controlplaneNodes = 4;
-    optional DashboardsDetails Dashboards = 5;
-    optional string DataRetention = 6;
+    optional DashboardsDetails dashboards = 5;
+    optional string dataRetention = 6;
 }
 
 message DataPersistence {
-    optional bool Enabled = 1;
-    optional string StorageClass = 2;
+    optional bool enabled = 1;
+    optional string storageClass = 2;
 }
 
 message CPUResource {
-    string Request = 1;
-    string Limit = 2;
+    string request = 1;
+    string limit = 2;
 }
 
 message OpensearchNodeDetails {
@@ -127,27 +127,27 @@ message OpensearchNodeDetails {
 }
 
 message DashboardsDetails {
-    optional bool Enabled = 1;
-    optional int32 Replicas = 2;
-    ResourceRequirements Resources = 3;
+    optional bool enabled = 1;
+    optional int32 replicas = 2;
+    ResourceRequirements resources = 3;
 }
 
 message UpgradeAvailableResponse {
-    bool UpgradePending = 1;
+    bool upgradePending = 1;
 }
 
 message StorageClassResponse {
-    repeated string StorageClasses = 1;
+    repeated string storageClasses = 1;
 }
 
 message ResourceRequirements {
-    ComputeResourceQuantities Requests = 1;
-    ComputeResourceQuantities Limits = 2;
+    ComputeResourceQuantities requests = 1;
+    ComputeResourceQuantities limits = 2;
 }
 
 message ComputeResourceQuantities {
-    string CPU = 1;
-    string Memory = 2;
+    string cpu = 1;
+    string memory = 2;
 }
 
 message StatusResponse {
@@ -163,7 +163,7 @@ message DataDetails {
     optional bool enableAntiAffinity = 5;
     map<string, string> nodeSelector = 6;
     repeated k8s.io.api.core.v1.Toleration tolerations = 7;
-    optional DataPersistence Persistence = 8;
+    optional DataPersistence persistence = 8;
 }
 
 message IngestDetails {
@@ -179,5 +179,5 @@ message ControlplaneDetails {
     optional int32 replicas = 1;
     map<string, string> nodeSelector = 2;
     repeated k8s.io.api.core.v1.Toleration tolerations = 3;
-    optional DataPersistence Persistence = 4;
+    optional DataPersistence persistence = 4;
 }

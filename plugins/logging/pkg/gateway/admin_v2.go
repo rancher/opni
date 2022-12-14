@@ -1067,8 +1067,8 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Requests.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.CPU)
+			if dashboard.Resources.Requests.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.Cpu)
 			}
 			if dashboard.Resources.Requests.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Requests.Memory)
@@ -1083,8 +1083,8 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Limits.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.CPU)
+			if dashboard.Resources.Limits.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.Cpu)
 			}
 			if dashboard.Resources.Limits.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Limits.Memory)

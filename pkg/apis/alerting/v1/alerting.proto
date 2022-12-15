@@ -160,13 +160,16 @@ message ListAlertTypeDetails {
 }
 
 message AlertConditionModelTrainingStatus{
-  // set by the backend
-  core.Reference clusterId = 1;
+  string jobUuid = 1;
   // alert if training hangs for longer than X minutes
   google.protobuf.Duration hangDuration = 2;
+
+  // read-only
+  core.Reference clusterId = 3;
 }
 
 message ListAlertConditionModelTrainingStatus{
+  repeated string jobUuids = 1;
 }
 
 message ListAlertConditionPrometheusQuery{

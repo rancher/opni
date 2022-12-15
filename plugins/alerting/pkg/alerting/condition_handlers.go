@@ -733,7 +733,7 @@ func (p *Plugin) onModelTrainingStatusConditionCreate(conditionId, conditionName
 		&internalConditionStorage{
 			js:              p.js.Get(),
 			durableConsumer: nil,
-			streamSubject:   NewCortexStatusSubject(),
+			streamSubject:   NewModelTrainingStatusSubject(condition.GetJobUuid()),
 			storageNode:     p.storageNode,
 			msgCh:           make(chan *nats.Msg, 32),
 		},

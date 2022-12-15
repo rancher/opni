@@ -47,6 +47,8 @@ func handleChoicesByType(
 		return p.fetchPrometheusQueryInfo(ctx)
 	case alertingv1.AlertType_MonitoringBackend:
 		return p.fetchMonitoringBackendInfo(ctx)
+	case alertingv1.AlertType_ModelTrainingStatus:
+		return p.fetchModelTrainingStatusInfo(ctx)
 	default:
 		return nil, shared.AlertingErrNotImplemented
 	}
@@ -679,6 +681,27 @@ func (p *Plugin) fetchMonitoringBackendInfo(ctx context.Context) (*alertingv1.Li
 		Type: &alertingv1.ListAlertTypeDetails_MonitoringBackend{
 			MonitoringBackend: &alertingv1.ListAlertConditionMonitoringBackend{
 				BackendComponents: shared.CortexComponents,
+			},
+		},
+	}, nil
+}
+
+func (p *Plugin) fetchModelTrainingStatusInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxca, ca := context.WithTimeout(ctx, time.Second*3)
+	defer ca()
+	modelTraining, err := p.modeltrainingClient.GetContext(ctxca)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire model training status client %s", err)
+	}
+	state, err := modelTraining.GetModelStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get model training status : %s", err)
+	}
+
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_ModelTrainingStatus{
+			ModelTrainingStatus: &alertingv1.ListAlertConditionModelTrainingStatus{
+				JobUuids: []string{state.GetStatistics().GetUuid()},
 			},
 		},
 	}, nil

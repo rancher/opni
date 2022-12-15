@@ -12,6 +12,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -105,6 +106,53 @@ func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, o
 		}
 	}
 	p.opsNode.ClusterDriver.Set(driver)
+}
+
+// blocking
+func (p *Plugin) watchModelTrainingStatus() {
+	lg := p.Logger.With("watcher", "model-training-status")
+	err := natsutil.NewPersistentStream(p.js.Get(), NewModelTrainingStatusStream())
+	if err != nil {
+		panic(err)
+	}
+	//acquire model training plugin client
+	var adminClient modeltraining.ModelTrainingClient
+	for {
+		ctxca, ca := context.WithTimeout(p.Ctx, 5*time.Second)
+		acquiredClient, err := p.modeltrainingClient.GetContext(ctxca)
+		ca()
+		if err != nil {
+			lg.Warn("could not acquire model training client within timeout, retrying...")
+		} else {
+			adminClient = acquiredClient
+			break
+		}
+	}
+	lg.Debug(adminClient)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.Ctx.Done():
+			lg.Debug("closing model training status watcher")
+			return
+		case <-ticker.C:
+			mStatus, err := adminClient.GetModelStatus(p.Ctx, &emptypb.Empty{})
+			if err != nil {
+				continue
+			}
+			go func() {
+				modelTrainingStatusData, err := json.Marshal(mStatus)
+				if err != nil {
+					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
+				}
+				_, err = p.js.Get().PublishAsync(NewModelTrainingStatusSubject(mStatus.Statistics.Uuid), modelTrainingStatusData)
+				if err != nil {
+					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
+				}
+			}()
+		}
+	}
 }
 
 // blocking

@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
@@ -74,15 +75,17 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
 	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
-	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
+	clusterCrud, clusterHealthStatus, cortexBackendStatus, modelTrainingStatus :=
 		func() { p.watchGlobalCluster(client, cw) },
 		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
-		func() { p.watchCortexClusterStatus() }
+		func() { p.watchCortexClusterStatus() },
+		func() { p.watchModelTrainingStatus() }
 
 	p.globalWatchers = NewSimpleInternalConditionWatcher(
 		clusterCrud,
 		clusterHealthStatus,
 		cortexBackendStatus,
+		modelTrainingStatus,
 	)
 	p.globalWatchers.WatchEvents()
 }
@@ -195,4 +198,11 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 		os.Exit(1)
 	}
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(ccCortexOps))
+
+	ccModelTraining, err := intf.GetClientConn(p.Ctx, "ModelTraining")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get model training client")
+		os.Exit(1)
+	}
+	p.modeltrainingClient.Set(modeltraining.NewModelTrainingClient(ccModelTraining))
 }

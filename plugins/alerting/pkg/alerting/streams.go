@@ -50,3 +50,17 @@ func NewCortexStatusStream() *nats.StreamConfig {
 func NewCortexStatusSubject() string {
 	return fmt.Sprintf("%s.%s", shared.CortexStatusStream, "cortex")
 }
+
+func NewModelTrainingStatusStream() *nats.StreamConfig {
+	return &nats.StreamConfig{
+		Name:      shared.ModelTrainingStatusStream,
+		Subjects:  []string{shared.ModelTrainingStatusStreamSubjects},
+		Retention: nats.LimitsPolicy,
+		MaxAge:    1 * time.Hour,
+		MaxBytes:  1 * 1024 * 50, //50KB
+	}
+}
+
+func NewModelTrainingStatusSubject(jobUuid string) string {
+	return fmt.Sprintf("%s.%s", shared.ModelTrainingStatusStream, jobUuid)
+}

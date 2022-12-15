@@ -6,6 +6,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -44,12 +45,13 @@ type Plugin struct {
 	msgNode     *messaging.MessagingNode
 	storageNode *alertstorage.StorageNode
 
-	mgmtClient      future.Future[managementv1.ManagementClient]
-	adminClient     future.Future[cortexadmin.CortexAdminClient]
-	cortexOpsClient future.Future[cortexops.CortexOpsClient]
-	natsConn        future.Future[*nats.Conn]
-	js              future.Future[nats.JetStreamContext]
-	globalWatchers  InternalConditionWatcher
+	mgmtClient          future.Future[managementv1.ManagementClient]
+	adminClient         future.Future[cortexadmin.CortexAdminClient]
+	modeltrainingClient future.Future[modeltraining.ModelTrainingClient]
+	cortexOpsClient     future.Future[cortexops.CortexOpsClient]
+	natsConn            future.Future[*nats.Conn]
+	js                  future.Future[nats.JetStreamContext]
+	globalWatchers      InternalConditionWatcher
 }
 
 type StorageAPIs struct {
@@ -70,11 +72,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 			alertstorage.WithLogger(lg),
 		),
 
-		mgmtClient:      future.New[managementv1.ManagementClient](),
-		adminClient:     future.New[cortexadmin.CortexAdminClient](),
-		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
-		natsConn:        future.New[*nats.Conn](),
-		js:              future.New[nats.JetStreamContext](),
+		mgmtClient:          future.New[managementv1.ManagementClient](),
+		adminClient:         future.New[cortexadmin.CortexAdminClient](),
+		cortexOpsClient:     future.New[cortexops.CortexOpsClient](),
+		modeltrainingClient: future.New[modeltraining.ModelTrainingClient](),
+		natsConn:            future.New[*nats.Conn](),
+		js:                  future.New[nats.JetStreamContext](),
 	}
 	return p
 }

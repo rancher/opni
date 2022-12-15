@@ -266,7 +266,7 @@ func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClu
 	_, err = cognito.NewUser(ctx, "test-user", &cognito.UserArgs{
 		UserPoolId: userPool.ID(),
 		Username:   String("test"),
-		Password:   String("password"),
+		Password:   StringPtr("password"),
 		Attributes: ToStringMap(map[string]string{
 			"email":        "test@example.com",
 			"grafana_role": "Admin",

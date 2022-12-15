@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	ext "github.com/rancher/opni/pkg/test/testdata/plugins/ext"
 	grpc "google.golang.org/grpc"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // MockExtClient is a mock of ExtClient interface.
@@ -54,6 +55,26 @@ func (mr *MockExtClientMockRecorder) Bar(ctx, in interface{}, opts ...interface{
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bar", reflect.TypeOf((*MockExtClient)(nil).Bar), varargs...)
+}
+
+// Baz mocks base method.
+func (m *MockExtClient) Baz(ctx context.Context, in *ext.BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Baz", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Baz indicates an expected call of Baz.
+func (mr *MockExtClientMockRecorder) Baz(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Baz", reflect.TypeOf((*MockExtClient)(nil).Baz), varargs...)
 }
 
 // Foo mocks base method.
@@ -112,6 +133,21 @@ func (m *MockExtServer) Bar(arg0 context.Context, arg1 *ext.BarRequest) (*ext.Ba
 func (mr *MockExtServerMockRecorder) Bar(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bar", reflect.TypeOf((*MockExtServer)(nil).Bar), arg0, arg1)
+}
+
+// Baz mocks base method.
+func (m *MockExtServer) Baz(arg0 context.Context, arg1 *ext.BazRequest) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Baz", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Baz indicates an expected call of Baz.
+func (mr *MockExtServerMockRecorder) Baz(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Baz", reflect.TypeOf((*MockExtServer)(nil).Baz), arg0, arg1)
 }
 
 // Foo mocks base method.

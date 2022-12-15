@@ -36,6 +36,12 @@ service Ext {
       }
     };
   }
+  rpc Baz(BazRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/baz"
+      body: "*"
+    };
+  }
 }
 
 service Ext2 {
@@ -60,4 +66,19 @@ message BarResponse {
   string param1 = 1;
   string param2 = 2;
   string param3 = 3;
+}
+
+message BazRequest {
+  enum BazEnum {
+    UNKNOWN = 0;
+    FOO = 1;
+    BAR = 2;
+  }
+  double paramFloat64 = 1;
+  int64 paramInt64 = 3;
+  bool paramBool = 8;
+  string paramString = 9;
+  bytes paramBytes = 10;
+  BazEnum paramEnum = 11;
+  repeated string paramRepeatedString = 12;
 }

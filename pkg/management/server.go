@@ -233,7 +233,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 			lg.Error(err)
 		}
 	})
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(runtime.WithErrorHandler(extensionsErrorHandler))
 	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux,
 		strings.TrimPrefix(m.config.GRPCListenAddress, "tcp://"),
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {

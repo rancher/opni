@@ -186,6 +186,9 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			Alerting: &grafanav1alpha1.GrafanaConfigAlerting{
 				Enabled: lo.ToPtr(false),
 			},
+			FeatureToggles: &grafanav1alpha1.GrafanaConfigFeatureToggles{
+				Enable: "accessTokenExpirationCheck panelTitleSearch dashboardPreviews topnav increaseInMemDatabaseQueryCache newPanelChromeUI",
+			},
 		},
 		Deployment: &grafanav1alpha1.GrafanaDeployment{
 			SecurityContext: &corev1.PodSecurityContext{

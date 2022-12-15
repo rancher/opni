@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/jhump/protoreflect/desc"
@@ -15,6 +16,7 @@ import (
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -175,6 +177,23 @@ func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
 	}
 }
 
+type statusOnlyMarshaler struct {
+	runtime.Marshaler
+}
+
+func (m statusOnlyMarshaler) Marshal(v any) ([]byte, error) {
+	if st, ok := v.(*statuspb.Status); ok {
+		return []byte(st.GetMessage()), nil
+	}
+	return m.Marshaler.Marshal(v)
+}
+
+func extensionsErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, r *http.Request, err error) {
+	runtime.DefaultHTTPErrorHandler(ctx, mux, statusOnlyMarshaler{
+		Marshaler: marshaler,
+	}, w, r, err)
+}
+
 func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*managementv1.HTTPRuleDescriptor {
 	httpRule := []*managementv1.HTTPRuleDescriptor{}
 	for _, method := range svc.GetMethods() {
@@ -217,33 +236,55 @@ func newHandler(
 		lg.Debug("handling http request")
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
-		methodDesc := svcDesc.FindMethodByName(rule.Method.GetName())
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+
+		methodDesc := svcDesc.FindMethodByName(rule.Method.GetName())
+		if methodDesc == nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Errorf(codes.Unimplemented, "unknown method %q", rule.Method.GetName()))
+			return
+		}
 
 		rctx, err := runtime.AnnotateContext(ctx, mux, req, methodDesc.GetFullyQualifiedName(), runtime.WithHTTPPathPattern(path))
 		if err != nil {
 			lg.Error(err)
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err) // already a grpc error
 			return
 		}
 
 		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
 		for k, v := range pathParams {
 			if err := decodeAndSetField(reqMsg, k, v); err != nil {
-				lg.Error("failed to decode field", zap.String("field", k), zap.Error(err))
-				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+				lg.With(
+					"key", k,
+					"value", v,
+					zap.Error(err),
+				).Error("failed to decode path parameter")
+				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+					status.Errorf(codes.InvalidArgument, err.Error()))
+				return
 			}
 		}
 		body, err := io.ReadAll(req.Body)
 		req.Body.Close()
 		if err != nil {
 			lg.Error(err)
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Errorf(codes.InvalidArgument, err.Error()))
 			return
 		} else if len(body) > 0 {
 			if err := reqMsg.UnmarshalMergeJSON(body); err != nil {
-				lg.Error(err)
-				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+				lg.With(
+					zap.Error(err),
+					zap.String("body", string(body)),
+				).Error("failed to unmarshal request body")
+				// special case here, make empty string errors more obvious
+				if strings.HasSuffix(err.Error(), "named ") { // note the trailing space
+					err = fmt.Errorf("%w(empty)", err)
+				}
+				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+					status.Errorf(codes.InvalidArgument, "failed to unmarshal request body: %v", err),
+				)
 				return
 			}
 		}
@@ -252,15 +293,28 @@ func newHandler(
 		resp, err := stub.InvokeRpc(rctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 		if err != nil {
-			lg.Error(err)
+			lg.With(
+				zap.Error(err),
+			).Error("rpc error")
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 		d, err := dynamic.AsDynamicMessage(resp)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("bad response message")
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Errorf(codes.Internal, "internal error: bad response message: %v", err))
+		}
 		jsonData, err := d.MarshalJSON()
 		if err != nil {
-			lg.Error(err)
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			lg.With(
+				zap.Error(err),
+			).Error("failed to marshal response")
+
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Errorf(codes.Internal, "internal error: failed to marshal response: %v", err))
 			return
 		}
 		if w.Header().Get("Content-Type") == "" {
@@ -300,7 +354,7 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 	fd := reqMsg.FindFieldDescriptorByJSONName(k)
 	if fd == nil {
-		return fmt.Errorf("field %s does not exist", k)
+		return fmt.Errorf("message %q does not have field %q", reqMsg.GetMessageDescriptor().GetName(), k)
 	}
 	var decoded any
 	var err error
@@ -343,7 +397,11 @@ func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 		decoded, err = runtime.Int64(v)
 	}
 	if err != nil {
-		return err
+		shortTypeName := strings.ToLower(strings.TrimPrefix(fd.GetType().String(), "TYPE_"))
+		return fmt.Errorf("failed to decode value for field %q: could not convert %q to type %s: %w", k, v, shortTypeName, err)
 	}
-	return reqMsg.TrySetField(fd, decoded)
+	if err := reqMsg.TrySetField(fd, decoded); err != nil {
+		return fmt.Errorf("failed to set field %q to value %q: %w", k, v, err)
+	}
+	return nil
 }

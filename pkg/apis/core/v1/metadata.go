@@ -3,6 +3,9 @@ package v1
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Capability[T any] interface {
@@ -85,7 +88,19 @@ func (c *Cluster) SetResourceVersion(version string) {
 	c.Metadata.ResourceVersion = version
 }
 
+func (c *Cluster) SetCreationTimestamp(ts time.Time) {
+	if c.Metadata == nil {
+		c.Metadata = &ClusterMetadata{}
+	}
+	c.Metadata.CreationTimestamp = timestamppb.New(ts)
+}
+
+func (c *Cluster) GetCreationTimestamp() time.Time {
+	return c.GetMetadata().GetCreationTimestamp().AsTime()
+}
+
 type lastKnownConnectionDetailsKeyType struct{}
+
 var lastKnownConnectionDetailsKey lastKnownConnectionDetailsKeyType
 
 func LastKnownConnectionDetailsFromContext(ctx context.Context) (*LastKnownConnectionDetails, bool) {

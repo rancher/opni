@@ -16,6 +16,7 @@ import (
 
 func (s *JetStreamStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
+	cluster.SetCreationTimestamp(time.Now().Truncate(time.Second))
 
 	data, err := protojson.Marshal(cluster)
 	if err != nil {

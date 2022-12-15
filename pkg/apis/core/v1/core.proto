@@ -39,11 +39,14 @@ message Cluster {
 message ClusterMetadata {
   map<string, string> labels = 1;
   repeated ClusterCapability capabilities = 2;
-  
+
   // read-only
   string resourceVersion = 3;
 
   LastKnownConnectionDetails lastKnownConnectionDetails = 4;
+
+  // read-only
+  google.protobuf.Timestamp creationTimestamp = 5;
 }
 
 message LastKnownConnectionDetails {
@@ -85,8 +88,8 @@ message ClusterList {
   repeated Cluster items = 1;
 }
 
-message LabelSelector { 
-  map<string, string> matchLabels = 1; 
+message LabelSelector {
+  map<string, string> matchLabels = 1;
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
 

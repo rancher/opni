@@ -64,13 +64,20 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 						},
 					},
 				}
+				createTimestampLowerBound := time.Now()
 				Eventually(func() error {
 					return ts.CreateCluster(context.Background(), cluster)
 				}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+				createTimestampUpperBound := time.Now()
 				cluster, err := ts.GetCluster(context.Background(), cluster.Reference())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster).NotTo(BeNil())
 				Expect(cluster.Id).To(Equal("foo"))
+				Expect(cluster.GetCreationTimestamp().Unix()).To(And(
+					BeNumerically(">=", createTimestampLowerBound.Unix()),
+					BeNumerically("<=", createTimestampUpperBound.Unix()),
+				))
+				Expect(cluster.GetCreationTimestamp().Nanosecond()).To(Equal(0))
 				Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("bar", "baz"))
 				Expect(cluster.Metadata.Capabilities).To(HaveLen(1))

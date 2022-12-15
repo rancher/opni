@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"time"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -20,6 +21,8 @@ import (
 
 func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
+	cluster.SetCreationTimestamp(time.Now().Truncate(time.Second))
+
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)

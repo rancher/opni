@@ -1362,6 +1362,11 @@
         },
         "lastKnownConnectionDetails": {
           "$ref": "#/definitions/coreLastKnownConnectionDetails"
+        },
+        "creationTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "title": "read-only"
         }
       }
     },

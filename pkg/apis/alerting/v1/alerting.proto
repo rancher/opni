@@ -86,6 +86,7 @@ enum AlertType {
   ControlFlow = 7;
   PrometheusQuery = 9;
   MonitoringBackend = 10;
+  ModelTrainingStatus = 11;
 }
 
 enum CompositionAction {
@@ -137,6 +138,8 @@ message AlertTypeDetails {
     AlertConditionDownstreamCapability downstreamCapability = 10;
     // monitoring backend alerts
     AlertConditionMonitoringBackend monitoringBackend = 11;
+    // model training status alerts
+    AlertConditionModelTrainingStatus modelTrainingStatus = 12;
   }
 }
 
@@ -152,7 +155,18 @@ message ListAlertTypeDetails {
     ListAlertConditionDownstreamCapability downstreamCapability = 8;
     ListAlertConditionPrometheusQuery prometheusQuery = 9;
     ListAlertConditionMonitoringBackend monitoringBackend = 10;
+    ListAlertConditionModelTrainingStatus modelTrainingStatus = 11;
   }
+}
+
+message AlertConditionModelTrainingStatus{
+  // set by the backend
+  core.Reference clusterId = 1;
+  // alert if training hangs for longer than X minutes
+  google.protobuf.Duration hangDuration = 2;
+}
+
+message ListAlertConditionModelTrainingStatus{
 }
 
 message ListAlertConditionPrometheusQuery{
@@ -307,6 +321,7 @@ message AlertConditionMonitoringBackend{
   // this will alert if these any of these components are unhealthy
   repeated string backendComponents = 1;
   google.protobuf.Duration for = 2;
+  // set by the backend
   core.Reference clusterId = 3;
 }
 

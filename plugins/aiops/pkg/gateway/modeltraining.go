@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
@@ -14,9 +15,12 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
+
+const currentTrainingJobKey = "modeltraining.current.job"
 
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
@@ -42,12 +46,28 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
 	}
+	uuid := uuid.New().String()
+	_, err = p.kv.Get().Put(currentTrainingJobKey, []byte(uuid))
+	if err != nil {
+		p.Logger.Warnf("Failed to update current training job key %s", err)
+	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
 	}, nil
 }
 
 func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
+	if in.GetLastReportedUpdate() == nil {
+		in.LastReportedUpdate = timestamppb.Now()
+	}
+	if in.Uuid == "" {
+		curUuid, err := p.kv.Get().Get(currentTrainingJobKey)
+		if err == nil {
+			in.Uuid = string(curUuid.Value())
+		} else {
+			in.Uuid = "undefined"
+		}
+	}
 	jsonParameters, err := protojson.Marshal(in)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)

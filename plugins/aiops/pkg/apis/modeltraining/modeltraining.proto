@@ -3,6 +3,7 @@ option go_package = "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltrainin
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 package modeltraining;
 
@@ -77,6 +78,8 @@ message ModelTrainingStatistics {
   int64 currentEpoch = 4;
   double modelAccuracy = 5;
   string stage = 6;
+  google.protobuf.Timestamp lastReportedUpdate = 7;
+  string uuid = 8;
 }
 
 message WorkloadAggregation {

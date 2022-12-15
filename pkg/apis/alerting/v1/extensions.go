@@ -31,6 +31,7 @@ func init() {
 	EnumConditionToDatasource[AlertType_ControlFlow] = &monitoring
 	EnumConditionToDatasource[AlertType_PrometheusQuery] = &monitoring
 	EnumConditionToDatasource[AlertType_MonitoringBackend] = &system
+	EnumConditionToDatasource[AlertType_ModelTrainingStatus] = &system
 
 	EnumConditionToImplementation[AlertType_System] = AlertTypeDetails{
 		Type: &AlertTypeDetails_System{
@@ -82,6 +83,11 @@ func init() {
 	EnumConditionToImplementation[AlertType_MonitoringBackend] = AlertTypeDetails{
 		Type: &AlertTypeDetails_MonitoringBackend{
 			MonitoringBackend: &AlertConditionMonitoringBackend{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_ModelTrainingStatus] = AlertTypeDetails{
+		Type: &AlertTypeDetails_ModelTrainingStatus{
+			ModelTrainingStatus: &AlertConditionModelTrainingStatus{},
 		},
 	}
 }
@@ -270,4 +276,8 @@ func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]str
 		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
 		"unhealthyThreshold": a.GetFor().String(),
 	}
+}
+
+func (a *AlertConditionModelTrainingStatus) GetTriggerAnnotations() map[string]string {
+	return map[string]string{}
 }

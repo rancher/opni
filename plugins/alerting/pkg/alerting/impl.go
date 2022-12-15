@@ -145,9 +145,11 @@ type internalConditionState struct {
 }
 
 type internalConditionHooks[T proto.Message] struct {
-	healthOnMessage func(h T) (healthy bool, ts *timestamppb.Timestamp)
-	triggerHook     func(ctx context.Context, conditionId string, annotations map[string]string)
-	resolveHook     func(ctx context.Context, conditionId string, annotations map[string]string)
+	healthOnMessage    func(h T) (healthy bool, ts *timestamppb.Timestamp)
+	triggerHook        func(ctx context.Context, conditionId string, annotations map[string]string)
+	resolveHook        func(ctx context.Context, conditionId string, annotations map[string]string)
+	finalizerOnMessage func(msg T) bool
+	finalizerHook      func(ctx context.Context, msg T, conditionId string, annotations map[string]string)
 }
 
 func NewInternalConditionEvaluator[T proto.Message](
@@ -223,6 +225,10 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 			}
 			c.UpdateState(c.evaluationCtx, &incomingState)
 			msg.Ack()
+			if c.finalizerOnMessage(status) {
+				c.finalizerHook(c.evaluationCtx, status, c.conditionId, c.alertmanagerlabels)
+				c.cancelEvaluation()
+			}
 		}
 	}
 }

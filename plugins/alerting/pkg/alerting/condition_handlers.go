@@ -5,17 +5,24 @@
 package alerting
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"strings"
+	"sync"
+	"text/template"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
@@ -23,6 +30,18 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
+
+var modelTrainingTpl *template.Template = template.Must(template.New("model-training").Parse(`
+Model training took {{ .Minutes }} to train over a total number of epochs {{ .Epochs }}.
+
+The final accuracy of the model is {{ .Accuracy }}.
+`))
+
+type modelTrainingInfo struct {
+	Minutes  int64
+	Epochs   int64
+	Accuracy float64
+}
 
 func setupCondition(
 	p *Plugin,
@@ -46,6 +65,13 @@ func setupCondition(
 	}
 	if cs := req.GetAlertType().GetMonitoringBackend(); cs != nil {
 		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName())
+		if err != nil {
+			return nil, err
+		}
+		return &corev1.Reference{Id: newConditionId}, nil
+	}
+	if mt := req.GetAlertType().GetModelTrainingStatus(); mt != nil {
+		err := p.handleModelTrainingStatusAlertCreation(ctx, mt, newConditionId, req.GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -156,6 +182,19 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 	conditionName string,
 ) error {
 	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, k)
+	if err != nil {
+		p.Logger.Errorf("failed to create agent condition %s", err)
+	}
+	return nil
+}
+
+func (p *Plugin) handleModelTrainingStatusAlertCreation(
+	ctx context.Context,
+	k *alertingv1.AlertConditionModelTrainingStatus,
+	newConditionId string,
+	conditionName string,
+) error {
+	err := p.onModelTrainingStatusConditionCreate(newConditionId, conditionName, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -360,6 +399,9 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
 				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
+			finalizerOnMessage: func(h *corev1.ClusterHealthStatus) (done bool) {
+				return false
+			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
 				p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 					ConditionId: &corev1.Reference{Id: conditionId},
@@ -372,6 +414,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 					Annotations: labels,
 				})
 			},
+			finalizerHook: func(ctx context.Context, msg *corev1.ClusterHealthStatus, conditionId string, labels map[string]string) {
+			},
 		},
 	)
 	// handles re-entrant conditions
@@ -382,6 +426,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel()
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -438,6 +483,9 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 				}
 				return healthy, h.HealthStatus.Status.Timestamp
 			},
+			finalizerOnMessage: func(h *corev1.ClusterHealthStatus) (done bool) {
+				return false
+			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 					ConditionId: &corev1.Reference{Id: conditionId},
@@ -450,6 +498,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					Annotations: labels,
 				})
 			},
+			finalizerHook: func(ctx context.Context, msg *corev1.ClusterHealthStatus, conditionId string, labels map[string]string) {
+			},
 		},
 	)
 	// handles re-entrant conditions
@@ -460,6 +510,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel()
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -619,6 +670,9 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
 			},
+			finalizerOnMessage: func(h *cortexadmin.CortexStatus) (done bool) {
+				return false
+			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 					ConditionId: &corev1.Reference{Id: conditionId},
@@ -632,6 +686,8 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 					Annotations: labels,
 				})
 			},
+			finalizerHook: func(ctx context.Context, msg *cortexadmin.CortexStatus, conditionId string, labels map[string]string) {
+			},
 		},
 	)
 	// handles re-entrant conditions
@@ -642,6 +698,136 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel()
+		evaluator.EvaluateLoop()
+	}()
+	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
+		Ctx:    evaluator.evaluationCtx,
+		Cancel: evaluator.cancelEvaluation,
+	})
+	return nil
+}
+func (p *Plugin) onModelTrainingStatusConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionModelTrainingStatus) error {
+	lg := p.Logger.With("onModelTrainingStatusConditionCreate", conditionId)
+	lg.Debugf("received condition update: %v", condition)
+	jsCtx, cancel := context.WithCancel(p.Ctx)
+	lg.Debugf("Creating model training status with hang duration : %s", condition.GetHangDuration().AsDuration())
+
+	lastPercentage := atomic.NewInt64(0)
+
+	evaluator := NewInternalConditionEvaluator(
+		&internalConditionMetadata{
+			conditionId:        conditionId,
+			conditionName:      conditionName,
+			lg:                 lg,
+			clusterId:          "", // unused here
+			alertmanagerlabels: condition.GetTriggerAnnotations(),
+		},
+		&internalConditionContext{
+			parentCtx:        p.Ctx,
+			evaluationCtx:    jsCtx,
+			evaluateInterval: time.Second * 15,
+			cancelEvaluation: cancel,
+			evaluateDuration: condition.GetHangDuration().AsDuration(),
+		},
+		&internalConditionStorage{
+			js:              p.js.Get(),
+			durableConsumer: nil,
+			streamSubject:   NewCortexStatusSubject(),
+			storageNode:     p.storageNode,
+			msgCh:           make(chan *nats.Msg, 32),
+		},
+		&internalConditionState{},
+		&internalConditionHooks[*modeltraining.ModelStatus]{
+			healthOnMessage: func(h *modeltraining.ModelStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				if h.GetStatistics().GetLastReportedUpdate() == nil {
+					h.GetStatistics().LastReportedUpdate = timestamppb.Now()
+				}
+				if lastPercentage.Load() == h.GetStatistics().PercentageCompleted {
+					return false, h.GetStatistics().LastReportedUpdate
+				}
+				lastPercentage.Store(h.GetStatistics().PercentageCompleted)
+				return true, nil
+			},
+			finalizerOnMessage: func(h *modeltraining.ModelStatus) (done bool) {
+				return h.GetStatistics().PercentageCompleted >= 100 || h.GetStatus() == "completed"
+			},
+			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
+			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+				lg.Debug("resolve cortex status condition")
+				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
+					ConditionId: &corev1.Reference{Id: conditionId},
+					Annotations: labels,
+				})
+			},
+			finalizerHook: func(ctx context.Context, finalMsg *modeltraining.ModelStatus, conditionId string, labels map[string]string) {
+				// read condition attached endpoints
+				deets, err := p.GetAlertCondition(ctx, &corev1.Reference{Id: conditionId})
+				if err != nil {
+					lg.Warnf("failed to get alert condition : %s", err)
+					return
+				}
+				endpoints := []*alertingv1.AlertEndpoint{}
+				for _, ep := range deets.GetAttachedEndpoints().GetItems() {
+					endp, err := p.GetAlertEndpoint(ctx, &corev1.Reference{Id: ep.GetEndpointId()})
+					if err != nil {
+						lg.Warnf("oops")
+					}
+					endpoints = append(endpoints, endp)
+				}
+				// read info from finalMsg
+				var b bytes.Buffer
+				modelTrainingTpl.Execute(&b, modelTrainingInfo{
+					Minutes:  finalMsg.Statistics.GetTimeElapsed() / 60,
+					Epochs:   finalMsg.Statistics.GetCurrentEpoch(),
+					Accuracy: finalMsg.Statistics.GetModelAccuracy(),
+				})
+				details := &alertingv1.EndpointImplementation{
+					Title: fmt.Sprintf("Model training done for training job %s", finalMsg.GetStatistics().GetUuid()),
+					Body:  b.String(),
+				}
+				var wg sync.WaitGroup
+				for _, endp := range endpoints {
+					endp := endp // capture in closure
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						dispatcher, err := p.EphemeralDispatcher(ctx, &alertingv1.EphemeralDispatcherRequest{
+							Ttl:      durationpb.New(time.Duration(time.Minute)),
+							Prefix:   "model-training-done",
+							Endpoint: endp,
+							Details:  details,
+						})
+						if err != nil {
+							lg.Warnf("failed to create ephemeral dispatcher : %s", err)
+						} else {
+							p.TriggerAlerts(ctx, dispatcher.TriggerAlertsRequest)
+							p.deleteRoutingNode(ctx, dispatcher.TriggerAlertsRequest.ConditionId.Id, lg)
+						}
+					}()
+				}
+				wg.Wait()
+				_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: conditionId})
+				if err != nil {
+					lg.Warnf("failed to delete alert condition after model training status is done: %s", err)
+				}
+			},
+		},
+	)
+	// handles re-entrant conditions
+	evaluator.CalculateInitialState()
+	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
+		evaluator.SubscriberLoop()
+	}()
+	// spawn a watcher for the incidents
+	go func() {
+		defer cancel()
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{

@@ -134,6 +134,11 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 			Id: upstreamClusterId,
 		}
 	}
+	if mt := req.GetAlertType().GetModelTrainingStatus(); mt != nil {
+		mt.ClusterId = &corev1.Reference{
+			Id: upstreamClusterId,
+		}
+	}
 	if alertingv1.ShouldCreateRoutingNode(req.AttachedEndpoints, nil) {
 		lg.Debug("must create routing node")
 		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId, lg)

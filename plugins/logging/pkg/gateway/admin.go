@@ -410,7 +410,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.8.0-rc1"
+	version := "0.8.0-rc2"
 	if cluster == nil {
 		if util.Version != "unversioned" {
 			version = strings.TrimPrefix(util.Version, "v")
@@ -436,7 +436,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.8.0-rc1"
+		version = "0.8.0-rc2"
 	}
 
 	image := fmt.Sprintf(
@@ -455,8 +455,8 @@ func (p *Plugin) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Requests.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.CPU)
+			if dashboard.Resources.Requests.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.Cpu)
 			}
 			if dashboard.Resources.Requests.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Requests.Memory)
@@ -471,8 +471,8 @@ func (p *Plugin) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Limits.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.CPU)
+			if dashboard.Resources.Limits.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.Cpu)
 			}
 			if dashboard.Resources.Limits.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Limits.Memory)
@@ -711,7 +711,7 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 			resources := &loggingadmin.ResourceRequirements{}
 			if dashboard.Resources.Requests != nil {
 				resources.Requests = &loggingadmin.ComputeResourceQuantities{
-					CPU: func() string {
+					Cpu: func() string {
 						if dashboard.Resources.Requests.Cpu().IsZero() {
 							return ""
 						}
@@ -727,7 +727,7 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 			}
 			if dashboard.Resources.Limits != nil {
 				resources.Requests = &loggingadmin.ComputeResourceQuantities{
-					CPU: func() string {
+					Cpu: func() string {
 						if dashboard.Resources.Limits.Cpu().IsZero() {
 							return ""
 						}

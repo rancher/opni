@@ -5,8 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"syscall"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/cortexproject/cortex/pkg/ruler"
@@ -151,10 +157,22 @@ func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexadmin
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		var e *net.DNSError // net.DNSError is not compatible with errors.Is
+		if errors.As(err, &e) {
+			return nil, status.Error(codes.Internal, err.Error()) // means configuration is unhealthy
+		}
 		return nil, fmt.Errorf("failed to get services status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound ||
+			resp.StatusCode == http.StatusServiceUnavailable ||
+			resp.StatusCode == http.StatusInternalServerError {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
 	list := &cortexadmin.ServiceStatusList{}
@@ -182,10 +200,22 @@ func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexa
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		var e *net.DNSError // net.DNSError is not compatible with errors.Is
+		if errors.As(err, &e) {
+			return nil, status.Error(codes.Internal, err.Error()) //means configuration is unhealthy
+		}
 		return nil, fmt.Errorf("failed to get memberlist status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound ||
+			resp.StatusCode == http.StatusServiceUnavailable ||
+			resp.StatusCode == http.StatusInternalServerError {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
 	contentType := resp.Header.Get("Content-Type")
@@ -233,10 +263,22 @@ func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexadmin.RingSta
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		var e *net.DNSError // net.DNSError is not compatible with errors.Is
+		if errors.As(err, &e) {
+			return nil, status.Error(codes.Internal, err.Error()) // means configuration is unhealthy
+		}
 		return nil, fmt.Errorf("failed to get ring status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound ||
+			resp.StatusCode == http.StatusServiceUnavailable ||
+			resp.StatusCode == http.StatusInternalServerError {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
 	if resp.Header.Get("Content-Type") != "application/json" {

@@ -74,16 +74,18 @@ message AttachedEndpoint {
 }
 
 enum AlertType {
-  SYSTEM = 0;
-  KUBE_STATE = 1;
-  CPU_SATURATION = 2;
-  MEMORY_SATURATION = 3;
-  FS_SATURATION = 4;
+  System = 0;
+  KubeState = 1;
+  CpuSaturation = 2;
+  MemorySaturation = 3;
+  FsSaturation = 4;
+  DownstreamCapability = 5;
   // Unimplemented
-  COMPOSITION = 6;
+  Composition = 6;
   // Unimplemented
-  CONTROL_FLOW = 7;
-  PROMETHEUS_QUERY = 9;
+  ControlFlow = 7;
+  PrometheusQuery = 9;
+  MonitoringBackend = 10;
 }
 
 enum CompositionAction {
@@ -131,6 +133,10 @@ message AlertTypeDetails {
     AlertConditionFilesystemSaturation fs = 8;
     // no golden signal; custom
     AlertConditionPrometheusQuery prometheusQuery = 9;
+    // agent downstream capability alerts
+    AlertConditionDownstreamCapability downstreamCapability = 10;
+    // monitoring backend alerts
+    AlertConditionMonitoringBackend monitoringBackend = 11;
   }
 }
 
@@ -143,7 +149,9 @@ message ListAlertTypeDetails {
     ListAlertConditionCPUSaturation cpu = 5;
     ListAlertConditionMemorySaturation memory = 6;
     ListAlertConditionFilesystemSaturation fs = 7;
-    ListAlertConditionPrometheusQuery prometheusQuery = 8;
+    ListAlertConditionDownstreamCapability downstreamCapability = 8;
+    ListAlertConditionPrometheusQuery prometheusQuery = 9;
+    ListAlertConditionMonitoringBackend monitoringBackend = 10;
   }
 }
 
@@ -279,6 +287,35 @@ message AlertConditionPrometheusQuery{
   core.Reference clusterId = 1;
   string query = 2;
   google.protobuf.Duration for = 3;
+}
+
+message AlertConditionDownstreamCapability{
+  core.Reference clusterId = 1;
+  repeated string capabilityState = 2;
+  google.protobuf.Duration for = 3;
+}
+
+message ListAlertConditionDownstreamCapability{
+  map<string, CapabilityState> clusters = 1; 
+}
+
+message CapabilityState{
+  repeated string states = 1;
+}
+
+message AlertConditionMonitoringBackend{
+  // this will alert if these any of these components are unhealthy
+  repeated string backendComponents = 1;
+  google.protobuf.Duration for = 2;
+  core.Reference clusterId = 3;
+}
+
+message ListAlertConditionMonitoringBackend{
+  repeated string backendComponents = 1;
+}
+
+message StringArray {
+  repeated string items = 1;
 }
 
 message ObjectList {
@@ -526,4 +563,16 @@ message ActiveWindows {
 message CloneToRequest {
   AlertCondition alertCondition = 1;
   repeated string toClusters = 2;
+}
+
+message EphemeralDispatcherRequest {
+  google.protobuf.Duration ttl = 1;
+  int64 numDispatches = 2;
+  string prefix = 3;
+  AlertEndpoint endpoint = 4;
+  EndpointImplementation details = 5;
+}
+
+message EphemeralDispatcherResponse{
+  TriggerAlertsRequest triggerAlertsRequest = 1;
 }

@@ -1,10 +1,10 @@
 load('ext://min_k8s_version', 'min_k8s_version')
-load('ext://cert_manager', 'deploy_cert_manager')
+# load('ext://cert_manager', 'deploy_cert_manager')
 load('ext://namespace', 'namespace_create')
 
 set_team('52cc75cc-c4ed-462f-8ea7-a543d398a381')
 
-version = '0.6.0'
+version = '0.8.0'
 config.define_string_list('allowedContexts')
 config.define_string_list('opniChartValues')
 config.define_string('defaultRegistry')
@@ -14,7 +14,7 @@ cfg = config.parse()
 allow_k8s_contexts(cfg.get('allowedContexts'))
 
 min_k8s_version('1.22')
-deploy_cert_manager(version='v1.8.0')
+# deploy_cert_manager(version='v1.8.0')
 
 namespace_create('opni')
 

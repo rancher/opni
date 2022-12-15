@@ -33,6 +33,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// UI identifier for upstream cluster
+const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
+
 func (p *Plugin) createRoutingNode(
 	ctx context.Context,
 	req *alertingv1.AttachedEndpoints,
@@ -126,6 +129,11 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	if err != nil {
 		return nil, err
 	}
+	if mb := req.GetAlertType().GetMonitoringBackend(); mb != nil {
+		mb.ClusterId = &corev1.Reference{
+			Id: upstreamClusterId,
+		}
+	}
 	if alertingv1.ShouldCreateRoutingNode(req.AttachedEndpoints, nil) {
 		lg.Debug("must create routing node")
 		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId, lg)
@@ -135,21 +143,21 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	} else {
 		lg.Debug("must not create routing node")
 	}
-	if err := p.storageNode.CreateConditionStorage(ctx, newId, req); err != nil {
+	if err := p.storageNode.CreateCondition(ctx, newId, req); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{Id: newId}, nil
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
-	return p.storageNode.GetConditionStorage(ctx, ref.Id)
+	return p.storageNode.GetCondition(ctx, ref.Id)
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	keys, items, err := p.storageNode.ListWithKeyConditionStorage(ctx)
+	keys, items, err := p.storageNode.ListWithKeysConditions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +180,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	lg := p.Logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	conditionId := req.Id.Id
-	existing, err := p.storageNode.GetConditionStorage(ctx, req.Id.Id)
+	existing, err := p.storageNode.GetCondition(ctx, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +212,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 			return nil, err
 		}
 	}
-	if err := p.storageNode.UpdateConditionStorage(ctx, conditionId, req.UpdateAlert); err != nil {
+	if err := p.storageNode.UpdateCondition(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -212,8 +220,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.Logger.With("Handler", "DeleteAlertCondition")
-	lg.Debugf("Deleting alert condition %s", ref.Id)
-	existing, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
+	existing, err := p.storageNode.GetCondition(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -228,18 +235,18 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 			return nil, err
 		}
 	}
-	err = p.storageNode.DeleteConditionStorage(ctx, ref.Id)
+	err = p.storageNode.DeleteCondition(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
+	lg.Debug("Deleted alert condition")
 	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
 	lg := p.Logger.With("handler", "AlertConditionStatus")
-	lg.Debugf("Getting alert condition status %s", ref.Id)
 
-	cond, err := p.storageNode.GetConditionStorage(ctx, ref.Id)
+	cond, err := p.storageNode.GetCondition(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
@@ -247,7 +254,22 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 
 	if a := cond.GetAlertType().GetSystem(); a != nil {
 		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
-		if err != nil {
+		if err != nil || !p.msgNode.IsRunning(ref.Id) {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+	if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
+		_, err := p.mgmtClient.Get().GetCluster(ctx, dc.ClusterId)
+		if err != nil || !p.msgNode.IsRunning(ref.Id) {
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_INVALIDATED,
+			}, nil
+		}
+	}
+	if cc := cond.GetAlertType().GetMonitoringBackend(); cc != nil {
+		if !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
 				State: alertingv1.AlertConditionState_INVALIDATED,
 			}, nil
@@ -356,7 +378,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetConditionStorage(ctx, req.ConditionId.Id)
+	existing, err := p.storageNode.GetCondition(ctx, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +420,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateConditionStorage(ctx, req.ConditionId.Id, newCondition); err != nil {
+	if err := p.storageNode.UpdateCondition(ctx, req.ConditionId.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -413,7 +435,7 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetConditionStorage(ctx, req.Id)
+	existing, err := p.storageNode.GetCondition(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +462,7 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateConditionStorage(ctx, req.Id, newCondition); err != nil {
+	if err := p.storageNode.UpdateCondition(ctx, req.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -460,7 +482,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, conditions, err := p.storageNode.ListWithKeyConditionStorage(ctx)
+	ids, conditions, err := p.storageNode.ListWithKeysConditions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +523,33 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			condition := conditions[idx]
 			if s := condition.GetAlertType().GetSystem(); s != nil {
 				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromAgentIncidentTracker(ctx, ids[idx], start, end)
+				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}
+				addMu.Unlock()
+			}
+			if dc := condition.GetAlertType().GetDownstreamCapability(); dc != nil {
+				// check system tracker
+				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				addMu.Lock()
+				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}
+				addMu.Unlock()
+			}
+			if mb := condition.GetAlertType().GetMonitoringBackend(); mb != nil {
+				// check system tracker
+				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
 				if err != nil {
 					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
 					return

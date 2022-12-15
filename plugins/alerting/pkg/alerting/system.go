@@ -68,14 +68,23 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			drivers.WithManagementClient(client),
 		)
 	})
-	go func() {
-		p.watchGlobalCluster(client)
-	}()
-
-	go func() {
-		p.watchGlobalClusterHealthStatus(client)
-	}()
+	p.UseWatchers(client)
 	<-p.Ctx.Done()
+}
+
+func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
+	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
+	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
+		func() { p.watchGlobalCluster(client, cw) },
+		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
+		func() { p.watchCortexClusterStatus() }
+
+	p.globalWatchers = NewSimpleInternalConditionWatcher(
+		clusterCrud,
+		clusterHealthStatus,
+		cortexBackendStatus,
+	)
+	p.globalWatchers.WatchEvents()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -86,9 +95,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	)
 	p.storageNode = alertstorage.NewStorageNode(
 		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions:           system.NewKVStoreClient[*alertingv1.AlertCondition](client),
-			Endpoints:            system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
-			SystemTrackerStorage: future.New[nats.KeyValue](),
+			Conditions:      system.NewKVStoreClient[*alertingv1.AlertCondition](client),
+			Endpoints:       system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
+			IncidentStorage: future.New[nats.KeyValue](),
+			StateStorage:    future.New[nats.KeyValue](),
 		}),
 	)
 
@@ -113,25 +123,35 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		panic(err)
 	}
-	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.AgentDisconnectBucket,
-		Description: "track system agent status updates",
+	p.js.Set(mgr)
+	incidentKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.GeneralIncidentStorage,
+		Description: "track internal incident changes over time for each condition id",
 		Storage:     nats.FileStorage,
 	})
 	if err != nil {
 		panic(err)
 	}
-	p.storageNode.SetSystemTrackerStorage(kv)
+	statusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      shared.StatusBucketPerCondition,
+		Description: "track last known internal status for each condition id",
+		Storage:     nats.FileStorage,
+	})
+	if err != nil {
+		panic(err)
+	}
+	p.storageNode.SetIncidentStorage(incidentKv)
+	p.storageNode.SetConditionStatusStorage(statusKv)
 	// spawn a reindexing task
 	go func() {
-		p.restartAgentDisconnectTrackers()
+		p.reindexAlarms()
 	}()
 	<-p.Ctx.Done()
 }
 
-func (p *Plugin) restartAgentDisconnectTrackers() {
-	lg := p.Logger.With("re-indexing", "agent-disconnect-trackers")
-	ids, conds, err := p.storageNode.ListWithKeyConditionStorage(p.Ctx)
+func (p *Plugin) reindexAlarms() {
+	lg := p.Logger.With("re-indexing", "in-progress")
+	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
 		return
@@ -140,7 +160,8 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 		if s := conds[i].GetAlertType().GetSystem(); s != nil {
 			// this checks that we won't crash when importing existing conditions from versions < 0.6
 			if s.GetClusterId() != nil && s.GetTimeout() != nil {
-				p.onSystemConditionCreate(id, s)
+				lg.Debug("re-indexing agent disconnect")
+				p.onSystemConditionCreate(id, conds[i].Name, s)
 			} else {
 				// delete invalid conditions that won't do anything
 				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})
@@ -149,44 +170,29 @@ func (p *Plugin) restartAgentDisconnectTrackers() {
 				}
 			}
 		}
+		if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
+			lg.Debug("re-indexing downstream capability")
+			p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
+		}
+		if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
+			lg.Debug("re-indexing monitoring backend")
+			p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
+		}
 	}
-	lg.Info("re-indexing complete")
+	lg.Info("re-indexing alarms complete")
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-	go func() {
-		for {
-			breakOut := false
-			ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
-			if err != nil {
-				p.Logger.Errorf("alerting failed to get cortex admin client conn %s", err)
-				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
-				UnregisterDatasource(shared.MonitoringDatasource)
-			} else {
-				adminClient := cortexadmin.NewCortexAdminClient(ccCortexAdmin)
-				p.adminClient.Set(adminClient)
-				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.Logger))
-			}
-
-			ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
-			if err != nil {
-				p.Logger.Errorf("alerting failed to get cortex ops client conn %s", err)
-				p.cortexOpsClient = future.New[cortexops.CortexOpsClient]()
-			} else {
-				opsClient := cortexops.NewCortexOpsClient(ccCortexOps)
-				p.cortexOpsClient.Set(opsClient)
-			}
-
-			select {
-			case <-p.Ctx.Done():
-				breakOut = true
-			default:
-				continue
-			}
-			if breakOut {
-				break
-			}
-			time.Sleep(ApiExtensionBackoff)
-		}
-	}()
+	ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get cortex admin client")
+		os.Exit(1)
+	}
+	p.adminClient.Set(cortexadmin.NewCortexAdminClient(ccCortexAdmin))
+	ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get cortex ops client")
+		os.Exit(1)
+	}
+	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(ccCortexOps))
 }

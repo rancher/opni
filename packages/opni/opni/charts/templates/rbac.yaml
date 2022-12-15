@@ -517,6 +517,7 @@ rules:
   - patch
   - update
   - watch
+  - deletecollection
 - apiGroups:
   - monitoring.coreos.com
   resources:

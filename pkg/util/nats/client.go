@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -164,6 +165,22 @@ func NewPersistentStream(mgr nats.JetStreamContext, streamConfig *nats.StreamCon
 	if stream, _ := mgr.StreamInfo(streamConfig.Name); stream == nil {
 		_, err := mgr.AddStream(streamConfig)
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewDurableReplayConsumer(mgr nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
+	if consumerConfig.Durable == "" {
+		return fmt.Errorf("consumer config must be durable")
+	}
+	if consumerConfig.ReplayPolicy != nats.ReplayInstantPolicy {
+		return fmt.Errorf("consumer config must be replay instant policy")
+	}
+	if _, err := mgr.ConsumerInfo(streamName, consumerConfig.Durable); err != nil {
+		_, err := mgr.AddConsumer(streamName, consumerConfig)
+		if err != nats.ErrConsumerNameAlreadyInUse {
 			return err
 		}
 	}

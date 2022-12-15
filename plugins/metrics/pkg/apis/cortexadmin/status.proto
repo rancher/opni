@@ -1,5 +1,7 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin";
+import "google/protobuf/timestamp.proto";
+
 
 package cortexadmin;
 
@@ -12,6 +14,7 @@ message CortexStatus {
   StoreGatewayStatus storeGateway = 6;
   QueryFrontendStatus queryFrontend = 7;
   QuerierStatus querier = 8;
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 // Status of an individual cortex service (module)

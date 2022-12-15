@@ -30,6 +30,18 @@ func (s ConditionStatus) String() string {
 	return ""
 }
 
+func ConditionStatusStrToEnum(status string) (ConditionStatus, error) {
+	switch status {
+	case "Pending":
+		return StatusPending, nil
+	case "Failure":
+		return StatusFailure, nil
+	case "Disabled":
+		return StatusDisabled, nil
+	}
+	return 0, fmt.Errorf("unknown condition status %s", status)
+}
+
 const (
 	CondConfigSync = "config Sync"
 	CondBackend    = "Backend"

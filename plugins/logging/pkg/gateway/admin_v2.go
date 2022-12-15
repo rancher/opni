@@ -166,6 +166,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	if cluster.GetDataNodes() == nil {
 		return &emptypb.Empty{}, errors.ErrMissingDataNode()
 	}
+
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
@@ -234,7 +235,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 			return nil, err
 		}
 
-		go m.opensearchManager.CreateInitialAdmin(password)
+		go m.opensearchManager.CreateInitialAdmin(password, m.opensearchClusterReady)
 
 		return &emptypb.Empty{}, nil
 	}
@@ -565,6 +566,11 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 		return
 	}
 
+	if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) < 1 {
+		retErr = errors.ErrReplicasZero("data")
+		return
+	}
+
 	initialPool := opsterv1.NodePool{
 		Component: "data",
 		Replicas:  lo.FromPtrOr(cluster.DataNodes.Replicas, 1),
@@ -583,6 +589,12 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 			return nil
 		}(),
 		Persistence: convertPersistence(cluster.GetDataNodes().GetPersistence()),
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+		},
 	}
 
 	var extraControlPlanePool, splitPool bool
@@ -594,7 +606,7 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 	}
 	if cluster.GetControlplaneNodes() == nil {
 		roles = append(roles, "master")
-		if lo.FromPtrOr(cluster.DataNodes.Replicas, 1)%2 == 0 {
+		if lo.FromPtrOr(cluster.DataNodes.Replicas, 1)%2 == 0 || lo.FromPtrOr(cluster.DataNodes.Replicas, 1) < 3 {
 			extraControlPlanePool = true
 		}
 		if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) > 5 {
@@ -616,7 +628,14 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 	}
 
 	if extraControlPlanePool {
-		resources, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+		_, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+			Request: "100m",
+		})
+		if err != nil {
+			retErr = err
+			return
+		}
+		resources, _, err := generateK8sResources("640Mi", &loggingadmin.CPUResource{
 			Request: "100m",
 		})
 		if err != nil {
@@ -626,8 +645,8 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 		cpPool := opsterv1.NodePool{
 			Component: "quorum",
 			Replicas: func() int32 {
-				if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) == 1 {
-					return 2
+				if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) < 3 {
+					return 3 - lo.FromPtrOr(cluster.DataNodes.Replicas, 1)
 				}
 				return 1
 			}(),
@@ -648,6 +667,16 @@ func (m *LoggingManagerV2) generateNodePools(cluster *loggingadmin.OpensearchClu
 				}
 				return nil
 			}(),
+			Env: []corev1.EnvVar{
+				{
+					Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+					Value: "true",
+				},
+				{
+					Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+					Value: "true",
+				},
+			},
 		}
 		pools = append(pools, cpPool)
 	}
@@ -695,19 +724,25 @@ func generateK8sResources(memoryLimit string, cpu *loggingadmin.CPUResource) (co
 	}
 
 	if cpu != nil {
+		var request, limit resource.Quantity
 		if cpu.Request != "" {
-			request, err := resource.ParseQuantity(cpu.Request)
+			request, err = resource.ParseQuantity(cpu.Request)
 			if err != nil {
 				return corev1.ResourceRequirements{}, "", err
 			}
 			resources.Requests[corev1.ResourceCPU] = request
 		}
 		if cpu.Limit != "" {
-			limit, err := resource.ParseQuantity(cpu.Limit)
+			limit, err = resource.ParseQuantity(cpu.Limit)
 			if err != nil {
 				return corev1.ResourceRequirements{}, "", err
 			}
 			resources.Limits[corev1.ResourceCPU] = limit
+		}
+		if cpu.Request != "" && cpu.Limit != "" {
+			if request.Cmp(limit) > 0 {
+				return corev1.ResourceRequirements{}, "", errors.ErrRequestGtLimits()
+			}
 		}
 	}
 	jvm := fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal)
@@ -774,6 +809,10 @@ func (m *LoggingManagerV2) convertIngestDetails(details *loggingadmin.IngestDeta
 		return opsterv1.NodePool{}, err
 	}
 
+	if lo.FromPtrOr(details.Replicas, 1) < 1 {
+		return opsterv1.NodePool{}, errors.ErrReplicasZero("ingest")
+	}
+
 	return opsterv1.NodePool{
 		Component: "ingest",
 		Roles: []string{
@@ -799,11 +838,30 @@ func (m *LoggingManagerV2) convertIngestDetails(details *loggingadmin.IngestDeta
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+		},
 	}, nil
 }
 
 func (m *LoggingManagerV2) convertControlplaneDetails(details *loggingadmin.ControlplaneDetails) (opsterv1.NodePool, error) {
-	resources, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+	_, jvm, err := generateK8sResources("512Mi", &loggingadmin.CPUResource{
+		Request: "100m",
+	})
+	if err != nil {
+		return opsterv1.NodePool{}, err
+	}
+
+	if lo.FromPtrOr(details.Replicas, 1) < 1 {
+		return opsterv1.NodePool{}, errors.ErrReplicasZero("controlplane")
+	}
+
+	// Give the controlplane nodes slightly more memory that double the jvm
+	// testing has shown the GC can spike at lower memory levels
+	resources, _, err := generateK8sResources("640Mi", &loggingadmin.CPUResource{
 		Request: "100m",
 	})
 	if err != nil {
@@ -826,6 +884,16 @@ func (m *LoggingManagerV2) convertControlplaneDetails(details *loggingadmin.Cont
 		Tolerations:  convertTolerations(details.Tolerations),
 		Affinity:     m.generateAntiAffinity("controlplane"),
 		Persistence:  convertPersistence(details.Persistence),
+		Env: []corev1.EnvVar{
+			{
+				Name:  "DISABLE_INSTALL_DEMO_CONFIG",
+				Value: "true",
+			},
+			{
+				Name:  "DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI",
+				Value: "true",
+			},
+		},
 	}, nil
 }
 
@@ -836,6 +904,42 @@ func (m *LoggingManagerV2) validDurationString(duration string) bool {
 		return false
 	}
 	return match
+}
+
+func (m *LoggingManagerV2) opensearchClusterReady() bool {
+	ctx := context.TODO()
+	expBackoff := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(5*time.Second),
+		backoff.WithMaxInterval(1*time.Minute),
+		backoff.WithMultiplier(1.1),
+	)
+	b := expBackoff.Start(ctx)
+
+	cluster := &opsterv1.OpenSearchCluster{}
+
+FETCH:
+	for {
+		select {
+		case <-b.Done():
+			m.logger.Warn("plugin context cancelled before Opensearch object created")
+			return true
+		case <-b.Next():
+			err := m.k8sClient.Get(ctx, types.NamespacedName{
+				Name:      m.opensearchCluster.Name,
+				Namespace: m.storageNamespace,
+			}, cluster)
+			if err != nil {
+				m.logger.Error("failed to fetch opensearch cluster, can't check readiness")
+				return true
+			}
+			if !cluster.Status.Initialized {
+				continue
+			}
+			break FETCH
+		}
+	}
+	return false
 }
 
 func (m *LoggingManagerV2) setOpensearchClient() *opensearch.Client {
@@ -867,10 +971,6 @@ FETCH:
 					continue
 				}
 				m.logger.Errorf("failed to check k8s object: %v", err)
-				continue
-			}
-			if !cluster.Status.Initialized {
-				m.logger.Info("waiting for cluster to be initialized")
 				continue
 			}
 			break FETCH
@@ -927,7 +1027,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.6.3"
+	version := "0.8.0-rc2"
 	if cluster == nil {
 		osVersion = opensearchVersion
 	} else {
@@ -944,7 +1044,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.6.3"
+		version = "0.8.0-rc2"
 	}
 
 	if m.versionOverride != "" {
@@ -967,8 +1067,8 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Requests.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.CPU)
+			if dashboard.Resources.Requests.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.Cpu)
 			}
 			if dashboard.Resources.Requests.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Requests.Memory)
@@ -983,8 +1083,8 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 				return nil
 			}
 			list := corev1.ResourceList{}
-			if dashboard.Resources.Limits.CPU != "" {
-				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.CPU)
+			if dashboard.Resources.Limits.Cpu != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.Cpu)
 			}
 			if dashboard.Resources.Limits.Memory != "" {
 				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Limits.Memory)

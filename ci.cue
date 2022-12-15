@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/images"
 )
 
-opniVersion: "0.8.0-rc1"
+opniVersion: "0.8.0-rc2"
 
 dagger.#Plan & {
 	client: {
@@ -560,6 +560,11 @@ dagger.#Plan & {
 								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(client.env.PLUGIN_VERSION)/opnijsondetector.zip",
 							]
 						}
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "images/opensearch/entrypoint.sh"
+						dest:     "/usr/share/opensearch/opensearch-docker-entrypoint.sh"
 					},
 				]
 			}

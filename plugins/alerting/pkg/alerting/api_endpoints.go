@@ -29,7 +29,7 @@ func unredactSecrets(
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {
-	unredacted, err := node.GetEndpointStorage(ctx, endpointId)
+	unredacted, err := node.GetEndpoint(ctx, endpointId)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertE
 		return nil, err
 	}
 	newId := uuid.New().String()
-	if err := p.storageNode.CreateEndpointsStorage(ctx, newId, req); err != nil {
+	if err := p.storageNode.CreateEndpoint(ctx, newId, req); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{
@@ -51,7 +51,7 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertE
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertEndpoint, error) {
-	endp, err := p.storageNode.GetEndpointStorage(ctx, ref.Id)
+	endp, err := p.storageNode.GetEndpoint(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +61,10 @@ func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
-	if err := req.Validate(); err != nil {
+	if err := unredactSecrets(ctx, p.storageNode, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
-	if err := unredactSecrets(ctx, p.storageNode, req.Id.Id, req.GetUpdateAlert()); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 	// List relationships
@@ -93,7 +93,7 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 			return nil, err
 		}
 	}
-	if err := p.storageNode.UpdateEndpointStorage(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
+	if err := p.storageNode.UpdateEndpoint(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
 	return &alertingv1.InvolvedConditions{
@@ -108,7 +108,7 @@ func (p *Plugin) adminListAlertEndpoints(
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, endpoints, err := p.storageNode.ListWithKeyEndpointStorage(ctx)
+	ids, endpoints, err := p.storageNode.ListWithKeysEndpoints(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, endpoints, err := p.storageNode.ListWithKeyEndpointStorage(ctx)
+	ids, endpoints, err := p.storageNode.ListWithKeysEndpoints(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 		}
 	}
 
-	if err := p.storageNode.DeleteEndpointStorage(ctx, req.Id.Id); err != nil {
+	if err := p.storageNode.DeleteEndpoint(ctx, req.Id.Id); err != nil {
 		return nil, err
 	}
 
@@ -188,10 +188,6 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	// - Create dummy Endpoint id
-	dummyConditionId := "test-" + uuid.New().String()
-	dummyEndpointId := "test-" + uuid.New().String()
-	lg.Debugf("dummy id : %s", dummyConditionId)
 	var typeName string
 	if s := req.Endpoint.GetSlack(); s != nil {
 		typeName = "slack"
@@ -199,31 +195,23 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	if e := req.Endpoint.GetEmail(); e != nil {
 		typeName = "email"
 	}
-	if typeName == "" {
-		typeName = "unknwon"
+	if pg := req.Endpoint.GetPagerDuty(); pg != nil {
+		typeName = "pagerduty"
 	}
-
+	if typeName == "" {
+		typeName = "unknown"
+	}
 	details := &alertingv1.EndpointImplementation{
 		Title: fmt.Sprintf("Test Alert - %s (%s)", typeName, time.Now().Format("2006-01-02T15:04:05 -07:00:00")),
 		Body:  "Opni-alerting is sending you a test alert",
 	}
-
-	createImpl := &alertingv1.RoutingNode{
-		ConditionId: &corev1.Reference{Id: dummyConditionId}, // is used as a unique identifier
-		FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
-			InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
-			Items: []*alertingv1.FullAttachedEndpoint{
-				{
-					EndpointId:    dummyEndpointId,
-					AlertEndpoint: req.Endpoint,
-					Details:       details,
-				},
-			},
-			Details: details,
-		},
-	}
-	// create condition routing node
-	_, err := p.CreateConditionRoutingNode(ctx, createImpl)
+	triggerReq, err := p.EphemeralDispatcher(ctx, &alertingv1.EphemeralDispatcherRequest{
+		Prefix:        "test",
+		Ttl:           durationpb.New(time.Duration(time.Second * 60)),
+		NumDispatches: 10,
+		Endpoint:      req.Endpoint,
+		Details:       details,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +220,8 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 		go func() {
 			time.Sleep(time.Second * 30)
 			// can't use request context here because it will be cancelled
-			_, err := p.DeleteConditionRoutingNode(context.Background(), &corev1.Reference{Id: dummyConditionId})
+			_, err := p.DeleteConditionRoutingNode(context.Background(),
+				triggerReq.TriggerAlertsRequest.ConditionId)
 			if err != nil {
 				lg.Errorf("failed to delete dummy condition node : %v", err)
 			}
@@ -248,21 +237,18 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	if err != nil {
 		return nil, err
 	}
+	// need to trigger multiple alerts here, a reload can cause a context.Cancel()
+	// to any pending post requests, resulting in the alert never being sent
 	apiNode := backend.NewAlertManagerPostAlertClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(lg),
-		backend.WithPostAlertBody(dummyConditionId, nil),
+		backend.WithPostAlertBody(triggerReq.TriggerAlertsRequest.ConditionId.GetId(), nil),
 		backend.WithDefaultRetrier(),
 		backend.WithExpectClosure(backend.NewExpectStatusCodes([]int{200, 422})))
-	// need to trigger multiple alerts here, a reload can cause a context.Cancel()
-	// to any pending post requests, resulting in the alert never being sent
-	for i := 0; i < 5; i++ {
-		err = apiNode.DoRequest()
-		if err != nil {
-			lg.Errorf("Failed to post alert to alertmanager : %s", err)
-		}
-		time.Sleep(time.Second * 1)
+	err = apiNode.DoRequest()
+	if err != nil {
+		lg.Errorf("Failed to post alert to alertmanager : %s", err)
 	}
 
 	return &alertingv1.TestAlertEndpointResponse{}, nil
@@ -491,4 +477,39 @@ func (p *Plugin) DeleteIndividualEndpointInRoutingNode(ctx context.Context, refe
 	wg.Wait()
 
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) EphemeralDispatcher(ctx context.Context, req *alertingv1.EphemeralDispatcherRequest) (*alertingv1.EphemeralDispatcherResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	ephemeralId := uuid.New().String()
+	ephemeralId = req.GetPrefix() + "-" + ephemeralId
+
+	createImpl := &alertingv1.RoutingNode{
+		ConditionId: &corev1.Reference{Id: ephemeralId}, // is used as a unique identifier
+		FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
+			InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
+			Items: []*alertingv1.FullAttachedEndpoint{
+				{
+					EndpointId:    ephemeralId,
+					AlertEndpoint: req.GetEndpoint(),
+					Details:       req.GetDetails(),
+				},
+			},
+			Details: req.GetDetails(),
+		},
+	}
+	// create condition routing node
+	_, err := p.CreateConditionRoutingNode(ctx, createImpl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &alertingv1.EphemeralDispatcherResponse{
+		TriggerAlertsRequest: &alertingv1.TriggerAlertsRequest{
+			ConditionId: &corev1.Reference{Id: ephemeralId},
+			Annotations: map[string]string{},
+		},
+	}, nil
 }

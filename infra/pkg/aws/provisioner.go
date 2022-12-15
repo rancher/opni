@@ -73,7 +73,13 @@ func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.M
 		return nil, err
 	}
 
-	lbHostname := eks.Cluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
+	eksK8sProvider, err := kubernetes.NewProvider(ctx, "eks-k8s", &kubernetes.ProviderArgs{
+		Kubeconfig: eks.Cluster.KubeconfigJson,
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	lbHostname := eksK8sProvider.ToProviderOutput().ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
 		namespace, err := p.buildNamespace(ctx, k)
 		if err != nil {
 			return StringOutput{}, err
@@ -105,7 +111,7 @@ func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.M
 	}
 
 	return &resources.MainClusterOutput{
-		Provider:             eks.Cluster.Provider,
+		Provider:             eksK8sProvider.ToProviderOutput(),
 		Kubeconfig:           eks.Cluster.Kubeconfig,
 		GrafanaHostname:      p.dns.GrafanaFqdn,
 		OpensearchHostname:   p.dns.OpensearchFqdn,

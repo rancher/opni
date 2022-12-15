@@ -43,7 +43,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging"
-		version = "0.8.0-rc3"
+		version = "0.8.0-rc4"
 		opensearchVersion = "2.4.0"
 
 		request = &loggingadmin.OpensearchCluster{
@@ -127,7 +127,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.8.0-rc3"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.4.0-0.8.0-rc4"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -234,7 +234,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 				nodePool.Jvm = fmt.Sprintf("-Xmx%d -Xms%d", 2*giBytes, 2*giBytes)
 				nodePool.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("4Gi")
 				nodePool.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("4Gi")
-				version = "0.8.0-rc3"
+				version = "0.8.0-rc4"
 			})
 			It("should succeed and update the cluster, excluding the version", func() {
 				_, err := plugin.CreateOrUpdateOpensearchCluster(context.Background(), request)
@@ -250,7 +250,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					return reflect.DeepEqual(object.Spec.NodePools[0], nodePool)
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.8.0-rc3"))
+				Expect(object.Spec.Version).To(Equal("0.8.0-rc4"))
 			})
 		})
 		Specify("check upgrade available should return false", func() {
@@ -260,10 +260,10 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		})
 		XWhen("new version is available", func() {
 			BeforeEach(func() {
-				version = "0.8.0-rc3"
+				version = "0.8.0-rc4"
 			})
 			Specify("upgrade available should return true", func() {
-				Expect(version).To(Equal("0.8.0-rc3"))
+				Expect(version).To(Equal("0.8.0-rc4"))
 				response, err := plugin.UpgradeAvailable(context.Background(), nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.UpgradePending).To(BeTrue())

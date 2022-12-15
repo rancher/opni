@@ -2,6 +2,7 @@ package patch_test
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/spf13/afero"
 )
 
 type optype = controlv1.PatchOp
@@ -39,8 +41,6 @@ const (
 	v2 = "v2"
 )
 
-var defaultDir = new(string)
-
 type editFunc = func(*controlv1.PatchSpec)
 
 func op(ot optype, plugin string, version string, opts ...any) (retVal *controlv1.PatchSpec) {
@@ -56,8 +56,8 @@ func op(ot optype, plugin string, version string, opts ...any) (retVal *controlv
 		return &controlv1.PatchSpec{
 			Op:        controlv1.PatchOp_Create,
 			Module:    testModules[plugin],
-			Data:      testutil.Must(os.ReadFile(*testBinaries[plugin][version])),
-			NewDigest: b2sum(*testBinaries[plugin][version]),
+			Data:      testBinaries[plugin][version],
+			NewDigest: testBinaryDigests[plugin][version],
 			Filename:  plugin,
 		}
 	case update:
@@ -65,23 +65,23 @@ func op(ot optype, plugin string, version string, opts ...any) (retVal *controlv
 			Op:        controlv1.PatchOp_Update,
 			Module:    testModules[plugin],
 			Data:      testPatches[plugin].Bytes(),
-			OldDigest: b2sum(*testBinaries[plugin][version]),
-			NewDigest: b2sum(*testBinaries[plugin][opts[0].(string)]),
+			OldDigest: testBinaryDigests[plugin][version],
+			NewDigest: testBinaryDigests[plugin][opts[0].(string)],
 			Filename:  plugin,
 		}
 	case remove:
 		return &controlv1.PatchSpec{
 			Op:        controlv1.PatchOp_Remove,
 			Module:    testModules[plugin],
-			OldDigest: b2sum(*testBinaries[plugin][version]),
+			OldDigest: testBinaryDigests[plugin][version],
 			Filename:  plugin,
 		}
 	case rename:
 		return &controlv1.PatchSpec{
 			Op:        controlv1.PatchOp_Rename,
 			Module:    testModules[plugin],
-			OldDigest: b2sum(*testBinaries[plugin][version]),
-			NewDigest: b2sum(*testBinaries[plugin][version]),
+			OldDigest: testBinaryDigests[plugin][version],
+			NewDigest: testBinaryDigests[plugin][version],
 			Filename:  opts[0].(string),
 			Data:      []byte(opts[1].(string)),
 		}
@@ -89,25 +89,44 @@ func op(ot optype, plugin string, version string, opts ...any) (retVal *controlv
 	panic("invalid operation")
 }
 
+func newFs(mkdirs ...string) afero.Afero {
+	fsys := afero.Afero{
+		Fs: test.NewModeAwareMemFs(),
+	}
+	fsys.Chmod("/", 0o777)
+	for _, dir := range mkdirs {
+		if err := fsys.MkdirAll(dir, 0o777); err != nil {
+			panic("test bug: " + err.Error())
+		}
+	}
+	fsys.Mkdir("/tmp", 0o777)
+	fsys.Mkdir("/tmp/testbin", 0o777)
+
+	for name, v := range testBinaries {
+		for version, contents := range v {
+			if err := fsys.WriteFile(fmt.Sprintf("/tmp/testbin/%s%s", name, version), contents, 0o777); err != nil {
+				panic("test bug: " + err.Error())
+			}
+		}
+	}
+	return afero.Afero{Fs: fsys}
+}
+
 var _ = Describe("Client", func() {
 	When("creating a new patch client", func() {
 		It("should create the default plugin directory if it does not exist yet", func() {
-			tempDir, err := os.MkdirTemp("", "opni-pkg-cache-test")
-			Expect(err).NotTo(HaveOccurred())
+			fsys := newFs("/plugins")
 			conf := v1beta1.PluginsSpec{
-				Dir: path.Join(tempDir, "plugins"),
+				Dir: "/plugins",
 			}
-			DeferCleanup(func() {
-				os.RemoveAll(tempDir)
-			})
 
-			_, err = patch.NewPatchClient(conf, test.Log)
+			_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = os.Stat(conf.Dir)
+			_, err = fsys.Stat(conf.Dir)
 			Expect(err).NotTo(HaveOccurred())
 
-			entries, err := os.ReadDir(conf.Dir)
+			entries, err := fsys.ReadDir(conf.Dir)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(entries).To(BeEmpty())
 		})
@@ -120,39 +139,27 @@ var _ = Describe("Client", func() {
 		})
 		When("the directory is not writable", func() {
 			It("should return an error", func() {
-				tempDir, err := os.MkdirTemp("", "opni-pkg-cache-test")
-				Expect(err).NotTo(HaveOccurred())
+				fs := newFs("/plugins")
 				conf := v1beta1.PluginsSpec{
-					Dir: path.Join(tempDir, "plugins"),
+					Dir: "/plugins/foo",
 				}
-				DeferCleanup(func() {
-					Expect(os.Chmod(tempDir, 0o755)).To(Succeed())
-					Expect(os.RemoveAll(tempDir)).To(Succeed())
-				})
 
-				err = os.Chmod(tempDir, 0o555)
-				Expect(err).NotTo(HaveOccurred())
+				fs.Chmod("/plugins", 0555)
 
-				_, err = patch.NewPatchClient(conf, test.Log)
+				_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fs))
 				Expect(err).To(MatchError(ContainSubstring("failed to create")))
 			})
 		})
 		When("the directory is not readable", func() {
 			It("should return an error", func() {
-				tempDir, err := os.MkdirTemp("", "opni-pkg-cache-test")
-				Expect(err).NotTo(HaveOccurred())
+				fs := newFs("/plugins")
 				conf := v1beta1.PluginsSpec{
-					Dir: path.Join(tempDir, "plugins"),
+					Dir: "/plugins/foo",
 				}
-				DeferCleanup(func() {
-					Expect(os.Chmod(tempDir, 0o755)).To(Succeed())
-					Expect(os.RemoveAll(tempDir)).To(Succeed())
-				})
 
-				err = os.Chmod(tempDir, 0)
-				Expect(err).NotTo(HaveOccurred())
+				fs.Chmod("/plugins", 0)
 
-				_, err = patch.NewPatchClient(conf, test.Log)
+				_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fs))
 				Expect(err).To(MatchError(ContainSubstring("failed to stat")))
 			})
 		})
@@ -160,20 +167,15 @@ var _ = Describe("Client", func() {
 	When("patching from a plugin archive", Ordered, func() {
 		var conf v1beta1.PluginsSpec
 		var client patch.PatchClient
+		var fsys afero.Afero
 		BeforeAll(func() {
-			tempDir, err := os.MkdirTemp("", "opni-pkg-cache-test")
-			Expect(err).NotTo(HaveOccurred())
+			fsys = newFs("/plugins")
+			var err error
 			conf = v1beta1.PluginsSpec{
-				Dir: path.Join(tempDir, "plugins"),
+				Dir: "/plugins",
 			}
-			DeferCleanup(func() {
-				os.RemoveAll(tempDir)
-			})
-
-			client, err = patch.NewPatchClient(conf, test.Log)
+			client, err = patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
-
-			*defaultDir = conf.Dir
 		})
 		When("receiving a create operation", func() {
 			It("should write the plugin to the default directory", func() {
@@ -185,14 +187,14 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = os.Stat(conf.Dir)
+				_, err = fsys.Stat(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))
 				Expect(entries[0].Name()).To(Equal("test1"))
-				Expect(b2sum(path.Join(conf.Dir, entries[0].Name()))).To(Equal(patches.Items[0].NewDigest))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[0].Name()))).To(Equal(patches.Items[0].NewDigest))
 			})
 		})
 		When("receiving an update operation", func() {
@@ -205,14 +207,14 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = os.Stat(conf.Dir)
+				_, err = fsys.Stat(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))
 				Expect(entries[0].Name()).To(Equal("test1"))
-				Expect(b2sum(path.Join(conf.Dir, entries[0].Name()))).To(Equal(patches.Items[0].NewDigest))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[0].Name()))).To(Equal(patches.Items[0].NewDigest))
 			})
 		})
 		When("receiving a no-op operation", func() {
@@ -230,16 +232,16 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))
 				Expect(entries[0].Name()).To(Equal("test1"))
-				Expect(testutil.Must(entries[0].Info()).ModTime()).To(BeTemporally("<", testStart))
+				Expect(testutil.Must(entries[0].ModTime())).To(BeTemporally("<", testStart))
 			})
 		})
 		When("receiving a rename operation", func() {
 			It("should rename the plugin", func() {
-				sum := b2sum(*test1v2BinaryPath)
+				sum := testBinaryDigests[test1][v2]
 				patches := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
 						op(rename, test1, v2, "test1", "renamed1"),
@@ -248,14 +250,14 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = os.Stat(conf.Dir)
+				_, err = fsys.Stat(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))
 				Expect(entries[0].Name()).To(Equal("renamed1"))
-				Expect(b2sum(path.Join(conf.Dir, entries[0].Name()))).To(Equal(sum))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[0].Name()))).To(Equal(sum))
 			})
 		})
 		When("receiving a remove operation", func() {
@@ -265,7 +267,7 @@ var _ = Describe("Client", func() {
 						{
 							Op:        controlv1.PatchOp_Remove,
 							Module:    test1Module,
-							OldDigest: b2sum(*test1v2BinaryPath),
+							OldDigest: testBinaryDigests[test1][v2],
 							Filename:  "renamed1",
 						},
 					},
@@ -273,10 +275,10 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = os.Stat(conf.Dir)
+				_, err = fsys.Stat(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(0))
 			})
@@ -296,13 +298,13 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err := os.ReadDir(conf.Dir)
+				entries, err := fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(2))
 				Expect(entries[0].Name()).To(Equal("test1"))
 				Expect(entries[1].Name()).To(Equal("test2"))
-				Expect(b2sum(path.Join(conf.Dir, entries[0].Name()))).To(Equal(b2sum(*test1v1BinaryPath)))
-				Expect(b2sum(path.Join(conf.Dir, entries[1].Name()))).To(Equal(b2sum(*test2v1BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[0].Name()))).To(Equal(testBinaryDigests[test1][v1]))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[1].Name()))).To(Equal(testBinaryDigests[test2][v1]))
 
 				arc2 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
@@ -314,37 +316,32 @@ var _ = Describe("Client", func() {
 				err = client.Patch(arc2)
 				Expect(err).NotTo(HaveOccurred())
 
-				entries, err = os.ReadDir(conf.Dir)
+				entries, err = fsys.ReadDir(conf.Dir)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))
 				Expect(entries[0].Name()).To(Equal("test1"))
-				Expect(b2sum(path.Join(conf.Dir, entries[0].Name()))).To(Equal(b2sum(*test1v2BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, entries[0].Name()))).To(Equal(testBinaryDigests[test1][v2]))
 			})
 		})
 	})
 	Context("error handling", func() {
 		var conf v1beta1.PluginsSpec
 		var client patch.PatchClient
+		var fsys afero.Afero
 		BeforeEach(func() {
-			tempDir, err := os.MkdirTemp("", "opni-pkg-cache-test")
-			Expect(err).NotTo(HaveOccurred())
+			fsys = newFs("/plugins")
 			conf = v1beta1.PluginsSpec{
-				Dir: path.Join(tempDir, "plugins"),
+				Dir: "/plugins",
 			}
-			DeferCleanup(func() {
-				os.RemoveAll(tempDir)
-			})
-
-			client, err = patch.NewPatchClient(conf, test.Log)
+			var err error
+			client, err = patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
-
-			*defaultDir = conf.Dir
 		})
 		When("the default plugin directory is not writable", func() {
 			It("should return an internal error", func() {
-				os.Chmod(*defaultDir, 0o555)
+				fsys.Chmod("/plugins", 0o555)
 				DeferCleanup(func() {
-					os.Chmod(*defaultDir, 0o755)
+					fsys.Chmod("/plugins", 0o755)
 				})
 
 				patches := &controlv1.PatchList{
@@ -370,7 +367,7 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				os.Chmod(path.Join(*defaultDir, "test1"), 0o555)
+				fsys.Chmod(path.Join("/plugins", "test1"), 0o555)
 
 				arc2 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
@@ -381,9 +378,9 @@ var _ = Describe("Client", func() {
 				err = client.Patch(arc2)
 				Expect(err).NotTo(HaveOccurred())
 				// check the permissions
-				fi, err := os.Stat(path.Join(*defaultDir, "test1"))
+				fi, err := fsys.Stat(path.Join("/plugins", "test1"))
 				Expect(err).NotTo(HaveOccurred())
-				Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o755)))
+				Expect(fi.Mode().Perm()).To(Equal(fs.FileMode(0o555)))
 			})
 		})
 		When("attempting to patch a plugin that is not readable", func() {
@@ -397,7 +394,7 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				os.Chmod(path.Join(*defaultDir, "test1"), 0o333)
+				fsys.Chmod(path.Join("/plugins", "test1"), 0o333)
 
 				arc2 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
@@ -425,7 +422,7 @@ var _ = Describe("Client", func() {
 				arc2 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
 						op(update, test1, v1, v2, func(e *controlv1.PatchSpec) {
-							e.Data = testutil.Must(os.ReadFile(*test1v2BinaryPath))
+							e.Data = testBinaries[test1][v2]
 						}),
 					},
 				}
@@ -459,9 +456,9 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				os.Chmod(*defaultDir, 0o555)
+				fsys.Chmod("/plugins", 0o555)
 				DeferCleanup(func() {
-					os.Chmod(*defaultDir, 0o755)
+					fsys.Chmod("/plugins", 0o755)
 				})
 
 				arc2 := &controlv1.PatchList{
@@ -476,7 +473,7 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(ContainSubstring("could not remove plugin"))
 
 				// Ensure the plugin is still there
-				_, err = os.Stat(path.Join(*defaultDir, "test1"))
+				_, err = fsys.Stat(path.Join("/plugins", "test1"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -496,9 +493,9 @@ var _ = Describe("Client", func() {
 				err := client.Patch(patches)
 				Expect(err).NotTo(HaveOccurred())
 
-				os.Chmod(*defaultDir, 0o555)
+				fsys.Chmod("/plugins", 0o555)
 				DeferCleanup(func() {
-					os.Chmod(*defaultDir, 0o755)
+					fsys.Chmod("/plugins", 0o755)
 				})
 
 				arc2 := &controlv1.PatchList{
@@ -513,11 +510,11 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(ContainSubstring("could not rename plugin"))
 
 				// Ensure the old plugin is still there
-				_, err = os.Stat(path.Join(*defaultDir, "test1"))
+				_, err = fsys.Stat(path.Join("/plugins", "test1"))
 				Expect(err).NotTo(HaveOccurred())
 
 				// Ensure the new plugin is not there
-				_, err = os.Stat(path.Join(*defaultDir, "renamed1"))
+				_, err = fsys.Stat(path.Join("/plugins", "renamed1"))
 				Expect(err).To(HaveOccurred())
 				Expect(os.IsNotExist(err)).To(BeTrue())
 			})
@@ -548,14 +545,14 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(And(ContainSubstring("could not rename plugin"), ContainSubstring("already exists")))
 
 				// Ensure the old plugins are still there
-				_, err = os.Stat(path.Join(*defaultDir, "test2"))
+				_, err = fsys.Stat(path.Join("/plugins", "test2"))
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = os.Stat(path.Join(*defaultDir, "test1"))
+				_, err = fsys.Stat(path.Join("/plugins", "test1"))
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(b2sum(path.Join(conf.Dir, "test1"))).To(Equal(b2sum(*test1v1BinaryPath)))
-				Expect(b2sum(path.Join(conf.Dir, "test2"))).To(Equal(b2sum(*test2v1BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, "test1"))).To(Equal(testBinaryDigests[test1][v1]))
+				Expect(b2sum(fsys, path.Join(conf.Dir, "test2"))).To(Equal(testBinaryDigests[test2][v1]))
 			})
 		})
 		When("an unknown patch operation is encountered", func() {
@@ -565,9 +562,9 @@ var _ = Describe("Client", func() {
 						{
 							Op:        controlv1.PatchOp(999),
 							Module:    test1Module,
-							Data:      testutil.Must(os.ReadFile(*test1v1BinaryPath)),
+							Data:      testBinaries[test1][v1],
 							OldDigest: "",
-							NewDigest: b2sum(*test1v1BinaryPath),
+							NewDigest: testBinaryDigests[test1][v1],
 							Filename:  "test1",
 						},
 					},
@@ -612,10 +609,10 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(ContainSubstring("checksum mismatch"))
 
 				// ensure test1 is updated
-				Expect(b2sum(path.Join(conf.Dir, "test1"))).To(Equal(b2sum(*test1v2BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, "test1"))).To(Equal(testBinaryDigests[test1][v2]))
 
 				// ensure test2 is unchanged
-				Expect(b2sum(path.Join(conf.Dir, "test2"))).To(Equal(b2sum(*test2v1BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, "test2"))).To(Equal(testBinaryDigests[test2][v1]))
 
 				arc3 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
@@ -627,7 +624,7 @@ var _ = Describe("Client", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// ensure test2 is updated
-				Expect(b2sum(path.Join(conf.Dir, "test2"))).To(Equal(b2sum(*test2v2BinaryPath)))
+				Expect(b2sum(fsys, path.Join(conf.Dir, "test2"))).To(Equal(testBinaryDigests[test2][v2]))
 			})
 		})
 		When("updating a plugin and the old digest does not match", func() {
@@ -642,7 +639,7 @@ var _ = Describe("Client", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// change something in the binary
-				f, err := os.OpenFile(filepath.Join(*defaultDir, patches.Items[0].Filename), os.O_WRONLY|os.O_APPEND, 0)
+				f, err := fsys.OpenFile(filepath.Join("/plugins", patches.Items[0].Filename), os.O_WRONLY|os.O_APPEND, 0)
 				Expect(err).NotTo(HaveOccurred())
 				_, err = f.WriteString("foo")
 				Expect(err).NotTo(HaveOccurred())
@@ -672,7 +669,7 @@ var _ = Describe("Client", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// delete the file
-				Expect(os.Remove(filepath.Join(*defaultDir, patches.Items[0].Filename))).NotTo(HaveOccurred())
+				Expect(fsys.Remove(filepath.Join("/plugins", patches.Items[0].Filename))).NotTo(HaveOccurred())
 
 				arc2 := &controlv1.PatchList{
 					Items: []*controlv1.PatchSpec{
@@ -683,7 +680,7 @@ var _ = Describe("Client", func() {
 				err = client.Patch(arc2)
 				Expect(err).To(HaveOccurred())
 				Expect(status.Code(err)).To(Equal(codes.Unavailable))
-				Expect(err.Error()).To(And(ContainSubstring("failed to stat plugin"), ContainSubstring("no such file or directory")))
+				Expect(err.Error()).To(And(ContainSubstring("failed to stat plugin")))
 			})
 		})
 		When("updating a plugin with a malformed patch", func() {

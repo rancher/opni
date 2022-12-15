@@ -2,6 +2,7 @@ package meta
 
 import (
 	"debug/buildinfo"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -37,15 +38,20 @@ func ReadPath(path string) (PluginMeta, error) {
 	}, nil
 }
 
+type file interface {
+	io.ReaderAt
+	Name() string
+}
+
 // Reads relevant metadata from an opened file. Does not change the i/o offset
 // of the file.
-func ReadFile(file *os.File) (PluginMeta, error) {
-	info, err := buildinfo.Read(file)
+func ReadFile(f file) (PluginMeta, error) {
+	info, err := buildinfo.Read(f)
 	if err != nil {
 		return PluginMeta{}, err
 	}
 	return PluginMeta{
-		BinaryPath: file.Name(),
+		BinaryPath: f.Name(),
 		GoVersion:  info.GoVersion,
 		Module:     info.Path,
 	}, nil

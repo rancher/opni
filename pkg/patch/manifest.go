@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
-	"os"
 	"path/filepath"
 	"sync"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/samber/lo"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 )
@@ -83,6 +83,9 @@ func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
 }
 
 func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive, error) {
+	if dc.Fs == nil {
+		dc.Fs = afero.NewOsFs()
+	}
 	matches := dc.Discover()
 	res := &controlv1.PluginArchive{
 		Items: make([]*controlv1.PluginArchiveEntry, len(matches)),
@@ -99,7 +102,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 		go func() {
 			defer wg.Done()
 			lg := lg.With("path", md.BinaryPath)
-			f, err := os.Open(md.BinaryPath)
+			f, err := dc.Fs.Open(md.BinaryPath)
 			if err != nil {
 				lg.With(
 					zap.Error(err),

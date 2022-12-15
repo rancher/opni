@@ -1,29 +1,51 @@
 package plugins
 
 import (
-	"github.com/hashicorp/go-plugin"
+	"path/filepath"
+
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 )
 
 type Filter = func(meta.PluginMeta) bool
 
 type DiscoveryConfig struct {
-	Dir        string
-	Filters    []Filter
-	Logger     *zap.SugaredLogger
+	// Directory to search for plugins
+	Dir string
+	// Optional filesystem (defaults to os filesystem)
+	Fs afero.Fs
+	// Optional filters to allow excluding plugins from discovery
+	Filters []Filter
+	// If true, query the plugin for its supported modes. The available modes
+	// will be stored in the plugin's ExtendedMetadata and can be used in filters.
 	QueryModes bool
+	// Optional logger, defaults to no logging
+	Logger *zap.SugaredLogger
 }
 
 func (dc DiscoveryConfig) Discover() []meta.PluginMeta {
-	paths, err := plugin.Discover(DefaultPluginGlob, dc.Dir)
+	if dc.Fs == nil {
+		dc.Fs = afero.NewOsFs()
+	}
+	paths, err := afero.Glob(dc.Fs, filepath.Join(dc.Dir, DefaultPluginGlob))
 	if err != nil {
 		panic(err)
 	}
 	var result []meta.PluginMeta
 PLUGINS:
 	for _, path := range paths {
-		md, err := meta.ReadPath(path)
+		f, err := dc.Fs.Open(path)
+		if err != nil {
+			if dc.Logger != nil {
+				dc.Logger.With(
+					zap.Error(err),
+					"plugin", path,
+				).Error("failed to open plugin for reading")
+			}
+			continue
+		}
+		md, err := meta.ReadFile(f)
 		if err != nil {
 			if dc.Logger != nil {
 				dc.Logger.With(
@@ -31,9 +53,16 @@ PLUGINS:
 					"plugin", path,
 				).Error("failed to read plugin metadata")
 			}
+			f.Close()
 			continue
 		}
+		f.Close()
 		if dc.QueryModes {
+			if dc.Fs != nil {
+				if _, ok := dc.Fs.(*afero.OsFs); !ok {
+					panic("cannot query plugin modes with custom filesystem")
+				}
+			}
 			modes, err := meta.QueryPluginModes(md.BinaryPath)
 			if err != nil {
 				if dc.Logger != nil {

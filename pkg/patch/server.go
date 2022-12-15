@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ type FilesystemPluginSyncServer struct {
 
 type SyncServerOptions struct {
 	filters []plugins.Filter
+	fsys    afero.Fs
 }
 
 type SyncServerOption func(*SyncServerOptions)
@@ -54,12 +56,20 @@ func WithPluginSyncFilters(filters plugins.Filter) SyncServerOption {
 	}
 }
 
+func WithFs(fsys afero.Fs) SyncServerOption {
+	return func(o *SyncServerOptions) {
+		o.fsys = fsys
+	}
+}
+
 func NewFilesystemPluginSyncServer(
 	cfg v1beta1.PluginsSpec,
 	lg *zap.SugaredLogger,
 	opts ...SyncServerOption,
 ) (*FilesystemPluginSyncServer, error) {
-	options := SyncServerOptions{}
+	options := SyncServerOptions{
+		fsys: afero.NewOsFs(),
+	}
 	options.apply(opts...)
 
 	var patchEngine BinaryPatcher
@@ -70,11 +80,11 @@ func NewFilesystemPluginSyncServer(
 		return nil, fmt.Errorf("unknown patch engine: %s", cfg.Cache.PatchEngine)
 	}
 
-	var pluginCache Cache
+	var cache Cache
 	switch cfg.Cache.Backend {
 	case v1beta1.CacheBackendFilesystem:
 		var err error
-		pluginCache, err = NewFilesystemCache(cfg.Cache.Filesystem, patchEngine, lg.Named("cache"))
+		cache, err = NewFilesystemCache(options.fsys, cfg.Cache.Filesystem, patchEngine, lg.Named("cache"))
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +96,7 @@ func NewFilesystemPluginSyncServer(
 		SyncServerOptions: options,
 		config:            cfg,
 		logger:            lg,
-		patchCache:        pluginCache,
+		patchCache:        cache,
 	}, nil
 }
 
@@ -128,6 +138,7 @@ func (f *FilesystemPluginSyncServer) loadPluginManifest() {
 	}
 	md, err := GetFilesystemPlugins(plugins.DiscoveryConfig{
 		Dir:        f.config.Dir,
+		Fs:         f.fsys,
 		Logger:     f.logger,
 		Filters:    f.filters,
 		QueryModes: len(f.filters) > 0,

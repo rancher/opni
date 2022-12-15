@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/renameio/v2"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
@@ -26,23 +26,51 @@ type PatchClient interface {
 }
 
 type patchClient struct {
+	PatchClientOptions
 	fs pluginFs
 	lg *zap.SugaredLogger
 }
 
-func NewPatchClient(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (PatchClient, error) {
+type PatchClientOptions struct {
+	baseFs afero.Fs
+}
+
+type PatchClientOption func(*PatchClientOptions)
+
+func (o *PatchClientOptions) apply(opts ...PatchClientOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithBaseFS(basefs afero.Fs) PatchClientOption {
+	return func(o *PatchClientOptions) {
+		o.baseFs = basefs
+	}
+}
+
+func NewPatchClient(config v1beta1.PluginsSpec, lg *zap.SugaredLogger, opts ...PatchClientOption) (PatchClient, error) {
+	options := PatchClientOptions{
+		baseFs: afero.NewOsFs(),
+	}
+	options.apply(opts...)
+
 	if config.Dir == "" {
 		return nil, errors.New("plugin directory is not configured")
 	}
-	if _, err := os.Stat(config.Dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(config.Dir, 0755); err != nil {
+	if _, err := options.baseFs.Stat(config.Dir); os.IsNotExist(err) {
+		if err := options.baseFs.MkdirAll(config.Dir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create plugin directory %s: %w", config.Dir, err)
 		}
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to stat plugin directory %s: %w", config.Dir, err)
 	}
+
 	return &patchClient{
 		fs: pluginFs{
+			fs: afero.Afero{
+				Fs: options.baseFs,
+			},
 			dir: config.Dir,
 		},
 		lg: lg,
@@ -50,38 +78,62 @@ func NewPatchClient(config v1beta1.PluginsSpec, lg *zap.SugaredLogger) (PatchCli
 }
 
 type pluginFs struct {
+	fs  afero.Afero
 	dir string
 }
 
-func (f *pluginFs) Stat(path string) (os.FileInfo, error) {
-	return os.Stat(filepath.Join(f.dir, path))
+// resolve relative paths to the plugin directory
+func (f *pluginFs) resolve(path string) string {
+	if path == "" {
+		return path
+	}
+	if path == "." {
+		return f.dir
+	}
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(f.dir, path)
 }
 
-func (f *pluginFs) Open(path string) (*os.File, error) {
-	return os.Open(filepath.Join(f.dir, path))
+func (f *pluginFs) Stat(path string) (fs.FileInfo, error) {
+	return f.fs.Stat(f.resolve(path))
 }
 
-func (f *pluginFs) OpenFile(path string, flag int, perm os.FileMode) (*os.File, error) {
-	return os.OpenFile(filepath.Join(f.dir, path), flag, perm)
+func (f *pluginFs) Open(path string) (afero.File, error) {
+	return f.fs.Open(f.resolve(path))
+}
+
+func (f *pluginFs) OpenFile(path string, flag int, perm os.FileMode) (afero.File, error) {
+	return f.fs.OpenFile(f.resolve(path), flag, perm)
 }
 
 func (f *pluginFs) WriteFile(path string, data []byte, perm os.FileMode) error {
-	return os.WriteFile(filepath.Join(f.dir, path), data, perm)
+	return f.fs.WriteFile(f.resolve(path), data, perm)
 }
 
 func (f *pluginFs) Remove(path string) error {
-	return os.Remove(filepath.Join(f.dir, path))
+	return f.fs.Remove(f.resolve(path))
 }
 
 func (f *pluginFs) Rename(oldpath, newpath string) error {
-	return os.Rename(filepath.Join(f.dir, oldpath), filepath.Join(f.dir, newpath))
+	return f.fs.Rename(f.resolve(oldpath), f.resolve(newpath))
 }
 
-func (f *pluginFs) ReadDir() ([]fs.DirEntry, error) {
-	return os.ReadDir(f.dir)
+func (f *pluginFs) ReadDir() ([]fs.FileInfo, error) {
+	return f.fs.ReadDir(f.dir)
 }
-func (f *pluginFs) NewPendingFile(path string, opts ...renameio.Option) (*renameio.PendingFile, error) {
-	return renameio.NewPendingFile(filepath.Join(f.dir, path), opts...)
+
+func (f *pluginFs) TempFile(dir, prefix string) (afero.File, error) {
+	return f.fs.TempFile(f.resolve(dir), prefix)
+}
+
+func (f *pluginFs) Chmod(path string, mode os.FileMode) error {
+	return f.fs.Chmod(f.resolve(path), mode)
+}
+
+func (f *pluginFs) Chown(path string, uid, gid int) error {
+	return f.fs.Chown(f.resolve(path), uid, gid)
 }
 
 // Patch applies the patch operations contained in the plugin archive to the
@@ -165,17 +217,13 @@ func (pc *patchClient) doUpdate(entry *controlv1.PatchSpec) error {
 	oldDigest, _ := blake2b.New256(nil)
 	oldPluginData := bytes.NewBuffer(make([]byte, 0, oldPluginInfo.Size()))
 	if _, err := io.Copy(io.MultiWriter(oldDigest, oldPluginData), oldPlugin); err != nil {
+		oldPlugin.Close()
 		return osErrf("failed to read plugin %s: %v", entry.Filename, err)
 	}
+	oldPlugin.Close()
 	if hex.EncodeToString(oldDigest.Sum(nil)) != entry.GetOldDigest() {
 		return unavailableErrf("existing plugin %s is invalid, cannot apply patch", entry.Module)
 	}
-
-	f, err := pc.fs.NewPendingFile(entry.Filename, renameio.WithPermissions(0755))
-	if err != nil {
-		return internalErrf("could not create temporary file: %v", err)
-	}
-	defer f.Cleanup()
 
 	patchReader := bytes.NewReader(entry.Data)
 	patcher, ok := NewPatcherFromFormat(patchReader)
@@ -190,18 +238,47 @@ func (pc *patchClient) doUpdate(entry *controlv1.PatchSpec) error {
 		return internalErrf("unknown patch format for plugin %s", entry.Module)
 	}
 
+	tmp, err := pc.fs.TempFile("", ".opni-tmp-plugin-")
+	if err != nil {
+		return internalErrf("could not create temporary file: %v", err)
+	}
+
+	origTempFile := tmp.Name()
+	defer func() {
+		if _, err := pc.fs.Stat(origTempFile); err == nil {
+			pc.fs.Remove(origTempFile)
+		}
+	}()
+
 	newDigest, _ := blake2b.New256(nil)
-	if err := patcher.ApplyPatch(oldPluginData, patchReader, io.MultiWriter(f, newDigest)); err != nil {
+	if err := patcher.ApplyPatch(oldPluginData, patchReader, io.MultiWriter(tmp, newDigest)); err != nil {
+		tmp.Close()
 		return osErrf("failed applying patch for plugin %s: %v", entry.Module, err)
 	}
+	tmp.Close()
 	if hex.EncodeToString(newDigest.Sum(nil)) != entry.GetNewDigest() {
 		return status.Errorf(codes.Unavailable, "patch failed for plugin %s (checksum mismatch)", entry.Module)
 	}
-	if err := f.CloseAtomicallyReplace(); err != nil {
-		if os.IsPermission(err) {
-			return status.Errorf(codes.Internal, "could not write to plugin %s: %v", entry.Filename, err)
+
+	// try to chmod the temp file to match the old plugin if possible
+	// if not, chmod after the rename
+
+	existingPerm := oldPluginInfo.Mode() & fs.ModePerm
+	var tmpChmodOk bool
+	if err := pc.fs.Chmod(tmp.Name(), existingPerm); err == nil {
+		tmpChmodOk = true
+	}
+
+	// replace the old plugin atomically
+	if err := pc.fs.Rename(tmp.Name(), entry.Filename); err != nil {
+		return osErrf("could not write to plugin %s: %v", entry.Filename, err)
+	}
+
+	if !tmpChmodOk {
+		// if we couldn't chmod the temp file for some reason, chmod the new file
+		if err := pc.fs.Chmod(entry.Filename, existingPerm); err != nil {
+			return osErrf("could not update permissions for plugin %s: %v", entry.Filename, err)
 		}
-		return status.Errorf(codes.Unavailable, "could not write to plugin %s: %v", entry.Filename, err)
 	}
 	return nil
 }
@@ -231,7 +308,7 @@ func osErrf(format string, args ...interface{}) error {
 	if !ok || err == nil {
 		panic("bug: last argument must be a non-nil error")
 	}
-	if errors.Is(err, os.ErrPermission) {
+	if os.IsPermission(err) {
 		return internalErrf(format, args...)
 	}
 	return unavailableErrf(format, args...)

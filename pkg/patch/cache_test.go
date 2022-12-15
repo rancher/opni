@@ -2,34 +2,36 @@ package patch_test
 
 import (
 	"io"
+	"io/fs"
 	"os"
 	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/afero"
 
 	"github.com/rancher/opni/pkg/patch"
 )
 
 type TestCache interface {
 	patch.Cache
-	openSavedPlugin(hash string, mode int) (*os.File, error)
-	statPatch(from, to string) (os.FileInfo, error)
+	openSavedPlugin(hash string, mode int) (afero.File, error)
+	statPatch(from, to string) (fs.FileInfo, error)
 	removePatch(from, to string) error
 }
 
 type CacheTestSuiteOptions struct {
-	TestOpenSavedPluginFunc func(hash string, mode int) (*os.File, error)
-	TestStatPatchFunc       func(from, to string) (os.FileInfo, error)
+	TestOpenSavedPluginFunc func(hash string, mode int) (afero.File, error)
+	TestStatPatchFunc       func(from, to string) (fs.FileInfo, error)
 	TestRemovePatchFunc     func(from, to string) error
 }
 
-func (o *CacheTestSuiteOptions) openSavedPlugin(hash string, mode int) (*os.File, error) {
+func (o *CacheTestSuiteOptions) openSavedPlugin(hash string, mode int) (afero.File, error) {
 	return o.TestOpenSavedPluginFunc(hash, mode)
 }
 
-func (o *CacheTestSuiteOptions) statPatch(from, to string) (os.FileInfo, error) {
+func (o *CacheTestSuiteOptions) statPatch(from, to string) (fs.FileInfo, error) {
 	return o.TestStatPatchFunc(from, to)
 }
 

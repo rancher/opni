@@ -5,13 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +21,7 @@ import (
 type FilesystemCache struct {
 	CacheMetricsTracker
 	config     v1beta1.FilesystemCacheSpec
+	fs         afero.Afero
 	logger     *zap.SugaredLogger
 	cacheGroup singleflight.Group
 	patcher    BinaryPatcher
@@ -28,18 +29,19 @@ type FilesystemCache struct {
 
 var _ Cache = (*FilesystemCache)(nil)
 
-func NewFilesystemCache(conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher, lg *zap.SugaredLogger) (Cache, error) {
-	if err := os.MkdirAll(conf.Dir, 0777); err != nil {
+func NewFilesystemCache(fsys afero.Fs, conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher, lg *zap.SugaredLogger) (Cache, error) {
+	if err := fsys.MkdirAll(conf.Dir, 0777); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(conf.Dir, "plugins"), 0777); err != nil {
+	if err := fsys.MkdirAll(filepath.Join(conf.Dir, "plugins"), 0777); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(conf.Dir, "patches"), 0777); err != nil {
+	if err := fsys.MkdirAll(filepath.Join(conf.Dir, "patches"), 0777); err != nil {
 		return nil, err
 	}
 	cache := &FilesystemCache{
 		config:  conf,
+		fs:      afero.Afero{Fs: fsys},
 		patcher: patcher,
 		logger:  lg,
 		CacheMetricsTracker: NewCacheMetricsTracker(map[string]string{
@@ -56,8 +58,8 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 	for _, item := range manifest.Items {
 		destPath := p.path("plugins", item.Metadata.Digest)
 		// check if the plugin already exists
-		if _, err := os.Stat(destPath); err == nil {
-			src, err := os.Open(destPath)
+		if _, err := p.fs.Stat(destPath); err == nil {
+			src, err := p.fs.Open(destPath)
 			if err != nil {
 				return err
 			}
@@ -82,7 +84,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 		item := item
 		// copy plugins into the cache
 		group.Go(func() error {
-			dest, err := os.Create(destPath)
+			dest, err := p.fs.Create(destPath)
 			if err != nil {
 				return err
 			}
@@ -133,7 +135,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 	var isCaller bool
 	patchDataValue, err, shared := p.cacheGroup.Do(key, func() (any, error) {
 		isCaller = true
-		if _, err := os.Stat(patchPath); err != nil {
+		if _, err := p.fs.Stat(patchPath); err != nil {
 			p.CacheMiss(oldDigest, newDigest)
 			lg := p.logger.With(
 				"from", oldDigest,
@@ -145,13 +147,14 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 				lg.With(
 					zap.Error(err),
 				).Error("failed to generate patch")
+				p.generatePatch(oldDigest, newDigest)
 				return nil, err
 			} else {
 				lg.With(
 					"took", time.Since(start).String(),
 					"size", len(patchData),
 				).Debug("patch generated")
-				if err := os.WriteFile(patchPath, patchData, 0644); err != nil {
+				if err := p.fs.WriteFile(patchPath, patchData, 0644); err != nil {
 					p.logger.With(
 						zap.Error(err),
 					).Error("failed to write patch to disk")
@@ -165,7 +168,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 		} else {
 			p.CacheHit(oldDigest, newDigest)
 		}
-		return os.ReadFile(patchPath)
+		return p.fs.ReadFile(patchPath)
 	})
 	if err != nil {
 		return nil, err
@@ -181,7 +184,7 @@ func (*FilesystemCache) PatchKey(oldDigest, newDigest string) string {
 }
 
 func (p *FilesystemCache) GetPlugin(hash string) ([]byte, error) {
-	src, err := os.Open(p.path("plugins", hash))
+	src, err := p.fs.Open(p.path("plugins", hash))
 	if err != nil {
 		return nil, err
 	}
@@ -213,23 +216,23 @@ func (p *FilesystemCache) Clean(hashes ...string) {
 	var patchesRemoved int64
 	for _, hash := range hashes {
 		// remove the plugin
-		if err := os.Remove(p.path("plugins", hash)); err == nil {
+		if err := p.fs.Remove(p.path("plugins", hash)); err == nil {
 			pluginsRemoved++
 		}
 
 		patchesToRemove := []string{}
 
 		// remove any patches that reference this plugin
-		if items, err := filepath.Glob(p.path("patches", fmt.Sprintf("*-to-%s", hash))); err == nil {
+		if items, err := afero.Glob(p.fs, p.path("patches", fmt.Sprintf("*-to-%s", hash))); err == nil {
 			patchesToRemove = append(patchesToRemove, items...)
 		}
 
-		if items, err := filepath.Glob(p.path("patches", fmt.Sprintf("%s-to-*", hash))); err == nil {
+		if items, err := afero.Glob(p.fs, p.path("patches", fmt.Sprintf("%s-to-*", hash))); err == nil {
 			patchesToRemove = append(patchesToRemove, items...)
 		}
 
 		for _, f := range patchesToRemove {
-			if err := os.Remove(f); err == nil {
+			if err := p.fs.Remove(f); err == nil {
 				patchesRemoved++
 			}
 		}
@@ -245,7 +248,7 @@ func (p *FilesystemCache) Clean(hashes ...string) {
 }
 
 func (p *FilesystemCache) ListDigests() ([]string, error) {
-	if entries, err := os.ReadDir(p.path("plugins")); err != nil {
+	if entries, err := p.fs.ReadDir(p.path("plugins")); err != nil {
 		return nil, err
 	} else {
 		var hashes []string
@@ -262,23 +265,15 @@ func (p *FilesystemCache) path(parts ...string) string {
 
 func (p *FilesystemCache) recomputeDiskStats() {
 	var pluginCount, patchCount int64
-	if entries, err := os.ReadDir(p.path("plugins")); err == nil {
+	if entries, err := p.fs.ReadDir(p.path("plugins")); err == nil {
 		for _, e := range entries {
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			p.SetTotalSizeBytes(info.Name(), info.Size())
+			p.SetTotalSizeBytes(e.Name(), e.Size())
 			pluginCount++
 		}
 	}
-	if entries, err := os.ReadDir(p.path("patches")); err == nil {
+	if entries, err := p.fs.ReadDir(p.path("patches")); err == nil {
 		for _, e := range entries {
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			p.SetTotalSizeBytes(info.Name(), info.Size())
+			p.SetTotalSizeBytes(e.Name(), e.Size())
 			patchCount++
 		}
 	}

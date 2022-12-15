@@ -3,8 +3,8 @@ package patch_test
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/spf13/afero"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -32,16 +33,10 @@ import (
 )
 
 var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow), func() {
-	var tmpDir string
 	var srv *patch.FilesystemPluginSyncServer
-	BeforeAll(func() {
-		var err error
-		tmpDir, err = os.MkdirTemp("", "opni-test-patch-server")
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			os.RemoveAll(tmpDir)
-		})
-	})
+	fsys := afero.Afero{Fs: test.NewModeAwareMemFs()}
+	tmpDir := "/tmp/test"
+	fsys.MkdirAll(tmpDir, 0755)
 
 	var srvManifestV1 *controlv1.PluginManifest
 	var srvManifestV2 *controlv1.PluginManifest
@@ -56,16 +51,16 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 					Dir: filepath.Join(tmpDir, "cache"),
 				},
 			},
-		}, test.Log)
+		}, test.Log, patch.WithFs(fsys))
 	}
 
 	When("starting the filesystem sync server", func() {
 		It("should succeed", func() {
-			os.Mkdir(filepath.Join(tmpDir, "plugins"), 0755)
-			os.Mkdir(filepath.Join(tmpDir, "cache"), 0755)
+			fsys.Mkdir(filepath.Join(tmpDir, "plugins"), 0755)
+			fsys.Mkdir(filepath.Join(tmpDir, "cache"), 0755)
 
-			Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugins", "plugin_test1"))).To(Succeed())
-			Expect(os.Link(*test2v1BinaryPath, filepath.Join(tmpDir, "plugins", "plugin_test2"))).To(Succeed())
+			Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test1"), testBinaries["test1"]["v1"], 0644)).To(Succeed())
+			Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test2"), testBinaries["test2"]["v1"], 0644)).To(Succeed())
 
 			var err error
 			srv, err = newServer()
@@ -86,7 +81,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			srvManifestV1 = manifest
 		})
 		It("should have archived the plugins", func() {
-			items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
+			items, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(items).To(HaveLen(2))
@@ -97,10 +92,11 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 
 	When("restarting the server with updated plugins", func() {
 		It("should succeed", func() {
-			os.Remove(filepath.Join(tmpDir, "plugins", "plugin_test1"))
-			os.Remove(filepath.Join(tmpDir, "plugins", "plugin_test2"))
-			Expect(os.Link(*test1v2BinaryPath, filepath.Join(tmpDir, "plugins", "plugin_test1"))).To(Succeed())
-			Expect(os.Link(*test2v2BinaryPath, filepath.Join(tmpDir, "plugins", "plugin_test2"))).To(Succeed())
+			fsys.Remove(filepath.Join(tmpDir, "plugins", "plugin_test1"))
+			fsys.Remove(filepath.Join(tmpDir, "plugins", "plugin_test2"))
+
+			Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test1"), testBinaries["test1"]["v2"], 0644)).To(Succeed())
+			Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test2"), testBinaries["test2"]["v2"], 0644)).To(Succeed())
 
 			var err error
 			srv, err = newServer()
@@ -123,7 +119,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 		})
 
 		It("should have archived the new versions", func() {
-			items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
+			items, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(items).To(HaveLen(4))
@@ -139,7 +135,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 	})
 	When("a client connects to sync their plugins", func() {
 		var initialPatchResponse *controlv1.PatchList
-		var initialCacheItems []os.DirEntry
+		var initialCacheItems []fs.FileInfo
 		When("the client has old v1 plugins", func() {
 			It("should return patch operations", func() {
 				results, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
@@ -164,14 +160,14 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				initialPatchResponse = patches
 			})
 			It("should cache the patches", func() {
-				items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
+				items, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(items).To(HaveLen(2))
 
 				var patches [][]byte
 				for _, item := range items {
-					contents, err := os.ReadFile(filepath.Join(tmpDir, "cache", "patches", item.Name()))
+					contents, err := fsys.ReadFile(filepath.Join(tmpDir, "cache", "patches", item.Name()))
 					Expect(err).NotTo(HaveOccurred())
 					patches = append(patches, contents)
 				}
@@ -191,7 +187,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				Expect(results.RequiredPatches).To(testutil.ProtoEqual(initialPatchResponse))
 			})
 			It("should not modify the cache", func() {
-				items, err := os.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
+				items, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(items).To(Equal(initialCacheItems))
@@ -222,17 +218,17 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				Expect(patches.Items[0].Op).To(Equal(controlv1.PatchOp_Create))
 				Expect(patches.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
 				Expect(patches.Items[0].Filename).To(Equal("plugin_test1"))
-				Expect(patches.Items[0].Data).To(Equal(testutil.Must(os.ReadFile(*test1v2BinaryPath))))
+				Expect(patches.Items[0].Data).To(Equal(testBinaries["test1"]["v2"]))
 
 				Expect(patches.Items[1].Module).To(Equal(test2Module))
 				Expect(patches.Items[1].Op).To(Equal(controlv1.PatchOp_Create))
 				Expect(patches.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
 				Expect(patches.Items[1].Filename).To(Equal("plugin_test2"))
-				Expect(patches.Items[1].Data).To(Equal(testutil.Must(os.ReadFile(*test2v2BinaryPath))))
+				Expect(patches.Items[1].Data).To(Equal(testBinaries["test2"]["v2"]))
 			})
 			When("the server is unable to read a plugin on disk", func() {
 				It("should succeed if it still has the relevant patch", func() {
-					Expect(os.Remove(filepath.Join(tmpDir, "cache", "plugins", srvManifestV2.Items[0].Digest))).To(Succeed())
+					Expect(fsys.Remove(filepath.Join(tmpDir, "cache", "plugins", srvManifestV2.Items[0].Digest))).To(Succeed())
 					_, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -262,9 +258,9 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			When("the server is unable to read a patch on disk", func() {
 				It("should return an internal error when fetching patches", func() {
 					path := filepath.Join(tmpDir, "cache", "patches", fmt.Sprintf("%s-to-%s", srvManifestV1.Items[0].Digest, srvManifestV2.Items[0].Digest))
-					Expect(os.Chmod(path, 0)).To(Succeed())
+					Expect(fsys.Chmod(path, 0)).To(Succeed())
 					DeferCleanup(func() {
-						Expect(os.Chmod(path, 0644)).To(Succeed())
+						Expect(fsys.Chmod(path, 0644)).To(Succeed())
 					})
 					_, err := srv.SyncPluginManifest(context.Background(), srvManifestV1)
 					Expect(status.Code(err)).To(Equal(codes.Internal))
@@ -286,7 +282,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 				Expect(manifest).To(Equal(srvManifestV2))
 
 				// the server should have repopulated the missing plugin
-				plugins, err := os.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
+				plugins, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(plugins).To(HaveLen(4))
 				names := []string{plugins[0].Name(), plugins[1].Name(), plugins[2].Name(), plugins[3].Name()}
@@ -297,8 +293,8 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			It("should compute the patch only once and send it to all clients", func() {
 				start := make(chan struct{})
 
-				os.Remove(filepath.Join(tmpDir, "cache", "patches", fmt.Sprintf("%s-to-%s", srvManifestV1.Items[0].Digest, srvManifestV2.Items[0].Digest)))
-				os.Remove(filepath.Join(tmpDir, "cache", "patches", fmt.Sprintf("%s-to-%s", srvManifestV1.Items[1].Digest, srvManifestV2.Items[1].Digest)))
+				fsys.Remove(filepath.Join(tmpDir, "cache", "patches", fmt.Sprintf("%s-to-%s", srvManifestV1.Items[0].Digest, srvManifestV2.Items[0].Digest)))
+				fsys.Remove(filepath.Join(tmpDir, "cache", "patches", fmt.Sprintf("%s-to-%s", srvManifestV1.Items[1].Digest, srvManifestV2.Items[1].Digest)))
 
 				exp := gmeasure.NewExperiment("inflight sync request deduplication")
 				var wg sync.WaitGroup
@@ -418,7 +414,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 
 			// should keep everything
 			{
-				plugins, err := os.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
+				plugins, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(plugins).To(HaveLen(4))
 			}
@@ -426,13 +422,13 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			srv.RunGarbageCollection(context.Background(), test.NewTestClusterStore(ctrl))
 
 			// all patches and old plugins should be removed, since the cluster store is empty
-			plugins, err := os.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
+			plugins, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(plugins).To(HaveLen(2))
 			names := []string{plugins[0].Name(), plugins[1].Name()}
 			Expect(names).To(ContainElements(srvManifestV2.Items[0].Digest, srvManifestV2.Items[1].Digest))
 
-			patches, err := os.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
+			patches, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "patches"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(patches).To(HaveLen(0))
 		})

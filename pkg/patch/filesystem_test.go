@@ -1,11 +1,12 @@
 package patch_test
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/afero"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/patch"
@@ -14,24 +15,20 @@ import (
 
 func init() {
 	BuildCacheTestSuite("Filesystem Cache", func() TestCache {
-		tmp, err := os.MkdirTemp("", "opni-pkg-cache-test")
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			os.RemoveAll(tmp)
-		})
-		cache, err := patch.NewFilesystemCache(v1beta1.FilesystemCacheSpec{
-			Dir: tmp,
+		fsys := afero.NewMemMapFs()
+		cache, err := patch.NewFilesystemCache(fsys, v1beta1.FilesystemCacheSpec{
+			Dir: "/tmp",
 		}, patch.BsdiffPatcher{}, test.Log)
 		Expect(err).NotTo(HaveOccurred())
 		return newTestCache(cache, CacheTestSuiteOptions{
-			TestOpenSavedPluginFunc: func(hash string, mode int) (*os.File, error) {
-				return os.OpenFile(filepath.Join(tmp, "plugins", hash), mode, 0666)
+			TestOpenSavedPluginFunc: func(hash string, mode int) (afero.File, error) {
+				return fsys.OpenFile(filepath.Join("/tmp", "plugins", hash), mode, 0666)
 			},
-			TestStatPatchFunc: func(from, to string) (os.FileInfo, error) {
-				return os.Stat(filepath.Join(tmp, "patches", cache.PatchKey(from, to)))
+			TestStatPatchFunc: func(from, to string) (fs.FileInfo, error) {
+				return fsys.Stat(filepath.Join("/tmp", "patches", cache.PatchKey(from, to)))
 			},
 			TestRemovePatchFunc: func(from, to string) error {
-				return os.Remove(filepath.Join(tmp, "patches", cache.PatchKey(from, to)))
+				return fsys.Remove(filepath.Join("/tmp", "patches", cache.PatchKey(from, to)))
 			},
 		})
 	})
@@ -41,37 +38,40 @@ var _ = Describe("Filesystem Cache", Ordered, Label("unit"), func() {
 	Context("error handling", func() {
 		When("creating a new filesystem cache", func() {
 			It("should return an error if it cannot create the cache directory", func() {
-				tmpDir, err := os.MkdirTemp("", "opni-test-patch")
-				Expect(err).NotTo(HaveOccurred())
+				fs := afero.Afero{
+					Fs: test.NewModeAwareMemFs(),
+				}
 
-				Expect(os.Mkdir(filepath.Join(tmpDir, "x"), 0777)).To(Succeed())
-				Expect(os.WriteFile(filepath.Join(tmpDir, "x", "plugins"), []byte("foo"), 0644)).To(Succeed())
-				Expect(os.WriteFile(filepath.Join(tmpDir, "x", "patches"), []byte("foo"), 0644)).To(Succeed())
+				tmpDir := "/tmp"
 
-				os.Chmod(tmpDir, 0)
+				Expect(fs.MkdirAll(filepath.Join(tmpDir, "x"), 0777)).To(Succeed())
+				Expect(fs.WriteFile(filepath.Join(tmpDir, "x", "plugins"), []byte("foo"), 0644)).To(Succeed())
+				Expect(fs.WriteFile(filepath.Join(tmpDir, "x", "patches"), []byte("foo"), 0644)).To(Succeed())
 
-				_, err = patch.NewFilesystemCache(v1beta1.FilesystemCacheSpec{
+				Expect(fs.Chmod(filepath.Join(tmpDir, "x"), 0)).To(Succeed())
+
+				_, err := patch.NewFilesystemCache(fs, v1beta1.FilesystemCacheSpec{
 					Dir: filepath.Join(tmpDir, "x"),
 				}, patch.BsdiffPatcher{}, test.Log)
 				Expect(err).To(HaveOccurred())
 
-				os.Chmod(tmpDir, 0o777)
+				Expect(fs.Chmod(filepath.Join(tmpDir, "x"), 0o777)).To(Succeed())
 
-				_, err = patch.NewFilesystemCache(v1beta1.FilesystemCacheSpec{
+				_, err = patch.NewFilesystemCache(fs, v1beta1.FilesystemCacheSpec{
 					Dir: filepath.Join(tmpDir, "x"),
 				}, patch.BsdiffPatcher{}, test.Log)
 				Expect(err).To(HaveOccurred())
 
-				os.Remove(filepath.Join(tmpDir, "x", "plugins"))
+				Expect(fs.Remove(filepath.Join(tmpDir, "x", "plugins"))).To(Succeed())
 
-				_, err = patch.NewFilesystemCache(v1beta1.FilesystemCacheSpec{
+				_, err = patch.NewFilesystemCache(fs, v1beta1.FilesystemCacheSpec{
 					Dir: filepath.Join(tmpDir, "x"),
 				}, patch.BsdiffPatcher{}, test.Log)
 				Expect(err).To(HaveOccurred())
 
-				os.Remove(filepath.Join(tmpDir, "x", "patches"))
+				Expect(fs.Remove(filepath.Join(tmpDir, "x", "patches"))).To(Succeed())
 
-				_, err = patch.NewFilesystemCache(v1beta1.FilesystemCacheSpec{
+				_, err = patch.NewFilesystemCache(fs, v1beta1.FilesystemCacheSpec{
 					Dir: filepath.Join(tmpDir, "x"),
 				}, patch.BsdiffPatcher{}, test.Log)
 				Expect(err).NotTo(HaveOccurred())

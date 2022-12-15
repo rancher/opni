@@ -1,7 +1,6 @@
 package patch_test
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
@@ -12,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/spf13/afero"
 )
 
 func NewDigest4() (string, string, string, string) {
@@ -256,18 +256,17 @@ var _ = Describe("Patch Manifest Operations", func() {
 })
 
 var _ = Describe("Filesystem Discovery", Ordered, func() {
+	var fsys afero.Afero
+	tmpDir := "/tmp"
 	It("should discover plugins from the filesystem", func() {
-		tmpDir, err := os.MkdirTemp("", "opni-test-patch-fs")
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			os.RemoveAll(tmpDir)
-		})
+		fsys = afero.Afero{Fs: afero.NewMemMapFs()}
 
-		Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugin_test1"))).To(Succeed())
-		Expect(os.Link(*test2v1BinaryPath, filepath.Join(tmpDir, "plugin_test2"))).To(Succeed())
+		Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test1"), testBinaries["test1"]["v1"], 0755)).To(Succeed())
+		Expect(fsys.WriteFile(filepath.Join(tmpDir, "plugins", "plugin_test2"), testBinaries["test2"]["v1"], 0755)).To(Succeed())
 
 		mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
-			Dir:    tmpDir,
+			Dir:    filepath.Join(tmpDir, "plugins"),
+			Fs:     fsys,
 			Logger: test.Log,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -282,17 +281,16 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 	})
 	When("a plugin has invalid contents", func() {
 		It("should log an error and skip it", func() {
-			tmpDir, err := os.MkdirTemp("", "opni-test-patch-fs")
-			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() {
-				os.RemoveAll(tmpDir)
-			})
+			af := afero.Afero{
+				Fs: afero.NewMemMapFs(),
+			}
 
-			Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugin_test1"))).To(Succeed())
-			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), []byte("invalid"), 0755)).To(Succeed())
+			Expect(af.WriteFile(filepath.Join(tmpDir, "plugin_test1"), testBinaries["test1"]["v1"], 0755)).To(Succeed())
+			Expect(af.WriteFile(filepath.Join(tmpDir, "plugin_test2"), []byte("invalid"), 0755)).To(Succeed())
 
 			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 				Dir:    tmpDir,
+				Fs:     af,
 				Logger: test.Log,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -303,19 +301,17 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 	})
 	When("a plugin cannot be opened for reading", func() {
 		It("should log an error and skip it", func() {
-			tmpDir, err := os.MkdirTemp("", "opni-test-patch-fs")
-			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() {
-				os.RemoveAll(tmpDir)
-			})
+			af := afero.Afero{
+				Fs: test.NewModeAwareMemFs(),
+			}
+			af.MkdirAll(tmpDir, 0755)
 
-			Expect(os.Link(*test1v1BinaryPath, filepath.Join(tmpDir, "plugin_test1"))).To(Succeed())
-			test2Data, err := os.ReadFile(*test2v1BinaryPath)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(os.WriteFile(filepath.Join(tmpDir, "plugin_test2"), test2Data, 0000)).To(Succeed())
+			Expect(af.WriteFile(filepath.Join(tmpDir, "plugin_test1"), testBinaries["test1"]["v1"], 0755)).To(Succeed())
+			Expect(af.WriteFile(filepath.Join(tmpDir, "plugin_test2"), testBinaries["test2"]["v1"], 0200)).To(Succeed())
 
 			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 				Dir:    tmpDir,
+				Fs:     af,
 				Logger: test.Log,
 			})
 

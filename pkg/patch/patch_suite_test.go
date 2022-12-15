@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,6 +14,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/spf13/afero"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,20 +32,14 @@ var (
 		"test2": test2Module,
 	}
 
-	test1v1BinaryPath = new(string)
-	test1v2BinaryPath = new(string)
-	test2v1BinaryPath = new(string)
-	test2v2BinaryPath = new(string)
+	testBinaries = map[string]map[string][]byte{
+		"test1": {},
+		"test2": {},
+	}
 
-	testBinaries = map[string]map[string]*string{
-		"test1": {
-			"v1": test1v1BinaryPath,
-			"v2": test1v2BinaryPath,
-		},
-		"test2": {
-			"v1": test2v1BinaryPath,
-			"v2": test2v2BinaryPath,
-		},
+	testBinaryDigests = map[string]map[string]string{
+		"test1": {},
+		"test2": {},
 	}
 
 	test1v1tov2Patch = new(bytes.Buffer)
@@ -55,8 +51,10 @@ var (
 	}
 )
 
-func b2sum(filename string) string {
-	contents, err := os.ReadFile(filename)
+var osfs = afero.Afero{Fs: afero.NewOsFs()}
+
+func b2sum(fs afero.Afero, filename string) string {
+	contents, err := fs.ReadFile(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -73,25 +71,50 @@ var _ = BeforeSuite(func() {
 	ctrl = gomock.NewController(GinkgoT())
 
 	var eg errgroup.Group
+	var mu sync.Mutex
 
 	eg.Go(func() error {
-		var err error
-		*test1v1BinaryPath, err = gexec.Build(test1Module, "-tags=v1")
+		test1v1BinaryPath, err := gexec.Build(test1Module, "-tags=v1")
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		testBinaries["test1"]["v1"] = testutil.Must(os.ReadFile(test1v1BinaryPath))
+		testBinaryDigests["test1"]["v1"] = b2sum(osfs, test1v1BinaryPath)
+		mu.Unlock()
 		return err
 	})
 	eg.Go(func() error {
-		var err error
-		*test1v2BinaryPath, err = gexec.Build(test1Module, "-tags=v2")
+		test1v2BinaryPath, err := gexec.Build(test1Module, "-tags=v2")
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		testBinaries["test1"]["v2"] = testutil.Must(os.ReadFile(test1v2BinaryPath))
+		testBinaryDigests["test1"]["v2"] = b2sum(osfs, test1v2BinaryPath)
+		mu.Unlock()
 		return err
 	})
 	eg.Go(func() error {
-		var err error
-		*test2v1BinaryPath, err = gexec.Build(test2Module, "-tags=v1")
+		test2v1BinaryPath, err := gexec.Build(test2Module, "-tags=v1")
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		testBinaries["test2"]["v1"] = testutil.Must(os.ReadFile(test2v1BinaryPath))
+		testBinaryDigests["test2"]["v1"] = b2sum(osfs, test2v1BinaryPath)
+		mu.Unlock()
 		return err
 	})
 	eg.Go(func() error {
-		var err error
-		*test2v2BinaryPath, err = gexec.Build(test2Module, "-tags=v2")
+		test2v2BinaryPath, err := gexec.Build(test2Module, "-tags=v2")
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		testBinaries["test2"]["v2"] = testutil.Must(os.ReadFile(test2v2BinaryPath))
+		testBinaryDigests["test2"]["v2"] = b2sum(osfs, test2v2BinaryPath)
+		mu.Unlock()
 		return err
 	})
 	Expect(eg.Wait()).To(Succeed())
@@ -100,33 +123,19 @@ var _ = BeforeSuite(func() {
 	eg = errgroup.Group{}
 
 	eg.Go(func() error {
-		test1v1, err := os.Open(*test1v1BinaryPath)
-		if err != nil {
-			return err
-		}
-		defer test1v1.Close()
-		test1v2, err := os.Open(*test1v2BinaryPath)
-		if err != nil {
-			return err
-		}
-		defer test1v2.Close()
-
-		return patcher.GeneratePatch(test1v1, test1v2, test1v1tov2Patch)
+		return patcher.GeneratePatch(
+			bytes.NewReader(testBinaries["test1"]["v1"]),
+			bytes.NewReader(testBinaries["test1"]["v2"]),
+			test1v1tov2Patch,
+		)
 	})
 
 	eg.Go(func() error {
-		test2v1, err := os.Open(*test2v1BinaryPath)
-		if err != nil {
-			return err
-		}
-		defer test2v1.Close()
-		test2v2, err := os.Open(*test2v2BinaryPath)
-		if err != nil {
-			return err
-		}
-		defer test2v2.Close()
-
-		return patcher.GeneratePatch(test2v1, test2v2, test2v1tov2Patch)
+		return patcher.GeneratePatch(
+			bytes.NewReader(testBinaries["test2"]["v1"]),
+			bytes.NewReader(testBinaries["test2"]["v2"]),
+			test2v1tov2Patch,
+		)
 	})
 
 	Expect(eg.Wait()).To(Succeed())
@@ -137,17 +146,17 @@ var _ = BeforeSuite(func() {
 				Metadata: &controlv1.PluginManifestEntry{
 					Module:   test1Module,
 					Filename: "test1",
-					Digest:   b2sum(*test1v1BinaryPath),
+					Digest:   testBinaryDigests["test1"]["v1"],
 				},
-				Data: testutil.Must(os.ReadFile(*test1v1BinaryPath)),
+				Data: testBinaries["test1"]["v1"],
 			},
 			{
 				Metadata: &controlv1.PluginManifestEntry{
 					Module:   test2Module,
 					Filename: "test2",
-					Digest:   b2sum(*test2v1BinaryPath),
+					Digest:   testBinaryDigests["test2"]["v1"],
 				},
-				Data: testutil.Must(os.ReadFile(*test2v1BinaryPath)),
+				Data: testBinaries["test2"]["v1"],
 			},
 		},
 	}
@@ -157,17 +166,17 @@ var _ = BeforeSuite(func() {
 				Metadata: &controlv1.PluginManifestEntry{
 					Module:   test1Module,
 					Filename: "test1",
-					Digest:   b2sum(*test1v2BinaryPath),
+					Digest:   testBinaryDigests["test1"]["v2"],
 				},
-				Data: testutil.Must(os.ReadFile(*test1v2BinaryPath)),
+				Data: testBinaries["test1"]["v2"],
 			},
 			{
 				Metadata: &controlv1.PluginManifestEntry{
 					Module:   test2Module,
 					Filename: "test2",
-					Digest:   b2sum(*test2v2BinaryPath),
+					Digest:   testBinaryDigests["test2"]["v2"],
 				},
-				Data: testutil.Must(os.ReadFile(*test2v2BinaryPath)),
+				Data: testBinaries["test2"]["v2"],
 			},
 		},
 	}

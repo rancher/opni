@@ -213,9 +213,9 @@ var _ = Describe("Full fledged dynamic opni routing tests", Ordered, Label(test.
 						}
 						for _, metadata := range internalRoutingTree.Content[conditionId] {
 							switch metadata.EndpointType {
-							case routing.SlackEndpointInternalId:
+							case (&routing.SlackConfig{}).InternalId():
 								Expect(len(testRoutingTree.GetReceivers()[idxReceiver].SlackConfigs)).To(BeNumerically(">=", *metadata.Position))
-							case routing.EmailEndpointInternalId:
+							case (&routing.EmailConfig{}).InternalId():
 								Expect(len(testRoutingTree.GetReceivers()[idxReceiver].EmailConfigs)).To(BeNumerically(">=", *metadata.Position))
 							default:
 								Fail("invalid endpoint type")

@@ -115,13 +115,13 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 	toTraverse := []TraversalOp{}
 	newEndpointTypeFunc := func() string {
 		if s := req.GetAlertEndpoint().GetSlack(); s != nil {
-			return SlackEndpointInternalId
+			return (&SlackConfig{}).InternalId()
 		}
 		if e := req.GetAlertEndpoint().GetEmail(); e != nil {
-			return EmailEndpointInternalId
+			return (&EmailConfig{}).InternalId()
 		}
 		if p := req.GetAlertEndpoint().GetPagerDuty(); p != nil {
-			return PagerDutyEndpointInternalId
+			return (&PagerdutyConfig{}).InternalId()
 		}
 		return "unknown"
 	}
@@ -157,7 +157,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 				return err
 			}
 			switch toTraverseItem.endpointType {
-			case SlackEndpointInternalId:
+			case (&SlackConfig{}).InternalId():
 				slackCfg, err := NewSlackReceiverNode(req.GetAlertEndpoint().GetSlack())
 				if err != nil {
 					return err
@@ -167,7 +167,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 					return err
 				}
 				r.Receivers[recvPos].SlackConfigs[toTraverseItem.position] = slackCfg
-			case EmailEndpointInternalId:
+			case (&EmailConfig{}).InternalId():
 				emailCfg, err := NewEmailReceiverNode(req.GetAlertEndpoint().GetEmail())
 				if err != nil {
 					return err
@@ -177,7 +177,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 					return err
 				}
 				r.Receivers[recvPos].EmailConfigs[toTraverseItem.position] = emailCfg
-			case PagerDutyEndpointInternalId:
+			case (&PagerdutyConfig{}).InternalId():
 				pagerCfg, err := NewPagerDutyReceiverNode(req.GetAlertEndpoint().GetPagerDuty())
 				if err != nil {
 					return err
@@ -208,17 +208,17 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 				return err
 			}
 			switch toTraverseItem.endpointType {
-			case SlackEndpointInternalId:
+			case (&SlackConfig{}).InternalId():
 				r.Receivers[recvPos].SlackConfigs = slices.Delete(
 					r.Receivers[recvPos].SlackConfigs,
 					toTraverseItem.position,
 					toTraverseItem.position+1)
-			case EmailEndpointInternalId:
+			case (&EmailConfig{}).InternalId():
 				r.Receivers[recvPos].EmailConfigs = slices.Delete(
 					r.Receivers[recvPos].EmailConfigs,
 					toTraverseItem.position,
 					toTraverseItem.position+1)
-			case PagerDutyEndpointInternalId:
+			case (&PagerdutyConfig{}).InternalId():
 				r.Receivers[recvPos].PagerdutyConfigs = slices.Delete(
 					r.Receivers[recvPos].PagerdutyConfigs,
 					toTraverseItem.position,
@@ -278,17 +278,17 @@ func (r *RoutingTree) DeleteIndividualEndpointNode(
 			return nil, err
 		}
 		switch toTraverseItem.endpointType {
-		case SlackEndpointInternalId:
+		case (&SlackConfig{}).InternalId():
 			r.Receivers[recvPos].SlackConfigs = slices.Delete(
 				r.Receivers[recvPos].SlackConfigs,
 				toTraverseItem.position,
 				toTraverseItem.position+1)
-		case EmailEndpointInternalId:
+		case (&EmailConfig{}).InternalId():
 			r.Receivers[recvPos].EmailConfigs = slices.Delete(
 				r.Receivers[recvPos].EmailConfigs,
 				toTraverseItem.position,
 				toTraverseItem.position+1)
-		case PagerDutyEndpointInternalId:
+		case (&PagerdutyConfig{}).InternalId():
 			r.Receivers[recvPos].PagerdutyConfigs = slices.Delete(
 				r.Receivers[recvPos].PagerdutyConfigs,
 				toTraverseItem.position,

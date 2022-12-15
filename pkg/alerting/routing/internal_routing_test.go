@@ -44,7 +44,7 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 			Expect(err).NotTo(Succeed())
 			negative := -2
 			err = testInternalRouting.Add(testConditionId1, testConditionId2, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &negative,
 			})
 			Expect(err).NotTo(Succeed())
@@ -57,14 +57,14 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 				testConditionId1,
 				testEndpointId1,
 				routing.OpniRoutingMetadata{
-					EndpointType: routing.SlackEndpointInternalId,
+					EndpointType: (&routing.SlackConfig{}).InternalId(),
 					Position:     &zero,
 				})
 			m, err := testInternalRouting.GetFromCondition(testConditionId1)
 			Expect(err).To(BeNil())
 			Expect(m).To(HaveLen(1))
 			Expect(m[testEndpointId1]).NotTo(BeNil())
-			Expect(m[testEndpointId1].EndpointType).To(Equal(routing.SlackEndpointInternalId))
+			Expect(m[testEndpointId1].EndpointType).To(Equal((&routing.SlackConfig{}).InternalId()))
 			Expect(m[testEndpointId1].Position).NotTo(BeNil())
 			Expect(*m[testEndpointId1].Position).To(Equal(zero))
 		})
@@ -82,18 +82,18 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 		It("should fail to update with invalid input", func() {
 			zero := 0
 			err := testInternalRouting.UpdateEndpoint(testConditionId1, testEndpointId3, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).NotTo(Succeed())
 			err = testInternalRouting.UpdateEndpoint(testConditionId3, testEndpointId1, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).NotTo(Succeed())
 			negative := -2
 			err = testInternalRouting.UpdateEndpoint(testConditionId1, testEndpointId1, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &negative,
 			})
 			Expect(err).NotTo(Succeed())
@@ -102,7 +102,7 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 		It("should update endpoints", func() {
 			five := 5
 			err := testInternalRouting.UpdateEndpoint(testConditionId1, testEndpointId1, routing.OpniRoutingMetadata{
-				EndpointType: routing.EmailEndpointInternalId,
+				EndpointType: (&routing.EmailConfig{}).InternalId(),
 				Position:     &five,
 			})
 			Expect(err).To(Succeed())
@@ -110,7 +110,7 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 			Expect(err).To(Succeed())
 			Expect(m.Position).NotTo(BeNil())
 			Expect(*m.Position).To(Equal(five))
-			Expect(m.EndpointType).To(Equal(routing.EmailEndpointInternalId))
+			Expect(m.EndpointType).To(Equal((&routing.EmailConfig{}).InternalId()))
 		})
 
 		It("should fail to delete invalid endpoints", func() {
@@ -128,17 +128,17 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 
 			zero := 0
 			err = testInternalRouting.Add(testConditionId1, testEndpointId3, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).To(Succeed())
 			err = testInternalRouting.Add(testConditionId1, testEndpointId4, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).To(Succeed())
 			err = testInternalRouting.Add(testConditionId1, testEndpointId5, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).To(Succeed())
@@ -151,17 +151,17 @@ var _ = Describe("Internal routing tests", Ordered, Label(test.Unit, test.Slow),
 			_, err = testInternalRouting.GetFromCondition(testConditionId1)
 			Expect(err).NotTo(Succeed())
 			err = testInternalRouting.Add(testConditionId1, testEndpointId3, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).To(Succeed())
 			err = testInternalRouting.Add(testConditionId1, testEndpointId4, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 			Expect(err).To(Succeed())
 			err = testInternalRouting.Add(testConditionId1, testEndpointId5, routing.OpniRoutingMetadata{
-				EndpointType: routing.SlackEndpointInternalId,
+				EndpointType: (&routing.SlackConfig{}).InternalId(),
 				Position:     &zero,
 			})
 		})

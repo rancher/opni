@@ -191,7 +191,7 @@ func BuildImportStartCmd() *cobra.Command {
 	var forceOverlap bool
 
 	cmd := &cobra.Command{
-		Use:   "start",
+		Use:   "start <target>",
 		Short: "start",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -211,7 +211,7 @@ func BuildImportStartCmd() *cobra.Command {
 			query := &remoteread.Query{
 				StartTimestamp: &timestamppb.Timestamp{Seconds: startTimestamp},
 				EndTimestamp:   &timestamppb.Timestamp{Seconds: endTimestamp},
-				Matcher:        labelMatchers,
+				Matchers:       labelMatchers,
 			}
 
 			request := &remoteread.StartReadRequest{
@@ -240,6 +240,7 @@ func BuildImportStartCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
 
+	ConfigureManagementCommand(cmd)
 	ConfigureImportCommand(cmd)
 
 	return cmd
@@ -251,9 +252,11 @@ func BuildImportCmd() *cobra.Command {
 		Short: "Interact with metrics import plugin APIs",
 	}
 
-	cmd.AddCommand(BuildImportTargetCmd())
 	cmd.AddCommand(BuildImportStartCmd())
 	cmd.AddCommand(BuildImportTargetCmd())
+
+	ConfigureManagementCommand(cmd)
+	ConfigureImportCommand(cmd)
 
 	return cmd
 }

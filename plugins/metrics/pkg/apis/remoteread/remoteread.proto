@@ -14,9 +14,9 @@ service RemoteRead {
 //  rpc ScanForTargets(google.protobuf.Empty) returns (stream Target);
 //  rpc Describe(Target) returns (Target);
 
-  rpc AddTarget(TargetAddRequest) returns (Target);
-  rpc EditTarget(TargetEditRequest) returns (Target);
-  rpc RemoveTarget(TargetRemoveRequest) returns (Target);
+  rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
+  rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
+  rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
   rpc ListTargets(google.protobuf.Empty) returns (TargetList);
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
 //  rpc GetProgress(ProgressRequest) returns (stream Progress);
@@ -75,7 +75,7 @@ message StopReadRequest {
 message Query {
   google.protobuf.Timestamp startTimestamp = 1;
   google.protobuf.Timestamp endTimestamp = 2;
-  repeated LabelMatcher matcher = 3;
+  repeated LabelMatcher matchers = 3;
 }
 
 message LabelMatcher {

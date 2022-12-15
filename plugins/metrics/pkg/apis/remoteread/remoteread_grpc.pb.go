@@ -23,9 +23,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteReadClient interface {
-	AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*Target, error)
-	EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*Target, error)
-	RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*Target, error)
+	AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListTargets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*TargetList, error)
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// rpc GetProgress(ProgressRequest) returns (stream Progress);
@@ -40,8 +40,8 @@ func NewRemoteReadClient(cc grpc.ClientConnInterface) RemoteReadClient {
 	return &remoteReadClient{cc}
 }
 
-func (c *remoteReadClient) AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*Target, error) {
-	out := new(Target)
+func (c *remoteReadClient) AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/AddTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,8 +49,8 @@ func (c *remoteReadClient) AddTarget(ctx context.Context, in *TargetAddRequest, 
 	return out, nil
 }
 
-func (c *remoteReadClient) EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*Target, error) {
-	out := new(Target)
+func (c *remoteReadClient) EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/EditTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -58,8 +58,8 @@ func (c *remoteReadClient) EditTarget(ctx context.Context, in *TargetEditRequest
 	return out, nil
 }
 
-func (c *remoteReadClient) RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*Target, error) {
-	out := new(Target)
+func (c *remoteReadClient) RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/RemoveTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -98,9 +98,9 @@ func (c *remoteReadClient) Stop(ctx context.Context, in *StopReadRequest, opts .
 // All implementations must embed UnimplementedRemoteReadServer
 // for forward compatibility
 type RemoteReadServer interface {
-	AddTarget(context.Context, *TargetAddRequest) (*Target, error)
-	EditTarget(context.Context, *TargetEditRequest) (*Target, error)
-	RemoveTarget(context.Context, *TargetRemoveRequest) (*Target, error)
+	AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error)
+	EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error)
+	RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error)
 	ListTargets(context.Context, *emptypb.Empty) (*TargetList, error)
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	// rpc GetProgress(ProgressRequest) returns (stream Progress);
@@ -112,13 +112,13 @@ type RemoteReadServer interface {
 type UnimplementedRemoteReadServer struct {
 }
 
-func (UnimplementedRemoteReadServer) AddTarget(context.Context, *TargetAddRequest) (*Target, error) {
+func (UnimplementedRemoteReadServer) AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddTarget not implemented")
 }
-func (UnimplementedRemoteReadServer) EditTarget(context.Context, *TargetEditRequest) (*Target, error) {
+func (UnimplementedRemoteReadServer) EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditTarget not implemented")
 }
-func (UnimplementedRemoteReadServer) RemoveTarget(context.Context, *TargetRemoveRequest) (*Target, error) {
+func (UnimplementedRemoteReadServer) RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveTarget not implemented")
 }
 func (UnimplementedRemoteReadServer) ListTargets(context.Context, *emptypb.Empty) (*TargetList, error) {

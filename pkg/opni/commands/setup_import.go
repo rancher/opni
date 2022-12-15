@@ -9,7 +9,7 @@ var remoteReadClient remoteread.RemoteReadClient
 
 func ConfigureImportCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {
-		cmd.PersistentPostRunE = importPreRunE
+		cmd.PersistentPreRunE = importPreRunE
 	} else {
 		oldPreRunE := cmd.PersistentPreRunE
 		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
@@ -27,7 +27,7 @@ func importPreRunE(cmd *cobra.Command, args []string) error {
 		panic("bug: managementListenAddress is empty")
 	}
 
-	client, err := remoteread.NewClient(cmd.Context(), remoteread.WithListenAddress(""))
+	client, err := remoteread.NewClient(cmd.Context(), remoteread.WithListenAddress(managementListenAddress))
 	if err != nil {
 		return err
 	}

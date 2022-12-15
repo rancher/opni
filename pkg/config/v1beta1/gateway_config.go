@@ -29,6 +29,7 @@ type GatewayConfigSpec struct {
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 	Alerting       AlertingSpec   `json:"alerting,omitempty"`
 	Profiling      ProfilingSpec  `json:"profiling,omitempty"`
+	RemoteRead     RemoteReadSpec `json:"remoteRead,omitempty"`
 }
 
 type AlertingSpec struct {
@@ -52,6 +53,10 @@ type MetricsSpec struct {
 type ProfilingSpec struct {
 	//+kubebuilder:default=/debug/pprof
 	Path string `json:"path,omitempty"`
+}
+
+type RemoteReadSpec struct {
+	HttpAddress string `json:"path,omitempty"`
 }
 
 func (s MetricsSpec) GetPath() string {

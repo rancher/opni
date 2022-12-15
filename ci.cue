@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/images"
 )
 
-opniVersion: "0.8.0-rc3"
+opniVersion: "0.8.0-rc4"
 
 dagger.#Plan & {
 	client: {

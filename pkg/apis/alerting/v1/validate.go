@@ -120,9 +120,35 @@ func (q *AlertConditionPrometheusQuery) Validate() error {
 	return nil
 }
 
+func (dc *AlertConditionDownstreamCapability) Validate() error {
+	if dc.ClusterId.Id == "" {
+		return validation.Error("clusterId must be set")
+	}
+	if dc.For.AsDuration() <= 0 {
+		return validation.Error("positive \"for\" duration must be set")
+	}
+	if len(dc.CapabilityState) == 0 {
+		return validation.Error("At least one bad capability state required for alerting")
+	}
+	return nil
+}
+
+func (m *AlertConditionMonitoringBackend) Validate() error {
+	if m.For.AsDuration() == 0 {
+		return validation.Error("\"for\" duration must be some positive time")
+	}
+	if len(m.BackendComponents) == 0 {
+		return validation.Error("At least one backend component must be set to track")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
+	}
+	if d.GetDownstreamCapability() != nil {
+		return d.GetDownstreamCapability().Validate()
 	}
 	if d.GetKubeState() != nil {
 		return d.GetKubeState().Validate()
@@ -144,6 +170,9 @@ func (d *AlertTypeDetails) Validate() error {
 	}
 	if d.GetControlFlow() != nil {
 		return d.GetControlFlow().Validate()
+	}
+	if d.GetMonitoringBackend() != nil {
+		return d.GetMonitoringBackend().Validate()
 	}
 	return validation.Errorf("Backend does not handle alert type provided %v", d)
 }

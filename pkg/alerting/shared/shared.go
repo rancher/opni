@@ -19,11 +19,40 @@ import (
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
+const CortexDistributor = "distributor"
+const CortexIngester = "ingester"
+const CortexRuler = "ruler"
+const CortexPurger = "purger"
+const CortexCompactor = "compactor"
+const CortexStoreGateway = "store-gateway"
+const CortexQueryFrontend = "query-frontend"
+const CortexQuerier = "querier"
+
+var CortexComponents = []string{
+	CortexDistributor,
+	CortexIngester,
+	CortexRuler,
+	CortexPurger,
+	CortexCompactor,
+	CortexStoreGateway,
+	CortexQueryFrontend,
+	CortexQuerier,
+}
+
+// Storage types
+
+const AgentDisconnectStorageType = "agent-disconnect"
+
 // Datasources & Versioning
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
 const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
+
+// labels
 const BackendConditionIdLabel = "conditionId"
+const BackendConditionNameLabel = "opniname"
+const BackendConditionClusterIdLabel = "clusterId"
+const BackendConditionSeverityLabel = "severity"
 
 const (
 	AlertingV1Alpha      = "v1alpha"

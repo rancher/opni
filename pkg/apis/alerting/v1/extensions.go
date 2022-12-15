@@ -2,9 +2,11 @@ package v1
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/samber/lo"
 )
 
 // EnumConditionToDatasource
@@ -19,55 +21,67 @@ func init() {
 	//logging := shared.LoggingDatasource
 	monitoring := shared.MonitoringDatasource
 	system := shared.SystemDatasource
-	EnumConditionToDatasource[AlertType_SYSTEM] = &system
-	EnumConditionToDatasource[AlertType_KUBE_STATE] = &monitoring
-	EnumConditionToDatasource[AlertType_CPU_SATURATION] = &monitoring
-	EnumConditionToDatasource[AlertType_MEMORY_SATURATION] = &monitoring
-	EnumConditionToDatasource[AlertType_FS_SATURATION] = &monitoring
-	EnumConditionToDatasource[AlertType_COMPOSITION] = &monitoring
-	EnumConditionToDatasource[AlertType_CONTROL_FLOW] = &monitoring
-	EnumConditionToDatasource[AlertType_PROMETHEUS_QUERY] = &monitoring
+	EnumConditionToDatasource[AlertType_System] = &system
+	EnumConditionToDatasource[AlertType_DownstreamCapability] = &system
+	EnumConditionToDatasource[AlertType_KubeState] = &monitoring
+	EnumConditionToDatasource[AlertType_CpuSaturation] = &monitoring
+	EnumConditionToDatasource[AlertType_MemorySaturation] = &monitoring
+	EnumConditionToDatasource[AlertType_FsSaturation] = &monitoring
+	EnumConditionToDatasource[AlertType_Composition] = &monitoring
+	EnumConditionToDatasource[AlertType_ControlFlow] = &monitoring
+	EnumConditionToDatasource[AlertType_PrometheusQuery] = &monitoring
+	EnumConditionToDatasource[AlertType_MonitoringBackend] = &system
 
-	EnumConditionToImplementation[AlertType_SYSTEM] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_System] = AlertTypeDetails{
 		Type: &AlertTypeDetails_System{
 			System: &AlertConditionSystem{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_KUBE_STATE] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_KubeState] = AlertTypeDetails{
 		Type: &AlertTypeDetails_KubeState{
 			KubeState: &AlertConditionKubeState{},
 		},
 	}
 
-	EnumConditionToImplementation[AlertType_CPU_SATURATION] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_CpuSaturation] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Cpu{
 			Cpu: &AlertConditionCPUSaturation{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_MEMORY_SATURATION] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_MemorySaturation] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Memory{
 			Memory: &AlertConditionMemorySaturation{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_FS_SATURATION] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_FsSaturation] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Fs{
 			Fs: &AlertConditionFilesystemSaturation{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_COMPOSITION] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_Composition] = AlertTypeDetails{
 		Type: &AlertTypeDetails_Composition{
 			Composition: &AlertConditionComposition{},
 		},
 	}
-	EnumConditionToImplementation[AlertType_CONTROL_FLOW] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_ControlFlow] = AlertTypeDetails{
 		Type: &AlertTypeDetails_ControlFlow{
 			ControlFlow: &AlertConditionControlFlow{},
 		},
 	}
 
-	EnumConditionToImplementation[AlertType_PROMETHEUS_QUERY] = AlertTypeDetails{
+	EnumConditionToImplementation[AlertType_PrometheusQuery] = AlertTypeDetails{
 		Type: &AlertTypeDetails_PrometheusQuery{
 			PrometheusQuery: &AlertConditionPrometheusQuery{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_DownstreamCapability] = AlertTypeDetails{
+		Type: &AlertTypeDetails_DownstreamCapability{
+			DownstreamCapability: &AlertConditionDownstreamCapability{},
+		},
+	}
+	EnumConditionToImplementation[AlertType_MonitoringBackend] = AlertTypeDetails{
+		Type: &AlertTypeDetails_MonitoringBackend{
+			MonitoringBackend: &AlertConditionMonitoringBackend{},
 		},
 	}
 }
@@ -217,4 +231,43 @@ func (a *AlertCondition) SetClusterId(clusterId *corev1.Reference) error {
 		return nil
 	}
 	return shared.WithInternalServerErrorf("AlertCondition could not find its clusterId")
+}
+
+func (a *AlertCondition) GetTriggerAnnotations(conditionId string) map[string]string {
+	res := map[string]string{}
+	res[shared.BackendConditionSeverityLabel] = a.GetSeverity().String()
+	res[shared.BackendConditionNameLabel] = a.GetName()
+	res[shared.BackendConditionIdLabel] = conditionId
+	res[shared.BackendConditionClusterIdLabel] = a.GetClusterId().Id
+	if a.GetAlertType().GetSystem() != nil {
+		res = lo.Assign(res, a.GetAlertType().GetSystem().GetTriggerAnnotations())
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		res = lo.Assign(res, a.GetAlertType().GetDownstreamCapability().GetTriggerAnnotations())
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		res = lo.Assign(res, a.GetAlertType().GetMonitoringBackend().GetTriggerAnnotations())
+	}
+	// prometheus query won't have specific template args
+	return res
+}
+
+func (a *AlertConditionSystem) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"disconnectTimeout": a.GetTimeout().String(),
+	}
+}
+
+func (a *AlertConditionDownstreamCapability) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"capabilitiesTracked": strings.Join(a.GetCapabilityState(), ","),
+		"unhealthyThreshold":  a.GetFor().String(),
+	}
+}
+
+func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]string {
+	return map[string]string{
+		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
+		"unhealthyThreshold": a.GetFor().String(),
+	}
 }

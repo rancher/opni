@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -12,12 +13,16 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func handleChoicesByType(
@@ -26,22 +31,27 @@ func handleChoicesByType(
 	req *alertingv1.AlertDetailChoicesRequest,
 ) (*alertingv1.ListAlertTypeDetails, error) {
 	switch req.GetAlertType() {
-	case alertingv1.AlertType_SYSTEM:
+	case alertingv1.AlertType_System:
 		return p.fetchAgentInfo(ctx)
-	case alertingv1.AlertType_KUBE_STATE:
+	case alertingv1.AlertType_DownstreamCapability:
+		return p.fetchDownstreamCapabilityInfo(ctx)
+	case alertingv1.AlertType_KubeState:
 		return p.fetchKubeStateInfo(ctx)
-	case alertingv1.AlertType_CPU_SATURATION:
+	case alertingv1.AlertType_CpuSaturation:
 		return p.fetchCPUSaturationInfo(ctx)
-	case alertingv1.AlertType_MEMORY_SATURATION:
+	case alertingv1.AlertType_MemorySaturation:
 		return p.fetchMemorySaturationInfo(ctx)
-	case alertingv1.AlertType_FS_SATURATION:
+	case alertingv1.AlertType_FsSaturation:
 		return p.fetchFsSaturationInfo(ctx)
-	case alertingv1.AlertType_PROMETHEUS_QUERY:
+	case alertingv1.AlertType_PrometheusQuery:
 		return p.fetchPrometheusQueryInfo(ctx)
+	case alertingv1.AlertType_MonitoringBackend:
+		return p.fetchMonitoringBackendInfo(ctx)
 	default:
 		return nil, shared.AlertingErrNotImplemented
 	}
 }
+
 func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.CortexAdminClient, cl *corev1.Cluster) bool {
 	q, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{cl.Id},
@@ -106,6 +116,33 @@ func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeD
 	return &alertingv1.ListAlertTypeDetails{
 		Type: &alertingv1.ListAlertTypeDetails_System{
 			System: resSystem,
+		},
+	}, nil
+}
+
+func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	resChoices := &alertingv1.ListAlertConditionDownstreamCapability{
+		Clusters: make(map[string]*alertingv1.CapabilityState),
+	}
+
+	for _, cl := range clusters.Items {
+		resChoices.Clusters[cl.Id] = &alertingv1.CapabilityState{
+			States: []string{health.StatusPending.String(), health.StatusFailure.String()},
+		}
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_DownstreamCapability{
+			DownstreamCapability: resChoices,
 		},
 	}, nil
 }
@@ -622,4 +659,27 @@ func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.List
 		},
 	}, nil
 
+}
+
+func (p *Plugin) fetchMonitoringBackendInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	ctxca, ca := context.WithTimeout(ctx, time.Second*3)
+	defer ca()
+	cortexOps, err := p.cortexOpsClient.GetContext(ctxca)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire cortex ops client %s", err)
+	}
+	state, err := cortexOps.GetClusterStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monitoring backend status %s", err)
+	}
+	if state.State == cortexops.InstallState_NotInstalled || state.State == cortexops.InstallState_Unknown {
+		return nil, validation.Error("monitoring backend is not installed")
+	}
+	return &alertingv1.ListAlertTypeDetails{
+		Type: &alertingv1.ListAlertTypeDetails_MonitoringBackend{
+			MonitoringBackend: &alertingv1.ListAlertConditionMonitoringBackend{
+				BackendComponents: shared.CortexComponents,
+			},
+		},
+	}, nil
 }

@@ -106,6 +106,92 @@ var Health_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
 
+// BackendHealthClient is the client API for BackendHealth service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type BackendHealthClient interface {
+	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.BackendHealth, error)
+}
+
+type backendHealthClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBackendHealthClient(cc grpc.ClientConnInterface) BackendHealthClient {
+	return &backendHealthClient{cc}
+}
+
+func (c *backendHealthClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.BackendHealth, error) {
+	out := new(v1.BackendHealth)
+	err := c.cc.Invoke(ctx, "/control.BackendHealth/GetHealth", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BackendHealthServer is the server API for BackendHealth service.
+// All implementations must embed UnimplementedBackendHealthServer
+// for forward compatibility
+type BackendHealthServer interface {
+	GetHealth(context.Context, *emptypb.Empty) (*v1.BackendHealth, error)
+	mustEmbedUnimplementedBackendHealthServer()
+}
+
+// UnimplementedBackendHealthServer must be embedded to have forward compatible implementations.
+type UnimplementedBackendHealthServer struct {
+}
+
+func (UnimplementedBackendHealthServer) GetHealth(context.Context, *emptypb.Empty) (*v1.BackendHealth, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHealth not implemented")
+}
+func (UnimplementedBackendHealthServer) mustEmbedUnimplementedBackendHealthServer() {}
+
+// UnsafeBackendHealthServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BackendHealthServer will
+// result in compilation errors.
+type UnsafeBackendHealthServer interface {
+	mustEmbedUnimplementedBackendHealthServer()
+}
+
+func RegisterBackendHealthServer(s grpc.ServiceRegistrar, srv BackendHealthServer) {
+	s.RegisterService(&BackendHealth_ServiceDesc, srv)
+}
+
+func _BackendHealth_GetHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendHealthServer).GetHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.BackendHealth/GetHealth",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendHealthServer).GetHealth(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BackendHealth_ServiceDesc is the grpc.ServiceDesc for BackendHealth service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BackendHealth_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.BackendHealth",
+	HandlerType: (*BackendHealthServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetHealth",
+			Handler:    _BackendHealth_GetHealth_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}
+
 // HealthListenerClient is the client API for HealthListener service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
@@ -186,6 +272,92 @@ var HealthListener_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateHealth",
 			Handler:    _HealthListener_UpdateHealth_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}
+
+// BackendHealthListenerClient is the client API for BackendHealthListener service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type BackendHealthListenerClient interface {
+	UpdateHealth(ctx context.Context, in *v1.BackendHealth, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type backendHealthListenerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBackendHealthListenerClient(cc grpc.ClientConnInterface) BackendHealthListenerClient {
+	return &backendHealthListenerClient{cc}
+}
+
+func (c *backendHealthListenerClient) UpdateHealth(ctx context.Context, in *v1.BackendHealth, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/control.BackendHealthListener/UpdateHealth", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BackendHealthListenerServer is the server API for BackendHealthListener service.
+// All implementations must embed UnimplementedBackendHealthListenerServer
+// for forward compatibility
+type BackendHealthListenerServer interface {
+	UpdateHealth(context.Context, *v1.BackendHealth) (*emptypb.Empty, error)
+	mustEmbedUnimplementedBackendHealthListenerServer()
+}
+
+// UnimplementedBackendHealthListenerServer must be embedded to have forward compatible implementations.
+type UnimplementedBackendHealthListenerServer struct {
+}
+
+func (UnimplementedBackendHealthListenerServer) UpdateHealth(context.Context, *v1.BackendHealth) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateHealth not implemented")
+}
+func (UnimplementedBackendHealthListenerServer) mustEmbedUnimplementedBackendHealthListenerServer() {}
+
+// UnsafeBackendHealthListenerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BackendHealthListenerServer will
+// result in compilation errors.
+type UnsafeBackendHealthListenerServer interface {
+	mustEmbedUnimplementedBackendHealthListenerServer()
+}
+
+func RegisterBackendHealthListenerServer(s grpc.ServiceRegistrar, srv BackendHealthListenerServer) {
+	s.RegisterService(&BackendHealthListener_ServiceDesc, srv)
+}
+
+func _BackendHealthListener_UpdateHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.BackendHealth)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendHealthListenerServer).UpdateHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.BackendHealthListener/UpdateHealth",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendHealthListenerServer).UpdateHealth(ctx, req.(*v1.BackendHealth))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BackendHealthListener_ServiceDesc is the grpc.ServiceDesc for BackendHealthListener service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BackendHealthListener_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.BackendHealthListener",
+	HandlerType: (*BackendHealthListenerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UpdateHealth",
+			Handler:    _BackendHealthListener_UpdateHealth_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -4,23 +4,23 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	statusv1 "github.com/rancher/opni/pkg/apis/status/v1"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"google.golang.org/grpc"
 )
 
 const (
-	StatusPluginID = "opni.Status"
-	ServiceID      = "status.Status"
+	StatusPluginID = "opni.BackendHealth"
+	ServiceID      = "control.BackendHealth"
 )
 
 type statusPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
 
-	srv statusv1.StatusServer
+	srv controlv1.BackendHealthServer
 }
 
-func NewPlugin(srv statusv1.StatusServer) plugin.Plugin {
+func NewPlugin(srv controlv1.BackendHealthServer) plugin.Plugin {
 	return &statusPlugin{
 		srv: srv,
 	}
@@ -30,7 +30,7 @@ func (p *statusPlugin) GRPCServer(
 	broker *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
-	statusv1.RegisterStatusServer(s, p.srv)
+	controlv1.RegisterBackendHealthServer(s, p.srv)
 	return nil
 }
 
@@ -42,7 +42,7 @@ func (p *statusPlugin) GRPCClient(
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
 		return nil, err
 	}
-	return statusv1.NewStatusClient(c), nil
+	return controlv1.NewBackendHealthClient(c), nil
 }
 
 func init() {

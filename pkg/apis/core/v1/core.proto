@@ -137,6 +137,19 @@ message HealthStatus {
   Status status = 2;
 }
 
+enum BackendHealthStatus {
+    UNKNOWN = 0;
+    OK = 1;
+    WARNING = 2;
+    ERROR = 3;
+}
+
+message BackendHealth {
+    BackendHealthStatus state = 1;
+    optional string shortDescription = 2;
+    optional string longDescription = 3;
+}
+
 message ClusterHealth {
   Reference cluster = 1;
   Health health = 2;

@@ -13,6 +13,11 @@ type HealthClientSet interface {
 	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*corev1.Health, error)
 }
 
+type BackendHealthClientSet interface {
+	// rpc GetHealth(emptypb.Empty) returns (core.BackendHealth)
+	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*corev1.BackendHealth, error)
+}
+
 type HealthStatusUpdater interface {
 	StatusC() chan StatusUpdate
 	HealthC() chan HealthUpdate

@@ -2,7 +2,6 @@ package types
 
 import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	statusv1 "github.com/rancher/opni/pkg/apis/status/v1"
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -15,7 +14,6 @@ type (
 	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capabilityv1.BackendClient
 	CapabilityNodePlugin         = capabilityv1.NodeClient
-	BackendStatusPlugin          = statusv1.StatusClient
 	MetricsPlugin                = collector.RemoteCollector
 	SystemPlugin                 = system.SystemPluginServer
 )

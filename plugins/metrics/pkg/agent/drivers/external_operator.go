@@ -178,22 +178,21 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 						//   MaxBackoff:        5s
 						//
 						// Default target max bandwidth: 500 samples * 200 shards * 10 requests/shard/s = 1M samples/s
-						// Capacity goal should be 600k samples
-						//
-						// Larger payloads at reduced frequency may be more efficient when
-						// dealing with many nodes. Keep the same max bandwidth, but
-						// increase the payload size.
+						// Default capacity goal = 600k samples
 						QueueConfig: &monitoringcoreosv1.QueueConfig{
-							MaxShards:         20,
+							MaxShards:         100,
 							MinShards:         1,
-							MaxSamplesPerSend: 5000,  // 5000 samples * 20 shards * 10 requests/shard/s = 1M samples/s
-							Capacity:          25000, // 30000 samples * 20 shards = 600k samples
-							BatchSendDeadline: "4s",  // reduce slightly to offset increased buffer size
+							MaxSamplesPerSend: 1000,
+							Capacity:          5000,
+							BatchSendDeadline: "2s",
+							MinBackoff:        "5s",
+							MaxBackoff:        "1m",
 							RetryOnRateLimit:  true,
+							MaxRetries:        15,
 						},
 					},
 				},
-				ScrapeInterval:                  "15s",
+				ScrapeInterval:                  "30s",
 				Replicas:                        lo.ToPtr[int32](1),
 				PodMonitorNamespaceSelector:     selector,
 				PodMonitorSelector:              selector,

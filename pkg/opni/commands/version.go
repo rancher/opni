@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -26,12 +26,12 @@ func BuildVersionCmd() *cobra.Command {
 			})
 			var noun string
 			var version string
-			if util.Version == "unversioned" {
+			if versions.Version == "unversioned" {
 				noun = "revision"
 				version = settings["vcs.revision"].Value
 			} else {
 				noun = "version"
-				version = util.Version
+				version = versions.Version
 			}
 			if quiet {
 				fmt.Println(version)
@@ -39,7 +39,7 @@ func BuildVersionCmd() *cobra.Command {
 			}
 			fmt.Printf("Opni, %s %s\n", noun, version)
 			fmt.Printf("  go version: %s\n", info.GoVersion)
-			fmt.Printf("  build date: %s\n", util.BuildTime)
+			fmt.Printf("  build date: %s\n", versions.BuildTime)
 		},
 	}
 	versionCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Only print version or revision")

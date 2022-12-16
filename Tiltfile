@@ -4,7 +4,7 @@ load('ext://namespace', 'namespace_create')
 
 set_team('52cc75cc-c4ed-462f-8ea7-a543d398a381')
 
-version = '0.8.0'
+version = '0.8.0-rc5'
 config.define_string_list('allowedContexts')
 config.define_string_list('opniChartValues')
 config.define_string('defaultRegistry')
@@ -50,6 +50,6 @@ if cfg.get('defaultRegistry') != None:
 
 custom_build("rancher/opni",
   command="dagger do load opni",
-  deps=['controllers', 'apis', 'pkg', 'plugins'], 
+  deps=['controllers', 'apis', 'pkg', 'plugins'],
   ignore=ignore,
 )

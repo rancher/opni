@@ -7,18 +7,12 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
-	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	opensearchv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/features"
@@ -128,12 +122,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 	lg := logger.NewPluginLogger().Named("logging")
 
-	scheme := runtime.NewScheme()
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(opniv1beta2.AddToScheme(scheme))
-	utilruntime.Must(opensearchv1.AddToScheme(scheme))
-	utilruntime.Must(opnicorev1beta1.AddToScheme(scheme))
-	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
+	scheme := apis.NewScheme()
 
 	var restconfig *rest.Config
 	if options.restconfig != nil {

@@ -187,7 +187,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Enabled: lo.ToPtr(false),
 			},
 			FeatureToggles: &grafanav1alpha1.GrafanaConfigFeatureToggles{
-				Enable: "accessTokenExpirationCheck panelTitleSearch dashboardPreviews topnav increaseInMemDatabaseQueryCache newPanelChromeUI",
+				Enable: "accessTokenExpirationCheck panelTitleSearch increaseInMemDatabaseQueryCache newPanelChromeUI",
 			},
 		},
 		Deployment: &grafanav1alpha1.GrafanaDeployment{

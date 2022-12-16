@@ -1,3 +1,5 @@
+//go:build !noalertmanager
+
 package commands
 
 import (

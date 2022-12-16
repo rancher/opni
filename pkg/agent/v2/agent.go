@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/ident/identserver"
 	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -334,7 +335,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			break
 		}
 		// eventually passed to runGatewayClient
-		buildInfo, ok := util.ReadBuildInfo()
+		buildInfo, ok := versions.ReadBuildInfo()
 		if !ok {
 			return fmt.Errorf("error reading build info")
 		}

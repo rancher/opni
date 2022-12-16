@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -166,7 +167,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					if p.version != "" {
 						return p.version
 					}
-					return strings.TrimPrefix(util.Version, "v")
+					return strings.TrimPrefix(versions.Version, "v")
 				}(),
 				ImageRepo: "docker.io/rancher",
 				NatsRef:   p.natsRef,
@@ -212,7 +213,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	var version string
-	version = strings.TrimPrefix(util.Version, "v")
+	version = strings.TrimPrefix(versions.Version, "v")
 	if p.version != "" {
 		version = p.version
 	}
@@ -256,7 +257,7 @@ func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, err
 	}
 
 	var version string
-	version = strings.TrimPrefix(util.Version, "v")
+	version = strings.TrimPrefix(versions.Version, "v")
 	if p.version != "" {
 		version = p.version
 	}
@@ -412,8 +413,8 @@ func (p *Plugin) convertProtobufToDashboards(
 	var osVersion string
 	version := "0.8.0-rc5"
 	if cluster == nil {
-		if util.Version != "unversioned" {
-			version = strings.TrimPrefix(util.Version, "v")
+		if versions.Version != "unversioned" {
+			version = strings.TrimPrefix(versions.Version, "v")
 		}
 		if p.version != "" {
 			version = p.version
@@ -423,7 +424,7 @@ func (p *Plugin) convertProtobufToDashboards(
 		if cluster.Status.Version != nil {
 			version = *cluster.Status.Version
 		} else {
-			version = strings.TrimPrefix(util.Version, "v")
+			version = strings.TrimPrefix(versions.Version, "v")
 			if p.version != "" {
 				version = p.version
 			}

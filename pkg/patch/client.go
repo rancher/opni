@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -66,20 +67,100 @@ func NewPatchClient(config v1beta1.PluginsSpec, lg *zap.SugaredLogger, opts ...P
 		return nil, fmt.Errorf("failed to stat plugin directory %s: %w", config.Dir, err)
 	}
 
+	tempDirBase, err := findTempDirBase(options.baseFs, config.Dir)
+	if err != nil {
+		return nil, err
+	}
+
+	tempDir, err := afero.TempDir(options.baseFs, tempDirBase, ".opni-plugins-tmp-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+
 	return &patchClient{
 		fs: pluginFs{
 			fs: afero.Afero{
 				Fs: options.baseFs,
 			},
-			dir: config.Dir,
+			dir:     config.Dir,
+			tempDir: tempDir,
 		},
 		lg: lg,
 	}, nil
 }
 
+// findTempDirBase locates a suitable temporary directory in which to store
+// temporary data during patching. The directory must be writable, and
+// must be on the same filesystem as the plugin directory.
+func findTempDirBase(baseFs afero.Fs, pluginDir string) (string, error) {
+	af := afero.Afero{
+		Fs: baseFs,
+	}
+	pathsToCheck := []string{
+		"",        // default temp dir
+		"/tmp",    // /tmp is preferred, if possible
+		pluginDir, // use a subdirectory of the plugin dir as a last resort
+	}
+	pluginDirInfo, err := af.Stat(pluginDir)
+	if err != nil {
+		panic("bug: plugin directory does not exist")
+	}
+
+	deviceInfoAvailable := false
+	var pluginDirDevice uint64
+	if sys := pluginDirInfo.Sys(); sys != nil {
+		if stat, ok := sys.(*syscall.Stat_t); ok {
+			deviceInfoAvailable = true
+			pluginDirDevice = stat.Dev
+		}
+	}
+
+	for _, candidate := range pathsToCheck {
+		// fast path: if Dev() returns a valid Stat_t, we can use it to
+		// determine if the two paths are on the same device.
+		if deviceInfoAvailable {
+			if info, err := af.Stat(candidate); err == nil {
+				if sys := info.Sys(); sys != nil {
+					if stat, ok := sys.(*syscall.Stat_t); ok {
+						if stat.Dev == pluginDirDevice {
+							return candidate, nil
+						}
+					}
+				}
+			}
+		}
+
+		// slow path: try to write a file to a new temp directory and rename it
+		// to a file in the plugin directory. If the rename succeeds, the
+		// two directories are on the same filesystem.
+		if err := func() error {
+			path, err := af.TempDir(candidate, ".opni-fs-test-")
+			if err != nil {
+				return err
+			}
+			defer af.RemoveAll(path)
+			testFile, err := af.TempFile(path, ".fs-test-*")
+			if err != nil {
+				return err
+			}
+			testFile.Close()
+			err = af.Rename(filepath.Join(path, filepath.Base(testFile.Name())), filepath.Join(pluginDir, filepath.Base(testFile.Name())))
+			if err != nil {
+				return err
+			}
+			af.Remove(filepath.Join(pluginDir, filepath.Base(testFile.Name())))
+			return nil
+		}(); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find a writable temp directory on the same device as %s (tried: %v)", pluginDir, pathsToCheck)
+}
+
 type pluginFs struct {
-	fs  afero.Afero
-	dir string
+	fs      afero.Afero
+	dir     string
+	tempDir string
 }
 
 // resolve relative paths to the plugin directory
@@ -238,7 +319,7 @@ func (pc *patchClient) doUpdate(entry *controlv1.PatchSpec) error {
 		return internalErrf("unknown patch format for plugin %s", entry.Module)
 	}
 
-	tmp, err := pc.fs.TempFile("", ".opni-tmp-plugin-")
+	tmp, err := pc.fs.TempFile(pc.fs.tempDir, ".opni-tmp-plugin-")
 	if err != nil {
 		return internalErrf("could not create temporary file: %v", err)
 	}

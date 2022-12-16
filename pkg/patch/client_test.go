@@ -716,5 +716,26 @@ var _ = Describe("Client", func() {
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("failed applying patch for plugin %s: corrupt patch", test1Module)))
 			})
 		})
+		When("the plugin directory is located on a separate filesystem than the os temp directory", func() {
+			It("should not use the rename strategy to replace plugins", func() {
+				testfs := &test.CrossDeviceTestFs{Fs: fsys}
+				client, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(testfs))
+				Expect(err).NotTo(HaveOccurred())
+
+				patches := &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						op(create, test1, v1),
+					},
+				}
+				Expect(client.Patch(patches)).To(Succeed())
+
+				patches = &controlv1.PatchList{
+					Items: []*controlv1.PatchSpec{
+						op(update, test1, v1, v2),
+					},
+				}
+				Expect(client.Patch(patches)).To(Succeed())
+			})
+		})
 	})
 })

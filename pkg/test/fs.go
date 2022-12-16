@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -296,4 +297,47 @@ func (m *ModeAwareMemMapFs) Chtimes(name string, atime time.Time, mtime time.Tim
 
 func (m *ModeAwareMemMapFs) Name() string {
 	return "ModeAwareMemMapFs"
+}
+
+// A filesystem wrapper whose implementation of Rename will return EXDEV if the
+// source and destination paths do not share the same first path component.
+// This is to simulate cross-device rename errors.
+type CrossDeviceTestFs struct {
+	afero.Fs
+}
+
+func (c *CrossDeviceTestFs) Rename(oldpath, newpath string) error {
+	oldpath = filepath.Clean(oldpath)
+	newpath = filepath.Clean(newpath)
+	if !filepath.IsAbs(oldpath) {
+		var err error
+		oldpath, err = filepath.Abs(oldpath)
+		if err != nil {
+			panic("test error: could not get absolute path for oldpath")
+		}
+	}
+	if !filepath.IsAbs(newpath) {
+		var err error
+		newpath, err = filepath.Abs(newpath)
+		if err != nil {
+			panic("test error: could not get absolute path for newpath")
+		}
+	}
+
+	// check if the first path component is the same, starting from the root
+	oldpathComponents := strings.Split(oldpath, string(filepath.Separator))
+	newpathComponents := strings.Split(newpath, string(filepath.Separator))
+	if len(oldpathComponents) < 2 || len(newpathComponents) < 2 {
+		panic("test error: Rename called with invalid paths")
+
+	}
+	if oldpathComponents[1] == newpathComponents[1] {
+		return c.Fs.Rename(oldpath, newpath)
+	}
+	return &os.LinkError{
+		Op:  "rename",
+		Old: oldpath,
+		New: newpath,
+		Err: syscall.EXDEV,
+	}
 }

@@ -17,6 +17,7 @@ packages: {
 	controller:  string @tag(packages_controller)
 	slow:        string @tag(packages_slow)
 	deprecated:  string @tag(packages_deprecated)
+	aberrant:    string @tag(packages_aberrant)
 }
 
 pkgTests: {
@@ -60,6 +61,17 @@ tests: ginkgo.#TestPlan & {
 			Explicit: true
 			Suite: {
 				Timeout: 1 * time.#Hour
+			}
+		}
+		aberrant: ginkgo.#Run & {
+			Packages: packages.aberrant
+			Explicit: true
+			Build: {
+				Race:  false
+				Cover: false
+			}
+			Suite: {
+				LabelFilter: "aberrant"
 			}
 		}
 	}

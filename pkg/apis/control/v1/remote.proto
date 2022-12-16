@@ -7,72 +7,67 @@ import "github.com/kralicky/totem/extensions.proto";
 
 package control;
 
-service Health { 
-  rpc GetHealth(google.protobuf.Empty) returns (core.Health); 
+service Health {
+  rpc GetHealth(google.protobuf.Empty) returns (core.Health);
 }
 
 service HealthListener {
   rpc UpdateHealth(core.Health) returns (google.protobuf.Empty);
 }
 
-service PluginManifest {
-  rpc SendManifestsOrKnownPatch(ManifestMetadataList) returns (ManifestList);
-  rpc GetPluginManifests(google.protobuf.Empty) returns (ManifestMetadataList);
-  rpc UploadPatch(PatchSpec) returns (google.protobuf.Empty);
+service PluginSync {
+  rpc SyncPluginManifest(PluginManifest) returns (SyncResults);
+  rpc GetPluginManifest(google.protobuf.Empty) returns (PluginManifest);
 }
 
 enum PatchOp {
   // revisions match
-  NONE = 0;
+  None = 0;
   // same plugin exists on both
-  UPDATE = 1;
+  Update = 1;
   // missing plugin on agent
-  CREATE = 2;
-  // outdate plugin on agent, with no version on the gateway
-  REMOVE = 3;
+  Create = 2;
+  // outdated plugin on agent, with no version on the gateway
+  Remove = 3;
+  // same plugin contents and module name, but the file name is different
+  Rename = 4;
 }
 
-message CompressedManifests {
-  map<string, ManifestData> items = 1;
+message SyncResults {
+  PluginManifest desiredState = 1;
+  PatchList requiredPatches = 2;
 }
 
-message ManifestMetadata {
-  string hash = 1;
-  string path = 2;
-  string revision = 3;
+message PluginManifestEntry {
+  string module = 1;
+  string filename = 2;
+  string digest = 3;
 }
 
-message ManifestMetadataList {
-//  CompressionMethod reqCompr = 1;
-  map<string, ManifestMetadata> items = 2;
+message PluginManifest {
+  repeated PluginManifestEntry items = 1;
 }
 
-message ManifestData {
-  bytes data = 1;
-  string opPath = 2;
-  PatchOp op = 3;
-  bool isPatch = 4;
-  string oldHash = 5;
-  string newHash = 6;
-
-  // If the server wants the agent to compute a patch and upload it, this will be true.
-  bool requestPatchUpload = 7;
+message PluginArchiveEntry {
+  PluginManifestEntry metadata = 1;
+  bytes data = 2;
 }
 
-message ManifestList {
-  // !!! plugin name -> bytes, not plugin path -> bytes
-  map<string, CompressedManifest> manifests = 1;
+message PluginArchive {
+  repeated PluginArchiveEntry items = 1;
 }
 
-message CompressedManifest {
-  optional string attachedMetadata = 1;
-//  CompressionMethod comprMethod = 2;
-  ManifestData dataAndInfo = 3;
-}
-
+// opPath should be empty when op == PatchRename
+// bytes should be empty when op == PatchRemove
 message PatchSpec {
-  string pluginName = 1;
-  string oldHash = 2;
-  string newHash = 3;
-  bytes patch = 4;
+  string module = 1;
+  PatchOp op = 2;
+  bytes data = 3;
+  string filename = 4;
+  string oldDigest = 5;
+  string newDigest = 6;
+}
+
+message PatchList {
+  repeated PatchSpec items = 1;
 }

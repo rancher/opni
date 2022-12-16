@@ -43,7 +43,7 @@ func ConditionStatusStrToEnum(status string) (ConditionStatus, error) {
 }
 
 const (
-	CondConfigSync = "Config Sync"
+	CondConfigSync = "config Sync"
 	CondBackend    = "Backend"
 )
 

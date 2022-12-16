@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	asciiLogo = `                     _ 
+	asciiLogo = `                     _
   ____  ____  ____  (_)
- / __ \/ __ \/ __ \/ / 
-/ /_/ / /_/ / / / / /  
-\____/ .___/_/ /_/_/   
-    /_/                
+ / __ \/ __ \/ __ \/ /
+/ /_/ / /_/ / / / / /
+\____/ .___/_/ /_/_/
+    /_/
  Observability + AIOps for Kubernetes
 `
 
@@ -148,7 +148,7 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
 		logLevel:    DefaultLogLevel.Level(),
-		timeEncoder: zapcore.ISO8601TimeEncoder,
+		timeEncoder: zapcore.RFC3339TimeEncoder,
 	}
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter

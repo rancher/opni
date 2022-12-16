@@ -72,7 +72,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
-	allResources = append(allResources, deployment)
+	allResources = append(allResources, deployment...)
 	services, err := r.services()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()

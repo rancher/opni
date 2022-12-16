@@ -20,20 +20,6 @@ type BootstrapTokenList struct {
 }
 
 // +kubebuilder:object:root=true
-type Cluster struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *opnicorev1.Cluster `json:"spec,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-type ClusterList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Cluster `json:"items"`
-}
-
-// +kubebuilder:object:root=true
 type Role struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -78,7 +64,6 @@ type KeyringList struct {
 func init() {
 	SchemeBuilder.Register(
 		&BootstrapToken{}, &BootstrapTokenList{},
-		&Cluster{}, &ClusterList{},
 		&Role{}, &RoleList{},
 		&RoleBinding{}, &RoleBindingList{},
 		&Keyring{}, &KeyringList{},

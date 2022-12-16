@@ -27,7 +27,14 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		},
 		Spec: cfgv1beta1.GatewayConfigSpec{
 			Plugins: cfgv1beta1.PluginsSpec{
-				Dirs: append([]string{"/var/lib/opni/plugins"}, r.gw.Spec.PluginSearchDirs...),
+				Dir: "/var/lib/opni/plugins",
+				Cache: cfgv1beta1.CacheSpec{
+					PatchEngine: cfgv1beta1.PatchEngineBsdiff,
+					Backend:     cfgv1beta1.CacheBackendFilesystem,
+					Filesystem: cfgv1beta1.FilesystemCacheSpec{
+						Dir: "/var/lib/opni/plugin-cache",
+					},
+				},
 			},
 			Hostname: r.gw.Spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{

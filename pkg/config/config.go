@@ -48,7 +48,9 @@ func LoadObjects(documents [][]byte) (meta.ObjectList, error) {
 		}
 		object, err := LoadObject(document)
 		if err != nil {
-			lg.Error("error loading config", zap.Error(err))
+			lg.With(
+				zap.Error(err),
+			).Error("error loading config")
 			continue
 		}
 		objects = append(objects, object)

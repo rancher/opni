@@ -12,31 +12,40 @@ import (
 	"google.golang.org/grpc"
 )
 
-func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.ReattachConfig) *plugin.ClientConfig {
-	//#nosec G204
-	cmd := exec.Command(md.BinaryPath)
-	ConfigureSysProcAttr(cmd)
+type ClientOptions struct {
+	reattach     *plugin.ReattachConfig
+	secureConfig *plugin.SecureConfig
+}
 
-	switch mode := scheme.Mode(); mode {
-	case meta.ModeUnknown:
-	case meta.ModeGateway, meta.ModeAgent:
-		cmd.Env = append(cmd.Environ(), fmt.Sprintf("OPNI_PLUGIN_MODE=%s", mode))
-	default:
-		panic(fmt.Sprintf("unknown plugin mode: %s", mode))
+type ClientOption func(*ClientOptions)
+
+func (o *ClientOptions) apply(opts ...ClientOption) {
+	for _, op := range opts {
+		op(o)
 	}
+}
 
-	var rc *plugin.ReattachConfig
-	if len(reattach) > 0 {
-		rc = reattach[0]
-		cmd = nil
+func WithReattachConfig(reattach *plugin.ReattachConfig) ClientOption {
+	return func(o *ClientOptions) {
+		o.reattach = reattach
 	}
+}
 
-	return &plugin.ClientConfig{
+func WithSecureConfig(sc *plugin.SecureConfig) ClientOption {
+	return func(o *ClientOptions) {
+		o.secureConfig = sc
+	}
+}
+
+func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
+	options := &ClientOptions{}
+	options.apply(opts...)
+
+	cc := &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
-		Cmd:              cmd,
 		Logger: hclog.New(&hclog.LoggerOptions{
 			Level: hclog.Error,
 		}),
@@ -44,9 +53,31 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.Re
 			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 		},
-		Stderr:   os.Stderr,
-		Reattach: rc,
+		Stderr: os.Stderr,
 	}
+
+	if options.reattach != nil {
+		cc.Reattach = options.reattach
+	} else {
+		//#nosec G204
+		cmd := exec.Command(md.BinaryPath)
+		ConfigureSysProcAttr(cmd)
+
+		switch mode := scheme.Mode(); mode {
+		case meta.ModeGateway, meta.ModeAgent:
+			cmd.Env = append(cmd.Environ(), fmt.Sprintf("%s=%s", meta.PluginModeEnvVar, mode))
+		default:
+			panic(fmt.Sprintf("unknown plugin mode: %s", mode))
+		}
+
+		cc.Cmd = cmd
+		cc.AutoMTLS = true
+	}
+	if options.secureConfig != nil {
+		cc.SecureConfig = options.secureConfig
+	}
+
+	return cc
 }
 
 func ServeConfig(scheme meta.Scheme) *plugin.ServeConfig {

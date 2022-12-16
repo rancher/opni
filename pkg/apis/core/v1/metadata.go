@@ -1,6 +1,12 @@
 package v1
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
 
 type Capability[T any] interface {
 	Comparator[T]
@@ -80,4 +86,32 @@ func (c *Cluster) SetResourceVersion(version string) {
 		c.Metadata = &ClusterMetadata{}
 	}
 	c.Metadata.ResourceVersion = version
+}
+
+func (c *Cluster) SetCreationTimestamp(ts time.Time) {
+	if c.Metadata == nil {
+		c.Metadata = &ClusterMetadata{}
+	}
+	c.Metadata.CreationTimestamp = timestamppb.New(ts)
+}
+
+func (c *Cluster) GetCreationTimestamp() time.Time {
+	return c.GetMetadata().GetCreationTimestamp().AsTime()
+}
+
+type lastKnownConnectionDetailsKeyType struct{}
+
+var lastKnownConnectionDetailsKey lastKnownConnectionDetailsKeyType
+
+func LastKnownConnectionDetailsFromContext(ctx context.Context) (*LastKnownConnectionDetails, bool) {
+	v := ctx.Value(lastKnownConnectionDetailsKey)
+	if v == nil {
+		return nil, false
+	}
+	details, ok := v.(*LastKnownConnectionDetails)
+	return details, ok
+}
+
+func NewContextWithLastKnownConnectionDetails(ctx context.Context, details *LastKnownConnectionDetails) context.Context {
+	return context.WithValue(ctx, lastKnownConnectionDetailsKey, details)
 }

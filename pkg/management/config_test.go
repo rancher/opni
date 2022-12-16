@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Config", Ordered, Label("unit", "slow"), func() {
+var _ = Describe("Management Config", Ordered, Label("unit", "slow"), func() {
 	var tv *testVars
 	var sampleObjects []meta.Object
 	var lifecycler config.Lifecycler

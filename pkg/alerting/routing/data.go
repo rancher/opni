@@ -38,7 +38,7 @@ func (o *OpniInternalRouting) DeepCopy() (*OpniInternalRouting, error) {
 // When creating a new route to this routinegNode the assumption is that its receiver name
 // matches the receiver and the conditionId the route is associated with.
 //
-// Marshals/Unmarshals to github.com/prometheus/alertmanager/config/config.go's Config struct,
+// Marshals/Unmarshals to github.com/prometheus/alertmanager/config/config.go's config struct,
 // but we don't use this struct directly due to :
 // - package mismatched versions with prometheus/common
 // - override marshalling of secrets that prevents us from putting them into a secret

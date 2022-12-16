@@ -234,7 +234,7 @@ func RecoverTimeout() {
 		os.Exit(0)
 	default:
 		fmt.Println(r)
-		fmt.Println(debug.Stack())
+		fmt.Println(string(debug.Stack()))
 		os.Exit(1)
 	}
 }

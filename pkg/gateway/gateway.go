@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -160,15 +161,37 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create cluster auth")
 	}
 
-	// set up plugin manifest server
-	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+	// set up plugin sync server
+	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
+		patch.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
+			if pm.ExtendedMetadata != nil {
+				// only sync plugins that have the agent mode set
+				return slices.Contains(pm.ExtendedMetadata.ModeList.Modes, meta.ModeAgent)
+			}
+			return true // default to syncing all plugins
+		}),
+	)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to create plugin sync server")
+	}
+
+	httpServer.metricsRegisterer.MustRegister(syncServer.Collectors()...)
+
+	if err := syncServer.RunGarbageCollection(ctx, storageBackend); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Error("failed to run garbage collection")
+	}
 
 	// set up grpc server
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(
 			clusterAuth.StreamServerInterceptor(),
-			manifest.StreamServerInterceptor(),
+			syncServer.StreamServerInterceptor(),
+			NewLastKnownDetailsApplier(storageBackend),
 		),
 	)
 
@@ -178,15 +201,17 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	sync := NewSyncRequester(lg)
 	// set up agent connection handlers
 	agentHandler := MultiConnectionHandler(listener, sync)
+	//// set up ref count to health listener
+	//versionHandler := MultiConnectionHandler(listener, )
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, lg)
-	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 
+	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
-	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
+	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		if err := streamSvc.AddRemote(cc, md.ShortName()); err != nil {
+		if err := streamSvc.AddRemote(cc, md.Filename()); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,

@@ -6,22 +6,21 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/ident/identserver"
-	"github.com/rancher/opni/pkg/patch"
-
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/pkg/ident/identserver"
+	"github.com/rancher/opni/pkg/patch"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -47,6 +46,18 @@ import (
 
 var ErrRebootstrap = errors.New("re-bootstrap requested")
 
+const (
+	healthzPluginsNotLoaded = 1 << iota
+	healthzGatewayNotConnected
+)
+
+var (
+	healthzConditions = map[uint32]string{
+		healthzPluginsNotLoaded:    "plugins not loaded",
+		healthzGatewayNotConnected: "gateway not connected",
+	}
+)
+
 type Agent struct {
 	AgentOptions
 
@@ -60,6 +71,9 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
+
+	healthzMu *sync.Mutex
+	healthz   *uint32
 
 	loadedExistingKeyring bool
 }
@@ -114,7 +128,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if options.unmanagedPluginLoader != nil {
 		pl = options.unmanagedPluginLoader
 	} else {
-		pl = plugins.NewPluginLoader()
+		pl = plugins.NewPluginLoader(plugins.WithLogger(lg))
 	}
 
 	pl.Hook(hooks.OnLoadM(func(p types.CapabilityNodePlugin, m meta.PluginMeta) {
@@ -126,9 +140,31 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	router.Use(logger.GinLogger(lg), gin.Recovery())
 	pprof.Register(router)
 
-	router.GET("/healthz", func(ctx *gin.Context) {
-		ctx.Status(http.StatusOK)
+	healthz := new(uint32)
+	*healthz = (1 << len(healthzConditions)) - 1
+	healthzMu := &sync.Mutex{}
+
+	router.GET("/healthz", func(c *gin.Context) {
+		healthzMu.Lock()
+		messages := []string{}
+		for k, v := range healthzConditions {
+			if *healthz&k != 0 {
+				messages = append(messages, v)
+			}
+		}
+		healthzMu.Unlock()
+		if len(messages) > 0 {
+			c.String(http.StatusServiceUnavailable, strings.Join(messages, ", "))
+			return
+		}
+		c.String(http.StatusOK, "OK")
 	})
+
+	pl.Hook(hooks.OnLoadingCompleted(func(i int) {
+		healthzMu.Lock()
+		*healthz &^= healthzPluginsNotLoaded
+		healthzMu.Unlock()
+	}))
 
 	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {
 		ctx, ca := context.WithTimeout(ctx, 10*time.Second)
@@ -216,6 +252,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			zap.Error(err),
 		).Warn("error in post-bootstrap finalization")
 	}
+
 	trust, err := machinery.BuildTrustStrategy(conf.Spec.TrustStrategy, kr)
 	if err != nil {
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
@@ -235,14 +272,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	pl.Hook(hooks.OnLoadMC(func(hc controlv1.HealthClient, m meta.PluginMeta, cc *grpc.ClientConn) {
 		client := controlv1.NewHealthClient(cc)
-		hm.AddClient(path.Base(m.BinaryPath), client)
+		hm.AddClient(m.Filename(), client)
 	}))
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		lg.With(
 			zap.String("plugin", md.Module),
 		).Debug("loaded stream api extension plugin")
-		gatewayClient.RegisterSplicedStream(cc, md.ShortName())
+		gatewayClient.RegisterSplicedStream(cc, md.Filename())
 	}))
 
 	return &Agent{
@@ -258,31 +295,58 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		trust:            trust,
 		gatewayClient:    gatewayClient,
 
+		healthzMu: healthzMu,
+		healthz:   healthz,
+
 		loadedExistingKeyring: loadedExistingKeyring,
 	}, nil
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if a.unmanagedPluginLoader == nil {
-		manifests, err := a.syncPlugins(ctx)
-		if err != nil {
-			if status.Code(err) == codes.Unauthenticated && a.loadedExistingKeyring {
-				a.Logger.With(
-					zap.Error(err),
-				).Warn("The agent failed to authorize to the gateway using an existing keyring. " +
-					"This could be due to a leftover keyring from a previous installation that was not deleted.",
-				)
-				if a.config.ContainsBootstrapCredentials() {
-					a.Logger.Warn("Bootstrap credentials have been provided in the config file - " +
-						"the agent will restart and attempt to re-bootstrap a new keyring using these credentials.")
-					return ErrRebootstrap
+		var manifests *controlv1.PluginManifest
+		for ctx.Err() == nil {
+			var err error
+			manifests, err = a.syncPlugins(ctx)
+			if err != nil {
+				switch status.Code(err) {
+				case codes.Unauthenticated:
+					if a.loadedExistingKeyring {
+						a.Logger.With(
+							zap.Error(err),
+						).Warn("The agent failed to authorize to the gateway using an existing keyring. " +
+							"This could be due to a leftover keyring from a previous installation that was not deleted.",
+						)
+						if a.config.ContainsBootstrapCredentials() {
+							a.Logger.Warn("Bootstrap credentials have been provided in the config file - " +
+								"the agent will restart and attempt to re-bootstrap a new keyring using these credentials.")
+							return ErrRebootstrap
+						}
+					}
+				case codes.Unavailable:
+					a.Logger.With(
+						zap.Error(err),
+					).Warn("error syncing plugins (retrying)")
+					continue
 				}
+				return fmt.Errorf("error syncing plugins: %w", err)
 			}
-			return fmt.Errorf("error syncing plugins: %w", err)
+			break
 		}
 		// eventually passed to runGatewayClient
+		buildInfo, ok := util.ReadBuildInfo()
+		if !ok {
+			return fmt.Errorf("error reading build info")
+		}
+
+		buildInfoData, err := protojson.Marshal(buildInfo)
+		if err != nil {
+			return err
+		}
 		ctx = metadata.AppendToOutgoingContext(ctx,
-			controlv1.ManifestDigestKey, manifests.Digest())
+			controlv1.ManifestDigestKey, manifests.Digest(),
+			controlv1.AgentBuildInfoKey, string(buildInfoData),
+		)
 
 		done := make(chan struct{})
 		a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
@@ -290,7 +354,9 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			close(done)
 		}))
 
-		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme)
+		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme,
+			plugins.WithManifest(manifests),
+		)
 
 		select {
 		case <-done:
@@ -305,6 +371,10 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	a.Logger.With(
+		zap.String("address", listener.Addr().String()),
+	).Info("agent http server starting")
+
 	ctx, ca := context.WithCancel(ctx)
 
 	e1 := lo.Async(func() error {
@@ -341,7 +411,7 @@ func setupPluginRoutes(
 	).Named("api")
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithLogger(sampledLogger),
-		fwd.WithDestHint(path.Base(pluginMeta.BinaryPath)),
+		fwd.WithDestHint(pluginMeta.Filename()),
 	)
 ROUTES:
 	for _, route := range cfg.Routes {
@@ -383,9 +453,17 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 				lg.Info("gateway connected")
 			}
 
+			a.healthzMu.Lock()
+			*a.healthz &^= healthzGatewayNotConnected
+			a.healthzMu.Unlock()
+
 			lg.With(
 				zap.Error(errF.Get()), // this will block until an error is received
 			).Warn("disconnected from gateway")
+
+			a.healthzMu.Lock()
+			*a.healthz |= healthzGatewayNotConnected
+			a.healthzMu.Unlock()
 		} else {
 			lg.With(
 				zap.Error(errF.Get()),
@@ -408,37 +486,33 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataList, retErr error) {
+func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, retErr error) {
 	a.Logger.Info("attempting to sync plugins with gateway")
 
-	manifestClient := controlv1.NewPluginManifestClient(a.gatewayClient.ClientConn())
+	manifestClient := controlv1.NewPluginSyncClient(a.gatewayClient.ClientConn())
 	// read local plugins on disk here
-	localManifests, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	archive, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
+		Dir:    a.config.Plugins.Dir,
+		Logger: a.Logger,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("hit an error getting filesystem plugins based on config %s", err)
+		return nil, err
 	}
 
-	patchList, err := manifestClient.SendManifestsOrKnownPatch(ctx, localManifests, grpc.UseCompressor("zstd"))
+	syncResp, err := manifestClient.SyncPluginManifest(ctx, archive.ToManifest(), grpc.UseCompressor("zstd"))
 	if err != nil {
-		return nil, fmt.Errorf("hit an error requesting plugins/patches from gateway %s", err)
+		return nil, err
 	}
 	a.Logger.Info("received patch manifest from gateway")
 
-	done, err := patch.PatchWith(ctx, a.config.Plugins, patchList, a.Logger, manifestClient)
+	patchClient, err := patch.NewPatchClient(a.config.Plugins, a.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("hit an error patching agent's plugins : %s", err)
+		return nil, err
+	}
+	err = patchClient.Patch(syncResp.RequiredPatches)
+	if err != nil {
+		return nil, err
 	}
 
-	go func() {
-		<-done
-		a.Logger.Debug("background patching tasks complete")
-	}()
-
-	// read local manifests again
-	localManifests, err = patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
-	if err != nil {
-		return nil, fmt.Errorf("filesystem plugins sanity check failed after patching : %s", err)
-	}
-
-	return localManifests, nil
+	return syncResp.DesiredState, nil
 }

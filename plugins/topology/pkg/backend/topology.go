@@ -137,7 +137,7 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	ctxTimeout, ca := context.WithTimeout(ctx, time.Second*60)
 	defer ca()
 	if err := t.WaitForInitContext(ctxTimeout); err != nil {
-		// !! t.Logger is not initialized if the deadline is exceeded
+		// !! t.logger is not initialized if the deadline is exceeded
 		return nil, err
 	}
 

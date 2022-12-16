@@ -11,6 +11,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 )
 
@@ -243,6 +244,73 @@ func RenderMetricSamples(samples []*model.Sample) string {
 			continue
 		}
 		w.AppendRow(table.Row{s.Metric["namespace"], user, s.Value})
+	}
+	return w.Render()
+}
+
+func RenderClusterDetails(cluster *corev1.Cluster) string {
+	w := table.NewWriter()
+	w.SetIndexColumn(1)
+	w.SetStyle(table.StyleColoredDark)
+	labels := cluster.GetLabels()
+	name, ok := labels[corev1.NameLabel]
+	if ok {
+		w.SetTitle(fmt.Sprintf("%s [%s]", name, cluster.Id))
+	} else {
+		w.SetTitle(cluster.Id)
+	}
+	if !cluster.GetCreationTimestamp().IsZero() {
+		ts := cluster.GetCreationTimestamp().In(time.Local)
+		w.AppendRow(table.Row{"Created",
+			fmt.Sprintf("%s (%s ago)", ts.Format(time.RFC822), time.Since(ts).Round(time.Second)),
+		})
+	}
+	if len(cluster.GetLabels()) > 0 {
+		labelPairs := lo.ToPairs(cluster.GetLabels())
+		w.AppendRow(table.Row{"Labels", labelPairs[0].Key, labelPairs[0].Value})
+		for _, v := range labelPairs[1:] {
+			w.AppendRow(table.Row{"", v.Key, v.Value})
+		}
+	}
+	if len(cluster.GetCapabilities()) > 0 {
+		w.AppendSeparator()
+		w.AppendRow(table.Row{"Capabilities", "Name", "Status"})
+		for _, c := range cluster.GetCapabilities() {
+			status := "OK"
+			if c.DeletionTimestamp != nil {
+				status = "Deleting"
+			}
+			w.AppendRow(table.Row{"", c.Name, status})
+		}
+	}
+	w.AppendSeparator()
+	lkcd := cluster.GetMetadata().GetLastKnownConnectionDetails()
+	if lkcd != nil {
+		w.AppendRow(table.Row{"Last Known Connection", "Connection Time", lkcd.GetTime().AsTime().Local().Format(time.RFC3339)})
+		w.AppendRow(table.Row{"", "Peer Address", lkcd.GetAddress()})
+		if lkcd.AgentBuildInfo != nil {
+			w.AppendSeparator()
+			w.AppendRow(table.Row{"Build Info", "Go Version", lkcd.AgentBuildInfo.GetGoVersion()})
+			w.AppendRow(table.Row{"", "Path", lkcd.AgentBuildInfo.GetMain().GetPath()})
+			w.AppendRow(table.Row{"", "Version", lkcd.AgentBuildInfo.GetMain().GetVersion()})
+			w.AppendRow(table.Row{"", "Sum", lkcd.AgentBuildInfo.GetMain().GetSum()})
+			if len(lkcd.AgentBuildInfo.Settings) > 0 {
+				w.AppendSeparator()
+				w.AppendRow(table.Row{"Build Settings", lkcd.AgentBuildInfo.Settings[0].Key, lkcd.AgentBuildInfo.Settings[0].Value})
+				for _, s := range lkcd.AgentBuildInfo.Settings[1:] {
+					w.AppendRow(table.Row{"", s.Key, s.Value})
+				}
+			}
+		}
+		if len(lkcd.GetPluginVersions()) > 0 {
+			w.AppendSeparator()
+			pluginPairs := lo.ToPairs(lkcd.GetPluginVersions())
+
+			w.AppendRow(table.Row{"Plugins", pluginPairs[0].Key, pluginPairs[0].Value})
+			for _, v := range pluginPairs[1:] {
+				w.AppendRow(table.Row{"", v.Key, v.Value})
+			}
+		}
 	}
 	return w.Render()
 }

@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *Reconciler) deployment() (resources.Resource, error) {
+func (r *Reconciler) deployment() ([]resources.Resource, error) {
 	labels := resources.NewGatewayLabels()
 
 	publicPorts, err := r.publicContainerPorts()
@@ -24,6 +24,10 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		return nil, err
 	}
 	adminDashboardPorts, err := r.adminDashboardContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+	pvc, err := r.pluginCachePVC()
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +99,10 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								{
 									Name:      "etcd-server-cacert",
 									MountPath: "/run/etcd/certs/server",
+								},
+								{
+									Name:      "plugin-cache",
+									MountPath: "/var/lib/opni/plugin-cache",
 								},
 							},
 							Ports: append(append(publicPorts, internalPorts...), adminDashboardPorts...),
@@ -233,6 +241,14 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								},
 							},
 						},
+						{
+							Name: "plugin-cache",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvc.Name,
+								},
+							},
+						},
 					},
 					NodeSelector:       r.gw.Spec.NodeSelector,
 					Affinity:           r.gw.Spec.Affinity,
@@ -286,5 +302,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	}
 
 	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
-	return resources.Present(dep), nil
+	return []resources.Resource{
+		resources.Present(dep),
+		resources.Present(pvc),
+	}, nil
 }

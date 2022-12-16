@@ -11,6 +11,7 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func BuildClustersCmd() *cobra.Command {
@@ -24,6 +25,7 @@ func BuildClustersCmd() *cobra.Command {
 	clustersCmd.AddCommand(BuildClustersDeleteCmd())
 	clustersCmd.AddCommand(BuildClustersLabelCmd())
 	clustersCmd.AddCommand(BuildClustersRenameCmd())
+	clustersCmd.AddCommand(BuildClustersShowCmd())
 	ConfigureManagementCommand(clustersCmd)
 	return clustersCmd
 }
@@ -232,6 +234,38 @@ func BuildClustersRenameCmd() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+func BuildClustersShowCmd() *cobra.Command {
+	var outputFormat string
+	cmd := &cobra.Command{
+		Use: "show <cluster-id>",
+		Short:"Show detailed information about a cluster",
+		Args: cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeClusters(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
+				Id: args[0],
+			})
+			if err != nil {
+				return err
+			}
+			switch outputFormat {
+			case "json":
+				fmt.Println(protojson.Format(cluster))
+			case "table":
+				fmt.Println(cliutil.RenderClusterDetails(cluster))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (json|table)")
 	return cmd
 }
 

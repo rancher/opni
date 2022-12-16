@@ -15,6 +15,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/hooks"
@@ -51,7 +52,7 @@ type hook[T any] struct {
 }
 
 type PluginLoader struct {
-	logger *zap.SugaredLogger
+	PluginLoaderOptions
 
 	hooksMu        sync.RWMutex
 	pluginsMu      sync.RWMutex
@@ -61,10 +62,36 @@ type PluginLoader struct {
 	completed      *atomic.Bool
 }
 
-func NewPluginLoader() *PluginLoader {
+type PluginLoaderOptions struct {
+	logger *zap.SugaredLogger
+}
+
+type PluginLoaderOption func(*PluginLoaderOptions)
+
+func (o *PluginLoaderOptions) apply(opts ...PluginLoaderOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithLogger(lg *zap.SugaredLogger) PluginLoaderOption {
+	return func(o *PluginLoaderOptions) {
+		o.logger = lg
+	}
+}
+
+func NewPluginLoader(opts ...PluginLoaderOption) *PluginLoader {
+	options := PluginLoaderOptions{}
+	options.apply(opts...)
+	if options.logger == nil {
+		options.logger = logger.New().Named("pluginloader")
+	} else {
+		options.logger = options.logger.Named("pluginloader")
+	}
+
 	return &PluginLoader{
-		logger:    logger.New().Named("pluginloader"),
-		completed: atomic.NewBool(false),
+		PluginLoaderOptions: options,
+		completed:           atomic.NewBool(false),
 	}
 }
 
@@ -189,33 +216,82 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 	wg.Wait()
 }
 
+type LoadOptions struct {
+	manifest      *controlv1.PluginManifest
+	clientOptions []ClientOption
+}
+
+type LoadOption func(*LoadOptions)
+
+func (o *LoadOptions) apply(opts ...LoadOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithClientOptions(clientOptions ...ClientOption) LoadOption {
+	return func(o *LoadOptions) {
+		o.clientOptions = clientOptions
+	}
+}
+
+// WithManifest will use the provided manifest to restrict the set of plugins
+// that can be loaded, and verify plugin checksums before loading.
+// If this option is not provided, plugins will be loaded without any
+// restrictions or verification.
+func WithManifest(manifest *controlv1.PluginManifest) LoadOption {
+	return func(o *LoadOptions) {
+		o.manifest = manifest
+	}
+}
+
 // LoadPlugins loads a set of plugins defined by the plugin configuration.
 // This function loads plugins in parallel and does not block. It will invoke
 // LoadingCompletedHooks once all plugins have been loaded. Once this function
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, reattach ...*plugin.ReattachConfig) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, opts ...LoadOption) {
+	options := LoadOptions{}
+	options.apply(opts...)
+
+	verifyManifest := (options.manifest != nil)
+	secureConfigs := make(map[string]*plugin.SecureConfig)
+	if verifyManifest {
+		for _, entry := range options.manifest.Items {
+			secureConfigs[entry.Module] = &plugin.SecureConfig{
+				Checksum: entry.DigestBytes(),
+				Hash:     entry.DigestHash(),
+			}
+		}
+	}
+
 	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
 
 	wg := &sync.WaitGroup{}
-	var pluginPaths []string
-	for _, dir := range conf.Dirs {
-		paths, err := plugin.Discover(DefaultPluginGlob, dir)
-		if err != nil {
-			continue
-		}
-		pluginPaths = append(pluginPaths, paths...)
+
+	dc := DiscoveryConfig{
+		Dir:    conf.Dir,
+		Logger: p.logger,
 	}
-	for _, path := range lo.Uniq(pluginPaths) {
-		md, err := meta.ReadMetadata(path)
-		if err != nil {
-			p.logger.With(
-				zap.String("plugin", path),
-			).Error("failed to read plugin metadata", zap.Error(err))
-			continue
+	plugins := dc.Discover()
+
+	for _, md := range plugins {
+		md := md
+		clientOpts := options.clientOptions
+		if verifyManifest {
+			if secureConfig, ok := secureConfigs[md.Module]; ok {
+				clientOpts = append(clientOpts, WithSecureConfig(secureConfig))
+			} else {
+				p.logger.With(
+					"module", md.Module,
+					"path", md.BinaryPath,
+				).Warn("plugin is not present in manifest, skipping")
+				continue
+			}
 		}
-		cc := ClientConfig(md, scheme, reattach...)
+		cc := ClientConfig(md, scheme, clientOpts...)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

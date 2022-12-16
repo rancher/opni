@@ -9,5 +9,5 @@ import (
 
 func TestV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "V1 Suite")
+	RunSpecs(t, "Alerting API Suite")
 }

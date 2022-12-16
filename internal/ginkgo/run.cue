@@ -19,7 +19,7 @@ import (
 		FlakeAttempts:         int | *0
 		EmitSpecProgress:      bool | *false
 		DryRun:                bool | *false
-		Timeout:               time.#Duration | *(time.#Minute * 10)
+		Timeout:               time.#Duration | *(time.#Minute * 20)
 		OutputInterceptorMode: string | *""
 		ParallelProcess:       int | *0
 		ParallelTotal:         int | *0
@@ -27,7 +27,7 @@ import (
 	}
 	Build: {
 		Race:                 bool | *true
-		Cover:                true
+		Cover:                bool | *true
 		CoverMode:            string | *"atomic"
 		CoverPkg:             string | *""
 		Vet:                  string | *""
@@ -81,7 +81,7 @@ import (
 	}
 	Reporter: {
 		NoColor:                bool | *false
-		SlowSpecThreshold:      time.#Duration | *(time.#Second * 5)
+		SlowSpecThreshold:      time.#Duration | *(time.#Second * 15)
 		Succinct:               bool | *false
 		Verbose:                bool | *false
 		VeryVerbose:            bool | *false

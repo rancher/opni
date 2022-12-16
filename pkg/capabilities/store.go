@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ErrBackendNotFound      = fmt.Errorf("backend not found")
-	ErrBackendAlreadyExists = fmt.Errorf("backend already exists")
+	ErrBackendNotFound      = fmt.Errorf("capability backend not found")
+	ErrBackendAlreadyExists = fmt.Errorf("capability backend already exists")
 )
 
 type BackendStore interface {

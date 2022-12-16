@@ -39,9 +39,44 @@ message Cluster {
 message ClusterMetadata {
   map<string, string> labels = 1;
   repeated ClusterCapability capabilities = 2;
-  
+
   // read-only
   string resourceVersion = 3;
+
+  LastKnownConnectionDetails lastKnownConnectionDetails = 4;
+
+  // read-only
+  google.protobuf.Timestamp creationTimestamp = 5;
+}
+
+message LastKnownConnectionDetails {
+  google.protobuf.Timestamp time = 1;
+  string address = 2;
+  BuildInfo agentBuildInfo = 3;
+  // plugin package id -> hash
+  map<string, string> pluginVersions = 4;
+}
+
+// Go build info types
+
+message BuildInfo {
+  string goVersion = 1;
+  string path = 2;
+  Module main = 3;
+  repeated Module deps = 4;
+  repeated BuildSetting settings = 5;
+}
+
+message Module {
+  string path = 1;
+  string version = 2;
+  string sum = 3;
+  Module replace = 4;
+}
+
+message BuildSetting {
+  string key = 1;
+  string value = 2;
 }
 
 message ClusterCapability {
@@ -53,8 +88,8 @@ message ClusterList {
   repeated Cluster items = 1;
 }
 
-message LabelSelector { 
-  map<string, string> matchLabels = 1; 
+message LabelSelector {
+  map<string, string> matchLabels = 1;
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
 

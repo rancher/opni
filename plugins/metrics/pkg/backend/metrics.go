@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"strings"
 	"sync"
 
@@ -35,6 +36,7 @@ type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
 	cortexops.UnsafeCortexOpsServer
+	remoteread.UnsafeRemoteReadServer
 	MetricsBackendConfig
 
 	nodeStatusMu sync.RWMutex
@@ -48,12 +50,14 @@ type MetricsBackend struct {
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
 var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
+var _ remoteread.RemoteReadServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
 	Logger              *zap.SugaredLogger             `validate:"required"`
 	StorageBackend      storage.Backend                `validate:"required"`
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
+	RemoteReadClient    remoteread.RemoteReadClient    `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
 }
@@ -407,4 +411,167 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 	}
 	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.UninstallCluster(ctx, in)
+}
+
+// Metrics Remote Read Backend
+
+func (m *MetricsBackend) AddTarget(ctx context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+	_, err := m.RemoteReadClient.AddTarget(ctx, request)
+
+	clusterId := request.ClusterId
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.Target.Name,
+			zap.Error(err),
+		).Warn("failed to create target")
+
+		return nil, err
+	}
+
+	m.Logger.With(
+		"cluster", clusterId,
+		"capability", wellknown.CapabilityMetrics,
+		"target", request.Target.Name,
+	).Info("target created")
+
+	return nil, nil
+}
+
+func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+	_, err := m.RemoteReadClient.EditTarget(ctx, request)
+
+	clusterId := request.ClusterId
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.TargetName,
+			zap.Error(err),
+		).Warn("failed to edit target")
+
+		return nil, err
+	}
+
+	// todo: we might want to display the new name if it was changed
+	m.Logger.With(
+		"cluster", clusterId,
+		"capability", wellknown.CapabilityMetrics,
+		"target", request.TargetName,
+	).Info("target edited")
+
+	return nil, nil
+}
+
+func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
+	_, err := m.RemoteReadClient.RemoveTarget(ctx, request)
+
+	clusterId := request.ClusterId
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.TargetName,
+			zap.Error(err),
+		).Warn("failed to remove target")
+
+		return nil, err
+	}
+
+	m.Logger.With(
+		"cluster", clusterId,
+		"capability", wellknown.CapabilityMetrics,
+		"target", request.TargetName,
+	).Info("target remove")
+
+	return nil, nil
+}
+
+func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
+	list, err := m.RemoteReadClient.ListTargets(ctx, request)
+
+	clusterId := request.ClusterId
+	if clusterId == "" {
+		clusterId = "(all)"
+	}
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			zap.Error(err),
+		).Warn("failed to list targets")
+
+		return nil, err
+	}
+
+	// todo: we might want to display the new name if it was changed
+	m.Logger.With(
+		"cluster", clusterId,
+		"capability", wellknown.CapabilityMetrics,
+	).Info("targets listed")
+
+	return list, nil
+}
+
+func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
+	_, err := m.RemoteReadClient.Start(ctx, request)
+
+	clusterId := request.TargetName
+	if clusterId == "" {
+		clusterId = "(all)"
+	}
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.TargetName,
+			zap.Error(err),
+		).Warn("failed to start client")
+
+		return nil, err
+	}
+
+	// todo: we might want to display the new name if it was changed
+	m.Logger.With(
+		"cluster", clusterId,
+		"target", request.TargetName,
+		"capability", wellknown.CapabilityMetrics,
+	).Info("target started")
+
+	return nil, nil
+}
+
+func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
+	_, err := m.RemoteReadClient.Stop(ctx, request)
+
+	clusterId := request.TargetName
+	if clusterId == "" {
+		clusterId = "(all)"
+	}
+
+	if err != nil {
+		m.Logger.With(
+			"cluster", clusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.TargetName,
+			zap.Error(err),
+		).Warn("failed to stop client")
+
+		return nil, err
+	}
+
+	// todo: we might want to display the new name if it was changed
+	m.Logger.With(
+		"cluster", clusterId,
+		"target", request.TargetName,
+		"capability", wellknown.CapabilityMetrics,
+	).Info("target stopped")
+
+	return nil, nil
 }

@@ -73,7 +73,7 @@ func local_request_RemoteRead_AddTarget_0(ctx context.Context, marshaler runtime
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterRemoteReadHandlerFromEndpoint instead.
 func RegisterRemoteReadHandlerServer(ctx context.Context, mux *runtime.ServeMux, server RemoteReadServer) error {
 
-	mux.Handle("GET", pattern_RemoteRead_AddTarget_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RemoteRead_AddTarget_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -81,7 +81,7 @@ func RegisterRemoteReadHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/remoteread.RemoteRead/AddTarget", runtime.WithHTTPPathPattern("/metrics/remoteread/target/add"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/remoteread.RemoteRead/AddTarget", runtime.WithHTTPPathPattern("/remoteread/target/add"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -139,13 +139,13 @@ func RegisterRemoteReadHandler(ctx context.Context, mux *runtime.ServeMux, conn 
 // "RemoteReadClient" to call the correct interceptors.
 func RegisterRemoteReadHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RemoteReadClient) error {
 
-	mux.Handle("GET", pattern_RemoteRead_AddTarget_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RemoteRead_AddTarget_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/remoteread.RemoteRead/AddTarget", runtime.WithHTTPPathPattern("/metrics/remoteread/target/add"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/remoteread.RemoteRead/AddTarget", runtime.WithHTTPPathPattern("/remoteread/target/add"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -165,7 +165,7 @@ func RegisterRemoteReadHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 }
 
 var (
-	pattern_RemoteRead_AddTarget_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"metrics", "remoteread", "target", "add"}, ""))
+	pattern_RemoteRead_AddTarget_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"remoteread", "target", "add"}, ""))
 )
 
 var (

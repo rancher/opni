@@ -5,11 +5,12 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"time"
 )
+
+// todo: add cluster id as a positional arg where appropriate
 
 func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {
 	if strings.Contains(s, "!~") {
@@ -153,7 +154,9 @@ func BuildImportTargetListCmd() *cobra.Command {
 		Short:   "List available targets",
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			targetList, err := remoteReadClient.ListTargets(cmd.Context(), &emptypb.Empty{})
+			request := &remoteread.TargetListRequest{ClusterId: ""}
+
+			targetList, err := remoteReadClient.ListTargets(cmd.Context(), request)
 			if err != nil {
 				return err
 			}
@@ -246,14 +249,48 @@ func BuildImportStartCmd() *cobra.Command {
 	return cmd
 }
 
+func BuildImportStopCmd() *cobra.Command {
+	var clusterId string
+
+	cmd := &cobra.Command{
+		Use:   "start <target>",
+		Short: "start",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			targetName := args[0]
+
+			request := &remoteread.StopReadRequest{
+				TargetName: targetName,
+				ClusterId:  clusterId,
+			}
+
+			if _, err := remoteReadClient.Stop(cmd.Context(), request); err != nil {
+				return err
+			}
+
+			lg.Infof("import stopped")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&clusterId, "cluster", "", "the id of the cluster")
+
+	ConfigureManagementCommand(cmd)
+	ConfigureImportCommand(cmd)
+
+	return cmd
+}
+
 func BuildImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
 		Short: "Interact with metrics import plugin APIs",
 	}
 
-	cmd.AddCommand(BuildImportStartCmd())
 	cmd.AddCommand(BuildImportTargetCmd())
+	cmd.AddCommand(BuildImportStartCmd())
+	cmd.AddCommand(BuildImportStopCmd())
 
 	ConfigureManagementCommand(cmd)
 	ConfigureImportCommand(cmd)

@@ -14,10 +14,15 @@ service RemoteRead {
 //  rpc ScanForTargets(google.protobuf.Empty) returns (stream Target);
 //  rpc Describe(Target) returns (Target);
 
-  rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
+  rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/remoteread/target/add"
+    };
+  }
+
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
-  rpc ListTargets(google.protobuf.Empty) returns (TargetList);
+  rpc ListTargets(TargetListRequest) returns (TargetList);
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
 //  rpc GetProgress(ProgressRequest) returns (stream Progress);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
@@ -26,7 +31,7 @@ service RemoteRead {
 message Target {
   string endpoint = 1;
   string name = 2;
-  TargetMetadata meta = 3;
+  TargetMetadata meta = 4;
 }
 
 message TargetMetadata {
@@ -44,15 +49,22 @@ message TargetList {
 
 message TargetAddRequest {
   Target target = 1;
+  string clusterId = 2;
 }
 
 message TargetEditRequest {
   string targetName = 1;
   TargetDiff targetDiff = 2;
+  string clusterId = 3;
 }
 
 message TargetRemoveRequest {
   string targetName = 1;
+  string clusterId = 2;
+}
+
+message TargetListRequest {
+  string clusterId = 1;
 }
 
 message StartReadRequest {
@@ -61,14 +73,19 @@ message StartReadRequest {
 
   // allow for forcing a remote read when Query.startTimestamp > Target.meta.lastReadTimestamp
   bool forceOverlap = 3;
+
+  string clusterId = 4;
 }
 
-message ProgressRequest {
-  string targetName = 1;
-}
+//message ProgressRequest {
+//  string targetName = 1;
+//  string clusterId = 2;
+//
+//}
 
 message StopReadRequest {
   string targetName = 1;
+  string clusterId = 2;
 }
 
 // PromQL query

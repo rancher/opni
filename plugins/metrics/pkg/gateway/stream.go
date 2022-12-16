@@ -17,7 +17,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		},
 		{
 			Desc:              &remoteread.RemoteRead_ServiceDesc,
-			Impl:              &p.cortexRemoteWrite,
+			Impl:              &p.metrics,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 		{

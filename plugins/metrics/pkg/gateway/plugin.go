@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
@@ -29,7 +30,6 @@ import (
 )
 
 type Plugin struct {
-
 	// capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	collector.CollectorServer
@@ -48,6 +48,7 @@ type Plugin struct {
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	storageBackend      future.Future[storage.Backend]
+	remoteReadClient    future.Future[remoteread.RemoteReadClient]
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]
@@ -67,6 +68,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 		storageBackend:      future.New[storage.Backend](),
+		remoteReadClient:    future.New[remoteread.RemoteReadClient](),
 		cortexTlsConfig:     future.New[*tls.Config](),
 		cortexClientSet:     future.New[cortex.ClientSet](),
 		uninstallController: future.New[*task.Controller](),
@@ -100,13 +102,14 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
+	future.Wait6(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.remoteReadClient,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
+			remoteReadClient remoteread.RemoteReadClient,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
@@ -115,6 +118,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
+				RemoteReadClient:    remoteReadClient,
 			})
 		})
 

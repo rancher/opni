@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"sort"
 	"strings"
 	"sync"
@@ -26,6 +27,7 @@ import (
 type MetricsNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
+	remoteread.UnsafeRemoteReadServer
 
 	logger *zap.SugaredLogger
 
@@ -37,6 +39,9 @@ type MetricsNode struct {
 
 	healthListenerClientMu sync.RWMutex
 	healthListenerClient   controlv1.HealthListenerClient
+
+	remoteReadClientMu sync.RWMutex
+	remoteReadClient   remoteread.RemoteReadClient
 
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
@@ -75,6 +80,7 @@ func (m *MetricsNode) sendHealthUpdate() {
 		}
 	}
 }
+
 func (m *MetricsNode) AddConfigListener(ch chan<- *node.MetricsCapabilityConfig) {
 	m.listeners = append(m.listeners, ch)
 }
@@ -100,6 +106,13 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.healthListenerClient = client
 	m.healthListenerClientMu.Unlock()
 	m.sendHealthUpdate()
+}
+
+func (m *MetricsNode) SetRemoteReadClient(client remoteread.RemoteReadClient) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	m.remoteReadClient = client
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
@@ -204,3 +217,79 @@ func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
 		}
 	}
 }
+
+// Start Implements remoteread.RemoteReadServer
+
+func (m *MetricsNode) AddTarget(ctx context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.AddTarget(ctx, request)
+}
+
+func (m *MetricsNode) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.EditTarget(ctx, request)
+}
+
+func (m *MetricsNode) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.RemoveTarget(ctx, request)
+}
+
+func (m *MetricsNode) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return nil, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.ListTargets(ctx, request)
+}
+
+func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.Start(ctx, request)
+}
+
+func (m *MetricsNode) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.Stop(ctx, request)
+}
+
+// End implement remotread.RemoteReadServer

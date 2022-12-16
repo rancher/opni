@@ -81,7 +81,6 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 		QueryFrontend: fwd.To(p.Config.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("query-frontend")),
 		Alertmanager:  fwd.To(p.Config.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("alertmanager")),
 		Ruler:         fwd.To(p.Config.Cortex.Ruler.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("ruler")),
-		RemoteRead:    fwd.To(p.Config.RemoteRead.HttpAddress, fwd.WithLogger(p.Logger), fwd.WithName("remote-read")),
 	}
 
 	mws := &middlewares{
@@ -153,12 +152,12 @@ func (p *HttpApiServer) configureQueryFrontend(router *gin.Engine, f *forwarders
 	}
 }
 
-func (p *HttpApiServer) configureImport(router *gin.Engine, f *forwarders, m *middlewares) {
-	router.POST("/api/remoteread/target/add", f.RemoteRead)
-	router.PATCH("/api/remoteread/target/edit", f.RemoteRead)
-	router.DELETE("/api/remoteread/target/remove", f.RemoteRead)
-	router.GET("/api/remoteread/target/list", f.RemoteRead)
-
-	router.POST("/api/remoteread/start", f.RemoteRead)
-	router.POST("/api/remoteread/stop", f.RemoteRead)
-}
+//func (p *HttpApiServer) configureImport(router *gin.Engine, f *forwarders, m *middlewares) {
+//	router.POST("/api/remoteread/target/add", f.RemoteRead)
+//	router.PATCH("/api/remoteread/target/edit", f.RemoteRead)
+//	router.DELETE("/api/remoteread/target/remove", f.RemoteRead)
+//	router.GET("/api/remoteread/target/list", f.RemoteRead)
+//
+//	router.POST("/api/remoteread/start", f.RemoteRead)
+//	router.POST("/api/remoteread/stop", f.RemoteRead)
+//}

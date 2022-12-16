@@ -162,7 +162,7 @@ func (runner *targetRunner) List() *remoteread.TargetList {
 	return &remoteread.TargetList{Targets: targets}
 }
 
-func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReadClient) {
+func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 	labelMatchers := toLabelMatchers(run.query.Matchers)
 
 	// todo: this should probably be a lot more sophisticated than this

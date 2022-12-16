@@ -6,9 +6,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"time"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -190,29 +192,59 @@ func (m *certMgrOpensearchManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 }
 
 func (m *certMgrOpensearchManager) GetClientCert(user string) (tls.Certificate, error) {
+	p := backoffv2.Exponential(
+		backoffv2.WithMinInterval(time.Second*2),
+		backoffv2.WithMaxInterval(time.Second*5),
+		backoffv2.WithMaxRetries(5),
+		backoffv2.WithMultiplier(1.2),
+	)
+
 	cert := &corev1.Secret{}
-	err := m.k8sClient.Get(m.ctx, types.NamespacedName{
-		Name:      m.clientCertName(user),
-		Namespace: m.storageNamespace,
-	}, cert)
-	if err != nil {
-		return tls.Certificate{}, err
+	var err error
+	b := p.Start(m.ctx)
+	for backoffv2.Continue(b) {
+		err = m.k8sClient.Get(m.ctx, types.NamespacedName{
+			Name:      m.clientCertName(user),
+			Namespace: m.storageNamespace,
+		}, cert)
+		if err != nil {
+			if ctrlclient.IgnoreNotFound(err) != nil {
+				return tls.Certificate{}, err
+			}
+			continue
+		}
+		return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
 	}
 
-	return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
+	return tls.Certificate{}, err
 }
 
 func (m *certMgrOpensearchManager) GetAdminClientCert() (tls.Certificate, error) {
+	p := backoffv2.Exponential(
+		backoffv2.WithMinInterval(time.Second*2),
+		backoffv2.WithMaxInterval(time.Second*5),
+		backoffv2.WithMaxRetries(5),
+		backoffv2.WithMultiplier(1.2),
+	)
+
 	cert := &corev1.Secret{}
-	err := m.k8sClient.Get(m.ctx, types.NamespacedName{
-		Name:      m.adminCertName(),
-		Namespace: m.storageNamespace,
-	}, cert)
-	if err != nil {
-		return tls.Certificate{}, err
+	var err error
+	b := p.Start(m.ctx)
+	for backoffv2.Continue(b) {
+		err = m.k8sClient.Get(m.ctx, types.NamespacedName{
+			Name:      m.adminCertName(),
+			Namespace: m.storageNamespace,
+		}, cert)
+		if err != nil {
+			if ctrlclient.IgnoreNotFound(err) != nil {
+				return tls.Certificate{}, err
+			}
+			continue
+		}
+		return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
 	}
 
-	return tls.X509KeyPair(cert.Data[corev1.TLSCertKey], cert.Data[corev1.TLSPrivateKeyKey])
+	return tls.Certificate{}, err
 }
 
 func (m *certMgrOpensearchManager) GetTransportCARef() (corev1.LocalObjectReference, error) {

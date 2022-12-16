@@ -1,0 +1,155 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v2";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+
+package alertingv2;
+
+service AlertConditionsV2{
+    rpc CreateAlertCondition (AlertCondition) returns (core.Reference){
+        option (google.api.http) = {
+            post: "/configure"
+            body: "*"
+        };
+    }
+
+    rpc GetAlertCondition (core.Reference) returns (AlertCondition){
+        option (google.api.http) = {
+            get: "/list/{id}"
+        };
+    }
+
+    rpc ListAlertCondition (google.protobuf.Empty) returns (AlertConditionList){
+        option (google.api.http) = {
+            get: "/list"
+        };
+    }
+
+    rpc UpdateAlertCondition (AlertCondition) returns (core.Reference){
+        option (google.api.http) = {
+            put: "/configure"
+            body: "*"
+        };
+    }
+
+    rpc DeleteAlertCondition (core.Reference) returns (core.Reference){
+        option (google.api.http) = {
+            delete: "/configure/{id}"
+        };
+    }
+    rpc AlertStatus(core.Reference) returns (AlertConditionStatus){
+        option (google.api.http) = {
+            get: "/status/{id}"
+        };
+    }
+    rpc CloneTo(CloneToRequest) returns (google.protobuf.Empty){
+        option (google.api.http) = {
+            post: "/clone"
+            body: "*"
+        };
+    }
+
+    rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty){
+        option (google.api.http) = {
+            post: "/silence"
+            body: "*"
+        };
+    }
+
+    // conditionId
+    rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/silence/{id}"
+        };
+    }
+
+    rpc AcknowedgeAlert(core.Reference) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/acknowledge/{id}"
+        };
+    }
+}
+
+service AlertConditionsSyncV2{
+    rpc SyncAlertingRules (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc SyncOpenSearchMonitors (google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+enum Severity {
+    Info = 0;
+    Warning = 1;
+    Error = 2;
+    Critical = 3;
+}
+
+enum ConditionState {
+  Unknown = 0;
+  // the condition has not been met
+  Ok = 1;
+  // the condition has been met
+  Firing = 2;
+  // the condition has been met, but silenced
+  Silenced = 3;
+  // the condition has known means to evaluate as OK or FIRING
+  Invalidated = 4;
+  // someone has acknowledged the condition is firing
+  Acknowledged = 5;
+  // the condition was met, but is no longer met
+  Resolved = 6;
+  // the condition is being updated
+  Updating = 7;
+}
+
+message AlertConditionStatus{
+    ConditionState state = 1;
+    string reason = 2;
+}
+
+message AlertCondition {
+    //readonly fields
+    core.Reference id = 1;
+    google.protobuf.Timestamp createdAt = 2;
+
+
+    string name = 3;
+    string description = 4;
+    Severity severity = 5;
+    SilenceInfo silenceInfo = 6;
+    repeated string attachedEndpointIds = 7;
+    // TODO AlertTypeDetails,
+    // use one of, or all configs?
+}
+
+// metadata to be listed in the UI
+message AlertConditionInfo{
+    core.Reference id = 1;
+    string name = 2;
+    string description = 3;
+    Severity severity = 4;
+    // one of errors, saturation, traffic, latency
+    string goldenSignal = 5;
+}
+
+message AlertConditionList {
+    repeated AlertConditionInfo items = 1;
+}
+
+message SilenceRequest {
+  core.Reference conditionId = 1;
+  google.protobuf.Duration duration = 2;
+}
+
+message SilenceInfo{
+    string silenceId = 1;
+    google.protobuf.Timestamp startsAt = 2;
+    google.protobuf.Timestamp endsAt = 3;
+}
+
+message CloneToRequest {
+  AlertCondition alertCondition = 1;
+  repeated string toClusters = 2;
+}

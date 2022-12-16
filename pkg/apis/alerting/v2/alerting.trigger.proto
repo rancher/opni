@@ -1,0 +1,33 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v2";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/duration.proto";
+
+package alertingv2;
+
+service AlertCoreV2{
+  rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {}
+  rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
+  rpc ForceSync(ForceSyncRequest) returns (ForceSyncResponse) {}
+}
+
+
+// opnialerting internal use
+message TriggerAlertsRequest {
+  core.Reference id = 1;
+  map<string, string> annotations = 2;
+}
+
+// opnialerting internal use
+message TriggerAlertsResponse {}
+
+message ResolveAlertsRequest {
+  core.Reference alertId = 1;
+  map<string,string> annotations = 2;
+}
+
+message ResolveAlertsResponse {}
+
+message ForceSyncRequest {}
+
+message ForceSyncResponse {}

@@ -55,6 +55,9 @@ tests: ginkgo.#TestPlan & {
 		integration: ginkgo.#Run & {
 			Packages: "./test/functional/...,./test/integration/..."
 			Build: CoverPkg: "github.com/rancher/opni/pkg/agent,github.com/rancher/opni/pkg/gateway"
+			Suite: {
+				LabelFilter: "!aberrant"
+			}
 		}
 		e2e: ginkgo.#Run & {
 			Packages: "./test/e2e/..."

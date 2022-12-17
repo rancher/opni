@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -59,7 +58,7 @@ import (
 var (
 	// all processes
 	k8sClient client.Client
-	certMgr   *certs.TestCertManager
+	certMgr   *test.TestCertManager
 	scheme    = apis.NewScheme()
 
 	// process 1 only
@@ -114,7 +113,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		},
 	}
 
-	certMgr = &certs.TestCertManager{}
+	certMgr = &test.TestCertManager{}
 
 	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
 		&GpuPolicyAdapterReconciler{},

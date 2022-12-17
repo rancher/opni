@@ -1,11 +1,10 @@
-package certs
+package test
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 
-	"github.com/rancher/opni/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,8 +23,8 @@ func (m *TestCertManager) PopulateK8sObjects(ctx context.Context, client ctrlcli
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"ca.crt": test.TestData("root_ca.crt"),
-			"ca.key": test.TestData("root_ca.key"),
+			"ca.crt": TestData("root_ca.crt"),
+			"ca.key": TestData("root_ca.key"),
 		},
 	}
 	return client.Create(ctx, secret)
@@ -53,13 +52,13 @@ func (m *TestCertManager) GenerateAdminClientCert() error {
 
 func (m *TestCertManager) GetTransportRootCAs() (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(test.TestData("root_ca.crt"))
+	pool.AppendCertsFromPEM(TestData("root_ca.crt"))
 	return pool, nil
 }
 
 func (m *TestCertManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(test.TestData("root_ca.crt"))
+	pool.AppendCertsFromPEM(TestData("root_ca.crt"))
 	return pool, nil
 }
 

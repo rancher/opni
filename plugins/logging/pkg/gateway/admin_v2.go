@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -218,7 +219,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 					if m.versionOverride != "" {
 						return m.versionOverride
 					}
-					return strings.TrimPrefix(util.Version, "v")
+					return strings.TrimPrefix(versions.Version, "v")
 				}(),
 				ImageRepo: "docker.io/rancher",
 				NatsRef:   m.natsRef,
@@ -263,7 +264,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 
 func (m *LoggingManagerV2) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
-	version := strings.TrimPrefix(util.Version, "v")
+	version := strings.TrimPrefix(versions.Version, "v")
 
 	err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,
@@ -303,7 +304,7 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 		},
 	}
 
-	version := strings.TrimPrefix(util.Version, "v")
+	version := strings.TrimPrefix(versions.Version, "v")
 
 	if m.versionOverride != "" {
 		version = m.versionOverride
@@ -1034,7 +1035,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 		if cluster.Status.Version != nil {
 			version = *cluster.Status.Version
 		} else {
-			version = strings.TrimPrefix(util.Version, "v")
+			version = strings.TrimPrefix(versions.Version, "v")
 		}
 		if cluster.Status.OpensearchVersion != nil {
 			osVersion = *cluster.Status.OpensearchVersion

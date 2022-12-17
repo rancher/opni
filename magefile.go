@@ -54,7 +54,7 @@ func goBuild(args ...string) error {
 
 	defaultArgs := []string{
 		"build",
-		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/util.Version=%s -X github.com/rancher/opni/pkg/util.BuildTime=%s", version, time.Now().UTC().Format(time.RFC3339)),
+		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/versions.Version=%s -X github.com/rancher/opni/pkg/versions.BuildTime=%s", version, time.Now().UTC().Format(time.RFC3339)),
 		"-trimpath",
 		"-o", "./bin/",
 	}
@@ -469,7 +469,7 @@ func Protobuf() {
 func Minimal() error {
 	if err := goBuild(
 		"-tags",
-		"noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
+		"noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty,noalertmanager,nomsgpack",
 		"./cmd/opni",
 	); err != nil {
 		return err
@@ -482,9 +482,6 @@ func Minimal() error {
 		}
 	}
 
-	if upx, err := exec.LookPath("upx"); err == nil {
-		return sh.Run(upx, "-q", "bin/opni")
-	}
 	return nil
 }
 

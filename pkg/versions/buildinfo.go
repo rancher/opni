@@ -1,4 +1,4 @@
-package util
+package versions
 
 import (
 	"runtime/debug"
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	OpniVersionBuildInfoKey = "opni.version"
+	OpniVersionBuildInfoKey   = "opni.version"
 	OpniBuildTimeBuildInfoKey = "opni.buildTimestamp"
 )
 
@@ -22,7 +22,9 @@ func ReadBuildInfo() (*corev1.BuildInfo, bool) {
 		Path:      debugBuildInfo.Path,
 		Main:      toModule(&debugBuildInfo.Main),
 		// Ignore deps for now, they are not important here
-		Settings: lo.Map(debugBuildInfo.Settings, Indexed(toBuildSetting)),
+		Settings: lo.Map(debugBuildInfo.Settings, func(s debug.BuildSetting, _ int) *corev1.BuildSetting {
+			return toBuildSetting(s)
+		}),
 	}
 
 	protoBuildInfo.Settings = append(protoBuildInfo.Settings,

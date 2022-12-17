@@ -31,6 +31,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -65,11 +66,11 @@ func BuildAgentCmd() *cobra.Command {
 		var upgradeChecker *upgraderesponder.UpgradeChecker
 		if !(disableUsage || common.DisableUsage) {
 			upgradeRequester := manager.UpgradeRequester{
-				Version:     util.Version,
+				Version:     versions.Version,
 				InstallType: manager.InstallTypeAgent,
 			}
 			upgradeRequester.SetupLogger(zapr.NewLogger(agentlg.Desugar()))
-			setupLog.Info("Usage tracking enabled", "current-version", util.Version)
+			setupLog.Info("Usage tracking enabled", "current-version", versions.Version)
 			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
 			upgradeChecker.Start()
 			defer upgradeChecker.Stop()

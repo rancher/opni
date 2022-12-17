@@ -9,8 +9,8 @@ import (
 
 	"github.com/Masterminds/semver"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -236,8 +236,8 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 	}
 
 	version := s.version
-	if util.Version != "" && util.Version != "unversioned" {
-		version = util.Version
+	if versions.Version != "" && versions.Version != "unversioned" {
+		version = versions.Version
 	}
 
 	exists := true
@@ -311,8 +311,8 @@ func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*
 
 func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*admin.UpgradeAvailableResponse, error) {
 	version := s.version
-	if util.Version != "" && util.Version != "unversioned" {
-		version = util.Version
+	if versions.Version != "" && versions.Version != "unversioned" {
+		version = versions.Version
 	}
 	newVersion, err := semver.NewVersion(version)
 	if err != nil {
@@ -339,8 +339,8 @@ func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*
 
 func (s *AIOpsPlugin) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	version := s.version
-	if util.Version != "" && util.Version != "unversioned" {
-		version = util.Version
+	if versions.Version != "" && versions.Version != "unversioned" {
+		version = versions.Version
 	}
 	newVersion, err := semver.NewVersion(version)
 	if err != nil {

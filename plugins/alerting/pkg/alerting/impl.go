@@ -323,7 +323,7 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 			return
 		}
 
-	} else if getErr != nil {
+	} else if getErr == nil {
 		incomingState = st
 	}
 	if incomingState.Firing { // need to update this in memory value

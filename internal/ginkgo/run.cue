@@ -19,7 +19,7 @@ import (
 		FlakeAttempts:         int | *0
 		EmitSpecProgress:      bool | *false
 		DryRun:                bool | *false
-		Timeout:               time.#Duration | *(time.#Minute * 20)
+		Timeout:               time.#Duration | *(time.#Minute * 30)
 		OutputInterceptorMode: string | *""
 		ParallelProcess:       int | *0
 		ParallelTotal:         int | *0

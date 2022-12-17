@@ -39,7 +39,7 @@ func (r *Reconciler) buildOpensearchCluster(
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.8.0-rc5"
+		version = "0.8.0"
 	}
 
 	image := fmt.Sprintf(

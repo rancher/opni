@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   creationTimestamp: null
-  name: bootstraptokens.monitoring.opni.io
+  name: bootstraptokens.core.opni.io
 spec:
-  group: monitoring.opni.io
+  group: core.opni.io
   names:
     kind: BootstrapToken
     listKind: BootstrapTokenList

@@ -6,36 +6,36 @@ import (
 )
 
 // +kubebuilder:object:root=true
-type Role struct {
+type BootstrapToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *opnicorev1.Role `json:"spec,omitempty"`
+	Spec              *opnicorev1.BootstrapToken `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
-type RoleList struct {
+type BootstrapTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Role `json:"items"`
+	Items           []BootstrapToken `json:"items"`
 }
 
 // +kubebuilder:object:root=true
-type RoleBinding struct {
+type Keyring struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *opnicorev1.RoleBinding `json:"spec,omitempty"`
+	Data              []byte `json:"data,omitempty"`
 }
 
 // +kubebuilder:object:root=true
-type RoleBindingList struct {
+type KeyringList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RoleBinding `json:"items"`
+	Items           []Keyring `json:"items"`
 }
 
 func init() {
 	SchemeBuilder.Register(
-		&Role{}, &RoleList{},
-		&RoleBinding{}, &RoleBindingList{},
+		&BootstrapToken{}, &BootstrapTokenList{},
+		&Keyring{}, &KeyringList{},
 	)
 }

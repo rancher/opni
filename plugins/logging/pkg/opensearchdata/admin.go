@@ -134,6 +134,7 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 	}
 
 	if !idExists {
+		m.logger.Debug("no opensearch cluster created, not creating admin user")
 		return false
 	}
 
@@ -145,11 +146,13 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 
 	switch string(adminState.Value()) {
 	case initialAdminPending:
+		m.logger.Debug("admin user creation is pending, restarting")
 		return true
 	case initialAdminCreated:
+		m.logger.Debug("admin user already created, not restarting")
 		return false
 	default:
-		m.logger.Errorf("invalid initial admin state returned")
+		m.logger.Error("invalid initial admin state returned")
 		return false
 	}
 }

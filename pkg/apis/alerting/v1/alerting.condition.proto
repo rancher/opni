@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/pkg/apis/server/condition";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -14,32 +14,32 @@ import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
-package alerting.condition;
+package alerting;
 
 // -------- CRUD for alerting conditions -------
 service AlertConditions {
-    rpc CreateAlertCondition(alerting.AlertCondition) returns (core.Reference) {
+    rpc CreateAlertCondition(AlertCondition) returns (core.Reference) {
     option (google.api.http) = {
       post : "/configure"
       body : "*"
     };
   }
 
-  rpc GetAlertCondition(core.Reference) returns (alerting.AlertCondition) {
+  rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
     option (google.api.http) = {
       post : "/list/{id}"
       body : "*"
     };
   }
 
-  rpc ListAlertConditions(alerting.ListAlertConditionRequest)
-      returns (alerting.AlertConditionList) {
+  rpc ListAlertConditions(ListAlertConditionRequest)
+      returns (AlertConditionList) {
     option (google.api.http) = {
       get : "/list"
     };
   }
 
-  rpc UpdateAlertCondition(alerting.UpdateAlertConditionRequest)
+  rpc UpdateAlertCondition(UpdateAlertConditionRequest)
       returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put : "/configure"
@@ -47,8 +47,8 @@ service AlertConditions {
     };
   }
 
-  rpc ListAlertConditionChoices(alerting.AlertDetailChoicesRequest)
-      returns (alerting.ListAlertTypeDetails) {
+  rpc ListAlertConditionChoices(AlertDetailChoicesRequest)
+      returns (ListAlertTypeDetails) {
       option (google.api.http) = {
         post : "/choices"
     };
@@ -60,13 +60,13 @@ service AlertConditions {
     };
   }
 
-  rpc AlertConditionStatus(core.Reference) returns (alerting.AlertStatusResponse) {
+  rpc AlertConditionStatus(core.Reference) returns (AlertStatusResponse) {
     option (google.api.http) = {
       post : "/status/{id}"
     };
   }
 
-  rpc CloneTo(alerting.CloneToRequest) returns (google.protobuf.Empty) {
+  rpc CloneTo(CloneToRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/clone"
       body : "*"
@@ -74,7 +74,7 @@ service AlertConditions {
   }
 
   //  can only active silence when alert is in firing state (limitation of alertmanager)
-  rpc ActivateSilence(alerting.SilenceRequest) returns (google.protobuf.Empty) {
+  rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/silences"
       body : "*"
@@ -87,7 +87,7 @@ service AlertConditions {
     };
   }
 
-  rpc Timeline(alerting.TimelineRequest) returns (alerting.TimelineResponse) {
+  rpc Timeline(TimelineRequest) returns (TimelineResponse) {
     option (google.api.http) = {
       post : "/timeline"
     };

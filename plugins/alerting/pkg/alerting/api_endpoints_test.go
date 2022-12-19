@@ -12,7 +12,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 )
 
 const conditionPrefix = "/alerting/conditions"
@@ -21,7 +20,7 @@ const endpointPrefix = "/alerting/endpoints"
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
 	var env *test.Environment
-	var endpointClient endpoint.AlertEndpointsClient
+	var endpointClient alertingv1.AlertEndpointsClient
 
 	BeforeAll(func() {
 		env = &test.Environment{
@@ -29,7 +28,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
-		endpointClient = endpoint.NewAlertEndpointsClient(env.ManagementClientConn())
+		endpointClient = alertingv1.NewAlertEndpointsClient(env.ManagementClientConn())
 		Expect(endpointClient).NotTo(BeNil())
 
 	})

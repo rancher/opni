@@ -23,20 +23,17 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/trigger"
 )
 
 const AlertingLogCacheSize = 32
 
 type Plugin struct {
 	system.UnimplementedSystemPluginClient
-	condition.UnsafeAlertConditionsServer
-	endpoint.UnsafeAlertEndpointsServer
+	alertingv1.UnsafeAlertConditionsServer
+	alertingv1.UnsafeAlertEndpointsServer
 	log.UnsafeAlertLogsServer
-	trigger.UnsafeAlertingServer
+	alertingv1.UnsafeAlertingServer
 
 	Ctx    context.Context
 	Logger *zap.SugaredLogger
@@ -82,10 +79,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
-var _ endpoint.AlertEndpointsServer = (*Plugin)(nil)
-var _ condition.AlertConditionsServer = (*Plugin)(nil)
+var _ alertingv1.AlertEndpointsServer = (*Plugin)(nil)
+var _ alertingv1.AlertConditionsServer = (*Plugin)(nil)
 var _ log.AlertLogsServer = (*Plugin)(nil)
-var _ trigger.AlertingServer = (*Plugin)(nil)
+var _ alertingv1.AlertingServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -95,11 +92,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(
-				&condition.AlertConditions_ServiceDesc,
+				&alertingv1.AlertConditions_ServiceDesc,
 				p,
 			),
 			util.PackService(
-				&endpoint.AlertEndpoints_ServiceDesc,
+				&alertingv1.AlertEndpoints_ServiceDesc,
 				p,
 			),
 			util.PackService(

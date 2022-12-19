@@ -5,11 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/trigger"
 )
 
 func TestAlerting(t *testing.T) {
@@ -19,10 +17,10 @@ func TestAlerting(t *testing.T) {
 
 var env *test.Environment
 
-var alertingConditionClient condition.AlertConditionsClient
-var alertingEndpointClient endpoint.AlertEndpointsClient
+var alertingConditionClient alertingv1.AlertConditionsClient
+var alertingEndpointClient alertingv1.AlertEndpointsClient
 var alertingLogClient log.AlertLogsClient
-var alertingTriggerClient trigger.AlertingClient
+var alertingTriggerClient alertingv1.AlertingClient
 
 var _ = BeforeSuite(func() {
 

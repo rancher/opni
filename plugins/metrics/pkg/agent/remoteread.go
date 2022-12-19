@@ -18,7 +18,7 @@ type RemoteReaderClient struct {
 	prometheusClient *http.Client
 }
 
-func NewRemoteReadClient(stopChan chan interface{}, prometheusClient *http.Client) *RemoteReaderClient {
+func NewRemoteReaderClient(stopChan chan interface{}, prometheusClient *http.Client) *RemoteReaderClient {
 	return &RemoteReaderClient{
 		stopChan:         stopChan,
 		prometheusClient: prometheusClient,

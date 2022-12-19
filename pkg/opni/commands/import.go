@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-// todo: add cluster id as a positional arg where appropriate
-
 func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {
 	if strings.Contains(s, "!~") {
 		split := strings.SplitN(s, "!~", 2)
@@ -50,10 +48,10 @@ func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {
 	return &remoteread.LabelMatcher{}, fmt.Errorf("label matcher must contain one of =, !=, =~, or !~")
 }
 
-func BuildImportTargetAddCmd() *cobra.Command {
+func BuildImportAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <cluster> <name> <endpoint>",
-		Short: "Add a new target",
+		Short: "Add a new import target",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterId := args[0]
@@ -88,13 +86,13 @@ func BuildImportTargetAddCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildImportTargetEditCmd() *cobra.Command {
+func BuildImportEditCmd() *cobra.Command {
 	var newEndpoint string
 	var newName string
 
 	cmd := &cobra.Command{
 		Use:   "edit",
-		Short: "Edit an existing target",
+		Short: "Edit an existing import target",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if newEndpoint == "" && newName == "" {
 				lg.Infof("no edits specified, doing nothing")
@@ -129,10 +127,10 @@ func BuildImportTargetEditCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildImportTargetRemoveCmd() *cobra.Command {
+func BuildImportRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove <cluster> <name>",
-		Short:   "Remove a target",
+		Short:   "Remove an import target",
 		Aliases: []string{"rm"},
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -157,10 +155,10 @@ func BuildImportTargetRemoveCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildImportTargetListCmd() *cobra.Command {
+func BuildImportListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
-		Short:   "List available targets",
+		Short:   "List available import targets",
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			request := &remoteread.TargetListRequest{ClusterId: ""}
@@ -183,22 +181,6 @@ func BuildImportTargetListCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildImportTargetCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "target",
-		Short:   "target",
-		Aliases: []string{"targets"},
-	}
-
-	// todo: scan && describe
-	cmd.AddCommand(BuildImportTargetAddCmd())
-	cmd.AddCommand(BuildImportTargetEditCmd())
-	cmd.AddCommand(BuildImportTargetRemoveCmd())
-	cmd.AddCommand(BuildImportTargetListCmd())
-
-	return cmd
-}
-
 func BuildImportStartCmd() *cobra.Command {
 	var labelFilters []string
 	var startTimestampSecs int64
@@ -207,7 +189,7 @@ func BuildImportStartCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "start <cluster> <target>",
-		Short: "start",
+		Short: "start an import",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterId := args[0]
@@ -251,11 +233,11 @@ func BuildImportStartCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~\".+\""}, "promql query for the thing")
+	// todo: this default does not pull anything, but job=prometheus-poc did
+	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~\".+\""}, "label matchers to use for the import")
 
 	// todo: we probably want to allow for more human-readable timestamps here
-	//cmd.Flags().Int64Var(&startTimestampSecs, "start", 0, "start time for the remote read")
-	cmd.Flags().Int64Var(&startTimestampSecs, "start", time.Now().Unix()-int64(time.Hour.Seconds())*2, "start time for the remote read in seconds since epoch")
+	cmd.Flags().Int64Var(&startTimestampSecs, "start", time.Now().Unix()-int64(time.Hour.Seconds())*3, "start time for the remote read in seconds since epoch")
 	cmd.Flags().Int64Var(&endTimestampSecs, "end", time.Now().Unix(), "start time for the remote read")
 
 	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
@@ -269,7 +251,7 @@ func BuildImportStartCmd() *cobra.Command {
 func BuildImportStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop <cluster> <target>",
-		Short: "stop",
+		Short: "stop an import (will not remove already imported data)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterId := args[0]
@@ -304,7 +286,10 @@ func BuildImportCmd() *cobra.Command {
 		Short: "Interact with metrics import plugin APIs",
 	}
 
-	cmd.AddCommand(BuildImportTargetCmd())
+	cmd.AddCommand(BuildImportAddCmd())
+	cmd.AddCommand(BuildImportEditCmd())
+	cmd.AddCommand(BuildImportRemoveCmd())
+	cmd.AddCommand(BuildImportListCmd())
 	cmd.AddCommand(BuildImportStartCmd())
 	cmd.AddCommand(BuildImportStopCmd())
 

@@ -12,7 +12,7 @@ package remoteread;
 // todo: we probably need a new type for Describe and ScanFor
 // RemoteReadGateway handles requests from the agent / cli.
 service RemoteReadGateway {
-//  rpc ScanForTargets(google.protobuf.Empty) returns (stream/ Target);
+//  rpc ScanForTargets(google.protobuf.Empty) returns (stream Target);
 //  rpc Describe(Target) returns (Target)
 
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);

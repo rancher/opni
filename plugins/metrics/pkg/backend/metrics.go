@@ -3,9 +3,9 @@ package backend
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
-	"github.com/rancher/opni/plugins/metrics/pkg/gateway/demo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -49,7 +49,7 @@ type MetricsBackend struct {
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
-	runner demo.TargetRunner
+	runner agent.TargetRunner
 
 	util.Initializer
 }
@@ -79,7 +79,7 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
 
-		m.runner = demo.NewTargetRunner(m.Logger.Named("target-runner"))
+		m.runner = agent.NewTargetRunner(m.Logger.Named("target-runner"))
 		m.runner.SetRemoteWriteForwarder(m.RemoteWriteClient)
 		m.runner.SetRemoteReadServer(m)
 	})

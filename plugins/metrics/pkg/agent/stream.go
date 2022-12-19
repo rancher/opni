@@ -27,7 +27,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
 	p.httpServer.SetTargetRunner(clients.NewLocker(cc, func(_ grpc.ClientConnInterface) TargetRunner {
-		return NewTargetRunner()
+		return NewTargetRunner(p.logger.Named("remote-read"))
 	}))
 	p.httpServer.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
 

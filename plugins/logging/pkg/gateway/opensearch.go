@@ -15,8 +15,10 @@ import (
 func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterReference) (*opensearch.OpensearchDetails, error) {
 
 	// Get the external URL
-	var binding *loggingv1beta1.MulticlusterRoleBinding
-	var opnimgmt *loggingv1beta1.OpniOpensearch
+	var (
+		binding  *loggingv1beta1.MulticlusterRoleBinding
+		opnimgmt *loggingv1beta1.OpniOpensearch
+	)
 
 	opnimgmt = &loggingv1beta1.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{

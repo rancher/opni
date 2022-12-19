@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -41,17 +42,41 @@ const (
 )
 
 type Manager struct {
+	OpensearchManagerOptions
 	*loggingutil.AsyncOpensearchClient
 
 	kv     *loggingutil.AsyncJetStreamClient
 	logger *zap.SugaredLogger
+
+	adminInitStateRW sync.RWMutex
 }
 
-func NewManager(logger *zap.SugaredLogger) *Manager {
+type OpensearchManagerOptions struct {
+	nc *nats.Conn
+}
+
+type OpensearchManagerOption func(*OpensearchManagerOptions)
+
+func (o *OpensearchManagerOptions) apply(opts ...OpensearchManagerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithNatsConnection(nc *nats.Conn) OpensearchManagerOption {
+	return func(o *OpensearchManagerOptions) {
+		o.nc = nc
+	}
+}
+
+func NewManager(logger *zap.SugaredLogger, opts ...OpensearchManagerOption) *Manager {
+	options := OpensearchManagerOptions{}
+	options.apply(opts...)
 	return &Manager{
-		kv:                    loggingutil.NewAsyncJetStreamClient(),
-		AsyncOpensearchClient: loggingutil.NewAsyncOpensearchClient(),
-		logger:                logger,
+		OpensearchManagerOptions: options,
+		kv:                       loggingutil.NewAsyncJetStreamClient(),
+		AsyncOpensearchClient:    loggingutil.NewAsyncOpensearchClient(),
+		logger:                   logger,
 	}
 }
 
@@ -109,19 +134,23 @@ func (m *Manager) setJetStream() nats.KeyValue {
 		err error
 	)
 
-	retrier := backoffv2.Exponential(
-		backoffv2.WithMaxRetries(0),
-		backoffv2.WithMinInterval(5*time.Second),
-		backoffv2.WithMaxInterval(1*time.Minute),
-		backoffv2.WithMultiplier(1.1),
-	)
-	b := retrier.Start(context.TODO())
-	for backoffv2.Continue(b) {
-		nc, err = m.newNatsConnection()
-		if err == nil {
-			break
+	if m.nc != nil {
+		nc = m.nc
+	} else {
+		retrier := backoffv2.Exponential(
+			backoffv2.WithMaxRetries(0),
+			backoffv2.WithMinInterval(5*time.Second),
+			backoffv2.WithMaxInterval(1*time.Minute),
+			backoffv2.WithMultiplier(1.1),
+		)
+		b := retrier.Start(context.TODO())
+		for backoffv2.Continue(b) {
+			nc, err = m.newNatsConnection()
+			if err == nil {
+				break
+			}
+			m.logger.Error("failed to connect to nats, retrying")
 		}
-		m.logger.Error("failed to connect to nats, retrying")
 	}
 
 	mgr, err := nc.JetStream()
@@ -130,8 +159,8 @@ func (m *Manager) setJetStream() nats.KeyValue {
 	}
 
 	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "pending-delete",
-		Description: "track pending deletes",
+		Bucket:      "opensearch-management",
+		Description: "stateful data for opensearch management",
 	})
 	if err != nil {
 		panic(err)

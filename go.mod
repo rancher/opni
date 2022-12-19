@@ -68,6 +68,7 @@ require (
 	github.com/mattn/go-tty v0.0.4
 	github.com/mikefarah/yq/v4 v4.30.4
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/nats-io/nats-server/v2 v2.8.4
 	github.com/nats-io/nats.go v1.21.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
@@ -352,6 +353,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mholt/archiver/v4 v4.0.0-alpha.3 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
+	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.0 // indirect
 	github.com/minio/minio-go/v7 v7.0.10 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
@@ -379,6 +381,7 @@ require (
 	github.com/muesli/termenv v0.11.1-0.20220212125758-44cd13922739 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
+	github.com/nats-io/jwt/v2 v2.2.1-0.20220330180145-442af02fd36a // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncw/swift v1.0.52 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.2 // indirect

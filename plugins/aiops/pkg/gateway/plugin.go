@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
@@ -82,7 +83,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.7.0",
+		version: versions.Version,
 	}
 	options.apply(opts...)
 

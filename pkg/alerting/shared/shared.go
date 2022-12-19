@@ -15,6 +15,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// UI identifier for upstream cluster
+const UpstreamAlertClusterId = "UPSTREAM_CLUSTER_ID"
+
 // Condition constants
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}

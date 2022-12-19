@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	k8scorev1 "k8s.io/api/core/v1"
@@ -50,6 +54,30 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	_, err = p.kv.Get().Put(currentTrainingJobKey, []byte(uuid))
 	if err != nil {
 		p.Logger.Warnf("Failed to update current training job key %s", err)
+	}
+	ctxca, ca := context.WithTimeout(ctx, 5*time.Second)
+	defer ca()
+	alertingClient, err := p.alertingClient.GetContext(ctxca)
+	if err != nil {
+		p.Logger.Warnf("Failed to get alerting client while creating new model training job %s", err)
+	}
+	_, err = alertingClient.CreateAlertCondition(ctx, &alertingv1.AlertCondition{
+		Name:        fmt.Sprintf("model training job - %s", uuid[:8]),
+		Description: "Alerts if the model training job is hanging and sends a notification when it finishes training",
+		Labels:      []string{"AiOps", "opni"},
+		Severity:    alertingv1.Severity_INFO,
+		AlertType: &alertingv1.AlertTypeDetails{
+			Type: &alertingv1.AlertTypeDetails_ModelTrainingStatus{
+				ModelTrainingStatus: &alertingv1.AlertConditionModelTrainingStatus{
+					JobUuid:      uuid,
+					HangDuration: durationpb.New(5 * time.Minute),
+					ClusterId:    &corev1.Reference{Id: shared.UpstreamAlertClusterId},
+				},
+			},
+		},
+	})
+	if err != nil {
+		p.Logger.Warnf("Failed to create alert condition for model training job %s", err)
 	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),

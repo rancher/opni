@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -34,6 +35,7 @@ type AIOpsPlugin struct {
 	osClient       future.Future[*opensearch.Client]
 	natsConnection future.Future[*nats.Conn]
 	kv             future.Future[nats.KeyValue]
+	alertingClient future.Future[alertingv1.AlertConditionsClient]
 }
 
 type PluginOptions struct {
@@ -134,6 +136,15 @@ func (p *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
 
 	go p.runAggregation()
 	<-p.ctx.Done()
+}
+
+func (p *AIOpsPlugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	ccAlertConditions, err := intf.GetClientConn(p.ctx, "AlertConditions")
+	if err != nil {
+		p.Logger.With("err", err).Error("failed to get the AlertConditions client connection")
+		os.Exit(1)
+	}
+	p.alertingClient.Set(alertingv1.NewAlertConditionsClient(ccAlertConditions))
 }
 
 var _ modeltraining.ModelTrainingServer = (*AIOpsPlugin)(nil)

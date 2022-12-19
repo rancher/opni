@@ -75,38 +75,46 @@ func run(ctx *Context) (runErr error) {
 	if err != nil {
 		return err
 	}
-	// FIXME: ability  for agent v1
-	var opniCrdChart, opniChart /*,opniAgentChart*/ string
+	var opniCrdChart, opniPrometheusCrdChart, opniChart string
 	var chartRepoOpts *helm.RepositoryOptsArgs
 	if conf.UseLocalCharts {
 		var ok bool
 		if opniCrdChart, ok = findLocalChartDir("opni-crd"); !ok {
 			return errors.New("could not find local opni-crd chart")
 		}
+		if opniPrometheusCrdChart, ok = findLocalChartDir("opni-prometheus-crd"); !ok {
+			return errors.New("could not find local opni-prometheus-crd chart")
+		}
 		if opniChart, ok = findLocalChartDir("opni"); !ok {
 			return errors.New("could not find local opni chart")
 		}
-		// if opniAgentChart, ok = findLocalChartDir("opni-agent"); !ok {
-		// 	return errors.New("could not find local opni-agent chart")
-		// }
 	} else {
 		chartRepoOpts = &helm.RepositoryOptsArgs{
 			Repo: StringPtr(conf.ChartsRepo),
 		}
 		opniCrdChart = "opni-crd"
+		opniPrometheusCrdChart = "opni-prometheus-crd"
 		opniChart = "opni"
-		// opniAgentChart = "opni-agent"
 	}
 
 	opniServiceLB := mainCluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
-		//FIXME
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
 			Chart:          String(opniCrdChart),
 			RepositoryOpts: chartRepoOpts,
 			Version:        StringPtr(conf.ChartVersion),
 			Namespace:      String("opni"),
 			Timeout:        Int(60),
-		}, Provider(k))
+		}, Provider(k), RetainOnDelete(true))
+		if err != nil {
+			return StringOutput{}, errors.WithStack(err)
+		}
+
+		opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
+			Chart:          String(opniPrometheusCrdChart),
+			RepositoryOpts: chartRepoOpts,
+			Namespace:      String("opni"),
+			Timeout:        Int(60),
+		}, Provider(k), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
@@ -116,6 +124,7 @@ func run(ctx *Context) (runErr error) {
 			Chart:          String(opniChart),
 			RepositoryOpts: chartRepoOpts,
 			Version:        StringPtr(conf.ChartVersion),
+			SkipCrds:       Bool(true),
 			Namespace:      String("opni"),
 			Values: Map{
 				"image": Map{
@@ -160,6 +169,9 @@ func run(ctx *Context) (runErr error) {
 					"agent": Map{
 						"version": String("v2"),
 					},
+					"persistence": Map{
+						"mode": String("pvc"),
+					},
 					//FIXME change to a config value
 					"kube-prometheus-stack": Map{
 						"enabled": Bool(true),
@@ -168,7 +180,7 @@ func run(ctx *Context) (runErr error) {
 			},
 			Timeout:     Int(300),
 			WaitForJobs: Bool(true),
-		}, Provider(k), DependsOn([]Resource{opniCrd}), RetainOnDelete(true))
+		}, Provider(k), DependsOn([]Resource{opniCrd, opniPrometheusCrd}), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}

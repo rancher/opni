@@ -45,7 +45,7 @@ func buildExamplePlugin(destDir string) error {
 func buildMinimalAgent() (string, error) {
 	test.Log.Info("building minimal agent...")
 	return gexec.BuildWithEnvironment("github.com/rancher/opni/cmd/opni", []string{"CGO_ENABLED=0"},
-		"-tags=noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noscheme_thirdparty,nomsgpack",
+		"-tags=noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noscheme_thirdparty,noalertmanager,nomsgpack",
 	)
 }
 

@@ -9,10 +9,9 @@ config:
     nodeGroupMinSize: 3
     nodeInstanceType: r6a.xlarge
   opni:imageRepo: rancher/opni
-  opni:imageTag: main
   opni:namePrefix: opni-e2e-test
-  opni:useLocalCharts: "true"
   opni:useIdInDnsNames: "true"
+  opni:useLocalCharts: "true"
   opni:zoneID:
     secure: AAABAEgKAveQVLuL3+ZeK4BI7td1AWO5Oojkr/eScHxNIr2OPoI4H61WGPnmOQ==
   pulumi:disable-default-providers:

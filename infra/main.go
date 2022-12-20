@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
+	apiextv1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/apiextensions/v1"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	. "github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -109,14 +110,18 @@ func run(ctx *Context) (runErr error) {
 			return StringOutput{}, errors.WithStack(err)
 		}
 
-		opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
-			Chart:          String(opniPrometheusCrdChart),
-			RepositoryOpts: chartRepoOpts,
-			Namespace:      String("opni"),
-			Timeout:        Int(60),
-		}, Provider(k), RetainOnDelete(true))
-		if err != nil {
-			return StringOutput{}, errors.WithStack(err)
+		var maybeOpniPrometheusCrd []Resource
+		if _, err = apiextv1.GetCustomResourceDefinition(ctx, "prometheuses", ID("prometheuses.monitoring.coreos.com"), nil, Provider(k)); err != nil {
+			opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
+				Chart:          String(opniPrometheusCrdChart),
+				RepositoryOpts: chartRepoOpts,
+				Namespace:      String("opni"),
+				Timeout:        Int(60),
+			}, Provider(k), RetainOnDelete(true))
+			if err != nil {
+				return StringOutput{}, errors.WithStack(err)
+			}
+			maybeOpniPrometheusCrd = append(maybeOpniPrometheusCrd, opniPrometheusCrd)
 		}
 
 		opni, err := helm.NewRelease(ctx, "opni", &helm.ReleaseArgs{
@@ -132,7 +137,7 @@ func run(ctx *Context) (runErr error) {
 					"tag":        String(conf.ImageTag),
 				},
 				"opni-prometheus-crd": Map{
-					"enabled": Bool(false),
+					"enabled": Bool(len(maybeOpniPrometheusCrd) > 0),
 				},
 				"gateway": Map{
 					"enabled": Bool(true),
@@ -178,9 +183,11 @@ func run(ctx *Context) (runErr error) {
 					},
 				},
 			},
-			Timeout:     Int(300),
-			WaitForJobs: Bool(true),
-		}, Provider(k), DependsOn([]Resource{opniCrd, opniPrometheusCrd}), RetainOnDelete(true))
+			Timeout:      Int(300),
+			ForceUpdate:  Bool(true),
+			RecreatePods: Bool(true),
+			WaitForJobs:  Bool(true),
+		}, Provider(k), DependsOn(append([]Resource{opniCrd}, maybeOpniPrometheusCrd...)), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}

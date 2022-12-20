@@ -2,7 +2,8 @@
 {{- if not (or (eq .Values.persistence.mode "pvc") (eq .Values.persistence.mode "hostPath")) }}
 {{- fail "persistence mode must be pvc or hostPath" }}
 {{- end }}
-{{- $versionTag := printf "v%s-minimal" .Chart.AppVersion }}
+{{- $minimalVersionTag := printf "v%s-minimal" .Chart.AppVersion }}
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -37,7 +38,7 @@ spec:
         - name: agent
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $minimalVersionTag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - agentv2

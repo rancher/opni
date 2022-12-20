@@ -168,7 +168,7 @@ func (d *KubernetesManagerDriver) GetCredentials(ctx context.Context, id string)
 	}
 
 	if len(secrets.Items) != 1 {
-		d.logger.Error("no credential secrets found")
+		d.logger.Warn("no credential secrets found")
 		return
 	}
 

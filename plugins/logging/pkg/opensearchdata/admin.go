@@ -10,8 +10,23 @@ import (
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 )
 
+const (
+	initialAdminKey     = "initial-admin"
+	initialAdminPending = "pending"
+	initialAdminCreated = "created"
+)
+
 func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.WaitForInit()
+	m.kv.SetClient(m.setJetStream)
+	m.kv.WaitForInit()
+
+	m.adminInitStateRW.Lock()
+	_, err := m.kv.PutString(initialAdminKey, initialAdminPending)
+	if err != nil {
+		m.logger.Warnf("failed to store initial admin state: %v", err)
+	}
+	m.adminInitStateRW.Unlock()
 
 	for _, r := range readyFunc {
 		exitEarly := r()
@@ -57,6 +72,13 @@ CREATE:
 			break CREATE
 		}
 	}
+
+	m.adminInitStateRW.Lock()
+	_, err = m.kv.PutString(initialAdminKey, initialAdminCreated)
+	if err != nil {
+		m.logger.Warnf("failed to store initial admin state: %v", err)
+	}
+	m.adminInitStateRW.Unlock()
 }
 
 func (m *Manager) userExists(ctx context.Context, name string) (bool, error) {
@@ -96,4 +118,50 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 	}
 	m.logger.Debugf("user successfully created: %s", resp.String())
 	return nil
+}
+
+func (m *Manager) ShouldCreateInitialAdmin() bool {
+	m.kv.SetClient(m.setJetStream)
+	m.kv.WaitForInit()
+
+	m.adminInitStateRW.RLock()
+	defer m.adminInitStateRW.RUnlock()
+
+	idExists, err := m.keyExists(initialAdminKey)
+	if err != nil {
+		m.logger.Errorf("failed to check initial admin state: %v", err)
+		return false
+	}
+
+	if !idExists {
+		m.logger.Debug("no opensearch cluster created, not creating admin user")
+		return false
+	}
+
+	adminState, err := m.kv.Get(initialAdminKey)
+	if err != nil {
+		m.logger.Errorf("failed to check initial admin state: %v", err)
+		return false
+	}
+
+	switch string(adminState.Value()) {
+	case initialAdminPending:
+		m.logger.Debug("admin user creation is pending, restarting")
+		return true
+	case initialAdminCreated:
+		m.logger.Debug("admin user already created, not restarting")
+		return false
+	default:
+		m.logger.Error("invalid initial admin state returned")
+		return false
+	}
+}
+
+func (m *Manager) DeleteInitialAdminState() error {
+	m.kv.SetClient(m.setJetStream)
+	m.kv.WaitForInit()
+	m.adminInitStateRW.Lock()
+	defer m.adminInitStateRW.Unlock()
+
+	return m.kv.Delete(initialAdminKey)
 }

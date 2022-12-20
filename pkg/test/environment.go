@@ -23,6 +23,8 @@ import (
 	"text/template"
 	"time"
 
+	natsserver "github.com/nats-io/nats-server/v2/server"
+	natstest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/pkg/alerting/metrics"
@@ -134,6 +136,8 @@ type Environment struct {
 
 	gatewayConfig *v1beta1.GatewayConfig
 	k8sEnv        *envtest.Environment
+
+	embeddedJS *natsserver.Server
 
 	Processes struct {
 		Etcd      future.Future[*os.Process]
@@ -503,6 +507,25 @@ func (e *Environment) Context() context.Context {
 	return e.ctx
 }
 
+func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
+	ports, err := freeport.GetFreePorts(1)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := natstest.DefaultTestOptions
+	opts.Port = ports[0]
+
+	e.embeddedJS = natstest.RunServer(&opts)
+	e.embeddedJS.EnableJetStream(nil)
+	if !e.embeddedJS.ReadyForConnections(2 * time.Second) {
+		return nil, errors.New("starting nats server: timeout")
+	}
+
+	sUrl := fmt.Sprintf("nats://127.0.0.1:%d", ports[0])
+	return nats.Connect(sUrl)
+}
+
 func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	e.initCtx()
 	e.Processes.APIServer = future.New[*os.Process]()
@@ -631,6 +654,9 @@ func (e *Environment) Stop() error {
 	}
 	if e.k8sEnv != nil {
 		e.k8sEnv.Stop()
+	}
+	if e.embeddedJS != nil {
+		e.embeddedJS.Shutdown()
 	}
 	if e.mockCtrl != nil {
 		e.mockCtrl.Finish()

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
+	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
@@ -63,6 +64,7 @@ type PluginOptions struct {
 	featureOverride   featureflags.FeatureFlag
 	version           string
 	natsRef           *corev1.LocalObjectReference
+	nc                *nats.Conn
 }
 
 type PluginOption func(*PluginOptions)
@@ -108,6 +110,12 @@ func WithNatsRef(ref *corev1.LocalObjectReference) PluginOption {
 	}
 }
 
+func WithNatsConnection(nc *nats.Conn) PluginOption {
+	return func(o *PluginOptions) {
+		o.nc = nc
+	}
+}
+
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{
 		storageNamespace: os.Getenv("POD_NAMESPACE"),
@@ -149,6 +157,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		uninstallController: future.New[*task.Controller](),
 		opensearchManager: opensearchdata.NewManager(
 			lg.Named("opensearch-manager"),
+			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
 	}
@@ -218,6 +227,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 	loggingManager := p.NewLoggingManagerForPlugin()
 
 	go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
+	if p.opensearchManager.ShouldCreateInitialAdmin() {
+		err = loggingManager.createInitialAdmin()
+		if err != nil {
+			p.logger.Warnf("failed to create initial admin: %v", err)
+		}
+	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))

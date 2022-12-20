@@ -122,8 +122,14 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 	// Check that it is safe to delete the cluster
 	m.opensearchManager.UnsetClient()
 
+	// Remove the state tracking the initial admin
+	err := m.opensearchManager.DeleteInitialAdminState()
+	if err != nil {
+		return nil, err
+	}
+
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
-	err := m.k8sClient.List(ctx, loggingClusters, client.InNamespace(m.storageNamespace))
+	err = m.k8sClient.List(ctx, loggingClusters, client.InNamespace(m.storageNamespace))
 	if err != nil {
 		return nil, err
 	}
@@ -231,12 +237,10 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 			return nil, err
 		}
 
-		password, err := m.generateAdminPassword(k8sOpensearchCluster)
+		err := m.createInitialAdmin()
 		if err != nil {
 			return nil, err
 		}
-
-		go m.opensearchManager.CreateInitialAdmin(password, m.opensearchClusterReady)
 
 		return &emptypb.Empty{}, nil
 	}
@@ -1008,6 +1012,7 @@ FETCH:
 }
 
 func (m *LoggingManagerV2) generateAdminPassword(cluster *loggingv1beta1.OpniOpensearch) (password []byte, retErr error) {
+	ctx := context.TODO()
 	password = util.GenerateRandomString(8)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1019,8 +1024,41 @@ func (m *LoggingManagerV2) generateAdminPassword(cluster *loggingv1beta1.OpniOpe
 		},
 	}
 	ctrl.SetControllerReference(cluster, secret, m.k8sClient.Scheme())
-	retErr = m.k8sClient.Create(context.TODO(), secret)
+	retErr = m.k8sClient.Create(ctx, secret)
+	if retErr != nil {
+		if !k8serrors.IsAlreadyExists(retErr) {
+			return
+		}
+		retErr = m.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+		if retErr != nil {
+			return
+		}
+		password = secret.Data["password"]
+		return
+	}
+
 	return
+}
+
+func (m *LoggingManagerV2) createInitialAdmin() error {
+	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
+	ctx := context.TODO()
+
+	err := m.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      m.opensearchCluster.Name,
+		Namespace: m.storageNamespace,
+	}, k8sOpensearchCluster)
+	if err != nil {
+		return err
+	}
+
+	password, err := m.generateAdminPassword(k8sOpensearchCluster)
+	if err != nil {
+		return err
+	}
+
+	go m.opensearchManager.CreateInitialAdmin(password, m.opensearchClusterReady)
+	return nil
 }
 
 func (m *LoggingManagerV2) convertProtobufToDashboards(

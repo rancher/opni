@@ -3,6 +3,7 @@ package gateway_test
 import (
 	"testing"
 
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
@@ -17,6 +18,7 @@ var (
 	restConfig *rest.Config
 	scheme     *runtime.Scheme
 	k8sManager ctrl.Manager
+	nc         *nats.Conn
 )
 
 func TestAPIs(t *testing.T) {
@@ -38,6 +40,9 @@ var _ = BeforeSuite(func() {
 	restConfig, scheme, err = env.StartK8s()
 	Expect(err).NotTo(HaveOccurred())
 
+	nc, err = env.StartEmbeddedJetstream()
+	Expect(err).NotTo(HaveOccurred())
+
 	k8sClient, err = client.New(restConfig, client.Options{
 		Scheme: scheme,
 	})
@@ -49,6 +54,7 @@ var _ = BeforeSuite(func() {
 
 	DeferCleanup(func() {
 		By("tearing down the test environment")
+		nc.Close()
 		err := env.Stop()
 		Expect(err).NotTo(HaveOccurred())
 	})

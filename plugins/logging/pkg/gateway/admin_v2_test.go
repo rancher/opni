@@ -117,6 +117,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 			WithRestConfig(restConfig),
 			WithVersion(version),
 			WithOpensearchCluster(opniCluster),
+			WithNatsConnection(nc),
 		)
 		manager = plugin.NewLoggingManagerForPlugin()
 	})

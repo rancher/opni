@@ -6,10 +6,7 @@ import (
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/log"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/trigger"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -19,10 +16,10 @@ var alertingMutex = &sync.Mutex{}
 //
 // Should at least encapsulate all alerting plugin implementations
 type Provider interface {
-	endpoint.AlertEndpointsClient
-	condition.AlertConditionsClient
+	alertingv1.AlertEndpointsClient
+	alertingv1.AlertConditionsClient
 	log.AlertLogsClient
-	trigger.AlertingClient
+	alertingv1.AlertingClient
 }
 
 func IsNil(p *Provider) bool {

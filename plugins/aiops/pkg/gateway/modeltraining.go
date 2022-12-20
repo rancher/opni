@@ -14,6 +14,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
+	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -50,6 +51,12 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
 	}
+	if len(in.Items) == 0 { //assumption is that we are clearing the watchlist
+		return &modeltraining.ModelTrainingResponse{
+			Response: string(msg.Data),
+		}, nil
+	}
+	// if this is not clearing the watchlist, create a uuid for the job and an alert
 	uuid := uuid.New().String()
 	_, err = p.kv.Get().Put(currentTrainingJobKey, []byte(uuid))
 	if err != nil {
@@ -88,12 +95,12 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 	if in.GetLastReportedUpdate() == nil {
 		in.LastReportedUpdate = timestamppb.Now()
 	}
-	if in.Uuid == "" {
+	if in.Uuid == nil || *in.Uuid == "" {
 		curUuid, err := p.kv.Get().Get(currentTrainingJobKey)
 		if err == nil {
-			in.Uuid = string(curUuid.Value())
+			in.Uuid = lo.ToPtr(string(curUuid.Value()))
 		} else {
-			in.Uuid = "undefined"
+			in.Uuid = lo.ToPtr("undefined")
 		}
 	}
 	jsonParameters, err := protojson.Marshal(in)
@@ -102,8 +109,7 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 	}
 	bytesAggregation := []byte(jsonParameters)
 	p.kv.Get().Put("modelTrainingStatus", bytesAggregation)
-	return nil, nil
-
+	return &emptypb.Empty{}, nil
 }
 
 func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {

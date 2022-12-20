@@ -84,7 +84,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.7.0",
+		version: "0.8.1",
 	}
 	options.apply(opts...)
 
@@ -110,6 +110,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		kv:             future.New[nats.KeyValue](),
 		osClient:       future.New[*opensearch.Client](),
 		k8sClient:      cli,
+		alertingClient: future.New[alertingv1.AlertConditionsClient](),
 	}
 }
 

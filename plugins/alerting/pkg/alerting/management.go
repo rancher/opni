@@ -128,7 +128,6 @@ func (p *Plugin) watchModelTrainingStatus() {
 			break
 		}
 	}
-	lg.Debug(adminClient)
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -138,17 +137,23 @@ func (p *Plugin) watchModelTrainingStatus() {
 			return
 		case <-ticker.C:
 			mStatus, err := adminClient.GetModelStatus(p.Ctx, &emptypb.Empty{})
-			if err != nil {
-				continue
-			}
 			go func() {
+				// can't infer anything from incorrect info
+				if err != nil ||
+					mStatus == nil ||
+					mStatus.Statistics == nil ||
+					mStatus.Statistics.Uuid == nil {
+					return
+				}
 				modelTrainingStatusData, err := json.Marshal(mStatus)
 				if err != nil {
-					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
+					p.Logger.Errorf("failed to to marshal model training status: %s", err)
+					return
 				}
-				_, err = p.js.Get().PublishAsync(NewModelTrainingStatusSubject(mStatus.Statistics.Uuid), modelTrainingStatusData)
+				_, err = p.js.Get().PublishAsync(NewModelTrainingStatusSubject(*mStatus.Statistics.Uuid), modelTrainingStatusData)
 				if err != nil {
-					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
+					p.Logger.Errorf("failed to marshal model training status : %s", err)
+					return
 				}
 			}()
 		}
@@ -259,6 +264,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 		os.Exit(1)
 	}
 	for _, cl := range cls.Items {
+		cl := cl // capture in closure
 		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
 		//make sure durable consumer is setup
 		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, NewAgentDurableReplayConsumer(cl.GetId()))
@@ -272,7 +278,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 				continue
 			}
 
-			_, err = p.js.Get().PublishAsync(ingressStream.Name, clusterStatusData)
+			_, err = p.js.Get().PublishAsync(NewAgentStreamSubject(cl.GetId()), clusterStatusData)
 			if err != nil {
 				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}

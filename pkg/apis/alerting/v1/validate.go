@@ -143,6 +143,16 @@ func (m *AlertConditionMonitoringBackend) Validate() error {
 	return nil
 }
 
+func (m *AlertConditionModelTrainingStatus) Validate() error {
+	if m.JobUuid == "" {
+		return validation.Error("")
+	}
+	if m.HangDuration.AsDuration() == 0 {
+		return validation.Error("Hang duration must be set to some positive duration")
+	}
+	return nil
+}
+
 func (d *AlertTypeDetails) Validate() error {
 	if d.GetSystem() != nil {
 		return d.GetSystem().Validate()
@@ -174,7 +184,10 @@ func (d *AlertTypeDetails) Validate() error {
 	if d.GetMonitoringBackend() != nil {
 		return d.GetMonitoringBackend().Validate()
 	}
-	return validation.Errorf("Backend does not handle alert type provided %v", d)
+	if d.GetModelTrainingStatus() != nil {
+		return d.GetModelTrainingStatus().Validate()
+	}
+	return validation.Errorf("validation : backend does not handle alert type provided %v", d)
 }
 
 func (a *AlertCondition) Validate() error {
@@ -419,8 +432,10 @@ func (e *EphemeralDispatcherRequest) Validate() error {
 	if err := e.GetDetails().Validate(); err != nil {
 		return validation.Errorf("details must be valid for ephemeral dispatchers: %s", err)
 	}
-	if err := e.GetEndpoint().Validate(); err != nil {
-		return validation.Errorf("endpoints must be valid for ephemeral dispatchers: %s", err)
+	for _, endp := range e.GetItems() {
+		if err := endp.Validate(); err != nil {
+			return validation.Errorf("endpoints must be valid for ephemeral dispatchers: %s", err)
+		}
 	}
 	return nil
 }

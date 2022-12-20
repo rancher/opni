@@ -251,7 +251,9 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	cond, err := p.storageNode.GetCondition(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
-		return nil, shared.WithNotFoundErrorf("%s", err)
+		return &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_INVALIDATED,
+		}, err
 	}
 
 	if a := cond.GetAlertType().GetSystem(); a != nil {

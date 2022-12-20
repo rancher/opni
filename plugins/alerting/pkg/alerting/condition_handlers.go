@@ -5,12 +5,9 @@
 package alerting
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
-	"sync"
-	"text/template"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -30,12 +27,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
-
-var modelTrainingTpl *template.Template = template.Must(template.New("model-training").Parse(`
-Model training took {{ .Minutes }} to train over a total number of epochs {{ .Epochs }}.
-
-The final accuracy of the model is {{ .Accuracy }}.
-`))
 
 type modelTrainingInfo struct {
 	Minutes  int64
@@ -127,6 +118,12 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		return nil
 	}
 	if r := req.AlertType.GetMonitoringBackend(); r != nil {
+		p.msgNode.RemoveConfigListener(id)
+		p.storageNode.DeleteIncidentTracker(ctx, id)
+		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		return nil
+	}
+	if req.AlertType.GetModelTrainingStatus() != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteIncidentTracker(ctx, id)
 		p.storageNode.DeleteConditionStatusTracker(ctx, id)
@@ -743,6 +740,10 @@ func (p *Plugin) onModelTrainingStatusConditionCreate(conditionId, conditionName
 				if h.GetStatistics().GetLastReportedUpdate() == nil {
 					h.GetStatistics().LastReportedUpdate = timestamppb.Now()
 				}
+				// FIXME: status string subject to change
+				if h.GetStatus() == "not started" || h.GetStatistics().LastReportedUpdate == nil {
+					return false, h.GetStatistics().LastReportedUpdate
+				}
 				if lastPercentage.Load() == h.GetStatistics().PercentageCompleted {
 					return false, h.GetStatistics().LastReportedUpdate
 				}
@@ -750,6 +751,7 @@ func (p *Plugin) onModelTrainingStatusConditionCreate(conditionId, conditionName
 				return true, nil
 			},
 			finalizerOnMessage: func(h *modeltraining.ModelStatus) (done bool) {
+				//FIXME: status string subject to change
 				return h.GetStatistics().PercentageCompleted >= 100 || h.GetStatus() == "completed"
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
@@ -772,49 +774,49 @@ func (p *Plugin) onModelTrainingStatusConditionCreate(conditionId, conditionName
 					lg.Warnf("failed to get alert condition : %s", err)
 					return
 				}
+				defer func() {
+					// plugin context so it doesn't cause a race condition with cancelling the evaluation
+					_, err = p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: conditionId})
+					if err != nil {
+						lg.Warnf("failed to delete alert condition after model training status is done: %s", err)
+					}
+				}()
+
 				endpoints := []*alertingv1.AlertEndpoint{}
 				for _, ep := range deets.GetAttachedEndpoints().GetItems() {
 					endp, err := p.GetAlertEndpoint(ctx, &corev1.Reference{Id: ep.GetEndpointId()})
 					if err != nil {
-						lg.Warnf("oops")
+						lg.Warnf("cannot find expected alert endpoint %s", ep.GetEndpointId())
+						continue
+					}
+					err = unredactSecrets(ctx, p.storageNode, ep.GetEndpointId(), endp)
+					if err != nil {
+						lg.Warnf("cannot unredact secrets for alert endpoint %s", ep.GetEndpointId())
+						continue
 					}
 					endpoints = append(endpoints, endp)
 				}
 				// read info from finalMsg
-				var b bytes.Buffer
-				modelTrainingTpl.Execute(&b, modelTrainingInfo{
-					Minutes:  finalMsg.Statistics.GetTimeElapsed() / 60,
-					Epochs:   finalMsg.Statistics.GetCurrentEpoch(),
-					Accuracy: finalMsg.Statistics.GetModelAccuracy(),
-				})
 				details := &alertingv1.EndpointImplementation{
 					Title: fmt.Sprintf("Model training done for training job %s", finalMsg.GetStatistics().GetUuid()),
-					Body:  b.String(),
+					Body: fmt.Sprintf("Model trained for %d minutes, %d epochs, with an accuracy of %f",
+						finalMsg.Statistics.GetTimeElapsed()/60,
+						finalMsg.Statistics.GetCurrentEpoch(),
+						finalMsg.Statistics.GetModelAccuracy()),
 				}
-				var wg sync.WaitGroup
-				for _, endp := range endpoints {
-					endp := endp // capture in closure
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
-						dispatcher, err := p.EphemeralDispatcher(ctx, &alertingv1.EphemeralDispatcherRequest{
-							Ttl:      durationpb.New(time.Duration(time.Minute)),
-							Prefix:   "model-training-done",
-							Endpoint: endp,
-							Details:  details,
-						})
-						if err != nil {
-							lg.Warnf("failed to create ephemeral dispatcher : %s", err)
-						} else {
-							p.TriggerAlerts(ctx, dispatcher.TriggerAlertsRequest)
-							p.deleteRoutingNode(ctx, dispatcher.TriggerAlertsRequest.ConditionId.Id, lg)
-						}
-					}()
-				}
-				wg.Wait()
-				_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: conditionId})
+
+				dispatcher, err := p.EphemeralDispatcher(p.Ctx, &alertingv1.EphemeralDispatcherRequest{
+					Ttl:           durationpb.New(time.Duration(time.Minute)),
+					NumDispatches: 1,
+					Prefix:        "model-training-done",
+					Items:         endpoints,
+					Details:       details,
+				})
 				if err != nil {
-					lg.Warnf("failed to delete alert condition after model training status is done: %s", err)
+					lg.Warnf("failed to create ephemeral dispatcher : %s", err)
+				} else {
+					p.TriggerAlerts(p.Ctx, dispatcher.TriggerAlertsRequest)
+					p.deleteRoutingNode(p.Ctx, dispatcher.TriggerAlertsRequest.ConditionId.Id, lg)
 				}
 			},
 		},

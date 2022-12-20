@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
@@ -38,9 +39,10 @@ type Plugin struct {
 	Ctx    context.Context
 	Logger *zap.SugaredLogger
 
-	opsNode     *ops.AlertingOpsNode
-	msgNode     *messaging.MessagingNode
-	storageNode *alertstorage.StorageNode
+	opsNode      *ops.AlertingOpsNode
+	msgNode      *messaging.MessagingNode
+	storageNode  *alertstorage.StorageNode
+	backendState *ExternalBackendState
 
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	adminClient         future.Future[cortexadmin.CortexAdminClient]
@@ -49,6 +51,20 @@ type Plugin struct {
 	natsConn            future.Future[*nats.Conn]
 	js                  future.Future[nats.JetStreamContext]
 	globalWatchers      InternalConditionWatcher
+}
+
+type ExternalBackendState struct {
+	LoggingEnabled *atomic.Bool
+	MetricsEnabled *atomic.Bool
+	AiOpsEnabled   *atomic.Bool
+}
+
+func NewExternalBackendState() *ExternalBackendState {
+	return &ExternalBackendState{
+		LoggingEnabled: &atomic.Bool{},
+		MetricsEnabled: &atomic.Bool{},
+		AiOpsEnabled:   &atomic.Bool{},
+	}
 }
 
 type StorageAPIs struct {
@@ -68,6 +84,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		storageNode: alertstorage.NewStorageNode(
 			alertstorage.WithLogger(lg),
 		),
+		backendState: NewExternalBackendState(),
 
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		adminClient:         future.New[cortexadmin.CortexAdminClient](),

@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	. "github.com/rancher/opni/plugins/aiops/pkg/gateway"
 	"github.com/samber/lo"
@@ -27,7 +28,7 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 	)
 	BeforeEach(func() {
 		namespace = "test-ai"
-		version = "v0.7.0"
+		version = "v0.8.1"
 
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -418,7 +419,7 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 					cp := list.Items[0]
 					Expect(cp.Name).To(Equal("opni-model-longhorn"))
 					Expect(cp.Spec.Hyperparameters).To(Equal(map[string]intstr.IntOrString{
-						"modelThreshold": intstr.FromString("0.8"),
+						"modelThreshold": intstr.FromString(versions.Version),
 						"minLogTokens":   intstr.FromInt(1),
 						"serviceType":    intstr.FromString("longhorn"),
 					}))
@@ -550,7 +551,7 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 2))
-					Expect(cluster.Spec.Version).To(Equal("v0.7.0"))
+					Expect(cluster.Spec.Version).To(Equal("0.8.1"))
 				})
 				It("should create an additional pretrained model", func() {
 					list := &aiv1beta1.PretrainedModelList{}

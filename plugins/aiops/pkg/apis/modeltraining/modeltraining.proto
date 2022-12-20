@@ -78,8 +78,8 @@ message ModelTrainingStatistics {
   int64 currentEpoch = 4;
   double modelAccuracy = 5;
   string stage = 6;
-  google.protobuf.Timestamp lastReportedUpdate = 7;
-  string uuid = 8;
+  optional google.protobuf.Timestamp lastReportedUpdate = 7;
+  optional string uuid = 8;
 }
 
 message WorkloadAggregation {

@@ -209,7 +209,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 		Prefix:        "test",
 		Ttl:           durationpb.New(time.Duration(time.Second * 60)),
 		NumDispatches: 10,
-		Endpoint:      req.Endpoint,
+		Items:         []*alertingv1.AlertEndpoint{req.Endpoint},
 		Details:       details,
 	})
 	if err != nil {
@@ -486,18 +486,21 @@ func (p *Plugin) EphemeralDispatcher(ctx context.Context, req *alertingv1.Epheme
 	ephemeralId := uuid.New().String()
 	ephemeralId = req.GetPrefix() + "-" + ephemeralId
 
+	fullAttachEndpoint := []*alertingv1.FullAttachedEndpoint{}
+	for _, endp := range req.GetItems() {
+		fullAttachEndpoint = append(fullAttachEndpoint, &alertingv1.FullAttachedEndpoint{
+			EndpointId:    ephemeralId,
+			AlertEndpoint: endp,
+			Details:       req.GetDetails(),
+		})
+	}
+
 	createImpl := &alertingv1.RoutingNode{
 		ConditionId: &corev1.Reference{Id: ephemeralId}, // is used as a unique identifier
 		FullAttachedEndpoints: &alertingv1.FullAttachedEndpoints{
 			InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
-			Items: []*alertingv1.FullAttachedEndpoint{
-				{
-					EndpointId:    ephemeralId,
-					AlertEndpoint: req.GetEndpoint(),
-					Details:       req.GetDetails(),
-				},
-			},
-			Details: req.GetDetails(),
+			Items:        fullAttachEndpoint,
+			Details:      req.GetDetails(),
 		},
 	}
 	// create condition routing node

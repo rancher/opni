@@ -181,6 +181,10 @@ func (p *Plugin) reindexAlarms() {
 			lg.Debug("re-indexing monitoring backend")
 			p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
 		}
+		if ms := conds[i].GetAlertType().GetModelTrainingStatus(); ms != nil {
+			lg.Debug("re-indexing model training status")
+			p.onModelTrainingStatusConditionCreate(id, conds[i].Name, ms)
+		}
 	}
 	lg.Info("re-indexing alarms complete")
 }

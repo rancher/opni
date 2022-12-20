@@ -56,7 +56,6 @@ func (a *AlertingOpsNode) GetClusterConfiguration(ctx context.Context, _ *emptyp
 		return nil, err
 	}
 	return driver.GetClusterConfiguration(ctx, &emptypb.Empty{})
-
 }
 
 func (a *AlertingOpsNode) ConfigureCluster(ctx context.Context, conf *alertops.ClusterConfiguration) (*emptypb.Empty, error) {

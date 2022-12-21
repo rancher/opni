@@ -4,26 +4,37 @@ import (
 	"context"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/routing"
-
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Manages all dynamic backend configurations
 // that must interact with & modify the runtime cluster
 type AlertingOpsNode struct {
-	AlertingOpsNodeOptions
-	ClusterDriver future.Future[drivers.ClusterDriver]
 	alertops.UnsafeAlertingAdminServer
-	alertops.UnsafeDynamicAlertingServer
+	alertops.UnsafeConfigReconcilerServer
+
+	ctx context.Context
+	AlertingOpsNodeOptions
+	syncPusher chan *alertops.SyncRequest
+
+	ClusterDriver    future.Future[drivers.ClusterDriver]
+	storageClientSet future.Future[storage.AlertingClientSet]
 }
 
+var _ alertops.AlertingAdminServer = (*AlertingOpsNode)(nil)
+var _ alertops.ConfigReconcilerServer = (*AlertingOpsNode)(nil)
+
 type AlertingOpsNodeOptions struct {
-	timeout time.Duration
+	driverTimeout  time.Duration
+	storageTimeout time.Duration
+	logger         *zap.SugaredLogger
 }
 
 type AlertingOpsNodeOption func(*AlertingOpsNodeOptions)
@@ -36,20 +47,33 @@ func (a *AlertingOpsNodeOptions) apply(opts ...AlertingOpsNodeOption) {
 
 var _ alertops.AlertingAdminServer = (*AlertingOpsNode)(nil)
 
-func NewAlertingOpsNode(clusterDriver future.Future[drivers.ClusterDriver], opts ...AlertingOpsNodeOption) *AlertingOpsNode {
+func NewAlertingOpsNode(
+	ctx context.Context,
+	clusterDriver future.Future[drivers.ClusterDriver],
+	storageClientSet future.Future[storage.AlertingClientSet],
+	opts ...AlertingOpsNodeOption) *AlertingOpsNode {
 	options := AlertingOpsNodeOptions{
-		timeout: 60 * time.Second,
+		driverTimeout:  60 * time.Second,
+		storageTimeout: 5 * time.Second,
 	}
 	options.apply(opts...)
+	if options.logger == nil {
+		options.logger = logger.NewPluginLogger().Named("alerting-ops")
+	}
 
-	return &AlertingOpsNode{
+	a := &AlertingOpsNode{
+		ctx:                    ctx,
 		AlertingOpsNodeOptions: options,
 		ClusterDriver:          clusterDriver,
+		storageClientSet:       storageClientSet,
+		syncPusher:             make(chan *alertops.SyncRequest),
 	}
+	go a.runPeriodicSync(ctx)
+	return a
 }
 
 func (a *AlertingOpsNode) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -60,7 +84,7 @@ func (a *AlertingOpsNode) GetClusterConfiguration(ctx context.Context, _ *emptyp
 }
 
 func (a *AlertingOpsNode) ConfigureCluster(ctx context.Context, conf *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -70,7 +94,7 @@ func (a *AlertingOpsNode) ConfigureCluster(ctx context.Context, conf *alertops.C
 }
 
 func (a *AlertingOpsNode) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -80,7 +104,7 @@ func (a *AlertingOpsNode) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 }
 
 func (a *AlertingOpsNode) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -90,7 +114,7 @@ func (a *AlertingOpsNode) UninstallCluster(ctx context.Context, _ *emptypb.Empty
 }
 
 func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -99,68 +123,14 @@ func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 	return driver.InstallCluster(ctx, &emptypb.Empty{})
 }
 
-func (a *AlertingOpsNode) Fetch(ctx context.Context, _ *emptypb.Empty) (*alertops.AlertingConfig, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return driver.Fetch(ctx, &emptypb.Empty{})
-}
-
-func (a *AlertingOpsNode) Update(ctx context.Context, config *alertops.AlertingConfig) (*emptypb.Empty, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return driver.Update(ctx, config)
-}
-
-func (a *AlertingOpsNode) Reload(ctx context.Context, info *alertops.ReloadInfo) (*emptypb.Empty, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return driver.Reload(ctx, info)
-}
-
 func (a *AlertingOpsNode) GetRuntimeOptions(ctx context.Context) (shared.NewAlertingOptions, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
 		return shared.NewAlertingOptions{}, err
 	}
 	return driver.GetRuntimeOptions()
-}
-
-func (a *AlertingOpsNode) ConfigFromBackend(ctx context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, nil, err
-	}
-	return driver.ConfigFromBackend(ctx)
-}
-
-func (a *AlertingOpsNode) ApplyConfigToBackend(
-	ctx context.Context,
-	config *routing.RoutingTree,
-	internal *routing.OpniInternalRouting,
-) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	return driver.ApplyConfigToBackend(ctx, config, internal)
 }
 
 func (a *AlertingOpsNode) GetAvailableEndpoint(ctx context.Context, options shared.NewAlertingOptions) (string, error) {

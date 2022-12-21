@@ -7,6 +7,7 @@ import (
 
 	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 )
@@ -14,6 +15,22 @@ import (
 func validComparionOperator(op string) error {
 	if !slices.Contains(shared.ComparisonOperators, op) {
 		return validation.Error("Invalid comparison operator")
+	}
+	return nil
+}
+
+func (s *SyncerConfig) Validate() error {
+	if s.GatewayJoinAddress == "" {
+		return validation.Error("GatewayJoinAddress must be set")
+	}
+	if s.ListenAddress == "" {
+		return validation.Error("ListenAddress must be set")
+	}
+	if s.AlertmanagerAddress == "" {
+		return validation.Error("AlertmanagerAddress must be set")
+	}
+	if s.AlertmanagerConfigPath == "" {
+		return validation.Error("AlertmanagerConfigPath must be set")
 	}
 	return nil
 }
@@ -134,6 +151,9 @@ func (dc *AlertConditionDownstreamCapability) Validate() error {
 }
 
 func (m *AlertConditionMonitoringBackend) Validate() error {
+	m.ClusterId = &corev1.Reference{
+		Id: upstreamClusterId,
+	}
 	if m.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be some positive time")
 	}
@@ -282,8 +302,11 @@ func (e *EmailEndpoint) Validate() error {
 }
 
 func (a *PagerDutyEndpoint) Validate() error {
-	if a.GetIntegrationKey() == "" {
-		return validation.Error("integration key must be set for pager duty endpoint")
+	if a.GetIntegrationKey() == "" && a.GetServiceKey() == "" {
+		return validation.Error("integration key or service key must be set for pager duty endpoint")
+	}
+	if a.GetServiceKey() != "" && a.GetIntegrationKey() != "" {
+		return validation.Error("only one of integration key or service key must be set for pager duty endpoint")
 	}
 	return nil
 }

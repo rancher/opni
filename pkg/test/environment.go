@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -500,7 +501,7 @@ func (e *Environment) PutTestData(inputPath string, data []byte) string {
 }
 
 func (e *Environment) GenerateNewTempDirectory(prefix string) string {
-	return e.tempDir + fmt.Sprintf("/%s-%s", prefix, uuid.New().String())
+	return path.Join(e.tempDir, fmt.Sprintf("%s-%s", prefix, uuid.New().String()))
 }
 
 func (e *Environment) Context() context.Context {
@@ -764,6 +765,47 @@ func (e *Environment) startJetstream() {
 		}
 	}
 	lg.Info("Jetstream started")
+}
+
+func (e *Environment) StartEmbeddedAlertManager(
+	ctx context.Context,
+	configFilePath string,
+	opniPort int,
+) (webPort int, caF context.CancelFunc) {
+	amBin := path.Join(e.TestBin, "../../bin/opni")
+	ports, err := freeport.GetFreePorts(2)
+	if err != nil {
+		panic(err)
+	}
+	defaultArgs := []string{
+		"alerting-server",
+		"alertmanager",
+		fmt.Sprintf("--config.file=%s", configFilePath),
+		fmt.Sprintf("--web.listen-address=:%d", ports[0]),
+		fmt.Sprintf("--cluster.listen-address=:%d", ports[1]),
+		fmt.Sprintf("--opni.listen-address=:%d", opniPort),
+		"--storage.path=/tmp/data",
+		"--log.level=debug",
+	}
+	_, cancelFunc := context.WithCancel(ctx)
+	cmd := exec.CommandContext(ctx, amBin, defaultArgs...)
+	plugins.ConfigureSysProcAttr(cmd)
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
+			panic(err)
+		}
+	}
+	e.Logger.Info("Waiting for alertmanager to start...")
+	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", ports[0])).Info("AlertManager started")
+	waitctx.Permissive.Go(ctx, func() {
+		<-ctx.Done()
+		cmd, _ := session.G()
+		if cmd != nil {
+			cmd.Signal(os.Signal(syscall.SIGTERM))
+		}
+	})
+	return ports[0], cancelFunc
 }
 
 func (e *Environment) startEtcd() {

@@ -30,7 +30,6 @@ type AlertingManager struct {
 	configPersistMu   sync.RWMutex
 	AlertingManagerDriverOptions
 	alertops.UnsafeAlertingAdminServer
-	alertops.UnsafeDynamicAlertingServer
 }
 
 func (a *AlertingManager) Name() string {
@@ -52,7 +51,6 @@ func (a *AlertingManager) GetRuntimeOptions() (shared.NewAlertingOptions, error)
 
 var _ ClusterDriver = (*AlertingManager)(nil)
 var _ alertops.AlertingAdminServer = (*AlertingManager)(nil)
-var _ alertops.DynamicAlertingServer = (*AlertingManager)(nil)
 
 type sharedErrors struct {
 	errors []error
@@ -72,8 +70,10 @@ type AlertingManagerDriverOptions struct {
 	configKey          string
 	internalRoutingKey string
 	// ! must be mutable, as it needs to be updated on operator changes
-	AlertingOptions *shared.NewAlertingOptions
-	mgmtClient      managementv1.ManagementClient
+	AlertingOptions    *shared.NewAlertingOptions
+	mgmtClient         managementv1.ManagementClient
+	postInstallHooks   []func()
+	postUninstallHooks []func()
 }
 
 type AlertingManagerDriverOption func(*AlertingManagerDriverOptions)
@@ -111,6 +111,18 @@ func WithGatewayRef(ref types.NamespacedName) AlertingManagerDriverOption {
 func WithLogger(logger *zap.SugaredLogger) AlertingManagerDriverOption {
 	return func(o *AlertingManagerDriverOptions) {
 		o.Logger = logger
+	}
+}
+
+func WithPostInstallHooks(postInstallHooks []func()) AlertingManagerDriverOption {
+	return func(o *AlertingManagerDriverOptions) {
+		o.postInstallHooks = append(o.postInstallHooks, postInstallHooks...)
+	}
+}
+
+func WithPostUninstallHooks(postInstallHooks []func()) AlertingManagerDriverOption {
+	return func(o *AlertingManagerDriverOptions) {
+		o.postUninstallHooks = append(o.postUninstallHooks, postInstallHooks...)
 	}
 }
 
@@ -264,6 +276,11 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 			break
 		}
 	}
+	go func() {
+		for _, f := range a.postInstallHooks {
+			f()
+		}
+	}()
 	return &emptypb.Empty{}, nil
 }
 
@@ -287,5 +304,10 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty
 	if retryErr != nil {
 		return nil, retryErr
 	}
+	go func() {
+		for _, f := range a.postUninstallHooks {
+			f()
+		}
+	}()
 	return &emptypb.Empty{}, nil
 }

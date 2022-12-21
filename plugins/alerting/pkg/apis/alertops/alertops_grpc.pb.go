@@ -251,160 +251,115 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
 }
 
-// DynamicAlertingClient is the client API for DynamicAlerting service.
+// ConfigReconcilerClient is the client API for ConfigReconciler service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type DynamicAlertingClient interface {
-	Fetch(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingConfig, error)
-	Update(ctx context.Context, in *AlertingConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type ConfigReconcilerClient interface {
+	ConnectRemoteSyncer(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (ConfigReconciler_ConnectRemoteSyncerClient, error)
 }
 
-type dynamicAlertingClient struct {
+type configReconcilerClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewDynamicAlertingClient(cc grpc.ClientConnInterface) DynamicAlertingClient {
-	return &dynamicAlertingClient{cc}
+func NewConfigReconcilerClient(cc grpc.ClientConnInterface) ConfigReconcilerClient {
+	return &configReconcilerClient{cc}
 }
 
-func (c *dynamicAlertingClient) Fetch(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingConfig, error) {
-	out := new(AlertingConfig)
-	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Fetch", in, out, opts...)
+func (c *configReconcilerClient) ConnectRemoteSyncer(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (ConfigReconciler_ConnectRemoteSyncerClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ConfigReconciler_ServiceDesc.Streams[0], "/alerting.ops.ConfigReconciler/ConnectRemoteSyncer", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *dynamicAlertingClient) Update(ctx context.Context, in *AlertingConfig, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Update", in, out, opts...)
-	if err != nil {
+	x := &configReconcilerConnectRemoteSyncerClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *dynamicAlertingClient) Reload(ctx context.Context, in *ReloadInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/alerting.ops.DynamicAlerting/Reload", in, out, opts...)
-	if err != nil {
+	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return x, nil
 }
 
-// DynamicAlertingServer is the server API for DynamicAlerting service.
-// All implementations must embed UnimplementedDynamicAlertingServer
+type ConfigReconciler_ConnectRemoteSyncerClient interface {
+	Recv() (*SyncRequest, error)
+	grpc.ClientStream
+}
+
+type configReconcilerConnectRemoteSyncerClient struct {
+	grpc.ClientStream
+}
+
+func (x *configReconcilerConnectRemoteSyncerClient) Recv() (*SyncRequest, error) {
+	m := new(SyncRequest)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ConfigReconcilerServer is the server API for ConfigReconciler service.
+// All implementations must embed UnimplementedConfigReconcilerServer
 // for forward compatibility
-type DynamicAlertingServer interface {
-	Fetch(context.Context, *emptypb.Empty) (*AlertingConfig, error)
-	Update(context.Context, *AlertingConfig) (*emptypb.Empty, error)
-	Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error)
-	mustEmbedUnimplementedDynamicAlertingServer()
+type ConfigReconcilerServer interface {
+	ConnectRemoteSyncer(*ConnectRequest, ConfigReconciler_ConnectRemoteSyncerServer) error
+	mustEmbedUnimplementedConfigReconcilerServer()
 }
 
-// UnimplementedDynamicAlertingServer must be embedded to have forward compatible implementations.
-type UnimplementedDynamicAlertingServer struct {
+// UnimplementedConfigReconcilerServer must be embedded to have forward compatible implementations.
+type UnimplementedConfigReconcilerServer struct {
 }
 
-func (UnimplementedDynamicAlertingServer) Fetch(context.Context, *emptypb.Empty) (*AlertingConfig, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Fetch not implemented")
+func (UnimplementedConfigReconcilerServer) ConnectRemoteSyncer(*ConnectRequest, ConfigReconciler_ConnectRemoteSyncerServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectRemoteSyncer not implemented")
 }
-func (UnimplementedDynamicAlertingServer) Update(context.Context, *AlertingConfig) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
-}
-func (UnimplementedDynamicAlertingServer) Reload(context.Context, *ReloadInfo) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Reload not implemented")
-}
-func (UnimplementedDynamicAlertingServer) mustEmbedUnimplementedDynamicAlertingServer() {}
+func (UnimplementedConfigReconcilerServer) mustEmbedUnimplementedConfigReconcilerServer() {}
 
-// UnsafeDynamicAlertingServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DynamicAlertingServer will
+// UnsafeConfigReconcilerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ConfigReconcilerServer will
 // result in compilation errors.
-type UnsafeDynamicAlertingServer interface {
-	mustEmbedUnimplementedDynamicAlertingServer()
+type UnsafeConfigReconcilerServer interface {
+	mustEmbedUnimplementedConfigReconcilerServer()
 }
 
-func RegisterDynamicAlertingServer(s grpc.ServiceRegistrar, srv DynamicAlertingServer) {
-	s.RegisterService(&DynamicAlerting_ServiceDesc, srv)
+func RegisterConfigReconcilerServer(s grpc.ServiceRegistrar, srv ConfigReconcilerServer) {
+	s.RegisterService(&ConfigReconciler_ServiceDesc, srv)
 }
 
-func _DynamicAlerting_Fetch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
+func _ConfigReconciler_ConnectRemoteSyncer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConnectRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(DynamicAlertingServer).Fetch(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.ops.DynamicAlerting/Fetch",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DynamicAlertingServer).Fetch(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ConfigReconcilerServer).ConnectRemoteSyncer(m, &configReconcilerConnectRemoteSyncerServer{stream})
 }
 
-func _DynamicAlerting_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AlertingConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DynamicAlertingServer).Update(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.ops.DynamicAlerting/Update",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DynamicAlertingServer).Update(ctx, req.(*AlertingConfig))
-	}
-	return interceptor(ctx, in, info, handler)
+type ConfigReconciler_ConnectRemoteSyncerServer interface {
+	Send(*SyncRequest) error
+	grpc.ServerStream
 }
 
-func _DynamicAlerting_Reload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReloadInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DynamicAlertingServer).Reload(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.ops.DynamicAlerting/Reload",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DynamicAlertingServer).Reload(ctx, req.(*ReloadInfo))
-	}
-	return interceptor(ctx, in, info, handler)
+type configReconcilerConnectRemoteSyncerServer struct {
+	grpc.ServerStream
 }
 
-// DynamicAlerting_ServiceDesc is the grpc.ServiceDesc for DynamicAlerting service.
+func (x *configReconcilerConnectRemoteSyncerServer) Send(m *SyncRequest) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// ConfigReconciler_ServiceDesc is the grpc.ServiceDesc for ConfigReconciler service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var DynamicAlerting_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "alerting.ops.DynamicAlerting",
-	HandlerType: (*DynamicAlertingServer)(nil),
-	Methods: []grpc.MethodDesc{
+var ConfigReconciler_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.ops.ConfigReconciler",
+	HandlerType: (*ConfigReconcilerServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Fetch",
-			Handler:    _DynamicAlerting_Fetch_Handler,
-		},
-		{
-			MethodName: "Update",
-			Handler:    _DynamicAlerting_Update_Handler,
-		},
-		{
-			MethodName: "Reload",
-			Handler:    _DynamicAlerting_Reload_Handler,
+			StreamName:    "ConnectRemoteSyncer",
+			Handler:       _ConfigReconciler_ConnectRemoteSyncer_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
 }

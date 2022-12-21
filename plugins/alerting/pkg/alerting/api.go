@@ -3,7 +3,7 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 

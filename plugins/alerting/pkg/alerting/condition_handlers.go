@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/common/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -90,27 +91,27 @@ func setupCondition(
 func deleteCondition(ctx context.Context, p *Plugin, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetDownstreamCapability(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetMonitoringBackend(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 			ClusterId: r.Id,
 			Namespace: shared.OpniAlertingCortexNamespace,
-			GroupName: CortexRuleIdFromUuid(id),
+			GroupName: cortex.CortexRuleIdFromUuid(id),
 		})
 		return err
 	}
@@ -182,13 +183,13 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.Aler
 		k.GetObjectName(),
 		k.GetNamespace(),
 		k.GetState(),
-		timeDurationToPromStr(k.GetFor().AsDuration()),
+		cortex.TimeDurationToPromStr(k.GetFor().AsDuration()),
 		metrics.KubeStateAnnotations,
 	)
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := NewCortexAlertingRule(newId, alertName, k, nil, baseKubeRule)
+	kubeRuleContent, err := cortex.NewCortexAlertingRule(newId, alertName, k, nil, baseKubeRule)
 	p.Logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
 	if err != nil {
 		return err
@@ -226,7 +227,7 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := NewCortexAlertingRule(conditionId, alertName, c, nil, baseCpuRule)
+	cpuRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName, c, nil, baseCpuRule)
 	if err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := NewCortexAlertingRule(conditionId, alertName, m, nil, baseMemRule)
+	memRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName, m, nil, baseMemRule)
 	if err != nil {
 		return err
 	}
@@ -285,7 +286,7 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := NewCortexAlertingRule(conditionId, alertName, fs, nil, baseFsRule)
+	fsRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName, fs, nil, baseFsRule)
 	if err != nil {
 		return err
 	}
@@ -313,7 +314,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := NewCortexAlertingRule(conditionId, alertName, q, nil, baseRule)
+	baseRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName, q, nil, baseRule)
 	if err != nil {
 		return err
 	}
@@ -354,11 +355,11 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 			evaluateDuration: condition.GetTimeout().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  NewAgentDurableReplayConsumer(agentId),
+			streamSubject:    NewAgentStreamSubject(agentId),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
@@ -419,11 +420,11 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  NewAgentDurableReplayConsumer(agentId),
+			streamSubject:    NewAgentStreamSubject(agentId),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
@@ -614,11 +615,11 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: nil,
-			streamSubject:   NewCortexStatusSubject(),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  nil,
+			streamSubject:    NewCortexStatusSubject(),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{

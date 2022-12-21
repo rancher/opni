@@ -7,19 +7,17 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -66,6 +64,22 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			drivers.WithLogger(p.Logger.Named("alerting-manager")),
 			drivers.WithAlertingOptions(&opt),
 			drivers.WithManagementClient(client),
+			drivers.WithPostInstallHooks([]func(){
+				func() {
+					err := p.reindex(p.Ctx)
+					if err != nil {
+						p.Logger.With("err", err).Error("failed to reindex")
+					}
+				},
+			}),
+			drivers.WithPostUninstallHooks([]func(){
+				func() {
+					err := p.teardown(p.Ctx)
+					if err != nil {
+						p.Logger.With("err", err).Error("failed to teardown")
+					}
+				},
+			}),
 		)
 	})
 	p.UseWatchers(client)
@@ -93,15 +107,6 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		nc  *nats.Conn
 		err error
 	)
-	p.storageNode = alertstorage.NewStorageNode(
-		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions:      system.NewKVStoreClient[*alertingv1.AlertCondition](client),
-			Endpoints:       system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
-			IncidentStorage: future.New[nats.KeyValue](),
-			StateStorage:    future.New[nats.KeyValue](),
-		}),
-	)
-
 	nc, err = natsutil.AcquireNATSConnection(
 		p.Ctx,
 		natsutil.WithLogger(p.Logger),
@@ -124,62 +129,24 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		panic(err)
 	}
 	p.js.Set(mgr)
-	incidentKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.GeneralIncidentStorage,
-		Description: "track internal incident changes over time for each condition id",
-		Storage:     nats.FileStorage,
-	})
-	if err != nil {
-		panic(err)
-	}
-	statusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.StatusBucketPerCondition,
-		Description: "track last known internal status for each condition id",
-		Storage:     nats.FileStorage,
-	})
-	if err != nil {
-		panic(err)
-	}
-	p.storageNode.SetIncidentStorage(incidentKv)
-	p.storageNode.SetConditionStatusStorage(statusKv)
+	b := broker_init.NewDefaultAlertingBroker(mgr)
+	p.storageClientSet.Set(b.NewClientSet())
 	// spawn a reindexing task
 	go func() {
-		p.reindexAlarms()
+		err := p.storageClientSet.Get().ForceSync(p.Ctx)
+		if err != nil {
+			panic(err)
+		}
+		status, err := p.opsNode.GetClusterStatus(p.Ctx, &emptypb.Empty{})
+		if err != nil {
+			p.Logger.With("err", err).Error("failed to get cluster status")
+			return
+		}
+		if status.State == alertops.InstallState_Installed {
+			p.reindex(p.Ctx)
+		}
 	}()
 	<-p.Ctx.Done()
-}
-
-func (p *Plugin) reindexAlarms() {
-	lg := p.Logger.With("re-indexing", "in-progress")
-	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
-	if err != nil {
-		lg.With("err", err).Error("failed to list alert conditions")
-		return
-	}
-	for i, id := range ids {
-		if s := conds[i].GetAlertType().GetSystem(); s != nil {
-			// this checks that we won't crash when importing existing conditions from versions < 0.6
-			if s.GetClusterId() != nil && s.GetTimeout() != nil {
-				lg.Debug("re-indexing agent disconnect")
-				p.onSystemConditionCreate(id, conds[i].Name, s)
-			} else {
-				// delete invalid conditions that won't do anything
-				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})
-				if err != nil {
-					lg.With("err", err).Error("failed to delete invalid condition")
-				}
-			}
-		}
-		if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
-			lg.Debug("re-indexing downstream capability")
-			p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
-		}
-		if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
-			lg.Debug("re-indexing monitoring backend")
-			p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
-		}
-	}
-	lg.Info("re-indexing alarms complete")
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {

@@ -3,11 +3,16 @@ package v1
 import (
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
 
 // EnumConditionToDatasource
 //
@@ -270,4 +275,56 @@ func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]str
 		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
 		"unhealthyThreshold": a.GetFor().String(),
 	}
+}
+
+// noop
+func (c *CachedState) RedactSecrets() {}
+
+func (s *CachedState) IsEquivalent(other *CachedState) bool {
+	return s.Healthy == other.Healthy && s.Firing == other.Firing
+}
+
+// if we can't read the last known state assume it is healthy
+// and not firing, set last known state to now
+func DefaultCachedState() *CachedState {
+	return &CachedState{
+		Healthy:   true,
+		Firing:    false,
+		Timestamp: timestamppb.Now(),
+	}
+}
+
+// noop
+func (i *IncidentIntervals) RedactSecrets() {}
+
+func (i *IncidentIntervals) Prune(ttl time.Duration) {
+	pruneIdx := 0
+	now := time.Now()
+	for _, interval := range i.GetItems() {
+		tStart := interval.Start.AsTime()
+		if tStart.Before(now.Add(-ttl)) {
+			tEnd := interval.End.AsTime()
+			if tEnd.Before(now.Add(-ttl)) {
+				pruneIdx++
+			} else {
+				interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
+			}
+		} else {
+			break
+		}
+	}
+	i.Items = i.Items[pruneIdx:]
+}
+
+func NewIncidentIntervals() *IncidentIntervals {
+	return &IncidentIntervals{
+		Items: []*Interval{},
+	}
+}
+
+func (r *RateLimitingConfig) Default() *RateLimitingConfig {
+	r.ThrottlingDuration = durationpb.New(10 * time.Minute)
+	r.RepeatInterval = durationpb.New(10 * time.Minute)
+	r.InitialDelay = durationpb.New(10 * time.Second)
+	return r
 }

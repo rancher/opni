@@ -1,0 +1,55 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
+package alerting;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+
+service Syncer{
+    rpc PutConfig(PutConfigRequest) returns (google.protobuf.Empty){};
+
+    rpc Ready(google.protobuf.Empty) returns (google.protobuf.Empty){
+        option (google.api.http) = {
+            get : "/ready"
+        };
+    };
+    rpc Healthy(google.protobuf.Empty) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            get : "/healthy"
+        };
+    };
+
+    rpc Status(google.protobuf.Empty) returns (SyncerStatus){
+        option (google.api.http) = {
+            get : "/status"
+        };
+    };
+}
+
+message PutConfigRequest {
+    string key = 1; // allows for having multiple configs 
+    bytes config = 2;
+}
+
+message SyncerStatus {
+    bool ready = 1;
+    bool healthy = 2;
+    bool syncInProgress = 3;
+    google.protobuf.Timestamp lastSynced = 4;
+    SyncerConfig serverConfig = 5; 
+    map<string,string> configs = 6;
+}
+
+message SyncerConfig {
+    string gatewayJoinAddress = 1;
+    string alertmanagerConfigPath = 2;
+    string alertmanagerAddress = 3;
+    string listenAddress = 4;
+    string hookListenAddress = 5;
+    int64 pprofPort = 6;
+    int64 profileBlockRate = 7;
+}

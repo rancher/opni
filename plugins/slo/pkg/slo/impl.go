@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/promql/parser"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -39,15 +38,6 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, rule := range ralerting.Rules {
-		ae := req.Slo.AttachedEndpoints
-		if rule.Alert != "" && alertingv1.ShouldCreateRoutingNode(ae, nil) {
-			err := createRoutingNode(s.ctx, s.p, ae, rule.Alert)
-			if err != nil {
-				s.p.logger.Errorf("creating routing node failed %s", err)
-			}
-		}
-	}
 	return &corev1.Reference{Id: slo.GetId()}, nil
 }
 
@@ -67,28 +57,6 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 				err))
 		}
 	}
-	for _, rule := range ralerting.Rules {
-		newAE := existing.SLO.AttachedEndpoints
-		oldAe := incomingSLO.SLO.AttachedEndpoints
-		if rule.Alert != "" {
-			if alertingv1.ShouldCreateRoutingNode(newAE, oldAe) {
-				err := createRoutingNode(s.ctx, s.p, newAE, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("creating routing node failed %s", err)
-				}
-			} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAe) {
-				err := updateRoutingNode(s.ctx, s.p, newAE, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("updating routing node failed %s", err)
-				}
-			} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAe) {
-				err := deleteRoutingNode(s.ctx, s.p, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("deleting routing node failed %s", err)
-				}
-			}
-		}
-	}
 	return incomingSLO, err
 }
 
@@ -102,12 +70,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	for _, ruleName := range toApply {
 		for _, rule := range ruleName.Rules {
 			if rule.Alert != "" {
-				err := deleteRoutingNode(s.ctx, s.p, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("deleting routing node failed %s", err)
-				}
-				err = deleteCortexSLORules(
-					s.ctx,
+				err := deleteCortexSLORules(
 					s.p,
 					s.p.logger,
 					clusterId,

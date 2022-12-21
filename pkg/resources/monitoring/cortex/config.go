@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/weaveworks/common/logging"
@@ -50,6 +51,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/labels"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
@@ -368,6 +370,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
+			ExternalLabels: labels.Labels{
+				{
+					Name:  routing.OpniMetricsSubRoutingTreeId[0].Name,
+					Value: routing.OpniMetricsSubRoutingTreeId[0].Value,
+				},
+			},
 			Ring: ruler.RingConfig{
 				KVStore: kvConfig,
 			},

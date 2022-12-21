@@ -1,0 +1,46 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "google/rpc/status.proto";
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+
+package alerting;
+
+service AlertTriggers {
+  // ------- Trigger Alerts -------
+
+  // opni internal use
+  rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
+    option (google.api.http) = {
+      post : "/trigger"
+      body : "*"
+    };
+  }
+
+  rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
+}
+
+// opni-alerting internal use
+message TriggerAlertsRequest {
+  core.Reference conditionId = 1;
+  map<string, string> annotations = 2;
+}
+
+// opni-alerting internal use
+message TriggerAlertsResponse {}
+
+message ResolveAlertsRequest {
+  core.Reference conditionId = 1;
+  map<string,string> annotations = 2;
+}
+
+message ResolveAlertsResponse {}

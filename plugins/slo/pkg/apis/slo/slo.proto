@@ -9,6 +9,8 @@ import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.condition.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.endpoint.proto";
 
 package slo;
 

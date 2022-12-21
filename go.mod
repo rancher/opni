@@ -523,6 +523,11 @@ replace (
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221206210856-99cb51e2d10a
 )
 
+// AlertManager replacements
+
+// ! Freeze to v0.24.1 due to dependency incompatibility with Cortex
+replace github.com/prometheus/alertmanager => github.com/prometheus/alertmanager v0.24.1
+
 // Cortex replacements (copied from cortex go.mod)
 replace (
 	// Override since git.apache.org is down.  The docs say to fetch from github.

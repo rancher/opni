@@ -12,11 +12,12 @@ import (
 
 type Monitor struct {
 	MonitorOptions
-	mu              sync.Mutex
-	currentHealth   map[string]*corev1.Health
-	currentStatus   map[string]*corev1.Status
-	healthListeners []chan *corev1.ClusterHealth
-	statusListeners []chan *corev1.ClusterStatus
+	mu                   sync.Mutex
+	currentHealth        map[string]*corev1.Health
+	currentStatus        map[string]*corev1.Status
+	currentBackendHealth map[string]*corev1.BackendHealth
+	healthListeners      []chan *corev1.ClusterHealth
+	statusListeners      []chan *corev1.ClusterStatus
 }
 
 type MonitorOptions struct {
@@ -44,9 +45,10 @@ func NewMonitor(opts ...MonitorOption) *Monitor {
 	options.apply(opts...)
 
 	return &Monitor{
-		MonitorOptions: options,
-		currentHealth:  make(map[string]*corev1.Health),
-		currentStatus:  make(map[string]*corev1.Status),
+		MonitorOptions:       options,
+		currentHealth:        make(map[string]*corev1.Health),
+		currentStatus:        make(map[string]*corev1.Status),
+		currentBackendHealth: make(map[string]*corev1.BackendHealth),
 	}
 }
 
@@ -111,6 +113,17 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 					Status: util.ProtoClone(update.Status),
 				}
 			}
+			m.mu.Unlock()
+		case update, ok := <-updater.BackendHealthC():
+			if !ok {
+				m.lg.Debug("status update channel closed")
+				return
+			}
+			m.mu.Lock()
+			m.lg.With(
+				"plugin_name", update.Name,
+			).Info("received status update")
+			m.currentBackendHealth[update.Name] = update.Health
 			m.mu.Unlock()
 		}
 	}
@@ -207,4 +220,10 @@ func (m *Monitor) WatchHealthStatus(ctx context.Context) <-chan *corev1.ClusterH
 	}()
 
 	return ch
+}
+
+func (m *Monitor) GetBackendHealth(name string) *corev1.BackendHealth {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return util.ProtoClone(m.currentBackendHealth[name])
 }

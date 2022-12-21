@@ -42,6 +42,36 @@
         ]
       }
     },
+    "/management/backend/{name}/health": {
+      "get": {
+        "operationId": "Management_GetBackendHealth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBackendHealth"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/capabilities": {
       "get": {
         "operationId": "Management_ListCapabilities",
@@ -1174,6 +1204,34 @@
           "type": "object"
         }
       }
+    },
+    "coreBackendHealth": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/definitions/coreBackendHealthLevel"
+        },
+        "shortDescription": {
+          "type": "string"
+        },
+        "longDescription": {
+          "type": "string"
+        }
+      }
+    },
+    "coreBackendHealthLevel": {
+      "type": "string",
+      "enum": [
+        "HealthUnknown",
+        "HealthOK",
+        "HealthWarning",
+        "HealthError"
+      ],
+      "default": "HealthUnknown"
     },
     "coreBootstrapToken": {
       "type": "object",

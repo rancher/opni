@@ -16,10 +16,12 @@ type HealthClientSet interface {
 type HealthStatusUpdater interface {
 	StatusC() chan StatusUpdate
 	HealthC() chan HealthUpdate
+	BackendHealthC() chan BackendHealthUpdate
 }
 
 type HealthStatusQuerier interface {
 	GetHealthStatus(id string) *corev1.HealthStatus
+	GetBackendHealth(name string) *corev1.BackendHealth
 	WatchHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus
 }
 
@@ -31,4 +33,9 @@ type StatusUpdate struct {
 type HealthUpdate struct {
 	ID     string         `json:"id"`
 	Health *corev1.Health `json:"health"`
+}
+
+type BackendHealthUpdate struct {
+	Name   string                `json:"name"`
+	Health *corev1.BackendHealth `json:"health"`
 }

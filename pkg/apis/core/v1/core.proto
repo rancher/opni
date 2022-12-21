@@ -151,6 +151,10 @@ message ReferenceList {
   repeated Reference items = 1;
 }
 
+message Backend {
+  string name = 1;
+}
+
 message SubjectAccessRequest {
   string subject = 1;
 }
@@ -158,6 +162,20 @@ message SubjectAccessRequest {
 message Status {
   google.protobuf.Timestamp timestamp = 1;
   bool connected = 2;
+}
+
+enum BackendHealthLevel {
+  HealthUnknown = 0;
+  HealthOK = 1;
+  HealthWarning = 2;
+  HealthError = 3;
+}
+
+message BackendHealth {
+  google.protobuf.Timestamp timestamp = 1;
+  BackendHealthLevel state = 2;
+  optional string shortDescription = 3;
+  optional string longDescription = 4;
 }
 
 message Health {

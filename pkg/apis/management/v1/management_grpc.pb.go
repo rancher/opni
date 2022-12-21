@@ -36,6 +36,7 @@ type ManagementClient interface {
 	GetCluster(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Cluster, error)
 	GetClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.HealthStatus, error)
 	WatchClusterHealthStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error)
+	GetBackendHealth(ctx context.Context, in *v1.Backend, opts ...grpc.CallOption) (*v1.BackendHealth, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error)
 	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -212,6 +213,15 @@ func (x *managementWatchClusterHealthStatusClient) Recv() (*v1.ClusterHealthStat
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *managementClient) GetBackendHealth(ctx context.Context, in *v1.Backend, opts ...grpc.CallOption) (*v1.BackendHealth, error) {
+	out := new(v1.BackendHealth)
+	err := c.cc.Invoke(ctx, "/management.Management/GetBackendHealth", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *managementClient) EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error) {
@@ -419,6 +429,7 @@ type ManagementServer interface {
 	GetCluster(context.Context, *v1.Reference) (*v1.Cluster, error)
 	GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error)
 	WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error
+	GetBackendHealth(context.Context, *v1.Backend) (*v1.BackendHealth, error)
 	EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error)
 	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
 	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -481,6 +492,9 @@ func (UnimplementedManagementServer) GetClusterHealthStatus(context.Context, *v1
 }
 func (UnimplementedManagementServer) WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method WatchClusterHealthStatus not implemented")
+}
+func (UnimplementedManagementServer) GetBackendHealth(context.Context, *v1.Backend) (*v1.BackendHealth, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBackendHealth not implemented")
 }
 func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditCluster not implemented")
@@ -760,6 +774,24 @@ type managementWatchClusterHealthStatusServer struct {
 
 func (x *managementWatchClusterHealthStatusServer) Send(m *v1.ClusterHealthStatus) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Management_GetBackendHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Backend)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetBackendHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetBackendHealth",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetBackendHealth(ctx, req.(*v1.Backend))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_EditCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1182,6 +1214,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterHealthStatus",
 			Handler:    _Management_GetClusterHealthStatus_Handler,
+		},
+		{
+			MethodName: "GetBackendHealth",
+			Handler:    _Management_GetBackendHealth_Handler,
 		},
 		{
 			MethodName: "EditCluster",

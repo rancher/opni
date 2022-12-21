@@ -48,3 +48,14 @@ func (m *Server) WatchClusterHealthStatus(
 		}
 	}
 }
+
+func (m *Server) GetBackendHealth(
+	ctx context.Context,
+	backend *corev1.Backend,
+) (*corev1.BackendHealth, error) {
+	if m.healthStatusDataSource == nil {
+		return nil, status.Error(codes.Unavailable, "health API not configured")
+	}
+
+	return m.healthStatusDataSource.GetBackendHealth(backend)
+}

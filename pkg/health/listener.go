@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
@@ -25,6 +27,7 @@ type Listener struct {
 	ListenerOptions
 	statusUpdate            chan StatusUpdate
 	healthUpdate            chan HealthUpdate
+	backendHealthUpdate     chan BackendHealthUpdate
 	idLocksMu               sync.Mutex
 	idLocks                 map[string]*sync.Mutex
 	incomingHealthUpdatesMu sync.RWMutex
@@ -90,6 +93,7 @@ func NewListener(opts ...ListenerOption) *Listener {
 		ListenerOptions:       options,
 		statusUpdate:          make(chan StatusUpdate, options.updateQueueCap),
 		healthUpdate:          make(chan HealthUpdate, options.updateQueueCap),
+		backendHealthUpdate:   make(chan BackendHealthUpdate, options.updateQueueCap),
 		incomingHealthUpdates: make(map[string]chan HealthUpdate),
 		idLocks:               make(map[string]*sync.Mutex),
 		closed:                make(chan struct{}),
@@ -225,12 +229,80 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	}
 }
 
+func (l *Listener) HandleBackendPlugin(ctx context.Context, name string, client controlv1.BackendHealthClient) {
+	curHealth, err := client.GetHealth(ctx, &emptypb.Empty{})
+	if err != nil {
+		// TODO: This should probably be moved to a status checker
+		l.backendHealthUpdate <- BackendHealthUpdate{
+			Name: name,
+			Health: &corev1.BackendHealth{
+				Timestamp:        timestamppb.Now(),
+				State:            corev1.BackendHealthLevel_HealthUnknown,
+				ShortDescription: lo.ToPtr("plugin error"),
+				LongDescription:  lo.ToPtr(fmt.Sprintf("failed to get health status from plugin: %v", err)),
+			},
+		}
+		return
+	}
+
+	l.backendHealthUpdate <- BackendHealthUpdate{
+		Name:   name,
+		Health: curHealth,
+	}
+
+	// Slightly quicker polling until we get better backend health updates
+	calcDuration := func() time.Duration {
+		jitter := time.Duration(rand.Int63n(int64(5 * time.Second)))
+		return 20*time.Second + jitter
+	}
+
+	timer := time.NewTimer(calcDuration())
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-l.closed:
+			return
+		case <-timer.C:
+			health, err := client.GetHealth(ctx, &emptypb.Empty{})
+			if err != nil {
+				// TODO: This should probably be moved to a status checker
+				l.backendHealthUpdate <- BackendHealthUpdate{
+					Name: name,
+					Health: &corev1.BackendHealth{
+						Timestamp:        timestamppb.Now(),
+						State:            corev1.BackendHealthLevel_HealthUnknown,
+						ShortDescription: lo.ToPtr("plugin error"),
+						LongDescription:  lo.ToPtr(fmt.Sprintf("failed to get health status from plugin: %v", err)),
+					},
+				}
+				return
+			}
+			healthNewer := health.NewerThan(curHealth)
+			if healthNewer {
+				curHealth = health
+				l.backendHealthUpdate <- BackendHealthUpdate{
+					Name:   name,
+					Health: util.ProtoClone(curHealth),
+				}
+			}
+			timer.Reset(calcDuration())
+		}
+	}
+}
+
 func (l *Listener) StatusC() chan StatusUpdate {
 	return l.statusUpdate
 }
 
 func (l *Listener) HealthC() chan HealthUpdate {
 	return l.healthUpdate
+}
+
+func (l *Listener) BackendHealthC() chan BackendHealthUpdate {
+	return l.backendHealthUpdate
 }
 
 func (l *Listener) Close() {

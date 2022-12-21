@@ -85,6 +85,13 @@ service Management {
       body: "*"
     };
   }
+
+  rpc GetBackendHealth(core.Backend) returns (core.BackendHealth) {
+    option (google.api.http) = {
+      get: "/management/backend/{name}/health"
+    };
+  }
+
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
     option (google.api.http) = {
       put: "/management/clusters/{cluster.id}"

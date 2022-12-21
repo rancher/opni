@@ -197,6 +197,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	// set up stream server
 	listener := health.NewListener()
+	// Add backend health listeners
+	pl.Hook(hooks.OnLoadM(func(p types.BackendHealthPlugin, md meta.PluginMeta) {
+		go listener.HandleBackendPlugin(ctx, md.Filename(), p)
+	}))
+
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	sync := NewSyncRequester(lg)
 	// set up agent connection handlers
@@ -204,6 +209,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	//// set up ref count to health listener
 	//versionHandler := MultiConnectionHandler(listener, )
 	go monitor.Run(ctx, listener)
+
 	streamSvc := NewStreamServer(agentHandler, storageBackend, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
@@ -334,6 +340,12 @@ func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthS
 // Implements management.HealthStatusDataSource
 func (g *Gateway) WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus {
 	return g.statusQuerier.WatchHealthStatus(ctx)
+}
+
+// Implements management.HealthStatusDataSource
+func (g *Gateway) GetBackendHealth(backend *corev1.Backend) (*corev1.BackendHealth, error) {
+	h := g.statusQuerier.GetBackendHealth(backend.Name)
+	return h, nil
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {

@@ -15,6 +15,14 @@ service HealthListener {
   rpc UpdateHealth(core.Health) returns (google.protobuf.Empty);
 }
 
+service BackendHealth {
+  rpc GetHealth(google.protobuf.Empty) returns (core.BackendHealth);
+}
+
+service BackendHealthListener {
+  rpc UpdateHealth(core.BackendHealth) returns (google.protobuf.Empty);
+}
+
 service PluginSync {
   rpc SyncPluginManifest(PluginManifest) returns (SyncResults);
   rpc GetPluginManifest(google.protobuf.Empty) returns (PluginManifest);

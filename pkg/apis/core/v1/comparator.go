@@ -38,6 +38,10 @@ func (r *Health) NewerThan(other *Health) bool {
 	return r.GetTimestamp().AsTime().After(other.GetTimestamp().AsTime())
 }
 
+func (r *BackendHealth) NewerThan(other *BackendHealth) bool {
+	return r.GetTimestamp().AsTime().After(other.GetTimestamp().AsTime())
+}
+
 func equalNonzeroFunc[T Comparator[T]](a, b T) bool {
 	var zero T
 	if a.Equal(zero) || b.Equal(zero) {

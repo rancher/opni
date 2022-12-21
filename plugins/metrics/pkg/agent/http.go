@@ -34,7 +34,7 @@ type HttpServer struct {
 	remoteReadClient   clients.Locker[remoteread.RemoteReadGatewayClient]
 
 	targetRunnerMu sync.RWMutex
-	targetRunner   clients.Locker[TargetRunner]
+	targetRunner   TargetRunner
 
 	conditions health.ConditionTracker
 
@@ -71,11 +71,19 @@ func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.Remote
 	s.remoteReadClient = client
 }
 
-func (s *HttpServer) SetTargetRunner(runner clients.Locker[TargetRunner]) {
+func (s *HttpServer) SetTargetRunner(runner TargetRunner) {
 	s.targetRunnerMu.Lock()
 	defer s.targetRunnerMu.Unlock()
 
 	s.targetRunner = runner
+
+	s.remoteReadClientMu.RLock()
+	s.targetRunner.SetRemoteReadClient(s.remoteReadClient)
+	s.remoteReadClientMu.RUnlock()
+
+	s.remoteWriteClientMu.RLock()
+	s.targetRunner.SetRemoteWriteClient(s.remoteWriteClient)
+	s.remoteWriteClientMu.RUnlock()
 }
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
@@ -160,6 +168,7 @@ func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {
 }
 
 func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
+	s.logger.Debugf("received http start")
 	if !s.enabled.Load() {
 		c.Status(http.StatusServiceUnavailable)
 		return
@@ -178,19 +187,20 @@ func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
 		return
 	}
 
-	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Start(request.Target, request.Query); err != nil {
-			c.Status(http.StatusBadRequest)
-			c.Error(err)
-			return
-		}
+	s.targetRunnerMu.Lock()
+	defer s.targetRunnerMu.Unlock()
+	if err := s.targetRunner.Start(request.Target, request.Query); err != nil {
+		c.Status(http.StatusBadRequest)
+		c.Error(err)
+		return
+	}
 
-		c.Status(http.StatusOK)
-	})
+	c.Status(http.StatusOK)
 
 }
 
 func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {
+	s.logger.Debugf("received http stop")
 	if !s.enabled.Load() {
 		c.Status(http.StatusServiceUnavailable)
 		return
@@ -209,13 +219,13 @@ func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {
 		return
 	}
 
-	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Stop(request.Meta.Name); err != nil {
-			c.Status(http.StatusBadRequest)
-			c.Error(err)
-			return
-		}
+	s.targetRunnerMu.Lock()
+	defer s.targetRunnerMu.Unlock()
+	if err := s.targetRunner.Stop(request.Meta.Name); err != nil {
+		c.Status(http.StatusBadRequest)
+		c.Error(err)
+		return
+	}
 
-		c.Status(http.StatusOK)
-	})
+	c.Status(http.StatusOK)
 }

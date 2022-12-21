@@ -25,28 +25,18 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	runner := clients.NewLocker(cc, func(_ grpc.ClientConnInterface) TargetRunner {
-		runner := NewTargetRunner(p.logger.Named("remote-read"))
-
-		runner.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
-		runner.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
-
-		return runner
-	})
-
-	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
-	p.httpServer.SetTargetRunner(runner)
-	p.httpServer.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
-
-	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
-
+	runner := NewTargetRunner(p.logger.Named("runner"))
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
-	remoteReadClient := remoteread.NewRemoteReadGatewayClient(cc)
+
+	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
+	p.httpServer.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
+	p.httpServer.SetTargetRunner(runner)
+	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 
 	p.node.SetNodeClient(nodeClient)
 	p.node.SetHealthListenerClient(healthListenerClient)
 	p.node.SetIdentityClient(identityClient)
-	p.node.SetRemoteReadClient(remoteReadClient)
+	p.node.SetRemoteReadClient(remoteread.NewRemoteReadGatewayClient(cc))
 }

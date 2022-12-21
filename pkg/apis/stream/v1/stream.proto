@@ -26,6 +26,10 @@ message StreamEvent {
 }
 
 service Delegate {
+  option (totem.visibility) = {
+    splicedClients: true
+  };
+
   // A synchronous request-response RPC sent to a single client.
   rpc Request(DelegatedMessage) returns (totem.RPC);
 

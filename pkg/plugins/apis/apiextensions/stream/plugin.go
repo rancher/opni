@@ -68,7 +68,6 @@ func (p *streamApiExtensionPlugin) GRPCServer(
 ) error {
 	apiextensions.RegisterStreamAPIExtensionServer(s, p.extensionSrv)
 	streamv1.RegisterStreamServer(s, p.extensionSrv)
-	streamv1.RegisterDelegateServer(s, p.extensionSrv)
 	return nil
 }
 

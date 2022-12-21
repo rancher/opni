@@ -123,11 +123,11 @@ type targetRunner struct {
 }
 
 func (runner *targetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
-	//runner.remoteWriteClient = client
+	runner.remoteWriteClient = client
 }
 
 func (runner *targetRunner) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
-	//runner.remoteReadClient = client
+	runner.remoteReadClient = client
 }
 
 // updateRunStatus notifies the gateway of the status of the Run's target status

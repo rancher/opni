@@ -169,8 +169,8 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 // Start Implements remoteread.RemoteReadServer
 
 func (m *MetricsNode) UpdateTargetStatus(ctx context.Context, request *remoteread.TargetStatusUpdateRequest) (*emptypb.Empty, error) {
-	m.remoteReadClientMu.Lock()
-	defer m.remoteReadClientMu.Unlock()
+	//m.remoteReadClientMu.Lock()
+	//defer m.remoteReadClientMu.Unlock()
 
 	if m.remoteReadClient == nil {
 		m.logger.Errorf("no remote read client doing nothing")
@@ -181,8 +181,10 @@ func (m *MetricsNode) UpdateTargetStatus(ctx context.Context, request *remoterea
 }
 
 func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
-	m.remoteReadClientMu.Lock()
-	defer m.remoteReadClientMu.Unlock()
+	//m.remoteReadClientMu.Lock()
+	//defer m.remoteReadClientMu.Unlock()
+
+	m.logger.Debug("received grpc start")
 
 	if m.remoteReadClient == nil {
 		m.logger.Errorf("no remote read client doing nothing")
@@ -193,8 +195,10 @@ func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRe
 }
 
 func (m *MetricsNode) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
-	m.remoteReadClientMu.Lock()
-	defer m.remoteReadClientMu.Unlock()
+	//m.remoteReadClientMu.Lock()
+	//defer m.remoteReadClientMu.Unlock()
+
+	m.logger.Debug("received grpc stop")
 
 	if m.remoteReadClient == nil {
 		m.logger.Errorf("no remote read client doing nothing")

@@ -7,11 +7,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -93,15 +91,6 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		nc  *nats.Conn
 		err error
 	)
-	p.storageNode = alertstorage.NewStorageNode(
-		alertstorage.WithStorage(&alertstorage.StorageAPIs{
-			Conditions:      system.NewKVStoreClient[*alertingv1.AlertCondition](client),
-			Endpoints:       system.NewKVStoreClient[*alertingv1.AlertEndpoint](client),
-			IncidentStorage: future.New[nats.KeyValue](),
-			StateStorage:    future.New[nats.KeyValue](),
-		}),
-	)
-
 	nc, err = natsutil.AcquireNATSConnection(
 		p.Ctx,
 		natsutil.WithLogger(p.Logger),
@@ -124,24 +113,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		panic(err)
 	}
 	p.js.Set(mgr)
-	incidentKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.GeneralIncidentStorage,
-		Description: "track internal incident changes over time for each condition id",
-		Storage:     nats.FileStorage,
-	})
-	if err != nil {
-		panic(err)
-	}
-	statusKv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      shared.StatusBucketPerCondition,
-		Description: "track last known internal status for each condition id",
-		Storage:     nats.FileStorage,
-	})
-	if err != nil {
-		panic(err)
-	}
-	p.storageNode.SetIncidentStorage(incidentKv)
-	p.storageNode.SetConditionStatusStorage(statusKv)
+	storageNode := alertstorage.NewStorageNode(
+		alertstorage.NewStorageAPIs(mgr, time.Hour*24),
+	)
+	p.storageNode.Set(storageNode)
 	// spawn a reindexing task
 	go func() {
 		p.reindexAlarms()
@@ -151,32 +126,32 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 func (p *Plugin) reindexAlarms() {
 	lg := p.Logger.With("re-indexing", "in-progress")
-	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
 		return
 	}
-	for i, id := range ids {
-		if s := conds[i].GetAlertType().GetSystem(); s != nil {
+	for _, cond := range conditions {
+		if s := cond.GetAlertType().GetSystem(); s != nil {
 			// this checks that we won't crash when importing existing conditions from versions < 0.6
 			if s.GetClusterId() != nil && s.GetTimeout() != nil {
 				lg.Debug("re-indexing agent disconnect")
-				p.onSystemConditionCreate(id, conds[i].Name, s)
+				p.onSystemConditionCreate(cond.Id, cond.Name, s)
 			} else {
 				// delete invalid conditions that won't do anything
-				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: id})
+				_, err := p.DeleteAlertCondition(p.Ctx, &corev1.Reference{Id: cond.Id})
 				if err != nil {
 					lg.With("err", err).Error("failed to delete invalid condition")
 				}
 			}
 		}
-		if s := conds[i].GetAlertType().GetDownstreamCapability(); s != nil {
+		if s := cond.GetAlertType().GetDownstreamCapability(); s != nil {
 			lg.Debug("re-indexing downstream capability")
-			p.onDownstreamCapabilityConditionCreate(id, conds[i].Name, s)
+			p.onDownstreamCapabilityConditionCreate(cond.Id, cond.Name, s)
 		}
-		if mc := conds[i].GetAlertType().GetMonitoringBackend(); mc != nil {
+		if mc := cond.GetAlertType().GetMonitoringBackend(); mc != nil {
 			lg.Debug("re-indexing monitoring backend")
-			p.onCortexClusterStatusCreate(id, conds[i].Name, mc)
+			p.onCortexClusterStatusCreate(cond.Id, cond.Name, mc)
 		}
 	}
 	lg.Info("re-indexing alarms complete")

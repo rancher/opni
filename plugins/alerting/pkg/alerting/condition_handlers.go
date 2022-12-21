@@ -90,20 +90,20 @@ func setupCondition(
 func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageNode.Get().IncidentCache.Delete(ctx, id)
+		p.storageNode.Get().StateCache.Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetDownstreamCapability(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageNode.Get().IncidentCache.Delete(ctx, id)
+		p.storageNode.Get().StateCache.Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetMonitoringBackend(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageNode.Get().IncidentCache.Delete(ctx, id)
+		p.storageNode.Get().StateCache.Delete(ctx, id)
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
@@ -357,7 +357,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 			js:              p.js.Get(),
 			durableConsumer: NewAgentDurableReplayConsumer(agentId),
 			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
+			storageNode:     p.storageNode.Get(),
 			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
@@ -422,7 +422,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			js:              p.js.Get(),
 			durableConsumer: NewAgentDurableReplayConsumer(agentId),
 			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
+			storageNode:     p.storageNode.Get(),
 			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
@@ -617,7 +617,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			js:              p.js.Get(),
 			durableConsumer: nil,
 			streamSubject:   NewCortexStatusSubject(),
-			storageNode:     p.storageNode,
+			storageNode:     p.storageNode.Get(),
 			msgCh:           make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},

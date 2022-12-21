@@ -42,7 +42,7 @@ type Plugin struct {
 
 	opsNode     *ops.AlertingOpsNode
 	msgNode     *messaging.MessagingNode
-	storageNode *alertstorage.StorageNode
+	storageNode future.Future[*alertstorage.StorageNode]
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -64,11 +64,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 		Ctx:    ctx,
 		Logger: lg,
 
-		opsNode: ops.NewAlertingOpsNode(clusterDriver),
-		msgNode: messaging.NewMessagingNode(),
-		storageNode: alertstorage.NewStorageNode(
-			alertstorage.WithLogger(lg),
-		),
+		opsNode:     ops.NewAlertingOpsNode(clusterDriver),
+		msgNode:     messaging.NewMessagingNode(),
+		storageNode: future.New[*alertstorage.StorageNode](),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),

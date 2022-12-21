@@ -7,18 +7,19 @@ import (
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) error {
-	items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
 	}
 	disconnectExists := false
-	for _, item := range items.Items {
-		if s := item.GetAlertCondition().GetAlertType().GetSystem(); s != nil {
+	for _, cond := range conditions {
+		if s := cond.GetAlertType().GetSystem(); s != nil {
 			if s.GetClusterId().Id == clusterId {
 				disconnectExists = true
 				break
@@ -57,23 +58,23 @@ func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) 
 }
 
 func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, clusterId string) error {
-	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}
 	var wg sync.WaitGroup
-	for i, id := range ids {
-		id := id //capture loop variable
-		if s := conds[i].GetAlertType().GetSystem(); s != nil {
+	for _, cond := range conditions {
+		cond := cond
+		if s := cond.GetAlertType().GetSystem(); s != nil {
 			if s.GetClusterId().Id == clusterId {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{
-						Id: id,
+						Id: cond.Id,
 					})
 					if err != nil {
-						p.Logger.Errorf("failed to delete condition %s : %s", id, err)
+						p.Logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
 					}
 				}()
 			}
@@ -133,23 +134,23 @@ func (p *Plugin) createDefaultCapabilityHealth(ctx context.Context, clusterId st
 }
 
 func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId string) error {
-	ids, conds, err := p.storageNode.ListWithKeysConditions(p.Ctx)
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}
 	var wg sync.WaitGroup
-	for i, id := range ids {
-		id := id // capture loop variable
-		if dc := conds[i].GetAlertType().GetDownstreamCapability(); dc != nil {
+	for _, cond := range conditions {
+		cond := cond
+		if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
 			if dc.ClusterId.Id == clusterId {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{
-						Id: id,
+						Id: cond.Id,
 					})
 					if err != nil {
-						p.Logger.Errorf("failed to delete condition %s : %s", id, err)
+						p.Logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
 					}
 				}()
 			}

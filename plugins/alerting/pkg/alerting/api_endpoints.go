@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/backend"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"golang.org/x/exp/slices"
@@ -19,17 +20,13 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func redactSecrets(endp *alertingv1.AlertEndpoint) {
-	endp.RedactSecrets()
-}
-
 func unredactSecrets(
 	ctx context.Context,
 	node *alertstorage.StorageNode,
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {
-	unredacted, err := node.GetEndpoint(ctx, endpointId)
+	unredacted, err := node.Endpoints.Get(ctx, endpointId, alertstorage.WithUnredacted())
 	if err != nil {
 		return err
 	}
@@ -42,7 +39,8 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertE
 		return nil, err
 	}
 	newId := uuid.New().String()
-	if err := p.storageNode.CreateEndpoint(ctx, newId, req); err != nil {
+	req.Id = newId
+	if err := p.storageNode.Get().Endpoints.Put(ctx, newId, req); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{
@@ -51,17 +49,15 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertE
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertEndpoint, error) {
-	endp, err := p.storageNode.GetEndpoint(ctx, ref.Id)
+	endp, err := p.storageNode.Get().Endpoints.Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
-	// handle secrets
-	redactSecrets(endp)
 	return endp, nil
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
-	if err := unredactSecrets(ctx, p.storageNode, req.Id.Id, req.GetUpdateAlert()); err != nil {
+	if err := unredactSecrets(ctx, p.storageNode.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
 	if err := req.Validate(); err != nil {
@@ -93,7 +89,7 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 			return nil, err
 		}
 	}
-	if err := p.storageNode.UpdateEndpoint(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
+	if err := p.storageNode.Get().Endpoints.Put(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
 	return &alertingv1.InvolvedConditions{
@@ -101,43 +97,19 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 	}, nil
 }
 
-func (p *Plugin) adminListAlertEndpoints(
-	ctx context.Context,
-	req *alertingv1.ListAlertEndpointsRequest,
-) (*alertingv1.AlertEndpointList, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	ids, endpoints, err := p.storageNode.ListWithKeysEndpoints(ctx)
-	if err != nil {
-		return nil, err
-	}
-	items := []*alertingv1.AlertEndpointWithId{}
-	for idx := range ids {
-		endp := endpoints[idx]
-		items = append(items, &alertingv1.AlertEndpointWithId{
-			Id:       &corev1.Reference{Id: ids[idx]},
-			Endpoint: endp,
-		})
-	}
-	return &alertingv1.AlertEndpointList{Items: items}, nil
-}
-
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	req *alertingv1.ListAlertEndpointsRequest) (*alertingv1.AlertEndpointList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, endpoints, err := p.storageNode.ListWithKeysEndpoints(ctx)
+	endpoints, err := p.storageNode.Get().Endpoints.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	items := []*alertingv1.AlertEndpointWithId{}
-	for idx := range ids {
-		endp := endpoints[idx]
-		redactSecrets(endp)
+	for _, endp := range endpoints {
 		items = append(items, &alertingv1.AlertEndpointWithId{
-			Id:       &corev1.Reference{Id: ids[idx]},
+			Id:       &corev1.Reference{Id: endp.Id},
 			Endpoint: endp,
 		})
 	}
@@ -145,9 +117,12 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 }
 
 func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.DeleteAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
-	_, err := p.GetAlertEndpoint(ctx, req.Id)
+	existing, err := p.GetAlertEndpoint(ctx, req.Id)
 	if err != nil {
 		return nil, err
+	}
+	if existing == nil {
+		return &alertingv1.InvolvedConditions{}, nil
 	}
 
 	// List relationships
@@ -174,7 +149,7 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 		}
 	}
 
-	if err := p.storageNode.DeleteEndpoint(ctx, req.Id.Id); err != nil {
+	if err := p.storageNode.Get().Endpoints.Delete(ctx, req.Id.Id); err != nil {
 		return nil, err
 	}
 
@@ -185,6 +160,13 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAlertEndpointRequest) (*alertingv1.TestAlertEndpointResponse, error) {
 	lg := p.Logger.With("Handler", "TestAlertEndpoint")
+	if req.Endpoint == nil {
+		return nil, validation.Error("Endpoint must be set")
+	}
+	// if it has an Id it needs to be unredacted
+	if req.Endpoint.Id == "" {
+		unredactSecrets(ctx, p.storageNode.Get(), req.Endpoint.Id, req.Endpoint)
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}

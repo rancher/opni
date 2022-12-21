@@ -208,7 +208,7 @@ func (p *PostableSilence) Must() error {
 }
 
 func ConvertEndpointIdsToRoutingNode(
-	endpointList *alertingv1.AlertEndpointList,
+	endpointList []*alertingv1.AlertEndpoint,
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 
@@ -223,14 +223,14 @@ func ConvertEndpointIdsToRoutingNode(
 			Details:            req.Details,
 		},
 	}
-	for _, endpointItem := range endpointList.Items {
+	for _, endpointItem := range endpointList {
 		for _, expectedEndpoint := range req.Items {
-			if endpointItem.Id.Id == expectedEndpoint.EndpointId {
+			if endpointItem.Id == expectedEndpoint.EndpointId {
 				routingNode.FullAttachedEndpoints.Items = append(
 					routingNode.FullAttachedEndpoints.Items,
 					&alertingv1.FullAttachedEndpoint{
-						EndpointId:    endpointItem.Id.Id,
-						AlertEndpoint: endpointItem.Endpoint,
+						EndpointId:    endpointItem.Id,
+						AlertEndpoint: endpointItem,
 						Details:       req.Details,
 					})
 			}

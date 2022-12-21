@@ -41,7 +41,7 @@ func (p *Plugin) createRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.storageNode.Get().Endpoints.List(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (p *Plugin) updateRoutingNode(
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
 	lg *zap.SugaredLogger) error {
-	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
+	eList, err := p.storageNode.Get().Endpoints.List(ctx)
 	if err != nil {
 		return err
 	}
@@ -125,6 +125,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
+	req.Id = newId
 	_, err := setupCondition(p, lg, ctx, req, newId)
 	if err != nil {
 		return nil, err
@@ -143,29 +144,29 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	} else {
 		lg.Debug("must not create routing node")
 	}
-	if err := p.storageNode.CreateCondition(ctx, newId, req); err != nil {
+	if err := p.storageNode.Get().Conditions.Put(ctx, newId, req); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{Id: newId}, nil
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
-	return p.storageNode.GetCondition(ctx, ref.Id)
+	return p.storageNode.Get().Conditions.Get(ctx, ref.Id)
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	keys, items, err := p.storageNode.ListWithKeysConditions(ctx)
+	items, err := p.storageNode.Get().Conditions.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &alertingv1.AlertConditionList{}
-	for i := range keys {
+	for i := range items {
 		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
-			Id:             &corev1.Reference{Id: keys[i]},
+			Id:             &corev1.Reference{Id: items[i].Id},
 			AlertCondition: items[i],
 		})
 	}
@@ -180,11 +181,10 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	lg := p.Logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	conditionId := req.Id.Id
-	existing, err := p.storageNode.GetCondition(ctx, req.Id.Id)
+	existing, err := p.storageNode.Get().Conditions.Get(ctx, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 			return nil, err
 		}
 	}
-	if err := p.storageNode.UpdateCondition(ctx, conditionId, req.UpdateAlert); err != nil {
+	if err := p.storageNode.Get().Conditions.Put(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -220,10 +220,15 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.Logger.With("Handler", "DeleteAlertCondition")
-	existing, err := p.storageNode.GetCondition(ctx, ref.Id)
+	existing, err := p.storageNode.Get().Conditions.Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
+	// this can happen if the condition is not in storage
+	if existing == nil {
+		return &emptypb.Empty{}, nil
+	}
+
 	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
 		return nil, err
 	}
@@ -235,7 +240,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 			return nil, err
 		}
 	}
-	err = p.storageNode.DeleteCondition(ctx, ref.Id)
+	err = p.storageNode.Get().Conditions.Delete(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +251,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 
-	cond, err := p.storageNode.GetCondition(ctx, ref.Id)
+	cond, err := p.storageNode.Get().Conditions.Get(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
@@ -378,7 +383,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetCondition(ctx, req.ConditionId.Id)
+	existing, err := p.storageNode.Get().Conditions.Get(ctx, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +425,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateCondition(ctx, req.ConditionId.Id, newCondition); err != nil {
+	if err := p.storageNode.Get().Conditions.Put(ctx, req.ConditionId.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -435,7 +440,7 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetCondition(ctx, req.Id)
+	existing, err := p.storageNode.Get().Conditions.Get(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -462,10 +467,47 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateCondition(ctx, req.Id, newCondition); err != nil {
+	if err := p.storageNode.Get().Conditions.Put(ctx, req.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*emptypb.Empty, error) {
+	lg := p.Logger.With("handler", "CloneTo")
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	clusterLookup := map[string]struct{}{}
+	cl, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cl.Items {
+		clusterLookup[c.Id] = struct{}{}
+	}
+	for _, ref := range req.ToClusters {
+		if _, ok := clusterLookup[ref]; !ok {
+			return nil, validation.Errorf("cluster could not be found %s", ref)
+		}
+	}
+	iErrGroup := &independentErrGroup{}
+	iErrGroup.Add(len(req.ToClusters))
+	for _, ref := range req.ToClusters {
+		ref := ref // capture in closure
+		go func() {
+			defer iErrGroup.Done()
+			cond := util.ProtoClone(req.AlertCondition)
+			cond.SetClusterId(&corev1.Reference{Id: ref})
+			_, err := p.CreateAlertCondition(ctx, cond)
+			if err != nil {
+				lg.Errorf("failed to create alert condition %s", err)
+				iErrGroup.AddError(err)
+			}
+		}()
+	}
+	iErrGroup.Wait()
+	return &emptypb.Empty{}, iErrGroup.Error()
 }
 
 func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1.AlertDetailChoicesRequest) (*alertingv1.ListAlertTypeDetails, error) {
@@ -482,7 +524,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ids, conditions, err := p.storageNode.ListWithKeysConditions(ctx)
+	conditions, err := p.storageNode.Get().Conditions.List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -490,11 +532,11 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
 	requiresCortex := false
-	for idx, id := range ids {
-		if k, _ := handleSwitchCortexRules(conditions[idx].GetAlertType()); k != nil {
+	for _, cond := range conditions {
+		if k, _ := handleSwitchCortexRules(cond.GetAlertType()); k != nil {
 			requiresCortex = true
 		}
-		resp.Items[id] = &alertingv1.ActiveWindows{
+		resp.Items[cond.Id] = &alertingv1.ActiveWindows{
 			Windows: make([]*alertingv1.ActiveWindow, 0),
 		}
 	}
@@ -515,52 +557,51 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	cortexStep := durationpb.New(req.LookbackWindow.AsDuration() / 500)
 	var wg sync.WaitGroup
 	var addMu sync.Mutex
-	for idx := range conditions {
-		idx := idx // capture in closure
+	for _, cond := range conditions {
+		cond := cond
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			condition := conditions[idx]
-			if s := condition.GetAlertType().GetSystem(); s != nil {
+			if s := cond.GetAlertType().GetSystem(); s != nil {
 				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				activeWindows, err := p.storageNode.Get().IncidentCache.GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 				if err != nil {
 					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
 					return
 				}
 				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
 					Windows: activeWindows,
 				}
 				addMu.Unlock()
 			}
-			if dc := condition.GetAlertType().GetDownstreamCapability(); dc != nil {
+			if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
 				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				activeWindows, err := p.storageNode.Get().IncidentCache.GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 				if err != nil {
 					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
 					return
 				}
 				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
 					Windows: activeWindows,
 				}
 				addMu.Unlock()
 			}
-			if mb := condition.GetAlertType().GetMonitoringBackend(); mb != nil {
+			if mb := cond.GetAlertType().GetMonitoringBackend(); mb != nil {
 				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
+				activeWindows, err := p.storageNode.Get().IncidentCache.GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 				if err != nil {
 					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
 					return
 				}
 				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
+				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
 					Windows: activeWindows,
 				}
 				addMu.Unlock()
 			}
-			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
+			if r, info := handleSwitchCortexRules(cond.GetAlertType()); r != nil {
 				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
 					Tenants: []string{r.Id},
 					// Constructed recording rule, NOT alerting rule
@@ -568,7 +609,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 						"%s{%s}",
 						ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
 						ConstructFiltersFromMap(
-							ConstructIdLabelsForRecordingRule(condition.Name, ids[idx]),
+							ConstructIdLabelsForRecordingRule(cond.Name, cond.Id),
 						),
 					),
 					Start: start,
@@ -614,7 +655,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 					}
 				}
 				addMu.Lock()
-				resp.Items[ids[idx]] = &activeWindows
+				resp.Items[cond.Id] = &activeWindows
 				addMu.Unlock()
 			}
 		}()
@@ -622,41 +663,4 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	wg.Wait()
 
 	return resp, nil
-}
-
-func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*emptypb.Empty, error) {
-	lg := p.Logger.With("handler", "CloneTo")
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	clusterLookup := map[string]struct{}{}
-	cl, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range cl.Items {
-		clusterLookup[c.Id] = struct{}{}
-	}
-	for _, ref := range req.ToClusters {
-		if _, ok := clusterLookup[ref]; !ok {
-			return nil, validation.Errorf("cluster could not be found %s", ref)
-		}
-	}
-	iErrGroup := &independentErrGroup{}
-	iErrGroup.Add(len(req.ToClusters))
-	for _, ref := range req.ToClusters {
-		ref := ref // capture in closure
-		go func() {
-			defer iErrGroup.Done()
-			cond := util.ProtoClone(req.AlertCondition)
-			cond.SetClusterId(&corev1.Reference{Id: ref})
-			_, err := p.CreateAlertCondition(ctx, cond)
-			if err != nil {
-				lg.Errorf("failed to create alert condition %s", err)
-				iErrGroup.AddError(err)
-			}
-		}()
-	}
-	iErrGroup.Wait()
-	return &emptypb.Empty{}, iErrGroup.Error()
 }

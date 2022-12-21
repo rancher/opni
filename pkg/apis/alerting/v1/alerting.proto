@@ -29,13 +29,13 @@ message AlertCondition {
   repeated string labels = 3;
   Severity severity = 4;
   AlertTypeDetails alertType = 5;
-
   AttachedEndpoints attachedEndpoints = 6;
-  // Set & Unset via the silence API
-  SilenceInfo silence = 7;
-  // bool smoothing = 8;
-  // https://github.com/rancher/opni-metrics-service/blob/main/metric-forecasting/metric_anomaly_detector.py#L154
-  // bool anomalyDetection = 9;
+
+  // the following are read-only
+  SilenceInfo silence = 7;// Set & Unset via the silence API
+  string id = 8;
+  string goldenSignal = 9;
+  string overrideType = 10;
 }
 
 message FullAttachedEndpoints {
@@ -431,6 +431,9 @@ message AlertEndpoint {
     EmailEndpoint email = 5;
     PagerDutyEndpoint pagerDuty = 6;
   }
+
+  // the following are read only
+  string id = 7;
 }
 
 message SlackEndpoint {
@@ -575,4 +578,19 @@ message EphemeralDispatcherRequest {
 
 message EphemeralDispatcherResponse{
   TriggerAlertsRequest triggerAlertsRequest = 1;
+}
+
+message CachedState {
+  bool healthy = 1; 
+  bool firing = 2; 
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message IncidentIntervals {
+  repeated Interval items = 1;
+}
+
+message Interval {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
 }

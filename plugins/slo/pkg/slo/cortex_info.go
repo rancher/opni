@@ -35,7 +35,11 @@ func createRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedE
 	if err != nil {
 		return err
 	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, alertId)
+	endpoints := []*alertingv1.AlertEndpoint{}
+	for _, endpoint := range eList.Items {
+		endpoints = append(endpoints, endpoint.GetEndpoint())
+	}
+	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(endpoints, req, alertId)
 	if err != nil {
 		p.logger.Error(err)
 		return err
@@ -58,7 +62,11 @@ func updateRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedE
 	if err != nil {
 		return err
 	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, alertId)
+	endpoints := []*alertingv1.AlertEndpoint{}
+	for _, endpoint := range eList.Items {
+		endpoints = append(endpoints, endpoint.GetEndpoint())
+	}
+	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(endpoints, req, alertId)
 	if err != nil {
 		p.logger.Error(err)
 		return err

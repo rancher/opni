@@ -2,66 +2,119 @@ package alertstorage
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"path"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/interfaces"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util/future"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const conditionPrefix = "/alerting/conditions"
 const endpointPrefix = "/alerting/endpoints"
+const statePrefix = "/alerting/state"
+const incidentPrefix = "/alerting/incidents"
+const defaultTrackerTTL = 24 * time.Hour
 
-type StorageAPIs struct {
-	Conditions storage.KeyValueStoreT[*alertingv1.AlertCondition]
-	Endpoints  storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
-	// key : conditionId
-	// value  : AgentTracker
-	IncidentStorage future.Future[nats.KeyValue]
-	StateStorage    future.Future[nats.KeyValue]
+type AlertingStorage[T interfaces.AlertingSecret] interface {
+	Put(ctx context.Context, key string, value T) error
+	Get(ctx context.Context, key string, opts ...RequestOption) (T, error)
+	Delete(ctx context.Context, key string) error
+	ListKeys(ctx context.Context) ([]string, error)
+	List(ctx context.Context, opts ...RequestOption) ([]T, error)
 }
+
+type AlertingStateCache[T interfaces.AlertingSecret] interface {
+	AlertingStorage[T]
+	IsDiff(ctx context.Context, key string, value T) bool
+	LastKnownChange(ctx context.Context, key string) (*timestamppb.Timestamp, error)
+}
+
+type AlertingIncidentTracker[T interfaces.AlertingSecret] interface {
+	AlertingStorage[T]
+	OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error
+	CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error
+	GetActiveWindowsFromIncidentTracker(
+		ctx context.Context,
+		conditionId string,
+		start,
+		end *timestamppb.Timestamp,
+	) ([]*alertingv1.ActiveWindow, error)
+}
+
+type RequestOptions struct {
+	Unredacted bool
+}
+
+type RequestOption func(*RequestOptions)
+
+func WithUnredacted() RequestOption {
+	return func(o *RequestOptions) {
+		o.Unredacted = true
+	}
+}
+
+func (o *RequestOptions) apply(opts ...RequestOption) {
+	for _, opt := range opts {
+		opt(o)
+	}
+}
+
+type JetStreamAlertingStorage[T interfaces.AlertingSecret] struct {
+	kv       nats.KeyValue
+	basePath string
+}
+
+var _ AlertingStorage[interfaces.AlertingSecret] = (*JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
+
+type JetStreamAlertingStateCache struct {
+	JetStreamAlertingStorage[*alertingv1.CachedState]
+	stateMu sync.RWMutex
+}
+
+var _ AlertingStateCache[*alertingv1.CachedState] = (*JetStreamAlertingStateCache)(nil)
+
+type JetStreamAlertingIncidentTracker struct {
+	JetStreamAlertingStorage[*alertingv1.IncidentIntervals]
+	ttl time.Duration
+}
+
+var _ AlertingIncidentTracker[*alertingv1.IncidentIntervals] = (*JetStreamAlertingIncidentTracker)(nil)
 
 // Responsible for anything related to persistent storage
 // external to AlertManager
 type StorageNode struct {
-	*StorageNodeOptions
-	agentTrackerMu sync.Mutex
+	StorageAPIs
+	StorageNodeOptions
 }
 type StorageNodeOptions struct {
-	Logger  *zap.SugaredLogger
-	timeout time.Duration
-	storage future.Future[*StorageAPIs]
+	Logger     *zap.SugaredLogger
+	timeout    time.Duration
+	trackerTTl time.Duration
 }
 
-func NewStorageNode(opts ...StorageNodeOption) *StorageNode {
-	options := &StorageNodeOptions{
-		timeout: time.Second * 60,
+func NewStorageNode(s StorageAPIs, opts ...StorageNodeOption) *StorageNode {
+	options := StorageNodeOptions{
+		timeout:    5 * time.Second,
+		trackerTTl: defaultTrackerTTL,
 	}
-	options.storage = future.New[*StorageAPIs]()
-	options.apply(opts...)
-	if options.Logger == nil {
+	if options.Logger != nil {
 		options.Logger = logger.NewPluginLogger().Named("alerting-storage-node")
+
 	}
+	options.apply(opts...)
 	return &StorageNode{
-		StorageNodeOptions: options,
+		StorageAPIs: s,
 	}
-}
-
-func (s *StorageNode) SetIncidentStorage(kv nats.KeyValue) {
-	s.storage.Get().IncidentStorage.Set(kv)
-}
-
-func (s *StorageNode) SetConditionStatusStorage(kv nats.KeyValue) {
-	s.storage.Get().StateStorage.Set(kv)
 }
 
 type StorageNodeOption func(*StorageNodeOptions)
@@ -78,401 +131,291 @@ func WithLogger(lg *zap.SugaredLogger) StorageNodeOption {
 	}
 }
 
-func WithStorage(storage *StorageAPIs) StorageNodeOption {
-	return func(o *StorageNodeOptions) {
-		o.storage = future.New[*StorageAPIs]()
-		o.storage.Set(storage)
-	}
-}
-
 func (s *StorageNodeOptions) apply(opts ...StorageNodeOption) {
 	for _, opt := range opts {
 		opt(s)
 	}
 }
 
-func (s *StorageNode) CreateCondition(ctx context.Context, conditionId string, condition *alertingv1.AlertCondition) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
+func NewJetStreamAlertingStorage[T interfaces.AlertingSecret](
+	kv nats.KeyValue,
+	basePath string,
+) JetStreamAlertingStorage[T] {
+	return JetStreamAlertingStorage[T]{
+		kv:       kv,
+		basePath: basePath,
+	}
+}
+
+func NewJetStreamAlertingStateCache(kv nats.KeyValue, prefix string) *JetStreamAlertingStateCache {
+	return &JetStreamAlertingStateCache{
+		JetStreamAlertingStorage: NewJetStreamAlertingStorage[*alertingv1.CachedState](kv, statePrefix),
+	}
+}
+
+func NewJetStreamAlertingIncidentTracker(kv nats.KeyValue, prefix string, ttl time.Duration) *JetStreamAlertingIncidentTracker {
+	return &JetStreamAlertingIncidentTracker{
+		JetStreamAlertingStorage: NewJetStreamAlertingStorage[*alertingv1.IncidentIntervals](kv, incidentPrefix),
+		ttl:                      ttl,
+	}
+}
+
+var _ AlertingStorage[interfaces.AlertingSecret] = (*JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
+
+func (j *JetStreamAlertingStorage[T]) Key(key string) string {
+	return path.Join(j.basePath, key)
+}
+
+func (j *JetStreamAlertingStorage[T]) Put(ctx context.Context, key string, value T) error {
+	opts := protojson.MarshalOptions{
+		AllowPartial: true,
+	}
+	data, err := opts.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return storage.Conditions.Put(ctx, path.Join(conditionPrefix, conditionId), condition)
-}
-
-func (s *StorageNode) GetCondition(ctx context.Context, conditionId string) (*alertingv1.AlertCondition, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return storage.Conditions.Get(ctx, path.Join(conditionPrefix, conditionId))
-}
-
-func (s *StorageNode) ListConditions(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	items, err := list(ctx, storage.Conditions, conditionPrefix)
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func (s *StorageNode) ListWithKeysConditions(ctx context.Context) ([]string, []*alertingv1.AlertCondition, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, nil, err
-	}
-	keys, items, err := listWithKeys(ctx, storage.Conditions, conditionPrefix)
-	if err != nil {
-		return nil, nil, err
-	}
-	return keys, items, nil
-}
-
-func (s *StorageNode) UpdateCondition(ctx context.Context, conditionId string, newCondition *alertingv1.AlertCondition) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	_, err = storage.Conditions.Get(ctx, path.Join(conditionPrefix, conditionId))
-	if err != nil {
-		return shared.WithNotFoundErrorf("condition to update '%s' not found : %s", conditionId, err)
-	}
-	return storage.Conditions.Put(ctx, path.Join(conditionPrefix, conditionId), newCondition)
-}
-
-func (s *StorageNode) DeleteCondition(ctx context.Context, conditionId string) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	_, err = storage.Conditions.Get(ctx, path.Join(conditionPrefix, conditionId))
-	if err != nil {
-		return shared.WithNotFoundErrorf("condition to delete '%s' not found : %s", conditionId, err)
-	}
-	return storage.Conditions.Delete(ctx, path.Join(conditionPrefix, conditionId))
-}
-
-func (s *StorageNode) CreateEndpoint(ctx context.Context, endpointId string, endpoint *alertingv1.AlertEndpoint) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	return storage.Endpoints.Put(ctx, path.Join(endpointPrefix, endpointId), endpoint)
-}
-
-func (s *StorageNode) GetEndpoint(ctx context.Context, endpointId string) (*alertingv1.AlertEndpoint, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	return storage.Endpoints.Get(ctx, path.Join(endpointPrefix, endpointId))
-}
-
-func (s *StorageNode) ListEndpoints(ctx context.Context) ([]*alertingv1.AlertEndpoint, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	items, err := list(ctx, storage.Endpoints, endpointPrefix)
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func (s *StorageNode) ListWithKeysEndpoints(ctx context.Context) ([]string, []*alertingv1.AlertEndpoint, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, nil, err
-	}
-	keys, items, err := listWithKeys(ctxTimeout, storage.Endpoints, endpointPrefix)
-	if err != nil {
-		return nil, nil, err
-	}
-	return keys, items, nil
-}
-
-func (s *StorageNode) UpdateEndpoint(ctx context.Context, endpointId string, newEndpoint *alertingv1.AlertEndpoint) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	_, err = storage.Endpoints.Get(ctxTimeout, path.Join(endpointPrefix, endpointId))
-	if err != nil {
-		return shared.WithNotFoundErrorf("condition to update '%s' not found : %s", endpointId, err)
-	}
-	return storage.Endpoints.Put(ctx, path.Join(endpointPrefix, endpointId), newEndpoint)
-}
-
-func (s *StorageNode) DeleteEndpoint(ctx context.Context, endpointId string) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	_, err = storage.Endpoints.Get(ctx, path.Join(endpointPrefix, endpointId))
-	if err != nil {
-		return shared.WithNotFoundErrorf("condition to delete '%s' not found : %s", endpointId, err)
-	}
-	return storage.Endpoints.Delete(ctx, path.Join(endpointPrefix, endpointId))
-}
-
-func (s *StorageNode) CreateConditionStatusTracker(
-	ctx context.Context,
-	conditionId string,
-	value *State) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	sts, err := storage.StateStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	_, err = sts.Create(conditionId, data)
+	_, err = j.kv.Put(j.Key(key), data)
 	return err
 }
 
-func (s *StorageNode) GetConditionStatusTracker(
-	ctx context.Context,
-	conditionId string) (*State, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
+func (j *JetStreamAlertingStorage[T]) Get(ctx context.Context, key string, opts ...RequestOption) (T, error) {
+	var t T
+	options := RequestOptions{}
+	options.apply(opts...)
+	data, err := j.kv.Get(j.Key(key))
 	if err != nil {
-		return nil, err
+		return t, err
 	}
-	sts, err := storage.StateStorage.GetContext(ctxTimeout)
+	// version migrations/ missing fields should be patched when manipulated by the alerting plugin
+	unmarshalOpts := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
+	tType := reflect.TypeOf(t)
+	rt := reflect.New(tType.Elem()).Interface().(T)
+	err = unmarshalOpts.Unmarshal(data.Value(), rt)
 	if err != nil {
-		return nil, err
+		return t, err
 	}
-	entry, err := sts.Get(conditionId)
-	if err != nil {
-		return nil, err
+	if !options.Unredacted {
+		rt.RedactSecrets()
 	}
-	var st *State
-	err = json.Unmarshal(entry.Value(), &st)
-	if err != nil {
-		return nil, err
-	}
-	return st, nil
+	return rt, nil
 }
 
-func (s *StorageNode) UpdateConditionStatusTracker(
-	ctx context.Context,
-	conditionId string,
-	value *State) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
+func (j *JetStreamAlertingStorage[T]) Delete(ctx context.Context, key string) error {
+	err := j.kv.Delete(j.Key(key))
+	if errors.Is(err, nats.ErrKeyNotFound) {
+		return nil
 	}
-	sts, err := storage.StateStorage.GetContext(ctxTimeout)
+	return err
+}
+
+func (j *JetStreamAlertingStorage[T]) ListKeys(ctx context.Context) ([]string, error) {
+	keys, err := j.kv.Keys()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	data, err := json.Marshal(value)
+	k := lo.Filter(keys, func(path string, _ int) bool {
+		return strings.HasPrefix(path, j.basePath)
+	})
+
+	return lo.Map(k, func(value string, _ int) string {
+		return path.Base(value)
+	}), nil
+}
+
+func (j *JetStreamAlertingStorage[T]) List(ctx context.Context, opts ...RequestOption) ([]T, error) {
+	keys, err := j.ListKeys(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = sts.Put(conditionId, data)
+	if errors.Is(err, nats.ErrNoKeysFound) {
+		return []T{}, nil
+	}
+	var values []T
+	for _, key := range keys {
+		value, err := j.Get(ctx, key, opts...)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	return values, nil
+}
+
+type StorageAPIs struct {
+	Conditions JetStreamAlertingStorage[*alertingv1.AlertCondition]
+	Endpoints  JetStreamAlertingStorage[*alertingv1.AlertEndpoint]
+
+	StateCache    *JetStreamAlertingStateCache
+	IncidentCache *JetStreamAlertingIncidentTracker
+}
+
+func NewStorageAPIs(js nats.JetStreamContext, ttl time.Duration) StorageAPIs {
+	return StorageAPIs{
+		Conditions: NewJetStreamAlertingStorage[*alertingv1.AlertCondition](
+			NewConditionKeyStore(js),
+			conditionPrefix,
+		),
+		Endpoints: NewJetStreamAlertingStorage[*alertingv1.AlertEndpoint](
+			NewEndpointKeyStore(js),
+			endpointPrefix,
+		),
+		StateCache: NewJetStreamAlertingStateCache(
+			NewStatusCache(js),
+			statePrefix,
+		),
+		IncidentCache: NewJetStreamAlertingIncidentTracker(
+			NewIncidentKeyStore(js),
+			incidentPrefix,
+			ttl,
+		),
+	}
+}
+
+func (j *JetStreamAlertingStateCache) IsDiff(ctx context.Context, key string, incomingState *alertingv1.CachedState) bool {
+	persistedState, err := j.JetStreamAlertingStorage.Get(ctx, key, WithUnredacted())
 	if err != nil {
-		return err
+		// if it's not found, then the state is definitely different, otherwise we assume the resource is busy
+		return errors.Is(err, nats.ErrKeyNotFound)
+	}
+	return !persistedState.IsEquivalent(incomingState)
+}
+
+func (j *JetStreamAlertingStateCache) LastKnownChange(ctx context.Context, key string) (*timestamppb.Timestamp, error) {
+	state, err := j.JetStreamAlertingStorage.Get(ctx, key, WithUnredacted())
+	if err != nil {
+		return nil, err
+	}
+	return state.GetTimestamp(), nil
+}
+
+func (j *JetStreamAlertingStateCache) Put(ctx context.Context, key string, incomingState *alertingv1.CachedState) error {
+	j.stateMu.Lock()
+	defer j.stateMu.Unlock()
+	if j.IsDiff(ctx, key, incomingState) {
+		return j.JetStreamAlertingStorage.Put(ctx, key, incomingState)
+	} else {
+		// check timestamps
+		lastKnownChange, err := j.LastKnownChange(ctx, key)
+		if err != nil {
+			return nil
+		}
+		if lastKnownChange.AsTime().After(incomingState.GetTimestamp().AsTime()) {
+			return j.JetStreamAlertingStorage.Put(ctx, key, incomingState)
+		}
 	}
 	return nil
 }
 
-func (s *StorageNode) DeleteConditionStatusTracker(
-	ctx context.Context,
-	conditionId string) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	sts, err := storage.StateStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	return sts.Delete(conditionId)
+func (j *JetStreamAlertingStateCache) Get(ctx context.Context, key string, opts ...RequestOption) (*alertingv1.CachedState, error) {
+	j.stateMu.RLock()
+	defer j.stateMu.RUnlock()
+	return j.JetStreamAlertingStorage.Get(ctx, key, opts...)
 }
 
-func (s *StorageNode) CreateIncidentTracker(
-	ctx context.Context,
-	conditionId string,
-) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
+func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error {
+	// get
+	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
+	var intervals *alertingv1.IncidentIntervals
 	if err != nil {
-		return err
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			// Create a new entry
+			intervals = &alertingv1.IncidentIntervals{
+				Items: []*alertingv1.Interval{},
+			}
+			err = j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		intervals = existingIntervals
 	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(NewIncidentIntervals())
-	if err != nil {
-		return err
-	}
-	_, err = sts.Create(conditionId, data)
-	return err
-}
 
-func (s *StorageNode) GetIncidentTracker(ctx context.Context, conditionId string) (*IncidentIntervals, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	entry, err := sts.Get(conditionId)
-	if err != nil {
-		return nil, err
-	}
-	var st *IncidentIntervals
-	err = json.Unmarshal(entry.Value(), &st)
-	if err != nil {
-		return nil, err
-	}
-	return st, nil
-}
-
-func (s *StorageNode) ListIncidentTrackers(ctx context.Context) ([]*IncidentIntervals, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return nil, err
-	}
-	ids, err := sts.Keys()
-	if err != nil {
-		return nil, err
-	}
-	res := make([]*IncidentIntervals, 0)
-	for _, id := range ids {
-		entry, err := sts.Get(id)
-		if err != nil {
-			return nil, err
-		}
-		var st *IncidentIntervals
-		err = json.Unmarshal(entry.Value(), &st)
-		if err != nil {
-			continue
-		}
-		if st == nil {
-			panic("st should not unmarshal to nil")
-		}
-		err = json.Unmarshal(entry.Value(), &st)
-		if err != nil {
-			continue
-		}
-		res = append(res, st)
-	}
-	return res, nil
-}
-
-func (s *StorageNode) OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	entry, err := sts.Get(conditionId)
-	if err != nil {
-		return err
-	}
-	var st *IncidentIntervals
-	err = json.Unmarshal(entry.Value(), &st)
-	if err != nil {
-		return err
-	}
-	if len(st.Values) == 0 {
-		st.Values = append(st.Values, Interval{
+	// update
+	if len(intervals.Items) == 0 {
+		intervals.Items = append(intervals.Items, &alertingv1.Interval{
 			Start: start,
 			End:   nil,
 		})
 	} else {
-		last := st.Values[len(st.Values)-1]
-		if last.End != nil {
-			st.Values = append(st.Values, Interval{
+		last := intervals.Items[len(intervals.Items)-1]
+		if last.Start == nil {
+			last.Start = start
+		} else {
+			last.End = start
+			intervals.Items = append(intervals.Items, &alertingv1.Interval{
 				Start: start,
 				End:   nil,
 			})
-		} //else do nothing
+		}
 	}
-	data, err := json.Marshal(st)
-	if err != nil {
-		return err
-	}
-	_, err = sts.Put(conditionId, data)
-	return err
+	intervals.Prune(j.ttl)
+	return j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
 }
 
-func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
+func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error {
+	// get
+	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
+	var intervals *alertingv1.IncidentIntervals
+	if err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			// Create a new entry
+			intervals = &alertingv1.IncidentIntervals{
+				Items: []*alertingv1.Interval{},
+			}
+			err = j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		intervals = existingIntervals
+	}
+
+	// put
+	if len(intervals.Items) == 0 { // weird
+		intervals.Items = append(intervals.Items, &alertingv1.Interval{
+			Start: end,
+			End:   end,
+		})
+	} else {
+		last := intervals.Items[len(intervals.Items)-1]
+		if last.Start == nil { //weird
+			last.Start = end
+			last.End = end
+		} else {
+			last.End = end
+		}
+	}
+	intervals.Prune(j.ttl)
+	return j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
+}
+
+func (j *JetStreamAlertingIncidentTracker) GetActiveWindowsFromIncidentTracker(
 	ctx context.Context,
 	conditionId string,
 	start,
 	end *timestamppb.Timestamp,
 ) ([]*alertingv1.ActiveWindow, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	incident, err := s.GetIncidentTracker(ctxTimeout, conditionId)
+	incidents, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
 	if err != nil {
 		return nil, err
 	}
 	res := []*alertingv1.ActiveWindow{}
-	if len(incident.Values) == 0 {
+	if len(incidents.Items) == 0 {
 		return res, nil
 	}
-	for _, step := range incident.Values {
+	for _, step := range incidents.Items {
+		if step.Start == step.End {
+			continue
+		}
 		window := &alertingv1.ActiveWindow{
 			Start: step.Start,
 			End:   step.End, // overwritten if it is found later
@@ -482,60 +425,6 @@ func (s *StorageNode) GetActiveWindowsFromIncidentTracker(
 			window.End = end
 		}
 		res = append(res, window)
-
 	}
-	pruneIdx := 0
-	for _, window := range res {
-		if window.End.AsTime().Before(start.AsTime()) {
-			pruneIdx++
-		}
-	}
-	res = slices.Delete(res, 0, pruneIdx)
 	return res, nil
-}
-
-func (s *StorageNode) CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	entry, err := sts.Get(conditionId)
-	if err != nil {
-		return err
-	}
-	var st *IncidentIntervals
-	err = json.Unmarshal(entry.Value(), &st)
-	if err != nil {
-		return err
-	}
-	if len(st.Values) == 0 {
-		panic("no intervals of any kind")
-	}
-	st.Values[len(st.Values)-1].End = end
-	data, err := json.Marshal(st)
-	if err != nil {
-		return err
-	}
-	_, err = sts.Put(conditionId, data)
-	return err
-}
-
-func (s *StorageNode) DeleteIncidentTracker(ctx context.Context, conditionId string) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-	storage, err := s.storage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	sts, err := storage.IncidentStorage.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	return sts.Delete(conditionId)
 }

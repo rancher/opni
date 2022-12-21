@@ -15,6 +15,8 @@ const (
 	CortexStatusStream            = "opni_alerting_cortex_status"
 	CortexStatusStreamSubjects    = "opni_alerting_cortex_status.*"
 	// buckets
+	AlertingConditionBucket            = "opni-alerting-condition-bucket"
+	AlertingEndpointBucket             = "opni-alerting-endpoint-bucket"
 	AgentDisconnectBucket              = "opni-alerting-agent-bucket"
 	AgentStatusBucket                  = "opni-alerting-agent-status-bucket"
 	StatusBucketPerCondition           = "opni-alerting-condition-status-bucket"

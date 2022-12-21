@@ -52,6 +52,7 @@ type Plugin struct {
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
+	delegate            future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -71,6 +72,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexClientSet:     future.New[cortex.ClientSet](),
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
+		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
 	}
 
 	future.Wait2(p.cortexClientSet, p.config,
@@ -100,13 +102,14 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
+	future.Wait6(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
+			delegate streamext.StreamDelegate[remoteread.RemoteReadAgentClient],
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
@@ -116,6 +119,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 				RemoteWriteClient:   &p.cortexRemoteWrite,
+				Delegate:            delegate,
 			})
 		})
 

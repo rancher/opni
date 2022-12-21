@@ -30,8 +30,5 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	// example delegate usage
-	// syncDelegate := streamext.NewDelegate(cc, capabilityv1.NewNodeClient)
-	// target := &corev1.Reference{Id: "foo"}
-	// syncDelegate.WithTarget(target).SyncNow(context.Background(), &capabilityv1.Filter{})
+	p.delegate.Set(streamext.NewDelegate(cc, remoteread.NewRemoteReadAgentClient))
 }

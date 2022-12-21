@@ -10,7 +10,6 @@ import "google/api/annotations.proto";
 package remoteread;
 
 // todo: we probably need a new type for Describe and ScanFor
-// RemoteReadGateway handles requests from the agent / cli.
 service RemoteReadGateway {
 //  rpc ScanForTargets(google.protobuf.Empty) returns (stream Target);
 //  rpc Describe(Target) returns (Target)
@@ -20,16 +19,16 @@ service RemoteReadGateway {
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
   rpc ListTargets(TargetListRequest) returns (TargetList);
   rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
-  rpc UpdateTargetStatus(TargetStatusUpdateRequest) returns (google.protobuf.Empty);
 
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
+  rpc UpdateTargetStatus(TargetStatusUpdateRequest) returns (google.protobuf.Empty);
 }
 
-// RemoteReadAgent handles requests to the agent.
 service RemoteReadAgent {
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
+  rpc UpdateTargetStatus(TargetStatusUpdateRequest) returns (google.protobuf.Empty);
 }
 
 message Target {

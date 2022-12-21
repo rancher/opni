@@ -3,7 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"go.uber.org/zap"
@@ -49,8 +49,6 @@ type MetricsBackend struct {
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
-	runner agent.TargetRunner
-
 	util.Initializer
 }
 
@@ -59,14 +57,14 @@ var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
 var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
-	Logger              *zap.SugaredLogger             `validate:"required"`
-	StorageBackend      storage.Backend                `validate:"required"`
-	MgmtClient          managementv1.ManagementClient  `validate:"required"`
-	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
-	UninstallController *task.Controller               `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
-
-	RemoteWriteClient *cortex.RemoteWriteForwarder `validate:"required"`
+	Logger              *zap.SugaredLogger                                         `validate:"required"`
+	StorageBackend      storage.Backend                                            `validate:"required"`
+	MgmtClient          managementv1.ManagementClient                              `validate:"required"`
+	NodeManagerClient   capabilityv1.NodeManagerClient                             `validate:"required"`
+	UninstallController *task.Controller                                           `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
+	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
+	RemoteWriteClient   *cortex.RemoteWriteForwarder                               `validate:"required"`
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -79,9 +77,11 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
 
-		m.runner = agent.NewTargetRunner(m.Logger.Named("target-runner"))
-		m.runner.SetRemoteWriteForwarder(m.RemoteWriteClient)
-		m.runner.SetRemoteReadServer(m)
+		if m.Delegate == nil {
+			m.Logger.Infof("found nil delegate")
+		} else {
+			m.Logger.Infof("found non-nil delegate")
+		}
 	})
 }
 
@@ -366,6 +366,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 			},
 		},
 	}), nil
+
 	// return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
 	// 	Enabled: enabled,
 	// 	Spec:    m.desiredNodeSpec[id],
@@ -427,11 +428,6 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 }
 
 // Metrics Remote Read Backend
-// todo: handle running targets (disallow all edits / deletes / etc)
-
-func targetAlreadyRunningError(id string) error {
-	return fmt.Errorf("target '%s' is already running", id)
-}
 
 func targetAlreadyExistsError(id string) error {
 	return fmt.Errorf("target '%s' already exists", id)
@@ -598,23 +594,11 @@ func (m *MetricsBackend) UpdateTargetStatus(_ context.Context, request *remotere
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	targetId := getIdFromTargetMeta(request.Target.Meta)
-
-	m.remoteReadTargetMu.Lock()
-	target, found := m.remoteReadTargets[targetId]
-	m.remoteReadTargetMu.Unlock()
-
-	if !found {
-		return nil, targetDoesNotExistError(targetId)
+	if m.Delegate == nil {
+		return nil, fmt.Errorf("encountered nil delegate")
 	}
 
-	request.Target = target
-
-	if target.Status.State == remoteread.TargetStatus_Running {
-		return nil, targetAlreadyRunningError(targetId)
-	}
-
-	err := m.runner.Start(request.Target, request.Query)
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
@@ -639,10 +623,11 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	err := m.runner.Stop(request.Meta.Name)
+	if m.Delegate == nil {
+		return nil, fmt.Errorf("encountered nil delegate")
+	}
 
-	// todo: send start request to appropriate agent
-	//_, err := 0, fmt.Errorf("not yet implemented")
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
@@ -655,7 +640,6 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 		return nil, err
 	}
 
-	// todo: we might want to display the new name if it was changed
 	m.Logger.With(
 		"cluster", request.Meta.Name,
 		"target", request.Meta.Name,

@@ -65,25 +65,15 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 }
 
 func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
-	s.remoteWriteClientMu.Lock()
+	s.remoteReadClientMu.Lock()
 	defer s.remoteReadClientMu.Unlock()
 
 	s.remoteReadClient = client
 }
 
-// SetTargetRunner sets the runner of the HttpServer. If there is already a
-// remotewrite.RemoteWriteClient set for the server, it will be passed to the
-// runner using TargetRunner.SetRemoteWriteClient.
 func (s *HttpServer) SetTargetRunner(runner clients.Locker[TargetRunner]) {
 	s.targetRunnerMu.Lock()
 	defer s.targetRunnerMu.Unlock()
-
-	s.remoteWriteClientMu.Lock()
-	if s.remoteWriteClient != nil {
-		runner.Use(func(runner TargetRunner) {
-			runner.SetRemoteWriteClient(s.remoteWriteClient)
-		})
-	}
 
 	s.targetRunner = runner
 }
@@ -197,6 +187,7 @@ func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
 
 		c.Status(http.StatusOK)
 	})
+
 }
 
 func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {

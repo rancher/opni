@@ -27,8 +27,9 @@ import (
 type MetricsNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
-	//remoteread.UnsafeRemoteReadGatewayServer
-	remoteread.UnimplementedRemoteReadGatewayServer
+
+	// we only need a subset of the methods
+	remoteread.UnsafeRemoteReadAgentServer
 
 	logger *zap.SugaredLogger
 

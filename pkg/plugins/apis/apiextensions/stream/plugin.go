@@ -68,6 +68,7 @@ func (p *streamApiExtensionPlugin) GRPCServer(
 ) error {
 	apiextensions.RegisterStreamAPIExtensionServer(s, p.extensionSrv)
 	streamv1.RegisterStreamServer(s, p.extensionSrv)
+	streamv1.RegisterDelegateServer(s, p.extensionSrv)
 	return nil
 }
 
@@ -125,6 +126,8 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 
 type streamExtensionServerImpl struct {
 	streamv1.UnsafeStreamServer
+	streamv1.UnsafeDelegateServer
+
 	name string
 	apiextensions.UnimplementedStreamAPIExtensionServer
 	servers                 []*richServer
@@ -182,6 +185,13 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	e.streamClientCond.Broadcast()
 	e.streamClientCond.L.Unlock()
 
+	// todo: necessary for gateway but redundant for clients (will cause UseStreamClient to run twice)
+	if e.clientHandler != nil {
+		if _, err := e.Notify(context.TODO(), &streamv1.StreamEvent{Type: streamv1.EventType_DiscoveryComplete}); err != nil {
+			e.logger.Infof("failed to notify server of new connection")
+		}
+	}
+
 	defer func() {
 		e.streamClientCond.L.Lock()
 		if e.clientDisconnectHandler != nil {
@@ -202,7 +212,7 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
-	).Debug("received notify event")
+	).Debugf("received notify event for '%s'", e.name)
 	returned := make(chan struct{})
 	defer close(returned)
 	go func() {
@@ -236,6 +246,17 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 		e.streamClientCond.L.Unlock()
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// Implements streamv1.DelegateServer
+func (e *streamExtensionServerImpl) Request(ctx context.Context, message *streamv1.DelegatedMessage) (*totem.RPC, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (e *streamExtensionServerImpl) Broadcast(ctx context.Context, message *streamv1.BroadcastMessage) (*emptypb.Empty, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 // func (e *mgmtExtensionServerImpl) Services(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {

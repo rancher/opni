@@ -42,8 +42,8 @@ type MetricsNode struct {
 	healthListenerClientMu sync.RWMutex
 	healthListenerClient   controlv1.HealthListenerClient
 
-	remoteReadClientMu sync.RWMutex
-	remoteReadClient   remoteread.RemoteReadGatewayClient
+	targetRunnerMu sync.RWMutex
+	targetRunner   TargetRunner
 
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
@@ -54,8 +54,9 @@ type MetricsNode struct {
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
-		logger:     lg,
-		conditions: ct,
+		logger:       lg,
+		conditions:   ct,
+		targetRunner: NewTargetRunner(lg.Named("runner")),
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
 	return node
@@ -110,13 +111,6 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.sendHealthUpdate()
 }
 
-func (m *MetricsNode) SetRemoteReadClient(client remoteread.RemoteReadGatewayClient) {
-	m.remoteReadClientMu.Lock()
-	defer m.remoteReadClientMu.Unlock()
-
-	m.remoteReadClient = client
-}
-
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityMetrics,
@@ -168,44 +162,39 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 
 // Start Implements remoteread.RemoteReadServer
 
-func (m *MetricsNode) UpdateTargetStatus(ctx context.Context, request *remoteread.TargetStatusUpdateRequest) (*emptypb.Empty, error) {
-	//m.remoteReadClientMu.Lock()
-	//defer m.remoteReadClientMu.Unlock()
-
-	if m.remoteReadClient == nil {
-		m.logger.Errorf("no remote read client doing nothing")
-		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
-	}
-
-	return m.remoteReadClient.UpdateTargetStatus(ctx, request)
-}
-
 func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
-	//m.remoteReadClientMu.Lock()
-	//defer m.remoteReadClientMu.Unlock()
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
 
-	m.logger.Debug("received grpc start")
-
-	if m.remoteReadClient == nil {
-		m.logger.Errorf("no remote read client doing nothing")
-		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	if err := m.targetRunner.Start(request.Target, request.Query); err != nil {
+		return nil, err
 	}
 
-	return m.remoteReadClient.Start(ctx, request)
+	return &emptypb.Empty{}, nil
 }
 
 func (m *MetricsNode) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
-	//m.remoteReadClientMu.Lock()
-	//defer m.remoteReadClientMu.Unlock()
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
 
-	m.logger.Debug("received grpc stop")
-
-	if m.remoteReadClient == nil {
-		m.logger.Errorf("no remote read client doing nothing")
-		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	if err := m.targetRunner.Stop(request.Meta.Name); err != nil {
+		return nil, err
 	}
 
-	return m.remoteReadClient.Stop(ctx, request)
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+	m.targetRunnerMu.RLock()
+	defer m.targetRunnerMu.RUnlock()
+
+	status, err := m.targetRunner.GetStatus(request.Meta.Name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return status, nil
 }
 
 func (m *MetricsNode) doSync(ctx context.Context) {

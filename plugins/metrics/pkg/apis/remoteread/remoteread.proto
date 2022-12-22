@@ -18,17 +18,16 @@ service RemoteReadGateway {
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
   rpc ListTargets(TargetListRequest) returns (TargetList);
-  rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
 
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
-  rpc UpdateTargetStatus(TargetStatusUpdateRequest) returns (google.protobuf.Empty);
+  rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
 }
 
 service RemoteReadAgent {
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
-  rpc UpdateTargetStatus(TargetStatusUpdateRequest) returns (google.protobuf.Empty);
+  rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
 }
 
 message Target {

@@ -100,9 +100,9 @@ type TargetRunner interface {
 
 	Stop(name string) error
 
-	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
+	GetStatus(name string) (*remoteread.TargetStatus, error)
 
-	SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient])
+	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
 }
 
 func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
@@ -130,33 +130,10 @@ func (runner *targetRunner) SetRemoteReadClient(client clients.Locker[remoteread
 	runner.remoteReadClient = client
 }
 
-// updateRunStatus notifies the gateway of the status of the Run's target status
-func (runner *targetRunner) updateRunStatus(run Run) {
-	runner.remoteReadClient.Use(func(client remoteread.RemoteReadGatewayClient) {
-		newStatus := run.target.Status
-
-		request := &remoteread.TargetStatusUpdateRequest{
-			Meta:      run.target.Meta,
-			NewStatus: newStatus,
-		}
-
-		_, err := client.UpdateTargetStatus(context.TODO(), request)
-
-		if err != nil {
-			runner.logger.Errorf("failed to push status to server: %s", err)
-		}
-	})
-}
-
 func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient) {
 	runner.runsMu.Lock()
 	runner.runs[run.target.Meta.Name] = run
 	runner.runsMu.Unlock()
-
-	run.target.Status.Progress = &remoteread.TargetProgress{
-		StartTimestamp: run.query.StartTimestamp,
-		EndTimestamp:   run.query.EndTimestamp,
-	}
 
 	labelMatchers := toLabelMatchers(run.query.Matchers)
 
@@ -167,8 +144,26 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 	nextStart := run.query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
-	run.running()
-	runner.updateRunStatus(run)
+	run.target.Status = &remoteread.TargetStatus{
+		Progress: &remoteread.TargetProgress{
+			StartTimestamp: run.query.StartTimestamp,
+			EndTimestamp:   run.query.EndTimestamp,
+		},
+		Message: "",
+		State:   remoteread.TargetStatus_Running,
+	}
+
+	defer func() {
+		// todo: defer this stuff
+		if run.target.Status.State == remoteread.TargetStatus_Running {
+			runner.logger.With(
+				"cluster", run.target.Meta.ClusterId,
+				"target", run.target.Meta.Name,
+			).Infof("run completed")
+
+			run.complete()
+		}
+	}()
 
 	for nextStart < importEnd && run.target.Status.State == remoteread.TargetStatus_Running {
 		nextStart = nextEnd
@@ -191,7 +186,6 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 
 		if err != nil {
 			run.failed(fmt.Sprintf("failed to read from target endpoint: %s", err.Error()))
-			runner.updateRunStatus(run)
 			return
 		}
 
@@ -207,7 +201,6 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 			uncompressed, err := proto.Marshal(&writeRequest)
 			if err != nil {
 				run.failed(fmt.Sprintf("failed to uncompress data from target endpoint: %s", err.Error()))
-				runner.updateRunStatus(run)
 				return
 			}
 
@@ -220,12 +213,10 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.TODO(), payload); err != nil {
 					run.failed("failed to push to remote write")
-					runner.updateRunStatus(run)
 					return
 				}
 
 				run.updateLastRead(nextEnd)
-				runner.updateRunStatus(run)
 			})
 
 			runner.logger.With(
@@ -235,23 +226,7 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 		}
 
 		run.updateLastRead(nextEnd)
-		runner.updateRunStatus(run)
 	}
-
-	if run.target.Status.State == remoteread.TargetStatus_Running {
-		runner.logger.With(
-			"cluster", run.target.Meta.ClusterId,
-			"target", run.target.Meta.Name,
-		).Infof("run completed")
-
-		run.complete()
-		runner.updateRunStatus(run)
-	}
-
-	runner.runsMu.Lock()
-	defer runner.runsMu.Unlock()
-
-	delete(runner.runs, run.target.Meta.Name)
 }
 
 func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
@@ -308,7 +283,6 @@ func (runner *targetRunner) Stop(name string) error {
 	delete(runner.runs, name)
 
 	run.stopped()
-	runner.updateRunStatus(run)
 
 	runner.logger.With(
 		"cluster", run.target.Meta.ClusterId,
@@ -316,4 +290,16 @@ func (runner *targetRunner) Stop(name string) error {
 	).Infof("target stopped")
 
 	return nil
+}
+
+func (runner *targetRunner) GetStatus(name string) (*remoteread.TargetStatus, error) {
+	runner.runsMu.Lock()
+	run, found := runner.runs[name]
+	runner.runsMu.Unlock()
+
+	if !found {
+		return nil, targetIsNotRunningError(name)
+	}
+
+	return run.target.Status, nil
 }

@@ -243,7 +243,9 @@ func BuildImportStartCmd() *cobra.Command {
 				ForceOverlap: forceOverlap,
 			}
 
-			if _, err := remoteReadClient.Start(cmd.Context(), request); err != nil {
+			//ctx, _ := context.WithTimeout(cmd.Context(), time.Second)
+			ctx := cmd.Context()
+			if _, err := remoteReadClient.Start(ctx, request); err != nil {
 				return err
 			}
 

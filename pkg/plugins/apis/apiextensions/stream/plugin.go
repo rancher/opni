@@ -125,7 +125,6 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 
 type streamExtensionServerImpl struct {
 	streamv1.UnsafeStreamServer
-	streamv1.UnsafeDelegateServer
 
 	name string
 	apiextensions.UnimplementedStreamAPIExtensionServer
@@ -245,17 +244,6 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 		e.streamClientCond.L.Unlock()
 	}
 	return &emptypb.Empty{}, nil
-}
-
-// Implements streamv1.DelegateServer
-func (e *streamExtensionServerImpl) Request(ctx context.Context, message *streamv1.DelegatedMessage) (*totem.RPC, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (e *streamExtensionServerImpl) Broadcast(ctx context.Context, message *streamv1.BroadcastMessage) (*emptypb.Empty, error) {
-	//TODO implement me
-	panic("implement me")
 }
 
 // func (e *mgmtExtensionServerImpl) Services(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {

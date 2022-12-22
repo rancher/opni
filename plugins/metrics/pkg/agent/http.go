@@ -3,7 +3,6 @@ package agent
 import (
 	"errors"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"google.golang.org/protobuf/proto"
 	"net/http"
 	"strings"
 	"sync"
@@ -32,9 +31,6 @@ type HttpServer struct {
 
 	remoteReadClientMu sync.RWMutex
 	remoteReadClient   clients.Locker[remoteread.RemoteReadGatewayClient]
-
-	targetRunnerMu sync.RWMutex
-	targetRunner   TargetRunner
 
 	conditions health.ConditionTracker
 
@@ -72,26 +68,26 @@ func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.Remote
 }
 
 func (s *HttpServer) SetTargetRunner(runner TargetRunner) {
-	s.targetRunnerMu.Lock()
-	defer s.targetRunnerMu.Unlock()
-
-	s.targetRunner = runner
-
-	s.remoteReadClientMu.RLock()
-	s.targetRunner.SetRemoteReadClient(s.remoteReadClient)
-	s.remoteReadClientMu.RUnlock()
-
-	s.remoteWriteClientMu.RLock()
-	s.targetRunner.SetRemoteWriteClient(s.remoteWriteClient)
-	s.remoteWriteClientMu.RUnlock()
+	//s.targetRunnerMu.Lock()
+	//defer s.targetRunnerMu.Unlock()
+	//
+	//s.targetRunner = runner
+	//
+	//s.remoteReadClientMu.RLock()
+	//s.targetRunner.SetRemoteReadClient(s.remoteReadClient)
+	//s.remoteReadClientMu.RUnlock()
+	//
+	//s.remoteWriteClientMu.RLock()
+	//s.targetRunner.SetRemoteWriteClient(s.remoteWriteClient)
+	//s.remoteWriteClientMu.RUnlock()
 }
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handleMetricPushRequest)
 	pprof.Register(router, "/debug/plugin_metrics/pprof")
 
-	router.GET("/api/remoteread/start", s.handleRemoteReadStart)
-	router.GET("/api/remoteread/stop", s.handleRemoteReadStop)
+	//router.GET("/api/remoteread/start", s.handleRemoteReadStart)
+	//router.GET("/api/remoteread/stop", s.handleRemoteReadStop)
 }
 
 func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {
@@ -167,65 +163,65 @@ func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {
 	}
 }
 
-func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
-	s.logger.Debugf("received http start")
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	buf := bytebufferpool.Get()
-	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var request remoteread.StartReadRequest
-	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	s.targetRunnerMu.Lock()
-	defer s.targetRunnerMu.Unlock()
-	if err := s.targetRunner.Start(request.Target, request.Query); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	c.Status(http.StatusOK)
-
-}
-
-func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {
-	s.logger.Debugf("received http stop")
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	buf := bytebufferpool.Get()
-	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var request remoteread.StopReadRequest
-	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	s.targetRunnerMu.Lock()
-	defer s.targetRunnerMu.Unlock()
-	if err := s.targetRunner.Stop(request.Meta.Name); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	c.Status(http.StatusOK)
-}
+//func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
+//	s.logger.Debugf("received http start")
+//	if !s.enabled.Load() {
+//		c.Status(http.StatusServiceUnavailable)
+//		return
+//	}
+//
+//	buf := bytebufferpool.Get()
+//	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
+//		c.Status(http.StatusInternalServerError)
+//		return
+//	}
+//
+//	var request remoteread.StartReadRequest
+//	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
+//		c.Status(http.StatusBadRequest)
+//		c.Error(err)
+//		return
+//	}
+//
+//	s.targetRunnerMu.Lock()
+//	defer s.targetRunnerMu.Unlock()
+//	if err := s.targetRunner.Start(request.Target, request.Query); err != nil {
+//		c.Status(http.StatusBadRequest)
+//		c.Error(err)
+//		return
+//	}
+//
+//	c.Status(http.StatusOK)
+//
+//}
+//
+//func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {
+//	s.logger.Debugf("received http stop")
+//	if !s.enabled.Load() {
+//		c.Status(http.StatusServiceUnavailable)
+//		return
+//	}
+//
+//	buf := bytebufferpool.Get()
+//	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
+//		c.Status(http.StatusInternalServerError)
+//		return
+//	}
+//
+//	var request remoteread.StopReadRequest
+//	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
+//		c.Status(http.StatusBadRequest)
+//		c.Error(err)
+//		return
+//	}
+//
+//	s.targetRunnerMu.Lock()
+//	defer s.targetRunnerMu.Unlock()
+//	if err := s.targetRunner.Stop(request.Meta.Name); err != nil {
+//		c.Status(http.StatusBadRequest)
+//		c.Error(err)
+//		return
+//	}
+//
+//	c.Status(http.StatusOK)
+//}

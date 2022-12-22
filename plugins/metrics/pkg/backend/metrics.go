@@ -46,6 +46,7 @@ type MetricsBackend struct {
 	desiredNodeSpecMu sync.RWMutex
 	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
+	// todo: we probably want to use a storage rather than a simple map to allow for HA
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
@@ -443,6 +444,8 @@ func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
 }
 
 func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
@@ -560,6 +563,7 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 func (m *MetricsBackend) GetTargetStatus(_ context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
 	m.WaitForInit()
 
+	// todo: need to query agent
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
@@ -573,32 +577,31 @@ func (m *MetricsBackend) GetTargetStatus(_ context.Context, request *remoteread.
 	return target.Status, nil
 }
 
-func (m *MetricsBackend) UpdateTargetStatus(_ context.Context, request *remoteread.TargetStatusUpdateRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
-
-	targetId := getIdFromTargetMeta(request.Meta)
-
-	target, found := m.remoteReadTargets[targetId]
-	if !found {
-		return nil, targetDoesNotExistError(targetId)
-	}
-
-	target.Status = request.NewStatus
-
-	return &emptypb.Empty{}, nil
-}
-
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
+
+	// todo: delete after debugging circular communication stuff
+	//request.Query.Matchers[0].Name = "debugging"
 
 	if m.Delegate == nil {
 		return nil, fmt.Errorf("encountered nil delegate")
 	}
 
-	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
+	// agent needs the full target but cli will ony have access to remoteread.TargetMeta values (clusterId, name, etc)
+	// so we need to replace the naive request target
+	targetId := getIdFromTargetMeta(request.Target.Meta)
+
+	m.remoteReadTargetMu.Lock()
+	target, found := m.remoteReadTargets[targetId]
+	m.remoteReadTargetMu.Unlock()
+
+	if !found {
+		return nil, targetDoesNotExistError(targetId)
+	}
+
+	request.Target = target
+
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(context.TODO(), request)
 
 	if err != nil {
 		m.Logger.With(

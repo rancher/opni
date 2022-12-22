@@ -27,10 +27,9 @@ type RemoteReadGatewayClient interface {
 	EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListTargets(ctx context.Context, in *TargetListRequest, opts ...grpc.CallOption) (*TargetList, error)
-	GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error)
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	UpdateTargetStatus(ctx context.Context, in *TargetStatusUpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error)
 }
 
 type remoteReadGatewayClient struct {
@@ -77,15 +76,6 @@ func (c *remoteReadGatewayClient) ListTargets(ctx context.Context, in *TargetLis
 	return out, nil
 }
 
-func (c *remoteReadGatewayClient) GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error) {
-	out := new(TargetStatus)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/GetTargetStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *remoteReadGatewayClient) Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/Start", in, out, opts...)
@@ -104,9 +94,9 @@ func (c *remoteReadGatewayClient) Stop(ctx context.Context, in *StopReadRequest,
 	return out, nil
 }
 
-func (c *remoteReadGatewayClient) UpdateTargetStatus(ctx context.Context, in *TargetStatusUpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/UpdateTargetStatus", in, out, opts...)
+func (c *remoteReadGatewayClient) GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error) {
+	out := new(TargetStatus)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/GetTargetStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +111,9 @@ type RemoteReadGatewayServer interface {
 	EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error)
 	RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error)
 	ListTargets(context.Context, *TargetListRequest) (*TargetList, error)
-	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
-	UpdateTargetStatus(context.Context, *TargetStatusUpdateRequest) (*emptypb.Empty, error)
+	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
 	mustEmbedUnimplementedRemoteReadGatewayServer()
 }
 
@@ -144,17 +133,14 @@ func (UnimplementedRemoteReadGatewayServer) RemoveTarget(context.Context, *Targe
 func (UnimplementedRemoteReadGatewayServer) ListTargets(context.Context, *TargetListRequest) (*TargetList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTargets not implemented")
 }
-func (UnimplementedRemoteReadGatewayServer) GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
-}
 func (UnimplementedRemoteReadGatewayServer) Start(context.Context, *StartReadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
 }
 func (UnimplementedRemoteReadGatewayServer) Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
-func (UnimplementedRemoteReadGatewayServer) UpdateTargetStatus(context.Context, *TargetStatusUpdateRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateTargetStatus not implemented")
+func (UnimplementedRemoteReadGatewayServer) GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
 }
 func (UnimplementedRemoteReadGatewayServer) mustEmbedUnimplementedRemoteReadGatewayServer() {}
 
@@ -241,24 +227,6 @@ func _RemoteReadGateway_ListTargets_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteReadGateway_GetTargetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TargetStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RemoteReadGatewayServer).GetTargetStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/remoteread.RemoteReadGateway/GetTargetStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadGatewayServer).GetTargetStatus(ctx, req.(*TargetStatusRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RemoteReadGateway_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartReadRequest)
 	if err := dec(in); err != nil {
@@ -295,20 +263,20 @@ func _RemoteReadGateway_Stop_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteReadGateway_UpdateTargetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TargetStatusUpdateRequest)
+func _RemoteReadGateway_GetTargetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TargetStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadGatewayServer).UpdateTargetStatus(ctx, in)
+		return srv.(RemoteReadGatewayServer).GetTargetStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteReadGateway/UpdateTargetStatus",
+		FullMethod: "/remoteread.RemoteReadGateway/GetTargetStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadGatewayServer).UpdateTargetStatus(ctx, req.(*TargetStatusUpdateRequest))
+		return srv.(RemoteReadGatewayServer).GetTargetStatus(ctx, req.(*TargetStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -337,10 +305,6 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RemoteReadGateway_ListTargets_Handler,
 		},
 		{
-			MethodName: "GetTargetStatus",
-			Handler:    _RemoteReadGateway_GetTargetStatus_Handler,
-		},
-		{
 			MethodName: "Start",
 			Handler:    _RemoteReadGateway_Start_Handler,
 		},
@@ -349,8 +313,8 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RemoteReadGateway_Stop_Handler,
 		},
 		{
-			MethodName: "UpdateTargetStatus",
-			Handler:    _RemoteReadGateway_UpdateTargetStatus_Handler,
+			MethodName: "GetTargetStatus",
+			Handler:    _RemoteReadGateway_GetTargetStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -363,7 +327,7 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 type RemoteReadAgentClient interface {
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	UpdateTargetStatus(ctx context.Context, in *TargetStatusUpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error)
 }
 
 type remoteReadAgentClient struct {
@@ -392,9 +356,9 @@ func (c *remoteReadAgentClient) Stop(ctx context.Context, in *StopReadRequest, o
 	return out, nil
 }
 
-func (c *remoteReadAgentClient) UpdateTargetStatus(ctx context.Context, in *TargetStatusUpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/UpdateTargetStatus", in, out, opts...)
+func (c *remoteReadAgentClient) GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error) {
+	out := new(TargetStatus)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/GetTargetStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +371,7 @@ func (c *remoteReadAgentClient) UpdateTargetStatus(ctx context.Context, in *Targ
 type RemoteReadAgentServer interface {
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
-	UpdateTargetStatus(context.Context, *TargetStatusUpdateRequest) (*emptypb.Empty, error)
+	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
 	mustEmbedUnimplementedRemoteReadAgentServer()
 }
 
@@ -421,8 +385,8 @@ func (UnimplementedRemoteReadAgentServer) Start(context.Context, *StartReadReque
 func (UnimplementedRemoteReadAgentServer) Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
-func (UnimplementedRemoteReadAgentServer) UpdateTargetStatus(context.Context, *TargetStatusUpdateRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateTargetStatus not implemented")
+func (UnimplementedRemoteReadAgentServer) GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
 }
 func (UnimplementedRemoteReadAgentServer) mustEmbedUnimplementedRemoteReadAgentServer() {}
 
@@ -473,20 +437,20 @@ func _RemoteReadAgent_Stop_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteReadAgent_UpdateTargetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TargetStatusUpdateRequest)
+func _RemoteReadAgent_GetTargetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TargetStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadAgentServer).UpdateTargetStatus(ctx, in)
+		return srv.(RemoteReadAgentServer).GetTargetStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteReadAgent/UpdateTargetStatus",
+		FullMethod: "/remoteread.RemoteReadAgent/GetTargetStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadAgentServer).UpdateTargetStatus(ctx, req.(*TargetStatusUpdateRequest))
+		return srv.(RemoteReadAgentServer).GetTargetStatus(ctx, req.(*TargetStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -507,8 +471,8 @@ var RemoteReadAgent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RemoteReadAgent_Stop_Handler,
 		},
 		{
-			MethodName: "UpdateTargetStatus",
-			Handler:    _RemoteReadAgent_UpdateTargetStatus_Handler,
+			MethodName: "GetTargetStatus",
+			Handler:    _RemoteReadAgent_GetTargetStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

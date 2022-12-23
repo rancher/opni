@@ -24,11 +24,11 @@ enum Severity {
 }
 
 enum GoldenSignal{
-  CUSTOM = 0;
-  ERRORS = 1;
-  SATURATION = 2;
-  TRAFFIC = 3;
-  LATENCY = 4;
+  Custom = 0;
+  Errors = 1;
+  Saturation = 2;
+  Traffic = 3;
+  Latency = 4;
 }
 
 message AlertCondition {

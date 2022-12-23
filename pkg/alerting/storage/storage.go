@@ -227,11 +227,10 @@ func (j *JetStreamAlertingStorage[T]) ListKeys(ctx context.Context) ([]string, e
 
 func (j *JetStreamAlertingStorage[T]) List(ctx context.Context, opts ...RequestOption) ([]T, error) {
 	keys, err := j.ListKeys(ctx)
-	if err != nil {
-		return nil, err
-	}
 	if errors.Is(err, nats.ErrNoKeysFound) {
 		return []T{}, nil
+	} else if err != nil {
+		return nil, err
 	}
 	var values []T
 	for _, key := range keys {

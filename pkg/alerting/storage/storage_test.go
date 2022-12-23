@@ -2,20 +2,22 @@ package storage_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,12 +42,12 @@ func ExpectWindowsAreOk(v []*alertingv1.ActiveWindow, neverBefore time.Time) {
 }
 
 type TestAlertStorage[T interfaces.AlertingSecret] interface {
-	alertstorage.AlertingStorage[T]
+	storage.AlertingStorage[T]
 	CheckRedactedSecrets(unredacted, redacted T) bool
 }
 
 type TestJetstreamAlertStorage struct {
-	alertstorage.JetStreamAlertingStorage[*testgrpc.TestSecret]
+	storage.JetStreamAlertingStorage[*testgrpc.TestSecret]
 }
 
 func (t *TestJetstreamAlertStorage) CheckRedactedSecrets(unredacted, redacted *testgrpc.TestSecret) bool {
@@ -61,40 +63,42 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 ) bool {
 	return Describe(name, Ordered, Label(test.Unit), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var storage TestAlertStorage[T]
+		var st TestAlertStorage[T]
 		BeforeAll(func() {
 			// this closure captures stuff from the suite_test setup,
 			// so must live inside a ginkgo node
-			storage = storageConstructor()
+			st = storageConstructor()
 			Expect(testKv).NotTo(BeNil())
 			DeferCleanup(func() {
-				keys, err := storage.ListKeys(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				for _, key := range keys {
-					err = storage.Delete(ctx, key)
+				keys, err := st.ListKeys(ctx)
+				if !errors.Is(err, nats.ErrNoKeysFound) {
 					Expect(err).NotTo(HaveOccurred())
+					for _, key := range keys {
+						err = st.Delete(ctx, key)
+						Expect(err).NotTo(HaveOccurred())
+					}
+					ca()
 				}
-				ca()
 			})
 		})
 		BeforeEach(func() { // make sure the storage is set before each test
-			Expect(storage).NotTo(BeNil())
+			Expect(st).NotTo(BeNil())
 		})
 		When("Persisting Alerting Secrets in the AlertStorage", func() {
 			It("should redact secrets appropriately", func() {
 				for testcaseName, unsecret := range testcases {
 					By(fmt.Sprintf("Putting the secret '%s' in the storage", testcaseName))
-					err := storage.Put(ctx, testcaseName, unsecret)
+					err := st.Put(ctx, testcaseName, unsecret)
 					Expect(err).NotTo(HaveOccurred())
 					By(fmt.Sprintf("Fetching the secret '%s' with redaction enabled", testcaseName))
-					redacted, err := storage.Get(ctx, testcaseName)
+					redacted, err := st.Get(ctx, testcaseName)
 					Expect(err).NotTo(HaveOccurred())
 					By(fmt.Sprintf("Checking the secret's '%s' secrets fields are redacted", testcaseName))
-					Expect(storage.CheckRedactedSecrets(unsecret, redacted)).To(BeTrue())
+					Expect(st.CheckRedactedSecrets(unsecret, redacted)).To(BeTrue())
 				}
 
 				By("requesting a list of the secrets in redacted form")
-				items, err := storage.List(ctx)
+				items, err := st.List(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				By("Expecting none of the secrets to have unredacted information")
 				testcaseRedactedItems := lo.MapToSlice(testcases, func(K string, V T) T {
@@ -107,15 +111,15 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 			It("should unredact secrets appropriately", func() {
 				for testcaseName, unsecret := range testcases {
 					By("Putting the secret in the storage")
-					err := storage.Put(ctx, testcaseName, unsecret)
+					err := st.Put(ctx, testcaseName, unsecret)
 					Expect(err).NotTo(HaveOccurred())
 					By(fmt.Sprintf("Checking the secret's '%s' secrets fields are unredacted", testcaseName))
-					redacted, err := storage.Get(ctx, testcaseName, alertstorage.WithUnredacted())
+					redacted, err := st.Get(ctx, testcaseName, storage.WithUnredacted())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(unsecret).To(testutil.ProtoEqual(redacted))
 				}
 				By("requesting a list of the secrets in redacted form")
-				items, err := storage.List(ctx, alertstorage.WithUnredacted())
+				items, err := st.List(ctx, storage.WithUnredacted())
 				Expect(err).NotTo(HaveOccurred())
 				By("Expecting none of the secrets to have redacted information")
 				testcaseItems := lo.MapToSlice(testcases, func(K string, V T) T {
@@ -126,11 +130,11 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 			It("should delete secrets when requested", func() {
 				for testcaseName := range testcases {
 					By(fmt.Sprintf("Deleting the secret '%s'", testcaseName))
-					err := storage.Delete(ctx, testcaseName)
+					err := st.Delete(ctx, testcaseName)
 					Expect(err).NotTo(HaveOccurred())
 				}
 				By("verifying that no more secrets are in the storage")
-				items, err := storage.List(ctx)
+				items, err := st.List(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(items).To(BeEmpty())
 			})
@@ -140,21 +144,23 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 
 func BuildAlertingStateCacheTestSuite(
 	name string,
-	stateCacheConstructor func() alertstorage.AlertingStateCache[*alertingv1.CachedState],
+	stateCacheConstructor func() storage.AlertingStateCache[*alertingv1.CachedState],
 ) bool {
 	return Describe(name, Ordered, Label(test.Unit), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var cache alertstorage.AlertingStateCache[*alertingv1.CachedState]
+		var cache storage.AlertingStateCache[*alertingv1.CachedState]
 		BeforeAll(func() {
 			cache = stateCacheConstructor()
 			DeferCleanup(func() {
 				keys, err := cache.ListKeys(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				for _, key := range keys {
-					err = cache.Delete(ctx, key)
+				if !errors.Is(err, nats.ErrNoKeysFound) {
 					Expect(err).NotTo(HaveOccurred())
+					for _, key := range keys {
+						err = cache.Delete(ctx, key)
+						Expect(err).NotTo(HaveOccurred())
+					}
+					ca()
 				}
-				ca()
 			})
 		})
 		BeforeEach(func() {
@@ -273,21 +279,23 @@ func BuildAlertingStateCacheTestSuite(
 
 func BuildAlertingIncidentTrackerTestSuite(
 	name string,
-	incidentTrackerConstructor func() alertstorage.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
+	incidentTrackerConstructor func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
 ) bool {
 	return Describe(name, Ordered, Label(test.Unit), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var tracker alertstorage.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
+		var tracker storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
 		BeforeAll(func() {
 			tracker = incidentTrackerConstructor()
 			DeferCleanup(func() {
 				keys, err := tracker.ListKeys(ctx)
-				Expect(err).To(Succeed())
-				for _, key := range keys {
-					err := tracker.Delete(ctx, key)
-					Expect(err).To(Succeed())
+				if !errors.Is(err, nats.ErrNoKeysFound) {
+					Expect(err).NotTo(HaveOccurred())
+					for _, key := range keys {
+						err = tracker.Delete(ctx, key)
+						Expect(err).NotTo(HaveOccurred())
+					}
+					ca()
 				}
-				ca()
 			})
 		})
 		BeforeEach(func() {
@@ -355,7 +363,7 @@ var _ = BuildAlertStorageTestSuite(
 	"Alerting JetStream Storage Test Secret",
 	func() TestAlertStorage[*testgrpc.TestSecret] {
 		return &TestJetstreamAlertStorage{
-			JetStreamAlertingStorage: alertstorage.NewJetStreamAlertingStorage[*testgrpc.TestSecret](testKv, "/testsecret"),
+			JetStreamAlertingStorage: storage.NewJetStreamAlertingStorage[*testgrpc.TestSecret](testKv, "/testsecret"),
 		}
 	},
 	map[string]*testgrpc.TestSecret{
@@ -368,14 +376,14 @@ var _ = BuildAlertStorageTestSuite(
 
 var _ = BuildAlertingStateCacheTestSuite(
 	"Alerting State Cache Jetstream Cache",
-	func() alertstorage.AlertingStateCache[*alertingv1.CachedState] {
-		return alertstorage.NewJetStreamAlertingStateCache(testKv2, "/statecache")
+	func() storage.AlertingStateCache[*alertingv1.CachedState] {
+		return storage.NewJetStreamAlertingStateCache(testKv2, "/statecache")
 	},
 )
 
 var _ = BuildAlertingIncidentTrackerTestSuite(
 	"Alerting Incident Tracker Jetstream Cache",
-	func() alertstorage.AlertingIncidentTracker[*alertingv1.IncidentIntervals] {
-		return alertstorage.NewJetStreamAlertingIncidentTracker(testKv2, "/incidenttracker", testTTL)
+	func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals] {
+		return storage.NewJetStreamAlertingIncidentTracker(testKv2, "/incidenttracker", testTTL)
 	},
 )

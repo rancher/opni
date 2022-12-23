@@ -320,8 +320,9 @@ func BuildAlertingIncidentTrackerTestSuite(
 					operation()
 				}
 				By("checking the incident tracker is only reporting incident windows")
-				_, err := tracker.GetActiveWindowsFromIncidentTracker(ctx, key, ts, timestamppb.Now())
+				windows, err := tracker.GetActiveWindowsFromIncidentTracker(ctx, key, ts, timestamppb.Now())
 				Expect(err).To(Succeed())
+				ExpectWindowsAreOk(windows, time.Now().Add(-testTTL))
 			})
 
 			It("should evict data that has expired from the cache", func() {

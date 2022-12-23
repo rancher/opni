@@ -23,6 +23,14 @@ enum Severity {
   CRITICAL = 3;
 }
 
+enum GoldenSignal{
+  CUSTOM = 0;
+  ERRORS = 1;
+  SATURATION = 2;
+  TRAFFIC = 3;
+  LATENCY = 4;
+}
+
 message AlertCondition {
   string name = 1;
   string description = 2;
@@ -31,10 +39,14 @@ message AlertCondition {
   AlertTypeDetails alertType = 5;
   AttachedEndpoints attachedEndpoints = 6;
 
-  // the following are read-only
+  // the following are read-only for consumers of the API
+  
   SilenceInfo silence = 7;// Set & Unset via the silence API
+  // the object id 
   string id = 8;
-  string goldenSignal = 9;
+  // Explicit field where the golden signal is set
+  GoldenSignal goldenSignal = 9;
+  // overrides the String type of AlertType Details for use in the UI
   string overrideType = 10;
 }
 
@@ -432,7 +444,7 @@ message AlertEndpoint {
     PagerDutyEndpoint pagerDuty = 6;
   }
 
-  // the following are read only
+  // the following are read only for consumers of the API
   string id = 7;
 }
 

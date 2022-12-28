@@ -1,4 +1,4 @@
-package alertstorage_test
+package storage_test
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package alertstorage
+package storage
 
 import (
 	"github.com/nats-io/nats.go"

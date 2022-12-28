@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
@@ -22,11 +22,11 @@ import (
 
 func unredactSecrets(
 	ctx context.Context,
-	node *alertstorage.StorageNode,
+	node *storage.StorageNode,
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {
-	unredacted, err := node.Endpoints.Get(ctx, endpointId, alertstorage.WithUnredacted())
+	unredacted, err := node.Endpoints.Get(ctx, endpointId, storage.WithUnredacted())
 	if err != nil {
 		return err
 	}

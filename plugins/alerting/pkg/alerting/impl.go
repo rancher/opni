@@ -14,9 +14,9 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -135,7 +135,7 @@ type internalConditionStorage struct {
 	js              nats.JetStreamContext
 	streamSubject   string
 	durableConsumer *nats.ConsumerConfig
-	storageNode     *alertstorage.StorageNode
+	storageNode     *storage.StorageNode
 	msgCh           chan *nats.Msg
 }
 

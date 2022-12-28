@@ -5,14 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, storage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -58,7 +58,7 @@ func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) 
 }
 
 func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, storage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}
@@ -134,7 +134,7 @@ func (p *Plugin) createDefaultCapabilityHealth(ctx context.Context, clusterId st
 }
 
 func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, storage.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}

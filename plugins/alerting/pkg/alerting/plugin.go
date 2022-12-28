@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
@@ -12,14 +12,12 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"go.uber.org/zap"
 
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/condition"
@@ -42,7 +40,7 @@ type Plugin struct {
 
 	opsNode     *ops.AlertingOpsNode
 	msgNode     *messaging.MessagingNode
-	storageNode future.Future[*alertstorage.StorageNode]
+	storageNode future.Future[*storage.StorageNode]
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -50,11 +48,6 @@ type Plugin struct {
 	natsConn        future.Future[*nats.Conn]
 	js              future.Future[nats.JetStreamContext]
 	globalWatchers  InternalConditionWatcher
-}
-
-type StorageAPIs struct {
-	Conditions    storage.KeyValueStoreT[*alertingv1.AlertCondition]
-	AlertEndpoint storage.KeyValueStoreT[*alertingv1.AlertEndpoint]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -66,7 +59,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 		opsNode:     ops.NewAlertingOpsNode(clusterDriver),
 		msgNode:     messaging.NewMessagingNode(),
-		storageNode: future.New[*alertstorage.StorageNode](),
+		storageNode: future.New[*storage.StorageNode](),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),

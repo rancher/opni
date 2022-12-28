@@ -7,6 +7,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -113,8 +113,8 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		panic(err)
 	}
 	p.js.Set(mgr)
-	storageNode := alertstorage.NewStorageNode(
-		alertstorage.NewStorageAPIs(mgr, time.Hour*24),
+	storageNode := storage.NewStorageNode(
+		storage.NewStorageAPIs(mgr, time.Hour*24),
 	)
 	p.storageNode.Set(storageNode)
 	// spawn a reindexing task
@@ -126,7 +126,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 func (p *Plugin) reindexAlarms() {
 	lg := p.Logger.With("re-indexing", "in-progress")
-	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, alertstorage.WithUnredacted())
+	conditions, err := p.storageNode.Get().Conditions.List(p.Ctx, storage.WithUnredacted())
 	if err != nil {
 		lg.With("err", err).Error("failed to list alert conditions")
 		return

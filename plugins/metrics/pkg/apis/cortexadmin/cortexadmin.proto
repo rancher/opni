@@ -47,7 +47,8 @@ service CortexAdmin {
     };
   }
 
-  rpc ListRules(Cluster) returns (QueryResponse) {
+  // Heavy-handed API for diagnostics.
+  rpc ListRules(ListRulesRequest) returns (ListRulesResponse) {
     option (google.api.http) = {
       get: "/rules"
     };
@@ -237,4 +238,63 @@ message ConfigRequest {
 
 message ConfigResponse {
   repeated string configYaml = 4;
+}
+
+message ListRulesRequest {
+  repeated string clusterId = 1;
+  repeated string ruleType = 2;
+  repeated string healthFilter = 3;
+  repeated string stateFilter = 4;
+  string ruleNameRegexp = 5;
+  string groupNameRegexp = 6;
+  optional bool listInvalid = 7;
+  optional bool requestAll = 8;
+}
+
+// matches the return of cortex ruler api
+// https://github.com/cortexproject/cortex/blob/c0e4545fd26f33ca5cc3323ee48e4c2ccd182b83/pkg/ruler/api.go#L215
+message ListRulesResponse {
+  string status = 1;
+  RuleGroups data = 2;
+}
+
+message RuleGroups {
+    repeated RuleGroup groups = 1;
+}
+
+message RuleGroup {
+  string name = 1;
+  string file = 2;
+  repeated Rule rules = 3;
+  double interval = 4;
+  // Note : string instead of timestamp to preserve compatibility with native prometheus api return value
+  string lastEvaluation = 5;
+  double evaluationTime = 6;
+}
+
+// combination of alerting and recording rule (alerting rule is a superset of recording)
+message Rule {
+  string state = 1;
+  string name = 2;
+  string query = 3;
+  double duration = 4;
+  map<string,string> labels = 5;
+  map<string,string> annotations = 6;
+  string health = 7;
+  repeated Alert alerts = 8;
+  string lastError = 9;
+  string type = 10;
+  // Note : string instead of timestamp to preserve compatibility with native prometheus api return value
+  string lastEvaluation = 11;
+  double evaluationTime = 12;
+
+}
+
+message Alert {
+  map<string,string> labels = 1;
+  map<string,string> annotations = 2;
+  string state = 3;
+  // Note : string instead of timestamp to preserve compatibility with native prometheus api return value
+  string activeAt = 4;
+  string value = 5;
 }

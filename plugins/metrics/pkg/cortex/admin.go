@@ -12,10 +12,12 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -344,29 +346,103 @@ func (p *CortexAdminServer) GetRule(ctx context.Context,
 	}, nil
 }
 
-func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.Cluster) (*cortexadmin.QueryResponse, error) {
+func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.ListRulesRequest) (*cortexadmin.ListRulesResponse, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
 	lg := p.Logger.With(
 		"cluster id", req.ClusterId,
 	)
-	resp, err := p.listCortexRules(ctx, req)
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	filter, err := NewListRuleFilter(
+		req.ClusterId,
+		req.RuleType,
+		req.HealthFilter,
+		req.StateFilter,
+		req.RuleNameRegexp,
+		req.GroupNameRegexp,
+		req.ListInvalid,
+		req.RequestAll,
+	)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		lg.With(
-			"status", resp.Status,
-		).Error("list rules failed")
-		return nil, fmt.Errorf("list failed: %s", resp.Status)
+	returnGroup := []*cortexadmin.RuleGroup{}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	// cortex only allows us to proxy the request to one tenant at a time, returns a 500 internal error otherwise
+	for _, clusterId := range req.ClusterId {
+		clusterId := clusterId
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tempGroup := []*cortexadmin.RuleGroup{}
+			resp, err := p.listCortexRules(ctx, clusterId)
+			if err != nil {
+				lg.Error(err)
+				return
+			}
+			if resp.StatusCode != http.StatusOK {
+				lg.With(
+					"status", resp.Status,
+				).Error("list rules failed")
+				return
+			}
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				lg.Errorf("failed to read response body: %w", err)
+				return
+			}
+
+			ruleResp := &cortexadmin.ListRulesResponse{}
+			err = json.Unmarshal(body, ruleResp)
+			if err != nil {
+				lg.Error(err)
+				return
+			}
+
+			for _, group := range ruleResp.Data.Groups {
+				lg.Debugf("found %d total rules", len(group.Rules))
+				if !filter.MatchesCluster(clusterId) || !filter.MatchesRuleGroup(group.Name) {
+					continue
+				}
+				matchedRules := []*cortexadmin.Rule{}
+				for _, rule := range group.Rules {
+					if !filter.MatchesRuleType(rule.Type) {
+						continue
+					}
+					if rule.Type == string(v1.RuleTypeAlerting) {
+						if !filter.MatchesRuleState(rule.State) {
+							continue
+						}
+					}
+					if !filter.MatchesHealth(rule.Health) {
+						continue
+					}
+					if !filter.MatchesRule(rule.Name) {
+						continue
+					}
+					matchedRules = append(matchedRules, rule)
+				}
+				lg.Debugf("matched %d total rules", len(matchedRules))
+				group.Rules = matchedRules
+				if len(matchedRules) > 0 {
+					tempGroup = append(tempGroup, group)
+				}
+			}
+			lock.Lock()
+			returnGroup = append(returnGroup, tempGroup...)
+			lock.Unlock()
+		}()
 	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-	return &cortexadmin.QueryResponse{
-		Data: body,
+	wg.Wait()
+	return &cortexadmin.ListRulesResponse{
+		Status: "success",
+		Data: &cortexadmin.RuleGroups{
+			Groups: returnGroup,
+		},
 	}, nil
 }
 
@@ -380,6 +456,9 @@ func (p *CortexAdminServer) LoadRules(ctx context.Context,
 	lg := p.Logger.With(
 		"cluster", in.ClusterId,
 	)
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.Config.Cortex.Ruler.HTTPAddress), nil)
@@ -740,18 +819,19 @@ func (p *CortexAdminServer) proxyCortexToPrometheus(
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{tenant}))
 	resp, err := p.CortexClientSet.HTTP().Do(req)
 	if err != nil {
 		p.Logger.With(
 			"request", url,
-		).Error(fmt.Sprintf("failed with %v", err))
+		).Errorf("failed with %v", err)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		p.Logger.With(
 			"request", url,
-		).Error("request failed with %s", resp.Status)
+		).Errorf("request failed with %s", resp.Status)
 		return nil, fmt.Errorf("request failed with: %s", resp.Status)
 	}
 	return resp, nil
@@ -890,11 +970,13 @@ func (p *CortexAdminServer) getCortexLabelValues(ctx context.Context, request *c
 	return resp, err
 }
 
-func (p *CortexAdminServer) listCortexRules(ctx context.Context, request *cortexadmin.Cluster) (*http.Response, error) {
+// The proxy to the prometheus API rules returns a response in the form:
+// https://github.com/cortexproject/cortex/blob/c0e4545fd26f33ca5cc3323ee48e4c2ccd182b83/pkg/ruler/api.go#L215
+func (p *CortexAdminServer) listCortexRules(ctx context.Context, clusterId string) (*http.Response, error) {
 	reqUrl := fmt.Sprintf(
 		"https://%s/prometheus/api/v1/rules",
-		p.Config.Cortex.QueryFrontend.HTTPAddress,
+		p.Config.Cortex.Ruler.HTTPAddress,
 	)
-	resp, err := p.proxyCortexToPrometheus(ctx, request.ClusterId, "GET", reqUrl, nil, nil)
+	resp, err := p.proxyCortexToPrometheus(ctx, clusterId, "GET", reqUrl, nil, nil)
 	return resp, err
 }

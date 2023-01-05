@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
+	"strings"
 	"time"
 
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
@@ -19,7 +19,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v3"
@@ -696,10 +695,12 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			})
 			Expect(err).NotTo(HaveOccurred())
 			outMetadata, err := yaml.Marshal(rmetadata)
+			Expect(err).NotTo(HaveOccurred())
 			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
 				ClusterId:   "agent",
 				YamlContent: string(outMetadata),
 			})
+			Expect(err).NotTo(HaveOccurred())
 			outAlerts, err := yaml.Marshal(ralerts)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
@@ -707,29 +708,21 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				YamlContent: string(outAlerts),
 			})
 			Expect(err).NotTo(HaveOccurred())
-			_, present := os.LookupEnv("SLO_HARDCORE_DEBUG")
-			if present {
 
-				time.Sleep(time.Minute * 1)
-				Eventually(func() error {
-					resp, err := adminClient.ListRules(ctx, &cortexadmin.Cluster{
-						ClusterId: "agent",
-					})
-					if err != nil {
-						return err
+			Eventually(func() error {
+				resp, err := adminClient.ListRules(ctx, &cortexadmin.ListRulesRequest{
+					ClusterId: []string{"agent"},
+				})
+				if err != nil {
+					return err
+				}
+				for _, group := range resp.Data.Groups {
+					if strings.Contains(group.Name, sloObj.GetId()) {
+						return nil
 					}
-					if len(resp.Data) <= 63 {
-						return fmt.Errorf("no rules actually loaded")
-					}
-					//@debug
-					result := gjson.Get(string(resp.Data), "data.groups")
-					Expect(result.Exists()).To(BeTrue())
-					for _, r := range result.Array() {
-						fmt.Println(r)
-					}
-					return nil
-				}, time.Minute*2, time.Second*30).Should(Succeed())
-			}
+				}
+				return nil
+			}, time.Minute*2, time.Second*30).Should(Succeed())
 
 			// check the recording rule names to make sure they return data
 			Eventually(func() error {

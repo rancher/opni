@@ -5,7 +5,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -73,6 +72,7 @@ func BuildListRulesCmd() *cobra.Command {
 	var stateFilter []string
 	var ruleNameFilter string
 	var groupNameFilter string
+	var outputFormat string
 	var invalidDiagnosticRequested bool
 	var all bool
 	cmd := &cobra.Command{
@@ -81,6 +81,9 @@ func BuildListRulesCmd() *cobra.Command {
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
+			if outputFormat != "table" && outputFormat != "json" {
+				lg.Fatal("invalid output format")
+			}
 
 			// since cortexadmin Server no longer embeds an opni management client,
 			// when we request to list invalid rules, we must pass in all clusters so we can have
@@ -93,7 +96,6 @@ func BuildListRulesCmd() *cobra.Command {
 				clusters = lo.Map(cl.Items, func(cl *corev1.Cluster, _ int) string {
 					return cl.Id
 				})
-				lg.Debug("defaulting to clusters : %v", clusters)
 			}
 
 			resp, err := adminClient.ListRules(cmd.Context(), &cortexadmin.ListRulesRequest{
@@ -110,8 +112,11 @@ func BuildListRulesCmd() *cobra.Command {
 				lg.Error(err)
 				return
 			}
-			os.WriteFile("cluster.json", util.Must(json.Marshal(resp.Data)), 0644)
-			fmt.Println(cliutil.RenderCortexRules(resp))
+			if outputFormat == "table" {
+				fmt.Println(cliutil.RenderCortexRules(resp))
+			} else {
+				fmt.Println(string(util.Must(json.Marshal(resp))))
+			}
 		},
 	}
 	cmd.Flags().StringSliceVar(&clusters, "clusters", []string{}, "Cluster IDs to query (default=all)")
@@ -122,6 +127,7 @@ func BuildListRulesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ruleNameFilter, "rule-name", "", "Rule names to list (supports go regex) (default=all)")
 	cmd.Flags().BoolVar(&invalidDiagnosticRequested, "invalid", false, "List invalid rules (default=false)")
 	cmd.Flags().BoolVar(&all, "all", false, "List all rules present in cortex, regardless of cluster (default=false)")
+	cmd.Flags().StringVar(&outputFormat, "output", "table", "Output format : table,json (default=table)")
 	return cmd
 }
 

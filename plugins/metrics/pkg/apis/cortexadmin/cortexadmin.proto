@@ -270,6 +270,8 @@ message RuleGroup {
   // Note : string instead of timestamp to preserve compatibility with native prometheus api return value
   string lastEvaluation = 5;
   double evaluationTime = 6;
+  // opni specific field
+  string clusterId = 7;
 }
 
 // combination of alerting and recording rule (alerting rule is a superset of recording)

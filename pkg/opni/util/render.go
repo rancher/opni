@@ -252,11 +252,11 @@ func RenderMetricSamples(samples []*model.Sample) string {
 func RenderCortexRules(resp *cortexadmin.ListRulesResponse) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"cluster", "group name", "rule name", "type", "health", "alert state"})
+	w.AppendHeader(table.Row{"cluster", "namespace", "group name", "rule name", "type", "health", "alert state"})
 
 	for _, group := range resp.Data.Groups {
 		for _, rule := range group.Rules {
-			w.AppendRow(table.Row{group.File, group.Name, rule.Name, rule.Type, rule.Health, rule.State})
+			w.AppendRow(table.Row{group.ClusterId, group.File, group.Name, rule.Name, rule.Type, rule.Health, rule.State})
 		}
 	}
 	return w.Render()

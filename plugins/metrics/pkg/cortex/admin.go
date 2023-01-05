@@ -17,7 +17,6 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -356,29 +355,15 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	filter, err := NewListRuleFilter(
-		req.ClusterId,
-		req.RuleType,
-		req.HealthFilter,
-		req.StateFilter,
-		req.RuleNameRegexp,
-		req.GroupNameRegexp,
-		req.ListInvalid,
-		req.RequestAll,
-	)
-	if err != nil {
-		return nil, err
-	}
-	returnGroup := []*cortexadmin.RuleGroup{}
+	returnGroup := make([][]*cortexadmin.RuleGroup, len(req.ClusterId))
 	var wg sync.WaitGroup
-	var lock sync.Mutex
 	// cortex only allows us to proxy the request to one tenant at a time, returns a 500 internal error otherwise
-	for _, clusterId := range req.ClusterId {
+	for i, clusterId := range req.ClusterId {
+		i := i
 		clusterId := clusterId
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			tempGroup := []*cortexadmin.RuleGroup{}
 			resp, err := p.listCortexRules(ctx, clusterId)
 			if err != nil {
 				lg.Error(err)
@@ -403,45 +388,15 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 				return
 			}
 
-			for _, group := range ruleResp.Data.Groups {
-				lg.Debugf("found %d total rules", len(group.Rules))
-				if !filter.MatchesCluster(clusterId) || !filter.MatchesRuleGroup(group.Name) {
-					continue
-				}
-				matchedRules := []*cortexadmin.Rule{}
-				for _, rule := range group.Rules {
-					if !filter.MatchesRuleType(rule.Type) {
-						continue
-					}
-					if rule.Type == string(v1.RuleTypeAlerting) {
-						if !filter.MatchesRuleState(rule.State) {
-							continue
-						}
-					}
-					if !filter.MatchesHealth(rule.Health) {
-						continue
-					}
-					if !filter.MatchesRule(rule.Name) {
-						continue
-					}
-					matchedRules = append(matchedRules, rule)
-				}
-				lg.Debugf("matched %d total rules", len(matchedRules))
-				group.Rules = matchedRules
-				if len(matchedRules) > 0 {
-					tempGroup = append(tempGroup, group)
-				}
-			}
-			lock.Lock()
-			returnGroup = append(returnGroup, tempGroup...)
-			lock.Unlock()
+			filteredGroup := req.Filter(ruleResp.Data, clusterId)
+			returnGroup[i] = filteredGroup.Groups
 		}()
 	}
 	wg.Wait()
 	return &cortexadmin.ListRulesResponse{
 		Status: "success",
 		Data: &cortexadmin.RuleGroups{
-			Groups: returnGroup,
+			Groups: lo.Flatten(returnGroup),
 		},
 	}, nil
 }

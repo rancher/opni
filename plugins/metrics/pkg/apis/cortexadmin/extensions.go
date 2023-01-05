@@ -5,6 +5,7 @@ import (
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/rancher/opni/pkg/validation"
+	"golang.org/x/exp/slices"
 )
 
 func (in *PostRuleRequest) Validate() error {
@@ -31,13 +32,18 @@ func (l *ListRulesRequest) Validate() error {
 		if _, err := regexp.Compile(l.GroupNameRegexp); err != nil {
 			return validation.Errorf("invalid regex for group filter %s", l.GroupNameRegexp)
 		}
+	} else {
+		l.GroupNameRegexp = ".*"
 	}
 
 	if l.RuleNameRegexp != "" {
 		if _, err := regexp.Compile(l.RuleNameRegexp); err != nil {
 			return validation.Errorf("invalid regex for name filter %s", l.RuleNameRegexp)
 		}
+	} else {
+		l.RuleNameRegexp = ".*"
 	}
+
 	if len(l.RuleType) != 0 {
 		for _, rt := range l.RuleType {
 			if rt == "" {
@@ -74,4 +80,98 @@ func (l *ListRulesRequest) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (l *ListRulesRequest) Filter(groups *RuleGroups, clusterId string) *RuleGroups {
+	filteredGroup := &RuleGroups{
+		Groups: []*RuleGroup{},
+	}
+	ruleNameRegex := regexp.MustCompile(l.RuleNameRegexp)
+	groupNameRegex := regexp.MustCompile(l.GroupNameRegexp)
+
+	for _, group := range groups.Groups {
+		if !l.MatchesCluster(clusterId) || !l.MatchesRuleGroup(groupNameRegex, group.Name) {
+			continue
+		}
+		group.ClusterId = clusterId
+		matchedRules := []*Rule{}
+		for _, rule := range group.Rules {
+			if !l.MatchesRuleType(rule.Type) {
+				continue
+			}
+			if rule.Type == string(v1.RuleTypeAlerting) {
+				if !l.MatchesRuleState(rule.State) {
+					continue
+				}
+			}
+			if !l.MatchesHealth(rule.Health) {
+				continue
+			}
+			if !l.MatchesRule(ruleNameRegex, rule.Name) {
+				continue
+			}
+			matchedRules = append(matchedRules, rule)
+		}
+		group.Rules = matchedRules
+		if len(matchedRules) > 0 {
+			filteredGroup.Groups = append(filteredGroup.Groups, group)
+		}
+	}
+	return filteredGroup
+}
+
+func xOR(expr1, expr2 bool) bool {
+	return expr1 != expr2
+}
+
+func (l *ListRulesRequest) All() bool {
+	return l.RequestAll != nil && *l.RequestAll
+}
+
+func (l *ListRulesRequest) Invalid() bool {
+	return l.ListInvalid != nil && *l.ListInvalid
+}
+
+func (l *ListRulesRequest) MatchesCluster(clusterId string) bool {
+	if l.All() {
+		return true
+	}
+	// we store each cluster rules in a file with the cluster id
+	// and when we search invalid we search specifically those that do not match existing clusters
+	return xOR(l.Invalid(), slices.Contains(l.GetClusterId(), clusterId))
+}
+
+func (l *ListRulesRequest) MatchesRuleGroup(groupNameExpr *regexp.Regexp, groupName string) bool {
+	if l.All() {
+		return true
+	}
+	return groupNameExpr.MatchString(groupName)
+}
+
+func (l *ListRulesRequest) MatchesRule(ruleNameExpr *regexp.Regexp, ruleName string) bool {
+	if l.All() {
+		return true
+	}
+	return ruleNameExpr.MatchString(ruleName)
+}
+
+func (l *ListRulesRequest) MatchesRuleState(state string) bool {
+	if l.All() {
+		return true
+	}
+	return (len(l.StateFilter) == 0 || slices.Contains(l.StateFilter, state))
+}
+
+func (l *ListRulesRequest) MatchesHealth(health string) bool {
+	if l.All() {
+		return true
+	}
+	return len(l.HealthFilter) == 0 || slices.Contains(l.HealthFilter, health)
+}
+
+func (l *ListRulesRequest) MatchesRuleType(ruleType string) bool {
+	if l.All() {
+		return true
+	}
+	return len(l.RuleType) == 0 || slices.Contains(l.RuleType, ruleType)
 }

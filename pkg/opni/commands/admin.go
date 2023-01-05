@@ -3,16 +3,20 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/araddon/dateparse"
+	"github.com/samber/lo"
+
 	"github.com/olebedev/when"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -34,6 +38,7 @@ func BuildCortexAdminCmd() *cobra.Command {
 	cmd.AddCommand(BuildCortexStatusCmd())
 	cmd.AddCommand(BuildCortexConfigCmd())
 	cmd.AddCommand(BuildClusterStatsCmd())
+	cmd.AddCommand(BuildCortexAdminRulesCmd())
 
 	return cmd
 }
@@ -48,6 +53,81 @@ func BuildCortexOpsCmd() *cobra.Command {
 	cmd.AddCommand(BuildCortexClusterGetConfigurationCmd())
 	cmd.AddCommand(BuildCortexClusterUninstallCmd())
 
+	return cmd
+}
+
+func BuildCortexAdminRulesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rules",
+		Short: "Cortex admin rules",
+	}
+	cmd.AddCommand(BuildListRulesCmd())
+	return cmd
+}
+
+func BuildListRulesCmd() *cobra.Command {
+	var clusters []string
+	var ruleFilter []string
+	var healthFilter []string
+	var stateFilter []string
+	var ruleNameFilter string
+	var groupNameFilter string
+	var outputFormat string
+	var invalidDiagnosticRequested bool
+	var all bool
+	cmd := &cobra.Command{
+		Use:               "list",
+		Short:             "List recording and/or alerting rules from Cortex",
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		Run: func(cmd *cobra.Command, args []string) {
+			if outputFormat != "table" && outputFormat != "json" {
+				lg.Fatal("invalid output format")
+			}
+
+			// since cortexadmin Server no longer embeds an opni management client,
+			// when we request to list invalid rules, we must pass in all clusters so we can have
+			// enough information to weed out completely invalid rules
+			if len(clusters) == 0 || invalidDiagnosticRequested || all {
+				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					lg.Fatal(err)
+				}
+				clusters = lo.Map(cl.Items, func(cl *corev1.Cluster, _ int) string {
+					return cl.Id
+				})
+			}
+
+			resp, err := adminClient.ListRules(cmd.Context(), &cortexadmin.ListRulesRequest{
+				ClusterId:       clusters,
+				RuleType:        ruleFilter,
+				HealthFilter:    healthFilter,
+				StateFilter:     stateFilter,
+				RuleNameRegexp:  ruleNameFilter,
+				GroupNameRegexp: groupNameFilter,
+				ListInvalid:     &invalidDiagnosticRequested,
+				RequestAll:      &all,
+			})
+			if err != nil {
+				lg.Error(err)
+				return
+			}
+			if outputFormat == "table" {
+				fmt.Println(cliutil.RenderCortexRules(resp))
+			} else {
+				fmt.Println(string(util.Must(json.Marshal(resp))))
+			}
+		},
+	}
+	cmd.Flags().StringSliceVar(&clusters, "clusters", []string{}, "Cluster IDs to query (default=all)")
+	cmd.Flags().StringSliceVar(&ruleFilter, "rule", []string{}, "Rule type to list (default=all)")
+	cmd.Flags().StringSliceVar(&healthFilter, "health", []string{}, "Rule health status to list (default=all)")
+	cmd.Flags().StringSliceVar(&stateFilter, "state", []string{}, "Rule state to list (default=all)")
+	cmd.Flags().StringVar(&groupNameFilter, "group-name", "", "Group names to list (supports go regex) (default=all)")
+	cmd.Flags().StringVar(&ruleNameFilter, "rule-name", "", "Rule names to list (supports go regex) (default=all)")
+	cmd.Flags().BoolVar(&invalidDiagnosticRequested, "invalid", false, "List invalid rules (default=false)")
+	cmd.Flags().BoolVar(&all, "all", false, "List all rules present in cortex, regardless of cluster (default=false)")
+	cmd.Flags().StringVar(&outputFormat, "output", "table", "Output format : table,json (default=table)")
 	return cmd
 }
 

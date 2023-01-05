@@ -93,7 +93,7 @@ require (
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.23.0
 	github.com/pulumi/pulumi-random/sdk/v4 v4.8.2
-	github.com/pulumi/pulumi/sdk/v3 v3.49.0
+	github.com/pulumi/pulumi/sdk/v3 v3.51.0
 	github.com/qmuntal/stateless v1.6.1
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5

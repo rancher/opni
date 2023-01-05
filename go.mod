@@ -20,7 +20,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/charmbracelet/bubbles v0.14.0
-	github.com/charmbracelet/bubbletea v0.22.1
+	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/containerd/containerd v1.6.6
 	github.com/cortexproject/cortex v1.13.1
@@ -188,6 +188,7 @@ require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
+	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -348,7 +349,7 @@ require (
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mattn/goveralls v0.0.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mholt/archiver/v4 v4.0.0-alpha.3 // indirect
@@ -378,7 +379,7 @@ require (
 	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
-	github.com/muesli/termenv v0.11.1-0.20220212125758-44cd13922739 // indirect
+	github.com/muesli/termenv v0.13.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/nats-io/jwt/v2 v2.2.1-0.20220330180145-442af02fd36a // indirect

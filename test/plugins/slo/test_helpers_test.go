@@ -3,13 +3,14 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sync"
-	"time"
 )
 
 func sloCortexGroupsToCheck(groupName string) []string {
@@ -61,8 +62,9 @@ func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx con
 // potentially "long" running function, call asynchronously
 func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
+		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
+			Namespace: "test",
 			GroupName: groupName,
 		})
 		if err == nil {
@@ -77,8 +79,9 @@ func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx conte
 // potentially "long" running function, call asynchronously
 func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
+		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
+			Namespace: "test",
 			GroupName: groupName,
 		})
 		if err != nil {

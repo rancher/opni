@@ -72,8 +72,9 @@ func ExpectRuleGroupToExist(
 	maxTimeout time.Duration,
 ) {
 	Eventually(func() error {
-		_, err := client.GetRule(ctx, &cortexadmin.RuleRequest{
+		_, err := client.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
+			Namespace: "test",
 			GroupName: groupName,
 		})
 		if err != nil {

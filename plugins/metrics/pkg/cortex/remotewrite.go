@@ -123,8 +123,12 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 			).Error("error syncing rules to cortex")
 		}
 	}()
-	url := fmt.Sprintf("https://%s/api/v1/rules/%s",
-		f.Config.Cortex.Ruler.HTTPAddress, clusterId)
+	url := fmt.Sprintf(
+		"https://%s/api/v1/rules/%s",
+		f.Config.Cortex.Ruler.HTTPAddress,
+		"synced", // set the namespace to synced to differentiate from user rules
+	)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
 		bytes.NewReader(payload.Contents))
 	if err != nil {

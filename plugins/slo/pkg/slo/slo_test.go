@@ -689,23 +689,26 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			outRecording, err := yaml.Marshal(rrecording)
 			Expect(err).To(Succeed())
 
-			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 				ClusterId:   "agent",
-				YamlContent: string(outRecording),
+				Namespace:   "slo",
+				YamlContent: outRecording,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			outMetadata, err := yaml.Marshal(rmetadata)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 				ClusterId:   "agent",
-				YamlContent: string(outMetadata),
+				Namespace:   "slo",
+				YamlContent: outMetadata,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			outAlerts, err := yaml.Marshal(ralerts)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 				ClusterId:   "agent",
-				YamlContent: string(outAlerts),
+				Namespace:   "slo",
+				YamlContent: outAlerts,
 			})
 			Expect(err).NotTo(HaveOccurred())
 

@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const OpniAlertingCortexNamespace = "opni-alerting"
+
 // Condition constants
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
 var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}

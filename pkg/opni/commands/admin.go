@@ -5,13 +5,18 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 
 	"github.com/olebedev/when"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/rulefmt"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
@@ -62,6 +67,104 @@ func BuildCortexAdminRulesCmd() *cobra.Command {
 		Short: "Cortex admin rules",
 	}
 	cmd.AddCommand(BuildListRulesCmd())
+	cmd.AddCommand(BuildDeleteRuleGroupsCmd())
+	cmd.AddCommand(BuildLoadRuleGroupsCmd())
+	return cmd
+}
+
+func BuildDeleteRuleGroupsCmd() *cobra.Command {
+	var clusters string
+	var namespace string
+
+	cmd := &cobra.Command{
+		Use:   "delete <groupname>",
+		Short: "Delete prometheus rule groups of the given name from Cortex",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := adminClient.DeleteRule(cmd.Context(), &cortexadmin.DeleteRuleRequest{
+				ClusterId: clusters,
+				Namespace: namespace,
+				GroupName: args[0],
+			})
+			if err != nil {
+				lg.Error(err)
+				return
+			}
+			fmt.Println("Rule Group deleted successfully")
+		},
+	}
+	cmd.Flags().StringVarP(&clusters, "cluster", "c", "", "The clusters to delete the rule from")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "The namespace to delete the rule from")
+	return cmd
+}
+
+func BuildLoadRuleGroupsCmd() *cobra.Command {
+	var clusters []string
+	var namespace string
+	cmd := &cobra.Command{
+		Use:   "load <rulegroupfile>",
+		Short: "Creates/Updates prometheus rule groups into Cortex from a valid prometheus rule group file",
+		Long:  "See https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/#recording-rules for more information about the expected input format",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			//read file and validate contents
+
+			clMeta, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+			if err != nil {
+				lg.Fatal(err)
+			}
+			cl := lo.Map(clMeta.Items, func(cl *corev1.Cluster, _ int) string {
+				return cl.Id
+			})
+			if len(clusters) == 0 {
+				clusters = cl
+			} else {
+				// Important to validate here !! Since cortex has no knowledge of available opni clusters,
+				// it will accept any valid yaml content and therefore could silently fail/ destroy itself
+				// by writing unsuported names to its (remote) store
+				for _, c := range clusters {
+					if !slices.Contains(cl, c) {
+						lg.Fatalf("invalid cluster id %s", c)
+					}
+				}
+			}
+			yamlContent, err := os.ReadFile(args[0])
+			if err != nil {
+				lg.Fatal(err)
+			}
+			rgs, errors := rulefmt.Parse(yamlContent)
+			if len(errors) > 0 {
+				for _, err := range errors {
+					lg.Error(err)
+				}
+				lg.Fatal("Failed to parse rule group file")
+			}
+
+			var wg sync.WaitGroup
+			for _, cl := range clusters {
+				cl := cl
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for _, group := range rgs.Groups {
+						_, err := adminClient.LoadRules(cmd.Context(), &cortexadmin.LoadRuleRequest{
+							Namespace:   namespace,
+							ClusterId:   cl,
+							YamlContent: util.Must(yaml.Marshal(group)),
+						})
+						if err != nil {
+							lg.Errorf("Failed to load rule group :\n `%s`\n\n for cluster `%s`", string(util.Must(yaml.Marshal(group))), cl)
+						} else {
+							fmt.Printf("Successfully loaded rule group `%s` for clusterId `%s`\n", group.Name, cl)
+						}
+					}
+				}()
+			}
+			wg.Wait()
+		},
+	}
+	cmd.Flags().StringSliceVar(&clusters, "cluster", []string{}, "The clusters to apply the rule to (default=all)")
+	cmd.Flags().StringVar(&namespace, "namespace", "", "namespace is a cortex identifier to help organize rules (default=\"default\")")
 	return cmd
 }
 

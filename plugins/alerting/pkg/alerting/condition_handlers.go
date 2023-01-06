@@ -107,8 +107,9 @@ func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req 
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
-		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 			ClusterId: r.Id,
+			Namespace: shared.OpniAlertingCortexNamespace,
 			GroupName: CortexRuleIdFromUuid(id),
 		})
 		return err
@@ -197,9 +198,10 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.Aler
 		return err
 	}
 	p.Logger.With("Expr", "kube-state").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   k.GetClusterId(),
-		YamlContent: string(out),
+		Namespace:   shared.OpniAlertingCortexNamespace,
+		YamlContent: out,
 	})
 	if err != nil {
 		return err
@@ -234,9 +236,10 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	}
 	p.Logger.With("Expr", "cpu").Debugf("%s", string(out))
 
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   c.ClusterId.GetId(),
-		YamlContent: string(out),
+		Namespace:   shared.OpniAlertingCortexNamespace,
+		YamlContent: out,
 	})
 	return err
 }
@@ -263,9 +266,10 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 		return err
 	}
 	p.Logger.With("Expr", "mem").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   m.ClusterId.GetId(),
-		YamlContent: string(out),
+		Namespace:   shared.OpniAlertingCortexNamespace,
+		YamlContent: out,
 	})
 	return err
 }
@@ -291,9 +295,10 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 		return err
 	}
 	p.Logger.With("Expr", "fs").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   fs.ClusterId.GetId(),
-		YamlContent: string(out),
+		Namespace:   shared.OpniAlertingCortexNamespace,
+		YamlContent: out,
 	})
 	return err
 }
@@ -317,9 +322,9 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 		return err
 	}
 	p.Logger.With("Expr", "user-query").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
-		YamlContent: string(out),
+		YamlContent: out,
 	})
 
 	return err

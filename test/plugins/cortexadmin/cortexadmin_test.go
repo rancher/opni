@@ -3,12 +3,13 @@ package plugins_test
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/tidwall/gjson"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,8 +24,9 @@ import (
 
 func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
 	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &apis.RuleRequest{
+		resp, err := adminClient.GetRule(ctx, &apis.GetRuleRequest{
 			ClusterId: tenant,
+			Namespace: "test",
 			GroupName: groupName,
 		})
 		if err == nil {
@@ -39,8 +41,9 @@ func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Cont
 
 func expectRuleGroupToNotExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &apis.RuleRequest{
+		_, err := adminClient.GetRule(ctx, &apis.GetRuleRequest{
 			ClusterId: tenant,
+			Namespace: "test",
 			GroupName: groupName,
 		})
 		if err != nil {
@@ -328,9 +331,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.PostRuleRequest{
+				&apis.LoadRuleRequest{
 					ClusterId:   "agent",
-					YamlContent: string(sampleRuleYamlString),
+					Namespace:   "test",
+					YamlContent: sampleRuleYamlString,
 				})
 			Expect(err).To(Succeed())
 
@@ -340,9 +344,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			slothGeneratedGroupYamlString, err := ioutil.ReadFile(slothGeneratedGroup)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.PostRuleRequest{
+				&apis.LoadRuleRequest{
 					ClusterId:   "agent",
-					YamlContent: string(slothGeneratedGroupYamlString),
+					Namespace:   "test",
+					YamlContent: slothGeneratedGroupYamlString,
 				})
 			Expect(err).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
@@ -360,9 +365,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlUpdateString, err := ioutil.ReadFile(sampleRuleUpdate)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.PostRuleRequest{
+				&apis.LoadRuleRequest{
 					ClusterId:   "agent",
-					YamlContent: string(sampleRuleYamlUpdateString),
+					Namespace:   "test",
+					YamlContent: sampleRuleYamlUpdateString,
 				})
 			Expect(err).To(Succeed())
 
@@ -375,8 +381,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 		It("Should be able to delete existing rule groups", func() {
 			deleteGroupName := "opni-test-slo-rule"
-			_, err := adminClient.DeleteRule(ctx, &apis.RuleRequest{
+			_, err := adminClient.DeleteRule(ctx, &apis.DeleteRuleRequest{
 				ClusterId: "agent",
+				Namespace: "test",
 				GroupName: deleteGroupName,
 			})
 			Expect(err).To(Succeed())
@@ -395,15 +402,17 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.PostRuleRequest{
+				&apis.LoadRuleRequest{
 					ClusterId:   "agent",
-					YamlContent: string(sampleRuleYamlString),
+					Namespace:   "test",
+					YamlContent: sampleRuleYamlString,
 				})
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.PostRuleRequest{
+				&apis.LoadRuleRequest{
+					Namespace:   "test",
 					ClusterId:   "agent2",
-					YamlContent: string(sampleRuleYamlString),
+					YamlContent: sampleRuleYamlString,
 				})
 			Expect(err).To(Succeed())
 
@@ -421,8 +430,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}).Should(Succeed())
 
 			deleteGroupName := "opni-test-slo-rule"
-			_, err = adminClient.DeleteRule(ctx, &apis.RuleRequest{
+			_, err = adminClient.DeleteRule(ctx, &apis.DeleteRuleRequest{
 				ClusterId: "agent",
+				Namespace: "test",
 				GroupName: deleteGroupName,
 			})
 			Expect(err).To(Succeed())

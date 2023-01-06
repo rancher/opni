@@ -8,12 +8,41 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (in *PostRuleRequest) Validate() error {
+func (in *LoadRuleRequest) Validate() error {
 	if in.ClusterId == "" {
 		return validation.Error("clusterId is required")
 	}
-	if in.YamlContent == "" {
+	if len(in.YamlContent) == 0 {
 		return validation.Error("yamlContent is required")
+	}
+	if in.Namespace == "" {
+		in.Namespace = "default"
+	}
+	return nil
+}
+
+func (in *GetRuleRequest) Validate() error {
+	if in.ClusterId == "" {
+		return validation.Error("clusterId is required")
+	}
+	if in.Namespace == "" {
+		in.Namespace = "default"
+	}
+	if in.GroupName == "" {
+		return validation.Error("groupName is required")
+	}
+	return nil
+}
+
+func (in *DeleteRuleRequest) Validate() error {
+	if in.ClusterId == "" {
+		return validation.Error("clusterId is required")
+	}
+	if in.Namespace == "" {
+		in.Namespace = "default"
+	}
+	if in.GroupName == "" {
+		return validation.Error("groupName is required")
 	}
 	return nil
 }

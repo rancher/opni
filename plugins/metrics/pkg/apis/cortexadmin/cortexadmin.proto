@@ -41,9 +41,9 @@ service CortexAdmin {
       }
     };
   }
-  rpc GetRule(RuleRequest) returns (QueryResponse) {
+  rpc GetRule(GetRuleRequest) returns (QueryResponse) {
     option (google.api.http) = {
-      get: "/rules/{groupName}"
+      get: "/rules/{namespace}/{groupName}"
     };
   }
 
@@ -54,12 +54,12 @@ service CortexAdmin {
     };
   }
 
-  rpc LoadRules(PostRuleRequest) returns (google.protobuf.Empty) {
+  rpc LoadRules(LoadRuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/rules"
     };
   }
-  rpc DeleteRule(RuleRequest) returns (google.protobuf.Empty) {
+  rpc DeleteRule(DeleteRuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/rules/{groupName}"
     };
@@ -218,16 +218,6 @@ message QueryRangeRequest {
   google.protobuf.Duration step = 5;
 }
 
-message RuleRequest {
-  string clusterId = 1;
-  string groupName = 2;
-}
-
-message PostRuleRequest{
-  string clusterId = 1;
-  string yamlContent = 2;
-}
-
 message QueryResponse {
   bytes data = 2;
 }
@@ -238,6 +228,24 @@ message ConfigRequest {
 
 message ConfigResponse {
   repeated string configYaml = 4;
+}
+
+message LoadRuleRequest{
+  string clusterId = 1;
+  string namespace = 2; // defaults to "default"
+  bytes yamlContent = 3;
+}
+
+message DeleteRuleRequest{
+  string clusterId = 1;
+  string namespace = 2; 
+  string groupName = 3;
+}
+
+message GetRuleRequest{
+  string clusterId = 1;
+  string namespace = 2;
+  string groupName = 3;
 }
 
 message ListRulesRequest {

@@ -291,7 +291,7 @@ func (p *CortexAdminServer) QueryRange(
 }
 
 func (p *CortexAdminServer) GetRule(ctx context.Context,
-	in *cortexadmin.RuleRequest,
+	in *cortexadmin.GetRuleRequest,
 ) (*cortexadmin.QueryResponse, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
@@ -301,8 +301,8 @@ func (p *CortexAdminServer) GetRule(ctx context.Context,
 	)
 
 	req, err := http.NewRequestWithContext(ctx, "GET",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.Config.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
+		fmt.Sprintf("https://%s/api/v1/rules/%s/%s",
+			p.Config.Cortex.Ruler.HTTPAddress, in.Namespace, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +403,7 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 
 // LoadRules This method is responsible for Creating and Updating Rules
 func (p *CortexAdminServer) LoadRules(ctx context.Context,
-	in *cortexadmin.PostRuleRequest,
+	in *cortexadmin.LoadRuleRequest,
 ) (*emptypb.Empty, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
@@ -416,12 +416,12 @@ func (p *CortexAdminServer) LoadRules(ctx context.Context,
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.Config.Cortex.Ruler.HTTPAddress), nil)
+		fmt.Sprintf("https://%s/api/v1/rules/%s", p.Config.Cortex.Ruler.HTTPAddress, in.Namespace), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Body = io.NopCloser(strings.NewReader(in.YamlContent))
+	req.Body = io.NopCloser(bytes.NewReader(in.YamlContent))
 	req.Header.Set("Content-Type", "application/yaml")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := p.CortexClientSet.HTTP().Do(req)
@@ -443,18 +443,19 @@ func (p *CortexAdminServer) LoadRules(ctx context.Context,
 
 func (p *CortexAdminServer) DeleteRule(
 	ctx context.Context,
-	in *cortexadmin.RuleRequest,
+	in *cortexadmin.DeleteRuleRequest,
 ) (*emptypb.Empty, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
 	lg := p.Logger.With(
-		"delete request", in.GroupName,
+		"group", in.GroupName,
+		"namespace", in.Namespace,
+		"cluster", in.ClusterId,
 	)
-
 	req, err := http.NewRequestWithContext(ctx, "DELETE",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.Config.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
+		fmt.Sprintf("https://%s/api/v1/rules/%s/%s",
+			p.Config.Cortex.Ruler.HTTPAddress, in.Namespace, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -472,10 +473,10 @@ func (p *CortexAdminServer) DeleteRule(
 		).Error("delete rule group failed")
 
 		if resp.StatusCode == http.StatusNotFound { // return grpc not found in this case
-			err := status.Error(codes.NotFound, fmt.Sprintf("delete rule group failed :`%s`", err))
+			err := status.Error(codes.NotFound, fmt.Sprintf("delete rule group failed %s", err))
 			return nil, err
 		}
-		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
+		return nil, fmt.Errorf("delete rule group failed, unexpected status code: `%s` - %s", err, resp.Status)
 	}
 	return &emptypb.Empty{}, nil
 }

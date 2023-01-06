@@ -164,8 +164,9 @@ func applyCortexSLORules(
 		return err
 	}
 
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
-		YamlContent: string(out),
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+		Namespace:   "slo",
+		YamlContent: out,
 		ClusterId:   clusterId,
 	})
 	if err != nil {
@@ -184,8 +185,9 @@ func deleteCortexSLORules(
 	clusterId string,
 	groupName string,
 ) error {
-	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 		ClusterId: clusterId,
+		Namespace: "slo",
 		GroupName: groupName,
 	})
 	// we can ignore 404s here since if we can't find them,

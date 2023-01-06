@@ -119,7 +119,13 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	gcsSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetGcs())
 	azureSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetAzure())
 	swiftSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetSwift())
-
+	// FIXME: debug configuration
+	rulerStorageConfig := bucket.Config{
+		Backend: "filesystem",
+		Filesystem: filesystem.Config{
+			Directory: "/data/ruler",
+		},
+	}
 	storageConfig := bucket.Config{
 		Backend: string(r.mc.Spec.Cortex.Storage.GetBackend()),
 		S3: s3.Config{
@@ -268,7 +274,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		RulerStorage: rulestore.Config{
-			Config: storageConfig,
+			Config: rulerStorageConfig,
 		},
 		RuntimeConfig: runtimeconfig.Config{
 			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",

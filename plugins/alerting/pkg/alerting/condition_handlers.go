@@ -324,6 +324,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	p.Logger.With("Expr", "user-query").Debugf("%s", string(out))
 	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
+		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out,
 	})
 

@@ -175,6 +175,7 @@ func BuildListRulesCmd() *cobra.Command {
 	var stateFilter []string
 	var ruleNameFilter string
 	var groupNameFilter string
+	var namespaceFilter string
 	var outputFormat string
 	var invalidDiagnosticRequested bool
 	var all bool
@@ -208,6 +209,7 @@ func BuildListRulesCmd() *cobra.Command {
 				StateFilter:     stateFilter,
 				RuleNameRegexp:  ruleNameFilter,
 				GroupNameRegexp: groupNameFilter,
+				NamespaceRegexp: namespaceFilter,
 				ListInvalid:     &invalidDiagnosticRequested,
 				RequestAll:      &all,
 			})
@@ -228,6 +230,7 @@ func BuildListRulesCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&stateFilter, "state", []string{}, "Rule state to list (default=all)")
 	cmd.Flags().StringVar(&groupNameFilter, "group-name", "", "Group names to list (supports go regex) (default=all)")
 	cmd.Flags().StringVar(&ruleNameFilter, "rule-name", "", "Rule names to list (supports go regex) (default=all)")
+	cmd.Flags().StringVar(&namespaceFilter, "namespace", "", "Namespaces to match against (supports go regex) (default=all)")
 	cmd.Flags().BoolVar(&invalidDiagnosticRequested, "invalid", false, "List invalid rules (default=false)")
 	cmd.Flags().BoolVar(&all, "all", false, "List all rules present in cortex, regardless of cluster (default=false)")
 	cmd.Flags().StringVar(&outputFormat, "output", "table", "Output format : table,json (default=table)")

@@ -73,6 +73,14 @@ func (l *ListRulesRequest) Validate() error {
 		l.RuleNameRegexp = ".*"
 	}
 
+	if l.NamespaceRegexp != "" {
+		if _, err := regexp.Compile(l.NamespaceRegexp); err != nil {
+			return validation.Errorf("invalid regex for namespace filter %s", l.NamespaceRegexp)
+		}
+	} else {
+		l.NamespaceRegexp = ".*"
+	}
+
 	if len(l.RuleType) != 0 {
 		for _, rt := range l.RuleType {
 			if rt == "" {
@@ -117,9 +125,10 @@ func (l *ListRulesRequest) Filter(groups *RuleGroups, clusterId string) *RuleGro
 	}
 	ruleNameRegex := regexp.MustCompile(l.RuleNameRegexp)
 	groupNameRegex := regexp.MustCompile(l.GroupNameRegexp)
+	namespaceRegex := regexp.MustCompile(l.NamespaceRegexp)
 
 	for _, group := range groups.Groups {
-		if !l.MatchesCluster(clusterId) || !l.MatchesRuleGroup(groupNameRegex, group.Name) {
+		if !l.MatchesCluster(clusterId) || !l.MatchesRuleGroup(groupNameRegex, group.Name) || !l.MatchesNamespace(namespaceRegex, group.File) {
 			continue
 		}
 		group.ClusterId = clusterId
@@ -151,6 +160,13 @@ func (l *ListRulesRequest) Filter(groups *RuleGroups, clusterId string) *RuleGro
 
 func xOR(expr1, expr2 bool) bool {
 	return expr1 != expr2
+}
+
+func (l *ListRulesRequest) MatchesNamespace(namespaceRegex *regexp.Regexp, namespace string) bool {
+	if l.All() {
+		return true
+	}
+	return namespaceRegex.MatchString(namespace)
 }
 
 func (l *ListRulesRequest) All() bool {

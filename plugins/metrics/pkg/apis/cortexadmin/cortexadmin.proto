@@ -257,6 +257,7 @@ message ListRulesRequest {
   string groupNameRegexp = 6;
   optional bool listInvalid = 7;
   optional bool requestAll = 8;
+  string namespaceRegexp = 9;
 }
 
 // matches the return of cortex ruler api

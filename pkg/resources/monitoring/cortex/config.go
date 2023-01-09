@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -124,6 +125,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		Backend: "filesystem",
 		Filesystem: filesystem.Config{
 			Directory: "/data/ruler",
+		},
+	}
+	alertManagerStorageConfig := bucket.Config{
+		Backend: "filesystem",
+		Filesystem: filesystem.Config{
+			Directory: "/data/alertmanager",
 		},
 	}
 	storageConfig := bucket.Config{
@@ -300,8 +307,9 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
 		},
+		//FIXME:
 		AlertmanagerStorage: alertstore.Config{
-			Config: storageConfig,
+			Config: alertManagerStorageConfig,
 		},
 
 		Compactor: compactor.Config{
@@ -377,7 +385,15 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+			AlertmanagerURL: strings.Join(
+				[]string{
+					fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+					//FIXME: may have to conditionally add this if HA is not enabled for Alerting and alertmanager discovery does not pick this up
+					// fmt.Sprintf("http://%s:9093", shared.OperatorAlertingClusterNodeServiceName),
+					fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.mc.Namespace),
+				}, ","),
+			// will automatically discover HA groups from the AlertmanagerURLs
+			AlertmanagerDiscovery:    true,
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{

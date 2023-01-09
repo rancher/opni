@@ -3,20 +3,15 @@ package backend
 import (
 	"context"
 	"fmt"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/client-go/tools/clientcmd"
-	"os"
 	"strings"
 	"sync"
 
@@ -661,43 +656,23 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
 	m.WaitForInit()
 
-	// todo: remove after testing
-	kubePath := os.Getenv("KUBECONFIG")
-	config, err := clientcmd.BuildConfigFromFlags("", kubePath)
-	if err != nil {
-		return nil, fmt.Errorf("could not construct rest config from kubeconfig at '%s': %w", kubePath, err)
-	}
-
-	// todo: this is still the client implementation
-	discoverer, err := agent.NewPrometheusDiscoverer(agent.DiscovererConfig{
-		//RESTConfig: nil,/
-		RESTConfig: config,
-		Context:    ctx,
-		Logger:     m.Logger.Named("prom-discovery"),
-	})
+	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
+		ClusterIDs: request.ClusterIds,
+	}).Discover(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
 			"capability", wellknown.CapabilityMetrics,
 			zap.Error(err),
-		).Errorf("could not create prometheus discoverer: %s", err)
+		).Error("failed to run import discovery")
 
-		return nil, fmt.Errorf("could not create prometheus discoverer: %s", err)
+		return nil, err
 	}
 
-	prometheuses, err := discoverer.Discover()
-	if err != nil {
-		return nil, fmt.Errorf("could not discover Prometheues instances: %w", err)
-	}
+	m.Logger.With(
+		"capability", wellknown.CapabilityMetrics,
+		zap.Error(err),
+	).Error("ran import discovery")
 
-	entries := lo.Map(prometheuses, func(prometheus *monitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
-		return &remoteread.DiscoveryEntry{
-			ExternalEndpoint: prometheus.Spec.ExternalURL,
-			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
-		}
-	})
-
-	return &remoteread.DiscoveryResponse{
-		Entries: entries,
-	}, nil
+	return response, nil
 }

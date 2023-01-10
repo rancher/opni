@@ -3,14 +3,14 @@ package stream
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strings"
 
 	"github.com/kralicky/totem"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -76,7 +76,8 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 			Request: requestBytes,
 		},
 	}
-	if w.target != nil {
+	switch {
+	case w.target != nil:
 		respMsg, err := w.delegateClient.Request(ctx, &streamv1.DelegatedMessage{
 			Request: rpc,
 			Target:  w.target,
@@ -92,7 +93,7 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		if err := proto.Unmarshal(resp.Response, reply.(proto.Message)); err != nil {
 			return status.Errorf(codes.Internal, "failed to unmarshal response: %v", err)
 		}
-	} else if w.selector != nil {
+	case w.selector != nil:
 		_, err := w.delegateClient.Broadcast(ctx, &streamv1.BroadcastMessage{
 			Request:        rpc,
 			TargetSelector: w.selector,
@@ -100,8 +101,11 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		if err != nil {
 			return err
 		}
+	default:
+		panic("bug: no target or selector given")
 	}
-	panic("bug: no target or selector given")
+
+	return nil
 }
 
 func (w *targetedDelegatingClient[T]) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {

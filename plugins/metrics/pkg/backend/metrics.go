@@ -77,12 +77,6 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
 		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
-
-		if m.Delegate == nil {
-			m.Logger.Infof("found nil delegate")
-		} else {
-			m.Logger.Infof("found non-nil delegate")
-		}
 	})
 }
 

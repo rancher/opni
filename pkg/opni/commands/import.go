@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	v1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
@@ -67,12 +68,31 @@ func followProgress(ctx context.Context, name string, cluster string) error {
 	return nil
 }
 
+// validateClustersExist ensures that there is at least one agent registered to prevent metrics gateway from blocking
+// when are none.
+func validateClustersExist(ctx context.Context) error {
+	list, err := mgmtClient.ListClusters(ctx, &v1.ListClustersRequest{})
+	if err != nil {
+		return fmt.Errorf("error checking for agents: %w", err)
+	}
+
+	if len(list.Items) == 0 {
+		return fmt.Errorf("no agents are registered")
+	}
+
+	return nil
+}
+
 func BuildImportAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <cluster> <name> <endpoint>",
 		Short: "Add a new import target",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			clusterId := args[0]
 			targetName := args[1]
 			endpoint := args[2]
@@ -112,6 +132,10 @@ func BuildImportEditCmd() *cobra.Command {
 		Use:   "edit <cluster> <name>",
 		Short: "Edit an existing import target",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			if newEndpoint == "" && newName == "" {
 				lg.Infof("no edits specified, doing nothing")
 			}
@@ -152,6 +176,10 @@ func BuildImportRemoveCmd() *cobra.Command {
 		Aliases: []string{"rm"},
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			request := &remoteread.TargetRemoveRequest{
 				Meta: &remoteread.TargetMeta{
 					ClusterId: args[0],
@@ -179,6 +207,10 @@ func BuildImportListCmd() *cobra.Command {
 		Short:   "List available import targets",
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			request := &remoteread.TargetListRequest{ClusterId: ""}
 
 			targetList, err := remoteReadClient.ListTargets(cmd.Context(), request)
@@ -211,6 +243,10 @@ func BuildImportStartCmd() *cobra.Command {
 		Short: "start an import",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			clusterId := args[0]
 			targetName := args[1]
 			labelMatchers := make([]*remoteread.LabelMatcher, len(labelFilters))
@@ -280,6 +316,10 @@ func BuildImportStopCmd() *cobra.Command {
 		Short: "stop an import (will not remove already imported data)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			clusterId := args[0]
 			targetName := args[1]
 
@@ -312,6 +352,10 @@ func BuildProgressCmd() *cobra.Command {
 		Short: "follow import progress until finished",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			clusterId := args[0]
 			targetName := args[1]
 
@@ -332,6 +376,10 @@ func BuildDiscoverCmd() *cobra.Command {
 		Use:   "discover [clusters...]",
 		Short: "discover potential import targets on registered clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateClustersExist(cmd.Context()); err != nil {
+				return err
+			}
+
 			clusterIds := args
 
 			request := &remoteread.DiscoveryRequest{

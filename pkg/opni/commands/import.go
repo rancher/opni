@@ -304,9 +304,6 @@ func BuildImportStartCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
 
-	ConfigureManagementCommand(cmd)
-	ConfigureImportCommand(cmd)
-
 	return cmd
 }
 
@@ -340,9 +337,6 @@ func BuildImportStopCmd() *cobra.Command {
 		},
 	}
 
-	ConfigureManagementCommand(cmd)
-	ConfigureImportCommand(cmd)
-
 	return cmd
 }
 
@@ -362,9 +356,6 @@ func BuildProgressCmd() *cobra.Command {
 			return followProgress(cmd.Context(), targetName, clusterId)
 		},
 	}
-
-	ConfigureManagementCommand(cmd)
-	ConfigureImportCommand(cmd)
 
 	return cmd
 }
@@ -402,9 +393,6 @@ func BuildDiscoverCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&namespace, "namespace", "", "a namespace to limit the discovery to")
-
-	ConfigureManagementCommand(cmd)
-	ConfigureImportCommand(cmd)
 
 	return cmd
 }

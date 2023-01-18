@@ -6,7 +6,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/samber/lo"
-	"google.golang.org/protobuf/proto"
 	"sort"
 	"strings"
 	"sync"
@@ -195,13 +194,6 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 
 	if err != nil {
 		return nil, err
-	}
-
-	if bytes, err := proto.Marshal(status); err != nil {
-		m.logger.Errorf("failed marshaling status: %s", err)
-	} else {
-		m.logger.Debugf("found status: %s", status.String())
-		m.logger.Debugf("responding with %d bytes: %v", len(bytes), bytes)
 	}
 
 	return status, nil

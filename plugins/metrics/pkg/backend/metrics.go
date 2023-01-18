@@ -586,8 +586,6 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 		}
 	}
 
-	m.Logger.Debugf("received status: %s", newStatus.String())
-
 	return newStatus, nil
 }
 

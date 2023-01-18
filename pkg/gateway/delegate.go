@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"google.golang.org/protobuf/proto"
 	"sync"
 
 	"github.com/kralicky/totem"
@@ -89,14 +90,24 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 	)
 	lg.Debug("delegating rpc request")
 	if target, ok := d.activeAgents[targetId]; ok {
-		resp := &totem.RPC{}
-		err := target.Invoke(ctx, totem.Forward, req.GetRequest(), resp)
+		fwdResp := &totem.RPC{}
+		err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
 		if err != nil {
 			d.logger.With(
 				zap.Error(err),
 			).Error("delegating rpc request failed")
 			return nil, err
 		}
+
+		resp := &totem.RPC{}
+		err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
+		if err != nil {
+			d.logger.With(
+				zap.Error(err),
+			).Error("delegating rpc request failed")
+			return nil, err
+		}
+
 		return resp, nil
 	} else {
 		err := status.Error(codes.NotFound, "target not found")

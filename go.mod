@@ -137,12 +137,12 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.25.4
 	k8s.io/apiextensions-apiserver v0.25.0
-	k8s.io/apimachinery v0.25.4
+	k8s.io/apimachinery v0.26.1
 	k8s.io/cli-runtime v0.25.3
 	k8s.io/client-go v0.25.4
 	k8s.io/component-base v0.25.3
 	k8s.io/kubectl v0.25.3
-	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
+	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/controller-tools v0.8.1-0.20220428122951-32ad71090a62

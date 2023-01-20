@@ -7,7 +7,7 @@ Refer to: https://vale.sh/docs/vale-cli/installation/
 
 The vale configuration file used for Opni is located at `.vale.ini`
 
-Upon installation, run `vale sync`
+After installing, run `vale sync` to fetch the styles specified in the configuration file. This only needs to be run once.
 
 ## Usage
 

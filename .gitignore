@@ -43,3 +43,6 @@ index.yaml
 # kubeconfigs
 **/kubeconfig.yaml
 **/kubeconfig.json
+
+# vale styles
+styles/*

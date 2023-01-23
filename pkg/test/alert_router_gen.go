@@ -3,20 +3,27 @@ package test
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"gopkg.in/yaml.v2"
@@ -27,6 +34,114 @@ const (
 	OpUpdate
 	OpDelete
 )
+
+type MockIntegrationWebhookServer struct {
+	EndpointId string
+	Webhook    string
+	Port       int
+	Addr       string
+	*sync.RWMutex
+	Buffer []*config.WebhookMessage
+}
+
+func (m *MockIntegrationWebhookServer) WriteBuffer(msg *config.WebhookMessage) {
+	m.Lock()
+	defer m.Unlock()
+	m.Buffer = append(m.Buffer, msg)
+}
+
+func (m *MockIntegrationWebhookServer) ClearBuffer() {
+	m.Lock()
+	defer m.Unlock()
+	m.Buffer = m.Buffer[:0]
+}
+
+func (m *MockIntegrationWebhookServer) GetBuffer() []*config.WebhookMessage {
+	m.RLock()
+	defer m.RUnlock()
+	return lo.Map(m.Buffer, func(msg *config.WebhookMessage, _ int) *config.WebhookMessage {
+		return msg
+	})
+}
+
+func (m *MockIntegrationWebhookServer) GetWebhook() string {
+	return "http://" + path.Join(m.Addr, m.Webhook)
+}
+
+func (m *MockIntegrationWebhookServer) Endpoint() *alertingv1.AlertEndpoint {
+	return &alertingv1.AlertEndpoint{
+		Name:        fmt.Sprintf("mock-integration-%s", m.EndpointId),
+		Description: fmt.Sprintf("mock integration description %s", m.EndpointId),
+		Endpoint: &alertingv1.AlertEndpoint_Webhook{
+			Webhook: &alertingv1.WebhookEndpoint{
+				Url: m.GetWebhook(),
+			},
+		},
+		Id: m.EndpointId,
+	}
+}
+
+func (e *Environment) CreateWebhookServer(parentCtx context.Context, num int) []*MockIntegrationWebhookServer {
+	var servers []*MockIntegrationWebhookServer
+	for i := 0; i < num; i++ {
+		servers = append(servers, e.NewWebhookMemoryServer(parentCtx, "webhook"))
+	}
+	return servers
+}
+
+func (e *Environment) NewWebhookMemoryServer(parentCtx context.Context, webHookRoute string) *MockIntegrationWebhookServer {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	buf := []*config.WebhookMessage{}
+	mu := &sync.RWMutex{}
+	mux := http.NewServeMux()
+	res := &MockIntegrationWebhookServer{
+		Webhook:    webHookRoute,
+		Port:       port,
+		Buffer:     buf,
+		RWMutex:    mu,
+		EndpointId: uuid.New().String(),
+	}
+	if !strings.HasPrefix(webHookRoute, "/") {
+		webHookRoute = "/" + webHookRoute
+	}
+	mux.HandleFunc(webHookRoute, func(w http.ResponseWriter, r *http.Request) {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			panic(err)
+		}
+		var msg config.WebhookMessage
+		err = yaml.Unmarshal(data, &msg)
+		if err != nil {
+			panic(err)
+		}
+		res.WriteBuffer(&msg)
+	})
+	webhookServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:        mux,
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	res.Addr = webhookServer.Addr
+
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := webhookServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
+		defer webhookServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		}
+	})
+	return res
+}
 
 type NamespaceSubTreeTestcase struct {
 	Namespace   string
@@ -51,7 +166,7 @@ type IndividualEndpointTestcase struct {
 // the flakiest tests you could ever imagine !!!
 func CreateRandomSetOfEndpoints() map[string]*alertingv1.FullAttachedEndpoint {
 	endpoints := make(map[string]*alertingv1.FullAttachedEndpoint)
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 8; i++ {
 		uuid := shared.NewAlertingRefId("endp")
 		endpoints[uuid] = GenerateEndpoint(i, uuid)
 	}
@@ -59,7 +174,8 @@ func CreateRandomSetOfEndpoints() map[string]*alertingv1.FullAttachedEndpoint {
 }
 
 func GenerateEndpoint(genId int, uuid string) *alertingv1.FullAttachedEndpoint {
-	if genId%3 == 0 {
+	n := 4
+	if genId%n == 0 {
 		return &alertingv1.FullAttachedEndpoint{
 			EndpointId: uuid,
 			AlertEndpoint: &alertingv1.AlertEndpoint{
@@ -80,7 +196,7 @@ func GenerateEndpoint(genId int, uuid string) *alertingv1.FullAttachedEndpoint {
 			},
 		}
 	}
-	if genId%3 == 1 {
+	if genId%n == 1 {
 		return &alertingv1.FullAttachedEndpoint{
 			EndpointId: uuid,
 			AlertEndpoint: &alertingv1.AlertEndpoint{
@@ -106,7 +222,7 @@ func GenerateEndpoint(genId int, uuid string) *alertingv1.FullAttachedEndpoint {
 			},
 		}
 	}
-	if genId%3 == 2 {
+	if genId%n == 2 {
 		return &alertingv1.FullAttachedEndpoint{
 			EndpointId: uuid,
 			AlertEndpoint: &alertingv1.AlertEndpoint{
@@ -121,6 +237,26 @@ func GenerateEndpoint(genId int, uuid string) *alertingv1.FullAttachedEndpoint {
 			},
 			Details: &alertingv1.EndpointImplementation{
 				Title:        fmt.Sprintf("pagerduty-%s", uuid),
+				Body:         fmt.Sprintf("body-%s", uuid),
+				SendResolved: lo.ToPtr(false),
+			},
+		}
+	}
+	if genId%n == 3 {
+		return &alertingv1.FullAttachedEndpoint{
+			EndpointId: uuid,
+			AlertEndpoint: &alertingv1.AlertEndpoint{
+				Id:          uuid,
+				Name:        fmt.Sprintf("test-%s", uuid),
+				Description: fmt.Sprintf("description test-%s", uuid),
+				Endpoint: &alertingv1.AlertEndpoint_Webhook{
+					Webhook: &alertingv1.WebhookEndpoint{
+						Url: fmt.Sprintf("https://webhook.com/%s", uuid),
+					},
+				},
+			},
+			Details: &alertingv1.EndpointImplementation{
+				Title:        fmt.Sprintf("webhook-%s", uuid),
 				Body:         fmt.Sprintf("body-%s", uuid),
 				SendResolved: lo.ToPtr(false),
 			},
@@ -235,6 +371,54 @@ func CreateRandomIndividualEndpointTestcases(endpSet map[string]*alertingv1.Full
 	return testcases
 }
 
+func (e *Environment) RunAlertManager(
+	ctx context.Context,
+	router routing.OpniRouting,
+	tmpWritePath string,
+	debugFile string,
+) (int, context.CancelFunc) {
+	By("expecting to successfully build a config")
+	cfg, err := router.BuildConfig()
+	Expect(err).To(Succeed())
+	By("checking that the config passes the marshalling validation")
+	bytes, err := yaml.Marshal(cfg)
+	Expect(err).To(Succeed())
+	if _, ok := os.LookupEnv("OPNI_ROUTING_DEBUG"); ok {
+		err = os.WriteFile(debugFile, bytes, 0644)
+		Expect(err).To(Succeed())
+	}
+	By("checking that the config passes the unmarshalling validation")
+	var c config.Config
+	err = yaml.Unmarshal(bytes, &c)
+	Expect(err).To(Succeed())
+	By("writing the config file to a temporary directory")
+	tmpFileName := shared.NewAlertingRefId("config")
+	tmpPath := path.Join(tmpWritePath, tmpFileName)
+	err = os.MkdirAll(path.Dir(tmpPath), 0755)
+	Expect(err).To(Succeed())
+	err = os.WriteFile(tmpPath, bytes, 0644)
+	Expect(err).To(Succeed())
+	if _, ok := os.LookupEnv("OPNI_ROUTING_DEBUG"); ok {
+		err = os.WriteFile(debugFile, bytes, 0644)
+		Expect(err).To(Succeed())
+	}
+
+	By("Verifying that the config can be loaded by alertmanager")
+	freePort, err := freeport.GetFreePort()
+	Expect(err).To(Succeed())
+	apiPort, ctxCa := e.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(freePort))
+	defer ctxCa()
+	apiNode := backend.NewAlertManagerReadyClient(
+		ctx,
+		fmt.Sprintf("http://localhost:%d", apiPort),
+		backend.WithExpectClosure(backend.NewExpectStatusOk()),
+		backend.WithDefaultRetrier(),
+	)
+	err = apiNode.DoRequest()
+	Expect(err).To(Succeed())
+	return apiPort, ctxCa
+}
+
 func ExpectAlertManagerConfigToBeValid(
 	env *Environment,
 	tmpWritePath string,
@@ -246,7 +430,11 @@ func ExpectAlertManagerConfigToBeValid(
 	By("checking that the config passes the marshalling validation")
 	bytes, err := yaml.Marshal(cfg)
 	Expect(err).To(Succeed())
-	os.WriteFile("./test.yaml", bytes, 0644)
+	if _, ok := os.LookupEnv("OPNI_ROUTING_DEBUG"); ok {
+		err = os.WriteFile("./test.yaml", bytes, 0644)
+		Expect(err).To(Succeed())
+	}
+
 	By("checking that the config passes the unmarshalling validation")
 	var c config.Config
 	err = yaml.Unmarshal(bytes, &c)
@@ -264,7 +452,7 @@ func ExpectAlertManagerConfigToBeValid(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	apiPort, ctxCa := env.StartEmbeddedAlertManager(ctx, tmpPath, port)
+	apiPort, ctxCa := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
 	defer ctxCa()
 	apiNode := backend.NewAlertManagerReadyClient(
 		ctx,
@@ -314,21 +502,26 @@ func ExpectRouterNotEqual(r1, r2 routing.OpniRouting, name ...string) {
 
 func ExpectConfigEqual(c1, c2 *config.Config, name ...string) {
 	if len(name) > 0 {
-		err := os.WriteFile(fmt.Sprintf("%s1.yaml", name[0]), util.Must(yaml.Marshal(c1)), 0644)
-		Expect(err).To(Succeed())
-		err = os.WriteFile(fmt.Sprintf("%s2.yaml", name[0]), util.Must(yaml.Marshal(c2)), 0644)
-		Expect(err).To(Succeed())
+		if _, ok := os.LookupEnv("OPNI_ROUTING_DEBUG"); ok {
+			err := os.WriteFile(fmt.Sprintf("%s1.yaml", name[0]), util.Must(yaml.Marshal(c1)), 0644)
+			Expect(err).To(Succeed())
+			err = os.WriteFile(fmt.Sprintf("%s2.yaml", name[0]), util.Must(yaml.Marshal(c2)), 0644)
+			Expect(err).To(Succeed())
+		}
 	}
 	Expect(util.Must(yaml.Marshal(c1))).To(MatchYAML(util.Must(yaml.Marshal(c2))))
-
 }
 
 func ExpectConfigNotEqual(c1, c2 *config.Config, name ...string) {
 	if len(name) > 0 {
-		err := os.WriteFile(fmt.Sprintf("%s1.yaml", name[0]), util.Must(yaml.Marshal(c1)), 0644)
-		Expect(err).To(Succeed())
-		err = os.WriteFile(fmt.Sprintf("%s2.yaml", name[0]), util.Must(yaml.Marshal(c2)), 0644)
-		Expect(err).To(Succeed())
+		if len(name) > 0 {
+			if _, ok := os.LookupEnv("OPNI_ROUTING_DEBUG"); ok {
+				err := os.WriteFile(fmt.Sprintf("%s1.yaml", name[0]), util.Must(yaml.Marshal(c1)), 0644)
+				Expect(err).To(Succeed())
+				err = os.WriteFile(fmt.Sprintf("%s2.yaml", name[0]), util.Must(yaml.Marshal(c2)), 0644)
+				Expect(err).To(Succeed())
+			}
+		}
 	}
 	Expect(util.Must(yaml.Marshal(c1))).NotTo(MatchYAML(util.Must(yaml.Marshal(c2))))
 }

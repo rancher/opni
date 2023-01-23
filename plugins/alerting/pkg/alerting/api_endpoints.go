@@ -2,7 +2,7 @@ package alerting
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
@@ -10,6 +10,9 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
+	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -57,16 +60,20 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	refList := []*corev1.Reference{}
-	//TODO : check involved conditions
+	resp, err := p.ListRoutingRelationships(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	refList := resp.GetInvolvedConditions(req.Id.Id)
+	if len(refList.Items) > 0 && !req.ForceUpdate {
+		return refList, nil
+	}
 
 	req.UpdateAlert.LastUpdated = timestamppb.Now()
 	if err := p.storageClientSet.Get().Endpoints().Put(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
-	return &alertingv1.InvolvedConditions{
-		Items: refList,
-	}, nil
+	return refList, nil
 }
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
@@ -85,6 +92,12 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 			Endpoint: endp,
 		})
 	}
+
+	slices.SortFunc(
+		items, func(i, j *alertingv1.AlertEndpointWithId) bool {
+			return i.Endpoint.Name < j.Endpoint.Name
+		},
+	)
 	return &alertingv1.AlertEndpointList{Items: items}, nil
 }
 
@@ -97,16 +110,20 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 		return &alertingv1.InvolvedConditions{}, nil
 	}
 
-	refList := []*corev1.Reference{}
-	//TODO : list involved conditions
+	resp, err := p.ListRoutingRelationships(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	refList := resp.GetInvolvedConditions(req.Id.Id)
+	if len(refList.Items) > 0 && !req.ForceDelete == false {
+		return refList, nil
+	}
 
 	if err := p.storageClientSet.Get().Endpoints().Delete(ctx, req.Id.Id); err != nil {
 		return nil, err
 	}
 
-	return &alertingv1.InvolvedConditions{
-		Items: refList,
-	}, nil
+	return refList, nil
 }
 
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAlertEndpointRequest) (*alertingv1.TestAlertEndpointResponse, error) {
@@ -121,41 +138,56 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	details := &alertingv1.EndpointImplementation{
+		Title: "loser",
+		Body:  "loser",
+	}
 
-	// TODO : maybe this process will be simplified
-	// - create details
+	ephemeralId := shared.NewAlertingRefId()
+	createImpl := &alertingv1.FullAttachedEndpoints{
+		InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
+		Items: []*alertingv1.FullAttachedEndpoint{
+			{
+				EndpointId:    ephemeralId,
+				AlertEndpoint: req.GetEndpoint(),
+				Details:       details,
+			},
+		},
+		ThrottlingDuration: durationpb.New(time.Duration(time.Second * 1)),
+		Details:            details,
+	}
 
 	// - create ephemeral dispatcher
-
-	// - wait for alerting syncer sync
-
-	// - trigger alert
-
-	// - delete ephemeral dispatcher
-
-	// // need to trigger multiple alerts here, a reload can cause a context.Cancel()
-	// // to any pending post requests, resulting in the alert never being sent
-	// apiNode := backend.NewAlertManagerPostAlertClient(
-	// 	ctx,
-	// 	availableEndpoint,
-	// 	backend.WithLogger(lg),
-	// 	backend.WithPostAlertBody(triggerReq.TriggerAlertsRequest.ConditionId.GetId(), nil),
-	// 	backend.WithDefaultRetrier(),
-	// 	backend.WithExpectClosure(backend.NewExpectStatusCodes([]int{200, 422})))
-	// err = apiNode.DoRequest()
-	// if err != nil {
-	// 	lg.Errorf("Failed to post alert to alertmanager : %s", err)
-	// }
-
-	return &alertingv1.TestAlertEndpointResponse{}, nil
-}
-
-func (p *Plugin) EphemeralDispatcher(ctx context.Context, req *alertingv1.EphemeralDispatcherRequest) (*alertingv1.EphemeralDispatcherResponse, error) {
-	if err := req.Validate(); err != nil {
+	router, err := p.storageClientSet.Get().Routers().Get(ctx, shared.SingleConfigId)
+	if err != nil {
 		return nil, err
 	}
 
-	// TODO : create a dispatcher on the router node, process may change
+	ns := "test"
+	if err := router.SetNamespaceSpec("test", ephemeralId, createImpl); err != nil {
+		return nil, err
+	}
 
-	return nil, fmt.Errorf("not implemented")
+	go func() { // create, trigger, delete
+		p.opsNode.SendManualSyncRequest(ctx, []string{shared.SingleConfigId}, p.storageClientSet.Get().Routers())
+
+		_, err := p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+			ConditionId: &corev1.Reference{Id: ephemeralId},
+			Labels: map[string]string{
+				ns: ephemeralId,
+			},
+		})
+		if err != nil {
+			p.Logger.Errorf("Failed to trigger alert %s", err)
+		}
+
+		// - delete ephemeral dispatcher
+		if err := router.SetNamespaceSpec("test", ephemeralId, &alertingv1.FullAttachedEndpoints{
+			Items: []*alertingv1.FullAttachedEndpoint{},
+		}); err != nil {
+			return
+		}
+	}()
+
+	return &alertingv1.TestAlertEndpointResponse{}, nil
 }

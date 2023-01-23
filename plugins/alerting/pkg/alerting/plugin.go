@@ -88,6 +88,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p,
 			),
 			util.PackService(
+				&alertingv1.AlertTriggers_ServiceDesc,
+				p,
+			),
+			util.PackService(
 				&alertops.AlertingAdmin_ServiceDesc,
 				p.opsNode,
 			),

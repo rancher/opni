@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v2"
 )
 
@@ -53,7 +54,7 @@ var _ = BeforeSuite(func() {
 		0755,
 	)
 	Expect(err).NotTo(HaveOccurred())
-	webPort, alertmanagerCtxCa := env.StartEmbeddedAlertManager(env.Context(), configFilePath, opniPort)
+	webPort, alertmanagerCtxCa := env.StartEmbeddedAlertManager(env.Context(), configFilePath, lo.ToPtr(opniPort))
 	DeferCleanup(func() {
 		alertmanagerCtxCa()
 	})

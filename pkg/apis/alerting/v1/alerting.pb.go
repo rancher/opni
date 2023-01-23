@@ -28,6 +28,113 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type OpniSeverity int32
+
+const (
+	OpniSeverity_Info     OpniSeverity = 0
+	OpniSeverity_Warning  OpniSeverity = 1
+	OpniSeverity_Error    OpniSeverity = 2
+	OpniSeverity_Critical OpniSeverity = 3
+)
+
+// Enum value maps for OpniSeverity.
+var (
+	OpniSeverity_name = map[int32]string{
+		0: "Info",
+		1: "Warning",
+		2: "Error",
+		3: "Critical",
+	}
+	OpniSeverity_value = map[string]int32{
+		"Info":     0,
+		"Warning":  1,
+		"Error":    2,
+		"Critical": 3,
+	}
+)
+
+func (x OpniSeverity) Enum() *OpniSeverity {
+	p := new(OpniSeverity)
+	*p = x
+	return p
+}
+
+func (x OpniSeverity) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OpniSeverity) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes[0].Descriptor()
+}
+
+func (OpniSeverity) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes[0]
+}
+
+func (x OpniSeverity) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OpniSeverity.Descriptor instead.
+func (OpniSeverity) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZIP(), []int{0}
+}
+
+type GoldenSignal int32
+
+const (
+	GoldenSignal_Custom     GoldenSignal = 0
+	GoldenSignal_Errors     GoldenSignal = 1
+	GoldenSignal_Saturation GoldenSignal = 2
+	GoldenSignal_Traffic    GoldenSignal = 3
+	GoldenSignal_Latency    GoldenSignal = 4
+)
+
+// Enum value maps for GoldenSignal.
+var (
+	GoldenSignal_name = map[int32]string{
+		0: "Custom",
+		1: "Errors",
+		2: "Saturation",
+		3: "Traffic",
+		4: "Latency",
+	}
+	GoldenSignal_value = map[string]int32{
+		"Custom":     0,
+		"Errors":     1,
+		"Saturation": 2,
+		"Traffic":    3,
+		"Latency":    4,
+	}
+)
+
+func (x GoldenSignal) Enum() *GoldenSignal {
+	p := new(GoldenSignal)
+	*p = x
+	return p
+}
+
+func (x GoldenSignal) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GoldenSignal) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes[1].Descriptor()
+}
+
+func (GoldenSignal) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes[1]
+}
+
+func (x GoldenSignal) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GoldenSignal.Descriptor instead.
+func (GoldenSignal) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZIP(), []int{1}
+}
+
 type CachedState struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -236,11 +343,20 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc = [
 	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74,
 	0x12, 0x2c, 0x0a, 0x03, 0x65, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e,
 	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
-	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x03, 0x65, 0x6e, 0x64, 0x42, 0x2e,
-	0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70,
-	0x69, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2f, 0x76, 0x31, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x03, 0x65, 0x6e, 0x64, 0x2a, 0x3e,
+	0x0a, 0x0c, 0x4f, 0x70, 0x6e, 0x69, 0x53, 0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x12, 0x08,
+	0x0a, 0x04, 0x49, 0x6e, 0x66, 0x6f, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x61, 0x72, 0x6e,
+	0x69, 0x6e, 0x67, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x02,
+	0x12, 0x0c, 0x0a, 0x08, 0x43, 0x72, 0x69, 0x74, 0x69, 0x63, 0x61, 0x6c, 0x10, 0x03, 0x2a, 0x50,
+	0x0a, 0x0c, 0x47, 0x6f, 0x6c, 0x64, 0x65, 0x6e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x6c, 0x12, 0x0a,
+	0x0a, 0x06, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x45, 0x72,
+	0x72, 0x6f, 0x72, 0x73, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x61, 0x74, 0x75, 0x72, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x54, 0x72, 0x61, 0x66, 0x66, 0x69,
+	0x63, 0x10, 0x03, 0x12, 0x0b, 0x0a, 0x07, 0x4c, 0x61, 0x74, 0x65, 0x6e, 0x63, 0x79, 0x10, 0x04,
+	0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72,
+	0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f,
+	0x61, 0x70, 0x69, 0x73, 0x2f, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2f, 0x76, 0x31,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -255,18 +371,21 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescGZI
 	return file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDescData
 }
 
+var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_goTypes = []interface{}{
-	(*CachedState)(nil),           // 0: alerting.CachedState
-	(*IncidentIntervals)(nil),     // 1: alerting.IncidentIntervals
-	(*Interval)(nil),              // 2: alerting.Interval
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(OpniSeverity)(0),             // 0: alerting.OpniSeverity
+	(GoldenSignal)(0),             // 1: alerting.GoldenSignal
+	(*CachedState)(nil),           // 2: alerting.CachedState
+	(*IncidentIntervals)(nil),     // 3: alerting.IncidentIntervals
+	(*Interval)(nil),              // 4: alerting.Interval
+	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
 }
 var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_depIdxs = []int32{
-	3, // 0: alerting.CachedState.timestamp:type_name -> google.protobuf.Timestamp
-	2, // 1: alerting.IncidentIntervals.items:type_name -> alerting.Interval
-	3, // 2: alerting.Interval.start:type_name -> google.protobuf.Timestamp
-	3, // 3: alerting.Interval.end:type_name -> google.protobuf.Timestamp
+	5, // 0: alerting.CachedState.timestamp:type_name -> google.protobuf.Timestamp
+	4, // 1: alerting.IncidentIntervals.items:type_name -> alerting.Interval
+	5, // 2: alerting.Interval.start:type_name -> google.protobuf.Timestamp
+	5, // 3: alerting.Interval.end:type_name -> google.protobuf.Timestamp
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -322,13 +441,14 @@ func file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_rawDesc,
-			NumEnums:      0,
+			NumEnums:      2,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_goTypes,
 		DependencyIndexes: file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_depIdxs,
+		EnumInfos:         file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_enumTypes,
 		MessageInfos:      file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto_msgTypes,
 	}.Build()
 	File_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_proto = out.File

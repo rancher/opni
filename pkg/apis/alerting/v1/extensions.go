@@ -328,3 +328,45 @@ func (r *RateLimitingConfig) Default() *RateLimitingConfig {
 	r.InitialDelay = durationpb.New(10 * time.Second)
 	return r
 }
+
+func (a *AlertCondition) Namespace() string {
+	if a.GetAlertType().GetSystem() != nil {
+		return "disconnect"
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		return "capability"
+	}
+	if a.GetAlertType().GetCpu() != nil {
+		return "cpu"
+	}
+	if a.GetAlertType().GetMemory() != nil {
+		return "memory"
+	}
+	if a.GetAlertType().GetFs() != nil {
+		return "fs"
+	}
+	if a.GetAlertType().GetKubeState() != nil {
+		return "kube-state"
+	}
+	if a.GetAlertType().GetPrometheusQuery() != nil {
+		return "promql"
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		return "monitoring-backend"
+	}
+	return "default"
+}
+
+func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
+	involvedConditions := &InvolvedConditions{
+		Items: []*corev1.Reference{},
+	}
+	for conditionId, endpointIds := range r.RoutingRelationships {
+		if lo.Contains(
+			lo.Map(endpointIds.Items, func(c *corev1.Reference, _ int) string { return c.Id }),
+			endpointId) {
+			involvedConditions.Items = append(involvedConditions.Items, &corev1.Reference{Id: conditionId})
+		}
+	}
+	return involvedConditions
+}

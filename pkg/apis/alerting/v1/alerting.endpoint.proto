@@ -60,16 +60,8 @@ service AlertEndpoints{
   rpc DeleteAlertEndpoint(DeleteAlertEndpointRequest) 
   returns (InvolvedConditions) {
     option (google.api.http) = {
-      post : "/delete/{id.id}"
+      post : "/delete"
     };
-  }
-
-  rpc EphemeralDispatcher(EphemeralDispatcherRequest)
-      returns (EphemeralDispatcherResponse) {
-      option (google.api.http) = {
-        post : "/ephemeral"
-        body : "*"
-      };
   }
 
   rpc TestAlertEndpoint(TestAlertEndpointRequest)
@@ -82,21 +74,19 @@ service AlertEndpoints{
 }
 
 
-
-
-
 message AlertEndpoint {
   string name = 1;
   string description = 2;
   oneof endpoint {
-    SlackEndpoint slack = 4;
-    EmailEndpoint email = 5;
-    PagerDutyEndpoint pagerDuty = 6;
+    SlackEndpoint slack = 5;
+    EmailEndpoint email = 6;
+    PagerDutyEndpoint pagerDuty = 7;
+    WebhookEndpoint webhook = 8;
   }
 
   // the following are read only for consumers of the API
-  google.protobuf.Timestamp lastUpdated = 7;
-  string id = 8;
+  google.protobuf.Timestamp lastUpdated = 3;
+  string id = 4;
 }
 
 message EndpointImplementation {
@@ -134,6 +124,67 @@ message PagerDutyEndpoint {
   // default global ruleset -> event rules screen
   string integrationKey = 1;
   string serviceKey = 2;
+}
+
+message WebhookEndpoint {
+  string url = 1;
+  HTTPConfig httpConfig = 2;
+  int32 maxAlerts = 3;
+}
+
+message HTTPConfig {
+  BasicAuth basicAuth = 1;
+  Authorization authorization = 2;
+  OAuth2 oauth2 = 3;
+  bool enabled_http2 = 4;
+  string proxy_url = 5;
+  bool follow_redirects = 6;
+  TLSConfig tls_config = 7;
+}
+
+message BasicAuth {
+  string username = 1;
+  string password = 2;
+  string password_file = 3;
+}
+
+message Authorization {
+  string type = 1;
+  string credentialsFile = 2;
+  string credentials = 3;
+}
+
+// ClientID         string            `yaml:"client_id" json:"client_id"`
+// 	ClientSecret     Secret            `yaml:"client_secret" json:"client_secret"`
+// 	ClientSecretFile string            `yaml:"client_secret_file" json:"client_secret_file"`
+// 	Scopes           []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+// 	TokenURL         string            `yaml:"token_url" json:"token_url"`
+// 	EndpointParams   map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+
+// 	// HTTP proxy server to use to connect to the targets.
+// 	ProxyURL URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
+// 	// TLSConfig is used to connect to the token URL.
+// 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+
+message OAuth2 {
+  string clientId = 1;
+  string clientSecret = 2;
+  string clientSecretFile = 3;
+  repeated string scopes = 4;
+  string tokenUrl = 5;
+  map<string, string> endpointParams = 6;
+  string proxyUrl = 7;
+  TLSConfig tlsConfig = 8;
+}
+
+message TLSConfig {
+  string caFile = 1;
+  string certFile = 2;
+  string keyFile = 3;
+  string serverName = 4;
+  bool insecureSkipVerify = 5;
+  string minVersion = 6;
+  string maxVersion = 7;
 }
 
 message AlertEndpointList {

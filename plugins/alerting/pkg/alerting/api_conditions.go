@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"golang.org/x/exp/slices"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -82,6 +83,9 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAl
 			AlertCondition: items[i],
 		})
 	}
+	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) bool {
+		return a.AlertCondition.Name < b.AlertCondition.Name
+	})
 	return res, nil
 }
 
@@ -141,17 +145,35 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
 	lg := p.Logger.With("handler", "AlertConditionStatus")
 
+	// required info
 	cond, err := p.storageClientSet.Get().Conditions().Get(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
 	}
 
+	if cond.LastUpdated.AsTime().Unix() > time.Now().Add(-time.Minute*1).Unix() {
+		return &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_Pending,
+		}, nil
+	}
+
+	router, err := p.storageClientSet.Get().Routers().Get(ctx, shared.SingleConfigId)
+	if err != nil {
+		return nil, err
+	}
+	matchers := router.HasLabels(cond.Id)
+	if matchers == nil {
+		return &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_Pending,
+		}, nil
+	}
+
 	if a := cond.GetAlertType().GetSystem(); a != nil {
 		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
 		if err != nil || !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
+				State: alertingv1.AlertConditionState_Invalidated,
 			}, nil
 		}
 	}
@@ -159,14 +181,14 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		_, err := p.mgmtClient.Get().GetCluster(ctx, dc.ClusterId)
 		if err != nil || !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
+				State: alertingv1.AlertConditionState_Invalidated,
 			}, nil
 		}
 	}
 	if cc := cond.GetAlertType().GetMonitoringBackend(); cc != nil {
 		if !p.msgNode.IsRunning(ref.Id) {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
+				State: alertingv1.AlertConditionState_Invalidated,
 			}, nil
 		}
 	}
@@ -185,7 +207,7 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		}
 		if backendStatus.State == cortexops.InstallState_NotInstalled {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
+				State: alertingv1.AlertConditionState_Invalidated,
 			}, nil
 		}
 		// check that monitoring is enabled on the cluster
@@ -201,23 +223,27 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		}
 		if !found {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
+				State: alertingv1.AlertConditionState_Invalidated,
 			}, nil
 		}
 	}
 
 	defaultState := &alertingv1.AlertStatusResponse{
-		State: alertingv1.AlertConditionState_OK,
+		State: alertingv1.AlertConditionState_Ok,
 	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Errorf("Failed to get alerting options : %s", err)
 		return nil, err
 	}
+	// FIXME: the alert status returned by this endpoint
+	// will not always be consistent within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
 	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
 	if err != nil {
 		return nil, err
 	}
+
 	respAlertGroup := []backend.GettableAlert{}
 	apiNode := backend.NewAlertManagerGetAlertsClient(
 		ctx,
@@ -238,28 +264,35 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
 	for _, alert := range respAlertGroup {
+		matched := false
 		for labelName, label := range alert.Labels {
-			if labelName == shared.BackendConditionIdLabel && label == ref.Id {
-				if alert.Status.State == nil { // pretend everything is ok
-					continue
+			for _, conditionMatcher := range matchers {
+				if conditionMatcher.Name == labelName {
+					if conditionMatcher.Matches(label) {
+						matched = true
+						break
+					}
 				}
+			}
+			if matched {
 				switch *alert.Status.State {
 				case models.AlertStatusStateSuppressed:
 					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_SILENCED,
+						State: alertingv1.AlertConditionState_Silenced,
 					}, nil
 				case models.AlertStatusStateActive:
 					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_FIRING,
+						State: alertingv1.AlertConditionState_Firing,
 					}, nil
 				case models.AlertStatusStateUnprocessed: // in our case unprocessed means it has arrived for firing
 					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_FIRING,
+						State: alertingv1.AlertConditionState_Firing,
 					}, nil
 				default:
 					return defaultState, nil
 				}
 			}
+
 		}
 	}
 	return defaultState, nil
@@ -499,7 +532,6 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 						"%s{%s}",
 						cortex.ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
 						cortex.ConstructFiltersFromMap(
-							// TODO : this will need to be generic
 							cortex.ConstructIdLabelsForRecordingRule(cond.Name, cond.Id),
 						),
 					),

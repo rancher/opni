@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -23,6 +24,7 @@ type AlertingOpsNode struct {
 	ctx context.Context
 	AlertingOpsNodeOptions
 	syncPusher chan *alertops.SyncRequest
+	syncMu     *sync.RWMutex
 
 	ClusterDriver    future.Future[drivers.ClusterDriver]
 	storageClientSet future.Future[storage.AlertingClientSet]
@@ -63,6 +65,7 @@ func NewAlertingOpsNode(
 
 	a := &AlertingOpsNode{
 		ctx:                    ctx,
+		syncMu:                 &sync.RWMutex{},
 		AlertingOpsNodeOptions: options,
 		ClusterDriver:          clusterDriver,
 		storageClientSet:       storageClientSet,
@@ -103,14 +106,22 @@ func (a *AlertingOpsNode) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 	return driver.GetClusterStatus(ctx, &emptypb.Empty{})
 }
 
-func (a *AlertingOpsNode) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (a *AlertingOpsNode) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
 		return nil, err
 	}
-	return driver.UninstallCluster(ctx, &emptypb.Empty{})
+	if req.DeleteData {
+		go func() {
+			err := a.storageClientSet.Get().Purge(context.Background())
+			if err != nil {
+				a.logger.Warnw("failed to purge data", zap.Error(err))
+			}
+		}()
+	}
+	return driver.UninstallCluster(ctx, req)
 }
 
 func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {

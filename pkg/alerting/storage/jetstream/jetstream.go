@@ -111,8 +111,10 @@ func (j JetstreamRouterStore[T]) Put(ctx context.Context, key string, value T) e
 func (j JetstreamRouterStore[T]) ListKeys(ctx context.Context) ([]string, error) {
 	var keys []string
 	objs, err := j.obj.List()
-	if err != nil {
-		return keys, err
+	if errors.Is(err, nats.ErrNoKeysFound) {
+		return []string{}, nil
+	} else if err != nil {
+		return nil, err
 	}
 	for _, obj := range objs {
 		keys = append(keys, obj.Name)

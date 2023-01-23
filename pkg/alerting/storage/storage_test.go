@@ -418,7 +418,7 @@ func BuildAlertRouterStorageTestSuite(
 				Expect(originalRouter).NotTo(BeNil())
 				By("attaching some configurations to the obtained router")
 				endpSet := test.CreateRandomSetOfEndpoints()
-				getRouter.SetDefaultNamespaceConfig(lo.Sample(routing.DefaultSubTreeValues()), lo.Map(
+				getRouter.SetDefaultNamespaceConfig(lo.Map(
 					lo.Samples(
 						lo.Values(endpSet),
 						len(endpSet)-2,

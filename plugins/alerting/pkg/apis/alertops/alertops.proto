@@ -35,7 +35,7 @@ service AlertingAdmin {
       post: "/install"
     };
   }
-  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc UninstallCluster(UninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/uninstall"
     };
@@ -52,6 +52,10 @@ message ConnectRequest{
 
 message SyncRequest {
   repeated alerting.PutConfigRequest items = 1;
+}
+
+message UninstallRequest {
+  bool deleteData = 1;
 }
 
 enum InstallState {

@@ -37,7 +37,6 @@ type AlertEndpointsClient interface {
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
 	DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error)
-	EphemeralDispatcher(ctx context.Context, in *EphemeralDispatcherRequest, opts ...grpc.CallOption) (*EphemeralDispatcherResponse, error)
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
 }
 
@@ -94,15 +93,6 @@ func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *Dele
 	return out, nil
 }
 
-func (c *alertEndpointsClient) EphemeralDispatcher(ctx context.Context, in *EphemeralDispatcherRequest, opts ...grpc.CallOption) (*EphemeralDispatcherResponse, error) {
-	out := new(EphemeralDispatcherResponse)
-	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/EphemeralDispatcher", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error) {
 	out := new(TestAlertEndpointResponse)
 	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/TestAlertEndpoint", in, out, opts...)
@@ -130,7 +120,6 @@ type AlertEndpointsServer interface {
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes to everything without warning
 	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*InvolvedConditions, error)
-	EphemeralDispatcher(context.Context, *EphemeralDispatcherRequest) (*EphemeralDispatcherResponse, error)
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
 }
@@ -153,9 +142,6 @@ func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *U
 }
 func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*InvolvedConditions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
-}
-func (UnimplementedAlertEndpointsServer) EphemeralDispatcher(context.Context, *EphemeralDispatcherRequest) (*EphemeralDispatcherResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method EphemeralDispatcher not implemented")
 }
 func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
@@ -263,24 +249,6 @@ func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertEndpoints_EphemeralDispatcher_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EphemeralDispatcherRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertEndpointsServer).EphemeralDispatcher(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/alerting.AlertEndpoints/EphemeralDispatcher",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).EphemeralDispatcher(ctx, req.(*EphemeralDispatcherRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AlertEndpoints_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TestAlertEndpointRequest)
 	if err := dec(in); err != nil {
@@ -325,10 +293,6 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAlertEndpoint",
 			Handler:    _AlertEndpoints_DeleteAlertEndpoint_Handler,
-		},
-		{
-			MethodName: "EphemeralDispatcher",
-			Handler:    _AlertEndpoints_EphemeralDispatcher_Handler,
 		},
 		{
 			MethodName: "TestAlertEndpoint",

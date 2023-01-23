@@ -53,12 +53,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		if os.Getenv(shared.LocalBackendEnvToggle) != "" {
-			opt.WorkerNodesService = "http://localhost"
-			opt.ControllerNodeService = "http://localhost"
-
-		}
-
 		p.configureAlertManagerConfiguration(
 			p.Ctx,
 			drivers.WithLogger(p.Logger.Named("alerting-manager")),

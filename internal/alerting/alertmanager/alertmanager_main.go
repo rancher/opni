@@ -32,7 +32,6 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/rancher/opni/pkg/alerting/extensions"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/alertmanager/api"
@@ -173,9 +172,7 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 }
 
 func Main(args []string) {
-	if exitFlag := run(args); exitFlag != 0 {
-		panic(exitFlag)
-	}
+	os.Exit(run(args))
 }
 
 func run(args []string) int {
@@ -211,7 +208,7 @@ func run(args []string) int {
 		allowInsecureAdvertise = kingpin.Flag("cluster.allow-insecure-public-advertise-address-discovery", "[EXPERIMENTAL] Allow alertmanager to discover and listen on a public IP address.").Bool()
 
 		// opni
-		opniAddr = kingpin.Flag("opni.listen-address", "Listen address for the opni embedded server").Default(fmt.Sprintf(":%d", shared.AlertingDefaultHookPort)).String()
+		opniAddr = kingpin.Flag("opni.listen-address", "Listen address for the opni embedded server").String()
 	)
 
 	promlogflag.AddFlags(kingpin.CommandLine, &promlogConfig)
@@ -220,14 +217,15 @@ func run(args []string) int {
 	kingpin.Version(version.Print("alertmanager"))
 	kingpin.CommandLine.GetFlag("help").Short('h')
 	kingpin.Parse()
-
-	opniSrv := extensions.StartOpniEmbeddedServer(*configFile, *opniAddr)
-	defer func() {
-		err := opniSrv.Shutdown(context.TODO())
-		if err != nil {
-			panic(err)
-		}
-	}()
+	if opniAddr != nil && *opniAddr != "" {
+		opniSrv := extensions.StartOpniEmbeddedServer(*configFile, *opniAddr)
+		defer func() {
+			err := opniSrv.Shutdown(context.TODO())
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	logger := promlog.New(&promlogConfig)
 

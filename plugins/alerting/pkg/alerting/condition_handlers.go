@@ -32,21 +32,21 @@ func setupCondition(
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
-		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName())
+		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if dc := req.GetAlertType().GetDownstreamCapability(); dc != nil {
-		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName())
+		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if cs := req.GetAlertType().GetMonitoringBackend(); cs != nil {
-		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName())
+		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
@@ -143,8 +143,9 @@ func (p *Plugin) handleSystemAlertCreation(
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onSystemConditionCreate(newConditionId, conditionName, k)
+	err := p.onSystemConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -156,8 +157,9 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 	k *alertingv1.AlertConditionDownstreamCapability,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, k)
+	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -169,8 +171,9 @@ func (p *Plugin) handleMonitoringBackendAlertCreation(
 	k *alertingv1.AlertConditionMonitoringBackend,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, k)
+	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create cortex cluster condition %s", err)
 	}
@@ -332,7 +335,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	return err
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionSystem) error {
+func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionSystem) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -367,16 +370,22 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
 				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},
@@ -398,7 +407,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	return nil
 }
 
-func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionDownstreamCapability) error {
+func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionDownstreamCapability) error {
 	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -441,20 +450,25 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 							break
 						}
 					}
-
 				}
 				return healthy, h.HealthStatus.Status.Timestamp
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},
@@ -593,7 +607,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 	return true, ts
 }
 
-func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionMonitoringBackend) error {
+func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionMonitoringBackend) error {
 	lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -626,17 +640,23 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				lg.Debug("resolve cortex status condition")
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},

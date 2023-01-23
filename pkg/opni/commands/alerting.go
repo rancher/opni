@@ -3,10 +3,14 @@
 package commands
 
 import (
+	"context"
 	"flag"
+	"fmt"
+	"os"
 	"path"
+	"strings"
+	"time"
 
-	"github.com/opentracing/opentracing-go/log"
 	alertmanager_internal "github.com/rancher/opni/internal/alerting/alertmanager"
 	"github.com/rancher/opni/internal/alerting/syncer"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -14,6 +18,8 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/cobra"
 )
+
+const syncerPrefix = "syncer"
 
 func BuildAlertingComponents() *cobra.Command {
 	cmd := &cobra.Command{
@@ -26,47 +32,57 @@ func BuildAlertingComponents() *cobra.Command {
 	return cmd
 }
 
+func addSyncerPrefix(input string) string {
+	return fmt.Sprintf("%s.%s", syncerPrefix, input)
+}
+
+func hasSyncerPrefix(input string) bool {
+	return strings.HasPrefix(input, fmt.Sprintf("--%s", syncerPrefix))
+}
+
 func BuildAlertingSyncer() *cobra.Command {
-	var gatewayAddress string
-	var configFilePath string
-	var listenAddress string
-	var alertmanagerAddress string
-	var pprofPort int64
-	var profileBlockRate int64
+	var syncerGatewayJoinAddress string
+	var syncerAlertManagerConfigFilePath string
+	var syncerListenAddress string
+	var syncerAlertManagerAddress string
+	var syncerPprofPort int64
+	var syncerProfileBlockRate int64
 	cmd := &cobra.Command{
-		Use:   "syncer",
-		Short: "Run the side-car Alertmanager alerting syncer server",
+		Use:                "syncer",
+		Short:              "Run the side-car Alertmanager alerting syncer server",
+		Long:               "Note: this command is only intended to be run as a side-car container to the Alertmanager server.",
+		DisableFlagParsing: false,
 		Run: func(cmd *cobra.Command, args []string) {
 			tracing.Configure("alerting-syncer")
 			flag.CommandLine = flag.NewFlagSet("syncer", flag.ExitOnError)
 
 			serverConfig := &alertingv1.SyncerConfig{
-				GatewayJoinAddress:     gatewayAddress,
-				AlertmanagerConfigPath: configFilePath,
-				ListenAddress:          listenAddress,
-				AlertmanagerAddress:    alertmanagerAddress,
-				HookListenAddress:      path.Join(listenAddress, shared.AlertingDefaultHookName),
-				PprofPort:              pprofPort,
-				ProfileBlockRate:       profileBlockRate,
+				GatewayJoinAddress:     syncerGatewayJoinAddress,
+				AlertmanagerConfigPath: syncerAlertManagerConfigFilePath,
+				ListenAddress:          syncerListenAddress,
+				AlertmanagerAddress:    syncerAlertManagerAddress,
+				HookListenAddress:      path.Join(syncerListenAddress, shared.AlertingDefaultHookName),
+				PprofPort:              syncerPprofPort,
+				ProfileBlockRate:       syncerProfileBlockRate,
 			}
 
 			if err := serverConfig.Validate(); err != nil {
 				lg.Fatal(err)
 			}
-
+			lg.Debug("syncer gateway join address" + syncerGatewayJoinAddress)
 			err := syncer.Main(cmd.Context(), serverConfig)
 			if err != nil {
-				log.Error(err)
+				lg.Error(err)
 			}
 		},
 		Args: cobra.NoArgs,
 	}
-	cmd.Flags().StringVar(&configFilePath, "config.file", shared.ConfigMountPath, "the alertmanager config file to sync to")
-	cmd.Flags().StringVar(&listenAddress, "listen.address", ":8080", "the address to listen on")
-	cmd.Flags().StringVar(&alertmanagerAddress, "alertmanager.address", "http://localhost:9093", "the address of the remote alertmanager instance to sync")
-	cmd.Flags().Int64Var(&pprofPort, "pprof.port", 0, "the port to listen on for pprof")
-	cmd.Flags().Int64Var(&profileBlockRate, "profile.block-rate", 0, "the rate at which to profile blocking operations")
-	cmd.Flags().StringVar(&gatewayAddress, "gateway.join.address", "", "the address of the gateway to join")
+	cmd.Flags().StringVar(&syncerAlertManagerConfigFilePath, addSyncerPrefix("alertmanager.config.file"), shared.ConfigMountPath, "the alertmanager config file to sync to")
+	cmd.Flags().StringVar(&syncerListenAddress, addSyncerPrefix("listen.address"), ":8080", "the address to listen on")
+	cmd.Flags().StringVar(&syncerAlertManagerAddress, addSyncerPrefix("alertmanager.address"), "http://localhost:9093", "the address of the remote alertmanager instance to sync")
+	cmd.Flags().Int64Var(&syncerPprofPort, addSyncerPrefix("pprof.port"), 0, "the port to listen on for pprof")
+	cmd.Flags().Int64Var(&syncerProfileBlockRate, addSyncerPrefix("profile.block-rate"), 0, "the rate at which to profile blocking operations")
+	cmd.Flags().StringVar(&syncerGatewayJoinAddress, addSyncerPrefix("gateway.join.address"), "", "the address of the gateway to join")
 	return cmd
 }
 
@@ -82,6 +98,22 @@ func BuildAlertManager() *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+func waitForAlertmanagerFile(ctx context.Context, configFile string) bool {
+	ctxTimeout := 1 * time.Minute
+	ctxCa, cancel := context.WithTimeout(ctx, ctxTimeout)
+	defer cancel()
+	select {
+	case <-ctxCa.Done():
+		break
+	default:
+		_, err := os.Stat(configFile)
+		if err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {

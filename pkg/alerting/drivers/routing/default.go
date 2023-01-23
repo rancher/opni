@@ -122,15 +122,15 @@ func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	}
 	allRecvs := []*config.Receiver{}
 	// default namespace is based on the grpc enum status
-	defaultNamespaceRoute, recv := NewOpniNamespacedSubTree(DefaultSubTreeLabel(), DefaultSubTreeValues()...)
+	defaultNamespaceRoute, recvs := NewOpniNamespacedSubTree(DefaultSubTreeLabel(), DefaultSubTreeValues()...)
 
 	// rate limits messages pushed from an opni source that itself should decide how to group messages
 	defaultNamespaceRoute.GroupBy = append(defaultNamespaceRoute.GroupBy, shared.OpniUnbufferedKey)
 	opniRoute.Routes = append(opniRoute.Routes, defaultNamespaceRoute)
-	allRecvs = append(allRecvs, recv...)
+	allRecvs = append(allRecvs, recvs...)
 
 	// must be last to prevent any opni alerts from leaking into the user's production routing tree
-	opniRoute.Routes = append(opniRoute.Routes, newFinalizer())
+	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil))
 	return opniRoute, allRecvs
 }
 
@@ -142,8 +142,19 @@ func newNamespaceParentMatcher(namespace string) *labels.Matcher {
 	}
 }
 
-func newFinalizer() *config.Route {
+func newFinalizer(optionalNamespace *string) *config.Route {
+	matchers := func() []*labels.Matcher {
+		if optionalNamespace == nil {
+			return []*labels.Matcher{}
+		} else {
+			return []*labels.Matcher{
+				newNamespaceParentMatcher(*optionalNamespace),
+			}
+		}
+	}
+
 	finalizerRoute := &config.Route{
+		Matchers: matchers(),
 		Receiver: shared.AlertingHookReceiverName, // assumption : always present in opni embedded server
 		// set to false to prevent any further routing into unrelated namespace OR
 		// the user's synced production config
@@ -191,7 +202,9 @@ func NewOpniNamespacedSubTree(namespace string, defaultValues ...string) (*confi
 		Matchers: config.Matchers{
 			newNamespaceParentMatcher(namespace),
 		},
-		Continue:       false, // namespaces should be isolated
+		// namespaces should be isolated, so finalizers are the ones that have continue = False
+		// continue = false here overrides the subtree's continue = true?
+		Continue:       false,
 		Routes:         []*config.Route{},
 		GroupWait:      lo.ToPtr(model.Duration(60 * time.Second)),
 		RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
@@ -204,7 +217,7 @@ func NewOpniNamespacedSubTree(namespace string, defaultValues ...string) (*confi
 		receivers = append(receivers, recv)
 	}
 	// always terminate the namespace with a finalizer
-	finalizer := newFinalizer()
+	finalizer := newFinalizer(lo.ToPtr(namespace))
 	subRoutes = append(subRoutes, finalizer) // finalizer must always be last
 	parentRoute.Routes = subRoutes
 	return parentRoute, receivers
@@ -231,16 +244,10 @@ func NewOpniSubRoutingTreeWithDefaultValue(namespace, value string) (*config.Rou
 	return valueRoute, valueReceiver
 }
 
-func NewOpniSubRoutingTreeWithValue(
-	namespace,
-	value string,
-	rl rateLimitingConfig,
-	opniConfigs []config.OpniReceiver,
-) (*config.Route, *config.Receiver) {
+// new namespace matcher
+func NewOpniSubRoutingTreeWithValue(rl rateLimitingConfig, opniConfigs []config.OpniReceiver, matchers []*labels.Matcher, receiverId string) (*config.Route, *config.Receiver) {
 	valueRoute := &config.Route{
-		Matchers: config.Matchers{
-			newNamespaceMatcher(namespace, value),
-		},
+		Matchers: matchers,
 		// even though in the current implementation, each namespace value should be unique,
 		// we should traverse the entire namespace until we make it to the finalizer route
 		Continue: true,
@@ -252,12 +259,8 @@ func NewOpniSubRoutingTreeWithValue(
 	valueRoute.GroupWait = &initialDelayDur
 	repeatIntervalDur := model.Duration(rl.RepeatInterval)
 	valueRoute.RepeatInterval = &repeatIntervalDur
-	constructedReceiverId := shared.NewOpniReceiverName(shared.OpniReceiverId{
-		Namespace:  namespace,
-		ReceiverId: value,
-	})
-	valueRoute.Receiver = constructedReceiverId
-	valueReceiver, err := config.BuildReceiver(constructedReceiverId, opniConfigs)
+	valueRoute.Receiver = receiverId
+	valueReceiver, err := config.BuildReceiver(receiverId, opniConfigs)
 	if err != nil {
 		panic(err)
 	}

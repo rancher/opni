@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -22,9 +23,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertTriggersClient interface {
-	// opni internal use
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	ResolveAlerts(ctx context.Context, in *ResolveAlertsRequest, opts ...grpc.CallOption) (*ResolveAlertsResponse, error)
+	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListRoutingRelationshipsResponse, error)
 }
 
 type alertTriggersClient struct {
@@ -53,13 +54,22 @@ func (c *alertTriggersClient) ResolveAlerts(ctx context.Context, in *ResolveAler
 	return out, nil
 }
 
+func (c *alertTriggersClient) ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListRoutingRelationshipsResponse, error) {
+	out := new(ListRoutingRelationshipsResponse)
+	err := c.cc.Invoke(ctx, "/alerting.AlertTriggers/ListRoutingRelationships", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertTriggersServer is the server API for AlertTriggers service.
 // All implementations must embed UnimplementedAlertTriggersServer
 // for forward compatibility
 type AlertTriggersServer interface {
-	// opni internal use
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	ResolveAlerts(context.Context, *ResolveAlertsRequest) (*ResolveAlertsResponse, error)
+	ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error)
 	mustEmbedUnimplementedAlertTriggersServer()
 }
 
@@ -72,6 +82,9 @@ func (UnimplementedAlertTriggersServer) TriggerAlerts(context.Context, *TriggerA
 }
 func (UnimplementedAlertTriggersServer) ResolveAlerts(context.Context, *ResolveAlertsRequest) (*ResolveAlertsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResolveAlerts not implemented")
+}
+func (UnimplementedAlertTriggersServer) ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRoutingRelationships not implemented")
 }
 func (UnimplementedAlertTriggersServer) mustEmbedUnimplementedAlertTriggersServer() {}
 
@@ -122,6 +135,24 @@ func _AlertTriggers_ResolveAlerts_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertTriggers_ListRoutingRelationships_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertTriggersServer).ListRoutingRelationships(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.AlertTriggers/ListRoutingRelationships",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertTriggersServer).ListRoutingRelationships(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AlertTriggers_ServiceDesc is the grpc.ServiceDesc for AlertTriggers service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -136,6 +167,10 @@ var AlertTriggers_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveAlerts",
 			Handler:    _AlertTriggers_ResolveAlerts_Handler,
+		},
+		{
+			MethodName: "ListRoutingRelationships",
+			Handler:    _AlertTriggers_ListRoutingRelationships_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

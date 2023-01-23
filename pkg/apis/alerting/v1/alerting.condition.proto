@@ -98,21 +98,6 @@ service AlertConditions {
   }
 }
 
-enum OpniSeverity {
-  Info = 0;
-  Warning = 1;
-  Error = 2;
-  Critical = 3;
-}
-
-enum GoldenSignal{
-  Custom = 0;
-  Errors = 1;
-  Saturation = 2;
-  Traffic = 3;
-  Latency = 4;
-}
-
 message AlertCondition {
   string name = 1;
   string description = 2;
@@ -159,11 +144,12 @@ enum ControlFlowAction {
 }
 
 enum AlertConditionState {
-  UNKOWN = 0;
-  OK = 1;
-  FIRING = 2;
-  SILENCED = 3;
-  INVALIDATED = 4;
+  Unkown = 0;
+  Ok = 1;
+  Firing = 2;
+  Silenced = 3;
+  Invalidated = 4;
+  Pending = 5;
 }
 
 // enum will map to an object of available choices

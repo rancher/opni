@@ -7,7 +7,6 @@ on an AlertManager config.
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/prometheus/alertmanager/pkg/labels"
@@ -26,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// WIP
 type ProductionConfigSyncer interface {
 	// Walks the tree of routes in the config, calling the given function
 	Walk(map[string]string, func(depth int, r *config.Route) error) error
@@ -39,22 +39,38 @@ type ProductionConfigSyncer interface {
 	SyncExternalConfig(content []byte) error
 }
 
+type RoutingIdentifer interface {
+	HasLabels(routingId string) []*labels.Matcher
+	HasReceivers(routingId string) []string
+}
+
+// OpniRouting Responsible for handling the mapping of ids
+// to configured endpoints, including indexing external configs
 type OpniRouting interface {
 	ProductionConfigSyncer
+	RoutingIdentifer
+
 	yaml.Unmarshaler
 	MarshalYAML() ([]byte, error)
 
-	SetDefaultNamespaceConfig(value string, endps []*alertingv1.AlertEndpoint) error //FIXME: set rate limiting configs here too, no value input here
+	SetDefaultNamespaceConfig(endps []*alertingv1.AlertEndpoint) error
 	SetNamespaceSpec(namespace string, routeId string, specs *alertingv1.FullAttachedEndpoints) error
 	// When an already attached endpoint is updated, propagate updates to the routing tree
 	UpdateEndpoint(id string, spec *alertingv1.AlertEndpoint) error
 	// When an already attached endpoint is delete, propagate all deletions to the routing tree
 	DeleteEndpoint(endpointId string) error
+
+	// Builders
+
 	// Converts OpniRouting to a valid AlertManager config
 	// Returns a NotFound error if the a route to update or delete is not found
 	// Returns a Conflict error if we try to insert a duplicate config, unique up to its keys
 	BuildConfig() (*config.Config, error)
 	Clone() OpniRouting
+}
+
+func NewDefaultOpniRoutingWithOverrideHook(hook string) OpniRouting {
+	return NewOpniRouterV1(hook)
 }
 
 func NewDefaultOpniRouting() OpniRouting {
@@ -161,6 +177,9 @@ func newReceiverImplementationFromEndpoint(endp *alertingv1.AlertEndpoint, detai
 	case *alertingv1.AlertEndpoint_PagerDuty:
 		newConfig = (&config.PagerdutyConfig{}).Configure(endp)
 		newConfig.StoreMessage(details)
+	case *alertingv1.AlertEndpoint_Webhook:
+		newConfig = (&config.WebhookConfig{}).Configure(endp)
+		newConfig.StoreMessage(details)
 	default:
 		strRepr, _ := protojson.Marshal(endp)
 		panic(fmt.Sprintf("no such endpoint type implemented %s", strRepr))
@@ -169,6 +188,35 @@ func newReceiverImplementationFromEndpoint(endp *alertingv1.AlertEndpoint, detai
 		panic("new config should always be non-nil")
 	}
 	return newConfig
+}
+
+func (o *OpniRouterV1) HasLabels(routingId string) []*labels.Matcher {
+	for namespaceName, routes := range o.NamespacedSpecs {
+		if _, ok := routes[routingId]; ok {
+			return []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  namespaceName,
+					Value: routingId,
+				},
+			}
+		}
+	}
+	return nil
+}
+
+func (o *OpniRouterV1) HasReceivers(routingId string) []string {
+	for namespaceName, routes := range o.NamespacedSpecs {
+		if _, ok := routes[routingId]; ok {
+			return []string{
+				shared.NewOpniReceiverName(shared.OpniReceiverId{
+					Namespace:  namespaceName,
+					ReceiverId: routingId,
+				}),
+			}
+		}
+	}
+	return []string{}
 }
 
 func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {
@@ -181,34 +229,29 @@ func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {
 	return nil
 }
 
-func (o *OpniRouterV1) SetDefaultNamespaceConfig(value string, endpoints []*alertingv1.AlertEndpoint) error {
-	if value == "" {
-		return validation.Error("value cannot be empty when setting default namespace config")
-	}
-	if !slices.Contains(DefaultSubTreeValues(), value) {
-		return validation.Errorf("invalid default subtree value : %s, expected one of : %s", value, strings.Join(DefaultSubTreeValues(), ", "))
-	}
-	if len(endpoints) == 0 { // delete
-		delete(o.DefaultNamespaceConfigs, value)
-		return nil
-	}
-	validKeys := map[string]struct{}{}
-	for _, endpoint := range endpoints {
-		if err := endpoint.Validate(); err != nil {
-			return err
+func (o *OpniRouterV1) SetDefaultNamespaceConfig(endpoints []*alertingv1.AlertEndpoint) error {
+	for _, val := range DefaultSubTreeValues() {
+		if len(endpoints) == 0 { // delete
+			delete(o.DefaultNamespaceConfigs, val)
+			return nil
 		}
-		validKeys[endpoint.GetId()] = struct{}{}
-	}
+		validKeys := map[string]struct{}{}
+		for _, endpoint := range endpoints {
+			if err := endpoint.Validate(); err != nil {
+				return err
+			}
+			validKeys[endpoint.GetId()] = struct{}{}
+		}
 
-	details := &alertingv1.EndpointImplementation{
-		Title: fmt.Sprintf("{{ .%s }}", shared.OpniTitleLabel),
-		Body:  fmt.Sprintf("{{ .%s }}", shared.OpniBodyLabel),
+		details := &alertingv1.EndpointImplementation{
+			Title: fmt.Sprintf("{{ .%s }}", shared.OpniTitleLabel),
+			Body:  fmt.Sprintf("{{ .%s }}", shared.OpniBodyLabel),
+		}
+		o.DefaultNamespaceConfigs[val] = map[string]config.OpniReceiver{}
+		for _, spec := range endpoints {
+			o.DefaultNamespaceConfigs[val][spec.Id] = newReceiverImplementationFromEndpoint(spec, details)
+		}
 	}
-	o.DefaultNamespaceConfigs[value] = map[string]config.OpniReceiver{}
-	for _, spec := range endpoints {
-		o.DefaultNamespaceConfigs[value][spec.Id] = newReceiverImplementationFromEndpoint(spec, details)
-	}
-
 	return nil
 }
 
@@ -218,16 +261,6 @@ func (o *OpniRouterV1) SetNamespaceSpec(namespace, routeId string, specs *alerti
 	}
 	if namespace == DefaultSubTreeLabel() {
 		return validation.Error("namespace cannot be the default namespace label")
-	}
-
-	if len(specs.GetItems()) == 0 { // delete
-		if _, ok := o.NamespacedSpecs[namespace]; ok {
-			delete(o.NamespacedSpecs[namespace], routeId)
-		}
-		if _, ok := o.NamespacedRateLimiting[namespace]; ok {
-			delete(o.NamespacedRateLimiting[namespace], routeId)
-		}
-		return nil
 	}
 	// set receiver specs
 	for _, spec := range specs.GetItems() {
@@ -281,18 +314,9 @@ func (o *OpniRouterV1) UpdateEndpoint(id string, spec *alertingv1.AlertEndpoint)
 }
 
 func (o *OpniRouterV1) DeleteEndpoint(id string) error {
-	for namespace, route := range o.NamespacedSpecs {
-		for routeId, endpoint := range route {
+	for _, route := range o.NamespacedSpecs {
+		for _, endpoint := range route {
 			delete(endpoint, id)
-			if len(endpoint) == 0 { // cleanup empty now routes
-				delete(route, routeId)
-			}
-		}
-		if len(route) == 0 { // clean up empty namespaces
-			delete(o.NamespacedSpecs, namespace)
-		}
-		if len(namespace) == 0 {
-			delete(o.NamespacedSpecs, namespace)
 		}
 	}
 
@@ -355,11 +379,12 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 		slices.SortFunc(routeIds, func(a, b string) bool {
 			return a < b
 		})
-		if len(routeIds) == 0 {
-			panic("zero route")
-		}
 		namespacedSubTree, _ := NewOpniNamespacedSubTree(namespace)
 		for _, routeId := range routeIds {
+			if len(o.NamespacedSpecs[namespace][routeId]) == 0 {
+				// no opni receivers attached, do not build & skip...
+				continue
+			}
 			endpointIds := lo.Keys(o.NamespacedSpecs[namespace][routeId]) // needs to be deterministically ordered
 			slices.SortFunc(endpointIds, func(a, b string) bool {
 				return a < b
@@ -369,10 +394,10 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 				endpoints[i] = o.NamespacedSpecs[namespace][routeId][endpointId]
 			}
 			namespacedValueSubTree, namespacedReceivers := NewOpniSubRoutingTreeWithValue(
-				namespace,
-				routeId,
 				o.NamespacedRateLimiting[namespace][routeId],
 				endpoints,
+				o.HasLabels(routeId),
+				o.HasReceivers(routeId)[0],
 			)
 			// prepend
 			namespacedSubTree.Routes = append([]*config.Route{namespacedValueSubTree}, namespacedSubTree.Routes...)
@@ -397,7 +422,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 					root.Global = o.SyncedConfig.Global
 					root.InhibitRules = o.SyncedConfig.InhibitRules
 					root.TimeIntervals = o.SyncedConfig.TimeIntervals
-					//FIXME: we eventually need to allow some way to import template files
+					//FIXME: we *may* eventually need to allow some way to import template files
 					root.Templates = o.SyncedConfig.Templates
 					root.InhibitRules = o.SyncedConfig.InhibitRules
 					root.MuteTimeIntervals = append(root.MuteTimeIntervals, o.SyncedConfig.MuteTimeIntervals...)

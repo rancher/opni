@@ -256,6 +256,9 @@ func (a *AlertEndpoint) Validate() error {
 	if a.GetPagerDuty() != nil {
 		return a.GetPagerDuty().Validate()
 	}
+	if a.GetWebhook() != nil {
+		return a.GetWebhook().Validate()
+	}
 	return shared.WithUnimplementedErrorf("AlertEndpoint type %v not implemented yet", a)
 }
 
@@ -307,6 +310,16 @@ func (a *PagerDutyEndpoint) Validate() error {
 	}
 	if a.GetServiceKey() != "" && a.GetIntegrationKey() != "" {
 		return validation.Error("only one of integration key or service key must be set for pager duty endpoint")
+	}
+	return nil
+}
+
+func (w *WebhookEndpoint) Validate() error {
+	if w.GetUrl() == "" {
+		return validation.Error("url must be set")
+	}
+	if _, err := url.Parse(w.GetUrl()); err != nil {
+		return validation.Errorf("url must be a valid url : %s", err)
 	}
 	return nil
 }

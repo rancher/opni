@@ -116,12 +116,11 @@ func (p *PostableAlert) WithCondition(conditionId string) {
 	if p.Labels == nil {
 		p.Labels = make(map[string]string)
 	}
-	p.Labels["alertname"] = conditionId
-	p.Labels["conditionId"] = conditionId
+	p.Labels["alertname"] = conditionId[:4]
 }
 
-// WithRuntimeInfo adds the runtime information to the alert.
-func (p *PostableAlert) WithRuntimeInfo(key string, value string) {
+// WithAnnotations adds the runtime information to the alert.
+func (p *PostableAlert) WithAnnotations(key, value string) {
 	if p.Annotations == nil {
 		newMap := map[string]string{}
 		p.Annotations = &newMap
@@ -129,12 +128,19 @@ func (p *PostableAlert) WithRuntimeInfo(key string, value string) {
 	(*p.Annotations)[key] = value
 }
 
+func (p *PostableAlert) WithLabels(key, value string) {
+	if p.Labels == nil {
+		p.Labels = make(map[string]string)
+	}
+	p.Labels[key] = value
+}
+
 func (p *PostableAlert) Must() error {
 	if p.Labels == nil {
-		return fmt.Errorf("missting PostableAlert.Labels")
+		return fmt.Errorf("missing PostableAlert.Labels")
 	}
 	if v, ok := p.Labels["alertname"]; !ok || v == "" {
-		return fmt.Errorf(`missting PostableAlert.Labels["alertname"]`)
+		return fmt.Errorf(`missing PostableAlert.Labels["alertname"]`)
 	}
 	return nil
 }

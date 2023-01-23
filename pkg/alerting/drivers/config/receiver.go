@@ -116,7 +116,7 @@ func BuildReceiver(receiverId string, recvs []OpniReceiver) (*Receiver, error) {
 		case shared.InternalPagerdutyId:
 			pagerdutyCfg = append(pagerdutyCfg, recv.(*PagerdutyConfig))
 		case shared.InternalWebhookId:
-			fallthrough
+			webhookCfg = append(webhookCfg, recv.(*WebhookConfig))
 		case shared.InternalOpsGenieId:
 			fallthrough
 		case shared.InternalVictorOpsId:
@@ -344,15 +344,17 @@ func (c *WebhookConfig) InternalId() string {
 }
 
 func (c *WebhookConfig) ExtractMessage() *alertingv1.EndpointImplementation {
-	//TODO
-	return nil
+	return &alertingv1.EndpointImplementation{}
 }
 
-func (c *WebhookConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
-	//TODO
-}
+func (c *WebhookConfig) StoreMessage(details *alertingv1.EndpointImplementation) {}
 
-func (c *WebhookConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
+func (c *WebhookConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
+	webhookSpec := endp.GetWebhook()
+	parsedURL := util.Must(url.Parse(webhookSpec.Url))
+	c.URL = &config.URL{
+		URL: parsedURL,
+	}
 	return c
 }
 
@@ -513,31 +515,3 @@ func (c *TelegramConfig) Clone() OpniReceiver {
 func (c *TelegramConfig) MarshalYAML() ([]byte, error) {
 	return yaml.Marshal(c)
 }
-
-// func (c *DiscordConfig) InternalId() string {
-// 	return shared.InternalDiscordId
-// }
-
-// func (c *DiscordConfig) ExtractMessage() *alertingv1.EndpointImplementation {
-// 	//TODO
-// 	return nil
-// }
-
-// func (c *DiscordConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
-// 	//TODO
-// 	return &DiscordConfig{}
-// }
-
-// func (c *WebexConfig) InternalId() string {
-// 	return shared.InternalWebexId
-// }
-
-// func (c *WebexConfig) ExtractMessage() *alertingv1.EndpointImplementation {
-// 	//TODO
-// 	return nil
-// }
-
-// func (c *WebexConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
-// 	//TODO
-// 	return &WebexConfig{}
-// }

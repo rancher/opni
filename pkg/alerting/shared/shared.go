@@ -6,7 +6,6 @@ package shared
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 
@@ -121,9 +120,6 @@ const AgentDisconnectStorageType = "agent-disconnect"
 
 // Datasources & Versioning
 
-const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
-const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
-
 // labels
 const OpniTitleLabel = "OpniTitleLabel"
 const OpniBodyLabel = "OpniBodyLabel"
@@ -219,15 +215,6 @@ func DefaultAlertManagerConfig(managementUrl string) (bytes.Buffer, error) {
 		return b, err
 	}
 	return b, nil
-}
-
-func BackendDefaultFile(managementUrl string) error {
-	b, err := DefaultAlertManagerConfig(managementUrl)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(LocalAlertManagerPath, b.Bytes(), 0644)
-	return err
 }
 
 // Error declarations

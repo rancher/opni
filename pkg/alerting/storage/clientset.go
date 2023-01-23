@@ -69,7 +69,6 @@ func (c *CompositeAlertingClientSet) GetHash(ctx context.Context, key string) st
 	return c.hashes[key]
 }
 
-// TODO : better implementation
 func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string) error {
 	aggregate := ""
 	if key == shared.SingleConfigId {
@@ -101,41 +100,32 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 	return nil
 }
 
-// Based on the other storage, calculate what the virtual config should be,
-// then overwrite the virtual config storage
-// ! only returns an error if the overwrite fails
-// TODO : better implementation
-func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, opts ...storage_opts.SyncOption) error {
+func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, opts ...storage_opts.SyncOption) ([]string, error) {
 	syncOpts := storage_opts.NewSyncOptions()
 	syncOpts.Apply(opts...)
-	if err := c.CalculateHash(ctx, shared.SingleConfigId); err != nil {
-		return err
-	}
-	c.Logger.With("hash", c.GetHash(ctx, shared.SingleConfigId)).Debug("starting force sync")
-
 	key := shared.SingleConfigId
 
 	// List all conditions & map their endpoints
 	conds, err := c.Conditions().List(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// conditionId -> endpointId
-	relationMap := make(map[string]*alertingv1.AttachedEndpoints)
-	for _, c := range conds {
-		if c.Id == "" {
-			c.Id = c.GetClusterId().GetId()
-
+	for _, cond := range conds {
+		if cond.Id == "" {
+			cond.Id = cond.GetClusterId().GetId()
 		}
-		//FIXME: hack
-		ns := "prometheusQuery"
-		if c.GetAttachedEndpoints() != nil {
-			relationMap[ns+"-"+c.Id] = c.GetAttachedEndpoints()
+		ns := cond.Namespace()
+		endpoints := cond.GetAttachedEndpoints()
+		if endpoints == nil || len(endpoints.Items) == 0 {
+			// this registers it with the virtual router, but doesn't ever build it into the physical router
+			err = syncOpts.Router.SetNamespaceSpec(ns, cond.Id, &alertingv1.FullAttachedEndpoints{
+				Items: []*alertingv1.FullAttachedEndpoint{},
+			})
+			if err != nil {
+				return nil, err
+			}
+			continue
 		}
-	}
-	// get unredacted endpoint details
-	for encodedNsId, endpoints := range relationMap {
-		namespace, id := strings.Split(encodedNsId, "-")[0], strings.Split(encodedNsId, "-")[1] //FIXME:
 		endpointConfigs := make([]*alertingv1.AlertEndpoint, len(endpoints.GetItems()))
 		var errG errgroup.Group
 		for i, endpoint := range endpoints.GetItems() {
@@ -149,103 +139,57 @@ func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, opts ...stor
 				endpointConfigs[i] = endpoint
 				return err
 			})
-
 		}
 		err := errG.Wait()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		routingNode, err := backend.ConvertEndpointIdsToRoutingNode(
 			endpointConfigs,
 			endpoints,
-			id,
+			cond.Id,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		err = syncOpts.Router.SetNamespaceSpec(namespace, id, routingNode.GetFullAttachedEndpoints())
+		err = syncOpts.Router.SetNamespaceSpec(ns, cond.Id, routingNode.GetFullAttachedEndpoints())
 		if err != nil {
-			return err
+			return nil, err
 		}
-
 	}
 	// when we implement attaching endpoints to the default namespace. do this here
+	if err := c.Routers().Put(ctx, key, syncOpts.Router); err != nil {
+		return nil, err
+	}
+	return []string{key}, nil
+}
 
-	err = c.Routers().Put(ctx, key, syncOpts.Router)
+// Based on the other storage, calculate what the virtual config should be,
+// then overwrite the virtual config storage
+func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, opts ...storage_opts.SyncOption) error {
+	if err := c.CalculateHash(ctx, shared.SingleConfigId); err != nil {
+		return err
+	}
+	c.Logger.With("hash", c.GetHash(ctx, shared.SingleConfigId)).Debug("starting force sync")
+
+	_, err := c.calculateRouters(ctx, opts...)
 	c.Logger.Debug("finished force sync")
 	return err
 }
 
 func (c *CompositeAlertingClientSet) Sync(ctx context.Context, opts ...storage_opts.SyncOption) ([]string, error) {
-	syncOpts := storage_opts.NewSyncOptions()
-	syncOpts.Apply(opts...)
-
 	key := shared.SingleConfigId
-
 	curHash := strings.Clone(c.GetHash(ctx, key))
 	c.CalculateHash(ctx, key)
 	newHash := c.GetHash(ctx, key)
 	if curHash == newHash {
 		return []string{}, nil
 	}
-
-	// conditionId -> endpointId
-	relationMap := make(map[string]*alertingv1.AttachedEndpoints)
-	// List all conditions & map their endpoints
-	conds, err := c.Conditions().List(ctx)
+	keys, err := c.calculateRouters(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
-	for _, c := range conds {
-		if c.Id == "" {
-			c.Id = c.GetClusterId().GetId()
-
-		}
-		//FIXME: hack
-		ns := "prometheusQuery"
-		if c.GetAttachedEndpoints() != nil {
-			relationMap[ns+"-"+c.Id] = c.GetAttachedEndpoints()
-		}
-	}
-	// get unredacted endpoint details
-	for encodedNsId, endpoints := range relationMap {
-		namespace, id := strings.Split(encodedNsId, "-")[0], strings.Split(encodedNsId, "-")[1] //FIXME:
-		endpointConfigs := make([]*alertingv1.AlertEndpoint, len(endpoints.GetItems()))
-		var errG errgroup.Group
-		for i, endpoint := range endpoints.GetItems() {
-			i := i
-			endpoint := endpoint
-			errG.Go(func() error {
-				endpoint, err := c.Endpoints().Get(ctx, endpoint.EndpointId, storage_opts.WithUnredacted())
-				if err != nil {
-					return err
-				}
-				endpointConfigs[i] = endpoint
-				return err
-			})
-
-		}
-		err := errG.Wait()
-		if err != nil {
-			return nil, err
-		}
-		routingNode, err := backend.ConvertEndpointIdsToRoutingNode(
-			endpointConfigs,
-			endpoints,
-			id,
-		)
-		if err != nil {
-			return nil, err
-		}
-		err = syncOpts.Router.SetNamespaceSpec(namespace, id, routingNode.GetFullAttachedEndpoints())
-		if err != nil {
-			return nil, err
-		}
-	}
-	// when we implement attaching endpoints to the default namespace. do this here
-
-	err = c.Routers().Put(ctx, key, syncOpts.Router)
-	return []string{key}, err
+	return keys, nil
 }
 
 func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {

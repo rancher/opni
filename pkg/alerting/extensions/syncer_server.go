@@ -171,6 +171,7 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 // func (a *AlertManagerSyncerV1) processMsg
 
 func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *alertingv1.PutConfigRequest) (*emptypb.Empty, error) {
+	a.lg.With("syncer-id", a.uuid).Debug("put config request received")
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not ready")
 	}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
@@ -87,22 +86,14 @@ func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, o
 		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
 	}
 
-	name := "alerting-mananger"
+	name := "local-alerting"
 	driver, err := drivers.GetClusterDriver(name)
 	if err != nil {
 		p.Logger.With(
 			"driver", name,
 			zap.Error(err),
 		).Error("failed to load cluster driver, using fallback no-op driver")
-		if os.Getenv(shared.LocalBackendEnvToggle) != "" {
-			driver = drivers.NewLocalManager(
-				drivers.WithLocalManagerLogger(p.Logger),
-				drivers.WithLocalManagerContext(pluginCtx),
-			)
-
-		} else {
-			driver = &drivers.NoopClusterDriver{}
-		}
+		driver = &drivers.NoopClusterDriver{}
 	}
 	p.opsNode.ClusterDriver.Set(driver)
 }

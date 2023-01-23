@@ -12,7 +12,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -23,7 +22,6 @@ var sharedEndpointSet map[string]*alertingv1.FullAttachedEndpoint
 func init() {
 	sharedEndpointSet = make(map[string]*alertingv1.FullAttachedEndpoint)
 	sharedEndpointSet = test.CreateRandomSetOfEndpoints()
-
 	var _ = BuildRoutingTreeSuiteTest(
 		routing.NewDefaultOpniRouting(),
 		test.CreateRandomNamespacedTestCases(45, sharedEndpointSet),
@@ -160,7 +158,6 @@ func BuildRoutingTreeSuiteTest(
 				step = "add-to-default"
 				for _, tc := range broadcastSubtreeTestcases {
 					err := router.SetDefaultNamespaceConfig(
-						lo.Sample(lo.Values(alertingv1.OpniSeverity_name)),
 						tc.Endpoints,
 					)
 					if tc.Code == nil {
@@ -270,13 +267,5 @@ func BuildRoutingTreeSuiteTest(
 				test.ExpectToRecoverConfig(router)
 			})
 		})
-	})
-}
-
-func BuildRoutingLogicTest() bool {
-	return Describe("Alerting routing logic tests", func() {
-		// TODO : all the internal router methods
-
-		// TODO : sync production configs and assert that cortex correctly posts the rules to that config
 	})
 }

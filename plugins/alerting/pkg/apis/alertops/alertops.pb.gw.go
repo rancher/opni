@@ -120,9 +120,20 @@ func local_request_AlertingAdmin_InstallCluster_0(ctx context.Context, marshaler
 
 }
 
+var (
+	filter_AlertingAdmin_UninstallCluster_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
 func request_AlertingAdmin_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq emptypb.Empty
+	var protoReq UninstallRequest
 	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertingAdmin_UninstallCluster_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 
 	msg, err := client.UninstallCluster(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
@@ -130,8 +141,15 @@ func request_AlertingAdmin_UninstallCluster_0(ctx context.Context, marshaler run
 }
 
 func local_request_AlertingAdmin_UninstallCluster_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq emptypb.Empty
+	var protoReq UninstallRequest
 	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AlertingAdmin_UninstallCluster_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 
 	msg, err := server.UninstallCluster(ctx, &protoReq)
 	return msg, metadata, err

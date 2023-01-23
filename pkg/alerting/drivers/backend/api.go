@@ -131,13 +131,16 @@ func WithPostSilenceBody(conditionId string, duration time.Duration, silenceId *
 	}
 }
 
-func WithPostAlertBody(conditionId string, annotations map[string]string) AlertManagerApiOption {
+func WithPostAlertBody(conditionId string, labels, annotations map[string]string) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		var alertsArr []*PostableAlert
 		alert := &PostableAlert{}
 		alert.WithCondition(conditionId)
+		for labelName, labelValue := range labels {
+			alert.WithLabels(labelName, labelValue)
+		}
 		for annotationName, annotationValue := range annotations {
-			alert.WithRuntimeInfo(annotationName, annotationValue)
+			alert.WithAnnotations(annotationName, annotationValue)
 		}
 		alertsArr = append(alertsArr, alert)
 		for _, alert := range alertsArr {
@@ -153,15 +156,18 @@ func WithPostAlertBody(conditionId string, annotations map[string]string) AlertM
 	}
 }
 
-func WithPostResolveAlertBody(conditionId string, annotations map[string]string) AlertManagerApiOption {
+func WithPostResolveAlertBody(conditionId string, labels, annotations map[string]string) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		var alertsArr []*PostableAlert
 		alert := &PostableAlert{}
 		alert.WithCondition(conditionId)
 		alert.StartsAt = lo.ToPtr(time.Now().Add(-time.Minute * 5))
 		alert.EndsAt = lo.ToPtr(time.Now().Add(-time.Minute))
+		for labelName, labelValue := range labels {
+			alert.WithLabels(labelName, labelValue)
+		}
 		for annotationName, annotationValue := range annotations {
-			alert.WithRuntimeInfo(annotationName, annotationValue)
+			alert.WithAnnotations(annotationName, annotationValue)
 		}
 		alertsArr = append(alertsArr, alert)
 		for _, alert := range alertsArr {

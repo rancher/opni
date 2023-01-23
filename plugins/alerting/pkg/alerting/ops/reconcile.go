@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,7 +25,6 @@ func (a *AlertingOpsNode) ConnectRemoteSyncer(
 	if err != nil {
 		return status.Error(codes.Unavailable, fmt.Sprintf("failed to get storage client set: %s", err))
 	}
-	// ctx := remoteServer.Context()
 	routerKeys, err := storageClientSet.Routers().ListKeys(a.ctx)
 	if err != nil {
 		return status.Error(codes.Internal, "failed to list router keys")
@@ -58,16 +58,28 @@ func (a *AlertingOpsNode) ConnectRemoteSyncer(
 
 func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 	lg := a.logger.With("method", "runPeriodicSync")
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Minute * 1)
+	longTicker := time.NewTicker(time.Minute * 15)
 	defer ticker.Stop()
+	defer longTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			a.logger.Debug("exiting periodic sync loop")
 			return
 		case <-ticker.C:
+			status, err := a.GetClusterStatus(ctx, &emptypb.Empty{})
+			if err != nil {
+				lg.Warnf("skipping periodic sync due to status error: %s", err)
+				continue
+			}
+			if status.State != alertops.InstallState_Installed {
+				continue
+			}
 			lg.Info("Running periodic sync for alerting")
 			go func() {
+				a.syncMu.Lock()
+				defer a.syncMu.Unlock()
 				ctxTimeout, ca := context.WithTimeout(ctx, a.storageTimeout)
 				defer ca()
 				clientSet, err := a.storageClientSet.GetContext(ctxTimeout)
@@ -85,8 +97,49 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					a.syncPusher <- syncReq
 				}
 			}()
+		case <-longTicker.C:
+			lg.Info("Running long periodic sync for alerting")
+			// forcibly recalculates the hash
+			go func() {
+				a.syncMu.Lock()
+				defer a.syncMu.Unlock()
+				ctxTimeout, ca := context.WithTimeout(ctx, a.storageTimeout)
+				defer ca()
+				clientSet, err := a.storageClientSet.GetContext(ctxTimeout)
+				if err != nil {
+					lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
+					return
+				}
+				if err := clientSet.ForceSync(ctx); err != nil {
+					lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
+					return
+				}
+				routers := clientSet.Routers()
+				routerKeys, err := routers.ListKeys(ctx)
+				if err != nil {
+					lg.Errorf("failed to get router keys during force sync %s", err)
+					return
+				}
+				syncReq := a.constructSyncRequest(ctx, routerKeys, routers)
+				a.syncPusher <- syncReq
+			}()
 		}
 	}
+}
+
+// routerKeys correspond to the global key or tenant-ed keys
+func (a *AlertingOpsNode) SendManualSyncRequest(
+	ctx context.Context,
+	routerKeys []string,
+	routers storage.RouterStorage,
+) {
+	a.syncMu.Lock()
+	defer a.syncMu.Unlock()
+
+	lg := a.logger.With("method", "sendManualSyncRequest")
+	syncReq := a.constructSyncRequest(ctx, routerKeys, routers)
+	a.syncPusher <- syncReq
+	lg.Debug("sent manual sync request")
 }
 
 func (a *AlertingOpsNode) constructSyncRequest(

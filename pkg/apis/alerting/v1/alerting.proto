@@ -16,6 +16,21 @@ package alerting;
 
 // ------------------ ENDPOINT ------------------
 
+enum OpniSeverity {
+  Info = 0;
+  Warning = 1;
+  Error = 2;
+  Critical = 3;
+}
+
+enum GoldenSignal{
+  Custom = 0;
+  Errors = 1;
+  Saturation = 2;
+  Traffic = 3;
+  Latency = 4;
+}
+
 message CachedState {
   bool healthy = 1; 
   bool firing = 2; 
@@ -30,3 +45,4 @@ message Interval {
   google.protobuf.Timestamp start = 1;
   google.protobuf.Timestamp end = 2;
 }
+

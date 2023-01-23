@@ -11,7 +11,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/samber/lo"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -36,7 +35,6 @@ func Main(
 		panic(err)
 	}
 
-	//TODO: are these good default GRPC settings?
 	server := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             15 * time.Second,
@@ -46,16 +44,12 @@ func Main(
 			Time:    15 * time.Second,
 			Timeout: 5 * time.Second,
 		}),
-		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
-		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
-		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
-		grpc.ReadBufferSize(0),
-		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
-		grpc.InitialConnWindowSize(64*1024*1024), // 64MB
-		grpc.InitialWindowSize(64*1024*1024),     // 64MB
 	)
 
 	mgmtClient, err := clients.NewManagementClient(runCtx, clients.WithAddress(cfg.GatewayJoinAddress))
+	if err != nil {
+		panic(err)
+	}
 
 	alertingv1.RegisterSyncerServer(
 		server,

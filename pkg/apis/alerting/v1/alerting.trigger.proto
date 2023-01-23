@@ -15,10 +15,8 @@ import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
 package alerting;
 
+// Opni-Alerting internal use
 service AlertTriggers {
-  // ------- Trigger Alerts -------
-
-  // opni internal use
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post : "/trigger"
@@ -27,20 +25,31 @@ service AlertTriggers {
   }
 
   rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
+
+  rpc ListRoutingRelationships(google.protobuf.Empty) returns (ListRoutingRelationshipsResponse) {}
 }
 
 // opni-alerting internal use
 message TriggerAlertsRequest {
   core.Reference conditionId = 1;
-  map<string, string> annotations = 2;
+  string namespace = 2;
+  string conditionName = 3;
+  map<string, string> annotations = 4;
+  map<string, string> labels = 5;
 }
 
-// opni-alerting internal use
 message TriggerAlertsResponse {}
 
 message ResolveAlertsRequest {
   core.Reference conditionId = 1;
-  map<string,string> annotations = 2;
+  string namespace = 2;
+  string conditionName = 3;
+  map<string, string> annotations = 4;
+  map<string, string> labels = 5;
 }
 
 message ResolveAlertsResponse {}
+
+message ListRoutingRelationshipsResponse{
+  map<string, core.ReferenceList> routingRelationships = 1;
+}

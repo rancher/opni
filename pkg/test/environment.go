@@ -59,6 +59,7 @@ import (
 	"github.com/rancher/opni/pkg/agent"
 	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -84,9 +85,11 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
@@ -147,20 +150,21 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd                bool
-	enableJetstream           bool
-	enableGateway             bool
-	enableCortex              bool
-	enableRealtimeServer      bool
-	enableCortexClusterDriver bool
-	delayStartEtcd            chan struct{}
-	delayStartCortex          chan struct{}
-	defaultAgentOpts          []StartAgentOption
-	agentIdSeed               int64
-	defaultAgentVersion       string
-	enableDisconnectServer    bool
-	enableNodeExporter        bool
-	storageBackend            v1beta1.StorageType
+	enableEtcd                  bool
+	enableJetstream             bool
+	enableGateway               bool
+	enableCortex                bool
+	enableRealtimeServer        bool
+	enableCortexClusterDriver   bool
+	enableAlertingClusterDriver bool
+	delayStartEtcd              chan struct{}
+	delayStartCortex            chan struct{}
+	defaultAgentOpts            []StartAgentOption
+	agentIdSeed                 int64
+	defaultAgentVersion         string
+	enableDisconnectServer      bool
+	enableNodeExporter          bool
+	storageBackend              v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -234,6 +238,12 @@ func WithAgentIdSeed(seed int64) EnvironmentOption {
 func WithEnableCortexClusterDriver(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableCortexClusterDriver = enable
+	}
+}
+
+func WithEnableAlertingClusterDriver(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableAlertingClusterDriver = enable
 	}
 }
 
@@ -470,12 +480,17 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 				e.StartCortex(e.ctx)
 			}()
 		} else if options.enableCortexClusterDriver {
-			drivers.RegisterPersistentClusterDriver(func() drivers.ClusterDriver {
-				return NewTestEnvClusterDriver(e)
+			metrics_drivers.RegisterPersistentClusterDriver(func() metrics_drivers.ClusterDriver {
+				return NewTestEnvMetricsClusterDriver(e)
 			})
 		} else {
 			e.StartCortex(e.ctx)
 		}
+	}
+	if options.enableAlertingClusterDriver {
+		alerting_drivers.RegisterPersistentClusterDriver(func() alerting_drivers.ClusterDriver {
+			return NewTestEnvAlertingClusterDriver(e)
+		})
 	}
 	if options.enableGateway {
 		e.startGateway()
@@ -770,7 +785,7 @@ func (e *Environment) startJetstream() {
 func (e *Environment) StartEmbeddedAlertManager(
 	ctx context.Context,
 	configFilePath string,
-	opniPort int,
+	opniPort *int,
 ) (webPort int, caF context.CancelFunc) {
 	amBin := path.Join(e.TestBin, "../../bin/opni")
 	ports, err := freeport.GetFreePorts(2)
@@ -783,9 +798,12 @@ func (e *Environment) StartEmbeddedAlertManager(
 		fmt.Sprintf("--config.file=%s", configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", ports[0]),
 		fmt.Sprintf("--cluster.listen-address=:%d", ports[1]),
-		fmt.Sprintf("--opni.listen-address=:%d", opniPort),
+
 		"--storage.path=/tmp/data",
 		"--log.level=debug",
+	}
+	if opniPort != nil {
+		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))
 	}
 	_, cancelFunc := context.WithCancel(ctx)
 	cmd := exec.CommandContext(ctx, amBin, defaultArgs...)
@@ -1449,6 +1467,59 @@ func (e *Environment) NewCortexOpsClient() cortexops.CortexOpsClient {
 	return c
 }
 
+func (e *Environment) NewAlertOpsClient() alertops.AlertingAdminClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := alertops.NewClient(e.ctx,
+		alertops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (e *Environment) NewAlertEndpointsClient() alertingv1.AlertEndpointsClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := alertingv1.NewEndpointsClient(e.ctx,
+		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (e *Environment) NewAlertConditionsClient() alertingv1.AlertConditionsClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := alertingv1.NewConditionsClient(e.ctx,
+		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (e *Environment) NewAlertTriggersClient() alertingv1.AlertTriggersClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := alertingv1.NewTriggersClient(e.ctx,
+		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
 func (e *Environment) PrometheusAPIEndpoint() string {
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
@@ -1809,10 +1880,6 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		enableCortex:       true,
 		enableNodeExporter: true,
 		defaultAgentOpts:   []StartAgentOption{},
-	}
-	err := os.Setenv(shared.LocalBackendEnvToggle, "true")
-	if err != nil {
-		panic(err)
 	}
 	options.apply(opts...)
 

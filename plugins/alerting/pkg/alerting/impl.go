@@ -12,8 +12,6 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -132,8 +130,8 @@ type internalConditionContext struct {
 }
 
 type internalConditionStorage struct {
-	js              nats.JetStreamContext
-	streamSubject   string
+	js               nats.JetStreamContext
+	streamSubject    string
 	durableConsumer  *nats.ConsumerConfig
 	storageClientSet storage.AlertingClientSet
 	msgCh            chan *nats.Msg
@@ -147,8 +145,8 @@ type internalConditionState struct {
 
 type internalConditionHooks[T proto.Message] struct {
 	healthOnMessage func(h T) (healthy bool, ts *timestamppb.Timestamp)
-	triggerHook     func(ctx context.Context, conditionId string, annotations map[string]string)
-	resolveHook     func(ctx context.Context, conditionId string, annotations map[string]string)
+	triggerHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
+	resolveHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
 }
 
 func NewInternalConditionEvaluator[T proto.Message](
@@ -244,14 +242,12 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 			if err != nil {
 				continue
 			}
-			if lastKnownState.Healthy {
+			if !lastKnownState.Healthy {
 				c.lg.Debugf("condition %s is unhealthy", c.conditionName)
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration {
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
-					c.triggerHook(c.evaluationCtx, c.conditionId, metrics.MergeLabels(c.alertmanagerlabels, map[string]string{
-						shared.BackendConditionIdLabel: c.conditionId,
-					}))
+					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
 					if err != nil {
 						c.lg.Error(err)
 					}
@@ -280,9 +276,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				if err != nil {
 					c.lg.Error(err)
 				}
-				c.resolveHook(c.evaluationCtx, c.conditionId, metrics.MergeLabels(c.alertmanagerlabels, map[string]string{
-					shared.BackendConditionIdLabel: c.conditionId,
-				}))
+				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
 			}
 		}
 	}
@@ -326,7 +320,6 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 			c.cancelEvaluation()
 			return
 		}
-
 	} else if getErr == nil {
 		incomingState = st
 	}

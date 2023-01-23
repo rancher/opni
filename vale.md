@@ -16,3 +16,11 @@ Single file:
 
 Multiple files:
 `vale path/to/directory/`
+
+## Docker
+
+If you don't want to install vale, you can run it in a docker container by mounting the Opni source after installing the packages [`.vale.ini`](./.vale.ini):
+
+```shell
+docker run -v $(pwd):/opni jdkato/vale:v2.22.0 --config /opni/.vale.ini /opni/<file>
+```

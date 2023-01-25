@@ -669,18 +669,11 @@ func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.Disco
 		for _, response := range msg.Responses {
 			discoverResponse := &remoteread.DiscoveryResponse{}
 
-			resp := response.GetResponse()
-
-			if resp == nil {
-				continue
-			}
-
-			if err := proto.Unmarshal(resp.Response, discoverResponse); err != nil {
+			if err := proto.Unmarshal(response.GetResponse().Response, discoverResponse); err != nil {
 				m.Logger.Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
 			}
 
 			discoveryReply.Entries = append(discoveryReply.Entries, discoverResponse.Entries...)
-			_ = resp
 		}
 
 		return nil
@@ -694,11 +687,6 @@ func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.Disco
 
 		return nil, err
 	}
-
-	m.Logger.With(
-		"capability", wellknown.CapabilityMetrics,
-		zap.Error(err),
-	).Error("ran import discovery")
 
 	return response, nil
 }

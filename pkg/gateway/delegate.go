@@ -138,7 +138,7 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 
 	eg, ctx := errgroup.WithContext(ctx)
 	reply := &streamv1.BroadcastReply{
-		Responses: make([]*totem.RPC, len(targets)),
+		Responses: make([]*totem.RPC, 0, len(targets)),
 	}
 
 	for _, target := range targets {

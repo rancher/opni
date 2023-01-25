@@ -17,6 +17,11 @@ import (
 // Aggregator allows the user to aggregate the responses from a broadcast request, and store the result in reply.
 type Aggregator func(reply interface{}, msg *streamv1.BroadcastReply) error
 
+// NothingAggregator is an aggregator to use if you don't need to do any aggregation, or don't care about the response.
+var NothingAggregator Aggregator = func(interface{}, *streamv1.BroadcastReply) error {
+	return nil
+}
+
 type StreamDelegate[T any] interface {
 	WithTarget(*corev1.Reference) T
 	WithBroadcastSelector(*corev1.ClusterSelector, Aggregator) T

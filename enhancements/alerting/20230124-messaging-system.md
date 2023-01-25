@@ -24,9 +24,18 @@ Opni Alerting plugin only evaluates and sends alarms. The Opni-Alerting cluster 
 
 ![](../../images/alerting/alerting-messaging-system-proposal.png)
 
-- For setting default endpoints, the alerting storage client set will be responsible for marking the desired defaults via the endpoints server
-- For applying the default endpoints to the Alerting Cluster, the reconciler will build them into the routing data model.
-- The trigger server will be responsible for pushing `Plain` messages from external sources to the end user in the following format:
+### Setting Defaults
+
+- `AlertEndpoint` protocol buffer messages have a default flag
+- `OpsServer` reconciles default endpoints to `OpniRouter` interfaces in the Alerting Cluster, building the default endpoints into the router through calling the existing method `SetDefaultNamespace(defaultEndpointList)`
+
+### Persisting messages
+
+- The global default receiver `opni.default.hook`, present in the `Opni Embedded Server`, already receives all alert messages, so for persisting messages, this server serves two in memory `hashicorp` LRU caches (with keys ordered by frequency to implement LFU) over objects of the type `github.com/prometheus/alertmanager/notify/webhook`.`WebhookMessage`
+
+### Pushing messages
+
+- The Trigger sends messages to the AlertingCluster, through wrapped AlertManager adapter calls, from the follow service descriptor:
 
 ```proto
 service AlertTriggers {
@@ -45,11 +54,11 @@ message PlainMessage {
   // optional rate limiting key set by the caller
   string key = 4;
 }
-
 ```
 
-- The default.opni.hook in the opni routing data model, will persist incoming `Plain` and `Alarm` messages into small LFU caches
-- The embedded server will serve those LFU caches back to the trigger server via a ListMessages API
+### List messages
+
+- The trigger server implements `ListMessages` which reads the data held in caches, and returns them in a human readable format for the CLI/UI
 
 ### UI
 
@@ -66,24 +75,22 @@ message PlainMessage {
 
 ## Supporting documents:
 
+- https://github.com/rancher/opni/wiki/Alerting-Routing-Model
+
 ## Dependencies:
 
 - Opni Router interface : https://github.com/rancher/opni/pull/942
 
 ## Risks and contingencies:
 
-| Risk                                                               | Contingency                                                                                 |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Breaking change to the AlertEndpoint protocol buffer specification | Use the existing Alerting Storage ClientSet migration mechanism to migrate breaking changes |
-
 ## Level of Effort:
 
-1 week
+2 weeks
 
-- 1 day : push message API
-- 1 day : setting default endpoints
-- 2 days : (distributed) priority LFU caches
-- 1 day : Gateway API to read messages stored in caches
+- 3 days : interceptors
+- 2 days : default endpoints
+- 2 days : push messages
+- 3 days : message persistence & listing
 
 ## Resources:
 

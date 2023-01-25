@@ -6,7 +6,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/samber/lo"
-	"k8s.io/client-go/tools/clientcmd"
 	"sort"
 	"strings"
 	"sync"
@@ -201,10 +200,8 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 }
 
 func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", "/home/jmeranda/.kube/config")
-
 	discoverer, err := NewPrometheusDiscoverer(DiscovererConfig{
-		RESTConfig: config,
+		RESTConfig: nil,
 		Context:    ctx,
 		Logger:     m.logger.Named("prom-discovery"),
 	})
@@ -225,6 +222,7 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 
 	entries := lo.Map(prometheuses, func(prometheus *monitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
 		return &remoteread.DiscoveryEntry{
+			Name:             prometheus.GetName(),
 			ExternalEndpoint: prometheus.Spec.ExternalURL,
 			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
 		}

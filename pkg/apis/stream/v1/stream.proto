@@ -35,11 +35,7 @@ service Delegate {
 
   // A best-effort broadcast sent to all connected clients, with an
   // optional target filter.
-  rpc Broadcast(BroadcastMessage) returns (BroadcastReply) {
-//    option (totem.qos) = {
-//      replicationStrategy: Broadcast
-//    };
-  }
+  rpc Broadcast(BroadcastMessage) returns (BroadcastReplyList);
 }
 
 message DelegatedMessage {
@@ -57,6 +53,11 @@ message BroadcastMessage {
   core.ClusterSelector targetSelector = 2;
 }
 
+message BroadcastReplyList {
+  repeated BroadcastReply responses = 1;
+}
+
 message BroadcastReply {
-  repeated totem.RPC responses = 1;
+  core.Reference ref = 1;
+  totem.RPC reply = 2;
 }

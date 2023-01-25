@@ -119,13 +119,13 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 	}
 }
 
-func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReply, error) {
+func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReplyList, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	sp := storage.NewSelectorPredicate[agentInfo](req.GetTargetSelector())
 
-	var targets []grpc.ClientConnInterface
+	var targets []agentInfo
 	for _, aa := range d.activeAgents {
 		if sp(aa) {
 			targets = append(targets, aa)
@@ -137,11 +137,11 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
-	reply := &streamv1.BroadcastReply{
-		Responses: make([]*totem.RPC, 0, len(targets)),
+	reply := &streamv1.BroadcastReplyList{
+		Responses: make([]*streamv1.BroadcastReply, len(targets)),
 	}
 
-	for _, target := range targets {
+	for i, target := range targets {
 		target := target
 		eg.Go(func() error {
 			item := &totem.RPC{}
@@ -149,7 +149,12 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 				return err
 			}
 
-			reply.Responses = append(reply.Responses, item)
+			reply.Responses[i] = &streamv1.BroadcastReply{
+				Ref: &corev1.Reference{
+					Id: target.id,
+				},
+				Reply: item,
+			}
 
 			return nil
 		})

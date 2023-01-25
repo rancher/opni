@@ -7,6 +7,7 @@ import (
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -661,17 +662,22 @@ func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.Disco
 	m.WaitForInit()
 	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
 		ClusterIDs: request.ClusterIds,
-	}, func(reply interface{}, msg *streamv1.BroadcastReply) error {
+	}, func(reply interface{}, responses *streamv1.BroadcastReplyList) error {
 		discoveryReply := reply.(*remoteread.DiscoveryResponse)
-
 		discoveryReply.Entries = make([]*remoteread.DiscoveryEntry, 0)
 
-		for _, response := range msg.Responses {
+		for _, response := range responses.Responses {
 			discoverResponse := &remoteread.DiscoveryResponse{}
 
-			if err := proto.Unmarshal(response.GetResponse().Response, discoverResponse); err != nil {
+			if err := proto.Unmarshal(response.Reply.GetResponse().Response, discoverResponse); err != nil {
 				m.Logger.Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
 			}
+
+			// inject the cluster id gateway-side
+			lo.Map(discoverResponse.Entries, func(entry *remoteread.DiscoveryEntry, _ int) *remoteread.DiscoveryEntry {
+				entry.ClusterId = response.Ref.Id
+				return entry
+			})
 
 			discoveryReply.Entries = append(discoveryReply.Entries, discoverResponse.Entries...)
 		}

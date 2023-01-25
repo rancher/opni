@@ -35,10 +35,10 @@ service Delegate {
 
   // A best-effort broadcast sent to all connected clients, with an
   // optional target filter.
-  rpc Broadcast(BroadcastMessage) returns (google.protobuf.Empty) {
-    option (totem.qos) = {
-      replicationStrategy: Broadcast
-    };
+  rpc Broadcast(BroadcastMessage) returns (BroadcastReply) {
+//    option (totem.qos) = {
+//      replicationStrategy: Broadcast
+//    };
   }
 }
 
@@ -55,4 +55,8 @@ message DelegatedMessageReply {
 message BroadcastMessage {
   totem.RPC request = 1;
   core.ClusterSelector targetSelector = 2;
+}
+
+message BroadcastReply {
+  repeated totem.RPC responses = 1;
 }

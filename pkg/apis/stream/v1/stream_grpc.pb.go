@@ -187,7 +187,7 @@ type DelegateClient interface {
 	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
-	Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReply, error)
 }
 
 type delegateClient struct {
@@ -207,8 +207,8 @@ func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts
 	return out, nil
 }
 
-func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReply, error) {
+	out := new(BroadcastReply)
 	err := c.cc.Invoke(ctx, "/stream.Delegate/Broadcast", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ type DelegateServer interface {
 	Request(context.Context, *DelegatedMessage) (*totem.RPC, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
-	Broadcast(context.Context, *BroadcastMessage) (*emptypb.Empty, error)
+	Broadcast(context.Context, *BroadcastMessage) (*BroadcastReply, error)
 	mustEmbedUnimplementedDelegateServer()
 }
 
@@ -235,7 +235,7 @@ type UnimplementedDelegateServer struct {
 func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.RPC, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
 }
-func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*emptypb.Empty, error) {
+func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*BroadcastReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Broadcast not implemented")
 }
 func (UnimplementedDelegateServer) mustEmbedUnimplementedDelegateServer() {}

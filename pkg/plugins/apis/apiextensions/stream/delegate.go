@@ -14,9 +14,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Aggregator allows the user to aggregate the responses from a broadcast request, and store the result in reply.
+type Aggregator func(reply interface{}, msg *streamv1.BroadcastReply) error
+
 type StreamDelegate[T any] interface {
 	WithTarget(*corev1.Reference) T
-	WithBroadcastSelector(*corev1.ClusterSelector) T
+	WithBroadcastSelector(*corev1.ClusterSelector, Aggregator) T
 }
 
 func NewDelegate[T any](cc grpc.ClientConnInterface, newClientFunc func(grpc.ClientConnInterface) T) StreamDelegate[T] {
@@ -38,10 +41,11 @@ func (w *delegatingClient[T]) WithTarget(target *corev1.Reference) T {
 	})
 }
 
-func (w *delegatingClient[T]) WithBroadcastSelector(selector *corev1.ClusterSelector) T {
+func (w *delegatingClient[T]) WithBroadcastSelector(selector *corev1.ClusterSelector, aggregator Aggregator) T {
 	return w.newClientFunc(&targetedDelegatingClient[T]{
 		selector:       selector,
 		delegateClient: streamv1.NewDelegateClient(w.streamClientIntf),
+		aggregator:     aggregator,
 	})
 }
 
@@ -49,6 +53,7 @@ type targetedDelegatingClient[T any] struct {
 	target         *corev1.Reference
 	selector       *corev1.ClusterSelector
 	delegateClient streamv1.DelegateClient
+	aggregator     Aggregator
 }
 
 // parses a method name of the form "/service/method"
@@ -94,12 +99,16 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 			return status.Errorf(codes.Internal, "failed to unmarshal response: %v", err)
 		}
 	case w.selector != nil:
-		_, err := w.delegateClient.Broadcast(ctx, &streamv1.BroadcastMessage{
+		respMsg, err := w.delegateClient.Broadcast(ctx, &streamv1.BroadcastMessage{
 			Request:        rpc,
 			TargetSelector: w.selector,
 		}, opts...)
 		if err != nil {
 			return err
+		}
+
+		if err := w.aggregator(reply, respMsg); err != nil {
+			return fmt.Errorf("broadcast aggregator failed: %w", err)
 		}
 	default:
 		panic("bug: no target or selector given")

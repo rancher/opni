@@ -3,12 +3,14 @@ package backend
 import (
 	"context"
 	"fmt"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -657,9 +659,31 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 
 func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
 	m.WaitForInit()
-
 	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
 		ClusterIDs: request.ClusterIds,
+	}, func(reply interface{}, msg *streamv1.BroadcastReply) error {
+		discoveryReply := reply.(*remoteread.DiscoveryResponse)
+
+		discoveryReply.Entries = make([]*remoteread.DiscoveryEntry, 0)
+
+		for _, response := range msg.Responses {
+			discoverResponse := &remoteread.DiscoveryResponse{}
+
+			resp := response.GetResponse()
+
+			if resp == nil {
+				continue
+			}
+
+			if err := proto.Unmarshal(resp.Response, discoverResponse); err != nil {
+				m.Logger.Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
+			}
+
+			discoveryReply.Entries = append(discoveryReply.Entries, discoverResponse.Entries...)
+			_ = resp
+		}
+
+		return nil
 	}).Discover(ctx, request)
 
 	if err != nil {

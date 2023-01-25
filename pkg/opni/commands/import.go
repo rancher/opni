@@ -386,7 +386,7 @@ func BuildDiscoverCmd() *cobra.Command {
 				return fmt.Errorf("could not start discovery: %w", err)
 			}
 
-			cliutil.RenderDiscoveryEntries(response.Entries)
+			fmt.Println(cliutil.RenderDiscoveryEntries(response.Entries))
 
 			return nil
 		},

@@ -46,6 +46,8 @@ func NewPrometheusDiscoverer(config DiscovererConfig) (*PrometheusDiscoverer, er
 	}
 
 	return &PrometheusDiscoverer{
+		DiscovererConfig: config,
+
 		kubeClient: kubeClient,
 		promClient: promClient,
 	}, nil

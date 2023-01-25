@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type agentInfo struct {
@@ -33,6 +32,8 @@ func (a agentInfo) GetLabels() map[string]string {
 func (a agentInfo) GetId() string {
 	return a.id
 }
+
+//var _ streamv1.DelegateClient = (*DelegateServer)(nil)
 
 type DelegateServer struct {
 	streamv1.UnsafeDelegateServer
@@ -118,7 +119,7 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 	}
 }
 
-func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*emptypb.Empty, error) {
+func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReply, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -136,12 +137,21 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
+	reply := &streamv1.BroadcastReply{
+		Responses: make([]*totem.RPC, len(targets)),
+	}
 
 	for _, target := range targets {
 		target := target
 		eg.Go(func() error {
-			reply := &emptypb.Empty{}
-			return target.Invoke(ctx, totem.Forward, req.GetRequest(), reply)
+			item := &totem.RPC{}
+			if err := target.Invoke(ctx, totem.Forward, req.GetRequest(), item); err != nil {
+				return err
+			}
+
+			reply.Responses = append(reply.Responses, item)
+
+			return nil
 		})
 	}
 
@@ -150,5 +160,5 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 		return nil, err
 	}
 
-	return &emptypb.Empty{}, nil
+	return reply, nil
 }

@@ -33,13 +33,32 @@ In addition, calls to a particular Alarm's status are cached to avoid traversing
 
 The new `ListStatus` API handles listing the Condition Specs and Getting the Status in the same operation for both convenience and performance.
 
+#### Caching
+
+Caching will be implemented using interceptors over the protocols Opni uses
+
+##### GRPC
+
+- delegate caching to a GRPC `unary interceptor` registered to gateway totem server, to have a caching mechanism available for all RPCs
+- api's handle their own caching via setting trailers with metadata that tells the interceptors whether or not to cache
+- definitions & helper methods for GRPC caching interceptors will go in `pkg/util/grpc.go`
+
+#### HTTP
+
+- standard library `net/http` transport layer for caching implementation, similar to https://pkg.go.dev/github.com/gregjones/httpcache#Cache
+- definitions & helper methods for HTTP caching interceptors will go in `pkg/util/http.go`
+
 ![](./images/alerting/condition-status-cache.png)
+
+####
 
 ## Acceptance criteria
 
-- [ ] Extend the Storage ClientSet with an in memory cache to cache calls to APIS
-- [ ] Serve a read-through cache for Status
+- [ ] Implement generic GRPC caching interceptors
+- [ ] Implement generic HTTP caching interceptors
+- [ ] Attach caching interceptors on specific protocol calls needed for Status() API
 - [ ] `ListStatus()` ConditionServer API which batches ListConditions() & Status() calls.
+- [ ] Attach caching interceptor implementations (read-through refresh interval) on both `Status()` and `ListStatus()`
 
 ## Supporting documents
 
@@ -47,7 +66,7 @@ Addresses https://github.com/rancher/opni/wiki/Alerting-Condition-Server#perform
 
 ## Dependencies
 
-- [ ] Alerting Storage ClientSet : https://github.com/rancher/opni/pull/942
+None
 
 ## Risks and contingencies
 
@@ -57,11 +76,12 @@ Addresses https://github.com/rancher/opni/wiki/Alerting-Condition-Server#perform
 
 ## Level of effort
 
-1 week:
+~ 2 weeks
 
-- day 1 to 3 : Setting up generic & reusable API call cache
-- day 4 : Implementing API logic
-- day 5 : Performance & scalability tests
+- 3 days cache interceptor definitions
+- 3 days cache interceptor implementations on APIs
+- 2 days `ListStatus` API
+- 1-2 days explicit load testing & tweaking caches
 
 ## Resources
 

@@ -66,7 +66,7 @@ E2E testing:
 ## Risks and contingencies
 | **Risk** | **Contingency** |
 |---|---|
-| OTEL collector may not be able to collect a metric we need in the format we require | The OTEL architecture makes use of plugins so we will create our own ingester or processor to collect/transform the data required|
-
+| OTEL collector may not be able to collect a metric we need in the format we require | The OTEL architecture makes use of plugins so we will create our own ingester or processor to collect/transform the data required |
+| OTEL collector may not be natively able to collect recording rules / alerting rules in the format our upstream expects | OTEL plugin for ingesting prometheus rules |
 ## Level of effort
 3 developer weeks.

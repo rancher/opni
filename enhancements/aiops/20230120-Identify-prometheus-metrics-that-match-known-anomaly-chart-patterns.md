@@ -1,5 +1,5 @@
 # Title: 
-Match prometheus metrics to known anomaly chart patterns
+Identify prometheus metrics that match known anomaly chart patterns
 
 ## Summary: 
 This enhancement proposal offers a new feature to match prometheus metrics to a set of known pre-defined anomaly chart patterns. This feature will make operators' life easier in the process of outage diagnosis.

@@ -93,7 +93,7 @@ require (
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.23.0
 	github.com/pulumi/pulumi-random/sdk/v4 v4.8.2
-	github.com/pulumi/pulumi/sdk/v3 v3.49.0
+	github.com/pulumi/pulumi/sdk/v3 v3.53.1
 	github.com/qmuntal/stateless v1.6.1
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
@@ -129,7 +129,7 @@ require (
 	golang.org/x/tools v0.4.0
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/genproto v0.0.0-20220923205249-dd2d53f1fffc
-	google.golang.org/grpc v1.49.0
+	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.66.6

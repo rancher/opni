@@ -55,7 +55,8 @@ func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*al
 			}
 		}
 		controller := ss.(*appsv1.StatefulSet)
-		if controller.Status.Replicas != controller.Status.AvailableReplicas {
+		if controller.Status.Replicas != controller.Status.AvailableReplicas ||
+			controller.Status.AvailableReplicas != gw.Spec.Alerting.Replicas {
 			return &alertops.InstallStatus{
 				State: alertops.InstallState_InstallUpdating,
 			}, nil

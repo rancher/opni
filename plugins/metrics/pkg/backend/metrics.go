@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -540,24 +541,37 @@ func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.Tar
 func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
 	m.WaitForInit()
 
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
+	m.remoteReadTargetMu.RLock()
+	defer m.remoteReadTargetMu.RUnlock()
 
 	// todo: we can probably shrink this later
 	inner := make([]*remoteread.Target, 0, len(m.remoteReadTargets))
+	innerMu := sync.RWMutex{}
 
+	eg, ctx := errgroup.WithContext(ctx)
 	for _, target := range m.remoteReadTargets {
 		if request.ClusterId == "" || request.ClusterId == target.Meta.ClusterId {
-			newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
-			if err != nil {
-				m.Logger.Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
-				newStatus.State = remoteread.TargetStatus_Unknown
-			}
+			target := target
+			eg.Go(func() error {
+				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
+				if err != nil {
+					m.Logger.Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
+					newStatus.State = remoteread.TargetStatus_Unknown
+				}
 
-			target.Status = newStatus
+				target.Status = newStatus
 
-			inner = append(inner, target)
+				innerMu.Lock()
+				inner = append(inner, target)
+				innerMu.Unlock()
+
+				return nil
+			})
 		}
+	}
+
+	if err := eg.Wait(); err != nil {
+		m.Logger.Errorf("error waiting for status to update: %s", err)
 	}
 
 	list := &remoteread.TargetList{Targets: inner}
@@ -567,6 +581,14 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 
 func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
 	m.WaitForInit()
+
+	targetId := getIdFromTargetMeta(request.Meta)
+
+	m.remoteReadTargetMu.RLock()
+	defer m.remoteReadTargetMu.RUnlock()
+	if _, found := m.remoteReadTargets[targetId]; !found {
+		return nil, fmt.Errorf("target '%s/%s' does not exist", request.Meta.ClusterId, request.Meta.Name)
+	}
 
 	newStatus, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 

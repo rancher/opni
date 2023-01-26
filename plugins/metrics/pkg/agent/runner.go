@@ -21,14 +21,6 @@ import (
 	"time"
 )
 
-func targetIsRunningError(name string) error {
-	return fmt.Errorf("target '%s' is running, cannot be removed, modified, or started", name)
-}
-
-func targetIsNotRunningError(name string) error {
-	return fmt.Errorf("target '%s' is not running", name)
-}
-
 // todo: import prometheus LabelMatcher into plugins/metrics/pkg/apis/remoteread.proto to remove this
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
@@ -239,7 +231,7 @@ func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Q
 	if found && run.target.Status.State == remoteread.TargetStatus_Running {
 		switch run.target.Status.State {
 		case remoteread.TargetStatus_Running:
-			return targetIsRunningError(target.Meta.Name)
+			return fmt.Errorf("target '%s' is running, cannot be removed, modified, or started", target.Meta.Name)
 		default:
 			runner.logger.With(
 				"cluster", target.Meta.ClusterId,
@@ -281,7 +273,7 @@ func (runner *targetRunner) Stop(name string) error {
 	run, found := runner.runs[name]
 
 	if !found {
-		return targetIsNotRunningError(name)
+		return fmt.Errorf("target '%s' is not running", name)
 	}
 
 	close(run.stopChan)
@@ -303,7 +295,10 @@ func (runner *targetRunner) GetStatus(name string) (*remoteread.TargetStatus, er
 	runner.runsMu.Unlock()
 
 	if !found {
-		return nil, targetIsNotRunningError(name)
+		// the target was added to the gateway but was not started
+		return &remoteread.TargetStatus{
+			State: remoteread.TargetStatus_NotRunning,
+		}, nil
 	}
 
 	return run.target.Status, nil

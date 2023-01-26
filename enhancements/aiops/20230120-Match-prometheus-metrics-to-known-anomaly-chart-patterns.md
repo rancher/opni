@@ -1,17 +1,17 @@
 # Title: 
-Anomaly Pattern Matcher of Metric Data
+Match prometheus metrics to known anomaly chart patterns
 
 ## Summary: 
-Monitoring metrics in a multi-cluster setup is challenging. Operators could be responsible for hundreds of clusters and each cluster has tons of different metrics. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis.
-This enhancement proposal aims to make such investigation easier by proposes an approach to categorize metrics into a few pre-defined patterns, such that during an outage diagnosis, operators can prioritize investigation of metrics with those patterns.
+This enhancement proposal offers a new feature to match prometheus metrics to a set of known pre-defined anomaly chart patterns. This feature will make operators' life easier in the process of outage diagnosis.
 
 ## Use case: 
-* Reactive - Only triggered for outage diagnosis. Run this method during the diagnosis to discover anomalous metric patterns.
+* Monitoring metrics in a multi-cluster setup is challenging. Operators could be responsible for hundreds of clusters and each cluster has tons of different metrics. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis. Users need tools to help them reduce the scope and identify anomaly metrics faster.
 
 ## Benefits: 
-a. improved user experience. Metric data will get condensed and categorized into insights that are much easier to digest.
-b. reduce mean time to resolve outages. This method will shorten the time operators taken to find out root cause.
-c. reduce economic loss.
+* makes operators' life easier in the process of outage diagnosis.
+* improve user experience. Metric data will get condensed and categorized into insights that are much easier to digest.
+* reduce mean time to resolve outages. This method will shorten the time operators taken to find out root cause.
+* reduce economic loss.
 
 ## Impact: 
 * No direct impact to existing system in terms of performance. However, if this new feature is deployed in a `proactively` in the future, then it might require some resources as it would have to continuously compute for all metrics.
@@ -40,13 +40,16 @@ https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf.
 * the Opni metric back-end enabled.
 
 ## Risks and contingencies: 
-* the quality of the pattern classification model. This requires experiments to validate it.
+* Risks: None
+* Contingencies: None. 
 
-## Level of Effort: 
+## Level of effort: 
 A rough estimation:
-* week 1: Focus on the experiments for the pattern classification model. This includes the data collection phase and iterations of model training & evaluation.
-* week 2: implement the [pattern classification process](#Implementation-details). Start to pull data from Cortex to test.
-* week 3: implement the back-end apis, put every pieces together. Start to implement the UI.
+* week 1-3:
+    * experiments and implementation for the pattern classification model. This includes the data collection phase and iterations of model training & evaluation.
+    * pull data from Cortex to test models
+    * implement the back-end apis
+    * implement UI.
 * week 4: Integration and testing.
 
 ## Resources: 

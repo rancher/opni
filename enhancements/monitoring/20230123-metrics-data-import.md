@@ -26,20 +26,19 @@ The data import relies primarily on the [remote read API](https://prometheus.io/
 
 During the import, the Opni agent acts a proxy between the remote read endpoint and the Opni Cortex deployment. The agent will start to read from the specified remote read endpoint, and push that data to the existing Opni [remote write API](../../plugins/metrics/pkg/apis/remotewrite).
 
-![](./images/data-import-oep-diagram.png)
-
+[![Architecutre Diagram](./images/data-import-oep-diagram.png)](https://lucid.app/lucidchart/9c8e433a-4180-46ec-a519-c275a1cd0ff9/edit?viewport_loc=-424%2C-230%2C3645%2C1773%2C0_0&invitationId=inv_ce2aee9e-b066-4fd7-8a54-4c48c403816f)
 ### Discovery
 
 Discovery will work by instructing the Opni agent to check the k8s cluster for any `monitoring.coreos.com/Pormetheus` on the cluster to read from, and return the data necessary for the user to point the import to the discovered `Prometheuses`.
 
 ## Acceptance criteria:
 
-- [ ] The user should be able to discover potential import targets
-- [ ] The user should be able to add / list / modify / remove import targets
-- [ ] The user should be able to track the progress of data imports
-- [ ] The user should be able to stop a progress import (data that has already been imported will still remain in cortex)
+- [x] The user should be able to discover potential import targets
+- [x] The user should be able to add / list / modify / remove import targets
+- [x] The user should be able to track the progress of data imports
+- [x] The user should be able to stop a progress import (data that has already been imported will still remain in cortex)
 - [ ] The user should be able to view / query imported metrics from cortex
-- [ ] The user should be able to run multiple imports concurrently
+- [x] The user should be able to run multiple imports concurrently
 
 ## Supporting documents:
 

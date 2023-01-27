@@ -9,13 +9,15 @@ Opni Alerting should allow for importing existing AlertManager configurations an
 ## Use case:
 
 - Users have existing production-ready Prometheus AlertManager configurations they wish to use
+- Production & enterprise settings on endpoints, like TLS
 
 ## Benefits:
 
 - Users retain existing production-grade functionality of user configurations
-- Less configuration for experience users
+- Less configuration for experiences users
 - Use Opni-Alerting features with existing configurations
 - Less overall user input to get started with Opni & Opni-Alerting
+- More notification targets for Opni Alerting to send alerts to
 
 ## Impact:
 
@@ -23,7 +25,82 @@ Won't impact existing Opni functionality, only allows for more targets.
 
 ## Implementation details:
 
-WIP
+- Implement protocol buffer messages for each AlertManager receiver currently missing (see below)
+- Extensive validation for those protocol buffers
+- Building these protocol buffer messages into OpniRouter
+- Sync User configs API
+
+```proto
+// As long as the Alerting Cluster backend is powered by vanilla AlertManager
+// the clusterKey is set to "global", otherwise if the Alerting Cluster is
+// powered by Cortex AlertManager
+service AlertingAdminServer {
+  //...
+  rpc SyncConfig(UserConfigRequest) returns (google.protobuf.Empty){}
+
+  rpc ListSyncConfigs(ListSyncedConfigRequest) returns (syncConfigList){}
+
+  rpc ImportFile(UserFileImportRequest) returns (google.protobuf.Empty) {}
+
+  rpc ListImportedFiles(ListImportedFiles) returns (google.protobuf.Empty) {}
+  //....
+}
+
+message SyncConfig{
+  string clusterKey = 1;
+  byte config = 2;
+}
+
+message SyncConfigList{
+  map<string,SyncConfig> items = 1;
+}
+
+message UserFileImportRequest {
+  string clusterKey = 1;
+  byte data = 2;
+  destinationPath string = 3;
+}
+
+message ListSyncedConfigRequest{
+  // cluster keys
+  repeated string items = 1;
+}
+
+message ListImportedFiles{
+  // cluster keys
+  repeated string items = 1;
+}
+```
+
+intended to be called from the CLI at least initially:
+
+- `opni alerting sync <filename> --cluster <cluster-name or id>`
+
+many production settings require setting explicit files:
+
+- `opni alerting sync import <filename> --cluster <cluster-name> --destination-path`
+
+<hr/>
+
+- the current `AlertEndpoint` tag system (list of strings) will be replaced with prometheus label matchers
+
+Some additional notes:
+
+- Syncing user configurations will return a validation error if the configuration requires files that are not found -- see above
+
+<hr/d>
+
+- Endpoints found in the sync process will be listed in the Endpoints UI, but will appear as **Read only** && **Synced** via labels
+- Attempting to edit the endpoints through the admin UI will result in a `validation error` prompting the user to edit the configs that have already synced directly instead.
+
+<hr/>
+
+- Conditions that have labels matching the endpoints will have these endpoints attached to them automatically, meaning Opni internal conditions will be able to use the synced endpoints
+
+### UI
+
+- Endpoint pages for each endpoint type
+- Tags migrated to label matcher system with operations `==`,`!=`,`~=`,`~!=` for both endpoints & conditions
 
 ## Acceptance criteria:
 
@@ -59,11 +136,8 @@ WIP
 
 2 weeks
 
-3 days : Endpoint parity with AlertManager
-1 day : Sync user configurations
-2 days : Import filesystem files to AlertingCluster
-2 days : Extend Opni Endpoint protocol buffer messages
-2 days : Optimize `label matchers` when building Opni Router
+1 week : endpoint proto implementations
+1 week : syncing user configs
 
 ## Resources:
 

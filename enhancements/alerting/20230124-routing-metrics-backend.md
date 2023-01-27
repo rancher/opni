@@ -28,7 +28,14 @@ Won't impact existing Opni functionality, only allows for more targets.
 - Implement protocol buffer messages for each AlertManager receiver currently missing (see below)
 - Extensive validation for those protocol buffers
 - Building these protocol buffer messages into OpniRouter
-- Sync User configs API
+- Sync User configurations API
+
+**Clarification**
+
+- Synced configurations are written to an object store through the storage client, then when the Alerting ops reconciler runs, they're built into the opni router, the opni router builds the configuration, then that configuration is pushed via the sync stream to each Alerting Cluster Unit
+- File imports are written & discovered directly on the AlertManager `storage backend`
+  - If cortex AlertManager, to the `cortex storage backend`
+  - If vanilla AlertManager, to the Alerting cluster PVC
 
 ```proto
 // As long as the Alerting Cluster backend is powered by vanilla AlertManager
@@ -82,16 +89,16 @@ many production settings require setting explicit files:
 
 <hr/>
 
-- the current `AlertEndpoint` tag system (list of strings) will be replaced with prometheus label matchers
+- the current `AlertEndpoint` tag system (list of strings) will be replaced with Prometheus `label matchers`
 
 Some additional notes:
 
-- Syncing user configurations will return a validation error if the configuration requires files that are not found -- see above
+- Syncing user configurations will return a validation error if the configuration requires files, for example CA certs, that aren't not found -- see above
 
 <hr/d>
 
 - Endpoints found in the sync process will be listed in the Endpoints UI, but will appear as **Read only** && **Synced** via labels
-- Attempting to edit the endpoints through the admin UI will result in a `validation error` prompting the user to edit the configs that have already synced directly instead.
+- Attempting to edit the endpoints through the admin UI will result in a `validation error` prompting the user to edit the configurations that have already synced directly instead.
 
 <hr/>
 
@@ -136,8 +143,8 @@ Some additional notes:
 
 2 weeks
 
-1 week : endpoint proto implementations
-1 week : syncing user configs
+1 week : endpoint protocol buffers implementations
+1 week : syncing user configurations
 
 ## Resources:
 

@@ -1,5 +1,10 @@
 # Move to OTEL collector for metrics
 
+## Status
+ - [x] Pending
+ - [ ] Completed
+ - [ ] Superceded/Deprecated
+
 ## Summary
 
 Currently Opni Metrics uses Prometheus running in agent mode to scrape metrics which are then remote written to the agent endpoint.  This enhancement will remove Prometheus in agent mode, and replace it with a deployment of the otel-collector.

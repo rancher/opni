@@ -3,6 +3,7 @@ package v1
 import (
 	"strings"
 
+	"github.com/rancher/opni/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,6 +17,10 @@ const (
 
 	NameLabel       = "opni.io/name"
 	LegacyNameLabel = "kubernetes.io/metadata.name"
+)
+
+var (
+	ErrInternalLabelInSelector = validation.Errorf("cannot use internal label in label selector")
 )
 
 func IsLabelInternal(key string) bool {

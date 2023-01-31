@@ -34,6 +34,35 @@ func (ls *LabelSelector) Validate() error {
 	return nil
 }
 
+func (ls *LabelSelector) WithRestrictInternalLabels() validation.Validator {
+	return (*restrictedLabelSelector)(ls)
+}
+
+// Same as regular label selector, but restricts use of internal labels
+type restrictedLabelSelector LabelSelector
+
+func (ls *restrictedLabelSelector) Validate() error {
+	if ls.MatchLabels != nil {
+		if err := validation.ValidateLabels(ls.MatchLabels); err != nil {
+			return err
+		}
+		for k := range ls.MatchLabels {
+			if IsLabelInternal(k) {
+				return fmt.Errorf("%w: %q", ErrInternalLabelInSelector, k)
+			}
+		}
+	}
+	for _, l := range ls.MatchExpressions {
+		if err := l.Validate(); err != nil {
+			return err
+		}
+		if IsLabelInternal(l.Key) {
+			return fmt.Errorf("%w: %q", ErrInternalLabelInSelector, l.Key)
+		}
+	}
+	return nil
+}
+
 func (r *LabelSelectorRequirement) Validate() error {
 	if r.Key == "" {
 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "key")
@@ -90,7 +119,7 @@ func (r *Role) Validate() error {
 		return fmt.Errorf("%w: %s", validation.ErrDuplicate, "clusterIDs")
 	}
 	if r.MatchLabels != nil {
-		if err := r.MatchLabels.Validate(); err != nil {
+		if err := r.MatchLabels.WithRestrictInternalLabels().Validate(); err != nil {
 			return err
 		}
 	}

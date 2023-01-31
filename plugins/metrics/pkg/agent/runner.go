@@ -9,8 +9,6 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/golang/snappy"
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	promConfig "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -20,6 +18,8 @@ import (
 	"sync"
 	"time"
 )
+
+var TimeDeltaMillis = time.Minute.Milliseconds()
 
 // todo: import prometheus LabelMatcher into plugins/metrics/pkg/apis/remoteread.proto to remove this
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
@@ -89,8 +89,6 @@ func (run *Run) updateLastRead(lastReadSec int64) {
 	run.target.Status.Progress.LastReadTimestamp = timestamppb.New(time.UnixMilli(lastReadSec))
 }
 
-// todo: add context
-
 type TargetRunner interface {
 	Start(target *remoteread.Target, query *remoteread.Query) error
 
@@ -99,6 +97,10 @@ type TargetRunner interface {
 	GetStatus(name string) (*remoteread.TargetStatus, error)
 
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
+
+	SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient])
+
+	SetRemoteReader(client clients.Locker[RemoteReader])
 }
 
 func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
@@ -116,6 +118,7 @@ type targetRunner struct {
 
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 	remoteReadClient  clients.Locker[remoteread.RemoteReadGatewayClient]
+	remoteReader      clients.Locker[RemoteReader]
 }
 
 func (runner *targetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -126,7 +129,11 @@ func (runner *targetRunner) SetRemoteReadClient(client clients.Locker[remoteread
 	runner.remoteReadClient = client
 }
 
-func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient) {
+func (runner *targetRunner) SetRemoteReader(client clients.Locker[RemoteReader]) {
+	runner.remoteReader = client
+}
+
+func (runner *targetRunner) run(run Run) {
 	runner.runsMu.Lock()
 	runner.runs[run.target.Meta.Name] = run
 	runner.runsMu.Unlock()
@@ -135,8 +142,6 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 
 	// todo: this should probably be more sophisticated than this to handle read size limits
 	importEnd := run.query.EndTimestamp.AsTime().UnixMilli()
-	nextEndDelta := time.Minute.Milliseconds() * 5
-
 	nextStart := run.query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
@@ -150,7 +155,6 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 	}
 
 	defer func() {
-		// todo: defer this stuff
 		if run.target.Status.State == remoteread.TargetStatus_Running {
 			runner.logger.With(
 				"cluster", run.target.Meta.ClusterId,
@@ -163,8 +167,13 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 
 	for nextStart < importEnd && run.target.Status.State == remoteread.TargetStatus_Running {
 		nextStart = nextEnd
-		nextEnd = nextStart + nextEndDelta
-		if nextEnd > importEnd {
+		nextEnd = nextStart + TimeDeltaMillis
+
+		if nextStart >= importEnd {
+			break
+		}
+
+		if nextEnd >= importEnd {
 			nextEnd = importEnd
 		}
 
@@ -178,7 +187,11 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 			},
 		}
 
-		readResponse, err := remoteReaderClient.Read(context.TODO(), run.target.Spec.Endpoint, readRequest)
+		var readResponse *prompb.ReadResponse
+		var err error
+		runner.remoteReader.Use(func(client RemoteReader) {
+			readResponse, err = client.Read(context.Background(), run.target.Spec.Endpoint, readRequest)
+		})
 
 		if err != nil {
 			run.failed(fmt.Sprintf("failed to read from target endpoint: %s", err.Error()))
@@ -207,7 +220,7 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 			}
 
 			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
-				if _, err := remoteWriteClient.Push(context.TODO(), payload); err != nil {
+				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
 					run.failed("failed to push to remote write")
 					return
 				}
@@ -218,7 +231,7 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 			runner.logger.With(
 				"cluster", run.target.Meta.ClusterId,
 				"target", run.target.Meta.Name,
-			).Infof("pushed remote write payload: %s", payload.String())
+			).Debugf("pushed remote write payload: %s", payload.String())
 		}
 
 		run.updateLastRead(nextEnd)
@@ -228,7 +241,7 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
 	// We want to allow for restarting a Failed or Completed. We should not encounter NotRunning, Stopped, or Completed.
 	run, found := runner.runs[target.Meta.Name]
-	if found && run.target.Status.State == remoteread.TargetStatus_Running {
+	if found {
 		switch run.target.Status.State {
 		case remoteread.TargetStatus_Running:
 			return fmt.Errorf("target '%s' is running, cannot be removed, modified, or started", target.Meta.Name)
@@ -247,18 +260,7 @@ func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Q
 		}
 	}
 
-	prometheusClient, err := promConfig.NewClientFromConfig(promConfig.HTTPClientConfig{}, fmt.Sprintf("%s-remoteread", run.target.Meta.Name), promConfig.WithHTTP2Disabled())
-	if err != nil {
-		return fmt.Errorf("could not start import: %w", err)
-	}
-
-	prometheusClient.Transport = &nethttp.Transport{
-		RoundTripper: prometheusClient.Transport,
-	}
-
-	remoteReaderClient := NewRemoteReaderClient(run.stopChan, prometheusClient)
-
-	go runner.run(run, remoteReaderClient)
+	go runner.run(run)
 
 	runner.logger.With(
 		"cluster", target.Meta.ClusterId,

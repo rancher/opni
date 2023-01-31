@@ -16,19 +16,23 @@ import (
 	"time"
 )
 
-type RemoteReaderClient struct {
-	stopChan         chan interface{}
-	prometheusClient *http.Client
+type RemoteReader interface {
+	Read(ctx context.Context, endpoint string, request *prompb.ReadRequest) (*prompb.ReadResponse, error)
 }
 
-func NewRemoteReaderClient(stopChan chan interface{}, prometheusClient *http.Client) *RemoteReaderClient {
-	return &RemoteReaderClient{
+func NewRemoteReader(stopChan chan interface{}, prometheusClient *http.Client) RemoteReader {
+	return &remoteReader{
 		stopChan:         stopChan,
 		prometheusClient: prometheusClient,
 	}
 }
 
-func (client *RemoteReaderClient) Read(ctx context.Context, endpoint string, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+type remoteReader struct {
+	stopChan         chan interface{}
+	prometheusClient *http.Client
+}
+
+func (client *remoteReader) Read(ctx context.Context, endpoint string, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	uncompressedData, err := proto.Marshal(readRequest)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal remote read readRequest: %w", err)

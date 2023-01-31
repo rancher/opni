@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread";
+option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";

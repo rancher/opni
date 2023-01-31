@@ -67,21 +67,6 @@ func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.Remote
 	s.remoteReadClient = client
 }
 
-func (s *HttpServer) SetTargetRunner(runner TargetRunner) {
-	//s.targetRunnerMu.Lock()
-	//defer s.targetRunnerMu.Unlock()
-	//
-	//s.targetRunner = runner
-	//
-	//s.remoteReadClientMu.RLock()
-	//s.targetRunner.SetRemoteReadClient(s.remoteReadClient)
-	//s.remoteReadClientMu.RUnlock()
-	//
-	//s.remoteWriteClientMu.RLock()
-	//s.targetRunner.SetRemoteWriteClient(s.remoteWriteClient)
-	//s.remoteWriteClientMu.RUnlock()
-}
-
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handleMetricPushRequest)
 	pprof.Register(router, "/debug/plugin_metrics/pprof")

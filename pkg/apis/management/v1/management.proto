@@ -218,7 +218,7 @@ message ListClustersRequest {
 }
 
 message EditClusterRequest {
-  core.Reference cluster = 1;
+  core.Reference cluste4r = 1;
   map<string, string> labels = 2;
 }
 

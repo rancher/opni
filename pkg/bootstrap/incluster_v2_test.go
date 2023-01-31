@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -67,7 +68,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 		Expect(cluster.Id).To(Equal("foo"))
 		Expect(cluster.Metadata).NotTo(BeNil())
 		Expect(cluster.Metadata.Capabilities).To(BeEmpty())
-		Expect(cluster.Metadata.Labels).To(HaveKeyWithValue(corev1.NameLabel, "local"))
+		Expect(cluster.Metadata.Labels).To(HaveKeyWithValue(corev1.NameLabel, bootstrapv2.DefaultInClusterFriendlyName))
 	})
 	Context("error handling", func() {
 		When("the gateway endpoint is missing", func() {

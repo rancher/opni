@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/ident"
@@ -68,7 +69,7 @@ func (b *InClusterBootstrapperV2) Bootstrap(ctx context.Context, ident ident.Pro
 	}
 
 	if b.cc.FriendlyName == nil {
-		b.cc.FriendlyName = lo.ToPtr("local")
+		b.cc.FriendlyName = lo.ToPtr(bootstrapv2.DefaultInClusterFriendlyName)
 	}
 
 	b.finalize = func(ctx context.Context) error {

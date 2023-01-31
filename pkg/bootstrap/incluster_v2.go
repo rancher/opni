@@ -12,12 +12,15 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // InClusterBootstrapperV2 is a Bootstrapper that can bootstrap itself inside the
 // main cluster with direct access to the management api.
+// If unset, the cluster's friendlyName will default to "local" when using this
+// bootstrapper.
 type InClusterBootstrapperV2 struct {
 	GatewayEndpoint    string
 	ManagementEndpoint string
@@ -62,6 +65,10 @@ func (b *InClusterBootstrapperV2) Bootstrap(ctx context.Context, ident ident.Pro
 	b.cc.TrustStrategy, err = stratConf.Build()
 	if err != nil {
 		return nil, err
+	}
+
+	if b.cc.FriendlyName == nil {
+		b.cc.FriendlyName = lo.ToPtr("local")
 	}
 
 	b.finalize = func(ctx context.Context) error {

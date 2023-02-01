@@ -22,6 +22,9 @@ This new design would allow a privileged agent to provide metric samples with sp
 
 In the case of `opni_cluster_info`, when Cortex runs its tenant federation logic to aggregate the results of queries across multiple tenants, it will group all of the `opni_cluster_info` metrics from each tenant along with their respective labels into a single logical metric when queried for. This also makes the process of vector-matching the cluster names with cluster labels much easier, as the tenant IDs will match already without needing to do complex label manipulation within promql.
 
+A diagram of the flow of metric samples is shown below. Everything shown below is running in the central cluster.
+
+![](https://lucid.app/publicSegments/view/509cb1ed-31bf-4755-b417-1d22c008225f/image.png)
 
 ## Scale and performance:
 Distributing metrics across tenants will not change the overall number of metric samples that need to be stored.

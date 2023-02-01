@@ -26,6 +26,10 @@ A diagram of the flow of metric samples is shown below. Everything shown below i
 
 ![](https://lucid.app/publicSegments/view/509cb1ed-31bf-4755-b417-1d22c008225f/image.png)
 
+**Scrape Target Restrictions**
+
+Depending on the details of the implementation of this feature, we may need to integrate the scrape target (configured via service monitor, for example) into the authorization strategy - either instead of, or in addition to, metric labels - to ensure that the metrics which can be subject to tenant impersonation are only scraped from verified targets (the gateway).
+
 ## Scale and performance:
 Distributing metrics across tenants will not change the overall number of metric samples that need to be stored.
 

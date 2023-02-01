@@ -3,11 +3,14 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	_ "embed"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -314,6 +317,95 @@ func k8sModuleVersion() string {
 	return strings.TrimSpace(strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1))
 }
 
+var microsoftStyles []microsoftStyleRelease
+
+type microsoftStyleRelease struct {
+	name    string
+	version string
+}
+
+func (s microsoftStyleRelease) downloadUrl() string {
+	return fmt.Sprintf("https://github.com/errata-ai/%s/releases/download/%s/%s.zip", s.name, s.version, s.name)
+}
+
+func extractZip(archiveFile, dst string) error {
+	archive, err := zip.OpenReader(archiveFile)
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+
+	for _, f := range archive.File {
+		filePath := filepath.Join(dst, f.Name)
+
+		if !strings.HasPrefix(filePath, filepath.Clean(dst)+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid file path")
+		}
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(filePath, os.ModePerm)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+			return err
+		}
+
+		dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		fileInArchive, err := f.Open()
+		if err != nil {
+			return err
+		}
+
+		if _, err := io.Copy(dstFile, fileInArchive); err != nil {
+			return err
+		}
+
+		dstFile.Close()
+		fileInArchive.Close()
+	}
+	return nil
+}
+
+func Styles() {
+	tempDir, err := os.MkdirTemp("", "styles-download-*")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer os.RemoveAll(tempDir)
+	for _, style := range microsoftStyles {
+		url := style.downloadUrl()
+		resp, err := http.Get(url)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("failed to download %s: %s", url, resp.Status))
+		}
+		archiveFile := filepath.Join(tempDir, style.name+".zip")
+		f, err := os.Create(archiveFile)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if _, err := io.Copy(f, resp.Body); err != nil {
+			return
+		}
+		f.Close()
+
+		dst := "styles"
+		if err := extractZip(archiveFile, dst); err != nil {
+			panic(err)
+			return
+		}
+	}
+}
+
 func init() {
 	test.Deps = append(test.Deps, testbin.Testbin, Build) // TODO: fix this with magefiles directory
 
@@ -429,6 +521,11 @@ func init() {
 				GetVersion: func(string) string { return "1.4.0" },
 			},
 		)
+	}
+
+	microsoftStyles = []microsoftStyleRelease{
+		{"Microsoft", "v0.9.0"},
+		{"proselint", "v0.3.3"},
 	}
 }
 func ProtobufGo() error {

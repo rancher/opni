@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"google.golang.org/grpc"
+	"net/http"
 )
 
 func (p *Plugin) StreamServers() []streamext.Server {
@@ -25,15 +26,26 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
+	remoteWriter := clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
+	remoteReadClient := clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient)
+
+	runner := NewTargetRunner(p.logger.Named("runner"))
+	runner.SetRemoteWriteClient(remoteWriter)
+	runner.SetRemoteReadClient(remoteReadClient)
+	runner.SetRemoteReader(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) RemoteReader {
+		return NewRemoteReader(&http.Client{})
+	}))
+
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
 
-	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
-	p.httpServer.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
+	p.httpServer.SetRemoteWriteClient(remoteWriter)
+	p.httpServer.SetRemoteReadClient(remoteReadClient)
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 
 	p.node.SetNodeClient(nodeClient)
 	p.node.SetHealthListenerClient(healthListenerClient)
 	p.node.SetIdentityClient(identityClient)
+	p.node.SetTargetRunner(runner)
 }

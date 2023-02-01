@@ -20,15 +20,13 @@ type RemoteReader interface {
 	Read(ctx context.Context, endpoint string, request *prompb.ReadRequest) (*prompb.ReadResponse, error)
 }
 
-func NewRemoteReader(stopChan chan interface{}, prometheusClient *http.Client) RemoteReader {
+func NewRemoteReader(prometheusClient *http.Client) RemoteReader {
 	return &remoteReader{
-		stopChan:         stopChan,
 		prometheusClient: prometheusClient,
 	}
 }
 
 type remoteReader struct {
-	stopChan         chan interface{}
 	prometheusClient *http.Client
 }
 

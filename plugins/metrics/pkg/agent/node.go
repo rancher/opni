@@ -54,9 +54,8 @@ type MetricsNode struct {
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
-		logger:       lg,
-		conditions:   ct,
-		targetRunner: NewTargetRunner(lg.Named("runner")),
+		logger:     lg,
+		conditions: ct,
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
 	return node
@@ -109,6 +108,10 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.healthListenerClient = client
 	m.healthListenerClientMu.Unlock()
 	m.sendHealthUpdate()
+}
+
+func (m *MetricsNode) SetTargetRunner(targetRunner TargetRunner) {
+	m.targetRunner = targetRunner
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {

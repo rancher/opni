@@ -3,9 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/samber/lo"
 	"sort"
 	"strings"
 	"sync"
@@ -215,18 +213,10 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		return nil, fmt.Errorf("could not create prometheus discoverer: %s", err)
 	}
 
-	prometheuses, err := discoverer.Discover()
+	entries, err := discoverer.Discover()
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheues instances: %w", err)
 	}
-
-	entries := lo.Map(prometheuses, func(prometheus *monitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
-		return &remoteread.DiscoveryEntry{
-			Name:             prometheus.GetName(),
-			ExternalEndpoint: prometheus.Spec.ExternalURL,
-			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
-		}
-	})
 
 	return &remoteread.DiscoveryResponse{
 		Entries: entries,

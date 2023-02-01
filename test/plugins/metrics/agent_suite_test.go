@@ -1,4 +1,4 @@
-package agent_test
+package metrics_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestAgent(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Agent Suite")
+	RunSpecs(t, "Import Suite")
 }

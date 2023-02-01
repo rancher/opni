@@ -1,4 +1,4 @@
-package agent
+package metrics
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"google.golang.org/grpc"
@@ -88,12 +89,22 @@ func (client *mockRemoteReadGatewayClient) Discover(ctx context.Context, in *rem
 
 var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 	var (
-		runner TargetRunner
-		target *remoteread.Target
+		runner agent.TargetRunner
 
 		writerClient *mockRemoteWriteClient
 		readClient   *mockRemoteReadGatewayClient
 		remoteReader *mockRemoteReader
+
+		target = &remoteread.Target{
+			Meta: &remoteread.TargetMeta{
+				Name:      "test",
+				ClusterId: "00000-00000",
+			},
+			Spec: &remoteread.TargetSpec{
+				Endpoint: "http://127.0.0.1:9090/api/v1/read",
+			},
+			Status: nil,
+		}
 	)
 
 	BeforeEach(func() {
@@ -130,32 +141,21 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 			},
 		}
 
-		runner = NewTargetRunner(lg)
+		runner = agent.NewTargetRunner(lg)
 		runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 			return writerClient
 		}))
 		runner.SetRemoteReadClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remoteread.RemoteReadGatewayClient {
 			return readClient
 		}))
-		runner.SetRemoteReader(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) RemoteReader {
+		runner.SetRemoteReader(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
 			return remoteReader
 		}))
-
-		target = &remoteread.Target{
-			Meta: &remoteread.TargetMeta{
-				Name:      "test",
-				ClusterId: "00000-00000",
-			},
-			Spec: &remoteread.TargetSpec{
-				Endpoint: "http://127.0.0.1:9090/api/v1/read",
-			},
-			Status: nil,
-		}
 	})
 
 	When("target runner cannot reach target endpoint", func() {
 		It("should fail", func() {
-			remoteReader := clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) RemoteReader {
+			remoteReader := clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
 				return &mockRemoteReader{
 					Error: fmt.Errorf("failed"),
 				}
@@ -167,7 +167,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				&remoteread.Query{
 					StartTimestamp: &timestamppb.Timestamp{},
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
 					},
 					Matchers: nil,
 				})
@@ -192,7 +192,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 					StartTimestamp:    &timestamppb.Timestamp{},
 					LastReadTimestamp: nil,
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
 				Message: "failed to read from target endpoint: failed",
@@ -201,7 +201,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 
 			Expect(expected).To(Equal(status))
 
-			remoteReader = clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) RemoteReader {
+			remoteReader = clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
 				return &mockRemoteReader{
 					Responses: []*prompb.ReadResponse{
 						{
@@ -239,7 +239,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				&remoteread.Query{
 					StartTimestamp: &timestamppb.Timestamp{},
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
 					},
 					Matchers: nil,
 				})
@@ -264,10 +264,10 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				Progress: &remoteread.TargetProgress{
 					StartTimestamp: &timestamppb.Timestamp{},
 					LastReadTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
 				Message: "",
@@ -286,7 +286,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				&remoteread.Query{
 					StartTimestamp: &timestamppb.Timestamp{},
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
 					},
 					Matchers: nil,
 				})
@@ -313,10 +313,10 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				Progress: &remoteread.TargetProgress{
 					StartTimestamp: &timestamppb.Timestamp{},
 					LastReadTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
 				Message: "",

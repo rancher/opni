@@ -5,6 +5,8 @@ import (
 	"fmt"
 	apimonitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -53,31 +55,37 @@ func NewPrometheusDiscoverer(config DiscovererConfig) (*PrometheusDiscoverer, er
 	}, nil
 }
 
-func (discoverer *PrometheusDiscoverer) Discover() ([]*apimonitoringv1.Prometheus, error) {
+func (discoverer *PrometheusDiscoverer) Discover() ([]*remoteread.DiscoveryEntry, error) {
 	namespaces, err := discoverer.kubeClient.CoreV1().Namespaces().List(discoverer.Context, apimetav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch list of namespaces: %w", err)
 	}
 
-	prometheuses := make([]*apimonitoringv1.Prometheus, 0)
+	entries := make([]*remoteread.DiscoveryEntry, 0)
 
 	for _, namespace := range namespaces.Items {
-		p, err := discoverer.DiscoverIn(namespace.Name)
+		entriesInNamespace, err := discoverer.DiscoverIn(namespace.Name)
 		if err != nil {
 			discoverer.Logger.Errorf("error fetching Prometheuses for namespace '%s': %w", namespace, err)
 		}
 
-		prometheuses = append(prometheuses, p...)
+		entries = append(entries, entriesInNamespace...)
 	}
 
-	return prometheuses, nil
+	return entries, nil
 }
 
-func (discoverer *PrometheusDiscoverer) DiscoverIn(namespace string) ([]*apimonitoringv1.Prometheus, error) {
+func (discoverer *PrometheusDiscoverer) DiscoverIn(namespace string) ([]*remoteread.DiscoveryEntry, error) {
 	list, err := discoverer.promClient.MonitoringV1().Prometheuses(namespace).List(discoverer.Context, apimetav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could complete discovery: %w", err)
 	}
 
-	return list.Items, nil
+	return lo.Map(list.Items, func(prometheus *apimonitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
+		return &remoteread.DiscoveryEntry{
+			Name:             prometheus.Name,
+			ExternalEndpoint: prometheus.Spec.ExternalURL,
+			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
+		}
+	}), nil
 }

@@ -4,6 +4,11 @@ A clear and concise title that describes the proposed change or new feature.
 ## Summary: 
 A brief overview of the proposed change or new feature, including its purpose and the problem it is intended to solve.
 
+## Status
+- [X] Not started
+- [ ] In progress
+- [ ] Completed
+
 ## Use case: 
 A description of the specific scenario or context in which the proposed change or new feature would be used.
 

@@ -111,6 +111,8 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 }
 
 func (m *MetricsNode) SetTargetRunner(targetRunner TargetRunner) {
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
 	m.targetRunner = targetRunner
 }
 

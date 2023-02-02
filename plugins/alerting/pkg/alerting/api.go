@@ -16,7 +16,9 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 	lg := p.Logger.With("Handler", "TriggerAlerts")
 	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
 	lg.Debugf("Received alert annotations : %s", req.Annotations)
-
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
@@ -56,6 +58,9 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 
 func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
 	lg := p.Logger.With("Handler", "ResolveAlerts")
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)

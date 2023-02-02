@@ -32,9 +32,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// UI identifier for upstream cluster
-const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
-
 // always overwrites id field
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
 	lg := p.Logger.With("Handler", "CreateAlertCondition")

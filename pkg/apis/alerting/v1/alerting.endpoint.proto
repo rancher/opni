@@ -218,18 +218,6 @@ message TestAlertEndpointRequest {
 message TestAlertEndpointResponse {}
 
 
-message EphemeralDispatcherRequest {
-  google.protobuf.Duration ttl = 1;
-  int64 numDispatches = 2;
-  string prefix = 3;
-  AlertEndpoint endpoint = 4;
-  EndpointImplementation details = 5;
-}
-
-message EphemeralDispatcherResponse{
-  TriggerAlertsRequest triggerAlertsRequest = 1;
-}
-
 message FullAttachedEndpoints {
   repeated FullAttachedEndpoint items = 1;
   // initial delay before firing the alert (optional) (default=10s)

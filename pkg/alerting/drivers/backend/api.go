@@ -240,8 +240,8 @@ func (a *AlertManagerAPI) doRequest() error {
 	}
 	defer resp.Body.Close()
 	if err := a.expectClosure(resp); err != nil {
-		lg.Error(
-			"failed to get specified expected AlertManager response", err,
+		lg.Errorf(
+			"failed to get specified expected AlertManager response %s", err,
 		)
 		return err
 	}

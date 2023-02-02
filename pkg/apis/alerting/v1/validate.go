@@ -442,21 +442,28 @@ func (c *CloneToRequest) Validate() error {
 	return nil
 }
 
-func (e *EphemeralDispatcherRequest) Validate() error {
-	if e.GetPrefix() == "" {
-		return validation.Error("prefix must be set for ephemeral dispatchers")
+func (t *TriggerAlertsRequest) Validate() error {
+	if t.Namespace == "" {
+		return validation.Error("namespace must be set for triggering alerts")
 	}
-	if e.GetNumDispatches() <= 0 {
-		return validation.Error("numDispatches must be non-zero for ephemeral dispatchers")
+	if t.ConditionId == nil || t.ConditionId.Id == "" {
+		return validation.Error("conditionId must be set for triggering alerts")
 	}
-	if e.GetTtl().AsDuration() == 0 {
-		return validation.Error("numDuration must be non-zero for ephemeral dispatchers")
+	if t.Labels == nil {
+		t.Labels = map[string]string{}
 	}
-	if err := e.GetDetails().Validate(); err != nil {
-		return validation.Errorf("details must be valid for ephemeral dispatchers: %s", err)
+	if t.Annotations == nil {
+		t.Annotations = map[string]string{}
 	}
-	if err := e.GetEndpoint().Validate(); err != nil {
-		return validation.Errorf("endpoints must be valid for ephemeral dispatchers: %s", err)
+	return nil
+}
+
+func (r *ResolveAlertsRequest) Validate() error {
+	if r.Labels == nil {
+		r.Labels = map[string]string{}
+	}
+	if r.Annotations == nil {
+		r.Annotations = map[string]string{}
 	}
 	return nil
 }

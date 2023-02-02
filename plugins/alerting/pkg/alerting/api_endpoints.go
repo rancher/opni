@@ -115,7 +115,7 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 		return nil, err
 	}
 	refList := resp.GetInvolvedConditions(req.Id.Id)
-	if len(refList.Items) > 0 && !req.ForceDelete == false {
+	if len(refList.Items) > 0 && !req.ForceDelete {
 		return refList, nil
 	}
 
@@ -139,8 +139,8 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 		return nil, err
 	}
 	details := &alertingv1.EndpointImplementation{
-		Title: "loser",
-		Body:  "loser",
+		Title: "Test Alert Endpoint",
+		Body:  "Opni Alerting is sending you a test alert to verify your alert endpoint configuration.",
 	}
 
 	ephemeralId := shared.NewAlertingRefId()
@@ -169,10 +169,12 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 	}
 
 	go func() { // create, trigger, delete
+		ctx := p.Ctx
 		p.opsNode.SendManualSyncRequest(ctx, []string{shared.SingleConfigId}, p.storageClientSet.Get().Routers())
 
 		_, err := p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},
+			Namespace:   ns,
 			Labels: map[string]string{
 				ns: ephemeralId,
 			},

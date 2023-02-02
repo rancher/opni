@@ -1,6 +1,6 @@
 # Title:
 
-Opni Alerting uses Cortex AlertManager as a dispatch backend
+Opni Alerting uses Cortex AlertManager as a notification system
 
 ## Summary:
 
@@ -11,35 +11,69 @@ Therefore, Opni-Alerting should seek to build smaller configuration files, namel
 ## Use case:
 
 - Users want to scale their upstream Alerting Cluster to handle many agents
+- Users want to have a greater amount of optimization control over their Alerting Cluster
 
 ## Benefits:
 
-- Performance & scalability optimizations & many cortex native improvements to AlertManager
-- Separating clusters logically and physically -- improves fault tolerance
+### User Benefits
+
+- Performance & scalability optimizations
+- Separating opni clusters logically and physically in the notification system -- improves fault tolerance
+  - In our current cluster if the process running AlertManager crashes then the messaging system breaks for all clusters
+
+### Developer Benefits
+
 - Less dependency management headaches for main Opni repository
-- Better integration with Metrics' Cortex cluster
+- many cortex native improvements to AlertManager
+  - Memberlist management, cluster meshing & API aggregations made easy
+- Better & easier integration with Metrics' Cortex cluster
 
 ## Impact:
 
 - Cortex AlertManager uses an eventual consistency model, increasing the median time of propagating configuration updates to any Opni-Alerting Component in a reconciler loop from ~30 seconds, minus opni router build time, to approximately 1 to 2 minutes.
-- Cortex AlertManager on a filesystem `storage backend` may become less than ideal when compared to Vanilla AlertManager
+- Cortex AlertManager on a filesystem `storage backend` may become less than ideal when compared to Vanilla AlertManager, so
+  having an S3 configuration available is a good idea.
+- Cortex AlertManager has some limitations around embedding user template, API key & cert files
+  - limits to using non external files (directly in AlertManager configuration) for storing receiver information
 
 ## Implementation details:
 
+### Compute
+
 - Opni Alerting uses the existing embedded cortex binary to run cortex AlertManager
 - A new AlertingAdmin server v2 deploys cortex AlertManager's as the Alerting Cluster unit
-- AlertingAdmin server v2 `ClusterConfiguration` implements cortex AlertManager configuration
-- Build Opni-routing configuration on a per cluster basis, with keys matching cluster id
-- Ops Server sync stream, responsible for syncing Opni-Alerting configurations to the AlertingCluster, uses `(key, config)`, where key is a cluster id instead of a global key
-- `Sidecar Syncer` server v2 that applies sync changes via the cortex API
+- Alerting Cluster deployments are controlled via an `Alerting Cluster` CRD separated from the gateway CRD
+
+  - Gateway address
+  - Cortex deployment configurations
+  - Cortex CLI arguments
+
+### Logic
+
+- Build Opni-routing configuration on a per cluster basis, with keys matching cluster id. Currently, a global key builds the router configuration.
+
+- Ops Server sync stream, responsible for syncing Opni-Alerting configurations to the AlertingCluster, uses `(key, config)`, where key is an opni cluster id instead of a global key
+- `Sidecar Syncer` server v2 applies configuration changes via the cortex API
 - AlertManager adapters must be modified with an `AlertManagerApiOption` that handles `proxying` to underlying cortex AlertManager instances : for example, moving `/api/v2/status` to `/<tenant>/prom/alertmanager/api/v2/status` when enabled
+
+### HA Guarantees
+
+- AlertManager adapters must maintain a member-list from Cortex when making stateful API calls to ensure it aggregates over available members
+- The cluster gossip intervals must be estimated from the `Cortex runtime args`, and strictly validate `group_wait` in router construction
+
+### UI changes
+
+- UI must implement the API contract for the AlertingAdmin server v2
+- Expose an advanced configuration with all the Cluster configuration settings for AlertingAdmin server v2
 
 ## Acceptance criteria:
 
-- [ ] AlertingAdmin v2 server
-- [ ] Router configuration building on a per cluster basis
+- [ ] Opni Alerting deploys a CortexAlertManager cluster
+- [ ] Guarantee HA state is consistent
+- [ ] Alerts & messages are dispatched on a per-cluster basis
+- [ ] Router configurations are built on a per-cluster basis
 - [ ] AlertManager adapter can proxy requests to AlertManager through CortexAPI
-- [ ] `Sidecar Syncer` v2 server that works with Cortex AlertManager
+- [ ] `Sidecar Syncer` server implements an adapter to Cortex AlertManager
 
 ## Supporting documents:
 
@@ -55,7 +89,7 @@ Therefore, Opni-Alerting should seek to build smaller configuration files, namel
 
 ## Level of effort:
 
-3 weeks
+2 weeks
 
 ## Resources:
 

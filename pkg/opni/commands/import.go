@@ -235,7 +235,6 @@ func BuildImportStartCmd() *cobra.Command {
 	var labelFilters []string
 	var startTimestampSecs int64
 	var endTimestampSecs int64
-	var forceOverlap bool
 	var follow bool
 
 	cmd := &cobra.Command{
@@ -274,8 +273,7 @@ func BuildImportStartCmd() *cobra.Command {
 						Name:      targetName,
 					},
 				},
-				Query:        query,
-				ForceOverlap: forceOverlap,
+				Query: query,
 			}
 
 			ctx := cmd.Context()
@@ -301,8 +299,6 @@ func BuildImportStartCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&endTimestampSecs, "end", time.Now().Unix(), "start time for the remote read")
 
 	cmd.Flags().BoolVar(&follow, "follow", false, "follow import progress (the same as calling start then progress immediately)")
-
-	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
 
 	return cmd
 }

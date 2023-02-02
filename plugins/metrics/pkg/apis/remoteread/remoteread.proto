@@ -98,9 +98,6 @@ message TargetListRequest {
 message StartReadRequest {
   Target target = 1;
   Query query = 2;
-
-  // allow for forcing a remote read when Query.startTimestamp > Target.meta.lastReadTimestamp
-  bool forceOverlap = 3;
 }
 
 message StopReadRequest {

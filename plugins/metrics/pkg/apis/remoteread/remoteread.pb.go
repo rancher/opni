@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.28.1-devel
 // 	protoc        v1.0.0
-// source: github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto
+// source: github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto
 
 package remoteread
 
@@ -66,11 +66,11 @@ func (x TargetStatus_State) String() string {
 }
 
 func (TargetStatus_State) Descriptor() protoreflect.EnumDescriptor {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[0].Descriptor()
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[0].Descriptor()
 }
 
 func (TargetStatus_State) Type() protoreflect.EnumType {
-	return &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[0]
+	return &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[0]
 }
 
 func (x TargetStatus_State) Number() protoreflect.EnumNumber {
@@ -79,7 +79,7 @@ func (x TargetStatus_State) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TargetStatus_State.Descriptor instead.
 func (TargetStatus_State) EnumDescriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{2, 0}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{2, 0}
 }
 
 type LabelMatcher_Type int32
@@ -118,11 +118,11 @@ func (x LabelMatcher_Type) String() string {
 }
 
 func (LabelMatcher_Type) Descriptor() protoreflect.EnumDescriptor {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[1].Descriptor()
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[1].Descriptor()
 }
 
 func (LabelMatcher_Type) Type() protoreflect.EnumType {
-	return &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[1]
+	return &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes[1]
 }
 
 func (x LabelMatcher_Type) Number() protoreflect.EnumNumber {
@@ -131,7 +131,7 @@ func (x LabelMatcher_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LabelMatcher_Type.Descriptor instead.
 func (LabelMatcher_Type) EnumDescriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{16, 0}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{16, 0}
 }
 
 type Target struct {
@@ -147,7 +147,7 @@ type Target struct {
 func (x *Target) Reset() {
 	*x = Target{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -160,7 +160,7 @@ func (x *Target) String() string {
 func (*Target) ProtoMessage() {}
 
 func (x *Target) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -173,7 +173,7 @@ func (x *Target) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Target.ProtoReflect.Descriptor instead.
 func (*Target) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{0}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Target) GetMeta() *TargetMeta {
@@ -209,7 +209,7 @@ type TargetMeta struct {
 func (x *TargetMeta) Reset() {
 	*x = TargetMeta{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -222,7 +222,7 @@ func (x *TargetMeta) String() string {
 func (*TargetMeta) ProtoMessage() {}
 
 func (x *TargetMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +235,7 @@ func (x *TargetMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetMeta.ProtoReflect.Descriptor instead.
 func (*TargetMeta) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{1}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *TargetMeta) GetName() string {
@@ -266,7 +266,7 @@ type TargetStatus struct {
 func (x *TargetStatus) Reset() {
 	*x = TargetStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -279,7 +279,7 @@ func (x *TargetStatus) String() string {
 func (*TargetStatus) ProtoMessage() {}
 
 func (x *TargetStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -292,7 +292,7 @@ func (x *TargetStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetStatus.ProtoReflect.Descriptor instead.
 func (*TargetStatus) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{2}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TargetStatus) GetProgress() *TargetProgress {
@@ -327,7 +327,7 @@ type TargetSpec struct {
 func (x *TargetSpec) Reset() {
 	*x = TargetSpec{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -340,7 +340,7 @@ func (x *TargetSpec) String() string {
 func (*TargetSpec) ProtoMessage() {}
 
 func (x *TargetSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -353,7 +353,7 @@ func (x *TargetSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetSpec.ProtoReflect.Descriptor instead.
 func (*TargetSpec) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{3}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TargetSpec) GetEndpoint() string {
@@ -375,7 +375,7 @@ type TargetDiff struct {
 func (x *TargetDiff) Reset() {
 	*x = TargetDiff{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -388,7 +388,7 @@ func (x *TargetDiff) String() string {
 func (*TargetDiff) ProtoMessage() {}
 
 func (x *TargetDiff) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +401,7 @@ func (x *TargetDiff) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetDiff.ProtoReflect.Descriptor instead.
 func (*TargetDiff) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{4}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TargetDiff) GetEndpoint() string {
@@ -429,7 +429,7 @@ type TargetList struct {
 func (x *TargetList) Reset() {
 	*x = TargetList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -442,7 +442,7 @@ func (x *TargetList) String() string {
 func (*TargetList) ProtoMessage() {}
 
 func (x *TargetList) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -455,7 +455,7 @@ func (x *TargetList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetList.ProtoReflect.Descriptor instead.
 func (*TargetList) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{5}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TargetList) GetTargets() []*Target {
@@ -478,7 +478,7 @@ type TargetProgress struct {
 func (x *TargetProgress) Reset() {
 	*x = TargetProgress{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -491,7 +491,7 @@ func (x *TargetProgress) String() string {
 func (*TargetProgress) ProtoMessage() {}
 
 func (x *TargetProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +504,7 @@ func (x *TargetProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetProgress.ProtoReflect.Descriptor instead.
 func (*TargetProgress) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{6}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TargetProgress) GetStartTimestamp() *timestamppb.Timestamp {
@@ -540,7 +540,7 @@ type TargetAddRequest struct {
 func (x *TargetAddRequest) Reset() {
 	*x = TargetAddRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -553,7 +553,7 @@ func (x *TargetAddRequest) String() string {
 func (*TargetAddRequest) ProtoMessage() {}
 
 func (x *TargetAddRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +566,7 @@ func (x *TargetAddRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetAddRequest.ProtoReflect.Descriptor instead.
 func (*TargetAddRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{7}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TargetAddRequest) GetTarget() *Target {
@@ -595,7 +595,7 @@ type TargetEditRequest struct {
 func (x *TargetEditRequest) Reset() {
 	*x = TargetEditRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -608,7 +608,7 @@ func (x *TargetEditRequest) String() string {
 func (*TargetEditRequest) ProtoMessage() {}
 
 func (x *TargetEditRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +621,7 @@ func (x *TargetEditRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetEditRequest.ProtoReflect.Descriptor instead.
 func (*TargetEditRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{8}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TargetEditRequest) GetMeta() *TargetMeta {
@@ -649,7 +649,7 @@ type TargetRemoveRequest struct {
 func (x *TargetRemoveRequest) Reset() {
 	*x = TargetRemoveRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -662,7 +662,7 @@ func (x *TargetRemoveRequest) String() string {
 func (*TargetRemoveRequest) ProtoMessage() {}
 
 func (x *TargetRemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,7 +675,7 @@ func (x *TargetRemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetRemoveRequest.ProtoReflect.Descriptor instead.
 func (*TargetRemoveRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{9}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TargetRemoveRequest) GetMeta() *TargetMeta {
@@ -696,7 +696,7 @@ type TargetListRequest struct {
 func (x *TargetListRequest) Reset() {
 	*x = TargetListRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -709,7 +709,7 @@ func (x *TargetListRequest) String() string {
 func (*TargetListRequest) ProtoMessage() {}
 
 func (x *TargetListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +722,7 @@ func (x *TargetListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetListRequest.ProtoReflect.Descriptor instead.
 func (*TargetListRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{10}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *TargetListRequest) GetClusterId() string {
@@ -746,7 +746,7 @@ type StartReadRequest struct {
 func (x *StartReadRequest) Reset() {
 	*x = StartReadRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -759,7 +759,7 @@ func (x *StartReadRequest) String() string {
 func (*StartReadRequest) ProtoMessage() {}
 
 func (x *StartReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -772,7 +772,7 @@ func (x *StartReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartReadRequest.ProtoReflect.Descriptor instead.
 func (*StartReadRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{11}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartReadRequest) GetTarget() *Target {
@@ -807,7 +807,7 @@ type StopReadRequest struct {
 func (x *StopReadRequest) Reset() {
 	*x = StopReadRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -820,7 +820,7 @@ func (x *StopReadRequest) String() string {
 func (*StopReadRequest) ProtoMessage() {}
 
 func (x *StopReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +833,7 @@ func (x *StopReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopReadRequest.ProtoReflect.Descriptor instead.
 func (*StopReadRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{12}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *StopReadRequest) GetMeta() *TargetMeta {
@@ -854,7 +854,7 @@ type TargetStatusRequest struct {
 func (x *TargetStatusRequest) Reset() {
 	*x = TargetStatusRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -867,7 +867,7 @@ func (x *TargetStatusRequest) String() string {
 func (*TargetStatusRequest) ProtoMessage() {}
 
 func (x *TargetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +880,7 @@ func (x *TargetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetStatusRequest.ProtoReflect.Descriptor instead.
 func (*TargetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{13}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TargetStatusRequest) GetMeta() *TargetMeta {
@@ -902,7 +902,7 @@ type TargetStatusUpdateRequest struct {
 func (x *TargetStatusUpdateRequest) Reset() {
 	*x = TargetStatusUpdateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -915,7 +915,7 @@ func (x *TargetStatusUpdateRequest) String() string {
 func (*TargetStatusUpdateRequest) ProtoMessage() {}
 
 func (x *TargetStatusUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -928,7 +928,7 @@ func (x *TargetStatusUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TargetStatusUpdateRequest.ProtoReflect.Descriptor instead.
 func (*TargetStatusUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{14}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TargetStatusUpdateRequest) GetMeta() *TargetMeta {
@@ -959,7 +959,7 @@ type Query struct {
 func (x *Query) Reset() {
 	*x = Query{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -972,7 +972,7 @@ func (x *Query) String() string {
 func (*Query) ProtoMessage() {}
 
 func (x *Query) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +985,7 @@ func (x *Query) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Query.ProtoReflect.Descriptor instead.
 func (*Query) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{15}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Query) GetStartTimestamp() *timestamppb.Timestamp {
@@ -1022,7 +1022,7 @@ type LabelMatcher struct {
 func (x *LabelMatcher) Reset() {
 	*x = LabelMatcher{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1035,7 +1035,7 @@ func (x *LabelMatcher) String() string {
 func (*LabelMatcher) ProtoMessage() {}
 
 func (x *LabelMatcher) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1048,7 @@ func (x *LabelMatcher) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelMatcher.ProtoReflect.Descriptor instead.
 func (*LabelMatcher) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{16}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *LabelMatcher) GetType() LabelMatcher_Type {
@@ -1085,7 +1085,7 @@ type Progress struct {
 func (x *Progress) Reset() {
 	*x = Progress{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1098,7 +1098,7 @@ func (x *Progress) String() string {
 func (*Progress) ProtoMessage() {}
 
 func (x *Progress) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1111,7 @@ func (x *Progress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Progress.ProtoReflect.Descriptor instead.
 func (*Progress) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{17}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Progress) GetStartTimestamp() *timestamppb.Timestamp {
@@ -1149,7 +1149,7 @@ type DiscoveryEntry struct {
 func (x *DiscoveryEntry) Reset() {
 	*x = DiscoveryEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1162,7 +1162,7 @@ func (x *DiscoveryEntry) String() string {
 func (*DiscoveryEntry) ProtoMessage() {}
 
 func (x *DiscoveryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1175,7 +1175,7 @@ func (x *DiscoveryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryEntry.ProtoReflect.Descriptor instead.
 func (*DiscoveryEntry) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{18}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DiscoveryEntry) GetName() string {
@@ -1219,7 +1219,7 @@ type DiscoveryRequest struct {
 func (x *DiscoveryRequest) Reset() {
 	*x = DiscoveryRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1232,7 +1232,7 @@ func (x *DiscoveryRequest) String() string {
 func (*DiscoveryRequest) ProtoMessage() {}
 
 func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1245,7 +1245,7 @@ func (x *DiscoveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryRequest.ProtoReflect.Descriptor instead.
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{19}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DiscoveryRequest) GetClusterIds() []string {
@@ -1273,7 +1273,7 @@ type DiscoveryResponse struct {
 func (x *DiscoveryResponse) Reset() {
 	*x = DiscoveryResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20]
+		mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1286,7 +1286,7 @@ func (x *DiscoveryResponse) String() string {
 func (*DiscoveryResponse) ProtoMessage() {}
 
 func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20]
+	mi := &file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1299,7 +1299,7 @@ func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{20}
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DiscoveryResponse) GetEntries() []*DiscoveryEntry {
@@ -1309,10 +1309,10 @@ func (x *DiscoveryResponse) GetEntries() []*DiscoveryEntry {
 	return nil
 }
 
-var File_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto protoreflect.FileDescriptor
+var File_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto protoreflect.FileDescriptor
 
-var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc = []byte{
-	0x0a, 0x4c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x69, 0x6d, 0x2f, 0x72, 0x61, 0x6e,
+var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc = []byte{
+	0x0a, 0x4c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e,
 	0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e,
 	0x73, 0x2f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70,
 	0x69, 0x73, 0x2f, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x72, 0x65, 0x61, 0x64, 0x2f, 0x72, 0x65,
@@ -1536,27 +1536,27 @@ var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x72,
 	0x65, 0x61, 0x64, 0x2e, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73,
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x3d, 0x5a, 0x3b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x69, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69,
+	0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69,
 	0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73,
 	0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x72, 0x65, 0x6d, 0x6f, 0x74, 0x65,
 	0x72, 0x65, 0x61, 0x64, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescOnce sync.Once
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData = file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescOnce sync.Once
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData = file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc
 )
 
-func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP() []byte {
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescOnce.Do(func() {
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData)
+func file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescGZIP() []byte {
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescOnce.Do(func() {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData)
 	})
-	return file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData
+	return file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDescData
 }
 
-var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
-var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes = []interface{}{
+var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes = []interface{}{
 	(TargetStatus_State)(0),           // 0: remoteread.TargetStatus.State
 	(LabelMatcher_Type)(0),            // 1: remoteread.LabelMatcher.Type
 	(*Target)(nil),                    // 2: remoteread.Target
@@ -1583,7 +1583,7 @@ var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_
 	(*timestamppb.Timestamp)(nil),     // 23: google.protobuf.Timestamp
 	(*emptypb.Empty)(nil),             // 24: google.protobuf.Empty
 }
-var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs = []int32{
+var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs = []int32{
 	3,  // 0: remoteread.Target.meta:type_name -> remoteread.TargetMeta
 	5,  // 1: remoteread.Target.spec:type_name -> remoteread.TargetSpec
 	4,  // 2: remoteread.Target.status:type_name -> remoteread.TargetStatus
@@ -1641,13 +1641,13 @@ var file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_
 	0,  // [0:26] is the sub-list for field type_name
 }
 
-func init() { file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_init() }
-func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_init() {
-	if File_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto != nil {
+func init() { file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_init() }
+func file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_init() {
+	if File_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Target); i {
 			case 0:
 				return &v.state
@@ -1659,7 +1659,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetMeta); i {
 			case 0:
 				return &v.state
@@ -1671,7 +1671,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetStatus); i {
 			case 0:
 				return &v.state
@@ -1683,7 +1683,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetSpec); i {
 			case 0:
 				return &v.state
@@ -1695,7 +1695,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetDiff); i {
 			case 0:
 				return &v.state
@@ -1707,7 +1707,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetList); i {
 			case 0:
 				return &v.state
@@ -1719,7 +1719,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetProgress); i {
 			case 0:
 				return &v.state
@@ -1731,7 +1731,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetAddRequest); i {
 			case 0:
 				return &v.state
@@ -1743,7 +1743,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetEditRequest); i {
 			case 0:
 				return &v.state
@@ -1755,7 +1755,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetRemoveRequest); i {
 			case 0:
 				return &v.state
@@ -1767,7 +1767,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetListRequest); i {
 			case 0:
 				return &v.state
@@ -1779,7 +1779,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*StartReadRequest); i {
 			case 0:
 				return &v.state
@@ -1791,7 +1791,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*StopReadRequest); i {
 			case 0:
 				return &v.state
@@ -1803,7 +1803,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetStatusRequest); i {
 			case 0:
 				return &v.state
@@ -1815,7 +1815,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TargetStatusUpdateRequest); i {
 			case 0:
 				return &v.state
@@ -1827,7 +1827,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Query); i {
 			case 0:
 				return &v.state
@@ -1839,7 +1839,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LabelMatcher); i {
 			case 0:
 				return &v.state
@@ -1851,7 +1851,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Progress); i {
 			case 0:
 				return &v.state
@@ -1863,7 +1863,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DiscoveryEntry); i {
 			case 0:
 				return &v.state
@@ -1875,7 +1875,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DiscoveryRequest); i {
 			case 0:
 				return &v.state
@@ -1887,7 +1887,7 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 				return nil
 			}
 		}
-		file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+		file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DiscoveryResponse); i {
 			case 0:
 				return &v.state
@@ -1900,24 +1900,24 @@ func file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread
 			}
 		}
 	}
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19].OneofWrappers = []interface{}{}
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes[19].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc,
+			RawDescriptor: file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc,
 			NumEnums:      2,
 			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes,
-		DependencyIndexes: file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs,
-		EnumInfos:         file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes,
-		MessageInfos:      file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes,
+		GoTypes:           file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes,
+		DependencyIndexes: file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs,
+		EnumInfos:         file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_enumTypes,
+		MessageInfos:      file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_msgTypes,
 	}.Build()
-	File_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto = out.File
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc = nil
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes = nil
-	file_github_cim_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs = nil
+	File_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto = out.File
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_rawDesc = nil
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_goTypes = nil
+	file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_proto_depIdxs = nil
 }

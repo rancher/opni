@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragu               v1.0.0
-// source: github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto
+// source: github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto
 
 package remoteread
 
@@ -354,7 +354,7 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
+	Metadata: "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
 }
 
 // RemoteReadAgentClient is the client API for RemoteReadAgent service.
@@ -548,5 +548,5 @@ var RemoteReadAgent_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
+	Metadata: "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
 }

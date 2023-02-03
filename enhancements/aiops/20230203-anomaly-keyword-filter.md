@@ -16,11 +16,26 @@ This will filter out workload log messages with anomalous keywords from the trai
 There would not be any major impact to the current system. The query made to Opensearch to fetch the filtered log messages will need to be updated but no architecture change is necessary.
 
 ## Implementation details: 
-We will create and maintain a list of keywords that are associated with anomalous logs. For now, we will go with the keywords: "error", "fail", "fatal" and "exception".
+Error keywords:
+- fail
+- error
+- fatal
+- exception
+- timeout
+- unavailable
+- OOM
+- crash
+- connection refused
+- network error
+- deadlock
+- disk space
+- out of disk
+- high load
 
- Once, it is time to train a Deep Learning model on a designated watchlist of workload logs, within the GPU controller service which is responsible for both model training and model inferencing, it will send a query to Opensearch to retrieve all workload logs within the last hour that have not been marked as anomalous and do not have any of the anomalous keywords within its text. The retrieval of workload logs is done in a scrolling manner where each call to Opensearch fetches 10000 logs at a given time.
+The GPU controller service, which handles both model training and inferencing, will query OpenSearch to retrieve workload logs from the past hour that have not been marked as anomalous and do not contain any of the designated anomalous keywords. The retrieval process will be performed using scrolling, where each query to OpenSearch will retrieve 10,000 logs at a time. This is done in preparation for training a Deep Learning model on a designated watchlist of workload logs.
 
- Once all of the log messages have been retrieved for the training dataset, the GPU controller will follow the same steps as before to create the necessary model vocabulary and then begin training the model.
+After retrieving all log messages for the training dataset, the GPU controller will proceed to create the required model vocabulary and commence training the model, using the same steps as previously described.
+
 
 ## Acceptance criteria: 
 * Deep Learning models should only be trained on workload logs within the last hour that are not marked as anomalous and do not contain any of the designated anomalous keywords.
@@ -39,8 +54,6 @@ Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU 
 | Normal log messages that happen to contain anomalous keywords are filtered out of the training dataset.  | We may need to add additional guidelines to filter out log messages from the training dataset. |
 
 ## Level of Effort: 
-* Come up with list of anomalous keywords: less than a day
-* Design query to filter out logs with anomalous keywords: less than a delay
 * Add changes to code base: 1 day
 * Test changes: 1 day
 

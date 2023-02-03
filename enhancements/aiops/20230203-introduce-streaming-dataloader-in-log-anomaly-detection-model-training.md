@@ -8,33 +8,33 @@ implement streaming data-loader for log anomaly detection model training
 when Opni's user launches a workload log anomaly detection training job with huge size of training data (for example, 500Gb logs), the current approach that loads all data into memory won't be feasible. The streaming data-loader can resolve this problem because it only loads a reasonable subset of training dataset each time.
 
 ## Benefits: 
- * resolve the memory pressure issue in the scenario that training data size is large.
+* resolve the memory pressure issue in the scenario that training data size is large.
 
- ## Impact: 
- * This feature will prevent the model training service from running out of memory.
+## Impact: 
+* This feature will prevent the model training service from running out of memory.
 
- ## Implementation details: 
- * the [method that queries training data](https://github.com/rancher/opni-inference-service/blob/main/opnilog-inference-service/opnilog_trainer.py#L46) from Opensearch will return a generator, so it's iterable and it won't keep all the data in memory. It yields each scroll of the search results.
- * To implement a streaming data-loader similar to [`IterableDataset`](https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset) in this [script](https://github.com/rancher/opni-inference-service/blob/main/models/opnilog/opnilog_parser.py). More specifically, an `__iter__()` function will be implemented in this data-loader, which returns an iterator if training dataset.
- * the training method [`train()`](https://github.com/rancher/opni-inference-service/blob/main/models/opnilog/opnilog_parser.py#L75) will be slightly adjusted to the new streaming data-loader.
+## Implementation details: 
+* the [method that queries training data](https://github.com/rancher/opni-inference-service/blob/main/opnilog-inference-service/opnilog_trainer.py#L46) from Opensearch will return a generator, so it's iterable and it won't keep all the data in memory. It yields each scroll of the search results.
+* To implement a streaming data-loader similar to [`IterableDataset`](https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset) in this [script](https://github.com/rancher/opni-inference-service/blob/main/models/opnilog/opnilog_parser.py). More specifically, an `__iter__()` function will be implemented in this data-loader, which returns an iterator if training dataset.
+* the training method [`train()`](https://github.com/rancher/opni-inference-service/blob/main/models/opnilog/opnilog_parser.py#L75) will be slightly adjusted to the new streaming data-loader.
 
- ## Acceptance criteria: 
- * model can be trained correctly from a large training dataset.
- * the memory usage during the model training phase should be within a reasonable range.
+## Acceptance criteria: 
+* model can be trained correctly from a large training dataset.
+* the memory usage during the model training phase should be within a reasonable range.
 
 
- ## Supporting documents: 
+## Supporting documents: 
 https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset
 
- ## Dependencies: 
+## Dependencies: 
 
- ## Risks and contingencies: 
- * Risks: None
- * Contingencies: None. 
+## Risks and contingencies: 
+* Risks: None
+* Contingencies: None. 
 
- ## Level of effort: 
+## Level of effort: 
 * Code implementation: <= 2 days. 
 * Testing and debugging: 8 days. This includes testing the features in multiple rounds in a long running cluster, and then to fix any edge cases found in this process.
 
- ## Resources: 
- * A upstream Opni cluster with a GPU node attached, and 1+ downstream cluster.
+## Resources: 
+* A upstream Opni cluster with a GPU node attached, and 1+ downstream cluster.

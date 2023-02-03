@@ -44,6 +44,24 @@ After retrieving all log messages for the training dataset, the GPU controller w
 User Story:
 As a user of Opni, I would like to receive the most accurate log anomaly insights from the workloads I added to the watchlist.
 
+This is the query to be used. It has been verified in the dev console in a long running opensearch cluster:
+```
+GET logs*/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "query_string": {
+            "default_field": "log",
+            "query": "fail OR error OR fatal OR exception OR timeout OR unavailable OR OOM OR crash OR connection refused OR network error OR deadlock OR disk space OR out of disk OR high load"
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Dependencies: 
 Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU setup on a cluster, no additional dependencies are present.

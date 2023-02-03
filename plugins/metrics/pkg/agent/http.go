@@ -2,7 +2,6 @@ package agent
 
 import (
 	"errors"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"net/http"
 	"strings"
 	"sync"
@@ -28,9 +27,6 @@ type HttpServer struct {
 
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
-
-	remoteReadClientMu sync.RWMutex
-	remoteReadClient   clients.Locker[remoteread.RemoteReadGatewayClient]
 
 	conditions health.ConditionTracker
 
@@ -60,19 +56,9 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 	s.remoteWriteClient = client
 }
 
-func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
-	s.remoteReadClientMu.Lock()
-	defer s.remoteReadClientMu.Unlock()
-
-	s.remoteReadClient = client
-}
-
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handleMetricPushRequest)
 	pprof.Register(router, "/debug/plugin_metrics/pprof")
-
-	//router.GET("/api/remoteread/start", s.handleRemoteReadStart)
-	//router.GET("/api/remoteread/stop", s.handleRemoteReadStop)
 }
 
 func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {

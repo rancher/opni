@@ -50,7 +50,7 @@ type MetricsBackend struct {
 	desiredNodeSpecMu sync.RWMutex
 	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
-	// todo: we probably want to use a storage rather than a simple map to allow for HA
+	// the stored remoteread.Target should never have their status populated
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
@@ -365,11 +365,6 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 			},
 		},
 	}), nil
-
-	// return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
-	// 	Enabled: enabled,
-	// 	Spec:    m.desiredNodeSpec[id],
-	// }), nil
 }
 
 // the calling function must have exclusive ownership of both old and new
@@ -437,8 +432,7 @@ func targetDoesNotExistError(id string) error {
 }
 
 func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
-	return meta.String()
-	//return fmt.Sprintf("%s:%s", meta.Name, meta.ClusterId)
+	return fmt.Sprintf("%s/%s", meta.ClusterId, meta.Name)
 }
 
 func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
@@ -472,13 +466,26 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
+
+	targetId := getIdFromTargetMeta(request.Meta)
+
+	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
+		Meta: request.Meta,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("could not check on target status: %w", err)
+	}
+
+	if status.State == remoteread.TargetStatus_Running {
+		return nil, fmt.Errorf("can not edit running target")
+	}
 
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
-	targetId := getIdFromTargetMeta(request.Meta)
 	diff := request.TargetDiff
 
 	target, found := m.remoteReadTargets[targetId]
@@ -500,12 +507,8 @@ func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.Targe
 
 	if diff.Endpoint != "" {
 		target.Spec.Endpoint = diff.Endpoint
-
-		// todo: probably isn't necessary
-		m.remoteReadTargets[targetId] = target
 	}
 
-	// todo: we may want to add the new name if it was changed
 	m.Logger.With(
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
@@ -515,13 +518,25 @@ func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.Targe
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
+func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
+
+	targetId := getIdFromTargetMeta(request.Meta)
+
+	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
+		Meta: request.Meta,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("could not check on target status: %w", err)
+	}
+
+	if status.State == remoteread.TargetStatus_Running {
+		return nil, fmt.Errorf("can not edit running target")
+	}
 
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
-
-	targetId := getIdFromTargetMeta(request.Meta)
 
 	if _, found := m.remoteReadTargets[targetId]; !found {
 		return nil, targetDoesNotExistError(request.Meta.Name)
@@ -593,16 +608,20 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 	newStatus, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 
 	if err != nil {
-		if err != nil {
-			m.Logger.With(
-				"cluster", request.Meta.ClusterId,
-				"capability", wellknown.CapabilityMetrics,
-				"target", request.Meta.Name,
-				zap.Error(err),
-			).Error("failed to get target status")
-
-			return nil, err
+		if strings.Contains(err.Error(), "target not found") {
+			return &remoteread.TargetStatus{
+				State: remoteread.TargetStatus_NotRunning,
+			}, nil
 		}
+
+		m.Logger.With(
+			"cluster", request.Meta.ClusterId,
+			"capability", wellknown.CapabilityMetrics,
+			"target", request.Meta.Name,
+			zap.Error(err),
+		).Error("failed to get target status")
+
+		return nil, err
 	}
 
 	return newStatus, nil
@@ -619,9 +638,10 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 	// so we need to replace the naive request target
 	targetId := getIdFromTargetMeta(request.Target.Meta)
 
-	m.remoteReadTargetMu.Lock()
+	m.remoteReadTargetMu.RLock()
+	defer m.remoteReadTargetMu.RUnlock()
+
 	target, found := m.remoteReadTargets[targetId]
-	m.remoteReadTargetMu.Unlock()
 
 	if !found {
 		return nil, targetDoesNotExistError(targetId)

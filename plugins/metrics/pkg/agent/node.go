@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"sort"
 	"strings"
 	"sync"
@@ -54,8 +56,9 @@ type MetricsNode struct {
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
-		logger:     lg,
-		conditions: ct,
+		logger:       lg,
+		conditions:   ct,
+		targetRunner: NewTargetRunner(lg),
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
 	return node
@@ -110,10 +113,11 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.sendHealthUpdate()
 }
 
-func (m *MetricsNode) SetTargetRunner(targetRunner TargetRunner) {
+func (m *MetricsNode) SetRemoteWriter(client clients.Locker[remotewrite.RemoteWriteClient]) {
 	m.targetRunnerMu.Lock()
 	defer m.targetRunnerMu.Unlock()
-	m.targetRunner = targetRunner
+
+	m.targetRunner.SetRemoteWriteClient(client)
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
@@ -193,13 +197,7 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 	m.targetRunnerMu.RLock()
 	defer m.targetRunnerMu.RUnlock()
 
-	status, err := m.targetRunner.GetStatus(request.Meta.Name)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return status, nil
+	return m.targetRunner.GetStatus(request.Meta.Name)
 }
 
 func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {

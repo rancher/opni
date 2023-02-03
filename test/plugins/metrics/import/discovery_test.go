@@ -1,4 +1,4 @@
-package metrics
+package _import
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 
 const testNamespace = "test-ns"
 
-var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
+var _ = Describe("Prometheus Discovery", Ordered, Label("integration"), func() {
 	var (
 		env test.Environment
 
@@ -30,9 +30,9 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 		lg := logger.NewPluginLogger().Named("test-discvoery")
 
 		env = test.Environment{
-			TestBin: "../../../testbin/bin",
+			TestBin: "../../../../testbin/bin",
 			CRDDirectoryPaths: []string{
-				"../../../config/crd/prometheus",
+				"../../../../config/crd/prometheus",
 			},
 		}
 
@@ -62,7 +62,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 	})
 
 	When("no prometheuses exist", func() {
-		It("find not prometheuses", func() {
+		It("find no prometheuses", func() {
 			entries, err := discoverer.Discover()
 			Expect(err).NotTo(HaveOccurred())
 

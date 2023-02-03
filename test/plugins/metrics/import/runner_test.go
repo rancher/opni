@@ -1,98 +1,26 @@
-package metrics
+package _import
 
 import (
-	"context"
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"strings"
 	"time"
 )
 
-type mockRemoteReader struct {
-	Error     error
-	Responses []*prompb.ReadResponse
-	i         int
-}
-
-func (reader *mockRemoteReader) Read(ctx context.Context, endpoint string, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
-	if reader.Error != nil {
-		return nil, reader.Error
-	}
-
-	if reader.i >= len(reader.Responses) {
-		return nil, fmt.Errorf("all reader responses have alaredy been consumed")
-	}
-
-	response := reader.Responses[reader.i]
-	reader.i++
-	return response, reader.Error
-}
-
-type mockRemoteWriteClient struct {
-	Payloads []*remotewrite.Payload
-}
-
-func (client *mockRemoteWriteClient) Push(ctx context.Context, in *remotewrite.Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	client.Payloads = append(client.Payloads, in)
-	return &emptypb.Empty{}, nil
-}
-
-func (client *mockRemoteWriteClient) SyncRules(ctx context.Context, in *remotewrite.Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
-}
-
-type mockRemoteReadGatewayClient struct {
-}
-
-func (client *mockRemoteReadGatewayClient) AddTarget(ctx context.Context, in *remoteread.TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) EditTarget(ctx context.Context, in *remoteread.TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) RemoveTarget(ctx context.Context, in *remoteread.TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) ListTargets(ctx context.Context, in *remoteread.TargetListRequest, opts ...grpc.CallOption) (*remoteread.TargetList, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) Start(ctx context.Context, in *remoteread.StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) Stop(ctx context.Context, in *remoteread.StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) GetTargetStatus(ctx context.Context, in *remoteread.TargetStatusRequest, opts ...grpc.CallOption) (*remoteread.TargetStatus, error) {
-	return nil, nil
-}
-
-func (client *mockRemoteReadGatewayClient) Discover(ctx context.Context, in *remoteread.DiscoveryRequest, opts ...grpc.CallOption) (*remoteread.DiscoveryResponse, error) {
-	return nil, nil
-}
-
-var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
+var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 	var (
 		runner agent.TargetRunner
 
 		writerClient *mockRemoteWriteClient
-		readClient   *mockRemoteReadGatewayClient
 		remoteReader *mockRemoteReader
 
 		target = &remoteread.Target{
@@ -111,7 +39,6 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 		lg := logger.NewPluginLogger().Named("test-runner")
 
 		writerClient = &mockRemoteWriteClient{}
-		readClient = &mockRemoteReadGatewayClient{}
 		remoteReader = &mockRemoteReader{
 			Responses: []*prompb.ReadResponse{
 				{
@@ -145,9 +72,6 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 		runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 			return writerClient
 		}))
-		runner.SetRemoteReadClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remoteread.RemoteReadGatewayClient {
-			return readClient
-		}))
 		runner.SetRemoteReader(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
 			return remoteReader
 		}))
@@ -174,18 +98,10 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			wait.UntilWithContext(ctx, func(context.Context) {
+			Eventually(func() remoteread.TargetStatus_State {
 				status, err = runner.GetStatus(target.Meta.Name)
-				if status != nil && status.State == remoteread.TargetStatus_Failed {
-					cancel()
-				}
-			}, time.Millisecond*100)
-
-			if err := ctx.Err(); err != nil && !strings.Contains(err.Error(), "context canceled") {
-				Fail("waiting for expected state failed")
-			}
+				return status.State
+			}).Should(Equal(remoteread.TargetStatus_Failed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -199,9 +115,14 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				State:   remoteread.TargetStatus_Failed,
 			}
 
-			Expect(expected).To(Equal(status))
+			//Expect(status).To(Equal(expected))
+			AssertTargetStatus(expected, status)
+		})
+	})
 
-			remoteReader = clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
+	When("editing and restarting failed import", func() {
+		It("should should", func() {
+			remoteReader := clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
 				return &mockRemoteReader{
 					Responses: []*prompb.ReadResponse{
 						{
@@ -233,8 +154,7 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 			})
 			runner.SetRemoteReader(remoteReader)
 
-			// todo: test restarting the target
-			err = runner.Start(
+			err := runner.Start(
 				target,
 				&remoteread.Query{
 					StartTimestamp: &timestamppb.Timestamp{},
@@ -245,22 +165,13 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				})
 			Expect(err).NotTo(HaveOccurred())
 
-			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-			wait.UntilWithContext(ctx, func(context.Context) {
+			var status *remoteread.TargetStatus
+			Eventually(func() remoteread.TargetStatus_State {
 				status, err = runner.GetStatus(target.Meta.Name)
+				return status.State
+			}).Should(Equal(remoteread.TargetStatus_Complete))
 
-				Expect(err).ToNot(HaveOccurred())
-
-				if status.State == remoteread.TargetStatus_Complete {
-					cancel()
-				}
-			}, time.Millisecond*100)
-
-			if err := ctx.Err(); err != nil && !strings.Contains(err.Error(), "context canceled") {
-				Fail(fmt.Sprintf("waiting for expected state failed: %s", err))
-			}
-
-			expected = &remoteread.TargetStatus{
+			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
 					StartTimestamp: &timestamppb.Timestamp{},
 					LastReadTimestamp: &timestamppb.Timestamp{
@@ -274,7 +185,8 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				State:   remoteread.TargetStatus_Complete,
 			}
 
-			Expect(expected).To(Equal(status))
+			//Expect(status).To(Equal(expected))
+			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
 		})
 	})
@@ -292,22 +204,11 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				})
 			Expect(err).NotTo(HaveOccurred())
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			var status *remoteread.TargetStatus
-
-			wait.UntilWithContext(ctx, func(context.Context) {
+			Eventually(func() remoteread.TargetStatus_State {
 				status, err = runner.GetStatus(target.Meta.Name)
-
-				Expect(err).ToNot(HaveOccurred())
-
-				if status.State == remoteread.TargetStatus_Complete {
-					cancel()
-				}
-			}, time.Millisecond*100)
-
-			if err := ctx.Err(); err != nil && !strings.Contains(err.Error(), "context canceled") {
-				Fail(fmt.Sprintf("waiting for expected state failed: %s", err))
-			}
+				return status.State
+			}).Should(Equal(remoteread.TargetStatus_Complete))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -323,7 +224,8 @@ var _ = Describe("Target Runner", Ordered, Label("integration"), func() {
 				State:   remoteread.TargetStatus_Complete,
 			}
 
-			Expect(expected).To(Equal(status))
+			//Expect(status).To(Equal(expected))
+			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
 		})
 	})

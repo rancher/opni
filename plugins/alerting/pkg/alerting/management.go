@@ -79,21 +79,32 @@ func init() {
 
 func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, opts ...drivers.AlertingManagerDriverOption) {
 	// load default cluster drivers
+	var (
+		driver drivers.ClusterDriver
+		err    error
+	)
 	drivers.ResetClusterDrivers()
 	if kcd, err := drivers.NewAlertingManagerDriver(opts...); err == nil {
 		drivers.RegisterClusterDriver(kcd)
 	} else {
 		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
 	}
-
-	name := "local-alerting"
-	driver, err := drivers.GetClusterDriver(name)
+	name := "alerting-manager"
+	driver, err = drivers.GetClusterDriver(name)
 	if err != nil {
 		p.Logger.With(
 			"driver", name,
 			zap.Error(err),
-		).Error("failed to load cluster driver, using fallback no-op driver")
-		driver = &drivers.NoopClusterDriver{}
+		).Error("failed to load kubernetes driver, checking other drivers...")
+		localName := "local-alerting"
+		driver, err = drivers.GetClusterDriver(localName)
+		if err != nil {
+			p.Logger.With(
+				"driver", localName,
+				zap.Error(err),
+			).Error("failed to load cluster driver, using fallback no-op driver")
+			driver = &drivers.NoopClusterDriver{}
+		}
 	}
 	p.opsNode.ClusterDriver.Set(driver)
 }

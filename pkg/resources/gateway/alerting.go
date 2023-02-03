@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
 
@@ -93,8 +95,12 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 }
 
 func (r *Reconciler) syncerArgs() []string {
+	_, gatewayPort, _ := net.SplitHostPort(strings.TrimPrefix(r.gw.Spec.Management.GRPCListenAddress, "tcp://"))
 	return []string{
-		fmt.Sprintf("--config.file=%s", r.configPath()),
+		fmt.Sprintf("--syncer.alertmanager.config.file=%s", r.configPath()),
+		fmt.Sprintf("--syncer.listen.address=:%d", 4000),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", fmt.Sprintf("http://localhost:%d", r.gw.Spec.Alerting.WebPort)),
+		fmt.Sprintf("--syncer.gateway.join.address=opni-internal:%s", gatewayPort),
 	}
 }
 
@@ -281,14 +287,6 @@ func (r *Reconciler) newAlertingCluster(
 			VolumeClaimTemplates: persistentClaims,
 		},
 	}
-
-	// add the nats specific volume mounts only to the alerting syncer
-	spec.Spec.Template.Spec.Containers[1].VolumeMounts = volumeMounts
-	spec.Spec.Template.Spec.Containers[1].Env = append(
-		spec.Spec.Template.Spec.Containers[1].Env,
-		envVars...,
-	)
-
 	return svc, spec
 }
 
@@ -333,15 +331,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 				},
 			},
 		},
-		// {
-		// 	Name: "opni-alertmanager-config",
-		// 	VolumeSource: corev1.VolumeSource{
-		// 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-		// 			ClaimName: "opni-alertmanager-config",
-		// 			ReadOnly:  false,
-		// 		},
-		// 	},
-		// },
 	}
 
 	requiredPersistentClaims := []corev1.PersistentVolumeClaim{
@@ -356,17 +345,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 				Resources: resourceRequirements,
 			},
 		},
-		// {
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Name: "opni-alertmanager-config",
-		// 	},
-		// 	Spec: corev1.PersistentVolumeClaimSpec{
-		// 		AccessModes: []corev1.PersistentVolumeAccessMode{
-		// 			corev1.ReadWriteOnce,
-		// 		},
-		// 		Resources: resourceRequirements,
-		// 	},
-		// },
 	}
 
 	natsEnvVars, natsVolumeMounts, natsVolumes := nats.ExternalNatsObjects(

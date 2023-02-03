@@ -33,7 +33,7 @@ type AlertingManager struct {
 }
 
 func (a *AlertingManager) Name() string {
-	return "alerting-mananger"
+	return "alerting-manager"
 }
 
 func (a *AlertingManager) ShouldDisableNode(_ *corev1.Reference) error {

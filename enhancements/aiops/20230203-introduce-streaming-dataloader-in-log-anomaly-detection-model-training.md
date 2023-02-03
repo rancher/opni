@@ -1,13 +1,13 @@
-Title: 
+# Title: 
 implement streaming data-loader for log anomaly detection model training
 
- ## Summary: 
+## Summary: 
  AIOps' log anomaly detection model can train model using a streaming data-loader, such that it doesn't have to load all training dataset into memory, instead, it only dumps a subset of training dataset each time and trains with that subset of data. This feature significantly reduces the memory resource pressure in the model training service.
 
- ## Use case: 
+## Use case: 
 when Opni's user launches a workload log anomaly detection training job with huge size of training data (for example, 500Gb logs), the current approach that loads all data into memory won't be feasible. The streaming data-loader can resolve this problem because it only loads a reasonable subset of training dataset each time.
 
- ## Benefits: 
+## Benefits: 
  * resolve the memory pressure issue in the scenario that training data size is large.
 
  ## Impact: 

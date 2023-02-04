@@ -71,8 +71,7 @@ Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU 
 | Normal log messages that happen to contain anomalous keywords are filtered out of the training dataset.  | We may need to add additional guidelines to filter out log messages from the training dataset. |
 
 ## Level of Effort: 
-* Add changes to code base: 1 day
-* Test changes: 1 day
+* Add changes to code base and test changes: 1 day
 
 ## Resources: 
 N/A

@@ -28,7 +28,6 @@ Error keywords:
 - connection refused
 - network error
 - deadlock
-- disk space
 - out of disk
 - high load
 
@@ -54,7 +53,7 @@ GET logs*/_search
         {
           "query_string": {
             "default_field": "log",
-            "query": "fail OR error OR fatal OR exception OR timeout OR unavailable OR OOM OR crash OR connection refused OR network error OR deadlock OR disk space OR out of disk OR high load"
+            "query": "fail OR error OR fatal OR exception OR timeout OR unavailable OR OOM OR crash OR connection refused OR network error OR deadlock OR out of disk OR high load"
           }
         }
       ]

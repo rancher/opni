@@ -201,24 +201,20 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 }
 
 func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	discoverer, err := NewPrometheusDiscoverer(DiscovererConfig{
-		RESTConfig: nil,
-		Context:    ctx,
-		Logger:     m.logger.Named("prom-discovery"),
-	})
-
+	driver, err := drivers.GetNodeDriver("external-operator")
 	if err != nil {
-		m.logger.With(
-			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
-		).Errorf("could not create prometheus discoverer: %s", err)
-
-		return nil, fmt.Errorf("could not create prometheus discoverer: %s", err)
+		return nil, fmt.Errorf("could not get driver: %w", err)
 	}
 
-	entries, err := discoverer.Discover()
+	promDriver, ok := driver.(*drivers.ExternalPromOperatorDriver)
+	if !ok {
+		m.logger.Errorf("found wrong driver type '%T'", driver)
+		return nil, fmt.Errorf("could not discover Prometheus instances")
+	}
+
+	entries, err := promDriver.Discover(*request.Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("could not discover Prometheues instances: %w", err)
+		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}
 
 	return &remoteread.DiscoveryResponse{

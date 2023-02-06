@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"os"
 	"sync"
 
@@ -384,4 +385,20 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	d.logger.Info("updating resource")
 
 	return d.k8sClient.Update(context.TODO(), desired)
+}
+
+func (d *ExternalPromOperatorDriver) Discover(namespace string) ([]*remoteread.DiscoveryEntry, error) {
+	list := &monitoringcoreosv1.PrometheusList{}
+	if err := d.k8sClient.List(context.Background(), list, client.InNamespace(namespace)); err != nil {
+		return nil, err
+	}
+
+	return lo.Map(list.Items, func(prom *monitoringcoreosv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
+		return &remoteread.DiscoveryEntry{
+			Name:             prom.Name,
+			ClusterId:        "", // populated by the gateway
+			ExternalEndpoint: prom.Spec.ExternalURL,
+			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prom.Name, prom.Namespace),
+		}
+	}), nil
 }

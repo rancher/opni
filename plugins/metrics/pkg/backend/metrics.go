@@ -469,8 +469,6 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	targetId := getIdFromTargetMeta(request.Meta)
-
 	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
 		Meta: request.Meta,
 	})
@@ -487,6 +485,7 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 	defer m.remoteReadTargetMu.Unlock()
 
 	diff := request.TargetDiff
+	targetId := getIdFromTargetMeta(request.Meta)
 
 	target, found := m.remoteReadTargets[targetId]
 	if !found {
@@ -521,8 +520,6 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	targetId := getIdFromTargetMeta(request.Meta)
-
 	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
 		Meta: request.Meta,
 	})
@@ -537,6 +534,8 @@ func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.T
 
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
+
+	targetId := getIdFromTargetMeta(request.Meta)
 
 	if _, found := m.remoteReadTargets[targetId]; !found {
 		return nil, targetDoesNotExistError(request.Meta.Name)
@@ -634,15 +633,14 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 		return nil, fmt.Errorf("encountered nil delegate")
 	}
 
-	// agent needs the full target but cli will ony have access to remoteread.TargetMeta values (clusterId, name, etc)
-	// so we need to replace the naive request target
-	targetId := getIdFromTargetMeta(request.Target.Meta)
-
 	m.remoteReadTargetMu.RLock()
 	defer m.remoteReadTargetMu.RUnlock()
 
-	target, found := m.remoteReadTargets[targetId]
+	targetId := getIdFromTargetMeta(request.Target.Meta)
 
+	// agent needs the full target but cli will ony have access to remoteread.TargetMeta values (clusterId, name, etc)
+	// so we need to replace the naive request target
+	target, found := m.remoteReadTargets[targetId]
 	if !found {
 		return nil, targetDoesNotExistError(targetId)
 	}

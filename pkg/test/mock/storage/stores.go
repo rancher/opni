@@ -13,6 +13,7 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	keyring "github.com/rancher/opni/pkg/keyring"
 	storage "github.com/rancher/opni/pkg/storage"
+	proto "google.golang.org/protobuf/proto"
 )
 
 // MockBackend is a mock of Backend interface.

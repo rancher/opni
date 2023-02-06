@@ -205,6 +205,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	}
 
 	cc, errC := ts.Serve()
+	// TODO : client unary interceptor
 	f := future.NewFromChannel(errC)
 	if f.IsSet() {
 		gc.logger.With(

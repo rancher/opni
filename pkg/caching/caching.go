@@ -3,7 +3,10 @@ package caching
 import (
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/karlseguin/ccache"
+	"github.com/patrickmn/go-cache"
 	"github.com/rancher/opni/pkg/storage"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -51,6 +54,44 @@ func NewInMemoryHttpTtlCache(
 	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitInt).ItemsToPrune(15))
 	return &InMemoryHttpTtlCache{
 		cache:  ttlCache,
+		maxAge: maxAge,
+	}
+}
+
+type InMemoryEntityCache struct {
+	*cache.Cache
+
+	maxAge time.Duration
+	// expired is a channel that is used to notify the cache
+	// that an item has to be delete
+}
+
+func (i InMemoryEntityCache) MaxAge() time.Duration {
+	return i.maxAge
+}
+
+func (i InMemoryEntityCache) Get(key string) (req proto.Message, ok bool) {
+	data, ok := i.Cache.Get(key)
+	if !ok {
+		return nil, ok
+	}
+	return data.(proto.Message), ok
+}
+
+func (i InMemoryEntityCache) Set(key string, req proto.Message, ttl time.Duration) {
+	i.Cache.Add(key, req, ttl)
+}
+
+func (i InMemoryEntityCache) Delete(key string) {
+	i.Cache.Delete(key)
+}
+
+var _ storage.EntityCache = (*InMemoryEntityCache)(nil)
+
+func NewInMemoryEntityCache(maxAge, cleanupInterval time.Duration) *InMemoryEntityCache {
+	ttlCache := cache.New(maxAge, cleanupInterval)
+	return &InMemoryEntityCache{
+		Cache:  ttlCache,
 		maxAge: maxAge,
 	}
 }

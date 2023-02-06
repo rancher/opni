@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 )
@@ -101,5 +103,13 @@ type HttpTtlCache interface {
 	Get(key string) (resp []byte, ok bool)
 	// If 0 is passed as ttl, the default cache's configuration will be used
 	Set(key string, resp []byte)
+}
+type EntityCache interface {
+	// getter for default cache's configuration
+	MaxAge() time.Duration
+
+	Get(key string) (resp proto.Message, ok bool)
+	// If 0 is passed as ttl, the default cache's configuration will be used
+	Set(key string, resp proto.Message, ttl time.Duration)
 	Delete(key string)
 }

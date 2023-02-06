@@ -3,12 +3,16 @@ package testgrpc
 import (
 	"fmt"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"gopkg.in/square/go-jose.v2/json"
 
+	"context"
+	"sync/atomic"
+
 	"github.com/rancher/opni/pkg/util"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ValueResponse struct {
@@ -83,3 +87,37 @@ func NewCachingHttpServer(serverPort int) *CachingHttpServer {
 
 	return c
 }
+
+type CachedServer struct {
+	UnsafeCachedServiceServer
+	cacheMaxAge time.Duration
+
+	value *atomic.Int64
+}
+
+func (c *CachedServer) Increment(ctx context.Context, request *IncrementRequest) (*emptypb.Empty, error) {
+	c.value.Store(c.value.Add(request.Value))
+	return &emptypb.Empty{}, nil
+}
+
+func (c *CachedServer) GetValue(ctx context.Context, empty *emptypb.Empty) (*Value, error) {
+	return &Value{
+		Value: c.value.Load(),
+	}, nil
+}
+
+func (c *CachedServer) GetValueWithForcedClientCaching(ctx context.Context, empty *emptypb.Empty) (*Value, error) {
+	util.ForceClientCaching(ctx, c.cacheMaxAge)
+	return &Value{
+		Value: c.value.Load(),
+	}, nil
+}
+
+func NewCachedServer(cacheMaxAge time.Duration) *CachedServer {
+	return &CachedServer{
+		value:       &atomic.Int64{},
+		cacheMaxAge: cacheMaxAge,
+	}
+}
+
+var _ CachedServiceServer = (*CachedServer)(nil)

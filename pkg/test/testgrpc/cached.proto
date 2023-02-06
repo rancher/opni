@@ -1,0 +1,26 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/test/testgrpc";
+import "google/protobuf/empty.proto";
+
+
+package testgrpc.cached;
+
+
+service CachedService {
+    rpc Increment(IncrementRequest) returns (google.protobuf.Empty);
+    rpc GetValue(google.protobuf.Empty) returns (Value);
+    rpc GetValueWithForcedClientCaching(google.protobuf.Empty) returns (Value);
+}
+
+message RefreshRequest {
+  bool refresh = 1;
+}
+  
+  
+message IncrementRequest {
+  int64 value = 1;
+}
+
+message Value {
+  int64 value = 1;
+}

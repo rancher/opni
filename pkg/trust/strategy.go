@@ -158,19 +158,19 @@ func (p *pkpTrustStrategy) PersistentKey() any {
 	return keyring.NewPKPKey(p.pins)
 }
 
-func (p *caCertsTrustStrategy) PersistentKey() any {
-	return keyring.NewCACertsKey(p.caCerts)
+func (c *caCertsTrustStrategy) PersistentKey() any {
+	return keyring.NewCACertsKey(c.caCerts)
 }
 
 func (p *pkpTrustStrategy) TLSConfig() (*tls.Config, error) {
 	return pkp.TLSConfig(p.pins)
 }
 
-func (s *caCertsTrustStrategy) TLSConfig() (*tls.Config, error) {
+func (c *caCertsTrustStrategy) TLSConfig() (*tls.Config, error) {
 	var pool *x509.CertPool
-	if len(s.caCerts) > 0 {
+	if len(c.caCerts) > 0 {
 		pool = x509.NewCertPool()
-		for _, cert := range s.caCerts {
+		for _, cert := range c.caCerts {
 			pool.AddCert(cert)
 		}
 	} else {

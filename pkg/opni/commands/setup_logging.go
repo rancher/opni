@@ -26,7 +26,7 @@ func ConfigureLoggingAdminCommand(cmd *cobra.Command) {
 	}
 }
 
-func loggingAdminPreRunE(cmd *cobra.Command, args []string) error {
+func loggingAdminPreRunE(cmd *cobra.Command, _ []string) error {
 	if managementListenAddress == "" {
 		panic("bug: managementListenAddress is empty")
 	}

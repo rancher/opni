@@ -130,7 +130,10 @@ func (c *EventCollector) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *EventCollector) runWorker() {
-	for c.processNextItem() {
+	for {
+		if !c.processNextItem() {
+			return
+		}
 	}
 }
 

@@ -111,7 +111,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 	}
 }
 
-func (p *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
+func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	lg := p.Logger
 	nc, err := newNatsConnection()
 	if err != nil {

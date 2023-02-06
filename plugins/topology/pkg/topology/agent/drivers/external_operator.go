@@ -78,7 +78,7 @@ func NewExternalTopologyOperatorDriver(
 
 var _ TopologyNodeDriver = (*ExternalTopologyOperatorDriver)(nil)
 
-func (d *ExternalTopologyOperatorDriver) Name() string {
+func (t *ExternalTopologyOperatorDriver) Name() string {
 	return "external-topology-operator"
 }
 
@@ -122,7 +122,7 @@ BACKOFF:
 	}
 }
 
-func (t *ExternalTopologyOperatorDriver) reconcileObject(desired client.Object, shouldExist bool) error {
+func (t *ExternalTopologyOperatorDriver) reconcileObject(_ client.Object, _ bool) error {
 	// TODO(topology) : implement me, reconcile objects here
 	return nil
 }

@@ -63,7 +63,7 @@ type streamApiExtensionPlugin struct {
 var _ plugin.GRPCPlugin = (*streamApiExtensionPlugin)(nil)
 
 func (p *streamApiExtensionPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	apiextensions.RegisterStreamAPIExtensionServer(s, p.extensionSrv)
@@ -73,7 +73,7 @@ func (p *streamApiExtensionPlugin) GRPCServer(
 
 func (p *streamApiExtensionPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	// TODO: need to check for stream service availability, otherwise we get 'unknown service stream.Stream' errors
@@ -215,8 +215,7 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 		}
 	}()
 
-	switch event.Type {
-	case streamv1.EventType_DiscoveryComplete:
+	if event.Type == streamv1.EventType_DiscoveryComplete {
 		e.logger.Debug("processing discovery complete event")
 		e.streamClientCond.L.Lock()
 		for e.streamClient == nil {

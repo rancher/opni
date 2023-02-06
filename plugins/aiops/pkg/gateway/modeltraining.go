@@ -47,7 +47,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	}, nil
 }
 
-func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
+func (p *AIOpsPlugin) PutModelTrainingStatus(_ context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
 	jsonParameters, err := protojson.Marshal(in)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
@@ -58,7 +58,7 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 
 }
 
-func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
+func (p *AIOpsPlugin) ClusterWorkloadAggregation(_ context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
 	result, err := p.kv.Get().Get("aggregation")
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %v", err)
@@ -89,7 +89,7 @@ func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1
 	}, nil
 }
 
-func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelStatus, error) {
+func (p *AIOpsPlugin) GetModelStatus(_ context.Context, _ *emptypb.Empty) (*modeltraining.ModelStatus, error) {
 	b := []byte("model_status")
 	msg, err := p.natsConnection.Get().Request("model_status", b, time.Minute)
 	if err != nil {
@@ -115,7 +115,7 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, in *emptypb.Empty) (*m
 	}, nil
 }
 
-func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
+func (p *AIOpsPlugin) GetModelTrainingParameters(_ context.Context, _ *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
 	b := []byte("model_training_parameters")
 	msg, err := p.natsConnection.Get().Request("workload_parameters", b, time.Minute)
 	if err != nil {
@@ -143,14 +143,14 @@ func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, in *emptyp
 	}, nil
 }
 
-func (p *AIOpsPlugin) GPUInfo(ctx context.Context, in *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
+func (p *AIOpsPlugin) GPUInfo(ctx context.Context, _ *emptypb.Empty) (*modeltraining.GPUInfoList, error) {
 	nodes := &k8scorev1.NodeList{}
-	if err := p.k8sClient.List(ctx, nodes); err != nil {
+	err := p.k8sClient.List(ctx, nodes)
+	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, status.Errorf(codes.NotFound, "Failed to find nodes: %s", err)
-		} else {
-			return nil, status.Errorf(codes.Internal, "Failed to get nodes: %v", err)
 		}
+		return nil, status.Errorf(codes.Internal, "Failed to get nodes: %v", err)
 	}
 	var gpuInfoArray []*modeltraining.GPUInfo
 

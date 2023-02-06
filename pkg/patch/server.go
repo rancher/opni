@@ -219,7 +219,7 @@ func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	}, nil
 }
 
-func (f *FilesystemPluginSyncServer) GetPluginManifest(ctx context.Context, _ *emptypb.Empty) (*controlv1.PluginManifest, error) {
+func (f *FilesystemPluginSyncServer) GetPluginManifest(_ context.Context, _ *emptypb.Empty) (*controlv1.PluginManifest, error) {
 	return f.getPluginManifest(), nil
 }
 

@@ -50,16 +50,16 @@ func labelSelectorMatches(selector *corev1.LabelSelector, labels map[string]stri
 				return false
 			}
 		case corev1.LabelSelectorOpNotIn:
-			if v, ok := labels[req.Key]; !ok {
+			v, ok := labels[req.Key]
+			if !ok {
 				return false
-			} else {
-				for _, value := range req.Values {
-					if v == value {
-						return false
-					}
-				}
-				return true
 			}
+			for _, value := range req.Values {
+				if v == value {
+					return false
+				}
+			}
+			return true
 		case corev1.LabelSelectorOpExists:
 			if _, ok := labels[req.Key]; !ok {
 				return false

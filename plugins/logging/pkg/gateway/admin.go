@@ -36,7 +36,7 @@ import (
 
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
-	empty *emptypb.Empty,
+	_ *emptypb.Empty,
 ) (*loggingadmin.OpensearchCluster, error) {
 	cluster := &loggingv1beta1.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
@@ -79,7 +79,7 @@ func (p *Plugin) GetOpensearchCluster(
 
 func (p *Plugin) DeleteOpensearchCluster(
 	ctx context.Context,
-	empty *emptypb.Empty,
+	_ *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 	// Check that it is safe to delete the cluster
 	p.opensearchManager.UnsetClient()
@@ -286,7 +286,7 @@ func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, err
 	return &emptypb.Empty{}, err
 }
 
-func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
+func (p *Plugin) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
 	storageClasses := &storagev1.StorageClassList{}
 	if err := p.k8sClient.List(ctx, storageClasses); err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*log
 	}, nil
 }
 
-func (p *Plugin) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
+func (p *Plugin) GetOpensearchStatus(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      p.opensearchCluster.Name,
 		Namespace: p.opensearchCluster.Namespace,

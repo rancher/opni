@@ -450,9 +450,9 @@ func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
 
 	} else {
 		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
-		if err != nil {
-			panic(err)
-		}
+	}
+	if err != nil {
+		panic(err)
 	}
 	rmetadata := RuleGroupYAMLv2{
 		Name:     s.GetId() + MetadataRuleSuffix,
@@ -535,9 +535,9 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 
 	} else {
 		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
-		if err != nil {
-			panic(err)
-		}
+	}
+	if err != nil {
+		panic(err)
 	}
 	ralerting := RuleGroupYAMLv2{
 		Name:     s.GetId() + AlertRuleSuffix,
@@ -555,9 +555,9 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	mwmbWindow := GenerateGoogleWindows(time.Duration(dur))
 	var exprTicket bytes.Buffer
 	errorBudgetRatio := 100 - s.objective
-	if errorBudgetRatio == 0 {
-		//panic(fmt.Sprintf("error budget ratio cannot be treated as 0, from objective : %.9f", s.objective))
-	}
+	// if errorBudgetRatio == 0 {
+	//panic(fmt.Sprintf("error budget ratio cannot be treated as 0, from objective : %.9f", s.objective))
+	// }
 	err = mwmbAlertTplBool.Execute(&exprTicket, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",

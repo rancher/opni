@@ -40,7 +40,7 @@ func NewEnvProvider(opts ...EnvIdentOption) Provider {
 	}
 }
 
-func (p *envProvider) UniqueIdentifier(ctx context.Context) (string, error) {
+func (p *envProvider) UniqueIdentifier(_ context.Context) (string, error) {
 	if v, ok := os.LookupEnv(p.variableName); ok {
 		return v, nil
 	}

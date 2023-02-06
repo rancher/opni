@@ -92,7 +92,7 @@ func (c *PagerdutyConfig) Default() OpniConfig {
 	}
 }
 
-func (p *PagerdutyConfig) InternalId() string {
+func (c *PagerdutyConfig) InternalId() string {
 	return "pagerduty"
 }
 

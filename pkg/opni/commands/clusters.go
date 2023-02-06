@@ -61,22 +61,21 @@ func BuildClustersListCmd() *cobra.Command {
 					}
 				}()
 				return p.Start()
-			} else {
-				t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
-				if err != nil {
-					return err
-				}
-				var healthStatus []*corev1.HealthStatus
-				for _, c := range t.Items {
-					stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
-					if err != nil {
-						healthStatus = append(healthStatus, &corev1.HealthStatus{})
-					} else {
-						healthStatus = append(healthStatus, stat)
-					}
-				}
-				fmt.Println(cliutil.RenderClusterList(t, healthStatus))
 			}
+			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+			if err != nil {
+				return err
+			}
+			var healthStatus []*corev1.HealthStatus
+			for _, c := range t.Items {
+				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
+				if err != nil {
+					healthStatus = append(healthStatus, &corev1.HealthStatus{})
+				} else {
+					healthStatus = append(healthStatus, stat)
+				}
+			}
+			fmt.Println(cliutil.RenderClusterList(t, healthStatus))
 			return nil
 		},
 	}
@@ -240,9 +239,9 @@ func BuildClustersRenameCmd() *cobra.Command {
 func BuildClustersShowCmd() *cobra.Command {
 	var outputFormat string
 	cmd := &cobra.Command{
-		Use: "show <cluster-id>",
-		Short:"Show detailed information about a cluster",
-		Args: cobra.ExactArgs(1),
+		Use:   "show <cluster-id>",
+		Short: "Show detailed information about a cluster",
+		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return completeClusters(cmd, args, toComplete)

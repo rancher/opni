@@ -37,7 +37,7 @@ type updateNotifier[T Clonable[T]] struct {
 
 var _ UpdateNotifier[test] = (*updateNotifier[test])(nil)
 
-func NewUpdateNotifier[T Clonable[T]](finder Finder[T]) *updateNotifier[T] {
+func NewUpdateNotifier[T Clonable[T]](finder Finder[T]) UpdateNotifier[T] {
 	mu := &sync.Mutex{}
 	return &updateNotifier[T]{
 		finder:         finder,

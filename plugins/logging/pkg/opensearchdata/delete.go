@@ -86,7 +86,6 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 			m.logger.Warn("opensearch cluster is never able to receive queries")
 			return DeleteFinishedWithErrors, nil
 		}
-
 	}
 
 	m.Lock()

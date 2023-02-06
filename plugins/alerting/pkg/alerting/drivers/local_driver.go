@@ -54,7 +54,7 @@ func startNewReplica(ctx context.Context, configFilePath string, lg *zap.Sugared
 
 	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
 	amBin := path.Join(RuntimeBinaryPath, "bin/opni")
-	defaultArgs := []string{}
+	var defaultArgs []string
 	if optionalClusterJoinPort != nil {
 		defaultArgs = []string{
 			"alertmanager",
@@ -209,11 +209,11 @@ func NewLocalManager(opts ...LocalManagerDriverOption) *LocalManager {
 	}
 }
 
-func (l *LocalManager) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
+func (l *LocalManager) GetClusterConfiguration(_ context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	return l.ClusterConfiguration, nil
 }
 
-func (l *LocalManager) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
+func (l *LocalManager) ConfigureCluster(_ context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
 	if err := configuration.Validate(); err != nil {
 		return nil, err
 	}
@@ -240,19 +240,18 @@ func (l *LocalManager) ConfigureCluster(ctx context.Context, configuration *aler
 	return &emptypb.Empty{}, nil
 }
 
-func (l *LocalManager) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*alertops.InstallStatus, error) {
+func (l *LocalManager) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	if l.enabled {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_Installed,
 		}, nil
-	} else {
-		return &alertops.InstallStatus{
-			State: alertops.InstallState_NotInstalled,
-		}, nil
 	}
+	return &alertops.InstallStatus{
+		State: alertops.InstallState_NotInstalled,
+	}, nil
 }
 
-func (l *LocalManager) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (l *LocalManager) InstallCluster(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if len(l.replicaInstance) > 0 {
 		panic("should not have existing replicas")
 	}
@@ -276,7 +275,7 @@ func (l *LocalManager) InstallCluster(ctx context.Context, empty *emptypb.Empty)
 	return &emptypb.Empty{}, nil
 }
 
-func (l *LocalManager) UninstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (l *LocalManager) UninstallCluster(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	for _, replica := range l.replicaInstance {
 		replica.cancelFunc()
 	}
@@ -285,7 +284,7 @@ func (l *LocalManager) UninstallCluster(ctx context.Context, empty *emptypb.Empt
 	return &emptypb.Empty{}, nil
 }
 
-func (l *LocalManager) Fetch(ctx context.Context, empty *emptypb.Empty) (*alertops.AlertingConfig, error) {
+func (l *LocalManager) Fetch(_ context.Context, _ *emptypb.Empty) (*alertops.AlertingConfig, error) {
 	alertManagerBytes, err := os.ReadFile(l.alertManagerConfigPath)
 	if err != nil {
 		return nil, err
@@ -300,7 +299,7 @@ func (l *LocalManager) Fetch(ctx context.Context, empty *emptypb.Empty) (*alerto
 	}, nil
 }
 
-func (l *LocalManager) Update(ctx context.Context, config *alertops.AlertingConfig) (*emptypb.Empty, error) {
+func (l *LocalManager) Update(_ context.Context, config *alertops.AlertingConfig) (*emptypb.Empty, error) {
 	if err := os.WriteFile(l.alertManagerConfigPath, []byte(config.RawAlertManagerConfig), 0644); err != nil {
 		return nil, err
 	}
@@ -311,7 +310,7 @@ func (l *LocalManager) Update(ctx context.Context, config *alertops.AlertingConf
 	return &emptypb.Empty{}, nil
 }
 
-func (l *LocalManager) Reload(ctx context.Context, info *alertops.ReloadInfo) (*emptypb.Empty, error) {
+func (l *LocalManager) Reload(ctx context.Context, _ *alertops.ReloadInfo) (*emptypb.Empty, error) {
 	lg := l.Logger.With("alerting-backend", "k8s", "action", "reload")
 
 	wg := sync.WaitGroup{}
@@ -351,7 +350,7 @@ func (l *LocalManager) Name() string {
 	return "local-alerting"
 }
 
-func (l *LocalManager) ShouldDisableNode(reference *corev1.Reference) error {
+func (l *LocalManager) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
 }
 

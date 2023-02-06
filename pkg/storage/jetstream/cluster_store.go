@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func (s *JetStreamStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
+func (s *JetStreamStore) CreateCluster(_ context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
 	cluster.SetCreationTimestamp(time.Now().Truncate(time.Second))
 
@@ -44,7 +44,7 @@ func (s *JetStreamStore) DeleteCluster(ctx context.Context, ref *corev1.Referenc
 	return s.kv.Clusters.Delete(ref.Id)
 }
 
-func (s *JetStreamStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
+func (s *JetStreamStore) GetCluster(_ context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
 	resp, err := s.kv.Clusters.Get(ref.Id)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {

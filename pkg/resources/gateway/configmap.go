@@ -93,11 +93,12 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 	switch t := cfgv1beta1.AuthProviderType(r.gw.Spec.Auth.Provider); t {
 	case cfgv1beta1.AuthProviderOpenID:
 		apSpec.Type = cfgv1beta1.AuthProviderOpenID
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig); err != nil {
+		options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig)
+		if err != nil {
 			return nil, errors.WrapIf(err, "failed to decode openid auth provider options")
-		} else {
-			apSpec.Options = *options
 		}
+		apSpec.Options = *options
+
 	case cfgv1beta1.AuthProviderNoAuth:
 		apSpec.Type = cfgv1beta1.AuthProviderNoAuth
 		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.gw.Spec.Hostname)
@@ -119,11 +120,11 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				},
 			},
 		}
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth); err != nil {
+		options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth)
+		if err != nil {
 			return nil, errors.WrapIf(err, "failed to decode noauth auth provider options")
-		} else {
-			apSpec.Options = *options
 		}
+		apSpec.Options = *options
 	default:
 		return nil, errors.Errorf("unsupported auth provider: %s", t)
 	}

@@ -338,7 +338,7 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 	return &emptypb.Empty{}, err
 }
 
-func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
+func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
 	storageClasses := &storagev1.StorageClassList{}
 	if err := m.k8sClient.List(ctx, storageClasses); err != nil {
 		return nil, err
@@ -354,7 +354,7 @@ func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, in *emptypb.Em
 	}, nil
 }
 
-func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
+func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
 	if err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,
 		Namespace: m.opensearchCluster.Namespace,

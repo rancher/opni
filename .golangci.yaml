@@ -29,7 +29,7 @@ linters-settings:
     - name: error-return
     - name: error-strings
     - name: imports-blacklist
-      arguments: ["crypto/md5", "crypto/sha1", "grpc.go4.org/**", "github.com/gogo/status","github.com/gogo/codes"]
+      arguments: ["grpc.go4.org/**", "github.com/gogo/status","github.com/gogo/codes"]
     - name: increment-decrement
     - name: indent-error-flow
     - name: package-comments

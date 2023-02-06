@@ -35,38 +35,38 @@ func (hq HistogramQuery) GetTotalEvents() func(w http.ResponseWriter, r *http.Re
 	return hq.totalEvents
 }
 
-func (h HistogramQuery) FillQueryTemplate(info templateExecutor) (string, error) {
+func (hq HistogramQuery) FillQueryTemplate(info templateExecutor) (string, error) {
 	var query bytes.Buffer
-	if err := h.query.Execute(&query, info); err != nil {
+	if err := hq.query.Execute(&query, info); err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(query.String()), nil
 }
 
-func (h HistogramQuery) GetMetricFilter() string {
-	return h.metricFilter.String()
+func (hq HistogramQuery) GetMetricFilter() string {
+	return hq.metricFilter.String()
 }
 
-func (h HistogramQuery) Validate() error {
-	return validatePromQl(h.query)
+func (hq HistogramQuery) Validate() error {
+	return validatePromQl(hq.query)
 }
 
-func (h HistogramQuery) IsRatio() bool {
+func (hq HistogramQuery) IsRatio() bool {
 	return false
 }
 
-func (h HistogramQuery) IsHistogram() bool {
+func (hq HistogramQuery) IsHistogram() bool {
 	return true
 }
 
-func (h HistogramQuery) Construct(serv *api.ServiceInfo) (string, error) {
-	return h.FillQueryTemplate(templateExecutor{
+func (hq HistogramQuery) Construct(serv *api.ServiceInfo) (string, error) {
+	return hq.FillQueryTemplate(templateExecutor{
 		MetricIdGood:  serv.MetricIdGood,
 		MetricIdTotal: serv.MetricIdTotal,
 		JobId:         serv.JobId,
 	})
 }
 
-func (h HistogramQuery) BestMatch(in []string) string {
-	return h.matcher(in)
+func (hq HistogramQuery) BestMatch(in []string) string {
+	return hq.matcher(in)
 }

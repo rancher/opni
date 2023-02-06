@@ -189,17 +189,16 @@ func (a *AlertManagerAPI) DoRequest() error {
 		lastRetrierError := fmt.Errorf("unknwon error")
 		numRetries := 0
 		for backoffv2.Continue(b) {
-			if err := a.doRequest(); err == nil {
+			err := a.doRequest()
+			if err == nil {
 				return nil
-			} else {
-				lastRetrierError = err
 			}
-			numRetries += 1
+			lastRetrierError = err
+			numRetries++
 		}
 		return fmt.Errorf("failed to complete request after retrier timeout (%d retries) : %s", numRetries, lastRetrierError)
-	} else {
-		return a.doRequest()
 	}
+	return a.doRequest()
 }
 
 func (a *AlertManagerAPI) doRequest() error {
@@ -457,20 +456,19 @@ func NewExpectConfigEqual(expectedConfig string) func(*http.Response) error {
 func NewApiPipline(ctx context.Context, apis []*AlertManagerAPI, chainRetrier *backoffv2.Policy) error {
 	if chainRetrier == nil {
 		return newApiPipeline(apis)
-	} else {
-		b := (*chainRetrier).Start(ctx)
-		lastRetrierError := fmt.Errorf("unkown error")
-		numRetries := 0
-		for backoffv2.Continue(b) {
-			if err := newApiPipeline(apis); err == nil {
-				return nil
-			} else {
-				lastRetrierError = err
-			}
-			numRetries += 1
-		}
-		return fmt.Errorf("api pipeline failed with backoff retrier timeout (%d retries) : %s", numRetries, lastRetrierError)
 	}
+	b := (*chainRetrier).Start(ctx)
+	lastRetrierError := fmt.Errorf("unkown error")
+	numRetries := 0
+	for backoffv2.Continue(b) {
+		err := newApiPipeline(apis)
+		if err == nil {
+			return nil
+		}
+		lastRetrierError = err
+		numRetries++
+	}
+	return fmt.Errorf("api pipeline failed with backoff retrier timeout (%d retries) : %s", numRetries, lastRetrierError)
 }
 
 func newApiPipeline(apis []*AlertManagerAPI) error {

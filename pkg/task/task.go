@@ -99,7 +99,7 @@ func (t *Task) logTransition(transition *corev1.StateTransition) {
 func (t *Task) getStatus() *corev1.TaskStatus {
 	for {
 		select {
-		case result := <-lo.Async2(util.BindContext2(t.status.Get, t.cctx)):
+		case result := <-lo.Async2(util.BindContext2(t.cctx, t.status.Get)):
 			status, err := lo.Unpack2(result)
 			if err == nil {
 				return status

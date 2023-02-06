@@ -137,7 +137,7 @@ func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, muta
 			return err
 		}
 		if !txnResp.Succeeded {
-			return retryErr
+			return errRetry
 		}
 		retToken = token
 		return nil
@@ -159,9 +159,8 @@ func (e *EtcdStore) addLeaseMetadata(
 		leaseResp, err := e.Client.TimeToLive(ctx, clientv3.LeaseID(lease))
 		if err != nil {
 			return fmt.Errorf("failed to get lease: %w", err)
-		} else {
-			token.Metadata.Ttl = leaseResp.TTL
 		}
+		token.Metadata.Ttl = leaseResp.TTL
 	}
 	return nil
 }

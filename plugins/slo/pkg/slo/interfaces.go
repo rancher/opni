@@ -2,16 +2,17 @@ package slo
 
 import (
 	"context"
+	"sync"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"go.uber.org/zap"
-	"sync"
 
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
 
-var datasourceToSLO map[string]SLOStore = make(map[string]SLOStore)
-var datasourceToService map[string]ServiceBackend = make(map[string]ServiceBackend)
+var datasourceToSLO = make(map[string]SLOStore)
+var datasourceToService = make(map[string]ServiceBackend)
 var mu sync.Mutex
 
 func RegisterDatasource(datasource string, sloImpl SLOStore, serviceImpl ServiceBackend) {
@@ -35,13 +36,13 @@ type SLOStore interface {
 	) ([]*corev1.Reference, []*sloapi.SLOData, []error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
 	Preview(s *SLO) (*sloapi.SLOPreviewResponse, error)
-	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
+	WithCurrentRequest(ctx context.Context, req proto.Message) SLOStore
 }
 type ServiceBackend interface {
 	ListServices() (*sloapi.ServiceList, error)
 	ListMetrics() (*sloapi.MetricGroupList, error)
 	ListEvents() (*sloapi.EventList, error)
-	WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend
+	WithCurrentRequest(ctx context.Context, req proto.Message) ServiceBackend
 }
 
 type MetricIds struct {

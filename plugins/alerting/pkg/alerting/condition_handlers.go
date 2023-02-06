@@ -25,9 +25,9 @@ import (
 )
 
 func setupCondition(
-	p *Plugin,
-	lg *zap.SugaredLogger,
 	ctx context.Context,
+	p *Plugin,
+	_ *zap.SugaredLogger,
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
@@ -87,7 +87,7 @@ func setupCondition(
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, req *alertingv1.AlertCondition, id string) error {
+func deleteCondition(ctx context.Context, p *Plugin, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageNode.DeleteIncidentTracker(ctx, id)
@@ -138,7 +138,7 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) (*corev1.Reference,
 }
 
 func (p *Plugin) handleSystemAlertCreation(
-	ctx context.Context,
+	_ context.Context,
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 	conditionName string,
@@ -151,7 +151,7 @@ func (p *Plugin) handleSystemAlertCreation(
 }
 
 func (p *Plugin) handleDownstreamCapabilityAlertCreation(
-	ctx context.Context,
+	_ context.Context,
 	k *alertingv1.AlertConditionDownstreamCapability,
 	newConditionId string,
 	conditionName string,
@@ -164,7 +164,7 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 }
 
 func (p *Plugin) handleMonitoringBackendAlertCreation(
-	ctx context.Context,
+	_ context.Context,
 	k *alertingv1.AlertConditionMonitoringBackend,
 	newConditionId string,
 	conditionName string,

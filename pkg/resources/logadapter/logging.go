@@ -153,11 +153,11 @@ func BuildK3SConfig(adapter *opniloggingv1beta1.LogAdapter) *corev1.ConfigMap {
 
 	// If the opni cluster is nil, copy the object to use for generating the config
 	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+		adapterCopy := adapter.DeepCopy()
+		adapterCopy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
 			Namespace: controlNamespace(adapter.Spec),
 		}
-		fluentBitK3sTemplate.Execute(&buffer, copy)
+		fluentBitK3sTemplate.Execute(&buffer, adapterCopy)
 	} else {
 		fluentBitK3sTemplate.Execute(&buffer, adapter)
 	}
@@ -276,11 +276,11 @@ func BuildRKEConfig(adapter *opniloggingv1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 
 	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+		adapterCopy := adapter.DeepCopy()
+		adapterCopy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
 			Namespace: controlNamespace(adapter.Spec),
 		}
-		fluentBitRKETemplate.Execute(&buffer, copy)
+		fluentBitRKETemplate.Execute(&buffer, adapterCopy)
 	} else {
 		fluentBitRKETemplate.Execute(&buffer, adapter)
 	}
@@ -419,11 +419,11 @@ func BuildRKEServiceAccount(adapter *opniloggingv1beta1.LogAdapter) *corev1.Serv
 func BuildRKE2Config(adapter *opniloggingv1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+		adapterCopy := adapter.DeepCopy()
+		adapterCopy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
 			Namespace: controlNamespace(adapter.Spec),
 		}
-		fluentBitRKE2Template.Execute(&buffer, copy)
+		fluentBitRKE2Template.Execute(&buffer, adapterCopy)
 	} else {
 		fluentBitRKE2Template.Execute(&buffer, adapter)
 	}

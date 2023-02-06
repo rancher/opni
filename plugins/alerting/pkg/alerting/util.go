@@ -16,7 +16,7 @@ import (
 const alertingSuffix = "opni-alerting"
 const defaultAlertingInterval = prommodel.Duration(time.Minute)
 
-type ruleGroupYAMLv2 struct {
+type RuleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
 	Interval prommodel.Duration `yaml:"interval,omitempty"`
 	Rules    []rulefmt.Rule     `yaml:"rules"`
@@ -49,7 +49,7 @@ func ConstructFiltersFromMap(in map[string]string) string {
 	return strings.Join(filters, ",")
 }
 
-func NewCortexAlertingRule(alertId, alertName string, info alertingv1.IndexableMetric, interval *time.Duration, rule metrics.AlertRuleBuilder) (*ruleGroupYAMLv2, error) {
+func NewCortexAlertingRule(alertId, alertName string, info alertingv1.IndexableMetric, interval *time.Duration, rule metrics.AlertRuleBuilder) (*RuleGroupYAMLv2, error) {
 	actualRuleFmt, err := rule.Build(alertId)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func NewCortexAlertingRule(alertId, alertName string, info alertingv1.IndexableM
 		promInterval = prommodel.Duration(*interval)
 	}
 
-	return &ruleGroupYAMLv2{
+	return &RuleGroupYAMLv2{
 		Name:     CortexRuleIdFromUuid(alertId),
 		Interval: promInterval,
 		Rules:    []rulefmt.Rule{*actualRuleFmt, *recordingRuleFmt},

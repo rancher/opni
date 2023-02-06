@@ -15,7 +15,7 @@ import (
 )
 
 func (m *Server) GetConfig(
-	ctx context.Context,
+	_ context.Context,
 	_ *emptypb.Empty,
 ) (*managementv1.GatewayConfig, error) {
 	lg := m.logger
@@ -50,7 +50,7 @@ func (m *Server) GetConfig(
 }
 
 func (m *Server) UpdateConfig(
-	ctx context.Context,
+	_ context.Context,
 	in *managementv1.UpdateConfigRequest,
 ) (*emptypb.Empty, error) {
 	lg := m.logger

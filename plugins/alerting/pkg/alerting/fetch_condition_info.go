@@ -26,8 +26,8 @@ import (
 )
 
 func handleChoicesByType(
-	p *Plugin,
 	ctx context.Context,
+	p *Plugin,
 	req *alertingv1.AlertDetailChoicesRequest,
 ) (*alertingv1.ListAlertTypeDetails, error) {
 	switch req.GetAlertType() {
@@ -550,8 +550,9 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 				if !node.Exists() {
 					lg.Warnf("failed to find node name for series %s", seriesInfo)
 					nodeName = metrics.UnlabelledNode
+				} else {
+					nodeName = node.String()
 				}
-				nodeName = node.String()
 				if _, ok := filesystemNodeGroup.Nodes[nodeName]; !ok {
 					filesystemNodeGroup.Nodes[nodeName] = &alertingv1.FilesystemInfo{
 						Devices:     []string{},

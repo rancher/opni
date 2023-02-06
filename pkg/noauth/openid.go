@@ -344,23 +344,23 @@ func (s *Server) handleUserInfoRequest(rw http.ResponseWriter, req *http.Request
 		rw.Write([]byte("token is inactive"))
 		return
 	}
-	if openidSession, ok := ar.GetSession().(*openid.DefaultSession); !ok {
+	openidSession, ok := ar.GetSession().(*openid.DefaultSession)
+	if !ok {
 		lg.Error("user info request fetched a non-openid session")
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
-	} else {
-		jsonData, err := json.Marshal(openidSession.Claims.ToMapClaims())
-		if err != nil {
-			lg.Error("failed to marshal openid claims")
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		lg.With(
-			"claims", string(jsonData),
-		).Debug("sending user info response")
-		rw.WriteHeader(http.StatusOK)
-		rw.Write(jsonData)
 	}
+	jsonData, err := json.Marshal(openidSession.Claims.ToMapClaims())
+	if err != nil {
+		lg.Error("failed to marshal openid claims")
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	lg.With(
+		"claims", string(jsonData),
+	).Debug("sending user info response")
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(jsonData)
 }
 
 func emailify(username string) string {

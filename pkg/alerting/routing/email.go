@@ -3,8 +3,8 @@ package routing
 import (
 	"fmt"
 
-	"github.com/containerd/containerd/pkg/cri/config"
 	cfg "github.com/prometheus/alertmanager/config"
+	commoncfg "github.com/prometheus/common/config"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
@@ -20,13 +20,13 @@ type EmailConfig struct {
 	// Change from secret to string since the string is stored in a kube secret anyways
 	AuthPassword string `yaml:"auth_password,omitempty" json:"auth_password,omitempty"`
 	// Change from secret to string since the string is stored in a kube secret anyways
-	AuthSecret   string            `yaml:"auth_secret,omitempty" json:"auth_secret,omitempty"`
-	AuthIdentity string            `yaml:"auth_identity,omitempty" json:"auth_identity,omitempty"`
-	Headers      map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-	HTML         string            `yaml:"html,omitempty" json:"html,omitempty"`
-	Text         string            `yaml:"text,omitempty" json:"text,omitempty"`
-	RequireTLS   *bool             `yaml:"require_tls,omitempty" json:"require_tls,omitempty"`
-	TLSConfig    config.TLSConfig  `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	AuthSecret   string              `yaml:"auth_secret,omitempty" json:"auth_secret,omitempty"`
+	AuthIdentity string              `yaml:"auth_identity,omitempty" json:"auth_identity,omitempty"`
+	Headers      map[string]string   `yaml:"headers,omitempty" json:"headers,omitempty"`
+	HTML         string              `yaml:"html,omitempty" json:"html,omitempty"`
+	Text         string              `yaml:"text,omitempty" json:"text,omitempty"`
+	RequireTLS   *bool               `yaml:"require_tls,omitempty" json:"require_tls,omitempty"`
+	TLSConfig    commoncfg.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 func (c *EmailConfig) Equal(other *EmailConfig) (bool, string) {

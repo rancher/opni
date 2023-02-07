@@ -19,7 +19,6 @@ var log = logger.New(logger.WithLogLevel(zapcore.InfoLevel)).Named("tracing")
 
 func Configure(serviceName string) {
 	res, err := resource.New(context.Background(),
-		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithFromEnv(),
 		resource.WithProcess(),
 		resource.WithAttributes(

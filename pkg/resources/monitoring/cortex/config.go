@@ -10,22 +10,24 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
+	"github.com/weaveworks/common/logging"
+	"github.com/weaveworks/common/server"
+
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
 	"github.com/cortexproject/cortex/pkg/api"
 	"github.com/cortexproject/cortex/pkg/chunk/cache"
-	"github.com/cortexproject/cortex/pkg/chunk/purger"
-	"github.com/cortexproject/cortex/pkg/chunk/storage"
 	"github.com/cortexproject/cortex/pkg/compactor"
 	"github.com/cortexproject/cortex/pkg/cortex"
+	"github.com/cortexproject/cortex/pkg/cortex/storage"
 	"github.com/cortexproject/cortex/pkg/distributor"
 	"github.com/cortexproject/cortex/pkg/frontend"
 	v2 "github.com/cortexproject/cortex/pkg/frontend/v2"
 	"github.com/cortexproject/cortex/pkg/ingester"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/cortexproject/cortex/pkg/querier"
-	"github.com/cortexproject/cortex/pkg/querier/queryrange"
 	"github.com/cortexproject/cortex/pkg/querier/tenantfederation"
+	"github.com/cortexproject/cortex/pkg/querier/tripperware/queryrange"
 	"github.com/cortexproject/cortex/pkg/querier/worker"
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/ring/kv"
@@ -53,8 +55,6 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"github.com/weaveworks/common/logging"
-	"github.com/weaveworks/common/server"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -243,12 +243,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 		Storage: storage.Config{
 			Engine: "blocks",
-			IndexQueriesCacheConfig: cache.Config{
-				EnableFifoCache: true,
-				Fifocache: cache.FifoCacheConfig{
-					Validity: 1 * time.Hour,
-				},
-			},
 		},
 		BlocksStorage: tsdb.BlocksStorageConfig{
 			TSDB: tsdb.TSDBConfig{
@@ -389,9 +383,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				KVStore:           kvConfig,
 				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
-		},
-		PurgerConfig: purger.Config{
-			Enable: false,
 		},
 		LimitsConfig: validation.Limits{
 			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),

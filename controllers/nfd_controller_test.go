@@ -4,10 +4,10 @@ import (
 	"context"
 
 	. "github.com/kralicky/kmatch"
-	nfdv1 "github.com/kubernetes-sigs/node-feature-discovery-operator/api/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	nfdv1 "sigs.k8s.io/node-feature-discovery-operator/api/v1"
 )
 
 var _ = Describe("NfdController", Ordered, Label("controller", "deprecated"), func() {

@@ -2,17 +2,19 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"net/http"
+	"go.uber.org/zap/zapcore"
 	"strings"
 	"sync"
 	"time"
@@ -61,84 +63,111 @@ func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
 	return dereferenced
 }
 
-type Run struct {
-	logger     *zap.SugaredLogger
-	internalMu sync.RWMutex
-
-	stopChan chan interface{}
-	target   *remoteread.Target
-	query    *remoteread.Query
-}
-
-func (run *Run) failed(message string) {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	run.target.Status.State = remoteread.TargetStatus_Failed
-	run.target.Status.Message = message
-}
-
-func (run *Run) running() {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	run.target.Status.State = remoteread.TargetStatus_Running
-	run.target.Status.Message = ""
-}
-
-func (run *Run) complete() {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	run.target.Status.State = remoteread.TargetStatus_Complete
-}
-
-func (run *Run) stopped() {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	run.target.Status.State = remoteread.TargetStatus_Stopped
-}
-
-func (run *Run) updateLastRead(lastReadSec int64) {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	run.target.Status.Progress.LastReadTimestamp = timestamppb.New(time.UnixMilli(lastReadSec))
-}
-
-func (run *Run) updateStatus(fn func(status *remoteread.TargetStatus)) {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	if run.target.Status == nil {
-		run.target.Status = &remoteread.TargetStatus{}
+func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		if log.Level == int32(zapcore.ErrorLevel) {
+			return log.Msg
+		}
 	}
 
-	fn(run.target.Status)
+	return ""
 }
 
-func (run *Run) getStatus() *remoteread.TargetStatus {
-	run.internalMu.Lock()
-	defer run.internalMu.Unlock()
-
-	status := *run.target.Status
-
-	return &status
+type TargetRunMetadata struct {
+	Target *remoteread.Target
+	Query  *remoteread.Query
 }
 
-// todo: put back under TargetRunner
-func (run *Run) run(
-	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient],
-	remoteReader clients.Locker[RemoteReader],
-) {
-	labelMatchers := toLabelMatchers(run.query.Matchers)
+type targetStore struct {
+	innerMu sync.RWMutex
+	inner   map[string]*corev1.TaskStatus
+}
 
-	importEnd := run.query.EndTimestamp.AsTime().UnixMilli()
-	nextStart := run.query.StartTimestamp.AsTime().UnixMilli()
+func (store *targetStore) Put(ctx context.Context, key string, value *corev1.TaskStatus) error {
+	store.innerMu.Lock()
+	defer store.innerMu.Unlock()
+	store.inner[key] = value
+	return nil
+}
+
+func (store *targetStore) Get(ctx context.Context, key string) (*corev1.TaskStatus, error) {
+	store.innerMu.RLock()
+	defer store.innerMu.RUnlock()
+
+	status, found := store.inner[key]
+	if !found {
+		return nil, storage.ErrNotFound
+	}
+
+	return status, nil
+}
+
+func (store *targetStore) Delete(ctx context.Context, key string) error {
+	store.innerMu.Lock()
+	defer store.innerMu.Unlock()
+	delete(store.inner, key)
+	return nil
+}
+
+func (store *targetStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+	store.innerMu.RLock()
+	defer store.innerMu.RUnlock()
+	keys := make([]string, 0, len(store.inner))
+	for key := range store.inner {
+		if strings.HasPrefix(key, prefix) {
+			keys = append(keys, key)
+		}
+	}
+	return keys, nil
+}
+
+type taskRunner struct {
+	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
+
+	remoteReaderMu sync.RWMutex
+	remoteReader   RemoteReader
+}
+
+func newTaskRunner() *taskRunner {
+	return &taskRunner{
+		//remoteReader: NewRemoteReader(&http.Client{}),
+	}
+}
+
+func (runner *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
+	runner.remoteWriteClient = client
+}
+
+func (runner *taskRunner) SetRemoteReaderClient(client RemoteReader) {
+	runner.remoteReaderMu.Lock()
+	defer runner.remoteReaderMu.Unlock()
+
+	runner.remoteReader = client
+}
+
+func (runner *taskRunner) OnTaskPending(ctx context.Context, activeTask task.ActiveTask) error {
+	return nil
+}
+
+func (runner *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+	run := &TargetRunMetadata{}
+	activeTask.LoadTaskMetadata(run)
+
+	labelMatchers := toLabelMatchers(run.Query.Matchers)
+
+	importEnd := run.Query.EndTimestamp.AsTime().UnixMilli()
+	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
-	for nextStart < importEnd && run.getStatus().State == remoteread.TargetStatus_Running {
+	progress := &corev1.Progress{
+		Current: 0,
+		Total:   uint64(importEnd - nextStart),
+	}
+
+	activeTask.SetProgress(progress)
+
+	for nextStart < importEnd {
 		nextStart = nextEnd
 		nextEnd = nextStart + TimeDeltaMillis
 
@@ -160,15 +189,13 @@ func (run *Run) run(
 			},
 		}
 
-		var readResponse *prompb.ReadResponse
-		var err error
-		remoteReader.Use(func(client RemoteReader) {
-			readResponse, err = client.Read(context.Background(), run.target.Spec.Endpoint, readRequest)
-		})
+		runner.remoteReaderMu.Lock()
+		readResponse, err := runner.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
+		runner.remoteReaderMu.Unlock()
 
 		if err != nil {
-			run.failed(fmt.Sprintf("failed to read from target endpoint: %s", err.Error()))
-			return
+			activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to read from target endpoint: %s", err))
+			return fmt.Errorf("failed to read from target endpoint: %w", err)
 		}
 
 		for _, result := range readResponse.Results {
@@ -182,8 +209,8 @@ func (run *Run) run(
 
 			uncompressed, err := proto.Marshal(&writeRequest)
 			if err != nil {
-				run.failed(fmt.Sprintf("failed to uncompress data from target endpoint: %s", err.Error()))
-				return
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to uncompress data from target endpoint: %s", err))
+				return fmt.Errorf("failed to uncompress data from target endpoint: %w", err)
 			}
 
 			compressed := snappy.Encode(nil, uncompressed)
@@ -192,32 +219,24 @@ func (run *Run) run(
 				Contents: compressed,
 			}
 
-			remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
+			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
-					run.failed("failed to push to remote write")
+					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
 					return
 				}
 
-				run.updateLastRead(nextEnd)
+				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
 			})
 
-			run.logger.With(
-				"cluster", run.target.Meta.ClusterId,
-				"target", run.target.Meta.Name,
-			).Debugf("pushed remote write payload: %s", payload.String())
+			progress.Current = uint64(nextEnd)
+			activeTask.SetProgress(progress)
 		}
-
-		run.updateLastRead(nextEnd)
 	}
 
-	if run.getStatus().State == remoteread.TargetStatus_Running {
-		run.logger.With(
-			"cluster", run.target.Meta.ClusterId,
-			"target", run.target.Meta.Name,
-		).Infof("run completed")
+	return nil
+}
 
-		run.complete()
-	}
+func (runner *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, args ...any) {
 }
 
 type TargetRunner interface {
@@ -229,111 +248,117 @@ type TargetRunner interface {
 
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
 
-	SetRemoteReader(client clients.Locker[RemoteReader])
+	SetRemoteReaderClient(client RemoteReader)
+}
+
+type taskingTargetRunner struct {
+	logger *zap.SugaredLogger
+
+	runnerMu sync.RWMutex
+	runner   *taskRunner
+
+	controller *task.Controller
+
+	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 }
 
 func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
-	return &targetRunner{
-		logger: logger.Named("runner"),
-		runsMu: sync.RWMutex{},
-		runs:   make(map[string]*Run),
-		remoteReader: clients.NewLocker(nil, func(grpc.ClientConnInterface) RemoteReader {
-			return NewRemoteReader(&http.Client{})
-		}),
+	store := &targetStore{
+		inner: make(map[string]*corev1.TaskStatus),
+	}
+
+	runner := newTaskRunner()
+
+	controller, err := task.NewController(context.Background(), "Target-runner", store, runner)
+	if err != nil {
+		panic(fmt.Sprintf("bug: failed to create Target task corntoller: %s", err))
+	}
+
+	return &taskingTargetRunner{
+		logger:     logger,
+		runner:     runner,
+		controller: controller,
 	}
 }
 
-type targetRunner struct {
-	logger *zap.SugaredLogger
-
-	runsMu sync.RWMutex
-	runs   map[string]*Run
-
-	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
-	remoteReader      clients.Locker[RemoteReader]
-}
-
-func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
-	runner.runsMu.Lock()
-	defer runner.runsMu.Unlock()
-
-	run, found := runner.runs[target.Meta.Name]
-	if found {
-		status := run.getStatus()
-		if status.State == remoteread.TargetStatus_Running {
+func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
+	if status, err := runner.controller.TaskStatus(target.Meta.Name); err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return fmt.Errorf("error checking for Target status: %s", err)
+		}
+	} else {
+		switch status.State {
+		case corev1.TaskState_Running, corev1.TaskState_Pending:
 			return fmt.Errorf("target is already running")
+		case corev1.TaskState_Unknown:
+			return fmt.Errorf("target state is unknown")
 		}
 	}
 
-	newRun := &Run{
-		logger:     runner.logger.Named(target.Meta.Name),
-		internalMu: sync.RWMutex{},
-		stopChan:   make(chan interface{}),
-		target:     target,
-		query:      query,
+	if err := runner.controller.LaunchTask(target.Meta.Name, task.WithMetadata(TargetRunMetadata{
+		Target: target,
+		Query:  query,
+	})); err != nil {
+		return fmt.Errorf("could not run Target: %w", err)
 	}
 
-	// always replace pre-existing Run since Target might have been edited on the gateway
-	runner.runs[newRun.target.Meta.Name] = newRun
-
-	newRun.updateStatus(func(status *remoteread.TargetStatus) {
-		status.Progress = &remoteread.TargetProgress{
-			StartTimestamp:    newRun.query.StartTimestamp,
-			LastReadTimestamp: newRun.query.StartTimestamp,
-			EndTimestamp:      newRun.query.EndTimestamp,
-		}
-		status.Message = ""
-		status.State = remoteread.TargetStatus_Running
-	})
-
-	go newRun.run(runner.remoteWriteClient, runner.remoteReader)
+	runner.logger.Infof("started Target '%s'", target.Meta.Name)
 
 	return nil
 }
 
-func (runner *targetRunner) Stop(name string) error {
-	runner.runsMu.Lock()
-	defer runner.runsMu.Unlock()
-
-	run, found := runner.runs[name]
-
-	if found {
-		return fmt.Errorf("target is not running")
+func (runner *taskingTargetRunner) Stop(name string) error {
+	if status, err := runner.controller.TaskStatus(name); err != nil {
+		return fmt.Errorf("Target not found")
+	} else {
+		switch status.State {
+		case corev1.TaskState_Canceled, corev1.TaskState_Completed, corev1.TaskState_Failed:
+			return fmt.Errorf("Target is not running")
+		}
 	}
 
-	close(run.stopChan)
-	run.stopped()
+	runner.controller.CancelTask(name)
 
-	delete(runner.runs, name)
+	runner.logger.Infof("stopped Target '%s'", name)
 
 	return nil
 }
 
-func (runner *targetRunner) GetStatus(name string) (*remoteread.TargetStatus, error) {
-	runner.runsMu.RLock()
-	defer runner.runsMu.RUnlock()
-
-	run, found := runner.runs[name]
-	if !found {
-		return nil, fmt.Errorf("target not found")
+func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetStatus, error) {
+	taskStatus, err := runner.controller.TaskStatus(name)
+	if err != nil {
+		return nil, fmt.Errorf("could not get Target status: %w", err)
 	}
 
-	return run.getStatus(), nil
-}
-
-func (runner *targetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
-	runner.remoteWriteClient = client
-}
-
-func (runner *targetRunner) SetRemoteReader(client clients.Locker[RemoteReader]) {
-	runner.remoteReader = client
-}
-
-func mapKeys[T any](m map[string]T) string {
-	l := make([]string, 0, len(m))
-	for k, _ := range m {
-		l = append(l, k)
+	taskMetadata := TargetRunMetadata{}
+	if err := json.Unmarshal([]byte(taskStatus.Metadata), &taskMetadata); err != nil {
+		return nil, fmt.Errorf("could not parse Target metedata: %w", err)
 	}
 
-	return strings.Join(l, ", ")
+	statusProgress := &remoteread.TargetProgress{
+		StartTimestamp:    taskMetadata.Query.StartTimestamp,
+		LastReadTimestamp: nil,
+		EndTimestamp:      taskMetadata.Query.EndTimestamp,
+	}
+
+	if taskStatus.Progress == nil {
+		statusProgress.LastReadTimestamp = statusProgress.StartTimestamp
+	}
+
+	return &remoteread.TargetStatus{
+		Progress: statusProgress,
+		Message:  getMessageFromTaskLogs(taskStatus.Logs),
+		State:    taskStatus.State,
+	}, nil
+}
+
+func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
+	runner.runner.SetRemoteWriteClient(client)
+}
+
+func (runner *taskingTargetRunner) SetRemoteReaderClient(client RemoteReader) {
+	runner.runnerMu.Lock()
+	defer runner.runnerMu.Unlock()
+
+	runner.runner.SetRemoteReaderClient(client)
 }

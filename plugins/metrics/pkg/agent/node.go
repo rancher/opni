@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -61,6 +62,7 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 		targetRunner: NewTargetRunner(lg),
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
+	node.targetRunner.SetRemoteReaderClient(&remoteReader{prometheusClient: &http.Client{}})
 	return node
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/phayes/freeport"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -71,7 +72,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 	var importClient remoteread.RemoteReadGatewayClient
 
 	BeforeAll(func() {
-		os.Setenv("POD_NAMESPACE", "default")
+		Expect(os.Setenv("POD_NAMESPACE", "default")).ToNot(HaveOccurred())
 
 		By("starting test environment")
 		env = &test.Environment{
@@ -196,7 +197,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 				Meta: target.Meta,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(status.State).To(Equal(remoteread.TargetStatus_Running))
+			Expect(status.State).To(Equal(opnicorev1.TaskState_Running))
 		})
 	})
 

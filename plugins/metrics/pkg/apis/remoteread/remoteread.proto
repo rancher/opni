@@ -1,6 +1,8 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread";
 
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
@@ -11,8 +13,6 @@ package remoteread;
 
 // todo: we probably need a new type for Describe and ScanFor
 service RemoteReadGateway {
-//  rpc Describe(Target) returns (Target)
-
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
@@ -43,19 +43,10 @@ message TargetMeta {
 }
 
 message TargetStatus {
-  enum State {
-    Unknown = 0;
-    NotRunning = 1;
-    Running = 2;
-    Failed = 3;
-    Complete = 4;
-    Stopped = 5;
-  }
-
   // this is the progress of the last known import
   TargetProgress progress = 1;
   string message = 2;
-  State state = 3;
+  core.TaskState state = 3;
 }
 
 message TargetSpec {
@@ -106,11 +97,6 @@ message StopReadRequest {
 
 message TargetStatusRequest {
   TargetMeta meta = 1;
-}
-
-message TargetStatusUpdateRequest {
-  TargetMeta meta = 1;
-  TargetStatus newStatus = 2;
 }
 
 // PromQL query

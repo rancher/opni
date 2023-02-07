@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
@@ -16,12 +17,46 @@ import (
 	"time"
 )
 
+func newRespondingReader() *mockRemoteReader {
+	return &mockRemoteReader{
+		Responses: []*prompb.ReadResponse{
+			{
+				Results: []*prompb.QueryResult{
+					{
+						Timeseries: []*prompb.TimeSeries{
+							{
+								Labels: []prompb.Label{},
+								Samples: []prompb.Sample{
+									{
+										Value:     100,
+										Timestamp: 100,
+									},
+								},
+								Exemplars: []prompb.Exemplar{
+									{
+										Labels:    nil,
+										Value:     0,
+										Timestamp: 0,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 	var (
+		failingReader = &mockRemoteReader{
+			Error: fmt.Errorf("failed"),
+		}
+
 		runner agent.TargetRunner
 
 		writerClient *mockRemoteWriteClient
-		remoteReader *mockRemoteReader
 
 		target = &remoteread.Target{
 			Meta: &remoteread.TargetMeta{
@@ -39,52 +74,16 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 		lg := logger.NewPluginLogger().Named("test-runner")
 
 		writerClient = &mockRemoteWriteClient{}
-		remoteReader = &mockRemoteReader{
-			Responses: []*prompb.ReadResponse{
-				{
-					Results: []*prompb.QueryResult{
-						{
-							Timeseries: []*prompb.TimeSeries{
-								{
-									Labels: []prompb.Label{},
-									Samples: []prompb.Sample{
-										{
-											Value:     100,
-											Timestamp: 100,
-										},
-									},
-									Exemplars: []prompb.Exemplar{
-										{
-											Labels:    nil,
-											Value:     0,
-											Timestamp: 0,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
 
 		runner = agent.NewTargetRunner(lg)
 		runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 			return writerClient
 		}))
-		runner.SetRemoteReader(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
-			return remoteReader
-		}))
 	})
 
 	When("target runner cannot reach target endpoint", func() {
 		It("should fail", func() {
-			remoteReader := clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
-				return &mockRemoteReader{
-					Error: fmt.Errorf("failed"),
-				}
-			})
-			runner.SetRemoteReader(remoteReader)
+			runner.SetRemoteReaderClient(failingReader)
 
 			err := runner.Start(
 				target,
@@ -98,10 +97,10 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() remoteread.TargetStatus_State {
+			Eventually(func() corev1.TaskState {
 				status, err = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(remoteread.TargetStatus_Failed))
+			}).Should(Equal(corev1.TaskState_Failed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -112,47 +111,16 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 					},
 				},
 				Message: "failed to read from target endpoint: failed",
-				State:   remoteread.TargetStatus_Failed,
+				State:   corev1.TaskState_Failed,
 			}
 
-			//Expect(status).To(Equal(expected))
 			AssertTargetStatus(expected, status)
 		})
 	})
 
 	When("editing and restarting failed import", func() {
 		It("should should", func() {
-			remoteReader := clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) agent.RemoteReader {
-				return &mockRemoteReader{
-					Responses: []*prompb.ReadResponse{
-						{
-							Results: []*prompb.QueryResult{
-								{
-									Timeseries: []*prompb.TimeSeries{
-										{
-											Labels: []prompb.Label{},
-											Samples: []prompb.Sample{
-												{
-													Value:     100,
-													Timestamp: 100,
-												},
-											},
-											Exemplars: []prompb.Exemplar{
-												{
-													Labels:    nil,
-													Value:     0,
-													Timestamp: 0,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-			})
-			runner.SetRemoteReader(remoteReader)
+			runner.SetRemoteReaderClient(newRespondingReader())
 
 			err := runner.Start(
 				target,
@@ -166,10 +134,10 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() remoteread.TargetStatus_State {
+			Eventually(func() corev1.TaskState {
 				status, err = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(remoteread.TargetStatus_Complete))
+			}).Should(Equal(corev1.TaskState_Completed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -182,10 +150,9 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 					},
 				},
 				Message: "",
-				State:   remoteread.TargetStatus_Complete,
+				State:   corev1.TaskState_Completed,
 			}
 
-			//Expect(status).To(Equal(expected))
 			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
 		})
@@ -193,6 +160,8 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 
 	When("target runner can reach target endpoint", func() {
 		It("should complete", func() {
+			runner.SetRemoteReaderClient(newRespondingReader())
+
 			err := runner.Start(
 				target,
 				&remoteread.Query{
@@ -205,10 +174,10 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() remoteread.TargetStatus_State {
+			Eventually(func() corev1.TaskState {
 				status, err = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(remoteread.TargetStatus_Complete))
+			}).Should(Equal(corev1.TaskState_Completed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -221,10 +190,9 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 					},
 				},
 				Message: "",
-				State:   remoteread.TargetStatus_Complete,
+				State:   corev1.TaskState_Completed,
 			}
 
-			//Expect(status).To(Equal(expected))
 			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
 		})

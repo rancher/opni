@@ -16,21 +16,45 @@ This would impact the AIOps Gateway plugin, Training controller service and Admi
 
 ## Implementation details: 
 
- Within the /model/train endpoint within the AIOps plugin, when it is time to train a new Deep Learning model, set the remaining time for training a new model to -1 instead of 3600 which is the previous value passed in for 1 hour. The UI service will also need to be updated to parse the -1 value to indicate that the estimate is currently being calculated. 
+ Within the /model/train endpoint within the AIOps gateway plugin, when it is time to train a new Deep Learning model, the stage will be set to fetch and then the workload watchlist is sent to the training controller service through Nats.
 
- Once the AIOps gateway sends the workloads watchlist through Nats, the training controller service will now count the total number of log messages it will be fetching from Opensearch and then it will be estimate the time to train in the following manner.
+ First, get the number of logs L that are to be fetched within Opensearch. 
+ 
+ Then that number should be divided by 10000 as that is the number of Opensearch scrolling operations that are necessary to fetch all those logs. This gives us S.
 
- Let B represent the time it takes to process one batch size of 32 training logs.
- Let C represent the total number of logs that are to be fetched within Opensearch.
+ S = L // 10000
+ 
+ Then with an estimate of 5 seconds per scrolling operation, compute the estimated time it would take for all logs to be fetched within Opensearch. This will be denoted as TFF which stands for Time for Fetching.
+ 
+ TFF = S * 5
 
- The estimated time will be calculated through this approach
-
- (C / 32) * B
-
- That result will be sent to the /model/statistics endpoint.
+ Next, when it comes to training the Deep Learning model, take the maximum between L, the number of logs that are
+ to be fetched within Opensearch and 64000 which is the current maximum number of samples of training data for the Deep Learning model. This will be denoted as M. 
+ 
+ M = max(L, 64000)
+ 
+ Then, take M and multiply it by 0.9. This is because 90% of that dataset will be used for training the Deep Learning model and the remaining 10% will be used for validation of the model. This will be denoted as MTD for Model Training Data. Round TM down to ensure that it is an integer.
+ 
+ MTD = round(0.9 * M)
+ 
+ Then, using 0.45 seconds as the amount of time for the model to train on one batch of size 32 in one epoch, multiply that rate by the number of batches calculated. This will provide the estimated time for training one epoch of the model. This will be denoted as ET for Epoch Time.
+ 
+ ET = MTD * 0.45
+ 
+ As the Deep Learning model trains for 3 epochs, multiply this by 3 to get the estimated training time of the model. This will be denoted as MTT for Model Training Time.
+ 
+ MTT = 3 * ET
+ 
+ Now, to compute the ETA for when Opni log anomaly insights will be ready, simply add TFF which is the estimated time to fetch all logs and MTT the estimated time to train the Deep Learning model and this gives us ETA.
+ 
+ ETA = TFF + MTT
+ 
+ ETA will be computed in seconds and the result will be written to the /model/statistics endpoint.
 
 ## Acceptance criteria: 
-* When it is time to train a new model, initially there should be no estimate provided for when model will be trained and initial estimate will be based on the number of logs present within the last hour and the average amount of time it takes to process 100 batches of log messages.
+* When it is time to train a new model, initially there should be no estimate provided for when model will be trained and initial estimate will be based on the the estimated time for fetching the logs and for training the model.
+* When data is being fetched, the Admin Dashboard will show a banner which says "The deployment watchlist is being updated. Data is being fetched. AI Insights should be ready in [Estimated Time]".
+* When the model is being trained, the Admin Dashboard will show a banner which says "The deployment watchlist is being updated. It is X% complete and estimated to be done in [Estimated Time]"
 
 ## Supporting documents: 
 User Story:
@@ -44,7 +68,6 @@ Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU 
 N/A
 
 ## Level of Effort: 
-* Come up with estimated amount of time that it takes to process through 1 batch of size 32 of training logs: less than a day
 * Update gateway plugin and training controller service: 1 day
 * Update UI service: 1 day
 * Test changes: 1 day

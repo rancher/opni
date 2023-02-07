@@ -9,6 +9,7 @@ import (
 	"github.com/dbason/featureflags"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,6 +56,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
+	otelForwarder       OTELForwarder
 }
 
 type PluginOptions struct {
@@ -160,6 +162,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
+		otelForwarder: OTELForwarder{
+			client: future.New[collogspb.LogsServiceClient](),
+			logger: lg.Named("otel-forwarder"),
+		},
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -226,12 +232,15 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
-	if p.opensearchManager.ShouldCreateInitialAdmin() {
-		err = loggingManager.createInitialAdmin()
-		if err != nil {
-			p.logger.Warnf("failed to create initial admin: %v", err)
+	if state := p.logging.ClusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
+		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
+		if p.opensearchManager.ShouldCreateInitialAdmin() {
+			err = loggingManager.createInitialAdmin()
+			if err != nil {
+				p.logger.Warnf("failed to create initial admin: %v", err)
+			}
 		}
+		go p.otelForwarder.InitializeOTELForwarder()
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))

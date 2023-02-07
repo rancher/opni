@@ -6,6 +6,8 @@ platform:
   os: linux
   arch: amd64
 steps:
+  - name: lint
+    image: rancher/drone-golangci-lint:latest
   - name: build-and-package
     image: docker
     environment: &dagger_env

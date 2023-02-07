@@ -105,7 +105,7 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 			var interval model.Duration
 			var err error
 			if group.Interval != "" {
-				interval, err = model.ParseDuration(group.Interval)
+				interval, err = model.ParseDuration(string(group.Interval))
 				if err != nil {
 					lg.With(
 						"group", group.Name,
@@ -117,7 +117,7 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 			for _, rule := range group.Rules {
 				var ruleFor model.Duration
 				if rule.For != "" {
-					ruleFor, err = model.ParseDuration(rule.For)
+					ruleFor, err = model.ParseDuration(string(rule.For))
 					if err != nil {
 						lg.With(
 							"group", group.Name,

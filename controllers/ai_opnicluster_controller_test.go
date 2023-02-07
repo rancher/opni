@@ -248,8 +248,7 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 			},
 			Spec: monitoringv1.PrometheusSpec{
 				CommonPrometheusFields: monitoringv1.CommonPrometheusFields{
-					ExternalURL:    "http://prometheus-test.prometheus",
-					EnableAdminAPI: false,
+					ExternalURL: "http://prometheus-test.prometheus",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewMilliQuantity(250, resource.DecimalSI),

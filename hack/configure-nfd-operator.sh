@@ -10,8 +10,8 @@ pushd "${tmp}" &>/dev/null
 
 pushd "config" &>/dev/null
 bases=$(find ./crd/bases -name "*.yaml")
-sed -i 's/nfd.kubernetes.io/nfd.opni.io/g' "${bases}"
-rename "nfd.kubernetes.io" "nfd.opni.io" "${bases}"
+sed -i 's/nfd.kubernetes.io/nfd.opni.io/g' ${bases}
+rename "nfd.kubernetes.io" "nfd.opni.io" ${bases}
 bases=$(find ./crd/bases -name "*.yaml")
 rm -rf "${config_dir}/crd/nfd"
 mkdir -p "${config_dir}"/crd/nfd

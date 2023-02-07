@@ -58,6 +58,9 @@ spec:
               mountPath: "/etc/kubernetes/node-feature-discovery/features.d"
           securityContext:
             readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]

@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	nfd "github.com/kubernetes-sigs/node-feature-discovery-operator/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
+	nfd "sigs.k8s.io/node-feature-discovery-operator/controllers"
 )
 
 // +kubebuilder:rbac:groups=nfd.opni.io,resources=nodefeaturediscoveries,verbs=get;list;watch;create;update;patch;delete
@@ -38,7 +38,8 @@ type NodeFeatureDiscoveryReconciler nfd.NodeFeatureDiscoveryReconciler
 
 func (r *NodeFeatureDiscoveryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("NodeFeatureDiscovery")
+	// todo: set up logger with klogv2
+	// r.Log = mgr.GetLogger().WithName("controllers").WithName("NodeFeatureDiscovery")
 	r.Scheme = mgr.GetScheme()
 	return (*nfd.NodeFeatureDiscoveryReconciler)(r).SetupWithManager(mgr)
 }

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/promql/parser"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -335,7 +335,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
 	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
 	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(NaN))" // handles the empty case and still differentiates between 0 and empty
-	_, err = promql.ParseExpr(sli)
+	_, err = parser.ParseExpr(sli)
 	if err != nil {
 		panic(err)
 	}

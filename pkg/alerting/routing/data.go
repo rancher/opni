@@ -184,23 +184,23 @@ func (r *RoutingTree) Equal(input any) (equal bool, reason string) {
 	selfReceiverIndex := r.indexOpniReceivers()
 	otherReceiverIndex := other.indexOpniReceivers()
 	for id, r1 := range selfReceiverIndex {
-		if r2, ok := otherReceiverIndex[id]; !ok {
+		r2, ok := otherReceiverIndex[id]
+		if !ok {
 			return false, fmt.Sprintf("configurations do not have matching receiver : %s", id)
-		} else {
-			if equal, reason := r1.Equal(r2); !equal {
-				return false, fmt.Sprintf("configurations do not have equal receivers '%s' : %s", id, reason)
-			}
+		}
+		if equal, reason := r1.Equal(r2); !equal {
+			return false, fmt.Sprintf("configurations do not have equal receivers '%s' : %s", id, reason)
 		}
 	}
 	selfRoutingIndex := r.indexOpniRoutes()
 	otherRoutingIndex := other.indexOpniRoutes()
 	for id, r1 := range selfRoutingIndex {
-		if r2, ok := otherRoutingIndex[id]; !ok {
+		r2, ok := otherRoutingIndex[id]
+		if !ok {
 			return false, fmt.Sprintf("configurations do not have matching route : %s", id)
-		} else {
-			if equal, reason := routesAreEqual(r1, r2); !equal {
-				return false, fmt.Sprintf("configurations do not have equal route '%s' : %s", id, reason)
-			}
+		}
+		if equal, reason := routesAreEqual(r1, r2); !equal {
+			return false, fmt.Sprintf("configurations do not have equal route '%s' : %s", id, reason)
 		}
 	}
 	return true, ""
@@ -294,23 +294,23 @@ func (o *OpniInternalRouting) Add(
 }
 
 func (o *OpniInternalRouting) GetFromCondition(conditionId string) (map[string]*OpniRoutingMetadata, error) {
-	if res, ok := o.Content[conditionId]; !ok {
+	res, ok := o.Content[conditionId]
+	if !ok {
 		return nil, shared.WithNotFoundError("existing condition id that is expected to exist not found in internal routing ids")
-	} else {
-		return res, nil
 	}
+	return res, nil
 }
 
 func (o *OpniInternalRouting) Get(conditionId, endpointId string) (*OpniRoutingMetadata, error) {
-	if condition, ok := o.Content[conditionId]; !ok {
+	condition, ok := o.Content[conditionId]
+	if !ok {
 		return nil, shared.WithNotFoundError("existing condition id that is expected to exist not found in internal routing ids")
-	} else {
-		if metadata, ok := condition[endpointId]; !ok {
-			return nil, shared.WithNotFoundError("existing condition/endpoint id pair that is expected to exist not found in internal routing ids")
-		} else {
-			return metadata, nil
-		}
 	}
+	metadata, ok := condition[endpointId]
+	if !ok {
+		return nil, shared.WithNotFoundError("existing condition/endpoint id pair that is expected to exist not found in internal routing ids")
+	}
+	return metadata, nil
 }
 
 func (o *OpniInternalRouting) UpdateEndpoint(conditionId, notificationId string, metadata OpniRoutingMetadata) error {
@@ -347,8 +347,7 @@ func (o *OpniInternalRouting) RemoveEndpoint(conditionId string, endpointId stri
 func (o *OpniInternalRouting) RemoveCondition(conditionId string) error {
 	if _, ok := o.Content[conditionId]; !ok {
 		return shared.WithNotFoundError("existing condition id that is expected to exist not found in internal routing ids")
-	} else {
-		delete(o.Content, conditionId)
 	}
+	delete(o.Content, conditionId)
 	return nil
 }

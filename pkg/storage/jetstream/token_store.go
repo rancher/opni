@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func (s *JetStreamStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
+func (s *JetStreamStore) CreateToken(_ context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
 	options := storage.NewTokenCreateOptions()
 	options.Apply(opts...)
 
@@ -48,7 +48,7 @@ func (s *JetStreamStore) DeleteToken(ctx context.Context, ref *corev1.Reference)
 	return s.kv.Tokens.Delete(ref.Id)
 }
 
-func (s *JetStreamStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
+func (s *JetStreamStore) GetToken(_ context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
 	token := &corev1.BootstrapToken{}
 	entry, err := s.kv.Tokens.Get(ref.Id)
 	if err != nil {

@@ -25,7 +25,7 @@ func ConfigureCortexAdminCommand(cmd *cobra.Command) {
 	}
 }
 
-func cortexAdminPreRunE(cmd *cobra.Command, args []string) error {
+func cortexAdminPreRunE(cmd *cobra.Command, _ []string) error {
 	if managementListenAddress == "" {
 		panic("bug: managementListenAddress is empty")
 	}

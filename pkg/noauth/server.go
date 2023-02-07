@@ -111,7 +111,7 @@ func (s *Server) connectToManagementAPI(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) configureWebServer(ctx context.Context, mux *http.ServeMux) {
+func (s *Server) configureWebServer(_ context.Context, mux *http.ServeMux) {
 	mux.Handle("/web/", http.FileServer(http.FS(webFS)))
 }
 

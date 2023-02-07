@@ -14,12 +14,12 @@ type jetstreamKeyValueStore struct {
 	kv nats.KeyValue
 }
 
-func (j jetstreamKeyValueStore) Put(ctx context.Context, key string, value []byte) error {
+func (j jetstreamKeyValueStore) Put(_ context.Context, key string, value []byte) error {
 	_, err := j.kv.Put(key, value)
 	return err
 }
 
-func (j jetstreamKeyValueStore) Get(ctx context.Context, key string) ([]byte, error) {
+func (j jetstreamKeyValueStore) Get(_ context.Context, key string) ([]byte, error) {
 	resp, err := j.kv.Get(key)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
@@ -30,7 +30,7 @@ func (j jetstreamKeyValueStore) Get(ctx context.Context, key string) ([]byte, er
 	return resp.Value(), nil
 }
 
-func (j jetstreamKeyValueStore) Delete(ctx context.Context, key string) error {
+func (j jetstreamKeyValueStore) Delete(_ context.Context, key string) error {
 	if _, err := j.kv.Get(key); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return storage.ErrNotFound
@@ -40,7 +40,7 @@ func (j jetstreamKeyValueStore) Delete(ctx context.Context, key string) error {
 	return j.kv.Delete(key)
 }
 
-func (j jetstreamKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+func (j jetstreamKeyValueStore) ListKeys(_ context.Context, prefix string) ([]string, error) {
 	keys, err := j.kv.Keys()
 	if err != nil {
 		if errors.Is(err, nats.ErrNoKeysFound) {

@@ -274,6 +274,11 @@ func runMonitoringAgent(ctx context.Context, agentlg logger.ExtendedSugaredLogge
 	})
 
 	bootstrapper, err := configureBootstrap(agentConfig, agentlg)
+	if err != nil {
+		agentlg.With(
+			zap.Error(err),
+		).Fatal("failed to configure bootstrap")
+	}
 
 	p, err := agentv1.New(ctx, agentConfig,
 		agentv1.WithBootstrapper(bootstrapper),

@@ -18,7 +18,7 @@ type jetstreamKeyringStore struct {
 	prefix string
 }
 
-func (ks *jetstreamKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
+func (ks *jetstreamKeyringStore) Put(_ context.Context, keyring keyring.Keyring) error {
 	k, err := keyring.Marshal()
 	if err != nil {
 		return fmt.Errorf("failed to marshal keyring: %w", err)
@@ -30,7 +30,7 @@ func (ks *jetstreamKeyringStore) Put(ctx context.Context, keyring keyring.Keyrin
 	return nil
 }
 
-func (ks *jetstreamKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
+func (ks *jetstreamKeyringStore) Get(_ context.Context) (keyring.Keyring, error) {
 	resp, err := ks.kv.Get(path.Join(ks.prefix, ks.ref.Id))
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
@@ -46,7 +46,7 @@ func (ks *jetstreamKeyringStore) Get(ctx context.Context) (keyring.Keyring, erro
 	return k, nil
 }
 
-func (ks *jetstreamKeyringStore) Delete(ctx context.Context) error {
+func (ks *jetstreamKeyringStore) Delete(_ context.Context) error {
 	err := ks.kv.Delete(path.Join(ks.prefix, ks.ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete keyring: %w", err)

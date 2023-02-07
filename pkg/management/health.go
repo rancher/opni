@@ -12,7 +12,7 @@ import (
 )
 
 func (m *Server) GetClusterHealthStatus(
-	ctx context.Context,
+	_ context.Context,
 	ref *corev1.Reference,
 ) (*corev1.HealthStatus, error) {
 	if m.healthStatusDataSource == nil {

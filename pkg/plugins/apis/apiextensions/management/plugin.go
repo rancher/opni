@@ -27,7 +27,7 @@ type managementApiExtensionPlugin struct {
 var _ plugin.GRPCPlugin = (*managementApiExtensionPlugin)(nil)
 
 func (p *managementApiExtensionPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	apiextensions.RegisterManagementAPIExtensionServer(s, p.extensionSrv)
@@ -39,7 +39,7 @@ func (p *managementApiExtensionPlugin) GRPCServer(
 
 func (p *managementApiExtensionPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
@@ -61,7 +61,7 @@ type mgmtExtensionServerImpl struct {
 	services []util.ServicePackInterface
 }
 
-func (e *mgmtExtensionServerImpl) Descriptors(ctx context.Context, _ *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
+func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 	list := &apiextensions.ServiceDescriptorProtoList{}
 	for _, s := range e.services {
 		rawDesc, _ := s.Unpack()

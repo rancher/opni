@@ -50,9 +50,8 @@ func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*al
 				return &alertops.InstallStatus{
 					State: alertops.InstallState_InstallUpdating,
 				}, nil
-			} else {
-				return nil, fmt.Errorf("failed to get opni alerting controller status %w", k8serr)
 			}
+			return nil, fmt.Errorf("failed to get opni alerting controller status %w", k8serr)
 		}
 		controller := ss.(*appsv1.StatefulSet)
 		if controller.Status.Replicas != controller.Status.AvailableReplicas ||
@@ -64,20 +63,18 @@ func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*al
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_Installed,
 		}, nil
-	} else {
-		if k8serr != nil {
-			if k8serrors.IsNotFound(k8serr) {
-				return &alertops.InstallStatus{
-					State: alertops.InstallState_NotInstalled,
-				}, nil
-			} else {
-				return nil, fmt.Errorf("failed to get opni alerting controller status %w", k8serr)
-			}
-		}
-		return &alertops.InstallStatus{
-			State: alertops.InstallState_Uninstalling,
-		}, nil
 	}
+	if k8serr != nil {
+		if k8serrors.IsNotFound(k8serr) {
+			return &alertops.InstallStatus{
+				State: alertops.InstallState_NotInstalled,
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to get opni alerting controller status %w", k8serr)
+	}
+	return &alertops.InstallStatus{
+		State: alertops.InstallState_Uninstalling,
+	}, nil
 }
 
 func (a *AlertingManager) visitNewAlertingOptions(toUpdate *shared.NewAlertingOptions) error {

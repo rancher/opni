@@ -65,7 +65,7 @@ func (t *TopologyStreamWriter) objectDef(clusterId *corev1.Reference, repr strea
 	}
 }
 
-func (t *TopologyStreamWriter) Push(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
+func (t *TopologyStreamWriter) Push(_ context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -81,7 +81,7 @@ func (t *TopologyStreamWriter) Push(ctx context.Context, payload *stream.Payload
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyStreamWriter) SyncTopology(ctx context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
+func (t *TopologyStreamWriter) SyncTopology(_ context.Context, _ *stream.Payload) (*emptypb.Empty, error) {
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}

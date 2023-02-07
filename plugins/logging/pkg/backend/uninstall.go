@@ -92,12 +92,12 @@ func (b *LoggingBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 	return &emptypb.Empty{}, nil
 }
 
-func (b *LoggingBackend) UninstallStatus(ctx context.Context, cluster *opnicorev1.Reference) (*opnicorev1.TaskStatus, error) {
+func (b *LoggingBackend) UninstallStatus(_ context.Context, cluster *opnicorev1.Reference) (*opnicorev1.TaskStatus, error) {
 	b.WaitForInit()
 	return b.UninstallController.TaskStatus(cluster.Id)
 }
 
-func (b *LoggingBackend) CancelUninstall(ctx context.Context, cluster *opnicorev1.Reference) (*emptypb.Empty, error) {
+func (b *LoggingBackend) CancelUninstall(_ context.Context, cluster *opnicorev1.Reference) (*emptypb.Empty, error) {
 	b.WaitForInit()
 	b.UninstallController.CancelTask(cluster.Id)
 	return &emptypb.Empty{}, nil

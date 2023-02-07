@@ -51,7 +51,7 @@ type queryResponse struct {
 	} `json:"data"`
 }
 
-func (t *monitor) Run(ctx context.Context, state io.ReadWriter) {
+func (t *monitor) Run(_ context.Context, state io.ReadWriter) {
 	// TODO(yingbei): implement
 
 	s := sloState{
@@ -62,61 +62,61 @@ func (t *monitor) Run(ctx context.Context, state io.ReadWriter) {
 	json.NewDecoder(state).Decode(&s)
 
 	// example code:
-	for {
-		// get current value of the SLI metric
-		// query range: say last 1 min, it needs a start time, end time, step
+	//for {
+	// get current value of the SLI metric
+	// query range: say last 1 min, it needs a start time, end time, step
 
-		// var query = "opni_rt_slo_status"
-		// query = t.slo.Name
-		// resp, err := t.cortexAdminClient.QueryRange(context.Background(), &cortexadmin.QueryRequest{
-		// 	Tenants: []string{t.slo.ClusterId},
-		// 	Query:   query,
-		// })
-		// if err != nil {
+	// var query = "opni_rt_slo_status"
+	// query = t.slo.Name
+	// resp, err := t.cortexAdminClient.QueryRange(context.Background(), &cortexadmin.QueryRequest{
+	// 	Tenants: []string{t.slo.ClusterId},
+	// 	Query:   query,
+	// })
+	// if err != nil {
 
-		// }
-		// qr := queryResponse{}
-		// json.Unmarshal(resp.Data, &qr)
-		// var sliMetric = qr.data.result[0].value
-		// var sloMetric = 0.0
-		// // apply formulars, for now we can suport sum, average, percentile(99%)?
-		// if t.slo.FormulaId == "1" {
-		// 	sloMetric = sum(sliMetric)
-		// } else {
-		// 	sloMetric = mean(sliMetric)
-		// }
+	// }
+	// qr := queryResponse{}
+	// json.Unmarshal(resp.Data, &qr)
+	// var sliMetric = qr.data.result[0].value
+	// var sloMetric = 0.0
+	// // apply formulars, for now we can suport sum, average, percentile(99%)?
+	// if t.slo.FormulaId == "1" {
+	// 	sloMetric = sum(sliMetric)
+	// } else {
+	// 	sloMetric = mean(sliMetric)
+	// }
 
-		// //comapre to targets, assuming do smaller( < ) , and calculate error budget accordingly
-		// //TODO: slo need a start date or created date
-		// for _, threshold := range t.slo.Targets { // Timewindow = [[7days, 99.5%], [300days, 99.95%]], Targets = [200ms, 200ms]
-		// 	var timeWindow, percentage = t.slo.TimeWindow[0], t.slo.TimeWindow[1]
-		// 	var totalErrorBudget = timeWindow * (1 - percentage) * 24 * 60 * 60 // seconds
-		// 	var remainingBudget float64
-		// 	if sloMetric < threshold {
-		// 		// a Normal case
-		// 	} else {
-		// 		// an Error case that reduce available error budget
-		// 		t.sloStatus.errorBudget -= 60 // seconds, value depends on the scrape interval
-		// 		remainingBudget = t.sloStatus.errorBudget
+	// //comapre to targets, assuming do smaller( < ) , and calculate error budget accordingly
+	// //TODO: slo need a start date or created date
+	// for _, threshold := range t.slo.Targets { // Timewindow = [[7days, 99.5%], [300days, 99.95%]], Targets = [200ms, 200ms]
+	// 	var timeWindow, percentage = t.slo.TimeWindow[0], t.slo.TimeWindow[1]
+	// 	var totalErrorBudget = timeWindow * (1 - percentage) * 24 * 60 * 60 // seconds
+	// 	var remainingBudget float64
+	// 	if sloMetric < threshold {
+	// 		// a Normal case
+	// 	} else {
+	// 		// an Error case that reduce available error budget
+	// 		t.sloStatus.errorBudget -= 60 // seconds, value depends on the scrape interval
+	// 		remainingBudget = t.sloStatus.errorBudget
 
-		// 		// TODO: Warnings depends on remainingBudget
-		// 		// hard warning threshold, optional now
-		// 		if remainingBudget < warningThreshold {
-		// 			// do somehthing warning
-		// 		}
-		// 		//burning rate
-		// 		// if remainingBudget/totalErrorBudget < (currentTime-startTime)/timeWindow {
+	// 		// TODO: Warnings depends on remainingBudget
+	// 		// hard warning threshold, optional now
+	// 		if remainingBudget < warningThreshold {
+	// 			// do somehthing warning
+	// 		}
+	// 		//burning rate
+	// 		// if remainingBudget/totalErrorBudget < (currentTime-startTime)/timeWindow {
 
-		// 		// }
-		// 	}
-		// }
+	// 		// }
+	// 	}
+	// }
 
-		// t.sloStatus.With(prometheus.Labels{
-		// 	"metric_name": "foo",
-		// 	"target":      strconv.FormatUint(t.slo.Targets[0].ValueX100, 10),
-		// 	"desc":        "todo",
-		// }).Set(0)
+	// t.sloStatus.With(prometheus.Labels{
+	// 	"metric_name": "foo",
+	// 	"target":      strconv.FormatUint(t.slo.Targets[0].ValueX100, 10),
+	// 	"desc":        "todo",
+	// }).Set(0)
 
-		// time.Sleep(1)
-	}
+	// time.Sleep(1)
+	//}
 }

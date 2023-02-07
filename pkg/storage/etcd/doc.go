@@ -15,10 +15,10 @@ Key layout:
 ├── keyrings/
 │   └── <cluster-id>/
 │       └── <capability-id>: keyring.Keyring
-└── kv/
-    ├── <prefix1>/
-    │   └── ...
-    └── <prefix2>/
-        └── ...
+│── kv/
+│	├── <prefix1>/
+│	│   └── ...
+│	└── <prefix2>/
+│	    └── ...
 */
 package etcd

@@ -28,11 +28,11 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	}
 	switch value := value.(type) {
 	case string:
-		if parsed, err := time.ParseDuration(value); err != nil {
+		parsed, err := time.ParseDuration(value)
+		if err != nil {
 			return err
-		} else {
-			*d = Duration(parsed)
 		}
+		*d = Duration(parsed)
 	case float64:
 		*d = Duration(time.Duration(value))
 	default:

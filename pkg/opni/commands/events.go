@@ -23,7 +23,7 @@ func BuildEventsCmd() *cobra.Command {
 	return command
 }
 
-func doEvents(cmd *cobra.Command, args []string) error {
+func doEvents(cmd *cobra.Command, _ []string) error {
 	collector := events.NewEventCollector(cmd.Context(), shipperEndpoint)
 	return collector.Run(cmd.Context().Done())
 }

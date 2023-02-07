@@ -730,7 +730,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			// check the recording rule names to make sure they return data
 			Eventually(func() error {
 				for _, rawRule := range rrecording.Rules {
-					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule.Expr, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(ctx, adminClient, rawRule.Expr, "agent")
 					if err != nil {
 						return err
 					}
@@ -749,7 +749,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 
 			Eventually(func() error {
 				for _, rawRule := range rmetadata.Rules {
-					ruleVector, err := slo.QuerySLOComponentByRecordName(adminClient, ctx, rawRule.Record, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRecordName(ctx, adminClient, rawRule.Record, "agent")
 					if err != nil {
 						return err
 					}
@@ -776,7 +776,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				//alertRules = append(alertRules, rawCriticalAlertQueryComponents...)
 				alertRules := []string{rawSevereAlertQuery, rawCriticalAlertQuery}
 				for _, rawRule := range alertRules {
-					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(ctx, adminClient, rawRule, "agent")
 					if err != nil {
 						return err
 					}

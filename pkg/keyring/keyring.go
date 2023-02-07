@@ -13,9 +13,10 @@ var (
 var allowedKeyTypes = map[reflect.Type]struct{}{}
 
 type completeKeyring struct {
-	SharedKeys []*SharedKeys `json:"sharedKeys,omitempty"`
-	PKPKey     []*PKPKey     `json:"pkpKey,omitempty"`
-	CACertsKey []*CACertsKey `json:"caCertsKey,omitempty"`
+	SharedKeys   []*SharedKeys   `json:"sharedKeys,omitempty"`
+	PKPKey       []*PKPKey       `json:"pkpKey,omitempty"`
+	CACertsKey   []*CACertsKey   `json:"caCertsKey,omitempty"`
+	EphemeralKey []*EphemeralKey `json:"-"`
 }
 
 func init() {
@@ -28,21 +29,21 @@ func init() {
 	}
 }
 
-type UseKeyFn interface{} // func(*KeyringType)
+type UseKeyFn any // func(*KeyringType)
 
 type Keyring interface {
 	Try(...UseKeyFn) bool
-	ForEach(func(key interface{}))
+	ForEach(func(key any))
 	Marshal() ([]byte, error)
 	Merge(Keyring) Keyring
 }
 
 type keyring struct {
-	Keys map[reflect.Type][]interface{}
+	Keys map[reflect.Type][]any
 }
 
-func New(keys ...interface{}) Keyring {
-	m := map[reflect.Type][]interface{}{}
+func New(keys ...any) Keyring {
+	m := map[reflect.Type][]any{}
 	for _, key := range keys {
 		t := reflect.TypeOf(key)
 		if _, ok := allowedKeyTypes[t]; !ok {
@@ -56,11 +57,11 @@ func New(keys ...interface{}) Keyring {
 }
 
 func (kr *keyring) Merge(other Keyring) Keyring {
-	keys := []interface{}{}
-	kr.ForEach(func(key interface{}) {
+	keys := []any{}
+	kr.ForEach(func(key any) {
 		keys = append(keys, key)
 	})
-	other.ForEach(func(key interface{}) {
+	other.ForEach(func(key any) {
 		keys = append(keys, key)
 	})
 	return New(keys...)
@@ -88,7 +89,7 @@ func (kr *keyring) Try(fns ...UseKeyFn) bool {
 	return found
 }
 
-func (kr *keyring) ForEach(fn func(key interface{})) {
+func (kr *keyring) ForEach(fn func(key any)) {
 	for _, l := range kr.Keys {
 		for _, k := range l {
 			fn(k)
@@ -121,7 +122,7 @@ func Unmarshal(data []byte) (Keyring, error) {
 	}
 	completePtr := reflect.ValueOf(&complete)
 	fields := reflect.TypeOf(complete).NumField()
-	values := []interface{}{}
+	values := []any{}
 	for i := 0; i < fields; i++ {
 		field := completePtr.Elem().Field(i)
 		if !field.IsNil() && field.Kind() == reflect.Slice {

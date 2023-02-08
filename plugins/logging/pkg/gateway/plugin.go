@@ -34,11 +34,14 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	OpensearchBindingName = "opni-logging"
+	OpensearchBindingName    = "opni-logging"
+	OpniPreprocessingAddress = "opni-preprocess-otel"
+	OpniPreprocessingPort    = 4317
 )
 
 type Plugin struct {
@@ -56,7 +59,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
-	otelForwarder       OTELForwarder
+	otelForwarder       *loggingutil.OTELForwarder
 }
 
 type PluginOptions struct {
@@ -162,9 +165,9 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
-		otelForwarder: OTELForwarder{
-			client: future.New[collogspb.LogsServiceClient](),
-			logger: lg.Named("otel-forwarder"),
+		otelForwarder: &loggingutil.OTELForwarder{
+			Client: future.New[collogspb.LogsServiceClient](),
+			Logger: lg.Named("otel-forwarder"),
 		},
 	}
 
@@ -240,7 +243,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p.logger.Warnf("failed to create initial admin: %v", err)
 			}
 		}
-		go p.otelForwarder.InitializeOTELForwarder()
+		go p.otelForwarder.InitializeOTELForwarder(
+			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
+		)
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))

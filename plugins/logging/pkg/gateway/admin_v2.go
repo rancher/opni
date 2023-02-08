@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -80,6 +81,7 @@ type LoggingManagerV2 struct {
 	logger            *zap.SugaredLogger
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	opensearchManager *opensearchdata.Manager
+	otelForwarder     *loggingutil.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
 	versionOverride   string
@@ -177,6 +179,10 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
+	go m.otelForwarder.InitializeOTELForwarder(
+		loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
+	)
+
 	exists := true
 	err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,

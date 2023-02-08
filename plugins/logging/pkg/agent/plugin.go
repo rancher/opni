@@ -12,13 +12,15 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/events"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"go.uber.org/zap"
 )
 
 type Plugin struct {
-	ctx    context.Context
-	logger *zap.SugaredLogger
-	node   *LoggingNode
+	ctx           context.Context
+	logger        *zap.SugaredLogger
+	node          *LoggingNode
+	otelForwarder *loggingutil.OTELForwarder
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

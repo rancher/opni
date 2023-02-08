@@ -25,7 +25,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	m.Lock()
 	defer m.Unlock()
 
-	m.kv.SetClient(m.setJetStream)
+	m.kv.SetClient(m.setJetStream, false)
 	m.kv.WaitForInit()
 
 	var createNewJob bool
@@ -35,7 +35,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	}
 
 	if idExists {
-		entry, err := m.kv.Get(id)
+		entry, err := m.kv.Client.Get(id)
 		if err != nil {
 			return nil
 		}
@@ -47,9 +47,9 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	query, _ := sjson.Set("", `query.term.cluster_id`, id)
 	if createNewJob {
 		if idExists {
-			_, err = m.kv.PutString(id, pendingValue)
+			_, err = m.kv.Client.PutString(id, pendingValue)
 		} else {
-			_, err = m.kv.Create(id, []byte(pendingValue))
+			_, err = m.kv.Client.Create(id, []byte(pendingValue))
 		}
 		if err != nil {
 			return err
@@ -68,7 +68,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
 		m.logger.Debugf("opensearch taskID is :%s", taskID)
-		_, err = m.kv.PutString(id, taskID)
+		_, err = m.kv.Client.PutString(id, taskID)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteFinishedWithErrors, nil
 	}
 
-	value, err := m.kv.Get(id)
+	value, err := m.kv.Client.Get(id)
 	if err != nil {
 		return DeleteError, err
 	}
@@ -136,7 +136,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteFinishedWithErrors, nil
 	}
 
-	err = m.kv.Delete(id)
+	err = m.kv.Client.Delete(id)
 	if err != nil {
 		return DeleteError, err
 	}

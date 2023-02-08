@@ -18,11 +18,11 @@ const (
 
 func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.WaitForInit()
-	m.kv.SetClient(m.setJetStream)
+	m.kv.SetClient(m.setJetStream, false)
 	m.kv.WaitForInit()
 
 	m.adminInitStateRW.Lock()
-	_, err := m.kv.PutString(initialAdminKey, initialAdminPending)
+	_, err := m.kv.Client.PutString(initialAdminKey, initialAdminPending)
 	if err != nil {
 		m.logger.Warnf("failed to store initial admin state: %v", err)
 	}
@@ -74,7 +74,7 @@ CREATE:
 	}
 
 	m.adminInitStateRW.Lock()
-	_, err = m.kv.PutString(initialAdminKey, initialAdminCreated)
+	_, err = m.kv.Client.PutString(initialAdminKey, initialAdminCreated)
 	if err != nil {
 		m.logger.Warnf("failed to store initial admin state: %v", err)
 	}
@@ -121,7 +121,7 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 }
 
 func (m *Manager) ShouldCreateInitialAdmin() bool {
-	m.kv.SetClient(m.setJetStream)
+	m.kv.SetClient(m.setJetStream, false)
 	m.kv.WaitForInit()
 
 	m.adminInitStateRW.RLock()
@@ -138,7 +138,7 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 		return false
 	}
 
-	adminState, err := m.kv.Get(initialAdminKey)
+	adminState, err := m.kv.Client.Get(initialAdminKey)
 	if err != nil {
 		m.logger.Errorf("failed to check initial admin state: %v", err)
 		return false
@@ -158,10 +158,10 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 }
 
 func (m *Manager) DeleteInitialAdminState() error {
-	m.kv.SetClient(m.setJetStream)
+	m.kv.SetClient(m.setJetStream, false)
 	m.kv.WaitForInit()
 	m.adminInitStateRW.Lock()
 	defer m.adminInitStateRW.Unlock()
 
-	return m.kv.Delete(initialAdminKey)
+	return m.kv.Client.Delete(initialAdminKey)
 }

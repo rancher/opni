@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
-	"github.com/rancher/opni/pkg/util/future"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -18,13 +17,15 @@ const (
 )
 
 type OTELForwarder struct {
-	Client future.Future[collogspb.LogsServiceClient]
-	Logger *zap.SugaredLogger
+	opts otelForwarderOptions
+
+	Client *AsyncClient[collogspb.LogsServiceClient]
 }
 
 type otelForwarderOptions struct {
 	collectorAddressOverride string
 	cc                       grpc.ClientConnInterface
+	lg                       *zap.SugaredLogger
 }
 
 type OTELForwarderOption func(*otelForwarderOptions)
@@ -47,13 +48,33 @@ func WithClientConn(cc grpc.ClientConnInterface) OTELForwarderOption {
 	}
 }
 
-func (f *OTELForwarder) InitializeOTELForwarder(opts ...OTELForwarderOption) {
+func WithLogger(lg *zap.SugaredLogger) OTELForwarderOption {
+	return func(o *otelForwarderOptions) {
+		o.lg = lg
+	}
+}
+
+func NewOTELForwarder(opts ...OTELForwarderOption) *OTELForwarder {
 	options := otelForwarderOptions{
 		collectorAddressOverride: defaultAddress,
 	}
 	options.apply(opts...)
+	return &OTELForwarder{
+		opts:   options,
+		Client: NewAsyncClient[collogspb.LogsServiceClient](),
+	}
+}
 
-	if options.cc == nil {
+func (f *OTELForwarder) UpdateOptions(opts ...OTELForwarderOption) {
+	f.opts.apply(opts...)
+}
+
+func (f *OTELForwarder) SetClient(alwaysSet bool) {
+	go f.Client.SetClient(f.initializeOTELForwarder, alwaysSet)
+}
+
+func (f *OTELForwarder) initializeOTELForwarder() collogspb.LogsServiceClient {
+	if f.opts.cc == nil {
 		ctx := context.Background()
 		expBackoff := backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -66,31 +87,30 @@ func (f *OTELForwarder) InitializeOTELForwarder(opts ...OTELForwarderOption) {
 		for {
 			select {
 			case <-b.Done():
-				f.Logger.Warn("plugin context cancelled before gRPC client created")
-				return
+				f.opts.lg.Warn("plugin context cancelled before gRPC client created")
+				return nil
 			case <-b.Next():
 				conn, err := grpc.Dial(
-					options.collectorAddressOverride,
+					f.opts.collectorAddressOverride,
 					grpc.WithBlock(),
 				)
 				if err != nil {
-					f.Logger.Errorf("failed dial grpc: %v", err)
+					f.opts.lg.Errorf("failed dial grpc: %v", err)
 					continue
 				}
-				f.Client.Set(collogspb.NewLogsServiceClient(conn))
-				return
+				return collogspb.NewLogsServiceClient(conn)
 			}
 		}
 	}
-	f.Client.Set(collogspb.NewLogsServiceClient(options.cc))
+	return collogspb.NewLogsServiceClient(f.opts.cc)
 }
 
 func (f *OTELForwarder) Export(
 	ctx context.Context,
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
-	if f.Client.IsSet() {
-		return f.Client.Get().Export(ctx, request)
+	if f.Client.IsInitialized() {
+		return f.Client.Client.Export(ctx, request)
 	}
 	return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 }

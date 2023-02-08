@@ -25,7 +25,10 @@ func (p *Plugin) StreamServers() []streamext.Server {
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	nodeClient := node.NewNodeLoggingCapabilityClient(cc)
 	p.node.SetClient(nodeClient)
-	p.otelForwarder.InitializeOTELForwarder(loggingutil.WithClientConn(cc))
+
+	p.otelForwarder.UpdateOptions(loggingutil.WithClientConn(cc))
+	p.otelForwarder.SetClient(true)
+	p.otelForwarder.Client.WaitForInit()
 }
 
 func (p *Plugin) StreamDisconnected() {

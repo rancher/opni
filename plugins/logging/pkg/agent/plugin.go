@@ -29,9 +29,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
-		ctx:    ctx,
-		logger: lg,
-		node:   NewLoggingNode(ct, lg),
+		ctx:           ctx,
+		logger:        lg,
+		node:          NewLoggingNode(ct, lg),
+		otelForwarder: loggingutil.NewOTELForwarder(),
 	}
 
 	if d, err := kubernetes.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {

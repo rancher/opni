@@ -2,7 +2,7 @@
 Improve estimate for workload model training time
 
 ## Summary: 
-Currently, when a user would like to train a Deep Learning model on a watchlist of workloads, once they hit the button to update the watchlist, a default estimate of 1 hour is provided for the training of a Deep Learning model. I propose an approach where based on the number of logs that are to be fetched initially, we estimate the 
+Currently, when a user would like to train a Deep Learning model on a watchlist of workloads, once they hit the button to update the watchlist, a default estimate of 1 hour is provided for the training of a Deep Learning model. I propose an approach where our estimate for when the AIOps insights will be ready will be broken down into three components. The first component estimates how long it will take to fetch all logs from Opensearch. The second component estimates how long it takes to mask those log messages. The third component estimates the time taken to train the Deep Learning model. 
 
 ## Use case: 
 This will give a more accurate estimate of the completion time of the Deep Learning model trained on the watchlist of workloads. 
@@ -28,6 +28,10 @@ This would impact the AIOps Gateway plugin, Training controller service and Admi
  
  TFF = S * 5
 
+ Next, when it comes to estimating the time it takes to mask log messages, with an estimate of 0.005 seconds to mask one message, compute the estimated amount of time to mask all log messages. This will be denoted as TTM for Time to Mask.
+
+ TTM = L * 0.005
+
  Next, when it comes to training the Deep Learning model, take the maximum between L, the number of logs that are
  to be fetched within Opensearch and 64000 which is the current maximum number of samples of training data for the Deep Learning model. This will be denoted as M. 
  
@@ -45,9 +49,9 @@ This would impact the AIOps Gateway plugin, Training controller service and Admi
  
  MTT = 3 * ET
  
- Now, to compute the ETA for when Opni log anomaly insights will be ready, simply add TFF which is the estimated time to fetch all logs and MTT the estimated time to train the Deep Learning model and this gives us ETA.
+ Now, to compute the ETA for when Opni log anomaly insights will be ready, simply add TFF which is the estimated time to fetch all logs, TTM which is the estimated time to mask all log messages and MTT the estimated time to train the Deep Learning model and this gives us ETA.
  
- ETA = TFF + MTT
+ ETA = TFF + TTM + MTT
  
  ETA will be computed in seconds and the result will be written to the /model/statistics endpoint.
 

@@ -18,7 +18,7 @@ require (
 	github.com/banzaicloud/operator-tools v0.28.10
 	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cert-manager/cert-manager v1.10.2
+	github.com/cert-manager/cert-manager v1.11.0
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0

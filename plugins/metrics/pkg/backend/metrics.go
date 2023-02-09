@@ -458,7 +458,9 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 
 	if request.Target.Status == nil {
 		request.Target.Status = &remoteread.TargetStatus{
-			LastReadTimestamp: &timestamppb.Timestamp{},
+			Progress: &remoteread.TargetProgress{},
+			Message:  "",
+			State:    remoteread.TargetStatus_NotRunning,
 		}
 	}
 

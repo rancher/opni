@@ -52,11 +52,10 @@ message TargetStatus {
     Stopped = 4;
   }
 
-  google.protobuf.Timestamp startTimestamp = 1;
-  google.protobuf.Timestamp lastReadTimestamp = 2;
-  google.protobuf.Timestamp endTimestamp = 3;
-  string message = 4;
-  State state = 5;
+  // this is the progress of the last known import
+  TargetProgress progress = 1;
+  string message = 2;
+  State state = 3;
 }
 
 message TargetSpec {
@@ -70,6 +69,12 @@ message TargetDiff {
 
 message TargetList {
   repeated Target targets = 1;
+}
+
+message TargetProgress {
+  google.protobuf.Timestamp startTimestamp = 1;
+  google.protobuf.Timestamp lastReadTimestamp = 2;
+  google.protobuf.Timestamp endTimestamp = 3;
 }
 
 message TargetAddRequest {

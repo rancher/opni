@@ -92,7 +92,7 @@ func (run *Run) stopped() {
 }
 
 func (run *Run) updateLastRead(lastReadSec int64) {
-	run.target.Status.LastReadTimestamp = timestamppb.New(time.UnixMilli(lastReadSec))
+	run.target.Status.Progress.LastReadTimestamp = timestamppb.New(time.UnixMilli(lastReadSec))
 }
 
 // todo: add context
@@ -188,6 +188,11 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 	runner.runsMu.Lock()
 	runner.runs[run.target.Meta.Name] = run
 	runner.runsMu.Unlock()
+
+	run.target.Status.Progress = &remoteread.TargetProgress{
+		StartTimestamp: run.query.StartTimestamp,
+		EndTimestamp:   run.query.EndTimestamp,
+	}
 
 	labelMatchers := toLabelMatchers(run.query.Matchers)
 

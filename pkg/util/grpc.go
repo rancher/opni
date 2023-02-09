@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/zeebo/xxh3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -29,7 +29,7 @@ const (
 	GrpcNoCache = "no-cache"
 	// server can also manually set this to revalidate the cache
 	GrpcMustRevalidateCache = "must-revalidate"
-	Grpc
+	GrpcIgnoreCustomKeys    = "ignore-cache-keyer"
 
 	GrpcCacheHit  = "hit"
 	GrpcCacheMiss = "miss"
@@ -86,6 +86,10 @@ func WithGrpcClientCaching(ctx context.Context, d time.Duration) context.Context
 	return WithCacheControlHeaders(ctx, CacheTypeClient, GrpcMaxAge(d))
 }
 
+func WithIgnoreServerCacheKeys(ctx context.Context) context.Context {
+	return WithCacheControlHeaders(ctx, CacheTypeClient, GrpcIgnoreCustomKeys)
+}
+
 func WithBypassCache(ctx context.Context) context.Context {
 	return WithCacheControlHeaders(
 		WithCacheControlHeaders(ctx, CacheTypeClient, GrpcNoCache),
@@ -128,7 +132,16 @@ func ForceClientCaching(ctx context.Context, ttl time.Duration) {
 }
 
 func (g *GrpcClientEntityCacher) hash(method string, req proto.Message) string {
-	return HashStrings([]string{method, string(Must(protojson.Marshal(req)))})
+	return HashStrings([]string{method, string(Must(proto.Marshal(req)))})
+}
+
+func ignoreCustomKeys(md metadata.MD, cacheType string) bool {
+	for _, v := range md.Get(GrpcCacheControlHeader(cacheType)) {
+		if v == GrpcIgnoreCustomKeys {
+			return true
+		}
+	}
+	return false
 }
 
 func noCache(md metadata.MD, cacheType string) bool {
@@ -222,6 +235,18 @@ func (g *GrpcClientEntityCacher) UnaryServerInterceptor() grpc.UnaryServerInterc
 	}
 }
 
+func (g *GrpcClientEntityCacher) key(method string, req proto.Message, ignoreCustomKeys bool) string {
+	if ignoreCustomKeys {
+		return g.hash(method, req)
+	}
+	val := reflect.Indirect(reflect.ValueOf(req))
+	typ := val.Type() // get the type of the underlying value
+	if reflect.PtrTo(typ).Implements(reflect.TypeOf((*caching.CacheKeyer)(nil)).Elem()) {
+		return req.(caching.CacheKeyer).CacheKey()
+	}
+	return g.hash(method, req)
+}
+
 func (g *GrpcClientEntityCacher) UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		var lookupKey string
@@ -234,9 +259,9 @@ func (g *GrpcClientEntityCacher) UnaryClientInterceptor() grpc.UnaryClientInterc
 
 		// always try to
 		if !ok || shouldLookup(clientMd) {
-			// check if we have a cached value
-			lookupKey = g.hash(method, req.(proto.Message))
+			lookupKey = g.key(method, req.(proto.Message), ignoreCustomKeys(clientMd, g.cacheType))
 			if cachedResp, ok := g.Get(lookupKey); ok {
+				//set underlying data in protobuf to the cached resp
 				grpc.SetHeader(ctx, cacheHit(g.cacheType))
 				replyValue := reflect.ValueOf(reply).Elem()
 				replyValue.Set(reflect.Indirect(reflect.ValueOf(cachedResp)))
@@ -244,7 +269,7 @@ func (g *GrpcClientEntityCacher) UnaryClientInterceptor() grpc.UnaryClientInterc
 			}
 		}
 
-		// otherwise, let's handle the caching of this request
+		// otherwise, let's handle the rest of this request
 		var cacheStatus metadata.MD
 		err := invoker(ctx, method, req, reply, cc,
 			append(opts,
@@ -255,17 +280,18 @@ func (g *GrpcClientEntityCacher) UnaryClientInterceptor() grpc.UnaryClientInterc
 			return err
 		}
 		if isCacheMiss(cacheStatus, g.cacheType) {
-			// cache miss
-			storeKey = g.hash(method, req.(proto.Message))
 			if shouldGrpcCache(clientMd, g.cacheType) {
+				storeKey = g.key(method, req.(proto.Message), ignoreCustomKeys(clientMd, g.cacheType))
 				g.Set(storeKey, reply.(proto.Message), getTTL(clientMd, g.cacheType))
 			}
 			if shouldGrpcCache(cacheStatus, g.cacheType) {
+				storeKey = g.key(method, req.(proto.Message), ignoreCustomKeys(clientMd, g.cacheType))
 				g.Set(storeKey, reply.(proto.Message), getTTL(cacheStatus, g.cacheType))
 			}
 		} else {
 			if shouldGrpcRevalidate(cacheStatus, g.cacheType) || shouldGrpcRevalidate(clientMd, g.cacheType) {
-				g.Set(g.hash(method, req.(proto.Message)), reply.(proto.Message), g.MaxAge())
+				storeKey = g.key(method, req.(proto.Message), ignoreCustomKeys(clientMd, g.cacheType))
+				g.Set(storeKey, reply.(proto.Message), g.MaxAge())
 			}
 		}
 		return nil

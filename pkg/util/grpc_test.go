@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/caching"
@@ -217,6 +218,78 @@ func BuildCachingInterceptorSuite(
 				Eventually(func() int64 {
 					return util.Must(testServer.GetValue(ctx, &emptypb.Empty{})).Value
 				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(aggregate)))
+			})
+
+			Specify("proto messages can implement their own cache keys", func() {
+				var _ caching.CacheKeyer = (*testgrpc.ObjectReference)(nil)
+
+				id1, id2 := uuid.New().String(), uuid.New().String()
+				_, err := testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+					Id: &testgrpc.ObjectReference{
+						Id: id1,
+					},
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+
+				_, err = testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+					Id: &testgrpc.ObjectReference{
+						Id: id2,
+					},
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+
+				By("sanity checking ObjectReference's use of cache key")
+				value, err := testClient.GetObjectValue(
+					util.WithGrpcClientCaching(ctx, 5*time.Second),
+					&testgrpc.ObjectReference{
+						Id: id1,
+					})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(1)))
+
+				_, err = testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+					Id: &testgrpc.ObjectReference{
+						Id: id2,
+					},
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+
+				// no cache requested for object
+				value, err = testClient.GetObjectValue(
+					util.WithGrpcClientCaching(ctx, 5*time.Second),
+					&testgrpc.ObjectReference{
+						Id: id2,
+					})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(2)))
+
+				By("verifying that the client can opt out of server's cache keys")
+				ctxMetadata := util.WithGrpcClientCaching(util.WithIgnoreServerCacheKeys(ctx), 5*time.Second)
+				_, err = testClient.IncrementObject(
+					ctxMetadata,
+					&testgrpc.IncrementObjectRequest{
+						Id: &testgrpc.ObjectReference{
+							Id: id1,
+						},
+						Value: 2,
+					},
+				)
+				Expect(err).To(Succeed())
+				// client-side requests this object without server-set cache keys
+				value, err = testClient.GetObjectValue(util.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
+					Id: id1,
+				})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(3)))
+
+				value, err = testClient.GetObjectValue(ctx, &testgrpc.ObjectReference{
+					Id: id1,
+				})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(1)))
 			})
 		})
 	})

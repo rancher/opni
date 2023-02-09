@@ -11,6 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+// CacheKeyer opt-in interface that proto messages implement.
+// Used to determine if they are unique without hashing
+type CacheKeyer interface {
+	CacheKey() string
+}
+
 type InMemoryHttpTtlCache struct {
 	cache *ccache.Cache
 

@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
@@ -68,6 +67,14 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 			},
 			Status: nil,
 		}
+
+		query = &remoteread.Query{
+			StartTimestamp: &timestamppb.Timestamp{},
+			EndTimestamp: &timestamppb.Timestamp{
+				Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
+			},
+			Matchers: nil,
+		}
 	)
 
 	BeforeEach(func() {
@@ -81,37 +88,46 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 		}))
 	})
 
+	When("target status are not running", func() {
+		It("cannot get status", func() {
+			status, err := runner.GetStatus("test")
+			AssertTargetStatus(&remoteread.TargetStatus{
+				Progress: nil,
+				Message:  "",
+				State:    remoteread.TargetState_NotRunning,
+			}, status)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("cannot stop", func() {
+			err := runner.Stop("test")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	When("target runner cannot reach target endpoint", func() {
 		It("should fail", func() {
 			runner.SetRemoteReaderClient(failingReader)
 
-			err := runner.Start(
-				target,
-				&remoteread.Query{
-					StartTimestamp: &timestamppb.Timestamp{},
-					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
-					},
-					Matchers: nil,
-				})
+			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() corev1.TaskState {
-				status, err = runner.GetStatus(target.Meta.Name)
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(corev1.TaskState_Failed))
+			}).Should(Equal(remoteread.TargetState_Failed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
 					StartTimestamp:    &timestamppb.Timestamp{},
-					LastReadTimestamp: nil,
+					LastReadTimestamp: &timestamppb.Timestamp{},
 					EndTimestamp: &timestamppb.Timestamp{
 						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
 				Message: "failed to read from target endpoint: failed",
-				State:   corev1.TaskState_Failed,
+				State:   remoteread.TargetState_Failed,
 			}
 
 			AssertTargetStatus(expected, status)
@@ -119,25 +135,17 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 	})
 
 	When("editing and restarting failed import", func() {
-		It("should should", func() {
+		It("should succeed", func() {
 			runner.SetRemoteReaderClient(newRespondingReader())
 
-			err := runner.Start(
-				target,
-				&remoteread.Query{
-					StartTimestamp: &timestamppb.Timestamp{},
-					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
-					},
-					Matchers: nil,
-				})
+			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() corev1.TaskState {
-				status, err = runner.GetStatus(target.Meta.Name)
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(corev1.TaskState_Completed))
+			}).Should(Equal(remoteread.TargetState_Completed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -150,7 +158,7 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 					},
 				},
 				Message: "",
-				State:   corev1.TaskState_Completed,
+				State:   remoteread.TargetState_Completed,
 			}
 
 			AssertTargetStatus(expected, status)
@@ -162,22 +170,14 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 		It("should complete", func() {
 			runner.SetRemoteReaderClient(newRespondingReader())
 
-			err := runner.Start(
-				target,
-				&remoteread.Query{
-					StartTimestamp: &timestamppb.Timestamp{},
-					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(), // ensures only 1 import cycle will occur
-					},
-					Matchers: nil,
-				})
+			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
 
 			var status *remoteread.TargetStatus
-			Eventually(func() corev1.TaskState {
-				status, err = runner.GetStatus(target.Meta.Name)
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(corev1.TaskState_Completed))
+			}).Should(Equal(remoteread.TargetState_Completed))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
@@ -190,7 +190,7 @@ var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
 					},
 				},
 				Message: "",
-				State:   corev1.TaskState_Completed,
+				State:   remoteread.TargetState_Completed,
 			}
 
 			AssertTargetStatus(expected, status)

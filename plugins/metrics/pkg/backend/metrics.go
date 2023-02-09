@@ -451,7 +451,7 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 		request.Target.Status = &remoteread.TargetStatus{
 			Progress: &remoteread.TargetProgress{},
 			Message:  "",
-			State:    corev1.TaskState_Pending,
+			State:    remoteread.TargetState_Running,
 		}
 	}
 
@@ -477,7 +477,7 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 		return nil, fmt.Errorf("could not check on target status: %w", err)
 	}
 
-	if status.State == corev1.TaskState_Running {
+	if status.State == remoteread.TargetState_Running {
 		return nil, fmt.Errorf("can not edit running target")
 	}
 
@@ -528,7 +528,7 @@ func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.T
 		return nil, fmt.Errorf("could not check on target status: %w", err)
 	}
 
-	if status.State == corev1.TaskState_Running {
+	if status.State == remoteread.TargetState_Running {
 		return nil, fmt.Errorf("can not edit running target")
 	}
 
@@ -558,7 +558,6 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 	m.remoteReadTargetMu.RLock()
 	defer m.remoteReadTargetMu.RUnlock()
 
-	// todo: we can probably shrink this later
 	inner := make([]*remoteread.Target, 0, len(m.remoteReadTargets))
 	innerMu := sync.RWMutex{}
 
@@ -570,7 +569,7 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
 				if err != nil {
 					m.Logger.Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
-					newStatus.State = corev1.TaskState_Unknown
+					newStatus.State = remoteread.TargetState_Unknown
 				}
 
 				target.Status = newStatus
@@ -609,7 +608,7 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 	if err != nil {
 		if strings.Contains(err.Error(), "target not found") {
 			return &remoteread.TargetStatus{
-				State: corev1.TaskState_Pending,
+				State: remoteread.TargetState_NotRunning,
 			}, nil
 		}
 

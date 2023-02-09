@@ -12,6 +12,11 @@ import (
 )
 
 func AssertTargetProgress(expected *remoteread.TargetProgress, actual *remoteread.TargetProgress) {
+	if expected == nil {
+		Expect(actual).To(BeNil())
+		return
+	}
+
 	Expect(actual.StartTimestamp.String()).To(Equal(expected.StartTimestamp.String()))
 	Expect(actual.LastReadTimestamp.String()).To(Equal(expected.LastReadTimestamp.String()))
 	Expect(actual.EndTimestamp.String()).To(Equal(expected.EndTimestamp.String()))
@@ -21,7 +26,7 @@ func AssertTargetStatus(expected *remoteread.TargetStatus, actual *remoteread.Ta
 	// check message first so ginkgo will show us the error message
 	Expect(actual.Message).To(Equal(expected.Message))
 	Expect(actual.State).To(Equal(expected.State))
-	//AssertTargetProgress(expected.Progress, actual.Progress)
+	AssertTargetProgress(expected.Progress, actual.Progress)
 }
 
 type mockRemoteReader struct {

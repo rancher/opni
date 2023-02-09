@@ -11,19 +11,20 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"sync"
 	"time"
 )
 
-// todo: this should probably be more sophisticated than this to handle read size limits
 var TimeDeltaMillis = time.Minute.Milliseconds()
 
-// todo: import prometheus LabelMatcher into plugins/metrics/pkg/apis/remoteread.proto to remove this
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
 
@@ -40,7 +41,7 @@ func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.Label
 		case remoteread.LabelMatcher_NotRegexEqual:
 			matchType = prompb.LabelMatcher_NRE
 		default:
-			// todo: log something
+			panic(fmt.Sprintf("bug: bad matcher type %d", matcher.Type))
 		}
 
 		pbLabelMatchers = append(pbLabelMatchers, &prompb.LabelMatcher{
@@ -269,9 +270,9 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 
 	runner := newTaskRunner()
 
-	controller, err := task.NewController(context.Background(), "Target-runner", store, runner)
+	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {
-		panic(fmt.Sprintf("bug: failed to create Target task corntoller: %s", err))
+		panic(fmt.Sprintf("bug: failed to create target task controller: %s", err))
 	}
 
 	return &taskingTargetRunner{
@@ -284,7 +285,7 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
 	if status, err := runner.controller.TaskStatus(target.Meta.Name); err != nil {
 		if !strings.Contains(err.Error(), "not found") {
-			return fmt.Errorf("error checking for Target status: %s", err)
+			return fmt.Errorf("error checking for target status: %s", err)
 		}
 	} else {
 		switch status.State {
@@ -299,40 +300,47 @@ func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remot
 		Target: target,
 		Query:  query,
 	})); err != nil {
-		return fmt.Errorf("could not run Target: %w", err)
+		return fmt.Errorf("could not run target: %w", err)
 	}
 
-	runner.logger.Infof("started Target '%s'", target.Meta.Name)
+	runner.logger.Infof("started target '%s'", target.Meta.Name)
 
 	return nil
 }
 
 func (runner *taskingTargetRunner) Stop(name string) error {
 	if status, err := runner.controller.TaskStatus(name); err != nil {
-		return fmt.Errorf("Target not found")
+		return fmt.Errorf("target not found")
 	} else {
 		switch status.State {
 		case corev1.TaskState_Canceled, corev1.TaskState_Completed, corev1.TaskState_Failed:
-			return fmt.Errorf("Target is not running")
+			return fmt.Errorf("target is not running")
 		}
 	}
 
 	runner.controller.CancelTask(name)
 
-	runner.logger.Infof("stopped Target '%s'", name)
+	runner.logger.Infof("stopped target '%s'", name)
 
 	return nil
 }
 
 func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetStatus, error) {
 	taskStatus, err := runner.controller.TaskStatus(name)
+
 	if err != nil {
-		return nil, fmt.Errorf("could not get Target status: %w", err)
+		if util.StatusCode(err) == codes.NotFound {
+			return &remoteread.TargetStatus{
+				State: remoteread.TargetState_NotRunning,
+			}, nil
+		}
+
+		return nil, fmt.Errorf("could not get target status: %w", err)
 	}
 
 	taskMetadata := TargetRunMetadata{}
 	if err := json.Unmarshal([]byte(taskStatus.Metadata), &taskMetadata); err != nil {
-		return nil, fmt.Errorf("could not parse Target metedata: %w", err)
+		return nil, fmt.Errorf("could not parse target metedata: %w", err)
 	}
 
 	statusProgress := &remoteread.TargetProgress{
@@ -343,12 +351,31 @@ func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetSta
 
 	if taskStatus.Progress == nil {
 		statusProgress.LastReadTimestamp = statusProgress.StartTimestamp
+	} else {
+		statusProgress.LastReadTimestamp = &timestamppb.Timestamp{
+			// progress is stored in milliseconds, so we need to convert
+			Seconds: statusProgress.StartTimestamp.Seconds + int64(taskStatus.Progress.Current/1000),
+		}
+	}
+
+	var state remoteread.TargetState
+	switch taskStatus.State {
+	case corev1.TaskState_Unknown:
+		state = remoteread.TargetState_Unknown
+	case corev1.TaskState_Pending, corev1.TaskState_Running:
+		state = remoteread.TargetState_Running
+	case corev1.TaskState_Completed:
+		state = remoteread.TargetState_Completed
+	case corev1.TaskState_Failed:
+		state = remoteread.TargetState_Failed
+	case corev1.TaskState_Canceled:
+		state = remoteread.TargetState_Canceled
 	}
 
 	return &remoteread.TargetStatus{
 		Progress: statusProgress,
 		Message:  getMessageFromTaskLogs(taskStatus.Logs),
-		State:    taskStatus.State,
+		State:    state,
 	}, nil
 }
 

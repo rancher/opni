@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 	"io"
 	"net/http"
-	"time"
 )
 
 type RemoteReader interface {
@@ -48,10 +47,6 @@ func (client *remoteReader) Read(ctx context.Context, endpoint string, readReque
 	request.Header.Set("Content-Type", "application/x-protobuf")
 	request.Header.Set("User-Agent", "Prometheus/xx")
 	request.Header.Set("X-Prometheus-Remote-Read-Version", fmt.Sprintf("Prometheus/%s", version.Version))
-
-	// todo: timeout should be configurable
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
 
 	request = request.WithContext(ctx)
 

@@ -103,21 +103,21 @@ func (model ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		importDone := false
 
 		switch msg.State {
-		case remoteread.TargetStatus_Running:
+		case remoteread.TargetState_Running:
 			model.state = "running"
-		case remoteread.TargetStatus_Failed:
+		case remoteread.TargetState_Failed:
 			model.state = "failed"
 			importDone = true
 
-		case remoteread.TargetStatus_Stopped:
-			model.state = "stopped"
+		case remoteread.TargetState_Canceled:
+			model.state = "canceled"
 			importDone = true
 
-		case remoteread.TargetStatus_Complete:
+		case remoteread.TargetState_Completed:
 			model.state = "complete"
 			importDone = true
 
-		case remoteread.TargetStatus_NotRunning:
+		case remoteread.TargetState_NotRunning:
 			model.state = "not running"
 		default:
 			model.state = "unknown"

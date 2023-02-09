@@ -62,7 +62,7 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 		targetRunner: NewTargetRunner(lg),
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
-	node.targetRunner.SetRemoteReaderClient(&remoteReader{prometheusClient: &http.Client{}})
+	node.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 	return node
 }
 

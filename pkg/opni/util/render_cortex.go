@@ -217,15 +217,15 @@ func RenderTargetList(list *remoteread.TargetList) string {
 
 		var state string
 		switch target.Status.State {
-		case remoteread.TargetStatus_Running:
+		case remoteread.TargetState_Running:
 			state = "running"
-		case remoteread.TargetStatus_Failed:
+		case remoteread.TargetState_Failed:
 			state = "failed"
-		case remoteread.TargetStatus_Stopped:
-			state = "stopped"
-		case remoteread.TargetStatus_Complete:
+		case remoteread.TargetState_Canceled:
+			state = "canceled"
+		case remoteread.TargetState_Completed:
 			state = "complete"
-		case remoteread.TargetStatus_NotRunning:
+		case remoteread.TargetState_NotRunning:
 			state = "not running"
 		default:
 			state = "unknown"

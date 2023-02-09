@@ -11,7 +11,6 @@ import "google/api/annotations.proto";
 
 package remoteread;
 
-// todo: we probably need a new type for Describe and ScanFor
 service RemoteReadGateway {
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
@@ -39,14 +38,22 @@ message Target {
 
 message TargetMeta {
   string name = 1;
-      string clusterId = 2;
+  string clusterId = 2;
+}
+
+enum TargetState {
+  Unknown = 0;
+  NotRunning = 1;
+  Running = 2;
+  Completed = 3;
+  Failed = 4;
+  Canceled = 6;
 }
 
 message TargetStatus {
-  // this is the progress of the last known import
   TargetProgress progress = 1;
   string message = 2;
-  core.TaskState state = 3;
+  TargetState state = 3;
 }
 
 message TargetSpec {
@@ -130,10 +137,6 @@ message DiscoveryEntry {
   string clusterId = 2;
   string externalEndpoint = 3;
   string internalEndpoint = 4;
-
-  // todo: adding these would require more traffic and time for a response
-//  google.protobuf.Timestamp minimumTimestamp = 3;
-//  int32 availableData = 4;
 }
 
 message DiscoveryRequest {

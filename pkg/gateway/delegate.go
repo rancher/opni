@@ -33,8 +33,6 @@ func (a agentInfo) GetId() string {
 	return a.id
 }
 
-//var _ streamv1.DelegateClient = (*DelegateServer)(nil)
-
 type DelegateServer struct {
 	streamv1.UnsafeDelegateServer
 	mu           sync.RWMutex
@@ -142,7 +140,7 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 	}
 
 	for i, target := range targets {
-		target := target
+		i, target := i, target
 		eg.Go(func() error {
 			item := &totem.RPC{}
 			if err := target.Invoke(ctx, totem.Forward, req.GetRequest(), item); err != nil {

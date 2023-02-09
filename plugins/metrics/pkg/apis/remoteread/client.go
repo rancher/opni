@@ -33,7 +33,7 @@ func WithDialOptions(options ...grpc.DialOption) ClientOption {
 	}
 }
 
-func NewClient(ctx waitctx.PermissiveContext, opts ...ClientOption) (RemoteReadGatewayClient, error) {
+func NewGatewayClient(ctx waitctx.PermissiveContext, opts ...ClientOption) (RemoteReadGatewayClient, error) {
 	options := ClientOptions{
 		dialOptions: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),

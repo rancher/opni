@@ -130,28 +130,22 @@ type taskRunner struct {
 	remoteReader   RemoteReader
 }
 
-func newTaskRunner() *taskRunner {
-	return &taskRunner{
-		//remoteReader: NewRemoteReader(&http.Client{}),
-	}
+func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
+	tr.remoteWriteClient = client
 }
 
-func (runner *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
-	runner.remoteWriteClient = client
+func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
+	tr.remoteReaderMu.Lock()
+	defer tr.remoteReaderMu.Unlock()
+
+	tr.remoteReader = client
 }
 
-func (runner *taskRunner) SetRemoteReaderClient(client RemoteReader) {
-	runner.remoteReaderMu.Lock()
-	defer runner.remoteReaderMu.Unlock()
-
-	runner.remoteReader = client
-}
-
-func (runner *taskRunner) OnTaskPending(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskPending(ctx context.Context, activeTask task.ActiveTask) error {
 	return nil
 }
 
-func (runner *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -190,9 +184,9 @@ func (runner *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.Act
 			},
 		}
 
-		runner.remoteReaderMu.Lock()
-		readResponse, err := runner.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
-		runner.remoteReaderMu.Unlock()
+		tr.remoteReaderMu.Lock()
+		readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
+		tr.remoteReaderMu.Unlock()
 
 		if err != nil {
 			activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to read from target endpoint: %s", err))
@@ -220,7 +214,7 @@ func (runner *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.Act
 				Contents: compressed,
 			}
 
-			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
+			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
 					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
 					return
@@ -237,18 +231,22 @@ func (runner *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.Act
 	return nil
 }
 
-func (runner *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, args ...any) {
+func (tr *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, args ...any) {
+	switch state {
+	case task.StateCompleted:
+		activeTask.AddLogEntry(zapcore.InfoLevel, "completed")
+	case task.StateFailed:
+		// a log will be added in OnTaskRunning for failed imports so we don't need to log anything here
+	case task.StateCanceled:
+		activeTask.AddLogEntry(zapcore.WarnLevel, "canceled")
+	}
 }
 
 type TargetRunner interface {
 	Start(target *remoteread.Target, query *remoteread.Query) error
-
 	Stop(name string) error
-
 	GetStatus(name string) (*remoteread.TargetStatus, error)
-
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
-
 	SetRemoteReaderClient(client RemoteReader)
 }
 
@@ -268,7 +266,7 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 		inner: make(map[string]*corev1.TaskStatus),
 	}
 
-	runner := newTaskRunner()
+	runner := &taskRunner{}
 
 	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {

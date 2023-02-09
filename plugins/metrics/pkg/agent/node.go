@@ -214,7 +214,7 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		return nil, fmt.Errorf("could not discover Prometheus instances")
 	}
 
-	entries, err := promDriver.Discover(*request.Namespace)
+	entries, err := promDriver.Discover(ctx, *request.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}
@@ -230,7 +230,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	defer m.nodeClientMu.RUnlock()
 
 	if m.nodeClient == nil {
-		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no promClient, skipping sync")
+		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
 		return
 	}
 

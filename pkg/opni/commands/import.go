@@ -1,4 +1,4 @@
-//go:build !nohooks
+//go:build !noplugins
 
 package commands
 
@@ -90,6 +90,12 @@ func BuildImportAddCmd() *cobra.Command {
 		Use:   "add <cluster> <name> <endpoint>",
 		Short: "Add a new import target",
 		Args:  cobra.ExactArgs(3),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return completeClusters(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateClustersExist(cmd.Context()); err != nil {
 				return err
@@ -133,6 +139,16 @@ func BuildImportEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit <cluster> <name>",
 		Short: "Edit an existing import target",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			case 1:
+				return completeImportTargets(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateClustersExist(cmd.Context()); err != nil {
 				return err
@@ -173,7 +189,17 @@ func BuildImportEditCmd() *cobra.Command {
 
 func BuildImportRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "remove <cluster> <name>",
+		Use: "remove <cluster> <name>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			case 1:
+				return completeImportTargets(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Short:   "Remove an import target",
 		Aliases: []string{"rm"},
 		Args:    cobra.ExactArgs(2),
@@ -205,8 +231,16 @@ func BuildImportRemoveCmd() *cobra.Command {
 
 func BuildImportListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List available import targets",
+		Use:   "list <cluster>",
+		Short: "List available import targets",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateClustersExist(cmd.Context()); err != nil {
@@ -218,10 +252,6 @@ func BuildImportListCmd() *cobra.Command {
 			targetList, err := remoteReadClient.ListTargets(cmd.Context(), request)
 			if err != nil {
 				return err
-			}
-
-			if targetList == nil {
-				return fmt.Errorf("received list is nil")
 			}
 
 			fmt.Println(cliutil.RenderTargetList(targetList))
@@ -240,7 +270,17 @@ func BuildImportStartCmd() *cobra.Command {
 	var follow bool
 
 	cmd := &cobra.Command{
-		Use:   "start <cluster> <target>",
+		Use: "start <cluster> <target>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			case 1:
+				return completeImportTargets(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Short: "start an import",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -307,7 +347,17 @@ func BuildImportStartCmd() *cobra.Command {
 
 func BuildImportStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stop <cluster> <target>",
+		Use: "stop <cluster> <target>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			case 1:
+				return completeImportTargets(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Short: "stop an import (will not remove already imported data)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -340,7 +390,17 @@ func BuildImportStopCmd() *cobra.Command {
 
 func BuildProgressCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "progress <cluster> <target>",
+		Use: "progress <cluster> <target>",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return completeClusters(cmd, args, toComplete)
+			case 1:
+				return completeImportTargets(cmd, args, toComplete)
+			}
+
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		Short: "follow import progress until finished",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -362,7 +422,10 @@ func BuildDiscoverCmd() *cobra.Command {
 	var namespace string
 
 	cmd := &cobra.Command{
-		Use:   "discover [clusters...]",
+		Use: "discover [clusters...]",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeClusters(cmd, args, toComplete)
+		},
 		Short: "discover potential import targets on registered clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateClustersExist(cmd.Context()); err != nil {

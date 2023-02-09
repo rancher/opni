@@ -210,11 +210,6 @@ func RenderTargetList(list *remoteread.TargetList) string {
 	writer.AppendHeader(table.Row{"CLUSTER", "NAME", "ENDPOINT", "LAST READ", "STATE", "MESSAGE"})
 
 	for _, target := range list.Targets {
-		if target == nil {
-			writer.AppendRow(table.Row{"nil", "nil", "nil", "nil", "nil", "nil"})
-			continue
-		}
-
 		var state string
 		switch target.Status.State {
 		case remoteread.TargetState_Running:

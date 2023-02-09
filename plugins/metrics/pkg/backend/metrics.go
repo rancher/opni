@@ -424,11 +424,11 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 // Metrics Remote Read Backend
 
 func targetAlreadyExistsError(id string) error {
-	return fmt.Errorf("target '%s' already exists", id)
+	return status.Errorf(codes.AlreadyExists, "target '%s' already exists", id)
 }
 
 func targetDoesNotExistError(id string) error {
-	return fmt.Errorf("target '%s' does not exist", id)
+	return status.Errorf(codes.NotFound, "target '%s' not found", id)
 }
 
 func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {

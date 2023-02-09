@@ -25,7 +25,6 @@ type forwarders struct {
 	QueryFrontend gin.HandlerFunc
 	Alertmanager  gin.HandlerFunc
 	Ruler         gin.HandlerFunc
-	RemoteRead    gin.HandlerFunc
 }
 
 type middlewares struct {

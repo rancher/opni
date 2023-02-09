@@ -1,4 +1,4 @@
-//go:build !nohooks
+//go:build !noplugins
 
 package commands
 
@@ -29,7 +29,7 @@ func importPreRunE(cmd *cobra.Command, args []string) error {
 		panic("bug: managementListenAddress is empty")
 	}
 
-	client, err := remoteread.NewClient(cmd.Context(), remoteread.WithListenAddress(managementListenAddress))
+	client, err := remoteread.NewGatewayClient(cmd.Context(), remoteread.WithListenAddress(managementListenAddress))
 	if err != nil {
 		return err
 	}

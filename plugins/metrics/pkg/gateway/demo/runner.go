@@ -1,4 +1,4 @@
-package agent
+package demo
 
 import (
 	"context"
@@ -8,9 +8,10 @@ import (
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	promConfig "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync"
 	"time"
@@ -100,46 +101,63 @@ type TargetRunner interface {
 
 	Stop(name string) error
 
-	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
+	SetRemoteWriteForwarder(forwarder *cortex.RemoteWriteForwarder)
 
-	SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient])
+	SetRemoteReadServer(server remoteread.RemoteReadGatewayServer)
 }
 
-func NewTargetRunner() TargetRunner {
+func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 	return &targetRunner{
-		runs: make(map[string]Run),
+		logger: logger,
+		runs:   make(map[string]Run),
 	}
 }
 
 type targetRunner struct {
+	logger *zap.SugaredLogger
+
 	runsMu sync.RWMutex
 	runs   map[string]Run
 
-	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
-	remoteReadClient  clients.Locker[remoteread.RemoteReadGatewayClient]
+	remoteWriteClientMu sync.RWMutex
+	RemoteWriteClient   *cortex.RemoteWriteForwarder
+
+	remoteReadServerMu sync.RWMutex
+	RemoteReadServer   remoteread.RemoteReadGatewayServer
+}
+
+func (runner *targetRunner) SetRemoteWriteForwarder(forwarder *cortex.RemoteWriteForwarder) {
+	runner.RemoteWriteClient = forwarder
+}
+
+func (runner *targetRunner) SetRemoteReadServer(server remoteread.RemoteReadGatewayServer) {
+	runner.RemoteReadServer = server
 }
 
 // updateRunStatus notifies the gateway of the status of the Run's target status
 func (runner *targetRunner) updateRunStatus(run Run) {
-	runner.remoteReadClient.Use(func(client remoteread.RemoteReadGatewayClient) {
-		newStatus := run.target.Status
-		newStatus.Message = "client field to read response from prometheus remote read endpoint"
-		newStatus.State = remoteread.TargetStatus_Failed
+	runner.remoteReadServerMu.Lock()
+	defer runner.remoteReadServerMu.Unlock()
 
-		request := &remoteread.TargetStatusUpdateRequest{
-			Meta:      run.target.Meta,
-			NewStatus: newStatus,
-		}
+	newStatus := run.target.Status
 
-		_, err := client.UpdateTargetStatus(context.TODO(), request)
+	request := &remoteread.TargetStatusUpdateRequest{
+		Meta:      run.target.Meta,
+		NewStatus: newStatus,
+	}
 
-		if err != nil {
-			// todo: log this
-		}
-	})
+	_, err := runner.RemoteReadServer.UpdateTargetStatus(context.TODO(), request)
+
+	if err != nil {
+		runner.logger.Errorf("failed to push status to server: %s", err)
+	}
 }
 
 func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient) {
+	runner.runsMu.Lock()
+	runner.runs[run.target.Meta.Name] = run
+	runner.runsMu.Unlock()
+
 	labelMatchers := toLabelMatchers(run.query.Matchers)
 
 	// todo: this should probably be a lot more sophisticated than this
@@ -147,9 +165,14 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 	nextEndDelta := time.Minute.Milliseconds() * 5
 
 	nextStart := run.query.StartTimestamp.AsTime().UnixMilli()
+	nextEnd := nextStart
+
+	run.running()
+	go runner.updateRunStatus(run)
 
 	for nextStart < importEnd && run.target.Status.State == remoteread.TargetStatus_Running {
-		nextEnd := nextStart + nextEndDelta
+		nextStart = nextEnd
+		nextEnd = nextStart + nextEndDelta
 		if nextEnd > importEnd {
 			nextEnd = importEnd
 		}
@@ -167,12 +190,16 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 		readResponse, err := remoteReaderClient.Read(context.TODO(), run.target.Spec.Endpoint, readRequest)
 
 		if err != nil {
-			run.failed("failed to read from target endpoint")
+			run.failed(fmt.Sprintf("failed to read from target endpoint: %s", err.Error()))
 			runner.updateRunStatus(run)
 			return
 		}
 
 		for _, result := range readResponse.Results {
+			if len(result.Timeseries) == 0 {
+				continue
+			}
+
 			writeRequest := prompb.WriteRequest{
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
@@ -190,20 +217,23 @@ func (runner *targetRunner) run(run Run, remoteReaderClient *RemoteReaderClient)
 				Contents: compressed,
 			}
 
-			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
-				if _, err := remoteWriteClient.Push(context.TODO(), payload); err != nil {
-					run.failed("failed to push to remote write")
-					runner.updateRunStatus(run)
-					return
-				}
-
-				run.updateLastRead(nextEnd)
+			runner.remoteWriteClientMu.Lock()
+			if _, err := runner.RemoteWriteClient.Push(context.TODO(), payload); err != nil {
+				run.failed(fmt.Sprintf("failed to push to remote write: %s", err.Error()))
 				runner.updateRunStatus(run)
-			})
+				return
+			}
+			runner.remoteWriteClientMu.Unlock()
 		}
+
+		run.updateLastRead(nextEnd)
+		runner.updateRunStatus(run)
 	}
 
-	run.complete()
+	if run.target.Status.State == remoteread.TargetStatus_Running {
+		run.complete()
+		runner.updateRunStatus(run)
+	}
 
 	runner.runsMu.Lock()
 	defer runner.runsMu.Unlock()
@@ -219,7 +249,7 @@ func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Q
 		case remoteread.TargetStatus_Running:
 			return targetIsRunningError(target.Meta.Name)
 		default:
-			// todo: log restart
+			runner.logger.With("target", target.Meta.Name, "old state", target.Status.State).Warnf("restarting target")
 		}
 	} else if !found {
 		run = Run{
@@ -240,10 +270,6 @@ func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Q
 
 	remoteReaderClient := NewRemoteReadClient(run.stopChan, prometheusClient)
 
-	runner.runsMu.Lock()
-	runner.runs[run.target.Meta.Name] = run
-	runner.runsMu.Unlock()
-
 	go runner.run(run, remoteReaderClient)
 
 	return nil
@@ -263,12 +289,4 @@ func (runner *targetRunner) Stop(name string) error {
 	delete(runner.runs, name)
 
 	return nil
-}
-
-func (runner *targetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
-	runner.remoteWriteClient = client
-}
-
-func (runner *targetRunner) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
-	runner.remoteReadClient = client
 }

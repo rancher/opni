@@ -201,8 +201,8 @@ func BuildImportTargetCmd() *cobra.Command {
 
 func BuildImportStartCmd() *cobra.Command {
 	var labelFilters []string
-	var startTimestamp int64
-	var endTimestamp int64
+	var startTimestampSecs int64
+	var endTimestampSecs int64
 	var forceOverlap bool
 
 	cmd := &cobra.Command{
@@ -225,8 +225,8 @@ func BuildImportStartCmd() *cobra.Command {
 			}
 
 			query := &remoteread.Query{
-				StartTimestamp: &timestamppb.Timestamp{Seconds: startTimestamp},
-				EndTimestamp:   &timestamppb.Timestamp{Seconds: endTimestamp},
+				StartTimestamp: &timestamppb.Timestamp{Seconds: startTimestampSecs},
+				EndTimestamp:   &timestamppb.Timestamp{Seconds: endTimestampSecs},
 				Matchers:       labelMatchers,
 			}
 
@@ -253,9 +253,10 @@ func BuildImportStartCmd() *cobra.Command {
 
 	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~\".+\""}, "promql query for the thing")
 
-	// todo: we probably want to allow for more human readable timestamps here
-	cmd.Flags().Int64Var(&startTimestamp, "start", 0, "start time for the remote read")
-	cmd.Flags().Int64Var(&endTimestamp, "end", time.Now().Unix(), "start time for the remote read")
+	// todo: we probably want to allow for more human-readable timestamps here
+	//cmd.Flags().Int64Var(&startTimestampSecs, "start", 0, "start time for the remote read")
+	cmd.Flags().Int64Var(&startTimestampSecs, "start", time.Now().Unix()-int64(time.Hour.Seconds())*2, "start time for the remote read in seconds since epoch")
+	cmd.Flags().Int64Var(&endTimestampSecs, "end", time.Now().Unix(), "start time for the remote read")
 
 	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
 

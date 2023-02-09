@@ -115,6 +115,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
+				RemoteWriteClient:   &p.cortexRemoteWrite,
 			})
 		})
 

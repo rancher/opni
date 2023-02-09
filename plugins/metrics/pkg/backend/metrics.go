@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/demo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -47,6 +49,8 @@ type MetricsBackend struct {
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
+	runner demo.TargetRunner
+
 	util.Initializer
 }
 
@@ -61,6 +65,8 @@ type MetricsBackendConfig struct {
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
+
+	RemoteWriteClient *cortex.RemoteWriteForwarder `validate:"required"`
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -72,6 +78,10 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
 		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
+
+		m.runner = demo.NewTargetRunner(m.Logger.Named("target-runner"))
+		m.runner.SetRemoteWriteForwarder(m.RemoteWriteClient)
+		m.runner.SetRemoteReadServer(m)
 	})
 }
 
@@ -458,7 +468,7 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 		"cluster", request.Target.Meta.ClusterId,
 		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("added new target '%s'", targetId)
+	).Infof("added new target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -501,7 +511,7 @@ func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.Targe
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("edited target '%s'", targetId)
+	).Infof("edited target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -524,7 +534,7 @@ func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.Tar
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("removed target '%s'", targetId)
+	).Infof("removed target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -602,8 +612,7 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 		return nil, targetAlreadyRunningError(targetId)
 	}
 
-	// todo: send start request to appropriate agent
-	_, err := 0, fmt.Errorf("not yet implemented")
+	err := m.runner.Start(request.Target, request.Query)
 
 	if err != nil {
 		m.Logger.With(
@@ -611,12 +620,11 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Target.Meta.Name,
 			zap.Error(err),
-		).Warn("failed to start client")
+		).Warn("failed to start target")
 
 		return nil, err
 	}
 
-	// todo: we might want to display the new name if it was changed
 	m.Logger.With(
 		"cluster", request.Target.Meta.Name,
 		"target", request.Target.Meta.Name,
@@ -629,8 +637,10 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
+	err := m.runner.Stop(request.Meta.Name)
+
 	// todo: send start request to appropriate agent
-	_, err := 0, fmt.Errorf("not yet implemented")
+	//_, err := 0, fmt.Errorf("not yet implemented")
 
 	if err != nil {
 		m.Logger.With(
@@ -638,7 +648,7 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
 			zap.Error(err),
-		).Warn("failed to stop client")
+		).Warn("failed to stop target")
 
 		return nil, err
 	}

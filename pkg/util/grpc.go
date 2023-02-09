@@ -132,7 +132,9 @@ func ForceClientCaching(ctx context.Context, ttl time.Duration) {
 }
 
 func (g *GrpcClientEntityCacher) hash(method string, req proto.Message) string {
-	return HashStrings([]string{method, string(Must(proto.Marshal(req)))})
+	return HashStrings([]string{method, string(Must(proto.MarshalOptions{
+		Deterministic: true,
+	}.Marshal(req)))})
 }
 
 func ignoreCustomKeys(md metadata.MD, cacheType string) bool {

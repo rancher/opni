@@ -31,7 +31,7 @@ var _ = BuildCachingInterceptorSuite(
 	"default grpc middleware",
 	func() util.GrpcCachingInterceptor {
 		return util.NewClientGrpcEntityCacher(
-			caching.NewInMemoryEntityCache(defaultTtl, defaultEvictionInterval),
+			caching.NewInMemoryEntityCache("50Mi", defaultEvictionInterval),
 		)
 	},
 	func(clientCacher util.GrpcCachingInterceptor) (testgrpc.CachedServiceServer, testgrpc.CachedServiceClient) {

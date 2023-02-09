@@ -26,6 +26,7 @@ type otelForwarderOptions struct {
 	collectorAddressOverride string
 	cc                       grpc.ClientConnInterface
 	lg                       *zap.SugaredLogger
+	dialOptions              []grpc.DialOption
 }
 
 type OTELForwarderOption func(*otelForwarderOptions)
@@ -54,6 +55,12 @@ func WithLogger(lg *zap.SugaredLogger) OTELForwarderOption {
 	}
 }
 
+func WithDialOptions(opts ...grpc.DialOption) OTELForwarderOption {
+	return func(o *otelForwarderOptions) {
+		o.dialOptions = opts
+	}
+}
+
 func NewOTELForwarder(opts ...OTELForwarderOption) *OTELForwarder {
 	options := otelForwarderOptions{
 		collectorAddressOverride: defaultAddress,
@@ -65,12 +72,13 @@ func NewOTELForwarder(opts ...OTELForwarderOption) *OTELForwarder {
 	}
 }
 
-func (f *OTELForwarder) UpdateOptions(opts ...OTELForwarderOption) {
-	f.opts.apply(opts...)
+func (f *OTELForwarder) BackgroundInitClient() {
+	f.Client.BackgroundInitClient(f.initializeOTELForwarder)
 }
 
-func (f *OTELForwarder) SetClient(alwaysSet bool) {
-	go f.Client.SetClient(f.initializeOTELForwarder, alwaysSet)
+func (f *OTELForwarder) SetClient(cc grpc.ClientConnInterface) {
+	client := collogspb.NewLogsServiceClient(cc)
+	f.Client.SetClient(client)
 }
 
 func (f *OTELForwarder) initializeOTELForwarder() collogspb.LogsServiceClient {
@@ -90,9 +98,10 @@ func (f *OTELForwarder) initializeOTELForwarder() collogspb.LogsServiceClient {
 				f.opts.lg.Warn("plugin context cancelled before gRPC client created")
 				return nil
 			case <-b.Next():
+				opts := append(f.opts.dialOptions, grpc.WithBlock())
 				conn, err := grpc.Dial(
 					f.opts.collectorAddressOverride,
-					grpc.WithBlock(),
+					opts...,
 				)
 				if err != nil {
 					f.opts.lg.Errorf("failed dial grpc: %v", err)
@@ -109,7 +118,7 @@ func (f *OTELForwarder) Export(
 	ctx context.Context,
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
-	if f.Client.IsInitialized() {
+	if f.Client.IsSet() {
 		return f.Client.Client.Export(ctx, request)
 	}
 	return nil, status.Errorf(codes.Unavailable, "collector is unavailable")

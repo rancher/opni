@@ -25,7 +25,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	m.Lock()
 	defer m.Unlock()
 
-	m.kv.SetClient(m.setJetStream, false)
+	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 
 	var createNewJob bool

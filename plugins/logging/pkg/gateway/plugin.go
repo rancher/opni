@@ -242,7 +242,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p.logger.Warnf("failed to create initial admin: %v", err)
 			}
 		}
-		p.otelForwarder.SetClient(false)
+		p.otelForwarder.BackgroundInitClient()
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
@@ -271,5 +271,6 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,
 		versionOverride:   p.version,
+		otelForwarder:     p.otelForwarder,
 	}
 }

@@ -3,9 +3,9 @@ package util
 import "sync"
 
 type AsyncClient[T any] struct {
-	Client      T
-	initCond    *sync.Cond
-	initialized bool
+	Client   T
+	initCond *sync.Cond
+	set      bool
 }
 
 func NewAsyncClient[T any]() *AsyncClient[T] {
@@ -16,30 +16,43 @@ func NewAsyncClient[T any]() *AsyncClient[T] {
 
 func (c *AsyncClient[T]) WaitForInit() {
 	c.initCond.L.Lock()
-	for !c.initialized {
+	for !c.set {
 		c.initCond.Wait()
 	}
 	c.initCond.L.Unlock()
 }
 
-func (c *AsyncClient[T]) IsInitialized() bool {
+func (c *AsyncClient[T]) IsSet() bool {
 	c.initCond.L.Lock()
 	defer c.initCond.L.Unlock()
-	return c.initialized
+	return c.set
 }
 
-func (c *AsyncClient[T]) SetClient(setter func() T, alwaysSet bool) {
+// BackgroundInitClient will intialize the client only if it is curently unset. This can be called multiple times.
+func (c *AsyncClient[T]) BackgroundInitClient(setter func() T) {
+	go c.doBackgroundInit(setter)
+}
+
+func (c *AsyncClient[T]) doBackgroundInit(setter func() T) {
 	c.initCond.L.Lock()
 	defer c.initCond.L.Unlock()
 
-	if c.initialized {
-		if !alwaysSet {
-			return
-		}
-		c.Client = setter()
+	if c.set {
 		return
 	}
 	c.Client = setter()
-	c.initialized = true
+	c.set = true
 	c.initCond.Broadcast()
+}
+
+// SetClient will always update the client regardless of its previous confition.
+func (c *AsyncClient[T]) SetClient(client T) {
+	c.initCond.L.Lock()
+	defer c.initCond.L.Unlock()
+	c.Client = client
+	shouldBroadcast := !c.set
+	c.set = true
+	if shouldBroadcast {
+		c.initCond.Broadcast()
+	}
 }

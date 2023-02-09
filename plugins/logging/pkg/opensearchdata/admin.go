@@ -18,7 +18,7 @@ const (
 
 func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.WaitForInit()
-	m.kv.SetClient(m.setJetStream, false)
+	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 
 	m.adminInitStateRW.Lock()
@@ -121,7 +121,7 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 }
 
 func (m *Manager) ShouldCreateInitialAdmin() bool {
-	m.kv.SetClient(m.setJetStream, false)
+	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 
 	m.adminInitStateRW.RLock()
@@ -158,7 +158,7 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 }
 
 func (m *Manager) DeleteInitialAdminState() error {
-	m.kv.SetClient(m.setJetStream, false)
+	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 	m.adminInitStateRW.Lock()
 	defer m.adminInitStateRW.Unlock()

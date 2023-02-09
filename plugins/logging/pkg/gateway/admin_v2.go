@@ -179,7 +179,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
-	m.otelForwarder.SetClient(false)
+	m.otelForwarder.BackgroundInitClient()
 
 	exists := true
 	err := m.k8sClient.Get(ctx, types.NamespacedName{

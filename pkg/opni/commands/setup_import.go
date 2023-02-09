@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var remoteReadClient remoteread.RemoteReadClient
+var remoteReadClient remoteread.RemoteReadGatewayClient
 
 func ConfigureImportCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {

@@ -19,268 +19,388 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// RemoteReadClient is the client API for RemoteRead service.
+// RemoteReadGatewayClient is the client API for RemoteReadGateway service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type RemoteReadClient interface {
+type RemoteReadGatewayClient interface {
 	AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListTargets(ctx context.Context, in *TargetListRequest, opts ...grpc.CallOption) (*TargetList, error)
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// rpc GetProgress(ProgressRequest) returns (stream Progress);
 	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type remoteReadClient struct {
+type remoteReadGatewayClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRemoteReadClient(cc grpc.ClientConnInterface) RemoteReadClient {
-	return &remoteReadClient{cc}
+func NewRemoteReadGatewayClient(cc grpc.ClientConnInterface) RemoteReadGatewayClient {
+	return &remoteReadGatewayClient{cc}
 }
 
-func (c *remoteReadClient) AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *remoteReadGatewayClient) AddTarget(ctx context.Context, in *TargetAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/AddTarget", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/AddTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *remoteReadClient) EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *remoteReadGatewayClient) EditTarget(ctx context.Context, in *TargetEditRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/EditTarget", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/EditTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *remoteReadClient) RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *remoteReadGatewayClient) RemoveTarget(ctx context.Context, in *TargetRemoveRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/RemoveTarget", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/RemoveTarget", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *remoteReadClient) ListTargets(ctx context.Context, in *TargetListRequest, opts ...grpc.CallOption) (*TargetList, error) {
+func (c *remoteReadGatewayClient) ListTargets(ctx context.Context, in *TargetListRequest, opts ...grpc.CallOption) (*TargetList, error) {
 	out := new(TargetList)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/ListTargets", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/ListTargets", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *remoteReadClient) Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *remoteReadGatewayClient) Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/Start", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/Start", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *remoteReadClient) Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *remoteReadGatewayClient) Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteRead/Stop", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/Stop", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RemoteReadServer is the server API for RemoteRead service.
-// All implementations must embed UnimplementedRemoteReadServer
+// RemoteReadGatewayServer is the server API for RemoteReadGateway service.
+// All implementations must embed UnimplementedRemoteReadGatewayServer
 // for forward compatibility
-type RemoteReadServer interface {
+type RemoteReadGatewayServer interface {
 	AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error)
 	EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error)
 	RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error)
 	ListTargets(context.Context, *TargetListRequest) (*TargetList, error)
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
-	// rpc GetProgress(ProgressRequest) returns (stream Progress);
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedRemoteReadServer()
+	mustEmbedUnimplementedRemoteReadGatewayServer()
 }
 
-// UnimplementedRemoteReadServer must be embedded to have forward compatible implementations.
-type UnimplementedRemoteReadServer struct {
+// UnimplementedRemoteReadGatewayServer must be embedded to have forward compatible implementations.
+type UnimplementedRemoteReadGatewayServer struct {
 }
 
-func (UnimplementedRemoteReadServer) AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error) {
+func (UnimplementedRemoteReadGatewayServer) AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddTarget not implemented")
 }
-func (UnimplementedRemoteReadServer) EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error) {
+func (UnimplementedRemoteReadGatewayServer) EditTarget(context.Context, *TargetEditRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditTarget not implemented")
 }
-func (UnimplementedRemoteReadServer) RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error) {
+func (UnimplementedRemoteReadGatewayServer) RemoveTarget(context.Context, *TargetRemoveRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveTarget not implemented")
 }
-func (UnimplementedRemoteReadServer) ListTargets(context.Context, *TargetListRequest) (*TargetList, error) {
+func (UnimplementedRemoteReadGatewayServer) ListTargets(context.Context, *TargetListRequest) (*TargetList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTargets not implemented")
 }
-func (UnimplementedRemoteReadServer) Start(context.Context, *StartReadRequest) (*emptypb.Empty, error) {
+func (UnimplementedRemoteReadGatewayServer) Start(context.Context, *StartReadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
 }
-func (UnimplementedRemoteReadServer) Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error) {
+func (UnimplementedRemoteReadGatewayServer) Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
-func (UnimplementedRemoteReadServer) mustEmbedUnimplementedRemoteReadServer() {}
+func (UnimplementedRemoteReadGatewayServer) mustEmbedUnimplementedRemoteReadGatewayServer() {}
 
-// UnsafeRemoteReadServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to RemoteReadServer will
+// UnsafeRemoteReadGatewayServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RemoteReadGatewayServer will
 // result in compilation errors.
-type UnsafeRemoteReadServer interface {
-	mustEmbedUnimplementedRemoteReadServer()
+type UnsafeRemoteReadGatewayServer interface {
+	mustEmbedUnimplementedRemoteReadGatewayServer()
 }
 
-func RegisterRemoteReadServer(s grpc.ServiceRegistrar, srv RemoteReadServer) {
-	s.RegisterService(&RemoteRead_ServiceDesc, srv)
+func RegisterRemoteReadGatewayServer(s grpc.ServiceRegistrar, srv RemoteReadGatewayServer) {
+	s.RegisterService(&RemoteReadGateway_ServiceDesc, srv)
 }
 
-func _RemoteRead_AddTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_AddTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TargetAddRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).AddTarget(ctx, in)
+		return srv.(RemoteReadGatewayServer).AddTarget(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/AddTarget",
+		FullMethod: "/remoteread.RemoteReadGateway/AddTarget",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).AddTarget(ctx, req.(*TargetAddRequest))
+		return srv.(RemoteReadGatewayServer).AddTarget(ctx, req.(*TargetAddRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteRead_EditTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_EditTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TargetEditRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).EditTarget(ctx, in)
+		return srv.(RemoteReadGatewayServer).EditTarget(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/EditTarget",
+		FullMethod: "/remoteread.RemoteReadGateway/EditTarget",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).EditTarget(ctx, req.(*TargetEditRequest))
+		return srv.(RemoteReadGatewayServer).EditTarget(ctx, req.(*TargetEditRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteRead_RemoveTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_RemoveTarget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TargetRemoveRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).RemoveTarget(ctx, in)
+		return srv.(RemoteReadGatewayServer).RemoveTarget(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/RemoveTarget",
+		FullMethod: "/remoteread.RemoteReadGateway/RemoveTarget",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).RemoveTarget(ctx, req.(*TargetRemoveRequest))
+		return srv.(RemoteReadGatewayServer).RemoveTarget(ctx, req.(*TargetRemoveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteRead_ListTargets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_ListTargets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TargetListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).ListTargets(ctx, in)
+		return srv.(RemoteReadGatewayServer).ListTargets(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/ListTargets",
+		FullMethod: "/remoteread.RemoteReadGateway/ListTargets",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).ListTargets(ctx, req.(*TargetListRequest))
+		return srv.(RemoteReadGatewayServer).ListTargets(ctx, req.(*TargetListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteRead_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartReadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).Start(ctx, in)
+		return srv.(RemoteReadGatewayServer).Start(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/Start",
+		FullMethod: "/remoteread.RemoteReadGateway/Start",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).Start(ctx, req.(*StartReadRequest))
+		return srv.(RemoteReadGatewayServer).Start(ctx, req.(*StartReadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RemoteRead_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteReadGateway_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StopReadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteReadServer).Stop(ctx, in)
+		return srv.(RemoteReadGatewayServer).Stop(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteRead/Stop",
+		FullMethod: "/remoteread.RemoteReadGateway/Stop",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteReadServer).Stop(ctx, req.(*StopReadRequest))
+		return srv.(RemoteReadGatewayServer).Stop(ctx, req.(*StopReadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// RemoteRead_ServiceDesc is the grpc.ServiceDesc for RemoteRead service.
+// RemoteReadGateway_ServiceDesc is the grpc.ServiceDesc for RemoteReadGateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var RemoteRead_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "remoteread.RemoteRead",
-	HandlerType: (*RemoteReadServer)(nil),
+var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "remoteread.RemoteReadGateway",
+	HandlerType: (*RemoteReadGatewayServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "AddTarget",
-			Handler:    _RemoteRead_AddTarget_Handler,
+			Handler:    _RemoteReadGateway_AddTarget_Handler,
 		},
 		{
 			MethodName: "EditTarget",
-			Handler:    _RemoteRead_EditTarget_Handler,
+			Handler:    _RemoteReadGateway_EditTarget_Handler,
 		},
 		{
 			MethodName: "RemoveTarget",
-			Handler:    _RemoteRead_RemoveTarget_Handler,
+			Handler:    _RemoteReadGateway_RemoveTarget_Handler,
 		},
 		{
 			MethodName: "ListTargets",
-			Handler:    _RemoteRead_ListTargets_Handler,
+			Handler:    _RemoteReadGateway_ListTargets_Handler,
 		},
 		{
 			MethodName: "Start",
-			Handler:    _RemoteRead_Start_Handler,
+			Handler:    _RemoteReadGateway_Start_Handler,
 		},
 		{
 			MethodName: "Stop",
-			Handler:    _RemoteRead_Stop_Handler,
+			Handler:    _RemoteReadGateway_Stop_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
+}
+
+// RemoteReadAgentClient is the client API for RemoteReadAgent service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RemoteReadAgentClient interface {
+	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type remoteReadAgentClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRemoteReadAgentClient(cc grpc.ClientConnInterface) RemoteReadAgentClient {
+	return &remoteReadAgentClient{cc}
+}
+
+func (c *remoteReadAgentClient) Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/Start", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *remoteReadAgentClient) Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/Stop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RemoteReadAgentServer is the server API for RemoteReadAgent service.
+// All implementations must embed UnimplementedRemoteReadAgentServer
+// for forward compatibility
+type RemoteReadAgentServer interface {
+	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
+	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedRemoteReadAgentServer()
+}
+
+// UnimplementedRemoteReadAgentServer must be embedded to have forward compatible implementations.
+type UnimplementedRemoteReadAgentServer struct {
+}
+
+func (UnimplementedRemoteReadAgentServer) Start(context.Context, *StartReadRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
+}
+func (UnimplementedRemoteReadAgentServer) Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+}
+func (UnimplementedRemoteReadAgentServer) mustEmbedUnimplementedRemoteReadAgentServer() {}
+
+// UnsafeRemoteReadAgentServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RemoteReadAgentServer will
+// result in compilation errors.
+type UnsafeRemoteReadAgentServer interface {
+	mustEmbedUnimplementedRemoteReadAgentServer()
+}
+
+func RegisterRemoteReadAgentServer(s grpc.ServiceRegistrar, srv RemoteReadAgentServer) {
+	s.RegisterService(&RemoteReadAgent_ServiceDesc, srv)
+}
+
+func _RemoteReadAgent_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteReadAgentServer).Start(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remoteread.RemoteReadAgent/Start",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteReadAgentServer).Start(ctx, req.(*StartReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RemoteReadAgent_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteReadAgentServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remoteread.RemoteReadAgent/Stop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteReadAgentServer).Stop(ctx, req.(*StopReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RemoteReadAgent_ServiceDesc is the grpc.ServiceDesc for RemoteReadAgent service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RemoteReadAgent_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "remoteread.RemoteReadAgent",
+	HandlerType: (*RemoteReadAgentServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Start",
+			Handler:    _RemoteReadAgent_Start_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _RemoteReadAgent_Stop_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

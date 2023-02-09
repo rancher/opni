@@ -18,7 +18,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			Impl: p.node,
 		},
 		{
-			Desc: &remoteread.RemoteRead_ServiceDesc,
+			Desc: &remoteread.RemoteReadGateway_ServiceDesc,
 			Impl: p.node,
 		},
 	}
@@ -34,7 +34,7 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
-	remoteReadClient := remoteread.NewRemoteReadClient(cc)
+	remoteReadClient := remoteread.NewRemoteReadAgentClient(cc)
 
 	p.node.SetNodeClient(nodeClient)
 	p.node.SetHealthListenerClient(healthListenerClient)

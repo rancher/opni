@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-func targetAlreadyExistsError(name string) error {
-	return fmt.Errorf("target '%s' already exists", name)
-}
-
 func targetDoesNotExistError(name string) error {
 	return fmt.Errorf("target '%s' does not exist", name)
 }
@@ -30,7 +26,7 @@ func targetIsNotRunningError(name string) error {
 	return fmt.Errorf("target '%s' is not running", name)
 }
 
-// todo: import prometheus LabelMatcher into apis/remoteread.proto to remove this
+// todo: import prometheus LabelMatcher into plugins/metrics/pkg/apis/remoteread.proto to remove this
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
 
@@ -77,14 +73,6 @@ type Run struct {
 }
 
 type TargetRunner interface {
-	Add(target *remoteread.Target) error
-
-	Edit(name string, diff *remoteread.TargetDiff) error
-
-	Remove(name string) error
-
-	List() *remoteread.TargetList
-
 	Start(name string, query *remoteread.Query) error
 
 	Stop(name string) error
@@ -104,62 +92,6 @@ type targetRunner struct {
 	runs    map[string]Run
 
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
-}
-
-func (runner *targetRunner) Add(target *remoteread.Target) error {
-	if _, found := runner.targets[target.Name]; found {
-		return targetAlreadyExistsError(target.Name)
-	}
-
-	runner.targets[target.Name] = target
-
-	return nil
-}
-
-func (runner *targetRunner) Edit(name string, diff *remoteread.TargetDiff) error {
-	target, found := runner.targets[name]
-
-	if !found {
-		return targetDoesNotExistError(target.Name)
-	}
-
-	if _, found := runner.runs[name]; found {
-		return targetIsRunningError(name)
-	}
-
-	if diff.Endpoint != "" {
-		target.Endpoint = diff.Endpoint
-	}
-
-	if diff.Name != "" {
-		target.Name = diff.Name
-
-		delete(runner.targets, name)
-	}
-
-	runner.targets[target.Name] = target
-
-	return nil
-}
-
-func (runner *targetRunner) Remove(name string) error {
-	if _, found := runner.targets[name]; !found {
-		return targetDoesNotExistError(name)
-	}
-
-	delete(runner.targets, name)
-
-	return nil
-}
-
-func (runner *targetRunner) List() *remoteread.TargetList {
-	targets := make([]*remoteread.Target, 0, len(runner.targets))
-
-	for _, target := range runner.targets {
-		targets = append(targets, target)
-	}
-
-	return &remoteread.TargetList{Targets: targets}
 }
 
 func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
@@ -187,7 +119,7 @@ func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 			},
 		}
 
-		readResponse, err := remoteReadClient.Read(context.TODO(), run.target.Endpoint, readRequest)
+		readResponse, err := remoteReadClient.Read(context.TODO(), run.target.Spec.Endpoint, readRequest)
 
 		if err != nil {
 			// todo: log this event
@@ -237,7 +169,7 @@ func (runner *targetRunner) Start(name string, query *remoteread.Query) error {
 		query:    query,
 	}
 
-	prometheusClient, err := promConfig.NewClientFromConfig(promConfig.HTTPClientConfig{}, fmt.Sprintf("%s-remoteread", run.target.Name), promConfig.WithHTTP2Disabled())
+	prometheusClient, err := promConfig.NewClientFromConfig(promConfig.HTTPClientConfig{}, fmt.Sprintf("%s-remoteread", run.target.Meta.Name), promConfig.WithHTTP2Disabled())
 	if err != nil {
 		return fmt.Errorf("could not start import: %w", err)
 	}

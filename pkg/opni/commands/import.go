@@ -52,24 +52,22 @@ func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {
 
 func BuildImportTargetAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <endpoint> [name]",
+		Use:   "add <cluster> <name> <endpoint>",
 		Short: "Add a new target",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var target *remoteread.Target
+			clusterId := args[0]
+			targetName := args[2]
+			endpoint := args[2]
 
-			switch len(args) {
-			case 1:
-				target = &remoteread.Target{
-					Name:     args[0],
-					Endpoint: args[0],
-				}
-			case 2:
-				// todo: might be worthwhile pulling just the hostname from the given endpoint
-				target = &remoteread.Target{
-					Name:     args[1],
-					Endpoint: args[0],
-				}
+			target := &remoteread.Target{
+				Meta: &remoteread.TargetMeta{
+					ClusterId: clusterId,
+					Name:      targetName,
+				},
+				Spec: &remoteread.TargetSpec{
+					Endpoint: endpoint,
+				},
 			}
 
 			request := &remoteread.TargetAddRequest{
@@ -102,10 +100,16 @@ func BuildImportTargetEditCmd() *cobra.Command {
 				lg.Infof("no edits specified, doing nothing")
 			}
 
-			request := &remoteread.TargetEditRequest{TargetDiff: &remoteread.TargetDiff{
-				Endpoint: newEndpoint,
-				Name:     newName,
-			}}
+			request := &remoteread.TargetEditRequest{
+				Meta: &remoteread.TargetMeta{
+					ClusterId: args[0],
+					Name:      args[1],
+				},
+				TargetDiff: &remoteread.TargetDiff{
+					Endpoint: newEndpoint,
+					Name:     newName,
+				},
+			}
 
 			_, err := remoteReadClient.EditTarget(cmd.Context(), request)
 
@@ -127,12 +131,17 @@ func BuildImportTargetEditCmd() *cobra.Command {
 
 func BuildImportTargetRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "remove <name>",
+		Use:     "remove <cluster> <name>",
 		Short:   "Remove a target",
 		Aliases: []string{"rm"},
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			request := &remoteread.TargetRemoveRequest{TargetName: args[0]}
+			request := &remoteread.TargetRemoveRequest{
+				Meta: &remoteread.TargetMeta{
+					ClusterId: args[0],
+					Name:      args[1],
+				},
+			}
 
 			_, err := remoteReadClient.RemoveTarget(cmd.Context(), request)
 
@@ -159,6 +168,10 @@ func BuildImportTargetListCmd() *cobra.Command {
 			targetList, err := remoteReadClient.ListTargets(cmd.Context(), request)
 			if err != nil {
 				return err
+			}
+
+			if targetList == nil {
+				return fmt.Errorf("received list is nil")
 			}
 
 			fmt.Println(cliutil.RenderTargetList(targetList))
@@ -190,15 +203,15 @@ func BuildImportStartCmd() *cobra.Command {
 	var labelFilters []string
 	var startTimestamp int64
 	var endTimestamp int64
-	var clusterId string
 	var forceOverlap bool
 
 	cmd := &cobra.Command{
-		Use:   "start <target>",
+		Use:   "start <cluster> <target>",
 		Short: "start",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			targetName := args[0]
+			clusterId := args[0]
+			targetName := args[1]
 			labelMatchers := make([]*remoteread.LabelMatcher, len(labelFilters))
 
 			for _, labelFilter := range labelFilters {
@@ -218,7 +231,10 @@ func BuildImportStartCmd() *cobra.Command {
 			}
 
 			request := &remoteread.StartReadRequest{
-				TargetName:   targetName,
+				Meta: &remoteread.TargetMeta{
+					ClusterId: clusterId,
+					Name:      targetName,
+				},
 				Query:        query,
 				ForceOverlap: forceOverlap,
 			}
@@ -232,8 +248,6 @@ func BuildImportStartCmd() *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&clusterId, "cluster", "", "the id of the cluster")
 
 	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~\".+\""}, "promql query for the thing")
 
@@ -250,18 +264,19 @@ func BuildImportStartCmd() *cobra.Command {
 }
 
 func BuildImportStopCmd() *cobra.Command {
-	var clusterId string
-
 	cmd := &cobra.Command{
-		Use:   "start <target>",
-		Short: "start",
+		Use:   "stop <cluster> <target>",
+		Short: "stop",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			targetName := args[0]
+			clusterId := args[0]
+			targetName := args[1]
 
 			request := &remoteread.StopReadRequest{
-				TargetName: targetName,
-				ClusterId:  clusterId,
+				Meta: &remoteread.TargetMeta{
+					ClusterId: clusterId,
+					Name:      targetName,
+				},
 			}
 
 			if _, err := remoteReadClient.Stop(cmd.Context(), request); err != nil {
@@ -273,8 +288,6 @@ func BuildImportStopCmd() *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&clusterId, "cluster", "", "the id of the cluster")
 
 	ConfigureManagementCommand(cmd)
 	ConfigureImportCommand(cmd)

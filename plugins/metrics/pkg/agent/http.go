@@ -79,11 +79,6 @@ func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 	router.POST("/api/agent/push", s.handleMetricPushRequest)
 	pprof.Register(router, "/debug/plugin_metrics/pprof")
 
-	router.POST("/api/remoteread/target/add", s.handleTargetAdd)
-	router.PATCH("/api/remoteread/target/edit", s.handleTargetEdit)
-	router.DELETE("/api/remoteread/target/remove", s.handleTargetRemove)
-	router.GET("/api/remoteread/target/list", s.handleTargetList)
-
 	router.GET("/api/remoteread/start", s.handleRemoteReadStart)
 	router.GET("/api/remoteread/stop", s.handleRemoteReadStop)
 }
@@ -161,111 +156,6 @@ func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {
 	}
 }
 
-func (s *HttpServer) handleTargetAdd(c *gin.Context) {
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	buf := bytebufferpool.Get()
-	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var request remoteread.TargetAddRequest
-	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	target := request.Target
-
-	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Add(target); err != nil {
-			c.Status(http.StatusBadRequest)
-			c.Error(err)
-			return
-		}
-
-		c.Status(http.StatusOK)
-	})
-}
-
-func (s *HttpServer) handleTargetEdit(c *gin.Context) {
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	buf := bytebufferpool.Get()
-	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var request remoteread.TargetEditRequest
-	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	targetName := request.TargetName
-	diff := request.TargetDiff
-
-	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Edit(targetName, diff); err != nil {
-			c.Status(http.StatusBadRequest)
-			c.Error(err)
-		}
-
-		c.Status(http.StatusOK)
-	})
-}
-
-func (s *HttpServer) handleTargetRemove(c *gin.Context) {
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	buf := bytebufferpool.Get()
-	if _, err := buf.ReadFrom(c.Request.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var request remoteread.TargetRemoveRequest
-	if err := proto.Unmarshal(buf.Bytes(), &request); err != nil {
-		c.Status(http.StatusBadRequest)
-		c.Error(err)
-		return
-	}
-
-	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Remove(request.TargetName); err != nil {
-			c.Status(http.StatusBadRequest)
-			c.Error(err)
-			return
-		}
-
-		c.Status(http.StatusOK)
-	})
-}
-
-func (s *HttpServer) handleTargetList(c *gin.Context) {
-	if !s.enabled.Load() {
-		c.Status(http.StatusServiceUnavailable)
-		return
-	}
-
-	s.targetRunner.Use(func(runner TargetRunner) {
-		c.ProtoBuf(http.StatusOK, runner.List())
-	})
-}
-
 func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
 	if !s.enabled.Load() {
 		c.Status(http.StatusServiceUnavailable)
@@ -286,7 +176,7 @@ func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
 	}
 
 	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Start(request.TargetName, request.Query); err != nil {
+		if err := runner.Start(request.Meta.Name, request.Query); err != nil {
 			c.Status(http.StatusBadRequest)
 			c.Error(err)
 			return
@@ -316,7 +206,7 @@ func (s *HttpServer) handleRemoteReadStop(c *gin.Context) {
 	}
 
 	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Stop(request.TargetName); err != nil {
+		if err := runner.Stop(request.Meta.Name); err != nil {
 			c.Status(http.StatusBadRequest)
 			c.Error(err)
 			return

@@ -151,13 +151,3 @@ func (p *HttpApiServer) configureQueryFrontend(router *gin.Engine, f *forwarders
 		group.GET("/metadata", f.QueryFrontend)
 	}
 }
-
-//func (p *HttpApiServer) configureImport(router *gin.Engine, f *forwarders, m *middlewares) {
-//	router.POST("/api/remoteread/target/add", f.RemoteRead)
-//	router.PATCH("/api/remoteread/target/edit", f.RemoteRead)
-//	router.DELETE("/api/remoteread/target/remove", f.RemoteRead)
-//	router.GET("/api/remoteread/target/list", f.RemoteRead)
-//
-//	router.POST("/api/remoteread/start", f.RemoteRead)
-//	router.POST("/api/remoteread/stop", f.RemoteRead)
-//}

@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"strings"
-	"sync"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"strings"
+	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -36,7 +35,7 @@ type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
 	cortexops.UnsafeCortexOpsServer
-	remoteread.UnsafeRemoteReadServer
+	remoteread.UnsafeRemoteReadGatewayServer
 	MetricsBackendConfig
 
 	nodeStatusMu sync.RWMutex
@@ -45,19 +44,22 @@ type MetricsBackend struct {
 	desiredNodeSpecMu sync.RWMutex
 	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
+	remoteReadTargetMu sync.RWMutex
+	remoteReadTargets  map[string]*remoteread.Target
+
 	util.Initializer
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
 var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
-var _ remoteread.RemoteReadServer = (*MetricsBackend)(nil)
+var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
 	Logger              *zap.SugaredLogger             `validate:"required"`
 	StorageBackend      storage.Backend                `validate:"required"`
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
-	RemoteReadClient    remoteread.RemoteReadClient    `validate:"required"`
+	RemoteReadForwarder RemoteReadForwarder            `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
 }
@@ -70,6 +72,7 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		m.MetricsBackendConfig = conf
 		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
 		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
+		m.remoteReadTargets = make(map[string]*remoteread.Target)
 	})
 }
 
@@ -414,123 +417,143 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 }
 
 // Metrics Remote Read Backend
+// todo: handle running targets (disallow all edits / deletes / etc)
 
-func (m *MetricsBackend) AddTarget(ctx context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
-	_, err := m.RemoteReadClient.AddTarget(ctx, request)
-
-	clusterId := request.ClusterId
-
-	if err != nil {
-		m.Logger.With(
-			"cluster", clusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.Target.Name,
-			zap.Error(err),
-		).Warn("failed to create target")
-
-		return nil, err
-	}
-
-	m.Logger.With(
-		"cluster", clusterId,
-		"capability", wellknown.CapabilityMetrics,
-		"target", request.Target.Name,
-	).Info("target created")
-
-	return nil, nil
+func targetAlreadyExistsError(name string) error {
+	return fmt.Errorf("target '%s' already exists", name)
 }
 
-func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
-	_, err := m.RemoteReadClient.EditTarget(ctx, request)
-
-	clusterId := request.ClusterId
-
-	if err != nil {
-		m.Logger.With(
-			"cluster", clusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.TargetName,
-			zap.Error(err),
-		).Warn("failed to edit target")
-
-		return nil, err
-	}
-
-	// todo: we might want to display the new name if it was changed
-	m.Logger.With(
-		"cluster", clusterId,
-		"capability", wellknown.CapabilityMetrics,
-		"target", request.TargetName,
-	).Info("target edited")
-
-	return nil, nil
+func targetDoesNotExistError(name string) error {
+	return fmt.Errorf("target '%s' does not exist", name)
 }
 
-func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
-	_, err := m.RemoteReadClient.RemoveTarget(ctx, request)
-
-	clusterId := request.ClusterId
-
-	if err != nil {
-		m.Logger.With(
-			"cluster", clusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.TargetName,
-			zap.Error(err),
-		).Warn("failed to remove target")
-
-		return nil, err
-	}
-
-	m.Logger.With(
-		"cluster", clusterId,
-		"capability", wellknown.CapabilityMetrics,
-		"target", request.TargetName,
-	).Info("target remove")
-
-	return nil, nil
+func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
+	return fmt.Sprintf("%s:%s", meta.Name, meta.ClusterId)
 }
 
-func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
-	list, err := m.RemoteReadClient.ListTargets(ctx, request)
+func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
 
-	clusterId := request.ClusterId
-	if clusterId == "" {
-		clusterId = "(all)"
+	targetId := request.Target.Meta.String()
+
+	if _, found := m.remoteReadTargets[targetId]; found {
+		return nil, targetAlreadyExistsError(targetId)
 	}
 
-	if err != nil {
-		m.Logger.With(
-			"cluster", clusterId,
-			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
-		).Warn("failed to list targets")
-
-		return nil, err
+	if request.Target.Status == nil {
+		request.Target.Status = &remoteread.TargetStatus{
+			LastReadTimestamp: &timestamppb.Timestamp{},
+		}
 	}
 
-	// todo: we might want to display the new name if it was changed
+	m.remoteReadTargets[targetId] = request.Target
+
 	m.Logger.With(
-		"cluster", clusterId,
+		"cluster", request.Target.Meta.ClusterId,
+		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Info("targets listed")
+	).Infof("added new target '%s'", targetId)
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
+
+	targetId := request.Meta.String()
+	diff := request.TargetDiff
+
+	target, found := m.remoteReadTargets[targetId]
+	if !found {
+		return nil, targetDoesNotExistError(targetId)
+	}
+
+	if diff.Name != "" {
+		target.Meta.Name = diff.Name
+		newTargetId := target.Meta.String()
+
+		if _, found := m.remoteReadTargets[newTargetId]; found {
+			return nil, targetAlreadyExistsError(diff.Name)
+		}
+
+		delete(m.remoteReadTargets, targetId)
+		m.remoteReadTargets[newTargetId] = target
+	}
+
+	if diff.Endpoint != "" {
+		target.Spec.Endpoint = diff.Endpoint
+
+		// todo: probably isn't necessary
+		m.remoteReadTargets[targetId] = target
+	}
+
+	// todo: we may want to add the new name if it was changed
+	m.Logger.With(
+		"cluster", request.Meta.ClusterId,
+		"target", request.Meta.Name,
+		"capability", wellknown.CapabilityMetrics,
+	).Infof("edited target '%s'", targetId)
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
+
+	targetId := request.Meta.String()
+
+	if _, found := m.remoteReadTargets[targetId]; !found {
+		return nil, targetDoesNotExistError(request.Meta.Name)
+	}
+
+	delete(m.remoteReadTargets, targetId)
+
+	m.Logger.With(
+		"cluster", request.Meta.ClusterId,
+		"target", request.Meta.Name,
+		"capability", wellknown.CapabilityMetrics,
+	).Infof("removed target '%s'", targetId)
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
+	m.WaitForInit()
+
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
+
+	// todo: we can probably make this smaller
+	inner := make([]*remoteread.Target, 0, len(m.remoteReadTargets))
+
+	for _, target := range m.remoteReadTargets {
+		if request.ClusterId == "" || request.ClusterId == target.Meta.ClusterId {
+			inner = append(inner, target)
+		}
+	}
+
+	list := &remoteread.TargetList{Targets: inner}
 
 	return list, nil
 }
 
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
-	_, err := m.RemoteReadClient.Start(ctx, request)
+	m.WaitForInit()
 
-	clusterId := request.TargetName
-	if clusterId == "" {
-		clusterId = "(all)"
-	}
+	_, err := m.RemoteReadForwarder.Start(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
-			"cluster", clusterId,
+			"cluster", request.Meta.Name,
 			"capability", wellknown.CapabilityMetrics,
-			"target", request.TargetName,
+			"target", request.Meta.Name,
 			zap.Error(err),
 		).Warn("failed to start client")
 
@@ -539,27 +562,24 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 
 	// todo: we might want to display the new name if it was changed
 	m.Logger.With(
-		"cluster", clusterId,
-		"target", request.TargetName,
+		"cluster", request.Meta.Name,
+		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
 	).Info("target started")
 
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
-	_, err := m.RemoteReadClient.Stop(ctx, request)
+	m.WaitForInit()
 
-	clusterId := request.TargetName
-	if clusterId == "" {
-		clusterId = "(all)"
-	}
+	_, err := m.RemoteReadForwarder.Stop(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
-			"cluster", clusterId,
+			"cluster", request.Meta.Name,
 			"capability", wellknown.CapabilityMetrics,
-			"target", request.TargetName,
+			"target", request.Meta.Name,
 			zap.Error(err),
 		).Warn("failed to stop client")
 
@@ -568,10 +588,10 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 
 	// todo: we might want to display the new name if it was changed
 	m.Logger.With(
-		"cluster", clusterId,
-		"target", request.TargetName,
+		"cluster", request.Meta.Name,
+		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
 	).Info("target stopped")
 
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }

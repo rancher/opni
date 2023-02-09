@@ -3,7 +3,6 @@ package remoteread
 import (
 	"fmt"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -12,9 +11,6 @@ import (
 type ClientOptions struct {
 	listenAddr  string
 	dialOptions []grpc.DialOption
-
-	//clients.Locker[remotewrite.RemoteWriteClient]
-	remoteWriteClient remotewrite.RemoteWriteClient
 }
 
 type ClientOption func(*ClientOptions)
@@ -37,14 +33,7 @@ func WithDialOptions(options ...grpc.DialOption) ClientOption {
 	}
 }
 
-func WithRemoteWriteClient(client remotewrite.RemoteWriteClient) ClientOption {
-	return func(opt *ClientOptions) {
-		opt.remoteWriteClient = client
-	}
-}
-
-func NewClient(ctx waitctx.PermissiveContext, opts ...ClientOption) (RemoteReadClient, error) {
-	// todo: figure out remote read gateway address
+func NewClient(ctx waitctx.PermissiveContext, opts ...ClientOption) (RemoteReadGatewayClient, error) {
 	options := ClientOptions{
 		dialOptions: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -65,5 +54,5 @@ func NewClient(ctx waitctx.PermissiveContext, opts ...ClientOption) (RemoteReadC
 		connection.Close()
 	})
 
-	return NewRemoteReadClient(connection), nil
+	return NewRemoteReadGatewayClient(connection), nil
 }

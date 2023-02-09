@@ -4,6 +4,7 @@ package cliutil
 
 import (
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -201,4 +202,17 @@ func servicesByName[T interface {
 		services[s.GetName()] = s.GetStatus()
 	}
 	return services
+}
+
+func RenderTargetList(list *remoteread.TargetList) string {
+	writer := table.NewWriter()
+	writer.SetStyle(table.StyleColoredDark)
+	writer.AppendHeader(table.Row{"NAME", "ENDPOINT", "LAST READ"})
+
+	for _, target := range list.Targets {
+		row := table.Row{target.Name, target.Endpoint, target.Meta.LastReadTimestamp}
+		writer.AppendRow(row)
+	}
+
+	return writer.Render()
 }

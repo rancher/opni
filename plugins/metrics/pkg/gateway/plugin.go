@@ -3,9 +3,6 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
-
-	"go.uber.org/zap"
-
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -28,6 +25,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"go.uber.org/zap"
 )
 
 type Plugin struct {

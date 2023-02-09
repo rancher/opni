@@ -36,7 +36,7 @@ func getNextStatus(ctx context.Context, request *remoteread.TargetStatusRequest)
 }
 
 func getProgressAsPercent(progress *remoteread.TargetProgress) float64 {
-	if progress.LastReadTimestamp == nil {
+	if progress == nil || progress.LastReadTimestamp == nil {
 		return 0
 	}
 

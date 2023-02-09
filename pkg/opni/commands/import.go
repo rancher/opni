@@ -92,7 +92,6 @@ func BuildImportAddCmd() *cobra.Command {
 			}
 
 			_, err := remoteReadClient.AddTarget(cmd.Context(), request)
-
 			if err != nil {
 				return err
 			}
@@ -110,7 +109,7 @@ func BuildImportEditCmd() *cobra.Command {
 	var newName string
 
 	cmd := &cobra.Command{
-		Use:   "edit",
+		Use:   "edit <cluster> <name>",
 		Short: "Edit an existing import target",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if newEndpoint == "" && newName == "" {

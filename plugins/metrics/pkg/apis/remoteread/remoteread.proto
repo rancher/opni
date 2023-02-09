@@ -44,11 +44,12 @@ message TargetMeta {
 
 message TargetStatus {
   enum State {
-    NotRunning = 0;
-    Running = 1;
-    Failed = 2;
-    Complete = 3;
-    Stopped = 4;
+    Unknown = 0;
+    NotRunning = 1;
+    Running = 2;
+    Failed = 3;
+    Complete = 4;
+    Stopped = 5;
   }
 
   // this is the progress of the last known import

@@ -81,7 +81,7 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		respMsg, err := w.delegateClient.Request(ctx, &streamv1.DelegatedMessage{
 			Request: rpc,
 			Target:  w.target,
-		})
+		}, opts...)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		_, err := w.delegateClient.Broadcast(ctx, &streamv1.BroadcastMessage{
 			Request:        rpc,
 			TargetSelector: w.selector,
-		})
+		}, opts...)
 		if err != nil {
 			return err
 		}

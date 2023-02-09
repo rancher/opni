@@ -540,7 +540,7 @@ func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.Tar
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
+func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
 	m.WaitForInit()
 
 	m.remoteReadTargetMu.Lock()
@@ -551,6 +551,14 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 
 	for _, target := range m.remoteReadTargets {
 		if request.ClusterId == "" || request.ClusterId == target.Meta.ClusterId {
+			newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
+			if err != nil {
+				m.Logger.Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
+				newStatus.State = remoteread.TargetStatus_Unknown
+			}
+
+			target.Status = newStatus
+
 			inner = append(inner, target)
 		}
 	}
@@ -563,7 +571,7 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
 	m.WaitForInit()
 
-	status, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
+	newStatus, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 
 	if err != nil {
 		if err != nil {
@@ -572,13 +580,15 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 				"capability", wellknown.CapabilityMetrics,
 				"target", request.Meta.Name,
 				zap.Error(err),
-			).Error("failed to start target")
+			).Error("failed to get target status")
 
 			return nil, err
 		}
 	}
 
-	return status, nil
+	m.Logger.Debugf("received status: %s", newStatus.String())
+
+	return newStatus, nil
 }
 
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {

@@ -3,7 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
-	
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
+
 	// todo: needed instead of google.golang.org/protobuf/proto since prometheus Messages are built with it
 	"github.com/golang/protobuf/proto"
 
@@ -269,6 +270,7 @@ func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Q
 
 	runner.logger.With(
 		"cluster", target.Meta.ClusterId,
+		"capability", wellknown.CapabilityMetrics,
 		"name", target.Meta.Name,
 	).Infof("target started")
 

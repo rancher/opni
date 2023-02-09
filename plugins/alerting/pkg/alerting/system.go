@@ -42,7 +42,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		os.Exit(1)
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		opt := shared.NewAlertingOptions{
+		opt := shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
 			WorkerNodePort:        config.Spec.Alerting.WorkerPort,
@@ -55,27 +55,34 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.configureAlertManagerConfiguration(
 			p.Ctx,
+			drivers.WithAlertingRuntimeOptions(&opt),
 			drivers.WithLogger(p.Logger.Named("alerting-manager")),
-			drivers.WithAlertingOptions(&opt),
-			drivers.WithManagementClient(client),
-			drivers.WithPostInstallHooks([]func(){
-				func() {
+			drivers.WithSubscribers([]chan shared.AlertingClusterNotification{
+				p.clusterNotifier,
+			}),
+		)
+	})
+	go func() {
+		for {
+			select {
+			case <-p.Ctx.Done():
+				return
+			case incomingState := <-p.clusterNotifier:
+				if !p.enabledBool.Load() && incomingState.A {
 					err := p.reindex(p.Ctx)
 					if err != nil {
 						p.Logger.With("err", err).Error("failed to reindex")
 					}
-				},
-			}),
-			drivers.WithPostUninstallHooks([]func(){
-				func() {
+				} else if !incomingState.A {
 					err := p.teardown(p.Ctx)
 					if err != nil {
 						p.Logger.With("err", err).Error("failed to teardown")
 					}
-				},
-			}),
-		)
-	})
+				}
+				p.enabledBool.Store(incomingState.A)
+			}
+		}
+	}()
 	p.UseWatchers(client)
 	<-p.Ctx.Done()
 }

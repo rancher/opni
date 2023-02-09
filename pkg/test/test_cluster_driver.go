@@ -28,7 +28,6 @@ import (
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -195,8 +194,10 @@ type TestEnvAlertingClusterDriver struct {
 	enabled          *atomic.Bool
 	ConfigFile       string
 
-	*AlertingClusterDriverOptions
-	Logger *zap.SugaredLogger
+	*shared.AlertingClusterOptions
+
+	*alerting_drivers.AlertingManagerDriverOptions
+	*alertops.ClusterConfiguration
 
 	alertops.UnsafeAlertingAdminServer
 }
@@ -204,42 +205,19 @@ type TestEnvAlertingClusterDriver struct {
 var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
 var _ alertops.AlertingAdminServer = (*TestEnvAlertingClusterDriver)(nil)
 
-type AlertingClusterDriverOptions struct {
-	*alertops.ClusterConfiguration
-	*shared.NewAlertingOptions
-}
-
-type AlertingClusterDriverOption func(*AlertingClusterDriverOptions)
-
-func (o *AlertingClusterDriverOptions) apply(opts ...AlertingClusterDriverOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithLocalAlertingOptions(options shared.NewAlertingOptions) AlertingClusterDriverOption {
-	return func(o *AlertingClusterDriverOptions) {
-		o.NewAlertingOptions = &options
-	}
-}
-
-func NewTestEnvAlertingClusterDriver(env *Environment, opts ...AlertingClusterDriverOption) *TestEnvAlertingClusterDriver {
+func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.AlertingManagerDriverOption) *TestEnvAlertingClusterDriver {
 	dir := env.GenerateNewTempDirectory("alertmanager-config")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		panic(err)
 	}
 	configFile := path.Join(dir, "alertmanager.yaml")
-	lg := logger.NewPluginLogger().Named("alerting-cluster-driver")
+	lg := logger.NewPluginLogger().Named("alerting-test-cluster-driver")
 	lg = lg.With("config-file", configFile)
-	options := &AlertingClusterDriverOptions{
-		NewAlertingOptions: &shared.NewAlertingOptions{},
-		ClusterConfiguration: &alertops.ClusterConfiguration{
-			NumReplicas:    1,
-			ResourceLimits: &alertops.ResourceLimitSpec{},
-		},
+	options := &alerting_drivers.AlertingManagerDriverOptions{
+		Logger: lg,
 	}
-	options.apply(opts...)
+	options.Apply(opts...)
 	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
@@ -252,12 +230,15 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...AlertingClusterDr
 	initial := &atomic.Bool{}
 	initial.Store(false)
 	return &TestEnvAlertingClusterDriver{
-		env:                          env,
-		managedInstances:             []AlertingServerUnit{},
-		Logger:                       lg,
-		enabled:                      initial,
-		AlertingClusterDriverOptions: options,
-		ConfigFile:                   configFile,
+		env:                    env,
+		managedInstances:       []AlertingServerUnit{},
+		enabled:                initial,
+		ConfigFile:             configFile,
+		AlertingClusterOptions: &shared.AlertingClusterOptions{},
+		ClusterConfiguration: &alertops.ClusterConfiguration{
+			ResourceLimits: &alertops.ResourceLimitSpec{},
+		},
+		AlertingManagerDriverOptions: options,
 	}
 }
 
@@ -288,10 +269,17 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 		}
 	}
 	if len(l.managedInstances) > 1 {
-		l.NewAlertingOptions.WorkerNodesService = "http://localhost"
-		l.NewAlertingOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
+		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
 	}
 	l.ClusterConfiguration = configuration
+
+	for _, subscriber := range l.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: true,
+			B: l.AlertingClusterOptions,
+		}
+	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -316,7 +304,6 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, emp
 }
 
 func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-
 	if l.enabled.Load() {
 		return &emptypb.Empty{}, nil
 	}
@@ -338,13 +325,16 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	l.ResourceLimits.Cpu = "500m"
 	l.ResourceLimits.Memory = "200Mi"
 	l.ResourceLimits.Storage = "500Mi"
-	l.AlertingClusterDriverOptions.NewAlertingOptions.ControllerNodeService = "http://localhost"
+	l.AlertingClusterOptions.ControllerNodeService = "http://localhost"
 
-	// l.replicaInstance = append(l.replicaInstance, startNewReplica(l.ctx, l.alertManagerConfigPath, l.Logger, nil))
-	// l.clusterPort = l.clusterJoinPort
-
-	l.AlertingClusterDriverOptions.NewAlertingOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
-	l.AlertingClusterDriverOptions.NewAlertingOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
+	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
+	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
+	for _, subscriber := range l.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: true,
+			B: l.AlertingClusterOptions,
+		}
+	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -354,7 +344,17 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req
 	}
 	l.managedInstances = []AlertingServerUnit{}
 	l.enabled.Store(false)
+	for _, subscriber := range l.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: false,
+			B: nil,
+		}
+	}
 	return &emptypb.Empty{}, nil
+}
+
+func (l *TestEnvAlertingClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
+	return *l.AlertingClusterOptions
 }
 
 func (l *TestEnvAlertingClusterDriver) Name() string {
@@ -363,14 +363,6 @@ func (l *TestEnvAlertingClusterDriver) Name() string {
 
 func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Reference) error {
 	return nil
-}
-
-// read only view
-func (l *TestEnvAlertingClusterDriver) GetRuntimeOptions() (shared.NewAlertingOptions, error) {
-	if l.NewAlertingOptions == nil {
-		return shared.NewAlertingOptions{}, fmt.Errorf("no runtime options set")
-	}
-	return *l.NewAlertingOptions, nil
 }
 
 type AlertingServerUnit struct {
@@ -429,7 +421,8 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 			alertmanagerArgs = append(alertmanagerArgs,
 				fmt.Sprintf("--cluster.peer=localhost:%d", replica.ClusterPort))
 		}
-		l.AlertingClusterDriverOptions.NewAlertingOptions.WorkerNodePort = webPort
+		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodePort = webPort
 	}
 
 	ctxCa, cancelFunc := context.WithCancel(ctx)

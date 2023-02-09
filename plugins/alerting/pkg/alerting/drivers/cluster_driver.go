@@ -5,15 +5,12 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"go.uber.org/zap"
@@ -27,7 +24,6 @@ import (
 
 type AlertingManager struct {
 	alertingOptionsMu sync.RWMutex
-	configPersistMu   sync.RWMutex
 	AlertingManagerDriverOptions
 	alertops.UnsafeAlertingAdminServer
 }
@@ -38,15 +34,6 @@ func (a *AlertingManager) Name() string {
 
 func (a *AlertingManager) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
-}
-
-func (a *AlertingManager) GetRuntimeOptions() (shared.NewAlertingOptions, error) {
-	a.alertingOptionsMu.RLock()
-	defer a.alertingOptionsMu.RUnlock()
-	if a.AlertingOptions == nil {
-		return shared.NewAlertingOptions{}, fmt.Errorf("alerting options not set")
-	}
-	return *a.AlertingOptions, nil
 }
 
 var _ ClusterDriver = (*AlertingManager)(nil)
@@ -69,30 +56,22 @@ type AlertingManagerDriverOptions struct {
 	gatewayRef         types.NamespacedName
 	configKey          string
 	internalRoutingKey string
-	// ! must be mutable, as it needs to be updated on operator changes
-	AlertingOptions    *shared.NewAlertingOptions
-	mgmtClient         managementv1.ManagementClient
-	postInstallHooks   []func()
-	postUninstallHooks []func()
+
+	AlertingOptions *shared.AlertingClusterOptions
+	Subscribers     []chan shared.AlertingClusterNotification
 }
 
 type AlertingManagerDriverOption func(*AlertingManagerDriverOptions)
 
-func (a *AlertingManagerDriverOptions) apply(opts ...AlertingManagerDriverOption) {
+func (a *AlertingManagerDriverOptions) Apply(opts ...AlertingManagerDriverOption) {
 	for _, o := range opts {
 		o(a)
 	}
 }
 
-func WithManagementClient(client managementv1.ManagementClient) AlertingManagerDriverOption {
+func WithAlertingRuntimeOptions(opts *shared.AlertingClusterOptions) AlertingManagerDriverOption {
 	return func(o *AlertingManagerDriverOptions) {
-		o.mgmtClient = client
-	}
-}
-
-func WithAlertingOptions(options *shared.NewAlertingOptions) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.AlertingOptions = options
+		o.AlertingOptions = opts
 	}
 }
 
@@ -114,15 +93,9 @@ func WithLogger(logger *zap.SugaredLogger) AlertingManagerDriverOption {
 	}
 }
 
-func WithPostInstallHooks(postInstallHooks []func()) AlertingManagerDriverOption {
+func WithSubscribers(subscribers []chan shared.AlertingClusterNotification) AlertingManagerDriverOption {
 	return func(o *AlertingManagerDriverOptions) {
-		o.postInstallHooks = append(o.postInstallHooks, postInstallHooks...)
-	}
-}
-
-func WithPostUninstallHooks(postInstallHooks []func()) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.postUninstallHooks = append(o.postUninstallHooks, postInstallHooks...)
+		o.Subscribers = subscribers
 	}
 }
 
@@ -135,10 +108,7 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 		configKey:          shared.AlertManagerConfigKey,
 		internalRoutingKey: shared.InternalRoutingConfigKey,
 	}
-	options.apply(opts...)
-	if options.AlertingOptions == nil {
-		return nil, fmt.Errorf("alerting options must be provided")
-	}
+	options.Apply(opts...)
 	if options.k8sClient == nil {
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: apis.NewScheme(),
@@ -254,25 +224,16 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 	if retryErr != nil {
 		return nil, retryErr
 	}
-	retrier := backoffv2.Exponential(
-		backoffv2.WithMaxRetries(10),
-		backoffv2.WithMinInterval(200*time.Millisecond),
-		backoffv2.WithMaxInterval(2*time.Second),
-		backoffv2.WithMultiplier(1.2),
-	)
-	b := retrier.Start(ctx)
-	for backoffv2.Continue(b) { //FIXME: this can fail and will bust the options struct and potentially impact all the alerting functionality
-		if warnErr := a.visitNewAlertingOptions(a.AlertingOptions); warnErr != nil {
-			a.Logger.Warn(zap.Error(warnErr))
-		} else {
-			break
+
+	// Install hooks
+
+	for _, subscriber := range a.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: true,
+			B: nil,
 		}
 	}
-	go func() {
-		for _, f := range a.postInstallHooks {
-			f()
-		}
-	}()
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -289,10 +250,18 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, req *alertops.Un
 	if retryErr != nil {
 		return nil, retryErr
 	}
-	go func() {
-		for _, f := range a.postUninstallHooks {
-			f()
+	// Uninstall hooks
+
+	for _, subscriber := range a.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: false,
+			B: nil,
 		}
-	}()
+	}
+
 	return &emptypb.Empty{}, nil
+}
+
+func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
+	return *a.AlertingOptions
 }

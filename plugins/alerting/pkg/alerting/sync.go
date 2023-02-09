@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -13,7 +13,7 @@ import (
 
 func (p *Plugin) reindex(ctx context.Context) error {
 	p.Logger.Debug("reindexing alert conditions")
-	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, storage_opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -21,7 +21,7 @@ func (p *Plugin) reindex(ctx context.Context) error {
 	for _, cond := range conditions {
 		cond := cond
 		go func() {
-			_, err = setupCondition(p, p.Logger, ctx, cond, cond.Id)
+			_, err = p.setupCondition(ctx, p.Logger, cond, cond.Id)
 			if err != nil {
 				p.Logger.Errorf("failed to setup alert condition %s: %s", cond.Id, err)
 			}
@@ -33,7 +33,7 @@ func (p *Plugin) reindex(ctx context.Context) error {
 
 func (p *Plugin) teardown(ctx context.Context) error {
 	p.Logger.Debug("tearing down alert conditions")
-	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, storage_opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -41,7 +41,7 @@ func (p *Plugin) teardown(ctx context.Context) error {
 	for _, cond := range conditions {
 		cond := cond
 		go func() {
-			err := deleteCondition(p, p.Logger, ctx, cond, cond.Id)
+			err := p.deleteCondition(ctx, p.Logger, cond, cond.Id)
 			if err != nil {
 				p.Logger.Errorf("failed to teardown alert condition %s: %s", cond.Id, err)
 			}
@@ -51,7 +51,7 @@ func (p *Plugin) teardown(ctx context.Context) error {
 }
 
 func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, storage_opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -97,7 +97,7 @@ func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) 
 }
 
 func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, storage_opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}
@@ -173,7 +173,7 @@ func (p *Plugin) createDefaultCapabilityHealth(_ context.Context, clusterId stri
 }
 
 func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, storage_opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list conditions from storage : %s", err)
 	}

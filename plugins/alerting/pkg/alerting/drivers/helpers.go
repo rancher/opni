@@ -76,17 +76,3 @@ func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*al
 		State: alertops.InstallState_Uninstalling,
 	}, nil
 }
-
-func (a *AlertingManager) visitNewAlertingOptions(toUpdate *shared.NewAlertingOptions) error {
-	a.alertingOptionsMu.Lock()
-	defer a.alertingOptionsMu.Unlock()
-
-	// FIXME: dynamically  visiting config no longer works,
-	// but since we hardcode these in the operator anyways
-	// this will work for now
-	toUpdate.ControllerClusterPort = 9094
-	toUpdate.ControllerNodePort = 9093
-	toUpdate.WorkerNodePort = 9093
-	a.Logger.Debug("Visiting the gateway config succesfully yields the new alerting options %v", toUpdate)
-	return nil
-}

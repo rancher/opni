@@ -9,20 +9,15 @@ import (
 	"time"
 
 	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/prometheus/common/model"
+	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
-	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
-	"google.golang.org/genproto/googleapis/rpc/code"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -54,7 +49,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 	if status.State != alertops.InstallState_Installed {
 		return &corev1.Reference{Id: newId}, nil
 	}
-	if _, err := setupCondition(p, lg, ctx, req, newId); err != nil {
+	if _, err := p.setupCondition(ctx, lg, req, newId); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{Id: newId}, nil
@@ -106,7 +101,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	if status.State != alertops.InstallState_Installed {
 		return &emptypb.Empty{}, nil
 	}
-	if _, err := setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id); err != nil {
+	if _, err := p.setupCondition(ctx, lg, req.UpdateAlert, req.Id.Id); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -133,7 +128,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if status.State != alertops.InstallState_Installed {
 		return &emptypb.Empty{}, nil
 	}
-	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
+	if err := p.deleteCondition(ctx, lg, existing, ref.Id); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -230,13 +225,12 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
-		lg.Errorf("Failed to get alerting options : %s", err)
 		return nil, err
 	}
 	// FIXME: the alert status returned by this endpoint
 	// will not always be consistent within the HA vanilla AlertManager,
 	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -261,35 +255,33 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
 	for _, alert := range respAlertGroup {
-		matched := false
-		for labelName, label := range alert.Labels {
-			for _, conditionMatcher := range matchers {
-				if conditionMatcher.Name == labelName {
-					if conditionMatcher.Matches(label) {
-						matched = true
-						break
-					}
+		// must match all matchers from the router spec to the alert's labels
+		if !lo.EveryBy(matchers, func(m *labels.Matcher) bool {
+			for labelName, label := range alert.Labels {
+				if m.Name == labelName && m.Matches(label) {
+					return true
 				}
 			}
-			if matched {
-				switch *alert.Status.State {
-				case models.AlertStatusStateSuppressed:
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_Silenced,
-					}, nil
-				case models.AlertStatusStateActive:
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_Firing,
-					}, nil
-				case models.AlertStatusStateUnprocessed: // in our case unprocessed means it has arrived for firing
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_Firing,
-					}, nil
-				default:
-					return defaultState, nil
-				}
-			}
+			return false
+		}) {
+			continue // these are not the alerts you are looking for
+		}
 
+		switch *alert.Status.State {
+		case models.AlertStatusStateSuppressed:
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Silenced,
+			}, nil
+		case models.AlertStatusStateActive:
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Firing,
+			}, nil
+		case models.AlertStatusStateUnprocessed: // in our case unprocessed means it has arrived for firing
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Firing,
+			}, nil
+		default:
+			return defaultState, nil
 		}
 	}
 	return defaultState, nil
@@ -307,7 +299,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 	if err != nil {
 		return nil, err
 	}
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +359,7 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", req.Id)
 	}
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -451,136 +443,65 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	resp := &alertingv1.TimelineResponse{
 		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
-	requiresCortex := false
-	for _, cond := range conditions {
-		if k, _ := handleSwitchCortexRules(cond.GetAlertType()); k != nil {
-			requiresCortex = true
-		}
-		resp.Items[cond.Id] = &alertingv1.ActiveWindows{
-			Windows: make([]*alertingv1.ActiveWindow, 0),
-		}
-	}
-
-	var cortexAdminClient cortexadmin.CortexAdminClient
-	if requiresCortex {
-		ctxCa, cancel := context.WithCancel(ctx)
-		defer cancel()
-		adminClient, err := p.adminClient.GetContext(ctxCa)
-		if err != nil {
-			return nil, util.StatusError(codes.Code(code.Code_FAILED_PRECONDITION))
-		}
-		cortexAdminClient = adminClient
-	}
-
 	start := timestamppb.New(time.Now().Add(-req.LookbackWindow.AsDuration()))
 	end := timestamppb.Now()
-	cortexStep := durationpb.New(req.LookbackWindow.AsDuration() / 500)
 	var wg sync.WaitGroup
-	var addMu sync.Mutex
-	for _, cond := range conditions {
-		cond := cond
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if s := cond.GetAlertType().GetSystem(); s != nil {
-				// check system tracker
-				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
-				// check system tracker
-				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if mb := cond.GetAlertType().GetMonitoringBackend(); mb != nil {
-				// check system tracker
-				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[cond.Id] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if r, info := handleSwitchCortexRules(cond.GetAlertType()); r != nil {
-				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
-					Tenants: []string{r.Id},
-					// Constructed recording rule, NOT alerting rule
-					Query: fmt.Sprintf(
-						"%s{%s}",
-						cortex.ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-						cortex.ConstructFiltersFromMap(
-							cortex.ConstructIdLabelsForRecordingRule(cond.Name, cond.Id),
-						),
-					),
-					Start: start,
-					End:   end,
-					Step:  cortexStep,
-				})
-				if err != nil {
-					p.Logger.Errorf("failed to query cortex : %s", err)
-					return
-				}
-				rawBytes := qr.Data
-				qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
-				if err != nil {
-					p.Logger.Errorf("failed to unmarshal prometheus response : %s", err)
-					return
-				}
-				dataMatrix, err := qres.GetMatrix()
-				if err != nil {
-					p.Logger.Errorf("failed to get matrix : %s", err)
-					return
-				}
-				isRising := true
-				isFiring := func(v model.SampleValue) bool {
-					return v > 0
-				}
-				activeWindows := alertingv1.ActiveWindows{
-					Windows: make([]*alertingv1.ActiveWindow, 0),
-				}
-				for _, row := range *dataMatrix {
-					for _, rowValue := range row.Values {
-						ts := time.Unix(rowValue.Timestamp.Unix(), 0)
-						if !isFiring(rowValue.Value) && isRising {
-							activeWindows.Windows = append(activeWindows.Windows, &alertingv1.ActiveWindow{
-								Start: timestamppb.New(ts),
-								End:   end,
-								Type:  alertingv1.TimelineType_Timeline_Alerting,
-							})
-							isRising = false
-						} else if isFiring(rowValue.Value) && !isRising {
-							activeWindows.Windows[len(activeWindows.Windows)].End = timestamppb.New(ts)
-							isRising = true
-						}
+	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
+	go func() {
+		for _, cond := range conditions {
+			cond := cond
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if s := cond.GetAlertType().GetSystem(); s != nil {
+					// check system tracker
+					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+					if err != nil {
+						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+						return
 					}
+					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+						Windows: activeWindows,
+					}}
 				}
-				addMu.Lock()
-				resp.Items[cond.Id] = &activeWindows
-				addMu.Unlock()
-			}
-		}()
-	}
-	wg.Wait()
+				if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
+					// check system tracker
+					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+					if err != nil {
+						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+						return
+					}
+					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+						Windows: activeWindows,
+					}}
+				}
+				if mb := cond.GetAlertType().GetMonitoringBackend(); mb != nil {
+					// check system tracker
+					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+					if err != nil {
+						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+						return
+					}
+					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+						Windows: activeWindows,
+					}}
+				}
+			}()
+		}
 
-	return resp, nil
+		wg.Wait()
+		close(yieldedValues)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case v, ok := <-yieldedValues:
+			if !ok {
+				return resp, nil
+			}
+			resp.Items[v.A] = v.B
+		}
+	}
 }

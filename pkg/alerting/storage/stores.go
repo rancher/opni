@@ -5,22 +5,23 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AlertingStoreBroker interface {
 	NewClientSet() AlertingClientSet
-	// Use handles specify a specific store in the clientset.
+	// Use applies a specific storage client to the matching storage client in the clientset
+	//
 	// It is also responsible for migrating existing data if there is an existing store
 	// of the same type already in use by the clientset
 	Use(store any)
 }
 
 type AlertingClientSet interface {
-	Purge(ctx context.Context) error
 	HashRing
+	Purge(ctx context.Context) error
 	Conditions() ConditionStorage
 	Endpoints() EndpointStorage
 	Routers() RouterStorage
@@ -34,16 +35,16 @@ type HashRing interface {
 	GetHash(ctx context.Context, key string) string
 	// Sync reads from the client set and updates the router storage in the appropriate way
 	// It returns the router keys that have changed.
-	Sync(ctx context.Context, opts ...storage_opts.SyncOption) (routerKeys []string, err error)
-	ForceSync(ctx context.Context, opts ...storage_opts.SyncOption) error
+	Sync(ctx context.Context, opts ...opts.SyncOption) (routerKeys []string, err error)
+	ForceSync(ctx context.Context, opts ...opts.SyncOption) error
 }
 
 type AlertingStorage[T any] interface {
 	Put(ctx context.Context, key string, value T) error
-	Get(ctx context.Context, key string, opts ...storage_opts.RequestOption) (T, error)
+	Get(ctx context.Context, key string, opts ...opts.RequestOption) (T, error)
 	Delete(ctx context.Context, key string) error
 	ListKeys(ctx context.Context) ([]string, error)
-	List(ctx context.Context, opts ...storage_opts.RequestOption) ([]T, error)
+	List(ctx context.Context, opts ...opts.RequestOption) ([]T, error)
 }
 
 type AlertingSecretStorage[T interfaces.AlertingSecret] interface {

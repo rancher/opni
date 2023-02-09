@@ -13,7 +13,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/encoding/protojson"

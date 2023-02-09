@@ -6,7 +6,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
@@ -22,7 +22,7 @@ func unredactSecrets(
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {
-	unredacted, err := store.Endpoints().Get(ctx, endpointId, storage_opts.WithUnredacted())
+	unredacted, err := store.Endpoints().Get(ctx, endpointId, opts.WithUnredacted())
 	if err != nil {
 		return err
 	}

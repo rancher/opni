@@ -25,9 +25,8 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
-func setupCondition(
+func (p *Plugin) setupCondition(
 	ctx context.Context,
-	p *Plugin,
 	_ *zap.SugaredLogger,
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
@@ -88,7 +87,7 @@ func setupCondition(
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(ctx context.Context, p *Plugin, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
+func (p *Plugin) deleteCondition(ctx context.Context, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
 		p.storageClientSet.Get().Incidents().Delete(ctx, id)

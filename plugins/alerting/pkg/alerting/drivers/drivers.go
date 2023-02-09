@@ -18,9 +18,7 @@ type ClusterDriver interface {
 	// have this capability enabled. If this function returns an error, the
 	// node will be set to disabled instead, and the error will be logged.
 	ShouldDisableNode(*corev1.Reference) error
-
-	// !! Read only view of alerting options
-	GetRuntimeOptions() (shared.NewAlertingOptions, error)
+	GetRuntimeOptions() shared.AlertingClusterOptions
 }
 
 var (
@@ -95,8 +93,8 @@ func (d *NoopClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 	return nil
 }
 
-func (d *NoopClusterDriver) GetRuntimeOptions() (shared.NewAlertingOptions, error) {
-	return shared.NewAlertingOptions{}, fmt.Errorf("noop driver does not have alerting runtime options")
+func (d *NoopClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
+	return shared.AlertingClusterOptions{}
 }
 
 var _ ClusterDriver = &NoopClusterDriver{}

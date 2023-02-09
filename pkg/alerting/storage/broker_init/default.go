@@ -7,7 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
 )
@@ -49,7 +49,7 @@ func NewDefaultAlertingBroker(js nats.JetStreamContext, opts ...storage_opts.Cli
 		jetstream.NewJetStreamAlertingIncidentTracker(
 			jetstream.NewIncidentKeyStore(js),
 			incidentPrefixV1,
-			options.TrackerTTl,
+			options.TrackerTtl,
 		),
 	)
 

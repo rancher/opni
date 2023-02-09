@@ -61,6 +61,7 @@ require (
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.25
+	github.com/lithammer/shortuuid v3.0.0+incompatible
 	github.com/longhorn/upgrade-responder v0.1.5
 	github.com/magefile/mage v1.14.0
 	github.com/mattn/go-tty v0.0.4
@@ -86,6 +87,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.39.1-0.20230110141620-846591a16635
+	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.8.2
 	github.com/prometheus/procfs v0.9.0
 	github.com/prometheus/prometheus v0.41.0
@@ -127,7 +129,6 @@ require (
 	golang.org/x/mod v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.5.0
-	golang.org/x/text v0.6.0
 	golang.org/x/tools v0.5.0
 	gonum.org/v1/gonum v0.12.0
 	google.golang.org/genproto v0.0.0-20230124163310-31e0e69b6fc2
@@ -199,7 +200,6 @@ require (
 	github.com/aws/smithy-go v1.13.4 // indirect
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/syslogng/config v0.0.0 // indirect
-	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -396,6 +396,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ory/go-acc v0.2.6 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/viper v1.7.5 // indirect
@@ -407,7 +408,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.12 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20201118171849-f6a6b3f636fc // indirect
 	github.com/pulumi/pulumi-docker/sdk/v3 v3.2.0 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
@@ -479,6 +479,7 @@ require (
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/term v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -522,10 +523,7 @@ replace (
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221206210856-99cb51e2d10a
 )
 
-// AlertManager replacements
-
-// ! Freeze to v0.24.1 due to dependency incompatibility with Cortex
-replace github.com/prometheus/alertmanager => github.com/prometheus/alertmanager v0.24.1
+replace github.com/prometheus/alertmanager => github.com/prometheus/alertmanager v0.24.0
 
 // Cortex replacements (copied from cortex go.mod)
 replace (

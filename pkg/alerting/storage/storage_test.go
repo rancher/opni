@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
@@ -129,12 +129,12 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 					err := st.Put(ctx, testcaseName, unsecret)
 					Expect(err).NotTo(HaveOccurred())
 					By(fmt.Sprintf("Checking the secret's '%s' secrets fields are unredacted", testcaseName))
-					redacted, err := st.Get(ctx, testcaseName, storage_opts.WithUnredacted())
+					redacted, err := st.Get(ctx, testcaseName, opts.WithUnredacted())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(unsecret).To(testutil.ProtoEqual(redacted))
 				}
 				By("requesting a list of the secrets in redacted form")
-				items, err := st.List(ctx, storage_opts.WithUnredacted())
+				items, err := st.List(ctx, opts.WithUnredacted())
 				Expect(err).NotTo(HaveOccurred())
 				By("Expecting none of the secrets to have redacted information")
 				testcaseItems := lo.MapToSlice(testcases, func(K string, V T) T {
@@ -345,6 +345,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 				By("checking the incident tracker is only reporting incident windows")
 				windows, err := tracker.GetActiveWindowsFromIncidentTracker(ctx, key, ts, timestamppb.Now())
 				Expect(err).To(Succeed())
+				Expect(windows).NotTo(HaveLen(0))
 				ExpectWindowsAreOk(windows, time.Now().Add(-testTTL))
 			})
 
@@ -367,6 +368,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 				By("checking the incident tracker is only reporting incident windows")
 				windows, err := tracker.GetActiveWindowsFromIncidentTracker(ctx, oldKey, timestamppb.Now(), timestamppb.Now())
 				Expect(err).To(Succeed())
+				Expect(windows).NotTo(HaveLen(0))
 				Expect(len(windows)).To(BeNumerically("<=", n))
 				ExpectWindowsAreOk(windows, endTs.Add(-testTTL))
 			})

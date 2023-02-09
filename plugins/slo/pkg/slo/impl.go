@@ -71,6 +71,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 		for _, rule := range ruleName.Rules {
 			if rule.Alert != "" {
 				err := deleteCortexSLORules(
+					s.ctx,
 					s.p,
 					s.p.logger,
 					clusterId,

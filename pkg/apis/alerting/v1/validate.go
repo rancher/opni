@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"net/mail"
 	"net/url"
 	"strings"
@@ -21,16 +22,16 @@ func validComparionOperator(op string) error {
 
 func (s *SyncerConfig) Validate() error {
 	if s.GatewayJoinAddress == "" {
-		return validation.Error("GatewayJoinAddress must be set")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "GatewayJoinAddress")
 	}
 	if s.ListenAddress == "" {
-		return validation.Error("ListenAddress must be set")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "ListenAddress")
 	}
 	if s.AlertmanagerAddress == "" {
-		return validation.Error("AlertmanagerAddress must be set")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "AlertmanagerAddress")
 	}
 	if s.AlertmanagerConfigPath == "" {
-		return validation.Error("AlertmanagerConfigPath must be set")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "AlertManagerConfigPath")
 	}
 	return nil
 }

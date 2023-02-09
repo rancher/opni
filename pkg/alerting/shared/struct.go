@@ -1,16 +1,14 @@
 package shared
 
-import "fmt"
+import (
+	"fmt"
 
-type AlertingOptions struct {
-	Endpoints         []string
-	ConfigMap         string
-	Namespace         string
-	StatefulSet       string
-	CortexHookHandler string
-}
+	"github.com/samber/lo"
+)
 
-type NewAlertingOptions struct {
+type AlertingClusterNotification lo.Tuple2[bool, *AlertingClusterOptions]
+
+type AlertingClusterOptions struct {
 	Namespace             string
 	WorkerNodesService    string
 	WorkerNodePort        int
@@ -23,18 +21,18 @@ type NewAlertingOptions struct {
 	ManagementHookHandler string
 }
 
-func (a *NewAlertingOptions) GetInternalControllerOpniEndpoint() string {
+func (a *AlertingClusterOptions) GetInternalControllerOpniEndpoint() string {
 	return fmt.Sprintf("%s:%d", a.ControllerNodeService, AlertingDefaultHookPort)
 }
 
-func (a *NewAlertingOptions) GetInternalWorkerOpniEndpoint() string {
+func (a *AlertingClusterOptions) GetInternalWorkerOpniEndpoint() string {
 	return fmt.Sprintf("%s:%d", a.WorkerNodesService, AlertingDefaultHookPort)
 }
 
-func (a *NewAlertingOptions) GetControllerEndpoint() string {
+func (a *AlertingClusterOptions) GetControllerEndpoint() string {
 	return fmt.Sprintf("%s:%d", a.ControllerNodeService, a.ControllerNodePort)
 }
 
-func (a *NewAlertingOptions) GetWorkerEndpoint() string {
+func (a *AlertingClusterOptions) GetWorkerEndpoint() string {
 	return fmt.Sprintf("%s:%d", a.WorkerNodesService, a.WorkerNodePort)
 }

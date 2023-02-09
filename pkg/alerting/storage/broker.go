@@ -5,7 +5,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
@@ -17,16 +17,16 @@ var _ AlertingStorage[interfaces.AlertingSecret] = (*jetstream.JetStreamAlerting
 var _ RouterStorage = (*mem.InMemoryRouterStore)(nil)
 
 type CompositeAlertingBroker struct {
-	storage_opts.ClientSetOptions
+	opts.ClientSetOptions
 	*CompositeAlertingClientSet
 }
 
-func NewCompositeAlertingBroker(options storage_opts.ClientSetOptions) *CompositeAlertingBroker {
+func NewCompositeAlertingBroker(options opts.ClientSetOptions) *CompositeAlertingBroker {
 	return &CompositeAlertingBroker{
 		ClientSetOptions: options,
 		CompositeAlertingClientSet: &CompositeAlertingClientSet{
 			hashes: make(map[string]string),
-			Logger : options.Logger,
+			Logger: options.Logger,
 		},
 	}
 }

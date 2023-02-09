@@ -23,8 +23,12 @@ type AlertingOpsNode struct {
 
 	ctx context.Context
 	AlertingOpsNodeOptions
-	syncPusher chan *alertops.SyncRequest
-	syncMu     *sync.RWMutex
+
+	syncPusher      chan *alertops.SyncRequest
+	syncMu          *sync.RWMutex
+	clusterNotifier chan shared.AlertingClusterOptions
+
+	*shared.AlertingClusterOptions
 
 	ClusterDriver    future.Future[drivers.ClusterDriver]
 	storageClientSet future.Future[storage.AlertingClientSet]
@@ -71,6 +75,7 @@ func NewAlertingOpsNode(
 		storageClientSet:       storageClientSet,
 		syncPusher:             make(chan *alertops.SyncRequest),
 	}
+
 	go a.runPeriodicSync(ctx)
 	return a
 }
@@ -134,17 +139,18 @@ func (a *AlertingOpsNode) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 	return driver.InstallCluster(ctx, &emptypb.Empty{})
 }
 
-func (a *AlertingOpsNode) GetRuntimeOptions(ctx context.Context) (shared.NewAlertingOptions, error) {
+func (a *AlertingOpsNode) GetRuntimeOptions(ctx context.Context) (shared.AlertingClusterOptions, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, a.driverTimeout)
 	defer cancel()
 	driver, err := a.ClusterDriver.GetContext(ctxTimeout)
 	if err != nil {
-		return shared.NewAlertingOptions{}, err
+		return shared.AlertingClusterOptions{}, err
 	}
-	return driver.GetRuntimeOptions()
+	return driver.GetRuntimeOptions(), nil
+
 }
 
-func (a *AlertingOpsNode) GetAvailableEndpoint(ctx context.Context, options shared.NewAlertingOptions) (string, error) {
+func (a *AlertingOpsNode) GetAvailableEndpoint(ctx context.Context, options *shared.AlertingClusterOptions) (string, error) {
 	var availableEndpoint string
 	status, err := a.GetClusterConfiguration(ctx, &emptypb.Empty{})
 	if err != nil {

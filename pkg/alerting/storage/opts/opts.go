@@ -1,4 +1,4 @@
-package storage_opts
+package opts
 
 import (
 	"time"
@@ -60,7 +60,7 @@ func NewSyncOptions() *SyncOptions {
 type ClientSetOptions struct {
 	Logger     *zap.SugaredLogger
 	Timeout    time.Duration
-	TrackerTTl time.Duration
+	TrackerTtl time.Duration
 }
 
 type ClientSetOption func(*ClientSetOptions)

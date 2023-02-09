@@ -12,7 +12,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 	"go.uber.org/zap"

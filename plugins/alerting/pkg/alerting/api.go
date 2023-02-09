@@ -13,22 +13,27 @@ import (
 
 // --- Trigger ---
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
-	lg := p.Logger.With("Handler", "TriggerAlerts")
-	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
-	lg.Debugf("Received alert annotations : %s", req.Annotations)
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	lg := p.Logger.With("Handler", "TriggerAlerts")
+	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
+	lg.Debugf("Received alert annotations : %s", req.Annotations)
+
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
-		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return nil, err
 	}
 	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
+	// This logic is intended to
+	// 1) Provide a safeguard to ensure that external callers of the API will not cause nil pointer map dereferences in the AlertManager adapter logic
+	// 2) Set the required information if it is not already embedded in the postable Alert's information.
+	// 3) Ensure that callers of the API are efficiently & uniquely routed when posted to our construction
+	// of the AlertManager routing tree, regardless if there are specific routes & receivers to handle this set of information
 	if _, ok := req.Labels[req.Namespace]; !ok {
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
@@ -63,14 +68,18 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 	}
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
-		lg.Errorf("Failed to fetch plugin options within timeout : %s", err)
 		return nil, err
 	}
 	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
+	// This logic is intended to
+	// 1) Provide a safeguard to ensure that external callers of the API will not cause nil pointer map dereferences in the AlertManager adapter logic
+	// 2) Set the required information if it is not already embedded in the postable Alert's information.
+	// 3) Ensure that callers of the API are efficiently & uniquely routed when posted to our construction
+	// of the AlertManager routing tree, regardless if there are specific routes & receivers to handle this set of information
 	if _, ok := req.Labels[req.Namespace]; !ok {
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}

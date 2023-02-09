@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
-	"github.com/rancher/opni/pkg/alerting/storage/storage_opts"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,7 +15,7 @@ type InMemoryRouterStore struct {
 	routers map[string]routing.OpniRouting
 }
 
-func (i *InMemoryRouterStore) Get(ctx context.Context, key string, opts ...storage_opts.RequestOption) (routing.OpniRouting, error) {
+func (i *InMemoryRouterStore) Get(ctx context.Context, key string, opts ...opts.RequestOption) (routing.OpniRouting, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	var t routing.OpniRouting
@@ -43,7 +43,7 @@ func (i *InMemoryRouterStore) ListKeys(ctx context.Context) ([]string, error) {
 	return keys, nil
 }
 
-func (i *InMemoryRouterStore) List(ctx context.Context, opts ...storage_opts.RequestOption) ([]routing.OpniRouting, error) {
+func (i *InMemoryRouterStore) List(ctx context.Context, opts ...opts.RequestOption) ([]routing.OpniRouting, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	var routers []routing.OpniRouting

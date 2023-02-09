@@ -30,6 +30,7 @@ type RemoteReadGatewayClient interface {
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error)
+	Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
 }
 
 type remoteReadGatewayClient struct {
@@ -103,6 +104,15 @@ func (c *remoteReadGatewayClient) GetTargetStatus(ctx context.Context, in *Targe
 	return out, nil
 }
 
+func (c *remoteReadGatewayClient) Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
+	out := new(DiscoveryResponse)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/Discover", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RemoteReadGatewayServer is the server API for RemoteReadGateway service.
 // All implementations must embed UnimplementedRemoteReadGatewayServer
 // for forward compatibility
@@ -114,6 +124,7 @@ type RemoteReadGatewayServer interface {
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
 	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
+	Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
 	mustEmbedUnimplementedRemoteReadGatewayServer()
 }
 
@@ -141,6 +152,9 @@ func (UnimplementedRemoteReadGatewayServer) Stop(context.Context, *StopReadReque
 }
 func (UnimplementedRemoteReadGatewayServer) GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
+}
+func (UnimplementedRemoteReadGatewayServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
 func (UnimplementedRemoteReadGatewayServer) mustEmbedUnimplementedRemoteReadGatewayServer() {}
 
@@ -281,6 +295,24 @@ func _RemoteReadGateway_GetTargetStatus_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RemoteReadGateway_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoveryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteReadGatewayServer).Discover(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remoteread.RemoteReadGateway/Discover",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteReadGatewayServer).Discover(ctx, req.(*DiscoveryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RemoteReadGateway_ServiceDesc is the grpc.ServiceDesc for RemoteReadGateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -316,6 +348,10 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetTargetStatus",
 			Handler:    _RemoteReadGateway_GetTargetStatus_Handler,
 		},
+		{
+			MethodName: "Discover",
+			Handler:    _RemoteReadGateway_Discover_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.cim/rancher/opni/plugins/metrics/pkg/apis/remoteread/remoteread.proto",
@@ -328,6 +364,7 @@ type RemoteReadAgentClient interface {
 	Start(ctx context.Context, in *StartReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *StopReadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetTargetStatus(ctx context.Context, in *TargetStatusRequest, opts ...grpc.CallOption) (*TargetStatus, error)
+	Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
 }
 
 type remoteReadAgentClient struct {
@@ -365,6 +402,15 @@ func (c *remoteReadAgentClient) GetTargetStatus(ctx context.Context, in *TargetS
 	return out, nil
 }
 
+func (c *remoteReadAgentClient) Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
+	out := new(DiscoveryResponse)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/Discover", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RemoteReadAgentServer is the server API for RemoteReadAgent service.
 // All implementations must embed UnimplementedRemoteReadAgentServer
 // for forward compatibility
@@ -372,6 +418,7 @@ type RemoteReadAgentServer interface {
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
 	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
+	Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
 	mustEmbedUnimplementedRemoteReadAgentServer()
 }
 
@@ -387,6 +434,9 @@ func (UnimplementedRemoteReadAgentServer) Stop(context.Context, *StopReadRequest
 }
 func (UnimplementedRemoteReadAgentServer) GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
+}
+func (UnimplementedRemoteReadAgentServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
 func (UnimplementedRemoteReadAgentServer) mustEmbedUnimplementedRemoteReadAgentServer() {}
 
@@ -455,6 +505,24 @@ func _RemoteReadAgent_GetTargetStatus_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RemoteReadAgent_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoveryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteReadAgentServer).Discover(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remoteread.RemoteReadAgent/Discover",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteReadAgentServer).Discover(ctx, req.(*DiscoveryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RemoteReadAgent_ServiceDesc is the grpc.ServiceDesc for RemoteReadAgent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -473,6 +541,10 @@ var RemoteReadAgent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTargetStatus",
 			Handler:    _RemoteReadAgent_GetTargetStatus_Handler,
+		},
+		{
+			MethodName: "Discover",
+			Handler:    _RemoteReadAgent_Discover_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

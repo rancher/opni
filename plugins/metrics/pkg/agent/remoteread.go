@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	// todo: needed instead of google.golang.org/protobuf/proto since prometheus Messages are built with it
 	"github.com/golang/protobuf/proto"
+
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/prometheus/prompb"

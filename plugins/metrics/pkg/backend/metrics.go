@@ -3,15 +3,20 @@ package backend
 import (
 	"context"
 	"fmt"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/client-go/tools/clientcmd"
+	"os"
 	"strings"
 	"sync"
 
@@ -560,28 +565,29 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 	return list, nil
 }
 
-func (m *MetricsBackend) GetTargetStatus(_ context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
 	m.WaitForInit()
 
-	// todo: need to query agent
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
+	status, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 
-	targetId := getIdFromTargetMeta(request.Meta)
+	if err != nil {
+		if err != nil {
+			m.Logger.With(
+				"cluster", request.Meta.ClusterId,
+				"capability", wellknown.CapabilityMetrics,
+				"target", request.Meta.Name,
+				zap.Error(err),
+			).Error("failed to start target")
 
-	target, found := m.remoteReadTargets[targetId]
-	if !found {
-		return nil, targetDoesNotExistError(targetId)
+			return nil, err
+		}
 	}
 
-	return target.Status, nil
+	return status, nil
 }
 
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
-
-	// todo: delete after debugging circular communication stuff
-	//request.Query.Matchers[0].Name = "debugging"
 
 	if m.Delegate == nil {
 		return nil, fmt.Errorf("encountered nil delegate")
@@ -601,23 +607,23 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 
 	request.Target = target
 
-	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(context.TODO(), request)
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
-			"cluster", request.Target.Meta.Name,
+			"cluster", request.Target.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Target.Meta.Name,
 			zap.Error(err),
-		).Warn("failed to start target")
+		).Error("failed to start target")
 
 		return nil, err
 	}
 
 	m.Logger.With(
-		"cluster", request.Target.Meta.Name,
-		"target", request.Target.Meta.Name,
+		"cluster", request.Target.Meta.ClusterId,
 		"capability", wellknown.CapabilityMetrics,
+		"target", request.Target.Meta.Name,
 	).Info("target started")
 
 	return &emptypb.Empty{}, nil
@@ -634,20 +640,64 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 
 	if err != nil {
 		m.Logger.With(
-			"cluster", request.Meta.Name,
+			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
 			zap.Error(err),
-		).Warn("failed to stop target")
+		).Error("failed to stop target")
 
 		return nil, err
 	}
 
 	m.Logger.With(
 		"cluster", request.Meta.Name,
-		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
+		"target", request.Meta.Name,
 	).Info("target stopped")
 
 	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
+	m.WaitForInit()
+
+	// todo: remove after testing
+	kubePath := os.Getenv("KUBECONFIG")
+	config, err := clientcmd.BuildConfigFromFlags("", kubePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not construct rest config from kubeconfig at '%s': %w", kubePath, err)
+	}
+
+	// todo: this is still the client implementation
+	discoverer, err := agent.NewPrometheusDiscoverer(agent.DiscovererConfig{
+		//RESTConfig: nil,/
+		RESTConfig: config,
+		Context:    ctx,
+		Logger:     m.Logger.Named("prom-discovery"),
+	})
+
+	if err != nil {
+		m.Logger.With(
+			"capability", wellknown.CapabilityMetrics,
+			zap.Error(err),
+		).Errorf("could not create prometheus discoverer: %s", err)
+
+		return nil, fmt.Errorf("could not create prometheus discoverer: %s", err)
+	}
+
+	prometheuses, err := discoverer.Discover()
+	if err != nil {
+		return nil, fmt.Errorf("could not discover Prometheues instances: %w", err)
+	}
+
+	entries := lo.Map(prometheuses, func(prometheus *monitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
+		return &remoteread.DiscoveryEntry{
+			ExternalEndpoint: prometheus.Spec.ExternalURL,
+			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
+		}
+	})
+
+	return &remoteread.DiscoveryResponse{
+		Entries: entries,
+	}, nil
 }

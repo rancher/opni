@@ -243,7 +243,6 @@ func BuildImportStartCmd() *cobra.Command {
 				ForceOverlap: forceOverlap,
 			}
 
-			//ctx, _ := context.WithTimeout(cmd.Context(), time.Second)
 			ctx := cmd.Context()
 			if _, err := remoteReadClient.Start(ctx, request); err != nil {
 				return err
@@ -327,6 +326,42 @@ func BuildProgressCmd() *cobra.Command {
 	return cmd
 }
 
+func BuildDiscoverCmd() *cobra.Command {
+	var namespace string
+
+	cmd := &cobra.Command{
+		Use:   "discover [clusters...]",
+		Short: "discover potential import targets on registered clusters",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clusterIds := args
+
+			request := &remoteread.DiscoveryRequest{
+				ClusterIds: clusterIds,
+			}
+
+			if namespace != "" {
+				request.Namespace = &namespace
+			}
+
+			response, err := remoteReadClient.Discover(cmd.Context(), request)
+			if err != nil {
+				return fmt.Errorf("could not start discovery: %w", err)
+			}
+
+			cliutil.RenderDiscoveryEntries(response.Entries)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&namespace, "namespace", "", "a namespace to limit the discovery to")
+
+	ConfigureManagementCommand(cmd)
+	ConfigureImportCommand(cmd)
+
+	return cmd
+}
+
 func BuildImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
@@ -340,6 +375,7 @@ func BuildImportCmd() *cobra.Command {
 	cmd.AddCommand(BuildImportStartCmd())
 	cmd.AddCommand(BuildImportStopCmd())
 	cmd.AddCommand(BuildProgressCmd())
+	cmd.AddCommand(BuildDiscoverCmd())
 
 	ConfigureManagementCommand(cmd)
 	ConfigureImportCommand(cmd)

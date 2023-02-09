@@ -11,7 +11,6 @@ package remoteread;
 
 // todo: we probably need a new type for Describe and ScanFor
 service RemoteReadGateway {
-//  rpc ScanForTargets(google.protobuf.Empty) returns (stream Target);
 //  rpc Describe(Target) returns (Target)
 
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
@@ -22,12 +21,14 @@ service RemoteReadGateway {
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
   rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
+  rpc Discover(DiscoveryRequest) returns (DiscoveryResponse);
 }
 
 service RemoteReadAgent {
   rpc Start(StartReadRequest) returns (google.protobuf.Empty);
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
   rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
+  rpc Discover(DiscoveryRequest) returns (DiscoveryResponse);
 }
 
 message Target {
@@ -138,4 +139,25 @@ message Progress {
   google.protobuf.Timestamp startTimestamp = 1;
   google.protobuf.Timestamp endTimestamp = 2;
   float percentDone = 3;
+}
+
+message DiscoveryEntry {
+  string name = 1;
+  string clusterId = 2;
+  string externalEndpoint = 3;
+  string internalEndpoint = 4;
+
+  // todo: adding these would require more traffic and time for a response
+//  google.protobuf.Timestamp minimumTimestamp = 3;
+//  int32 availableData = 4;
+}
+
+message DiscoveryRequest {
+  // we only need to provide clusterId or namespace if we want to narrow our scope of discovery
+  repeated string clusterIds = 1;
+  optional string namespace = 2;
+}
+
+message DiscoveryResponse {
+  repeated DiscoveryEntry entries = 1;
 }

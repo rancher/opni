@@ -3,7 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	
+	// todo: needed instead of google.golang.org/protobuf/proto since prometheus Messages are built with it
 	"github.com/golang/protobuf/proto"
+
 	"github.com/golang/snappy"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	promConfig "github.com/prometheus/common/config"

@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"fmt"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/samber/lo"
 	"sort"
 	"strings"
 	"sync"
@@ -197,13 +199,45 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 	return status, nil
 }
 
+func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
+	discoverer, err := NewPrometheusDiscoverer(DiscovererConfig{
+		Context: ctx,
+		Logger:  m.logger.Named("prom-discovery"),
+	})
+
+	if err != nil {
+		m.logger.With(
+			"capability", wellknown.CapabilityMetrics,
+			zap.Error(err),
+		).Errorf("could not create prometheus discoverer: %s", err)
+
+		return nil, fmt.Errorf("could not create prometheus discoverer: %s", err)
+	}
+
+	prometheuses, err := discoverer.Discover()
+	if err != nil {
+		return nil, fmt.Errorf("could not discover Prometheues instances: %w", err)
+	}
+
+	entries := lo.Map(prometheuses, func(prometheus *monitoringv1.Prometheus, _ int) *remoteread.DiscoveryEntry {
+		return &remoteread.DiscoveryEntry{
+			ExternalEndpoint: prometheus.Spec.ExternalURL,
+			InternalEndpoint: fmt.Sprintf("%s.%s.svc.cluster.local", prometheus.Name, prometheus.Namespace),
+		}
+	})
+
+	return &remoteread.DiscoveryResponse{
+		Entries: entries,
+	}, nil
+}
+
 func (m *MetricsNode) doSync(ctx context.Context) {
 	m.logger.Debug("syncing metrics node")
 	m.nodeClientMu.RLock()
 	defer m.nodeClientMu.RUnlock()
 
 	if m.nodeClient == nil {
-		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
+		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no promClient, skipping sync")
 		return
 	}
 

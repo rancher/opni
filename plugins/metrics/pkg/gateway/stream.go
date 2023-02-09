@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"google.golang.org/grpc"
 )
 
 func (p *Plugin) StreamServers() []streamext.Server {
@@ -26,4 +27,11 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 	}
+}
+
+func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
+	// example delegate usage
+	// syncDelegate := streamext.NewDelegate(cc, capabilityv1.NewNodeClient)
+	// target := &corev1.Reference{Id: "foo"}
+	// syncDelegate.WithTarget(target).SyncNow(context.Background(), &capabilityv1.Filter{})
 }

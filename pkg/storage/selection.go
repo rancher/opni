@@ -2,31 +2,31 @@ package storage
 
 import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
-type SelectorPredicate func(*corev1.Cluster) bool
+type SelectorPredicate[T corev1.IdLabelReader] func(T) bool
 
-func NewSelectorPredicate(s *corev1.ClusterSelector) SelectorPredicate {
+func NewSelectorPredicate[T corev1.IdLabelReader](s *corev1.ClusterSelector) SelectorPredicate[T] {
 	emptyLabelSelector := s.LabelSelector.IsEmpty()
 	if emptyLabelSelector && len(s.ClusterIDs) == 0 {
 		switch {
 		case s.MatchOptions&corev1.MatchOptions_EmptySelectorMatchesNone != 0:
-			return func(cluster *corev1.Cluster) bool { return false }
+			return func(T) bool { return false }
 		default:
-			return func(c *corev1.Cluster) bool { return true }
+			return func(T) bool { return true }
 		}
 	}
 	idSet := map[string]struct{}{}
 	for _, id := range s.ClusterIDs {
 		idSet[id] = struct{}{}
 	}
-	return func(c *corev1.Cluster) bool {
-		id := c.Id
+	return func(c T) bool {
+		id := c.GetId()
 		if _, ok := idSet[id]; ok {
 			return true
 		}
 		if emptyLabelSelector {
 			return false
 		}
-		return labelSelectorMatches(s.LabelSelector, c.GetMetadata().GetLabels())
+		return labelSelectorMatches(s.LabelSelector, c.GetLabels())
 	}
 }
 

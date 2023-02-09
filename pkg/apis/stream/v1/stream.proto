@@ -1,7 +1,11 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/stream/v1";
 import "github.com/kralicky/totem/totem.proto";
+import "github.com/kralicky/totem/extensions.proto";
 import "google/protobuf/empty.proto";
+import "google/rpc/status.proto";
+import "google/protobuf/any.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 package stream;
 
 service Stream {
@@ -19,4 +23,32 @@ enum EventType {
 
 message StreamEvent {
   EventType type = 1;
+}
+
+service Delegate {
+  // A synchronous request-response RPC sent to a single client.
+  rpc Request(DelegatedMessage) returns (totem.RPC);
+
+  // A best-effort broadcast sent to all connected clients, with an
+  // optional target filter.
+  rpc Broadcast(BroadcastMessage) returns (google.protobuf.Empty) {
+    option (totem.qos) = {
+      replicationStrategy: Broadcast
+    };
+  }
+}
+
+message DelegatedMessage {
+  totem.RPC request = 1;
+  core.Reference target = 2;
+}
+
+message DelegatedMessageReply {
+  totem.RPC reply = 1;
+  google.rpc.Status status = 2;
+}
+
+message BroadcastMessage {
+  totem.RPC request = 1;
+  core.ClusterSelector targetSelector = 2;
 }

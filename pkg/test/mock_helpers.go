@@ -198,7 +198,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 				return nil, err
 			}
 			clusterList := &corev1.ClusterList{}
-			selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
+			selectorPredicate := storage.NewSelectorPredicate[*corev1.Cluster](&corev1.ClusterSelector{
 				LabelSelector: matchLabels,
 				MatchOptions:  matchOptions,
 			})

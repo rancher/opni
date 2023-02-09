@@ -53,6 +53,9 @@ type MetricsNode struct {
 
 	listeners  []chan<- *node.MetricsCapabilityConfig
 	conditions health.ConditionTracker
+
+	nodeDriverMu sync.RWMutex
+	nodeDriver   drivers.MetricsNodeDriver
 }
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
@@ -120,6 +123,13 @@ func (m *MetricsNode) SetRemoteWriter(client clients.Locker[remotewrite.RemoteWr
 	defer m.targetRunnerMu.Unlock()
 
 	m.targetRunner.SetRemoteWriteClient(client)
+}
+
+func (m *MetricsNode) SetNodeDriver(driver drivers.MetricsNodeDriver) {
+	m.nodeDriverMu.Lock()
+	defer m.nodeDriverMu.Unlock()
+
+	m.nodeDriver = driver
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
@@ -203,12 +213,18 @@ func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.T
 }
 
 func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	driver, err := drivers.GetNodeDriver("external-operator")
-	if err != nil {
-		return nil, fmt.Errorf("could not get driver: %w", err)
+	m.nodeDriverMu.RLock()
+	defer m.nodeDriverMu.RUnlock()
+
+	if m.nodeDriver == nil {
+		m.logger.Warnf("no node driver available for discvoery")
+
+		return &remoteread.DiscoveryResponse{
+			Entries: []*remoteread.DiscoveryEntry{},
+		}, nil
 	}
 
-	entries, err := driver.DiscoverPrometheuses(ctx, *request.Namespace)
+	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, *request.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}

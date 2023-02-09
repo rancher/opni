@@ -68,7 +68,7 @@ require (
 	github.com/mikefarah/yq/v4 v4.30.8
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.13.0
-	github.com/nats-io/nats-server/v2 v2.9.12
+	github.com/nats-io/nats-server/v2 v2.8.4
 	github.com/nats-io/nats.go v1.23.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8

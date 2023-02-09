@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
@@ -46,6 +48,23 @@ func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {
 	}
 
 	return &remoteread.LabelMatcher{}, fmt.Errorf("label matcher must contain one of =, !=, =~, or !~")
+}
+
+func followProgress(ctx context.Context, name string, cluster string) error {
+	request := &remoteread.TargetStatusRequest{
+		Meta: &remoteread.TargetMeta{
+			Name:      name,
+			ClusterId: cluster,
+		},
+	}
+
+	model := NewProgressModel(ctx, request)
+
+	if err := tea.NewProgram(model).Start(); err != nil {
+		return fmt.Errorf("could not render progress: %w", err)
+	}
+
+	return nil
 }
 
 func BuildImportAddCmd() *cobra.Command {
@@ -186,6 +205,7 @@ func BuildImportStartCmd() *cobra.Command {
 	var startTimestampSecs int64
 	var endTimestampSecs int64
 	var forceOverlap bool
+	var follow bool
 
 	cmd := &cobra.Command{
 		Use:   "start <cluster> <target>",
@@ -229,6 +249,10 @@ func BuildImportStartCmd() *cobra.Command {
 
 			lg.Infof("import started")
 
+			if follow {
+				return followProgress(cmd.Context(), targetName, clusterId)
+			}
+
 			return nil
 		},
 	}
@@ -239,6 +263,8 @@ func BuildImportStartCmd() *cobra.Command {
 	// todo: we probably want to allow for more human-readable timestamps here
 	cmd.Flags().Int64Var(&startTimestampSecs, "start", time.Now().Unix()-int64(time.Hour.Seconds())*3, "start time for the remote read in seconds since epoch")
 	cmd.Flags().Int64Var(&endTimestampSecs, "end", time.Now().Unix(), "start time for the remote read")
+
+	cmd.Flags().BoolVar(&follow, "follow", false, "follow import progress (the same as calling start then progress immediately)")
 
 	cmd.Flags().BoolVar(&forceOverlap, "force", false, "force import when 'start' is before the last stored start")
 
@@ -280,6 +306,25 @@ func BuildImportStopCmd() *cobra.Command {
 	return cmd
 }
 
+func BuildProgressCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "progress <cluster> <target>",
+		Short: "follow import progress until finished",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clusterId := args[0]
+			targetName := args[1]
+
+			return followProgress(cmd.Context(), targetName, clusterId)
+		},
+	}
+
+	ConfigureManagementCommand(cmd)
+	ConfigureImportCommand(cmd)
+
+	return cmd
+}
+
 func BuildImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
@@ -292,6 +337,7 @@ func BuildImportCmd() *cobra.Command {
 	cmd.AddCommand(BuildImportListCmd())
 	cmd.AddCommand(BuildImportStartCmd())
 	cmd.AddCommand(BuildImportStopCmd())
+	cmd.AddCommand(BuildProgressCmd())
 
 	ConfigureManagementCommand(cmd)
 	ConfigureImportCommand(cmd)

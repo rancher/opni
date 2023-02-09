@@ -209,6 +209,7 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
+	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.1 // indirect
 	github.com/containerd/console v1.0.3 // indirect

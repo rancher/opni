@@ -1,3 +1,5 @@
+//go:build !nohooks
+
 package commands
 
 import (

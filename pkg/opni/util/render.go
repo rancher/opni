@@ -2,7 +2,6 @@ package cliutil
 
 import (
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"strings"
 	"time"
 
@@ -261,19 +260,6 @@ func RenderCortexRules(resp *cortexadmin.ListRulesResponse) string {
 		}
 	}
 	return w.Render()
-}
-
-func RenderDiscoveryEntries(entries []*remoteread.DiscoveryEntry) string {
-	writer := table.NewWriter()
-	writer.SetStyle(table.StyleColoredDark)
-	writer.AppendHeader(table.Row{"CLUSTER", "NAME", "EXTERNAL", "INTERNAL"})
-
-	for _, entry := range entries {
-		row := table.Row{entry.ClusterId, entry.Name, entry.ExternalEndpoint, entry.InternalEndpoint}
-		writer.AppendRow(row)
-	}
-
-	return writer.Render()
 }
 
 func RenderClusterDetails(cluster *corev1.Cluster) string {

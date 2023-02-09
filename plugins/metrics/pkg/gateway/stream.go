@@ -17,7 +17,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		},
 		{
 			Desc:              &remoteread.RemoteReadGateway_ServiceDesc,
-			Impl:              nil, // todo: create && set this impl
+			Impl:              &p.metrics,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 		{

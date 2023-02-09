@@ -29,12 +29,14 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.httpServer.SetTargetRunner(clients.NewLocker(cc, func(_ grpc.ClientConnInterface) TargetRunner {
 		return NewTargetRunner()
 	}))
+	p.httpServer.SetRemoteReadClient(clients.NewLocker(cc, remoteread.NewRemoteReadGatewayClient))
+
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
-	remoteReadClient := remoteread.NewRemoteReadAgentClient(cc)
+	remoteReadClient := remoteread.NewRemoteReadGatewayClient(cc)
 
 	p.node.SetNodeClient(nodeClient)
 	p.node.SetHealthListenerClient(healthListenerClient)

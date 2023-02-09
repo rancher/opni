@@ -27,7 +27,8 @@ import (
 type MetricsNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
-	remoteread.UnsafeRemoteReadAgentServer
+	//remoteread.UnsafeRemoteReadGatewayServer
+	remoteread.UnimplementedRemoteReadGatewayServer
 
 	logger *zap.SugaredLogger
 
@@ -41,7 +42,7 @@ type MetricsNode struct {
 	healthListenerClient   controlv1.HealthListenerClient
 
 	remoteReadClientMu sync.RWMutex
-	remoteReadClient   remoteread.RemoteReadAgentClient
+	remoteReadClient   remoteread.RemoteReadGatewayClient
 
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
@@ -108,7 +109,7 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.sendHealthUpdate()
 }
 
-func (m *MetricsNode) SetRemoteReadClient(client remoteread.RemoteReadAgentClient) {
+func (m *MetricsNode) SetRemoteReadClient(client remoteread.RemoteReadGatewayClient) {
 	m.remoteReadClientMu.Lock()
 	defer m.remoteReadClientMu.Unlock()
 
@@ -165,6 +166,18 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 }
 
 // Start Implements remoteread.RemoteReadServer
+
+func (m *MetricsNode) UpdateTargetStatus(ctx context.Context, request *remoteread.TargetStatusUpdateRequest) (*emptypb.Empty, error) {
+	m.remoteReadClientMu.Lock()
+	defer m.remoteReadClientMu.Unlock()
+
+	if m.remoteReadClient == nil {
+		m.logger.Errorf("no remote read client doing nothing")
+		return &emptypb.Empty{}, fmt.Errorf("no remote read client doing nothing")
+	}
+
+	return m.remoteReadClient.UpdateTargetStatus(ctx, request)
+}
 
 func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.remoteReadClientMu.Lock()

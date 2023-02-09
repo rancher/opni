@@ -48,7 +48,6 @@ type Plugin struct {
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	storageBackend      future.Future[storage.Backend]
-	remoteReadClient    future.Future[remoteread.RemoteReadGatewayClient]
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]

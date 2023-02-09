@@ -30,6 +30,9 @@ type HttpServer struct {
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
 
+	remoteReadClientMu sync.RWMutex
+	remoteReadClient   clients.Locker[remoteread.RemoteReadGatewayClient]
+
 	targetRunnerMu sync.RWMutex
 	targetRunner   clients.Locker[TargetRunner]
 
@@ -61,6 +64,16 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 	s.remoteWriteClient = client
 }
 
+func (s *HttpServer) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
+	s.remoteWriteClientMu.Lock()
+	defer s.remoteReadClientMu.Unlock()
+
+	s.remoteReadClient = client
+}
+
+// SetTargetRunner sets the runner of the HttpServer. If there is already a
+// remotewrite.RemoteWriteClient set for the server, it will be passed to the
+// runner using TargetRunner.SetRemoteWriteClient.
 func (s *HttpServer) SetTargetRunner(runner clients.Locker[TargetRunner]) {
 	s.targetRunnerMu.Lock()
 	defer s.targetRunnerMu.Unlock()
@@ -176,7 +189,7 @@ func (s *HttpServer) handleRemoteReadStart(c *gin.Context) {
 	}
 
 	s.targetRunner.Use(func(runner TargetRunner) {
-		if err := runner.Start(request.Meta.Name, request.Query); err != nil {
+		if err := runner.Start(request.Target, request.Query); err != nil {
 			c.Status(http.StatusBadRequest)
 			c.Error(err)
 			return

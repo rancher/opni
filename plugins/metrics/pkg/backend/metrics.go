@@ -59,7 +59,6 @@ type MetricsBackendConfig struct {
 	StorageBackend      storage.Backend                `validate:"required"`
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
-	RemoteReadForwarder RemoteReadForwarder            `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
 }
@@ -291,6 +290,7 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 }
 
 // Implements node.NodeMetricsCapabilityServer
+
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	m.WaitForInit()
 	// todo: validate
@@ -419,23 +419,28 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 // Metrics Remote Read Backend
 // todo: handle running targets (disallow all edits / deletes / etc)
 
-func targetAlreadyExistsError(name string) error {
-	return fmt.Errorf("target '%s' already exists", name)
+func targetAlreadyRunningError(id string) error {
+	return fmt.Errorf("target '%s' is already running", id)
 }
 
-func targetDoesNotExistError(name string) error {
-	return fmt.Errorf("target '%s' does not exist", name)
+func targetAlreadyExistsError(id string) error {
+	return fmt.Errorf("target '%s' already exists", id)
+}
+
+func targetDoesNotExistError(id string) error {
+	return fmt.Errorf("target '%s' does not exist", id)
 }
 
 func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
-	return fmt.Sprintf("%s:%s", meta.Name, meta.ClusterId)
+	return meta.String()
+	//return fmt.Sprintf("%s:%s", meta.Name, meta.ClusterId)
 }
 
 func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
-	targetId := request.Target.Meta.String()
+	targetId := getIdFromTargetMeta(request.Target.Meta)
 
 	if _, found := m.remoteReadTargets[targetId]; found {
 		return nil, targetAlreadyExistsError(targetId)
@@ -464,7 +469,7 @@ func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.Targe
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
-	targetId := request.Meta.String()
+	targetId := getIdFromTargetMeta(request.Meta)
 	diff := request.TargetDiff
 
 	target, found := m.remoteReadTargets[targetId]
@@ -474,7 +479,7 @@ func (m *MetricsBackend) EditTarget(_ context.Context, request *remoteread.Targe
 
 	if diff.Name != "" {
 		target.Meta.Name = diff.Name
-		newTargetId := target.Meta.String()
+		newTargetId := getIdFromTargetMeta(target.Meta)
 
 		if _, found := m.remoteReadTargets[newTargetId]; found {
 			return nil, targetAlreadyExistsError(diff.Name)
@@ -507,7 +512,7 @@ func (m *MetricsBackend) RemoveTarget(_ context.Context, request *remoteread.Tar
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
-	targetId := request.Meta.String()
+	targetId := getIdFromTargetMeta(request.Meta)
 
 	if _, found := m.remoteReadTargets[targetId]; !found {
 		return nil, targetDoesNotExistError(request.Meta.Name)
@@ -530,7 +535,7 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 	m.remoteReadTargetMu.Lock()
 	defer m.remoteReadTargetMu.Unlock()
 
-	// todo: we can probably make this smaller
+	// todo: we can probably shrink this later
 	inner := make([]*remoteread.Target, 0, len(m.remoteReadTargets))
 
 	for _, target := range m.remoteReadTargets {
@@ -544,16 +549,67 @@ func (m *MetricsBackend) ListTargets(_ context.Context, request *remoteread.Targ
 	return list, nil
 }
 
+func (m *MetricsBackend) GetTargetStatus(_ context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+	m.WaitForInit()
+
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
+
+	targetId := getIdFromTargetMeta(request.Meta)
+
+	target, found := m.remoteReadTargets[targetId]
+	if !found {
+		return nil, targetDoesNotExistError(targetId)
+	}
+
+	return target.Status, nil
+}
+
+func (m *MetricsBackend) UpdateTargetStatus(_ context.Context, request *remoteread.TargetStatusUpdateRequest) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
+	m.remoteReadTargetMu.Lock()
+	defer m.remoteReadTargetMu.Unlock()
+
+	targetId := getIdFromTargetMeta(request.Meta)
+
+	target, found := m.remoteReadTargets[targetId]
+	if !found {
+		return nil, targetDoesNotExistError(targetId)
+	}
+
+	target.Status = request.NewStatus
+
+	return &emptypb.Empty{}, nil
+}
+
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	_, err := m.RemoteReadForwarder.Start(ctx, request)
+	targetId := getIdFromTargetMeta(request.Target.Meta)
+
+	m.remoteReadTargetMu.Lock()
+	target, found := m.remoteReadTargets[targetId]
+	m.remoteReadTargetMu.Unlock()
+
+	if !found {
+		return nil, targetDoesNotExistError(targetId)
+	}
+
+	request.Target = target
+
+	if target.Status.State == remoteread.TargetStatus_Running {
+		return nil, targetAlreadyRunningError(targetId)
+	}
+
+	// todo: send start request to appropriate agent
+	_, err := 0, fmt.Errorf("not yet implemented")
 
 	if err != nil {
 		m.Logger.With(
-			"cluster", request.Meta.Name,
+			"cluster", request.Target.Meta.Name,
 			"capability", wellknown.CapabilityMetrics,
-			"target", request.Meta.Name,
+			"target", request.Target.Meta.Name,
 			zap.Error(err),
 		).Warn("failed to start client")
 
@@ -562,8 +618,8 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 
 	// todo: we might want to display the new name if it was changed
 	m.Logger.With(
-		"cluster", request.Meta.Name,
-		"target", request.Meta.Name,
+		"cluster", request.Target.Meta.Name,
+		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
 	).Info("target started")
 
@@ -573,7 +629,8 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	_, err := m.RemoteReadForwarder.Stop(ctx, request)
+	// todo: send start request to appropriate agent
+	_, err := 0, fmt.Errorf("not yet implemented")
 
 	if err != nil {
 		m.Logger.With(

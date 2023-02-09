@@ -11,12 +11,10 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"sync"
 	"time"
 )
-
-func targetDoesNotExistError(name string) error {
-	return fmt.Errorf("target '%s' does not exist", name)
-}
 
 func targetIsRunningError(name string) error {
 	return fmt.Errorf("target '%s' is running, cannot be removed, modified, or started", name)
@@ -34,13 +32,13 @@ func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.Label
 		var matchType prompb.LabelMatcher_Type
 
 		switch matcher.Type {
-		case remoteread.LabelMatcher_EQUAL:
+		case remoteread.LabelMatcher_Equal:
 			matchType = prompb.LabelMatcher_EQ
-		case remoteread.LabelMatcher_NOT_EQUAL:
+		case remoteread.LabelMatcher_NotEqual:
 			matchType = prompb.LabelMatcher_NEQ
-		case remoteread.LabelMatcher_REGEX_EQUAL:
+		case remoteread.LabelMatcher_RegexEqual:
 			matchType = prompb.LabelMatcher_RE
-		case remoteread.LabelMatcher_NOT_REGEX_EQUAL:
+		case remoteread.LabelMatcher_NotRegexEqual:
 			matchType = prompb.LabelMatcher_NRE
 		default:
 			// todo: log something
@@ -72,26 +70,73 @@ type Run struct {
 	query    *remoteread.Query
 }
 
+func (run *Run) failed(message string) {
+	run.target.Status.State = remoteread.TargetStatus_Failed
+	run.target.Status.Message = message
+}
+
+func (run *Run) running() {
+	run.target.Status.State = remoteread.TargetStatus_Running
+	run.target.Status.Message = ""
+}
+
+func (run *Run) complete() {
+	run.target.Status.State = remoteread.TargetStatus_Complete
+}
+
+func (run *Run) stopped() {
+	run.target.Status.State = remoteread.TargetStatus_Stopped
+}
+
+func (run *Run) updateLastRead(lastReadSec int64) {
+	run.target.Status.LastReadTimestamp = timestamppb.New(time.UnixMilli(lastReadSec))
+}
+
+// todo: add logger
+// todo: add context
+
 type TargetRunner interface {
-	Start(name string, query *remoteread.Query) error
+	Start(target *remoteread.Target, query *remoteread.Query) error
 
 	Stop(name string) error
 
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
+
+	SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient])
 }
 
 func NewTargetRunner() TargetRunner {
 	return &targetRunner{
-		targets: make(map[string]*remoteread.Target),
-		runs:    make(map[string]Run),
+		runs: make(map[string]Run),
 	}
 }
 
 type targetRunner struct {
-	targets map[string]*remoteread.Target
-	runs    map[string]Run
+	runsMu sync.RWMutex
+	runs   map[string]Run
 
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
+	remoteReadClient  clients.Locker[remoteread.RemoteReadGatewayClient]
+}
+
+// updateRunStatus notifies the gateway of the status of the Run's target status
+func (runner *targetRunner) updateRunStatus(run Run) {
+	runner.remoteReadClient.Use(func(client remoteread.RemoteReadGatewayClient) {
+		newStatus := run.target.Status
+		newStatus.Message = "client field to read response from prometheus remote read endpoint"
+		newStatus.State = remoteread.TargetStatus_Failed
+
+		request := &remoteread.TargetStatusUpdateRequest{
+			Meta:      run.target.Meta,
+			NewStatus: newStatus,
+		}
+
+		_, err := client.UpdateTargetStatus(context.TODO(), request)
+
+		if err != nil {
+			// todo: log this
+		}
+	})
 }
 
 func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
@@ -103,7 +148,7 @@ func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 
 	nextStart := run.query.StartTimestamp.AsTime().UnixMilli()
 
-	for nextStart < importEnd {
+	for nextStart < importEnd && run.target.Status.State == remoteread.TargetStatus_Running {
 		nextEnd := nextStart + nextEndDelta
 		if nextEnd > importEnd {
 			nextEnd = importEnd
@@ -122,7 +167,8 @@ func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 		readResponse, err := remoteReadClient.Read(context.TODO(), run.target.Spec.Endpoint, readRequest)
 
 		if err != nil {
-			// todo: log this event
+			run.failed("failed to read from target endpoint")
+			runner.updateRunStatus(run)
 			return
 		}
 
@@ -133,8 +179,9 @@ func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 
 			uncompressed, err := proto.Marshal(&writeRequest)
 			if err != nil {
-				// todo: log failure
-				continue
+				run.failed("failed to uncompress data from target endpoint")
+				runner.updateRunStatus(run)
+				return
 			}
 
 			compressed := snappy.Encode(nil, uncompressed)
@@ -145,28 +192,41 @@ func (runner *targetRunner) run(run Run, remoteReadClient *RemoteReaderClient) {
 
 			runner.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.TODO(), payload); err != nil {
-					// todo: log this error
+					run.failed("failed to push to remote write")
+					runner.updateRunStatus(run)
+					return
 				}
+
+				run.updateLastRead(nextEnd)
+				runner.updateRunStatus(run)
 			})
 		}
 	}
+
+	run.complete()
+
+	runner.runsMu.Lock()
+	defer runner.runsMu.Unlock()
+
+	delete(runner.runs, run.target.Meta.Name)
 }
 
-func (runner *targetRunner) Start(name string, query *remoteread.Query) error {
-	if _, found := runner.runs[name]; found {
-		return targetIsRunningError(name)
-	}
-
-	target, found := runner.targets[name]
-
-	if !found {
-		return targetDoesNotExistError(name)
-	}
-
-	run := Run{
-		stopChan: make(chan interface{}),
-		target:   target,
-		query:    query,
+func (runner *targetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
+	// We want to allow for restarting a Failed or Completed. We should not encounter NotRunning, Stopped, or Completed.
+	run, found := runner.runs[target.Meta.Name]
+	if found && run.target.Status.State == remoteread.TargetStatus_Running {
+		switch run.target.Status.State {
+		case remoteread.TargetStatus_Running:
+			return targetIsRunningError(target.Meta.Name)
+		default:
+			// todo: log restart
+		}
+	} else if !found {
+		run = Run{
+			stopChan: make(chan interface{}),
+			target:   target,
+			query:    query,
+		}
 	}
 
 	prometheusClient, err := promConfig.NewClientFromConfig(promConfig.HTTPClientConfig{}, fmt.Sprintf("%s-remoteread", run.target.Meta.Name), promConfig.WithHTTP2Disabled())
@@ -180,8 +240,11 @@ func (runner *targetRunner) Start(name string, query *remoteread.Query) error {
 
 	remoteReadClient := NewRemoteReadClient(run.stopChan, prometheusClient)
 
+	runner.runsMu.Lock()
+	runner.runs[run.target.Meta.Name] = run
+	runner.runsMu.Unlock()
+
 	go runner.run(run, remoteReadClient)
-	runner.runs[name] = run
 
 	return nil
 }
@@ -193,6 +256,9 @@ func (runner *targetRunner) Stop(name string) error {
 		return targetIsNotRunningError(name)
 	}
 
+	run.stopped()
+	runner.updateRunStatus(run)
+
 	close(run.stopChan)
 	delete(runner.runs, name)
 
@@ -201,4 +267,8 @@ func (runner *targetRunner) Stop(name string) error {
 
 func (runner *targetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
 	runner.remoteWriteClient = client
+}
+
+func (runner *targetRunner) SetRemoteReadClient(client clients.Locker[remoteread.RemoteReadGatewayClient]) {
+	runner.remoteReadClient = client
 }

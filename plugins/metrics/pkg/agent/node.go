@@ -208,13 +208,7 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		return nil, fmt.Errorf("could not get driver: %w", err)
 	}
 
-	promDriver, ok := driver.(*drivers.ExternalPromOperatorDriver)
-	if !ok {
-		m.logger.Errorf("found wrong driver type '%T'", driver)
-		return nil, fmt.Errorf("could not discover Prometheus instances")
-	}
-
-	entries, err := promDriver.Discover(ctx, *request.Namespace)
+	entries, err := driver.DiscoverPrometheuses(ctx, *request.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}

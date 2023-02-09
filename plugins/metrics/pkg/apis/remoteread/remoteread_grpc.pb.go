@@ -106,7 +106,7 @@ func (c *remoteReadGatewayClient) GetTargetStatus(ctx context.Context, in *Targe
 
 func (c *remoteReadGatewayClient) Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/Discover", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadGateway/DiscoverPrometheuses", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (UnimplementedRemoteReadGatewayServer) GetTargetStatus(context.Context, *Ta
 	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
 }
 func (UnimplementedRemoteReadGatewayServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverPrometheuses not implemented")
 }
 func (UnimplementedRemoteReadGatewayServer) mustEmbedUnimplementedRemoteReadGatewayServer() {}
 
@@ -305,7 +305,7 @@ func _RemoteReadGateway_Discover_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteReadGateway/Discover",
+		FullMethod: "/remoteread.RemoteReadGateway/DiscoverPrometheuses",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RemoteReadGatewayServer).Discover(ctx, req.(*DiscoveryRequest))
@@ -349,7 +349,7 @@ var RemoteReadGateway_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RemoteReadGateway_GetTargetStatus_Handler,
 		},
 		{
-			MethodName: "Discover",
+			MethodName: "DiscoverPrometheuses",
 			Handler:    _RemoteReadGateway_Discover_Handler,
 		},
 	},
@@ -404,7 +404,7 @@ func (c *remoteReadAgentClient) GetTargetStatus(ctx context.Context, in *TargetS
 
 func (c *remoteReadAgentClient) Discover(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/Discover", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remoteread.RemoteReadAgent/DiscoverPrometheuses", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +436,7 @@ func (UnimplementedRemoteReadAgentServer) GetTargetStatus(context.Context, *Targ
 	return nil, status.Errorf(codes.Unimplemented, "method GetTargetStatus not implemented")
 }
 func (UnimplementedRemoteReadAgentServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method DiscoverPrometheuses not implemented")
 }
 func (UnimplementedRemoteReadAgentServer) mustEmbedUnimplementedRemoteReadAgentServer() {}
 
@@ -515,7 +515,7 @@ func _RemoteReadAgent_Discover_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remoteread.RemoteReadAgent/Discover",
+		FullMethod: "/remoteread.RemoteReadAgent/DiscoverPrometheuses",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RemoteReadAgentServer).Discover(ctx, req.(*DiscoveryRequest))
@@ -543,7 +543,7 @@ var RemoteReadAgent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RemoteReadAgent_GetTargetStatus_Handler,
 		},
 		{
-			MethodName: "Discover",
+			MethodName: "DiscoverPrometheuses",
 			Handler:    _RemoteReadAgent_Discover_Handler,
 		},
 	},

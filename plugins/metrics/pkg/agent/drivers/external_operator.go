@@ -387,7 +387,7 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	return d.k8sClient.Update(context.TODO(), desired)
 }
 
-func (d *ExternalPromOperatorDriver) Discover(ctx context.Context, namespace string) ([]*remoteread.DiscoveryEntry, error) {
+func (d *ExternalPromOperatorDriver) DiscoverPrometheuses(ctx context.Context, namespace string) ([]*remoteread.DiscoveryEntry, error) {
 	list := &monitoringcoreosv1.PrometheusList{}
 	if err := d.k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {
 		return nil, err

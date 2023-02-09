@@ -229,7 +229,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 
 	//When("discovering targets", func() {
 	//	It("should find all Prometheuses", func() {
-	//		entries, err := importClient.Discover(ctx, &remoteread.DiscoveryRequest{
+	//		entries, err := importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
 	//			ClusterIds: []string{agentId},
 	//		})
 	//		Expect(err).ToNot(HaveOccurred())
@@ -253,7 +253,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 	//		defaultNs := "default"
 	//		testNs := testNamespace
 	//
-	//		entries, err := importClient.Discover(ctx, &remoteread.DiscoveryRequest{
+	//		entries, err := importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
 	//			ClusterIds: []string{agentId},
 	//			Namespace:  &defaultNs,
 	//		})
@@ -266,7 +266,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 	//				InternalEndpoint: "test-prometheus.default.svc.cluster.local",
 	//			}))
 	//
-	//		entries, err = importClient.Discover(ctx, &remoteread.DiscoveryRequest{
+	//		entries, err = importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
 	//			ClusterIds: []string{agentId},
 	//			Namespace:  &testNs,
 	//		})

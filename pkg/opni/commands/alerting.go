@@ -106,7 +106,7 @@ func waitForAlertmanagerFile(ctx context.Context, configFile string) bool {
 	defer cancel()
 	select {
 	case <-ctxCa.Done():
-		break
+		return false
 	default:
 		_, err := os.Stat(configFile)
 		if err == nil {

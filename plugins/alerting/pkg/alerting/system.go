@@ -103,7 +103,7 @@ func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
-func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 	var (
 		nc  *nats.Conn
 		err error

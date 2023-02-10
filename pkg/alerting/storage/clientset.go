@@ -52,17 +52,7 @@ func (c CompositeAlertingClientSet) Incidents() IncidentStorage {
 	return c.incidents
 }
 
-func (c *CompositeAlertingClientSet) resolveHashKey(key string) {
-	if key == shared.SingleConfigId {
-		// store all cluster configurations in a single virtual config
-	} else {
-		// multi-cluster multi tenant virutal configs
-		panic("not implemented")
-	}
-}
-
-func (c *CompositeAlertingClientSet) GetHash(ctx context.Context, key string) string {
-	c.resolveHashKey(key)
+func (c *CompositeAlertingClientSet) GetHash(_ context.Context, key string) string {
 	if _, ok := c.hashes[key]; !ok {
 		return ""
 	}
@@ -192,15 +182,15 @@ func (c *CompositeAlertingClientSet) Sync(ctx context.Context, opts ...storage_o
 	return keys, nil
 }
 
-func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {
+func (c *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 	errG, ctxCa := errgroup.WithContext(ctx)
 	errG.Go(func() error {
-		keys, err := s.Conditions().ListKeys(ctxCa)
+		keys, err := c.Conditions().ListKeys(ctxCa)
 		if err != nil {
 			return err
 		}
 		for _, key := range keys {
-			err := s.Conditions().Delete(ctxCa, key)
+			err := c.Conditions().Delete(ctxCa, key)
 			if err != nil {
 				return err
 			}
@@ -208,12 +198,12 @@ func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 		return nil
 	})
 	errG.Go(func() error {
-		keys, err := s.Endpoints().ListKeys(ctxCa)
+		keys, err := c.Endpoints().ListKeys(ctxCa)
 		if err != nil {
 			return err
 		}
 		for _, key := range keys {
-			err := s.Endpoints().Delete(ctxCa, key)
+			err := c.Endpoints().Delete(ctxCa, key)
 			if err != nil {
 				return err
 			}
@@ -221,12 +211,12 @@ func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 		return nil
 	})
 	errG.Go(func() error {
-		keys, err := s.Routers().ListKeys(ctxCa)
+		keys, err := c.Routers().ListKeys(ctxCa)
 		if err != nil {
 			return err
 		}
 		for _, key := range keys {
-			err := s.Routers().Delete(ctxCa, key)
+			err := c.Routers().Delete(ctxCa, key)
 			if err != nil {
 				return err
 			}
@@ -234,12 +224,12 @@ func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 		return nil
 	})
 	errG.Go(func() error {
-		keys, err := s.States().ListKeys(ctxCa)
+		keys, err := c.States().ListKeys(ctxCa)
 		if err != nil {
 			return err
 		}
 		for _, key := range keys {
-			err := s.States().Delete(ctxCa, key)
+			err := c.States().Delete(ctxCa, key)
 			if err != nil {
 				return err
 			}
@@ -247,12 +237,12 @@ func (s *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 		return nil
 	})
 	errG.Go(func() error {
-		keys, err := s.Incidents().ListKeys(ctxCa)
+		keys, err := c.Incidents().ListKeys(ctxCa)
 		if err != nil {
 			return err
 		}
 		for _, key := range keys {
-			err := s.Incidents().Delete(ctxCa, key)
+			err := c.Incidents().Delete(ctxCa, key)
 			if err != nil {
 				return err
 			}

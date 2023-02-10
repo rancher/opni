@@ -1,3 +1,16 @@
+// Copyright 2015 Prometheus Team
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 /**
@@ -9,7 +22,9 @@ Contains :
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net"
+	"net/textproto"
 	"net/url"
 	"regexp"
 	"sort"
@@ -17,15 +32,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
-
 	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/alertmanager/timeinterval"
-	"github.com/prometheus/common/config"
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/sigv4"
+	"gopkg.in/yaml.v2"
 )
 
 type Matchers labels.Matchers
@@ -140,6 +153,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("at most one of opsgenie_api_key & opsgenie_api_key_file must be configured")
 	}
 
+	if c.Global.VictorOpsAPIKey != "" && len(c.Global.VictorOpsAPIKeyFile) > 0 {
+		return fmt.Errorf("at most one of victorops_api_key & victorops_api_key_file must be configured")
+	}
+
+	if len(c.Global.SMTPAuthPassword) > 0 && len(c.Global.SMTPAuthPasswordFile) > 0 {
+		return fmt.Errorf("at most one of smtp_auth_password & smtp_auth_password_file must be configured")
+	}
+
 	names := map[string]struct{}{}
 
 	for _, rcv := range c.Receivers {
@@ -170,8 +191,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if ec.AuthUsername == "" {
 				ec.AuthUsername = c.Global.SMTPAuthUsername
 			}
-			if ec.AuthPassword == "" {
+			if ec.AuthPassword == "" && ec.AuthPasswordFile == "" {
 				ec.AuthPassword = c.Global.SMTPAuthPassword
+				ec.AuthPasswordFile = c.Global.SMTPAuthPasswordFile
 			}
 			if ec.AuthSecret == "" {
 				ec.AuthSecret = c.Global.SMTPAuthSecret
@@ -276,11 +298,12 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if !strings.HasSuffix(voc.APIURL.Path, "/") {
 				voc.APIURL.Path += "/"
 			}
-			if voc.APIKey == "" {
-				if c.Global.VictorOpsAPIKey == "" {
+			if voc.APIKey == "" && len(voc.APIKeyFile) == 0 {
+				if c.Global.VictorOpsAPIKey == "" && len(c.Global.VictorOpsAPIKeyFile) == 0 {
 					return fmt.Errorf("no global VictorOps API Key set")
 				}
 				voc.APIKey = c.Global.VictorOpsAPIKey
+				voc.APIKeyFile = c.Global.VictorOpsAPIKeyFile
 			}
 		}
 		for _, sns := range rcv.SNSConfigs {
@@ -295,6 +318,26 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 			if telegram.APIUrl == nil {
 				telegram.APIUrl = c.Global.TelegramAPIUrl
+			}
+		}
+		for _, discord := range rcv.DiscordConfigs {
+			if discord.HTTPConfig == nil {
+				discord.HTTPConfig = c.Global.HTTPConfig
+			}
+			if discord.WebhookURL == nil {
+				return fmt.Errorf("no discord webhook URL provided")
+			}
+		}
+		for _, webex := range rcv.WebexConfigs {
+			if webex.HTTPConfig == nil {
+				webex.HTTPConfig = c.Global.HTTPConfig
+			}
+			if webex.APIURL == nil {
+				if c.Global.WebexAPIURL == nil {
+					return fmt.Errorf("no global Webex URL set")
+				}
+
+				webex.APIURL = c.Global.WebexAPIURL
 			}
 		}
 
@@ -385,8 +428,7 @@ func checkTimeInterval(r *Route, timeIntervals map[string]struct{}) error {
 
 // DefaultGlobalConfig returns GlobalConfig with default values.
 func DefaultGlobalConfig() GlobalConfig {
-	var defaultHTTPConfig = commoncfg.DefaultHTTPClientConfig
-	defaultHTTPConfig.EnableHTTP2 = false
+	defaultHTTPConfig := commoncfg.DefaultHTTPClientConfig
 	return GlobalConfig{
 		ResolveTimeout: model.Duration(5 * time.Minute),
 		HTTPConfig:     &defaultHTTPConfig,
@@ -398,10 +440,11 @@ func DefaultGlobalConfig() GlobalConfig {
 		WeChatAPIURL:    mustParseURL("https://qyapi.weixin.qq.com/cgi-bin/"),
 		VictorOpsAPIURL: mustParseURL("https://alert.victorops.com/integrations/generic/20131114/alert/"),
 		TelegramAPIUrl:  mustParseURL("https://api.telegram.org"),
+		WebexAPIURL:     mustParseURL("https://webexapis.com/v1/messages"),
 	}
 }
 
-func mustParseURL(s string) *config.URL {
+func mustParseURL(s string) *amCfg.URL {
 	u, err := parseURL(s)
 	if err != nil {
 		panic(err)
@@ -409,7 +452,7 @@ func mustParseURL(s string) *config.URL {
 	return u
 }
 
-func parseURL(s string) (*config.URL, error) {
+func parseURL(s string) (*amCfg.URL, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, err
@@ -420,7 +463,7 @@ func parseURL(s string) (*config.URL, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("missing host for URL")
 	}
-	return &config.URL{u}, nil
+	return &amCfg.URL{u}, nil
 }
 
 // HostPort represents a "host:port" network address.
@@ -503,29 +546,32 @@ type GlobalConfig struct {
 	SMTPHello        string   `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
 	SMTPSmarthost    HostPort `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
 	SMTPAuthUsername string   `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
-	//! Change to string to allow for updates
+	//! Changed from secret to string for unmarshalling / marshalling purposes
 	SMTPAuthPassword string `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
-	//! Change to string to allow for updates
+	//! Changed from secret to string for unmarshalling / marshalling purposes
+	SMTPAuthPasswordFile string `yaml:"smtp_auth_password_file,omitempty" json:"smtp_auth_password_file,omitempty"`
+	//! Changed from secret to string for unmarshalling / marshalling purposes
 	SMTPAuthSecret   string `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
 	SMTPAuthIdentity string `yaml:"smtp_auth_identity,omitempty" json:"smtp_auth_identity,omitempty"`
 	SMTPRequireTLS   bool   `yaml:"smtp_require_tls" json:"smtp_require_tls,omitempty"`
-	//! Change to config.URL to allow for updates
-	SlackAPIURL     *config.URL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`
-	SlackAPIURLFile string      `yaml:"slack_api_url_file,omitempty" json:"slack_api_url_file,omitempty"`
-	PagerdutyURL    *config.URL `yaml:"pagerduty_url,omitempty" json:"pagerduty_url,omitempty"`
-	OpsGenieAPIURL  *config.URL `yaml:"opsgenie_api_url,omitempty" json:"opsgenie_api_url,omitempty"`
-	//! Change to string to allow for updates
-	OpsGenieAPIKey     string      `yaml:"opsgenie_api_key,omitempty" json:"opsgenie_api_key,omitempty"`
-	OpsGenieAPIKeyFile string      `yaml:"opsgenie_api_key_file,omitempty" json:"opsgenie_api_key_file,omitempty"`
-	WeChatAPIURL       *config.URL `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
-	//! Change to string to allow for updates
-	WeChatAPISecret string `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
-	WeChatAPICorpID string `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
-
-	VictorOpsAPIURL *config.URL `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
-	//! Change to string to allow for updates
-	VictorOpsAPIKey string      `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
-	TelegramAPIUrl  *config.URL `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
+	//! Changed from secret to URL for unmarshalling / marshalling purposes
+	SlackAPIURL     *amCfg.URL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`
+	SlackAPIURLFile string     `yaml:"slack_api_url_file,omitempty" json:"slack_api_url_file,omitempty"`
+	PagerdutyURL    *amCfg.URL `yaml:"pagerduty_url,omitempty" json:"pagerduty_url,omitempty"`
+	OpsGenieAPIURL  *amCfg.URL `yaml:"opsgenie_api_url,omitempty" json:"opsgenie_api_url,omitempty"`
+	//! Changed from secret to string for unmarshalling / marshalling purposes
+	OpsGenieAPIKey     string     `yaml:"opsgenie_api_key,omitempty" json:"opsgenie_api_key,omitempty"`
+	OpsGenieAPIKeyFile string     `yaml:"opsgenie_api_key_file,omitempty" json:"opsgenie_api_key_file,omitempty"`
+	WeChatAPIURL       *amCfg.URL `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
+	//! Changed from secret to string for unmarshalling / marshalling purposes
+	WeChatAPISecret string     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
+	WeChatAPICorpID string     `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
+	VictorOpsAPIURL *amCfg.URL `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
+	//! Changed from secret to string for unmarshalling / marshalling purposes
+	VictorOpsAPIKey     string     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
+	VictorOpsAPIKeyFile string     `yaml:"victorops_api_key_file,omitempty" json:"victorops_api_key_file,omitempty"`
+	TelegramAPIUrl      *amCfg.URL `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
+	WebexAPIURL         *amCfg.URL `yaml:"webex_api_url,omitempty" json:"webex_api_url,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for GlobalConfig.
@@ -657,6 +703,7 @@ type Receiver struct {
 	// A unique identifier for this receiver.
 	Name string `yaml:"name" json:"name"`
 
+	DiscordConfigs   []*DiscordConfig   `yaml:"discord_configs,omitempty" json:"discord_configs,omitempty"`
 	EmailConfigs     []*EmailConfig     `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
 	PagerdutyConfigs []*PagerdutyConfig `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
 	SlackConfigs     []*SlackConfig     `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
@@ -667,6 +714,7 @@ type Receiver struct {
 	VictorOpsConfigs []*VictorOpsConfig `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`
 	SNSConfigs       []*SNSConfig       `yaml:"sns_configs,omitempty" json:"sns_configs,omitempty"`
 	TelegramConfigs  []*TelegramConfig  `yaml:"telegram_configs,omitempty" json:"telegram_configs,omitempty"`
+	WebexConfigs     []*WebexConfig     `yaml:"webex_configs,omitempty" json:"webex_configs,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Receiver.
@@ -707,6 +755,23 @@ var (
 		NotifierConfig: NotifierConfig{
 			VSendResolved: true,
 		},
+	}
+
+	// DefaultWebexConfig defines default values for Webex configurations.
+	DefaultWebexConfig = WebexConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: true,
+		},
+		Message: `{{ template "webex.default.message" . }}`,
+	}
+
+	// DefaultDiscordConfig defines default values for Discord configurations.
+	DefaultDiscordConfig = DiscordConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: true,
+		},
+		Title:   `{{ template "discord.default.title" . }}`,
+		Message: `{{ template "discord.default.message" . }}`,
 	}
 
 	// DefaultEmailConfig defines default values for Email configurations.
@@ -820,7 +885,7 @@ var (
 		},
 		DisableNotifications: false,
 		Message:              `{{ template "telegram.default.message" . }}`,
-		ParseMode:            "MarkdownV2",
+		ParseMode:            "HTML",
 	}
 )
 
@@ -833,6 +898,54 @@ func (nc *NotifierConfig) SendResolved() bool {
 	return nc.VSendResolved
 }
 
+// WebexConfig configures notifications via Webex.
+type WebexConfig struct {
+	NotifierConfig `yaml:",inline" json:",inline"`
+	HTTPConfig     *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+	APIURL         *amCfg.URL                  `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+
+	Message string `yaml:"message,omitempty" json:"message,omitempty"`
+	RoomID  string `yaml:"room_id" json:"room_id"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *WebexConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultWebexConfig
+	type plain WebexConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+
+	if c.RoomID == "" {
+		return fmt.Errorf("missing room_id on webex_config")
+	}
+
+	if c.HTTPConfig == nil || c.HTTPConfig.Authorization == nil {
+		return fmt.Errorf("missing webex_configs.http_config.authorization")
+	}
+
+	return nil
+}
+
+// DiscordConfig configures notifications via Discord.
+type DiscordConfig struct {
+	NotifierConfig `yaml:",inline" json:",inline"`
+
+	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+	//! Changed from SecretURL to URL for marshalling / unmarshalling purposes
+	WebhookURL *amCfg.URL `yaml:"webhook_url,omitempty" json:"webhook_url,omitempty"`
+
+	Title   string `yaml:"title,omitempty" json:"title,omitempty"`
+	Message string `yaml:"message,omitempty" json:"message,omitempty"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *DiscordConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultDiscordConfig
+	type plain DiscordConfig
+	return unmarshal((*plain)(c))
+}
+
 // EmailConfig configures notifications via mail.
 type EmailConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
@@ -843,8 +956,10 @@ type EmailConfig struct {
 	Hello        string   `yaml:"hello,omitempty" json:"hello,omitempty"`
 	Smarthost    HostPort `yaml:"smarthost,omitempty" json:"smarthost,omitempty"`
 	AuthUsername string   `yaml:"auth_username,omitempty" json:"auth_username,omitempty"`
-	//! Change to string to allow for updates
-	AuthPassword string              `yaml:"auth_password,omitempty" json:"auth_password,omitempty"`
+	//!Changed from Secret to string for marshalling / unmarshalling purposes
+	AuthPassword     string `yaml:"auth_password,omitempty" json:"auth_password,omitempty"`
+	AuthPasswordFile string `yaml:"auth_password_file,omitempty" json:"auth_password_file,omitempty"`
+	//!Changed from Secret to string for marshalling / unmarshalling purposes
 	AuthSecret   string              `yaml:"auth_secret,omitempty" json:"auth_secret,omitempty"`
 	AuthIdentity string              `yaml:"auth_identity,omitempty" json:"auth_identity,omitempty"`
 	Headers      map[string]string   `yaml:"headers,omitempty" json:"headers,omitempty"`
@@ -867,7 +982,7 @@ func (c *EmailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Header names are case-insensitive, check for collisions.
 	normalizedHeaders := map[string]string{}
 	for h, v := range c.Headers {
-		normalized := strings.Title(h)
+		normalized := textproto.CanonicalMIMEHeaderKey(h)
 		if _, ok := normalizedHeaders[normalized]; ok {
 			return fmt.Errorf("duplicate header %q in email config", normalized)
 		}
@@ -883,21 +998,23 @@ type PagerdutyConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to string to allow for updates
-	ServiceKey string `yaml:"service_key,omitempty" json:"service_key,omitempty"`
-	//! Change to string to allow for updates
-	RoutingKey  string            `yaml:"routing_key,omitempty" json:"routing_key,omitempty"`
-	URL         *config.URL       `yaml:"url,omitempty" json:"url,omitempty"`
-	Client      string            `yaml:"client,omitempty" json:"client,omitempty"`
-	ClientURL   string            `yaml:"client_url,omitempty" json:"client_url,omitempty"`
-	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
-	Details     map[string]string `yaml:"details,omitempty" json:"details,omitempty"`
-	Images      []PagerdutyImage  `yaml:"images,omitempty" json:"images,omitempty"`
-	Links       []PagerdutyLink   `yaml:"links,omitempty" json:"links,omitempty"`
-	Severity    string            `yaml:"severity,omitempty" json:"severity,omitempty"`
-	Class       string            `yaml:"class,omitempty" json:"class,omitempty"`
-	Component   string            `yaml:"component,omitempty" json:"component,omitempty"`
-	Group       string            `yaml:"group,omitempty" json:"group,omitempty"`
+	//!Changed from Secret to string for marshalling / unmarshalling purposes
+	ServiceKey     string            `yaml:"service_key,omitempty" json:"service_key,omitempty"`
+	ServiceKeyFile string            `yaml:"service_key_file,omitempty" json:"service_key_file,omitempty"`
+	RoutingKey     string            `yaml:"routing_key,omitempty" json:"routing_key,omitempty"`
+	RoutingKeyFile string            `yaml:"routing_key_file,omitempty" json:"routing_key_file,omitempty"`
+	URL            *amCfg.URL        `yaml:"url,omitempty" json:"url,omitempty"`
+	Client         string            `yaml:"client,omitempty" json:"client,omitempty"`
+	ClientURL      string            `yaml:"client_url,omitempty" json:"client_url,omitempty"`
+	Description    string            `yaml:"description,omitempty" json:"description,omitempty"`
+	Details        map[string]string `yaml:"details,omitempty" json:"details,omitempty"`
+	Images         []PagerdutyImage  `yaml:"images,omitempty" json:"images,omitempty"`
+	Links          []PagerdutyLink   `yaml:"links,omitempty" json:"links,omitempty"`
+	Source         string            `yaml:"source,omitempty" json:"source,omitempty"`
+	Severity       string            `yaml:"severity,omitempty" json:"severity,omitempty"`
+	Class          string            `yaml:"class,omitempty" json:"class,omitempty"`
+	Component      string            `yaml:"component,omitempty" json:"component,omitempty"`
+	Group          string            `yaml:"group,omitempty" json:"group,omitempty"`
 }
 
 // PagerdutyLink is a link
@@ -920,11 +1037,20 @@ func (c *PagerdutyConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
-	if c.RoutingKey == "" && c.ServiceKey == "" {
+	if c.RoutingKey == "" && c.ServiceKey == "" && c.RoutingKeyFile == "" && c.ServiceKeyFile == "" {
 		return fmt.Errorf("missing service or routing key in PagerDuty config")
+	}
+	if len(c.RoutingKey) > 0 && len(c.RoutingKeyFile) > 0 {
+		return fmt.Errorf("at most one of routing_key & routing_key_file must be configured")
+	}
+	if len(c.ServiceKey) > 0 && len(c.ServiceKeyFile) > 0 {
+		return fmt.Errorf("at most one of service_key & service_key_file must be configured")
 	}
 	if c.Details == nil {
 		c.Details = make(map[string]string)
+	}
+	if c.Source == "" {
+		c.Source = c.Client
 	}
 	for k, v := range DefaultPagerdutyDetails {
 		if _, ok := c.Details[k]; !ok {
@@ -1024,9 +1150,9 @@ type SlackConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to config.URL to allow for updates
-	APIURL     *config.URL `yaml:"api_url,omitempty" json:"api_url,omitempty"`
-	APIURLFile string      `yaml:"api_url_file,omitempty" json:"api_url_file,omitempty"`
+	//! Changed from SecretURL to URL for marshalling / unmarshalling purposes
+	APIURL     *amCfg.URL `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+	APIURLFile string     `yaml:"api_url_file,omitempty" json:"api_url_file,omitempty"`
 
 	// Slack channel override, (like #other-channel or @username).
 	Channel  string `yaml:"channel,omitempty" json:"channel,omitempty"`
@@ -1073,7 +1199,7 @@ type WebhookConfig struct {
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 
 	// URL to send POST request to.
-	URL *config.URL `yaml:"url" json:"url"`
+	URL *amCfg.URL `yaml:"url" json:"url"`
 	// MaxAlerts is the maximum number of alerts to be sent per webhook message.
 	// Alerts exceeding this threshold will be truncated. Setting this to 0
 	// allows an unlimited number of alerts.
@@ -1101,16 +1227,16 @@ type WechatConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to string to allow for updates
-	APISecret   string      `yaml:"api_secret,omitempty" json:"api_secret,omitempty"`
-	CorpID      string      `yaml:"corp_id,omitempty" json:"corp_id,omitempty"`
-	Message     string      `yaml:"message,omitempty" json:"message,omitempty"`
-	APIURL      *config.URL `yaml:"api_url,omitempty" json:"api_url,omitempty"`
-	ToUser      string      `yaml:"to_user,omitempty" json:"to_user,omitempty"`
-	ToParty     string      `yaml:"to_party,omitempty" json:"to_party,omitempty"`
-	ToTag       string      `yaml:"to_tag,omitempty" json:"to_tag,omitempty"`
-	AgentID     string      `yaml:"agent_id,omitempty" json:"agent_id,omitempty"`
-	MessageType string      `yaml:"message_type,omitempty" json:"message_type,omitempty"`
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
+	APISecret   string     `yaml:"api_secret,omitempty" json:"api_secret,omitempty"`
+	CorpID      string     `yaml:"corp_id,omitempty" json:"corp_id,omitempty"`
+	Message     string     `yaml:"message,omitempty" json:"message,omitempty"`
+	APIURL      *amCfg.URL `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+	ToUser      string     `yaml:"to_user,omitempty" json:"to_user,omitempty"`
+	ToParty     string     `yaml:"to_party,omitempty" json:"to_party,omitempty"`
+	ToTag       string     `yaml:"to_tag,omitempty" json:"to_tag,omitempty"`
+	AgentID     string     `yaml:"agent_id,omitempty" json:"agent_id,omitempty"`
+	MessageType string     `yaml:"message_type,omitempty" json:"message_type,omitempty"`
 }
 
 const wechatValidTypesRe = `^(text|markdown)$`
@@ -1130,7 +1256,7 @@ func (c *WechatConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	if !wechatTypeMatcher.MatchString(c.MessageType) {
-		return errors.Errorf("WeChat message type %q does not match valid options %s", c.MessageType, wechatValidTypesRe)
+		return errors.Errorf("weChat message type %q does not match valid options %s", c.MessageType, wechatValidTypesRe)
 	}
 
 	return nil
@@ -1141,10 +1267,11 @@ type OpsGenieConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to string to allow for updates
+
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
 	APIKey       string                    `yaml:"api_key,omitempty" json:"api_key,omitempty"`
 	APIKeyFile   string                    `yaml:"api_key_file,omitempty" json:"api_key_file,omitempty"`
-	APIURL       *config.URL               `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+	APIURL       *amCfg.URL                `yaml:"api_url,omitempty" json:"api_url,omitempty"`
 	Message      string                    `yaml:"message,omitempty" json:"message,omitempty"`
 	Description  string                    `yaml:"description,omitempty" json:"description,omitempty"`
 	Source       string                    `yaml:"source,omitempty" json:"source,omitempty"`
@@ -1170,18 +1297,25 @@ func (c *OpsGenieConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return err
 	}
 
-	if c.APIURL != nil && len(c.APIKeyFile) > 0 {
+	if c.APIKey != "" && len(c.APIKeyFile) > 0 {
 		return fmt.Errorf("at most one of api_key & api_key_file must be configured")
 	}
 
 	for _, r := range c.Responders {
 		if r.ID == "" && r.Username == "" && r.Name == "" {
-			return errors.Errorf("OpsGenieConfig responder %v has to have at least one of id, username or name specified", r)
+			return errors.Errorf("opsGenieConfig responder %v has to have at least one of id, username or name specified", r)
 		}
 
-		r.Type = strings.ToLower(r.Type)
-		if !opsgenieTypeMatcher.MatchString(r.Type) {
-			return errors.Errorf("OpsGenieConfig responder %v type does not match valid options %s", r, opsgenieValidTypesRe)
+		if strings.Contains(r.Type, "{{") {
+			_, err := template.New("").Parse(r.Type)
+			if err != nil {
+				return errors.Errorf("opsGenieConfig responder %v type is not a valid template: %v", r, err)
+			}
+		} else {
+			r.Type = strings.ToLower(r.Type)
+			if !opsgenieTypeMatcher.MatchString(r.Type) {
+				return errors.Errorf("opsGenieConfig responder %v type does not match valid options %s", r, opsgenieValidTypesRe)
+			}
 		}
 	}
 
@@ -1203,11 +1337,11 @@ type VictorOpsConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to string to allow for updates
-	APIKey string `yaml:"api_key,omitempty" json:"api_key,omitempty"`
-	//! Change to string to allow for updates
+
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
+	APIKey            string            `yaml:"api_key,omitempty" json:"api_key,omitempty"`
 	APIKeyFile        string            `yaml:"api_key_file,omitempty" json:"api_key_file,omitempty"`
-	APIURL            *config.URL       `yaml:"api_url" json:"api_url"`
+	APIURL            *amCfg.URL        `yaml:"api_url" json:"api_url"`
 	RoutingKey        string            `yaml:"routing_key" json:"routing_key"`
 	MessageType       string            `yaml:"message_type" json:"message_type"`
 	StateMessage      string            `yaml:"state_message" json:"state_message"`
@@ -1226,12 +1360,15 @@ func (c *VictorOpsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	if c.RoutingKey == "" {
 		return fmt.Errorf("missing Routing key in VictorOps config")
 	}
+	if c.APIKey != "" && len(c.APIKeyFile) > 0 {
+		return fmt.Errorf("at most one of api_key & api_key_file must be configured")
+	}
 
 	reservedFields := []string{"routing_key", "message_type", "state_message", "entity_display_name", "monitoring_tool", "entity_id", "entity_state"}
 
 	for _, v := range reservedFields {
 		if _, ok := c.CustomFields[v]; ok {
-			return fmt.Errorf("VictorOps config contains custom field %s which cannot be used as it conflicts with the fixed/static fields", v)
+			return fmt.Errorf("victorOps config contains custom field %s which cannot be used as it conflicts with the fixed/static fields", v)
 		}
 	}
 
@@ -1256,9 +1393,9 @@ type PushoverConfig struct {
 	NotifierConfig `yaml:",inline" json:",inline"`
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	//! Change to string to allow for updates
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
 	UserKey string `yaml:"user_key,omitempty" json:"user_key,omitempty"`
-	//! Change to string to allow for updates
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
 	Token    string   `yaml:"token,omitempty" json:"token,omitempty"`
 	Title    string   `yaml:"title,omitempty" json:"title,omitempty"`
 	Message  string   `yaml:"message,omitempty" json:"message,omitempty"`
@@ -1321,8 +1458,8 @@ type TelegramConfig struct {
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 
-	APIUrl *config.URL `yaml:"api_url" json:"api_url,omitempty"`
-	//! Change to string to allow for updates
+	APIUrl *amCfg.URL `yaml:"api_url" json:"api_url,omitempty"`
+	//! Changed from Secret to string for marshalling / unmarshalling purposes
 	BotToken             string `yaml:"bot_token,omitempty" json:"token,omitempty"`
 	ChatID               int64  `yaml:"chat_id,omitempty" json:"chat,omitempty"`
 	Message              string `yaml:"message,omitempty" json:"message,omitempty"`
@@ -1342,9 +1479,6 @@ func (c *TelegramConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	}
 	if c.ChatID == 0 {
 		return fmt.Errorf("missing chat_id on telegram_config")
-	}
-	if c.APIUrl == nil {
-		return fmt.Errorf("missing api_url on telegram_config")
 	}
 	if c.ParseMode != "" &&
 		c.ParseMode != "Markdown" &&

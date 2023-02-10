@@ -1,9 +1,17 @@
-package alertmanager_internal
+// Copyright 2015 Prometheus Team
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-////////////////////////////////////////////////////////////////////////////////
-// alertmanager version 0.24.0
-// The initialization code below is copied from alertmanager/cmd/alertmanager/main.go.    //                 //
-////////////////////////////////////////////////////////////////////////////////
+package alertmanager_internal
 
 import (
 	"context"
@@ -14,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,6 +50,7 @@ import (
 	"github.com/prometheus/alertmanager/inhibit"
 	"github.com/prometheus/alertmanager/nflog"
 	"github.com/prometheus/alertmanager/notify"
+	"github.com/prometheus/alertmanager/notify/discord"
 	"github.com/prometheus/alertmanager/notify/email"
 	"github.com/prometheus/alertmanager/notify/opsgenie"
 	"github.com/prometheus/alertmanager/notify/pagerduty"
@@ -49,6 +59,7 @@ import (
 	"github.com/prometheus/alertmanager/notify/sns"
 	"github.com/prometheus/alertmanager/notify/telegram"
 	"github.com/prometheus/alertmanager/notify/victorops"
+	"github.com/prometheus/alertmanager/notify/webex"
 	"github.com/prometheus/alertmanager/notify/webhook"
 	"github.com/prometheus/alertmanager/notify/wechat"
 	"github.com/prometheus/alertmanager/provider/mem"
@@ -165,6 +176,13 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 	for i, c := range nc.TelegramConfigs {
 		add("telegram", i, c, func(l log.Logger) (notify.Notifier, error) { return telegram.New(c, tmpl, l) })
 	}
+	for i, c := range nc.DiscordConfigs {
+		add("discord", i, c, func(l log.Logger) (notify.Notifier, error) { return discord.New(c, tmpl, l) })
+	}
+	for i, c := range nc.WebexConfigs {
+		add("webex", i, c, func(l log.Logger) (notify.Notifier, error) { return webex.New(c, tmpl, l) })
+	}
+
 	if errs.Len() > 0 {
 		return nil, &errs
 	}
@@ -177,17 +195,21 @@ func Main(args []string) {
 
 func run(args []string) int {
 	os.Args = args
+	if os.Getenv("DEBUG") != "" {
+		runtime.SetBlockProfileRate(20)
+		runtime.SetMutexProfileFraction(20)
+	}
 
 	var (
-		configFile      = kingpin.Flag("config.file", "Alertmanager configuration file name.").Default("alertmanager.yml").String()
-		dataDir         = kingpin.Flag("storage.path", "Base path for data storage.").Default("data/").String()
-		retention       = kingpin.Flag("data.retention", "How long to keep data for.").Default("120h").Duration()
-		alertGCInterval = kingpin.Flag("alerts.gc-interval", "Interval between alert GC.").Default("30m").Duration()
+		configFile          = kingpin.Flag("config.file", "Alertmanager configuration file name.").Default("alertmanager.yml").String()
+		dataDir             = kingpin.Flag("storage.path", "Base path for data storage.").Default("data/").String()
+		retention           = kingpin.Flag("data.retention", "How long to keep data for.").Default("120h").Duration()
+		maintenanceInterval = kingpin.Flag("data.maintenance-interval", "Interval between garbage collection and snapshotting to disk of the silences and the notification logs.").Default("15m").Duration()
+		alertGCInterval     = kingpin.Flag("alerts.gc-interval", "Interval between alert GC.").Default("30m").Duration()
 
 		webConfig      = webflag.AddFlags(kingpin.CommandLine, ":9093")
 		externalURL    = kingpin.Flag("web.external-url", "The URL under which Alertmanager is externally reachable (for example, if Alertmanager is served via a reverse proxy). Used for generating relative and absolute links back to Alertmanager itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager. If omitted, relevant URL components will be derived automatically.").String()
 		routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").String()
-		listenAddress  = kingpin.Flag("web.listen-address", "Address to listen on for the web interface and API.").Default(":9093").String()
 		getConcurrency = kingpin.Flag("web.get-concurrency", "Maximum number of GET requests processed concurrently. If negative or zero, the limit is GOMAXPROC or 8, whichever is larger.").Default("0").Int()
 		httpTimeout    = kingpin.Flag("web.timeout", "Timeout for HTTP requests. If negative or zero, no timeout is set.").Default("0").Duration()
 
@@ -218,7 +240,7 @@ func run(args []string) int {
 	kingpin.CommandLine.GetFlag("help").Short('h')
 	kingpin.Parse()
 	if opniAddr != nil && *opniAddr != "" {
-		opniSrv := extensions.StartOpniEmbeddedServer(*configFile, *opniAddr)
+		opniSrv := extensions.StartOpniEmbeddedServer(*opniAddr)
 		defer func() {
 			err := opniSrv.Shutdown(context.TODO())
 			if err != nil {
@@ -232,7 +254,7 @@ func run(args []string) int {
 	level.Info(logger).Log("msg", "Starting Alertmanager", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 
-	err := os.MkdirAll(*dataDir, 0777)
+	err := os.MkdirAll(*dataDir, 0o777)
 	if err != nil {
 		level.Error(logger).Log("msg", "Unable to create data directory", "err", err)
 		return 1
@@ -274,7 +296,7 @@ func run(args []string) int {
 	notificationLogOpts := []nflog.Option{
 		nflog.WithRetention(*retention),
 		nflog.WithSnapshot(filepath.Join(*dataDir, "nflog")),
-		nflog.WithMaintenance(15*time.Minute, stopc, wg.Done, nil),
+		nflog.WithMaintenance(*maintenanceInterval, stopc, wg.Done, nil),
 		nflog.WithMetrics(prometheus.DefaultRegisterer),
 		nflog.WithLogger(log.With(logger, "component", "nflog")),
 	}
@@ -311,7 +333,7 @@ func run(args []string) int {
 	// Start providers before router potentially sends updates.
 	wg.Add(1)
 	go func() {
-		silences.Maintenance(15*time.Minute, filepath.Join(*dataDir, "silences"), stopc, nil)
+		silences.Maintenance(*maintenanceInterval, filepath.Join(*dataDir, "silences"), stopc, nil)
 		wg.Done()
 	}()
 
@@ -347,7 +369,9 @@ func run(args []string) int {
 	defer alerts.Close()
 
 	var disp *dispatch.Dispatcher
-	defer disp.Stop()
+	defer func() {
+		disp.Stop()
+	}()
 
 	groupFn := func(routeFilter func(*dispatch.Route) bool, alertFilter func(*types.Alert, time.Time) bool) (dispatch.AlertGroups, map[model.Fingerprint][]string) {
 		return disp.Groups(routeFilter, alertFilter)
@@ -372,13 +396,12 @@ func run(args []string) int {
 		Registry:    prometheus.DefaultRegisterer,
 		GroupFunc:   groupFn,
 	})
-
 	if err != nil {
 		level.Error(logger).Log("err", errors.Wrap(err, "failed to create API"))
 		return 1
 	}
 
-	amURL, err := extURL(logger, os.Hostname, *listenAddress, *externalURL)
+	amURL, err := extURL(logger, os.Hostname, (*webConfig.WebListenAddresses)[0], *externalURL)
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
 		return 1
@@ -529,11 +552,10 @@ func run(args []string) int {
 
 	mux := api.Register(router, *routePrefix)
 
-	srv := &http.Server{Addr: *listenAddress, Handler: mux}
+	srv := &http.Server{Handler: mux}
 	srvc := make(chan struct{})
 
 	go func() {
-		level.Info(logger).Log("msg", "Listening", "address", *listenAddress)
 		if err := web.ListenAndServe(srv, webConfig, logger); err != http.ErrServerClosed {
 			level.Error(logger).Log("msg", "Listen error", "err", err)
 			close(srvc)

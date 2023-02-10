@@ -68,7 +68,7 @@ func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) 
 	if disconnectExists {
 		return nil
 	}
-	_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
+	_, err = p.CreateAlertCondition(ctx, &alertingv1.AlertCondition{
 		Name:        "agent-disconnect",
 		Description: "Alert when the downstream agent disconnects from the opni upstream",
 		Labels:      []string{"agent-disconnect", "opni", "automatic"},

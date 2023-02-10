@@ -453,39 +453,17 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if s := cond.GetAlertType().GetSystem(); s != nil {
-					// check system tracker
-					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-					if err != nil {
-						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-						return
-					}
-					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: activeWindows,
-					}}
+				if cortexImpl, _ := handleSwitchCortexRules(cond.GetAlertType()); cortexImpl != nil {
+					return
 				}
-				if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
-					// check system tracker
-					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-					if err != nil {
-						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-						return
-					}
-					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: activeWindows,
-					}}
+				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
 				}
-				if mb := cond.GetAlertType().GetMonitoringBackend(); mb != nil {
-					// check system tracker
-					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-					if err != nil {
-						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-						return
-					}
-					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: activeWindows,
-					}}
-				}
+				yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}}
 			}()
 		}
 

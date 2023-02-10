@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/prometheus/common/config"
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -34,7 +34,7 @@ type OpniReceiver interface {
 	yaml.Unmarshaler
 }
 
-func ExtractReceiver(unmarshall func(interface{}) error, data interface{}) (OpniReceiver, error) {
+func ExtractReceiver(unmarshall func(interface{}) error, _ /*data*/ interface{}) (OpniReceiver, error) {
 	type slack SlackConfig
 	type email EmailConfig
 	type pagerduty PagerdutyConfig
@@ -266,7 +266,7 @@ func (c *SlackConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	if err != nil {
 		panic(err)
 	}
-	c.APIURL = &config.URL{
+	c.APIURL = &amCfg.URL{
 		URL: parsedURL,
 	}
 	c.Channel = slackSpec.Channel
@@ -347,12 +347,12 @@ func (c *WebhookConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return &alertingv1.EndpointImplementation{}
 }
 
-func (c *WebhookConfig) StoreMessage(details *alertingv1.EndpointImplementation) {}
+func (c *WebhookConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {}
 
 func (c *WebhookConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	webhookSpec := endp.GetWebhook()
 	parsedURL := util.Must(url.Parse(webhookSpec.Url))
-	c.URL = &config.URL{
+	c.URL = &amCfg.URL{
 		URL: parsedURL,
 	}
 	return c
@@ -375,7 +375,7 @@ func (c *OpsGenieConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *OpsGenieConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *OpsGenieConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -400,7 +400,7 @@ func (c *VictorOpsConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *VictorOpsConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *VictorOpsConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -425,7 +425,7 @@ func (c *WechatConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *WechatConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *WechatConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -450,7 +450,7 @@ func (c *PushoverConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *PushoverConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *PushoverConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -475,7 +475,7 @@ func (c *SNSConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *SNSConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *SNSConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -500,7 +500,7 @@ func (c *TelegramConfig) ExtractMessage() *alertingv1.EndpointImplementation {
 	return nil
 }
 
-func (c *TelegramConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *TelegramConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 

@@ -61,14 +61,13 @@ func NewAlertingSyncerV1(
 	}
 	go func() {
 		server.lg.Infof("starting alerting syncer server as \"%s\"...", server.uuid)
-		server.Initialize(ctx, server.serverConfig, mgmtClient)
+		server.Initialize(ctx, mgmtClient)
 	}()
 	return server
 }
 
 func (a *AlertManagerSyncerV1) Initialize(
 	ctx context.Context,
-	cfg *alertingv1.SyncerConfig,
 	mgmtClient managementv1.ManagementClient,
 ) {
 	var gatewayCc *grpc.ClientConn
@@ -192,21 +191,21 @@ func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *al
 	return &emptypb.Empty{}, apiNode.DoRequest()
 }
 
-func (a *AlertManagerSyncerV1) Ready(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (a *AlertManagerSyncerV1) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not initialized")
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertManagerSyncerV1) Healthy(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (a *AlertManagerSyncerV1) Healthy(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not initialized")
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertManagerSyncerV1) Status(ctx context.Context, empty *emptypb.Empty) (*alertingv1.SyncerStatus, error) {
+func (a *AlertManagerSyncerV1) Status(ctx context.Context, _ *emptypb.Empty) (*alertingv1.SyncerStatus, error) {
 	res := &alertingv1.SyncerStatus{
 		Configs: make(map[string]string),
 	}

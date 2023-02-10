@@ -200,6 +200,7 @@ require (
 	github.com/aws/smithy-go v1.13.4 // indirect
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/syslogng/config v0.0.0 // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -522,8 +523,6 @@ replace (
 	google.golang.org/protobuf => github.com/kralicky/protobuf-go v0.0.0-20221006220753-31c095bd9720
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20221206210856-99cb51e2d10a
 )
-
-replace github.com/prometheus/alertmanager => github.com/prometheus/alertmanager v0.24.0
 
 // Cortex replacements (copied from cortex go.mod)
 replace (

@@ -80,7 +80,9 @@ func (j JetstreamRouterStore[T]) key(k string) string {
 	return path.Join(j.basePath, k)
 }
 
-func (j JetstreamRouterStore[T]) Get(ctx context.Context, key string, opts ...storage_opts.RequestOption) (T, error) {
+func (j JetstreamRouterStore[T]) Get(_ context.Context, key string, opts ...storage_opts.RequestOption) (T, error) {
+	options := storage_opts.RequestOptions{}
+	options.Apply(opts...)
 	var t T
 	objRes, err := j.obj.Get(j.key(key))
 	if err != nil {
@@ -97,7 +99,7 @@ func (j JetstreamRouterStore[T]) Get(ctx context.Context, key string, opts ...st
 	return rt, nil
 }
 
-func (j JetstreamRouterStore[T]) Put(ctx context.Context, key string, value T) error {
+func (j JetstreamRouterStore[T]) Put(_ context.Context, key string, value T) error {
 	raw, err := yaml.Marshal(value)
 	if err != nil {
 		return err
@@ -108,7 +110,7 @@ func (j JetstreamRouterStore[T]) Put(ctx context.Context, key string, value T) e
 	return err
 }
 
-func (j JetstreamRouterStore[T]) ListKeys(ctx context.Context) ([]string, error) {
+func (j JetstreamRouterStore[T]) ListKeys(_ context.Context) ([]string, error) {
 	var keys []string
 	objs, err := j.obj.List()
 	if errors.Is(err, nats.ErrNoKeysFound) {
@@ -129,7 +131,7 @@ func (j JetstreamRouterStore[T]) List(ctx context.Context, opts ...storage_opts.
 		return routers, err
 	}
 	for _, key := range keys {
-		router, err := j.Get(ctx, key)
+		router, err := j.Get(ctx, key, opts...)
 		if err != nil {
 			return routers, err
 		}
@@ -138,7 +140,7 @@ func (j JetstreamRouterStore[T]) List(ctx context.Context, opts ...storage_opts.
 	return routers, nil
 }
 
-func (j JetstreamRouterStore[T]) Delete(ctx context.Context, key string) error {
+func (j JetstreamRouterStore[T]) Delete(_ context.Context, key string) error {
 	return j.obj.Delete(j.key(key))
 }
 
@@ -146,7 +148,7 @@ func (j *JetStreamAlertingStorage[T]) Key(key string) string {
 	return path.Join(j.basePath, key)
 }
 
-func (j *JetStreamAlertingStorage[T]) Put(ctx context.Context, key string, value T) error {
+func (j *JetStreamAlertingStorage[T]) Put(_ context.Context, key string, value T) error {
 	opts := protojson.MarshalOptions{
 		AllowPartial: true,
 	}
@@ -158,7 +160,7 @@ func (j *JetStreamAlertingStorage[T]) Put(ctx context.Context, key string, value
 	return err
 }
 
-func (j *JetStreamAlertingStorage[T]) Get(ctx context.Context, key string, opts ...storage_opts.RequestOption) (T, error) {
+func (j *JetStreamAlertingStorage[T]) Get(_ context.Context, key string, opts ...storage_opts.RequestOption) (T, error) {
 	var t T
 	options := storage_opts.RequestOptions{}
 	options.Apply(opts...)
@@ -183,7 +185,7 @@ func (j *JetStreamAlertingStorage[T]) Get(ctx context.Context, key string, opts 
 	return rt, nil
 }
 
-func (j *JetStreamAlertingStorage[T]) Delete(ctx context.Context, key string) error {
+func (j *JetStreamAlertingStorage[T]) Delete(_ context.Context, key string) error {
 	err := j.kv.Delete(j.Key(key))
 	if errors.Is(err, nats.ErrKeyNotFound) {
 		return nil
@@ -191,7 +193,7 @@ func (j *JetStreamAlertingStorage[T]) Delete(ctx context.Context, key string) er
 	return err
 }
 
-func (j *JetStreamAlertingStorage[T]) ListKeys(ctx context.Context) ([]string, error) {
+func (j *JetStreamAlertingStorage[T]) ListKeys(_ context.Context) ([]string, error) {
 	keys, err := j.kv.Keys()
 	if errors.Is(err, nats.ErrNoKeysFound) {
 		return []string{}, nil
@@ -246,15 +248,14 @@ func (j *JetStreamAlertingStateCache) Put(ctx context.Context, key string, incom
 	defer j.stateMu.Unlock()
 	if j.IsDiff(ctx, key, incomingState) {
 		return j.JetStreamAlertingStorage.Put(ctx, key, incomingState)
-	} else {
-		// check timestamps
-		lastKnownChange, err := j.LastKnownChange(ctx, key)
-		if err != nil {
-			return nil
-		}
-		if lastKnownChange.AsTime().After(incomingState.GetTimestamp().AsTime()) {
-			return j.JetStreamAlertingStorage.Put(ctx, key, incomingState)
-		}
+	}
+	// check timestamps
+	lastKnownChange, err := j.LastKnownChange(ctx, key)
+	if err != nil {
+		return nil
+	}
+	if lastKnownChange.AsTime().After(incomingState.GetTimestamp().AsTime()) {
+		return j.JetStreamAlertingStorage.Put(ctx, key, incomingState)
 	}
 	return nil
 }
@@ -363,6 +364,9 @@ func (j *JetStreamAlertingIncidentTracker) GetActiveWindowsFromIncidentTracker(
 		return res, nil
 	}
 	for _, step := range incidents.Items {
+		if step.Start.AsTime().Before(start.AsTime()) {
+			continue
+		}
 		if step.Start == step.End {
 			continue
 		}

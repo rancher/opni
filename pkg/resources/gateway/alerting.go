@@ -197,28 +197,7 @@ func (r *Reconciler) newAlertingSyncer(args []string) corev1.Container {
 				Name:      "opni-alertmanager-data",
 				MountPath: r.gw.Spec.Alerting.DataMountPath,
 			},
-			// // volume mount for alertmanager configmap
-			// {
-			// 	Name:      "opni-alertmanager-config",
-			// 	MountPath: r.gw.Spec.Alerting.ConfigMountPath,
-			// },
 		},
-		// ReadinessProbe: &corev1.Probe{
-		// 	ProbeHandler: corev1.ProbeHandler{
-		// 		HTTPGet: &corev1.HTTPGetAction{
-		// 			Path: "/Syncer/ready",
-		// 			Port: intstr.FromString("syncer-port"),
-		// 		},
-		// 	},
-		// },
-		// LivenessProbe: &corev1.Probe{
-		// 	ProbeHandler: corev1.ProbeHandler{
-		// 		HTTPGet: &corev1.HTTPGetAction{
-		// 			Path: "/Syncer/healthy",
-		// 			Port: intstr.FromString("syncer-port"),
-		// 		},
-		// 	},
-		// },
 	}
 
 	return spec
@@ -241,11 +220,8 @@ func (r *Reconciler) newAlertingCluster(
 	serviceLabels map[string]string,
 	deployLabels map[string]string,
 	alertManagerPorts []corev1.ContainerPort,
-	resourceRequirements corev1.ResourceRequirements,
 	volumes []corev1.Volume,
 	persistentClaims []corev1.PersistentVolumeClaim,
-	volumeMounts []corev1.VolumeMount,
-	envVars []corev1.EnvVar,
 ) (*corev1.Service, *appsv1.StatefulSet) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -347,7 +323,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 	}
 
-	natsEnvVars, natsVolumeMounts, natsVolumes := nats.ExternalNatsObjects(
+	_, _, natsVolumes := nats.ExternalNatsObjects(
 		r.ctx,
 		r.client,
 		types.NamespacedName{
@@ -364,11 +340,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 		publicControllerSvcLabels,
 		publicControllerLabels,
 		r.controllerAlertingPorts(),
-		resourceRequirements,
 		requiredVolumes,
 		requiredPersistentClaims,
-		natsVolumeMounts,
-		natsEnvVars,
 	)
 
 	workerService, workerWorkers := r.newAlertingCluster(
@@ -377,11 +350,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 		publicNodeSvcLabels,
 		publicNodeLabels,
 		r.nodeAlertingPorts(),
-		resourceRequirements,
 		requiredVolumes,
 		requiredPersistentClaims,
-		natsVolumeMounts,
-		natsEnvVars,
 	)
 	ctrl.SetControllerReference(r.gw, controllerService, r.client.Scheme())
 	ctrl.SetControllerReference(r.gw, controllerWorkers, r.client.Scheme())

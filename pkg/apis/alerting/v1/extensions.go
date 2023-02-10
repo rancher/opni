@@ -280,8 +280,8 @@ func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]str
 // noop
 func (c *CachedState) RedactSecrets() {}
 
-func (s *CachedState) IsEquivalent(other *CachedState) bool {
-	return s.Healthy == other.Healthy && s.Firing == other.Firing
+func (c *CachedState) IsEquivalent(other *CachedState) bool {
+	return c.Healthy == other.Healthy && c.Firing == other.Firing
 }
 
 // if we can't read the last known state assume it is healthy

@@ -14,7 +14,7 @@ The embedded service must be run within the same process as each
 deploymed node in the AlertManager cluster.
 */
 
-func StartOpniEmbeddedServer(configFile, opniAddr string) *http.Server {
+func StartOpniEmbeddedServer(opniAddr string) *http.Server {
 	// lg := logger.NewPluginLogger().Named("opni.alerting")
 	mux := http.NewServeMux()
 	// request body will be in the form of AM webhook payload :

@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"time"
 
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/pkg/labels"
-	promcfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -40,7 +40,7 @@ func NewOpniAlarmLabels(conditionId string) (map[string]string, error) {
 	), nil
 }
 
-func NewOpniSeverityLabels(key, title, body, severity string) (map[string]string, error) {
+func NewOpniSeverityLabels(title, body, severity string) (map[string]string, error) {
 	treeLabels, err := shared.AlertManagerLabelsToAnnotations(shared.OpniSeverityTreeMatcher)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func DefaultOpniReceiver(embeddedServerHook string) *config.Receiver {
 		Name: shared.AlertingHookReceiverName,
 		WebhookConfigs: []*config.WebhookConfig{
 			{
-				URL: &promcfg.URL{
+				URL: &amCfg.URL{
 					URL: util.Must(url.Parse(embeddedServerHook)),
 				},
 			},
@@ -146,10 +146,9 @@ func newFinalizer(optionalNamespace *string) *config.Route {
 	matchers := func() []*labels.Matcher {
 		if optionalNamespace == nil {
 			return []*labels.Matcher{}
-		} else {
-			return []*labels.Matcher{
-				newNamespaceParentMatcher(*optionalNamespace),
-			}
+		}
+		return []*labels.Matcher{
+			newNamespaceParentMatcher(*optionalNamespace),
 		}
 	}
 

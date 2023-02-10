@@ -237,7 +237,7 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingManager) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
+func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		existing := a.newOpniGateway()
 		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)

@@ -77,7 +77,7 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, opts ...drivers.AlertingManagerDriverOption) {
+func (p *Plugin) configureAlertManagerConfiguration(_ context.Context, opts ...drivers.AlertingManagerDriverOption) {
 	// load default cluster drivers
 	var (
 		driver drivers.ClusterDriver

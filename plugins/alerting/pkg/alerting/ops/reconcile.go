@@ -153,7 +153,7 @@ func (a *AlertingOpsNode) constructSyncRequest(
 	}
 
 	for _, key := range routerKeys {
-		router, err := routers.Get(a.ctx, key)
+		router, err := routers.Get(ctx, key)
 		if err != nil {
 			lg.Errorf("failed to get router %s from storage: %s", key, err)
 			continue

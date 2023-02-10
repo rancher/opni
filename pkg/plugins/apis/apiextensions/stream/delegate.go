@@ -122,6 +122,6 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 	return nil
 }
 
-func (w *targetedDelegatingClient[T]) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+func (w *targetedDelegatingClient[T]) NewStream(_ context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
 	panic("not implemented")
 }

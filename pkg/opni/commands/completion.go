@@ -212,7 +212,7 @@ func completeBootstrapTokens(cmd *cobra.Command, args []string, toComplete strin
 	return comps, cobra.ShellCompDirectiveNoFileComp
 }
 
-func completeImportTargets(cmd *cobra.Command, args []string, toComplete string, filters ...func(token *corev1.BootstrapToken) bool) ([]string, cobra.ShellCompDirective) {
+func completeImportTargets(cmd *cobra.Command, args []string, toComplete string, _ ...func(token *corev1.BootstrapToken) bool) ([]string, cobra.ShellCompDirective) {
 	if err := importPreRunE(cmd, nil); err != nil {
 		return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 	}

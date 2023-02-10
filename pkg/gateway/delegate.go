@@ -88,7 +88,8 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		"request", req.GetRequest().QualifiedMethodName(),
 	)
 	lg.Debug("delegating rpc request")
-	if target, ok := d.activeAgents[targetId]; ok {
+	target, ok := d.activeAgents[targetId]
+	if ok {
 		fwdResp := &totem.RPC{}
 		err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
 		if err != nil {
@@ -108,13 +109,13 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		}
 
 		return resp, nil
-	} else {
-		err := status.Error(codes.NotFound, "target not found")
-		lg.With(
-			zap.Error(err),
-		).Warn("delegating rpc request failed")
-		return nil, err
 	}
+
+	err := status.Error(codes.NotFound, "target not found")
+	lg.With(
+		zap.Error(err),
+	).Warn("delegating rpc request failed")
+	return nil, err
 }
 
 func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReplyList, error) {

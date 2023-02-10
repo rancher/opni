@@ -24,7 +24,7 @@ func ConfigureImportCommand(cmd *cobra.Command) {
 	}
 }
 
-func importPreRunE(cmd *cobra.Command, args []string) error {
+func importPreRunE(cmd *cobra.Command, _ []string) error {
 	if managementListenAddress == "" {
 		panic("bug: managementListenAddress is empty")
 	}

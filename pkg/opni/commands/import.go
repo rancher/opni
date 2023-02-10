@@ -234,8 +234,7 @@ func BuildImportListCmd() *cobra.Command {
 		Use:   "list <cluster>",
 		Short: "List available import targets",
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			switch len(args) {
-			case 0:
+			if len(args) == 0 {
 				return completeClusters(cmd, args, toComplete)
 			}
 

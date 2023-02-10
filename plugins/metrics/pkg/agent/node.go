@@ -183,7 +183,7 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 
 // Start Implements remoteread.RemoteReadServer
 
-func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
+func (m *MetricsNode) Start(_ context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
 	m.targetRunnerMu.Lock()
 	defer m.targetRunnerMu.Unlock()
 
@@ -194,7 +194,7 @@ func (m *MetricsNode) Start(ctx context.Context, request *remoteread.StartReadRe
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsNode) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
+func (m *MetricsNode) Stop(_ context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
 	m.targetRunnerMu.Lock()
 	defer m.targetRunnerMu.Unlock()
 
@@ -205,7 +205,7 @@ func (m *MetricsNode) Stop(ctx context.Context, request *remoteread.StopReadRequ
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsNode) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+func (m *MetricsNode) GetTargetStatus(_ context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
 	m.targetRunnerMu.RLock()
 	defer m.targetRunnerMu.RUnlock()
 

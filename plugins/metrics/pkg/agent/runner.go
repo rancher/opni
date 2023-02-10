@@ -85,14 +85,14 @@ type targetStore struct {
 	inner   map[string]*corev1.TaskStatus
 }
 
-func (store *targetStore) Put(ctx context.Context, key string, value *corev1.TaskStatus) error {
+func (store *targetStore) Put(_ context.Context, key string, value *corev1.TaskStatus) error {
 	store.innerMu.Lock()
 	defer store.innerMu.Unlock()
 	store.inner[key] = value
 	return nil
 }
 
-func (store *targetStore) Get(ctx context.Context, key string) (*corev1.TaskStatus, error) {
+func (store *targetStore) Get(_ context.Context, key string) (*corev1.TaskStatus, error) {
 	store.innerMu.RLock()
 	defer store.innerMu.RUnlock()
 
@@ -104,14 +104,14 @@ func (store *targetStore) Get(ctx context.Context, key string) (*corev1.TaskStat
 	return status, nil
 }
 
-func (store *targetStore) Delete(ctx context.Context, key string) error {
+func (store *targetStore) Delete(_ context.Context, key string) error {
 	store.innerMu.Lock()
 	defer store.innerMu.Unlock()
 	delete(store.inner, key)
 	return nil
 }
 
-func (store *targetStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+func (store *targetStore) ListKeys(_ context.Context, prefix string) ([]string, error) {
 	store.innerMu.RLock()
 	defer store.innerMu.RUnlock()
 	keys := make([]string, 0, len(store.inner))
@@ -141,11 +141,11 @@ func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
 	tr.remoteReader = client
 }
 
-func (tr *taskRunner) OnTaskPending(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
 	return nil
 }
 
-func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -231,7 +231,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 	return nil
 }
 
-func (tr *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, args ...any) {
+func (tr *taskRunner) OnTaskCompleted(_ context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
 	switch state {
 	case task.StateCompleted:
 		activeTask.AddLogEntry(zapcore.InfoLevel, "completed")
@@ -307,13 +307,14 @@ func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remot
 }
 
 func (runner *taskingTargetRunner) Stop(name string) error {
-	if status, err := runner.controller.TaskStatus(name); err != nil {
+	status, err := runner.controller.TaskStatus(name)
+	if err != nil {
 		return fmt.Errorf("target not found")
-	} else {
-		switch status.State {
-		case corev1.TaskState_Canceled, corev1.TaskState_Completed, corev1.TaskState_Failed:
-			return fmt.Errorf("target is not running")
-		}
+	}
+
+	switch status.State {
+	case corev1.TaskState_Canceled, corev1.TaskState_Completed, corev1.TaskState_Failed:
+		return fmt.Errorf("target is not running")
 	}
 
 	runner.controller.CancelTask(name)

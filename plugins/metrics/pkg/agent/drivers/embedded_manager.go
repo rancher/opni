@@ -80,6 +80,6 @@ func (d *EmbeddedManagerNodeDriver) ConfigureNode(_ *node.MetricsCapabilityConfi
 
 }
 
-func (d *EmbeddedManagerNodeDriver) DiscoverPrometheuses(ctx context.Context, namespace string) ([]*remoteread.DiscoveryEntry, error) {
+func (d *EmbeddedManagerNodeDriver) DiscoverPrometheuses(_ context.Context, _ string) ([]*remoteread.DiscoveryEntry, error) {
 	return []*remoteread.DiscoveryEntry{}, nil
 }

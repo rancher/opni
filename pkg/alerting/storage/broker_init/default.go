@@ -25,6 +25,9 @@ func NewDefaultAlertingBroker(js nats.JetStreamContext, opts ...storage_opts.Cli
 	if options.Logger == nil {
 		options.Logger = logger.NewPluginLogger().Named("alerting-storage-client-set")
 	}
+	if options.TrackerTtl == 0 {
+		options.TrackerTtl = defaultTrackerTTLV1
+	}
 	c := storage.NewCompositeAlertingBroker(*options)
 	c.Use(mem.NewInMemoryRouterStore())
 	c.Use(

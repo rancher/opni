@@ -36,6 +36,7 @@ func init() {
 			ClusterGossipInterval:   "1m",
 			ClusterPushPullInterval: "1m",
 		},
+		// HA Mode has inconsistent state results
 		// {
 		// 	NumReplicas: 3,
 		// 	ResourceLimits: &alertops.ResourceLimitSpec{
@@ -379,21 +380,21 @@ func BuildAlertingClusterIntegrationTests(
 						return nil
 					}, time.Minute*2, time.Second*15).Should(Succeed())
 
-					// By("verifying the timeline shows only the firing conditions")
-					// timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
-					// 	LookbackWindow: durationpb.New(time.Minute * 5),
-					// })
-					// Expect(err).To(Succeed())
-					// // Expect(len(timeline.GetItems())).To(Equal(len(involvedDisconnects)))
-					// Expect(timeline.GetItems()).To(HaveLen(len(condList.Items)))
-					// for id, item := range timeline.GetItems() {
-					// 	if slices.Contains(lo.Keys(involvedDisconnects), id) {
-					// 		Expect(item.Windows).NotTo(HaveLen(0), "firing condition should show up on timeline, but does not")
-					// 	} else {
-					// 		Expect(item.Windows).To(HaveLen(0), "conditions that have not fired should not show up on timeline, but do")
-					// 	}
+					By("verifying the timeline shows only the firing conditions")
+					timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
+						LookbackWindow: durationpb.New(time.Minute * 5),
+					})
+					Expect(err).To(Succeed())
+					// Expect(len(timeline.GetItems())).To(Equal(len(involvedDisconnects)))
+					Expect(timeline.GetItems()).To(HaveLen(len(condList.Items)))
+					for id, item := range timeline.GetItems() {
+						if slices.Contains(lo.Keys(involvedDisconnects), id) {
+							Expect(item.Windows).NotTo(HaveLen(0), "firing condition should show up on timeline, but does not")
+						} else {
+							Expect(item.Windows).To(HaveLen(0), "conditions that have not fired should not show up on timeline, but do")
+						}
 
-					// }
+					}
 				})
 
 				It("should delete the downstream agents", func() {

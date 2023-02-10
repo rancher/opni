@@ -301,16 +301,20 @@ func (i *IncidentIntervals) Prune(ttl time.Duration) {
 	pruneIdx := 0
 	now := time.Now()
 	for _, interval := range i.GetItems() {
+		// if is before the ttl, prune it
 		tStart := interval.Start.AsTime()
 		if tStart.Before(now.Add(-ttl)) {
-			tEnd := interval.End.AsTime()
-			if tEnd.Before(now.Add(-ttl)) {
-				pruneIdx++
-			} else {
-				interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
+			// if we know it ends before the known universe
+			if interval.End != nil {
+				tEnd := interval.End.AsTime()
+				if tEnd.Before(now.Add(-ttl)) { //check if we should prune it
+					pruneIdx++
+				} else { // prune the start of the interval to before the ttl
+					interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
+				}
 			}
 		} else {
-			break
+			break // we can stop pruning
 		}
 	}
 	i.Items = i.Items[pruneIdx:]

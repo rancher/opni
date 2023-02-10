@@ -263,5 +263,12 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.Unin
 }
 
 func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
-	return *a.AlertingOptions
+	return shared.AlertingClusterOptions{
+		Namespace:             a.gatewayRef.Namespace,
+		WorkerNodesService:    shared.OperatorAlertingClusterNodeServiceName,
+		WorkerNodePort:        9093,
+		ControllerNodeService: shared.OperatorAlertingControllerServiceName,
+		ControllerNodePort:    9093,
+		ControllerClusterPort: 9094,
+	}
 }

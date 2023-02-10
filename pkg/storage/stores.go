@@ -93,3 +93,13 @@ type WatchEvent[T any] struct {
 	Current   T
 	Previous  T
 }
+
+type HttpTtlCache interface {
+	// getter for default cache's configuration
+	MaxAge() time.Duration
+
+	Get(key string) (resp []byte, ok bool)
+	// If 0 is passed as ttl, the default cache's configuration will be used
+	Set(key string, resp []byte)
+	Delete(key string)
+}

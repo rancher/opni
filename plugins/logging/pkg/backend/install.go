@@ -45,9 +45,8 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 				Status:  capabilityv1.InstallResponseStatus_Error,
 				Message: err.Error(),
 			}, nil
-		} else {
-			warningErr = err
 		}
+		warningErr = err
 	}
 
 	if err := b.ClusterDriver.CreateCredentials(ctx, req.GetCluster()); err != nil {
@@ -56,9 +55,8 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 				Status:  capabilityv1.InstallResponseStatus_Error,
 				Message: err.Error(),
 			}, nil
-		} else {
-			warningErr = err
 		}
+		warningErr = err
 	}
 
 	_, err := b.StorageBackend.UpdateCluster(ctx, req.Cluster,

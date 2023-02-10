@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) error {
+func (p *Plugin) createDefaultDisconnect(_ context.Context, clusterId string) error {
 	items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
@@ -83,7 +83,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 	return nil
 }
 
-func (p *Plugin) createDefaultCapabilityHealth(ctx context.Context, clusterId string) error {
+func (p *Plugin) createDefaultCapabilityHealth(_ context.Context, clusterId string) error {
 	items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)

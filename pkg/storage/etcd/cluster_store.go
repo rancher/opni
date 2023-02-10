@@ -137,7 +137,7 @@ func (e *EtcdStore) UpdateCluster(
 			return err
 		}
 		if !txnResp.Succeeded {
-			return retryErr
+			return errRetry
 		}
 		cluster.SetResourceVersion(fmt.Sprint(txnResp.Header.Revision))
 		retCluster = cluster

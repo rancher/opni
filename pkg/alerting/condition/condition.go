@@ -79,7 +79,7 @@ func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1.
 		}
 		anyFailed := false
 		res := &alertingv1.TriggerAlertsRequest{}
-
+	IDENTIFIERS:
 		for _, identifier := range RequiredCortexWebhookAnnotationIdentifiers {
 			if _, ok := result[identifier]; !ok {
 				errors = append(errors, fmt.Errorf(
@@ -95,7 +95,7 @@ func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1.
 					errors = append(errors, fmt.Errorf("unhandled opni identifier %s", identifier))
 					opniRequests = append(opniRequests, nil)
 					anyFailed = true
-					break
+					break IDENTIFIERS
 				}
 			}
 			delete(result, identifier)

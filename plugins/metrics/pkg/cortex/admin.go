@@ -101,28 +101,28 @@ func (p *CortexAdminServer) AllUserStats(ctx context.Context, _ *emptypb.Empty) 
 	return statsList, nil
 }
 
-func mapLabels(l *cortexadmin.Label, i int) cortexpb.LabelAdapter {
+func mapLabels(l *cortexadmin.Label, _ int) cortexpb.LabelAdapter {
 	return cortexpb.LabelAdapter{
 		Name:  l.Name,
 		Value: l.Value,
 	}
 }
 
-func mapSamples(s *cortexadmin.Sample, i int) cortexpb.Sample {
+func mapSamples(s *cortexadmin.Sample, _ int) cortexpb.Sample {
 	return cortexpb.Sample{
 		TimestampMs: s.TimestampMs,
 		Value:       s.Value,
 	}
 }
 
-func mapExemplars(e *cortexadmin.Exemplar, i int) cortexpb.Exemplar {
+func mapExemplars(e *cortexadmin.Exemplar, _ int) cortexpb.Exemplar {
 	return cortexpb.Exemplar{
 		Value:       e.Value,
 		TimestampMs: e.TimestampMs,
 		Labels:      lo.Map(e.Labels, mapLabels),
 	}
 }
-func mapMetadata(m *cortexadmin.MetricMetadata, i int) *cortexpb.MetricMetadata {
+func mapMetadata(m *cortexadmin.MetricMetadata, _ int) *cortexpb.MetricMetadata {
 	return &cortexpb.MetricMetadata{
 		Type:             cortexpb.MetricMetadata_MetricType(m.Type),
 		MetricFamilyName: m.MetricFamilyName,
@@ -131,7 +131,7 @@ func mapMetadata(m *cortexadmin.MetricMetadata, i int) *cortexpb.MetricMetadata 
 	}
 }
 
-func mapTimeSeries(t *cortexadmin.TimeSeries, i int) cortexpb.PreallocTimeseries {
+func mapTimeSeries(t *cortexadmin.TimeSeries, _ int) cortexpb.PreallocTimeseries {
 	return cortexpb.PreallocTimeseries{
 		TimeSeries: &cortexpb.TimeSeries{
 			Labels:    lo.Map(t.Labels, mapLabels),
@@ -494,7 +494,7 @@ func (p *CortexAdminServer) GetSeriesMetrics(ctx context.Context, request *corte
 		return nil, err
 	}
 	res := make([]*cortexadmin.SeriesInfo, 0, len(set))
-	for uniqueMetricName, _ := range set {
+	for uniqueMetricName := range set {
 		// fetch metadata & handle empty
 		m := &cortexadmin.SeriesMetadata{}
 		resp, err := p.fetchCortexSeriesMetadata(ctx, request, uniqueMetricName)
@@ -553,7 +553,7 @@ func (p *CortexAdminServer) GetMetricLabelSets(ctx context.Context, request *cor
 			Name:  labelName,
 			Items: []string{},
 		}
-		for labelVal, _ := range labelValues {
+		for labelVal := range labelValues {
 			item.Items = append(item.Items, labelVal)
 		}
 		resultSets = append(resultSets, item)
@@ -580,7 +580,7 @@ type httpResponse struct {
 
 func (p *CortexAdminServer) FlushBlocks(
 	ctx context.Context,
-	in *emptypb.Empty,
+	_ *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)

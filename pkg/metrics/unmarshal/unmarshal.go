@@ -10,7 +10,7 @@ import (
 )
 
 // Struct for unmarshalling from github.com/prometheus/common/model
-type queryResult struct {
+type QueryResult struct {
 	Type   model.ValueType `json:"resultType"`
 	Result interface{}     `json:"result"`
 
@@ -29,7 +29,7 @@ type apiResponse struct {
 }
 
 // Unmarshalling for `queryResult`
-func (qr *queryResult) UnmarshalJSON(b []byte) error {
+func (qr *QueryResult) UnmarshalJSON(b []byte) error {
 	v := struct {
 		Type   model.ValueType `json:"resultType"`
 		Result json.RawMessage `json:"result"`
@@ -65,29 +65,29 @@ func (qr *queryResult) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-func (q *queryResult) GetVector() (*model.Vector, error) {
-	switch q.V.Type() {
+func (qr *QueryResult) GetVector() (*model.Vector, error) {
+	switch qr.V.Type() {
 	case model.ValVector:
-		v := q.V.(model.Vector)
+		v := qr.V.(model.Vector)
 		return &v, nil
 	default:
 		return nil, fmt.Errorf("cannot unmarshal prometheus response into vector type")
 	}
 }
 
-func (q *queryResult) GetMatrix() (*model.Matrix, error) {
-	switch q.V.Type() {
+func (qr *QueryResult) GetMatrix() (*model.Matrix, error) {
+	switch qr.V.Type() {
 	case model.ValMatrix:
-		v := q.V.(model.Matrix)
+		v := qr.V.(model.Matrix)
 		return &v, nil
 	default:
 		return nil, fmt.Errorf("cannot unmarshal prometheus response into matrix type")
 	}
 }
 
-func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {
+func UnmarshalPrometheusResponse(data []byte) (*QueryResult, error) {
 	var a apiResponse
-	var q queryResult
+	var q QueryResult
 
 	if err := json.Unmarshal(data, &a); err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ const (
 
 // Generic struct for unmarshalling prometheus http api responses
 // https://github.com/prometheus/prometheus/blob/bcd548c88b06543c8eeb19e68bef4adefb7b95fb/web/api/v1/api.go#L140
-type response struct {
+type Response struct {
 	Status    status      `json:"status"`
 	Data      interface{} `json:"data,omitempty"`
 	ErrorType errorType   `json:"errorType,omitempty"`
@@ -130,8 +130,8 @@ type response struct {
 	Warnings  []string    `json:"warnings,omitempty"`
 }
 
-func unmarshallPrometheusWebResponseData(data []byte) (*response, error) {
-	var r response
+func unmarshallPrometheusWebResponseData(data []byte) (*Response, error) {
+	var r Response
 	err := json.Unmarshal(data, &r)
 	if err != nil {
 		return nil, err
@@ -139,8 +139,8 @@ func unmarshallPrometheusWebResponseData(data []byte) (*response, error) {
 	return &r, nil
 }
 
-func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger) (*response, error) {
-	var val *response
+func UnmarshallPrometheusWebResponse(resp *http.Response, _ *zap.SugaredLogger) (*Response, error) {
+	var val *Response
 	err := json.NewDecoder(resp.Body).Decode(&val)
 	if err != nil {
 		return nil, err

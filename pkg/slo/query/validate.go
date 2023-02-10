@@ -6,7 +6,7 @@ import (
 )
 
 // fill in query templates with mock information
-var mockTemplateExecutor templateExecutor = templateExecutor{
+var mockTemplateExecutor = templateExecutor{
 	MetricIdGood:  "metric_id_good",
 	MetricIdTotal: "metric_id_total",
 	JobId:         "job_id",
@@ -17,11 +17,11 @@ type mockSlothInfo struct {
 }
 
 // fill in sloth IR with mock information
-var requiredSlothInfo mockSlothInfo = mockSlothInfo{
+var requiredSlothInfo = mockSlothInfo{
 	window: "1h",
 }
 
-func validatePromQl(queryTpl template.Template) error {
+func validatePromQl(_ template.Template) error {
 	// var intermediate bytes.Buffer
 	// queryTpl.Execute(&intermediate, mockTemplateExecutor)
 	// // slothTmpl := template.Must(template.New("").Parse(intermediate.String()))

@@ -44,8 +44,8 @@ func (m *PluginManifest) Sort() {
 	})
 }
 
-func (m *PluginArchive) Sort() {
-	slices.SortFunc(m.Items, func(a, b *PluginArchiveEntry) bool {
+func (a *PluginArchive) Sort() {
+	slices.SortFunc(a.Items, func(a, b *PluginArchiveEntry) bool {
 		return a.GetMetadata().GetModule() < b.GetMetadata().GetModule()
 	})
 }
@@ -58,8 +58,8 @@ func (a *PluginArchive) ToManifest() *PluginManifest {
 	return manifest
 }
 
-func (a *PatchList) Sort() {
-	slices.SortFunc(a.Items, func(a, b *PatchSpec) bool {
+func (l *PatchList) Sort() {
+	slices.SortFunc(l.Items, func(a, b *PatchSpec) bool {
 		if a.GetOp() != b.GetOp() {
 			return a.GetOp() < b.GetOp()
 		}

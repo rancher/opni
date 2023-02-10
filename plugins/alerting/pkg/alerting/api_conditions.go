@@ -62,7 +62,7 @@ func (p *Plugin) updateRoutingNode(
 	ctx context.Context,
 	req *alertingv1.AttachedEndpoints,
 	conditionId string,
-	lg *zap.SugaredLogger) error {
+	_ *zap.SugaredLogger) error {
 	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (p *Plugin) updateRoutingNode(
 func (p *Plugin) deleteRoutingNode(
 	ctx context.Context,
 	alertId string,
-	lg *zap.SugaredLogger) error {
+	_ *zap.SugaredLogger) error {
 	_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: alertId})
 	if err != nil {
 		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // wasn't indexed to being with
@@ -125,7 +125,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.Alert
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
-	_, err := setupCondition(p, lg, ctx, req, newId)
+	_, err := setupCondition(ctx, p, lg, req, newId)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 		return nil, err
 	}
 
-	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
+	_, err = setupCondition(ctx, p, lg, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
+	if err := deleteCondition(ctx, p, lg, existing, ref.Id); err != nil {
 		return nil, err
 	}
 
@@ -475,7 +475,7 @@ func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1.
 	if err := alertingv1.EnumHasImplementation(req.GetAlertType()); err != nil {
 		return nil, err
 	}
-	return handleChoicesByType(p, ctx, req)
+	return handleChoicesByType(ctx, p, req)
 }
 
 func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) (*alertingv1.TimelineResponse, error) {

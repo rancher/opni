@@ -3,12 +3,9 @@ kind: Service
 metadata:
   name: nfd-master
 spec:
-  type: ClusterIP
   selector:
     app: nfd-master
   ports:
   - protocol: TCP
     port: 12000
-    targetPort: 12000
-    name: nfd
-
+  type: ClusterIP

@@ -94,11 +94,11 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 				return err
 			}
 			defer destEncoder.Close()
-			if bytes, err := io.Copy(destEncoder, bytes.NewReader(item.Data)); err != nil {
+			bytes, err := io.Copy(destEncoder, bytes.NewReader(item.Data))
+			if err != nil {
 				return err
-			} else {
-				p.AddToTotalSizeBytes(item.Metadata.Digest, bytes)
 			}
+			p.AddToTotalSizeBytes(item.Metadata.Digest, bytes)
 			p.AddToPluginCount(1)
 			return nil
 		})
@@ -135,7 +135,8 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 	var isCaller bool
 	patchDataValue, err, shared := p.cacheGroup.Do(key, func() (any, error) {
 		isCaller = true
-		if _, err := p.fs.Stat(patchPath); err != nil {
+		_, err := p.fs.Stat(patchPath)
+		if err != nil {
 			p.CacheMiss(oldDigest, newDigest)
 			lg := p.logger.With(
 				"from", oldDigest,
@@ -143,31 +144,30 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 			)
 			lg.Info("generating patch")
 			start := time.Now()
-			if patchData, err := p.generatePatch(oldDigest, newDigest); err != nil {
+			patchData, err := p.generatePatch(oldDigest, newDigest)
+			if err != nil {
 				lg.With(
 					zap.Error(err),
 				).Error("failed to generate patch")
 				p.generatePatch(oldDigest, newDigest)
 				return nil, err
-			} else {
-				lg.With(
-					"took", time.Since(start).String(),
-					"size", len(patchData),
-				).Debug("patch generated")
-				if err := p.fs.WriteFile(patchPath, patchData, 0644); err != nil {
-					p.logger.With(
-						zap.Error(err),
-					).Error("failed to write patch to disk")
-					return nil, err
-				}
-				p.IncPatchCalcSecsTotal(oldDigest, newDigest, float64(time.Since(start).Seconds()))
-				p.AddToTotalSizeBytes(oldDigest+"-to-"+newDigest, int64(len(patchData)))
-				p.AddToPatchCount(1)
-				return patchData, nil
 			}
-		} else {
-			p.CacheHit(oldDigest, newDigest)
+			lg.With(
+				"took", time.Since(start).String(),
+				"size", len(patchData),
+			).Debug("patch generated")
+			if err := p.fs.WriteFile(patchPath, patchData, 0644); err != nil {
+				p.logger.With(
+					zap.Error(err),
+				).Error("failed to write patch to disk")
+				return nil, err
+			}
+			p.IncPatchCalcSecsTotal(oldDigest, newDigest, float64(time.Since(start).Seconds()))
+			p.AddToTotalSizeBytes(oldDigest+"-to-"+newDigest, int64(len(patchData)))
+			p.AddToPatchCount(1)
+			return patchData, nil
 		}
+		p.CacheHit(oldDigest, newDigest)
 		return p.fs.ReadFile(patchPath)
 	})
 	if err != nil {
@@ -248,15 +248,15 @@ func (p *FilesystemCache) Clean(hashes ...string) {
 }
 
 func (p *FilesystemCache) ListDigests() ([]string, error) {
-	if entries, err := p.fs.ReadDir(p.path("plugins")); err != nil {
+	entries, err := p.fs.ReadDir(p.path("plugins"))
+	if err != nil {
 		return nil, err
-	} else {
-		var hashes []string
-		for _, e := range entries {
-			hashes = append(hashes, e.Name())
-		}
-		return hashes, nil
 	}
+	var hashes []string
+	for _, e := range entries {
+		hashes = append(hashes, e.Name())
+	}
+	return hashes, nil
 }
 
 func (p *FilesystemCache) path(parts ...string) string {

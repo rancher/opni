@@ -88,7 +88,7 @@ func (d *NoopClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 	return nil
 }
 
-func (d *NoopClusterDriver) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+func (d *NoopClusterDriver) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
 	return &orchestrator.InstallStatus{
 		State: orchestrator.InstallState_Installed,
 	}, nil

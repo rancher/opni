@@ -46,20 +46,20 @@ func NewLoggingNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *LoggingN
 	}
 }
 
-func (m *LoggingNode) AddConfigListener(ch chan<- *node.LoggingCapabilityConfig) {
-	m.listeners = append(m.listeners, ch)
+func (l *LoggingNode) AddConfigListener(ch chan<- *node.LoggingCapabilityConfig) {
+	l.listeners = append(l.listeners, ch)
 }
 
-func (m *LoggingNode) SetClient(client node.NodeLoggingCapabilityClient) {
-	m.clientMu.Lock()
-	defer m.clientMu.Unlock()
+func (l *LoggingNode) SetClient(client node.NodeLoggingCapabilityClient) {
+	l.clientMu.Lock()
+	defer l.clientMu.Unlock()
 
-	m.client = client
+	l.client = client
 
-	go m.doSync(context.Background())
+	go l.doSync(context.Background())
 }
 
-func (m *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+func (l *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityLogs,
 		Source:  "plugin_logging",
@@ -145,24 +145,24 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 	l.conditions.Clear(health.CondConfigSync)
 }
 
-func (m *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {
-	m.configMu.Lock()
-	defer m.configMu.Unlock()
+func (l *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {
+	l.configMu.Lock()
+	defer l.configMu.Unlock()
 
-	m.config = config
+	l.config = config
 
-	if !m.config.Enabled && len(m.config.Conditions) > 0 {
-		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
+	if !l.config.Enabled && len(l.config.Conditions) > 0 {
+		l.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(l.config.Conditions, ", "))
 	} else {
-		m.conditions.Clear(health.CondBackend)
+		l.conditions.Clear(health.CondBackend)
 	}
 
-	for _, ch := range m.listeners {
+	for _, ch := range l.listeners {
 		clone := util.ProtoClone(config)
 		select {
 		case ch <- clone:
 		default:
-			m.logger.Warn("slow config update listener detected")
+			l.logger.Warn("slow config update listener detected")
 			ch <- clone
 		}
 	}

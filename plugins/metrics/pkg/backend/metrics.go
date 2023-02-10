@@ -111,18 +111,18 @@ func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	m.WaitForInit()
 
 	var warningErr error
-	if err := m.canInstall(ctx); err != nil {
+	err := m.canInstall(ctx)
+	if err != nil {
 		if !req.IgnoreWarnings {
 			return &capabilityv1.InstallResponse{
 				Status:  capabilityv1.InstallResponseStatus_Error,
 				Message: err.Error(),
 			}, nil
-		} else {
-			warningErr = err
 		}
+		warningErr = err
 	}
 
-	_, err := m.StorageBackend.UpdateCluster(ctx, req.Cluster,
+	_, err = m.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
 	)
 	if err != nil {
@@ -142,7 +142,7 @@ func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	}, nil
 }
 
-func (m *MetricsBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (m *MetricsBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	m.WaitForInit()
 
 	m.nodeStatusMu.RLock()
@@ -229,7 +229,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) UninstallStatus(ctx context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
+func (m *MetricsBackend) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
 	m.WaitForInit()
 
 	return m.UninstallController.TaskStatus(cluster.Id)

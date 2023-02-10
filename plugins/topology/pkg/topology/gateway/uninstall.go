@@ -20,7 +20,7 @@ type TopologyUninstallTaskRunner struct {
 	storageBackend storage.Backend
 }
 
-func (n *TopologyUninstallTaskRunner) OnTaskPending(ctx context.Context, ti task.ActiveTask) error {
+func (n *TopologyUninstallTaskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
 	return nil
 }
 

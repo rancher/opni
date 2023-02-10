@@ -35,7 +35,7 @@ var _ plugin.Plugin = (*httpApiExtensionPlugin)(nil)
 
 // Plugin side
 func (p *httpApiExtensionPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	p.router = gin.New()
@@ -45,7 +45,7 @@ func (p *httpApiExtensionPlugin) GRPCServer(
 }
 
 func (p *httpApiExtensionPlugin) Configure(
-	ctx context.Context,
+	_ context.Context,
 	certCfg *apiextensions.CertConfig,
 ) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	var listener net.Listener
@@ -89,7 +89,7 @@ func (p *httpApiExtensionPlugin) Configure(
 // Server side
 func (p *httpApiExtensionPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {

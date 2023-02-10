@@ -8,11 +8,11 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/golang/snappy"
-	"github.com/grafana/cortex-tools/pkg/bench"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/storage/remote"
+	"github.com/rancher/opni/internal/bench"
 	"go.uber.org/zap"
 )
 

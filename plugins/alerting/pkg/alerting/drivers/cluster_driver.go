@@ -101,14 +101,14 @@ type NoopClusterDriver struct {
 	alertops.DynamicAlertingServer
 }
 
-func (d *NoopClusterDriver) ConfigFromBackend(ctx context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
+func (d *NoopClusterDriver) ConfigFromBackend(_ context.Context) (*routing.RoutingTree, *routing.OpniInternalRouting, error) {
 	return nil, nil, fmt.Errorf("no config from backend")
 }
 
 func (d *NoopClusterDriver) ApplyConfigToBackend(
-	ctx context.Context,
-	config *routing.RoutingTree,
-	internal *routing.OpniInternalRouting,
+	_ context.Context,
+	_ *routing.RoutingTree,
+	_ *routing.OpniInternalRouting,
 ) error {
 	return fmt.Errorf("nothing to apply to backend")
 }

@@ -1,6 +1,7 @@
 package cortex_internal
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -12,10 +13,10 @@ import (
 
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/weaveworks/common/tracing"
 	"gopkg.in/yaml.v2"
 
 	"github.com/cortexproject/cortex/pkg/cortex"
+	"github.com/cortexproject/cortex/pkg/tracing"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
 )
@@ -76,6 +77,8 @@ func Main(args []string) {
 
 	util_log.InitLogger(&cfg.Server)
 
+	ctx, cancelFn := context.WithCancel(context.Background())
+
 	name := "cortex"
 	if len(cfg.Target) == 1 {
 		name += "-" + cfg.Target[0]
@@ -92,6 +95,12 @@ func Main(args []string) {
 	}
 	//////////////////////////////////////////////////////////////////////////////
 
+	if closeTracing, err := tracing.SetupTracing(ctx, name, cfg.Tracing); err != nil {
+		level.Error(util_log.Logger).Log("msg", "Failed to setup tracing", "err", err.Error())
+	} else {
+		defer closeTracing(ctx) // nolint:errcheck
+	}
+
 	//////////////////////////////////////////////////////////////////////////////
 	// Opni Custom Logic: Create filesystem storage directory if it doesn't exist
 	if cfg.BlocksStorage.Bucket.Backend == "filesystem" {
@@ -105,24 +114,17 @@ func Main(args []string) {
 	}
 	//////////////////////////////////////////////////////////////////////////////
 
-	// Setting the environment variable JAEGER_AGENT_HOST enables tracing.
-	if trace, err := tracing.NewFromEnv(name); err != nil {
-		level.Error(util_log.Logger).Log("msg", "Failed to setup tracing", "err", err.Error())
-	} else {
-		defer trace.Close()
-	}
-
 	// Initialise seed for randomness usage.
 	rand.Seed(time.Now().UnixNano())
 
 	t, err := cortex.New(cfg)
+	util_log.CheckFatal("initializing cortex", err)
 
 	//////////////////////////////////////////////////////////////////////////////
 	// Opni Custom Logic: Run the compactor in single-binary mode
 	t.ModuleManager.AddDependency(cortex.All, cortex.Compactor)
 	//////////////////////////////////////////////////////////////////////////////
 
-	util_log.CheckFatal("initializing cortex", err)
 	if printModules {
 		allDeps := t.ModuleManager.DependenciesForModule(cortex.All)
 
@@ -139,10 +141,13 @@ func Main(args []string) {
 
 		fmt.Fprintln(os.Stdout)
 		fmt.Fprintln(os.Stdout, "Modules marked with * are included in target All.")
+		cancelFn()
 		return
 	}
+
 	level.Info(util_log.Logger).Log("msg", "Starting Cortex", "version", "(opni embedded)")
 	err = t.Run()
+	cancelFn()
 
 	util_log.CheckFatal("running cortex", err)
 }

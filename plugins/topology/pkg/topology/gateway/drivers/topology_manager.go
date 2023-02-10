@@ -58,7 +58,7 @@ func (t *TopologyManager) Name() string {
 	return "topology-manager"
 }
 
-func (t *TopologyManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+func (t *TopologyManager) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
 	return &orchestrator.InstallStatus{
 		State: orchestrator.InstallState_Installed,
 	}, nil

@@ -527,6 +527,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					c.Metadata.Labels["foo"] = randomUpdatedLabelValue
 				},
 			)
+			Expect(err).NotTo(HaveOccurred())
 
 			ctx, ca := context.WithCancel(context.Background())
 			defer ca()

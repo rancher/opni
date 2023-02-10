@@ -3,16 +3,17 @@ package slo
 import (
 	"bytes"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/metrics"
 	"os"
 	"strings"
 	"text/template"
 	"time"
 
-	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
+	"github.com/rancher/opni/pkg/alerting/metrics"
+
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/prometheus/prometheus/promql/parser"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
@@ -449,9 +450,9 @@ func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
 
 	} else {
 		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
-		if err != nil {
-			panic(err)
-		}
+	}
+	if err != nil {
+		panic(err)
 	}
 	rmetadata := RuleGroupYAMLv2{
 		Name:     s.GetId() + MetadataRuleSuffix,
@@ -534,9 +535,9 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 
 	} else {
 		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
-		if err != nil {
-			panic(err)
-		}
+	}
+	if err != nil {
+		panic(err)
 	}
 	ralerting := RuleGroupYAMLv2{
 		Name:     s.GetId() + AlertRuleSuffix,
@@ -554,9 +555,9 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	mwmbWindow := GenerateGoogleWindows(time.Duration(dur))
 	var exprTicket bytes.Buffer
 	errorBudgetRatio := 100 - s.objective
-	if errorBudgetRatio == 0 {
-		//panic(fmt.Sprintf("error budget ratio cannot be treated as 0, from objective : %.9f", s.objective))
-	}
+	// if errorBudgetRatio == 0 {
+	//panic(fmt.Sprintf("error budget ratio cannot be treated as 0, from objective : %.9f", s.objective))
+	// }
 	err = mwmbAlertTplBool.Execute(&exprTicket, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
@@ -704,11 +705,11 @@ func (s *SLO) ConstructRawAlertQueries() (string, string) {
 		alertSevereRawQuery = strings.Replace(alertSevereRawQuery, rule.Record, rule.Expr, -1)
 	}
 
-	_, err = promql.ParseExpr(alertCriticalRawQuery)
+	_, err = parser.ParseExpr(alertCriticalRawQuery)
 	if err != nil {
 		panic(err)
 	}
-	_, err = promql.ParseExpr(alertSevereRawQuery)
+	_, err = parser.ParseExpr(alertSevereRawQuery)
 	if err != nil {
 		panic(err)
 	}

@@ -32,8 +32,8 @@ func IsNil(p *Provider) bool {
 }
 
 func DoCreate(
-	p Provider,
 	ctx context.Context,
+	p Provider,
 	req *alertingv1.AlertCondition,
 ) (*corev1.Reference, error) {
 	alertingMutex.Lock()
@@ -42,8 +42,8 @@ func DoCreate(
 }
 
 func DoDelete(
-	p Provider,
 	ctx context.Context,
+	p Provider,
 	req *corev1.Reference,
 ) (*emptypb.Empty, error) {
 	alertingMutex.Lock()
@@ -52,8 +52,8 @@ func DoDelete(
 }
 
 func DoTrigger(
-	p Provider,
 	ctx context.Context,
+	p Provider,
 	req *alertingv1.TriggerAlertsRequest,
 ) (*alertingv1.TriggerAlertsResponse, error) {
 	alertingMutex.Lock()

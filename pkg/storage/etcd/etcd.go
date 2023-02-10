@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	retryErr       = errors.New("the object has been modified, retrying")
+	errRetry       = errors.New("the object has been modified, retrying")
 	defaultBackoff = wait.Backoff{
 		Steps:    20,
 		Duration: 10 * time.Millisecond,
@@ -32,7 +32,7 @@ var (
 )
 
 func isRetryErr(err error) bool {
-	return errors.Is(err, retryErr)
+	return errors.Is(err, errRetry)
 }
 
 const (

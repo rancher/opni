@@ -26,7 +26,7 @@ var _ plugin.GRPCPlugin = (*capabilityBackendPlugin)(nil)
 var _ plugin.Plugin = (*capabilityBackendPlugin)(nil)
 
 func (p *capabilityBackendPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	capabilityv1.RegisterBackendServer(s, p.backendSrv)
@@ -35,7 +35,7 @@ func (p *capabilityBackendPlugin) GRPCServer(
 
 func (p *capabilityBackendPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
@@ -66,7 +66,7 @@ func NewAgentPlugin(node capabilityv1.NodeServer) plugin.Plugin {
 }
 
 func (p *capabilityAgentPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	capabilityv1.RegisterNodeServer(s, p.nodeSrv)
@@ -75,7 +75,7 @@ func (p *capabilityAgentPlugin) GRPCServer(
 
 func (p *capabilityAgentPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, NodeServiceID); err != nil {

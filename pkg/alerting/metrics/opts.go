@@ -11,9 +11,7 @@ import (
 	_ "embed"
 	"fmt"
 	"reflect"
-	"time"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 )
@@ -33,7 +31,7 @@ type MetricOpts interface {
 // Iterates over the field values of the MetricOpts struct
 // - Fetches labels and annotations from the field tags
 // - Returns a map of options to their list of values
-func FetchAlertConditionValues(m *MetricOpts, client *cortexadmin.CortexAdminClient) (interface{}, error) {
+func FetchAlertConditionValues(m *MetricOpts, _ *cortexadmin.CortexAdminClient) (interface{}, error) {
 	values := make(map[string][]string)
 	t := reflect.TypeOf(m)
 
@@ -41,7 +39,7 @@ func FetchAlertConditionValues(m *MetricOpts, client *cortexadmin.CortexAdminCli
 		field := t.Field(i)
 		labelTag := field.Tag.Get(labelTag)
 		metricTag := field.Tag.Get(metricTag)
-		jobExtractorTag := field.Tag.Get(jobExtractorTag)
+		//jobExtractorTag := field.Tag.Get(jobExtractorTag)
 		if labelTag != "" {
 			if metricTag == "" {
 				panic(fmt.Sprintf("invalid struct declaration for : %s, missing metric tag %s on field", t.Kind(), field.Type.String()))
@@ -49,28 +47,28 @@ func FetchAlertConditionValues(m *MetricOpts, client *cortexadmin.CortexAdminCli
 			// fetch label values of on metric
 		}
 
-		if field.Tag.Get(jobExtractorTag) != "" {
-			// get all metric names matching regex expr
-		}
+		// if field.Tag.Get(jobExtractorTag) != "" {
+		// get all metric names matching regex expr
+		// }
 
-		if field.Tag.Get(rangeTag) != "" {
-			// translate rage to an array
-		}
+		// if field.Tag.Get(rangeTag) != "" {
+		// translate rage to an array
+		// }
 
-		// comparison operator choices
-		if reflect.TypeOf(field) == reflect.TypeOf(ComparisonOperator{}) {
+		// // comparison operator choices
+		// if reflect.TypeOf(field) == reflect.TypeOf(ComparisonOperator{}) {
 
-		}
+		// }
 
-		// list clusters on which the metrics are defined
-		if reflect.TypeOf(field) == reflect.TypeOf(corev1.Cluster{}) {
+		// // list clusters on which the metrics are defined
+		// if reflect.TypeOf(field) == reflect.TypeOf(corev1.Cluster{}) {
 
-		}
+		// }
 
-		// list multiples of time.Duration
-		if reflect.TypeOf(field) == reflect.TypeOf(time.Duration(0)) {
+		// // list multiples of time.Duration
+		// if reflect.TypeOf(field) == reflect.TypeOf(time.Duration(0)) {
 
-		}
+		// }
 	}
 	return values, nil
 }

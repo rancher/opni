@@ -182,12 +182,12 @@ func (a *AlertingRule) Or(other *AlertingRule) AlertRuleBuilder {
 	}
 }
 
-func (a *AlertingRule) IfForSecondsThen(other *AlertingRule, seconds time.Duration) AlertRuleBuilder {
+func (a *AlertingRule) IfForSecondsThen(_ *AlertingRule, _ time.Duration) AlertRuleBuilder {
 	//TODO : implement
 	return nil
 }
 
-func (a *AlertingRule) IfNotForSecondsThen(other *AlertingRule, seconds time.Duration) AlertRuleBuilder {
+func (a *AlertingRule) IfNotForSecondsThen(_ *AlertingRule, _ time.Duration) AlertRuleBuilder {
 	//TODO: implement
 	return nil
 }

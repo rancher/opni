@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) GetGraph(ctx context.Context, ref *corev1.Reference) (*representation.TopologyGraph, error) {
+func (p *Plugin) GetGraph(_ context.Context, _ *corev1.Reference) (*representation.TopologyGraph, error) {
 	// TODO(topology) : implement me
 	return nil, status.Error(codes.Unimplemented, "method not implemented")
 }
@@ -77,7 +77,7 @@ func (p *Plugin) RenderGraph(ctx context.Context, clusterRef *corev1.Reference) 
 	}
 }
 
-func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+func (p *Plugin) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
 	return &orchestrator.InstallStatus{
 		State:   orchestrator.InstallState_Installed,
 		Version: "0.1",

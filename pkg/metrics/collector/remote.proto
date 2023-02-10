@@ -2,7 +2,7 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/metrics/collector";
 
 import "google/protobuf/empty.proto";
-import "github.com/prometheus/client_model/metrics.proto";
+import "github.com/prometheus/client_model/io/prometheus/client/metrics.proto";
 import "github.com/rancher/opni/pkg/metrics/desc/desc.proto";
 
 package collector;

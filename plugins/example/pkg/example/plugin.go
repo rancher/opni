@@ -105,7 +105,7 @@ func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Em
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (s *ExamplePlugin) Status(context.Context, *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 
@@ -133,7 +133,7 @@ func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 	}, nil
 }
 
-func Scheme(ctx context.Context) meta.Scheme {
+func Scheme(_ context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
 		Logger: logger.NewForPlugin(),

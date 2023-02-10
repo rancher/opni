@@ -134,13 +134,13 @@ func NewLockMap[K comparable, L locker[T], T any]() LockMap[K, L] {
 	}
 }
 
-func BindContext[A any](f func(context.Context) A, ctx context.Context) func() A {
+func BindContext[A any](ctx context.Context, f func(context.Context) A) func() A {
 	return func() A {
 		return f(ctx)
 	}
 }
 
-func BindContext2[A, B any](f func(context.Context) (A, B), ctx context.Context) func() (A, B) {
+func BindContext2[A, B any](ctx context.Context, f func(context.Context) (A, B)) func() (A, B) {
 	return func() (A, B) {
 		return f(ctx)
 	}

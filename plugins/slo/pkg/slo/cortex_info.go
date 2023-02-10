@@ -24,7 +24,7 @@ import (
 
 var instantMaskDisabled = true
 
-func createRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedEndpoints, alertId string) error {
+func createRoutingNode(ctx context.Context, p *Plugin, req *alertingv1.AttachedEndpoints, alertId string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFunc()
 	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
@@ -47,7 +47,7 @@ func createRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedE
 	return nil
 }
 
-func updateRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedEndpoints, alertId string) error {
+func updateRoutingNode(ctx context.Context, p *Plugin, req *alertingv1.AttachedEndpoints, alertId string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFunc()
 	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
@@ -70,7 +70,7 @@ func updateRoutingNode(p *Plugin, ctx context.Context, req *alertingv1.AttachedE
 	return nil
 }
 
-func deleteRoutingNode(p *Plugin, ctx context.Context, alertId string) error {
+func deleteRoutingNode(ctx context.Context, p *Plugin, alertId string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFunc()
 	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
@@ -84,7 +84,7 @@ func deleteRoutingNode(p *Plugin, ctx context.Context, alertId string) error {
 	return nil
 }
 
-func createGrafanaSLOMask(p *Plugin, ctx context.Context, clusterId string, ruleId string) error {
+func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, ruleId string) error {
 	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debugf("creating grafana mask")
 	if !instantMaskDisabled {
 		_, err := p.adminClient.Get().WriteMetrics(ctx, &cortexadmin.WriteRequest{
@@ -109,13 +109,13 @@ func createGrafanaSLOMask(p *Plugin, ctx context.Context, clusterId string, rule
 	return nil
 }
 
-func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, ruleId *string, toApply []RuleGroupYAMLv2) error {
+func tryApplyThenDeleteCortexRules(ctx context.Context, p *Plugin, lg *zap.SugaredLogger, clusterId string, ruleId *string, toApply []RuleGroupYAMLv2) error {
 	var errArr []error
 	for _, rules := range toApply {
 		err := applyCortexSLORules(
+			ctx,
 			p,
 			lg,
-			ctx,
 			clusterId,
 			rules,
 		)
@@ -126,9 +126,9 @@ func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context
 	if len(errArr) > 0 {
 		for _, rules := range toApply {
 			err := deleteCortexSLORules(
+				ctx,
 				p,
 				lg,
-				ctx,
 				clusterId,
 				rules.Name,
 			)
@@ -138,7 +138,7 @@ func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context
 		}
 	}
 	if ruleId != nil {
-		err := createGrafanaSLOMask(p, ctx, clusterId, *ruleId)
+		err := createGrafanaSLOMask(ctx, p, clusterId, *ruleId)
 		if err != nil {
 			lg.Errorf("creating grafana mask failed %s", err)
 			errArr = append(errArr, err)
@@ -153,9 +153,9 @@ func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context
 // - metadata rules
 // - alert rules
 func applyCortexSLORules(
+	ctx context.Context,
 	p *Plugin,
 	lg *zap.SugaredLogger,
-	ctx context.Context,
 	clusterId string,
 	ruleSpec RuleGroupYAMLv2,
 ) error {
@@ -179,9 +179,9 @@ func applyCortexSLORules(
 
 // }
 func deleteCortexSLORules(
-	p *Plugin,
-	lg *zap.SugaredLogger,
 	ctx context.Context,
+	p *Plugin,
+	_ *zap.SugaredLogger,
 	clusterId string,
 	groupName string,
 ) error {
@@ -199,8 +199,8 @@ func deleteCortexSLORules(
 }
 
 func QuerySLOComponentByRecordName(
-	client cortexadmin.CortexAdminClient,
 	ctx context.Context,
+	client cortexadmin.CortexAdminClient,
 	recordName string,
 	clusterId string,
 ) (*model.Vector, error) {
@@ -224,8 +224,8 @@ func QuerySLOComponentByRecordName(
 }
 
 func QuerySLOComponentByRawQuery(
-	client cortexadmin.CortexAdminClient,
 	ctx context.Context,
+	client cortexadmin.CortexAdminClient,
 	rawQuery string,
 	clusterId string,
 ) (*model.Vector, error) {
@@ -249,8 +249,8 @@ func QuerySLOComponentByRawQuery(
 }
 
 func QuerySLOComponentByRawQueryRange(
-	client cortexadmin.CortexAdminClient,
 	ctx context.Context,
+	client cortexadmin.CortexAdminClient,
 	rawQuery string,
 	clusterId string,
 	start time.Time,

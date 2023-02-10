@@ -27,7 +27,7 @@ func NewPlugin(srv collector.RemoteCollectorServer) plugin.Plugin {
 }
 
 func (p *metricsPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	collector.RegisterRemoteCollectorServer(s, p.rcServer)
@@ -36,7 +36,7 @@ func (p *metricsPlugin) GRPCServer(
 
 func (p *metricsPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {

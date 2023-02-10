@@ -20,33 +20,33 @@ type natsAcquireOptions struct {
 	streams  []*nats.StreamConfig
 }
 
-func (o *natsAcquireOptions) apply(opts ...natsAcquireOption) {
+func (o *natsAcquireOptions) apply(opts ...NatsAcquireOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-type natsAcquireOption func(*natsAcquireOptions)
+type NatsAcquireOption func(*natsAcquireOptions)
 
-func WithNatsOptions(opts []nats.Option) natsAcquireOption {
+func WithNatsOptions(opts []nats.Option) NatsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.natsOpts = opts
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) natsAcquireOption {
+func WithLogger(lg *zap.SugaredLogger) NatsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.lg = lg
 	}
 }
 
-func WithRetrier(retrier backoffv2.Policy) natsAcquireOption {
+func WithRetrier(retrier backoffv2.Policy) NatsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.retrier = retrier
 	}
 }
 
-func WithCreateStreams(streamNames ...*nats.StreamConfig) natsAcquireOption {
+func WithCreateStreams(streamNames ...*nats.StreamConfig) NatsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.streams = streamNames
 	}
@@ -87,7 +87,7 @@ func WithCreateStreams(streamNames ...*nats.StreamConfig) natsAcquireOption {
 //	},
 //
 // ),
-func AcquireNATSConnection(ctx context.Context, opts ...natsAcquireOption) (*nats.Conn, error) {
+func AcquireNATSConnection(ctx context.Context, opts ...NatsAcquireOption) (*nats.Conn, error) {
 	options := &natsAcquireOptions{
 		lg: logger.NewPluginLogger().Named("nats-conn"),
 		retrier: backoffv2.Exponential(

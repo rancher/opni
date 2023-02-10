@@ -77,7 +77,7 @@ type systemPluginClientImpl struct {
 	client SystemPluginClient
 }
 
-func (c *systemPluginClientImpl) UseManagementAPI(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
+func (c *systemPluginClientImpl) UseManagementAPI(_ context.Context, in *BrokerID) (*emptypb.Empty, error) {
 	cc, err := c.broker.Dial(in.Id)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (c *systemPluginClientImpl) UseManagementAPI(ctx context.Context, in *Broke
 	return &emptypb.Empty{}, nil
 }
 
-func (c *systemPluginClientImpl) UseNodeManagerClient(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
+func (c *systemPluginClientImpl) UseNodeManagerClient(_ context.Context, in *BrokerID) (*emptypb.Empty, error) {
 	cc, err := c.broker.Dial(in.Id)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (c *systemPluginClientImpl) UseNodeManagerClient(ctx context.Context, in *B
 	return &emptypb.Empty{}, nil
 }
 
-func (c *systemPluginClientImpl) UseKeyValueStore(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
+func (c *systemPluginClientImpl) UseKeyValueStore(_ context.Context, in *BrokerID) (*emptypb.Empty, error) {
 	cc, err := c.broker.Dial(in.Id)
 	if err != nil {
 		return nil, err

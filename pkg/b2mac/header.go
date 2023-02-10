@@ -40,9 +40,9 @@ func DecodeAuthHeader(header string) (id []byte, nonce uuid.UUID, mac []byte, er
 		}
 		if len(kv[1]) < 2 || kv[1][0] != '"' || kv[1][len(kv[1])-1] != '"' {
 			return nil, uuid.Nil, nil, errors.New("expected quoted string")
-		} else {
-			kv[1] = kv[1][1 : len(kv[1])-1]
 		}
+		kv[1] = kv[1][1 : len(kv[1])-1]
+
 		key := strings.TrimSpace(kv[0])
 		if _, ok := foundKeys[key]; ok {
 			return nil, uuid.Nil, nil, errors.New("duplicate key: " + key)

@@ -40,12 +40,12 @@ func (r *Receiver) Equal(other *Receiver) (bool, string) {
 	return receiversAreEqual(r, other)
 }
 
-func (c *Receiver) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (r *Receiver) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Receiver
-	if err := unmarshal((*plain)(c)); err != nil {
+	if err := unmarshal((*plain)(r)); err != nil {
 		return err
 	}
-	if c.Name == "" {
+	if r.Name == "" {
 		return fmt.Errorf("missing name in receiver")
 	}
 	return nil

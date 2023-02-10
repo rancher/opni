@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/goombaio/namegenerator"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/prometheus/prometheus/promql/parser"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/test"
@@ -478,7 +478,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			query, err := sloObj.RawSLIQuery("5m")
 			Expect(err).To(Succeed())
 			Expect(query).NotTo(Equal(""))
-			_, err = promql.ParseExpr(query)
+			_, err = parser.ParseExpr(query)
 			Expect(err).To(Succeed())
 		})
 
@@ -507,27 +507,27 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				},
 			)
 			dash := sloObj.RawDashboardInfoQuery()
-			_, err := promql.ParseExpr(dash)
+			_, err := parser.ParseExpr(dash)
 			Expect(err).To(Succeed())
 			rawBudget := sloObj.RawErrorBudgetQuery()
-			_, err = promql.ParseExpr(rawBudget)
+			_, err = parser.ParseExpr(rawBudget)
 			Expect(err).To(Succeed())
 
 			rawObjective := sloObj.RawObjectiveQuery()
-			_, err = promql.ParseExpr(rawObjective)
+			_, err = parser.ParseExpr(rawObjective)
 			Expect(err).To(Succeed())
 			rawRemainingBudget := sloObj.RawBudgetRemainingQuery()
-			_, err = promql.ParseExpr(rawRemainingBudget)
+			_, err = parser.ParseExpr(rawRemainingBudget)
 			Expect(err).To(Succeed())
 			rawPeriodAsVectorDays := sloObj.RawPeriodDurationQuery()
-			_, err = promql.ParseExpr(rawPeriodAsVectorDays)
+			_, err = parser.ParseExpr(rawPeriodAsVectorDays)
 			Expect(err).To(Succeed())
 			// burn rate
 			curBurnRate := sloObj.RawCurrentBurnRateQuery()
-			_, err = promql.ParseExpr(curBurnRate)
+			_, err = parser.ParseExpr(curBurnRate)
 			Expect(err).To(Succeed())
 			periodBurnRate := sloObj.RawPeriodBurnRateQuery()
-			_, err = promql.ParseExpr(periodBurnRate)
+			_, err = parser.ParseExpr(periodBurnRate)
 			Expect(err).To(Succeed())
 		})
 
@@ -535,7 +535,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			interval := time.Second
 			ralerts := sloObj.ConstructAlertingRuleGroup(&interval)
 			for _, alertRule := range ralerts.Rules {
-				_, err := promql.ParseExpr(alertRule.Expr)
+				_, err := parser.ParseExpr(alertRule.Expr)
 				Expect(err).To(Succeed())
 			}
 		})
@@ -730,7 +730,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			// check the recording rule names to make sure they return data
 			Eventually(func() error {
 				for _, rawRule := range rrecording.Rules {
-					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule.Expr, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(ctx, adminClient, rawRule.Expr, "agent")
 					if err != nil {
 						return err
 					}
@@ -749,7 +749,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 
 			Eventually(func() error {
 				for _, rawRule := range rmetadata.Rules {
-					ruleVector, err := slo.QuerySLOComponentByRecordName(adminClient, ctx, rawRule.Record, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRecordName(ctx, adminClient, rawRule.Record, "agent")
 					if err != nil {
 						return err
 					}
@@ -776,7 +776,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				//alertRules = append(alertRules, rawCriticalAlertQueryComponents...)
 				alertRules := []string{rawSevereAlertQuery, rawCriticalAlertQuery}
 				for _, rawRule := range alertRules {
-					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule, "agent")
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(ctx, adminClient, rawRule, "agent")
 					if err != nil {
 						return err
 					}

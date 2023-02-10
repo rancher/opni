@@ -18,12 +18,11 @@ func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (sto
 		options := cfg.Etcd
 		if options == nil {
 			return nil, errors.New("etcd storage options are not set")
-		} else {
-			store := etcd.NewEtcdStore(ctx, cfg.Etcd,
-				etcd.WithPrefix("gateway"),
-			)
-			storageBackend.Use(store)
 		}
+		store := etcd.NewEtcdStore(ctx, cfg.Etcd,
+			etcd.WithPrefix("gateway"),
+		)
+		storageBackend.Use(store)
 	case v1beta1.StorageTypeCRDs:
 		options := cfg.CustomResources
 		crdOpts := []crds.CRDStoreOption{}

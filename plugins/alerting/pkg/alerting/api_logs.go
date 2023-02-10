@@ -9,12 +9,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error) {
+func (p *Plugin) CreateAlertLog(_ context.Context, _ *corev1.AlertLog) (*emptypb.Empty, error) {
 	return nil, shared.WithUnimplementedError(
 		"not implemented",
 	)
 }
-func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1.ListAlertLogRequest) (*alertingv1.InformativeAlertLogList, error) {
+func (p *Plugin) ListAlertLogs(_ context.Context, _ *alertingv1.ListAlertLogRequest) (*alertingv1.InformativeAlertLogList, error) {
 	return nil, shared.WithUnimplementedError(
 		"not implemented",
 	)

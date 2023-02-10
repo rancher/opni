@@ -199,7 +199,7 @@ func (r *RoutingTree) UpdateIndividualEndpointNode(
 			}
 			for _, metadata := range internalRouting.Content[toTraverseItem.conditionId] {
 				if metadata.EndpointType == toTraverseItem.endpointType && *metadata.Position > toTraverseItem.position {
-					*metadata.Position -= 1
+					*metadata.Position--
 				}
 			}
 			// add with correct config while updating internal routing
@@ -269,7 +269,7 @@ func (r *RoutingTree) DeleteIndividualEndpointNode(
 		}
 		for _, metadata := range internalRouting.Content[toTraverseItem.conditionId] {
 			if metadata.EndpointType == toTraverseItem.endpointType && *metadata.Position > toTraverseItem.position {
-				*metadata.Position -= 1
+				*metadata.Position--
 			}
 		}
 		// add with correct config while updating internal routing

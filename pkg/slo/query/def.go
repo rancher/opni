@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	AvailableQueries              map[string]MetricQuery = make(map[string]MetricQuery)
-	GetDownstreamMetricQueryTempl                        = template.Must(template.New("").Parse(`
+	AvailableQueries              = make(map[string]MetricQuery)
+	GetDownstreamMetricQueryTempl = template.Must(template.New("").Parse(`
 		group by(__name__)({__name__=~"{{.NameRegex}}"})
 	`))
 )

@@ -327,9 +327,9 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 									},
 									Limits: corev1.ResourceList{
 										corev1.ResourceMemory: func() resource.Quantity {
-											copy := r.natsCluster.Spec.JetStream.MemoryStorageSize.DeepCopy()
-											copy.Add(resource.MustParse("1Gi"))
-											return copy
+											memoryCopy := r.natsCluster.Spec.JetStream.MemoryStorageSize.DeepCopy()
+											memoryCopy.Add(resource.MustParse("1Gi"))
+											return memoryCopy
 										}(),
 									},
 								}

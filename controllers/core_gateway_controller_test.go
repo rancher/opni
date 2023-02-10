@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/auth/openid"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -196,6 +198,49 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 				},
 			})).Should(ExistAnd(
 				HaveOwner(gw),
+			))
+		})
+		It("should configure openid auth", func() {
+			gw = &corev1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-openid",
+					Namespace: makeTestNamespace(),
+				},
+				Spec: corev1beta1.GatewaySpec{
+					Image: &opnimeta.ImageSpec{
+						Image: lo.ToPtr("rancher/opni:latest"),
+					},
+					Auth: corev1beta1.AuthSpec{
+						Provider: cfgv1beta1.AuthProviderOpenID,
+						Openid: &corev1beta1.OpenIDConfigSpec{
+							ClientID:          "test-client-id",
+							ClientSecret:      "test-client-secret",
+							Scopes:            []string{"openid", "profile", "email"},
+							RoleAttributePath: "test-role-attribute-path",
+							OpenidConfig: openid.OpenidConfig{
+								Discovery: &openid.DiscoverySpec{
+									Issuer: "https://test-issuer/",
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), gw)).To(Succeed())
+			Eventually(Object(gw)).Should(Exist())
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-gateway",
+					Namespace: gw.Namespace,
+				},
+			}
+			Eventually(Object(cm)).Should(ExistAnd(
+				HaveOwner(gw),
+				HaveData("config.yaml", func(data string) bool {
+					fmt.Println(data)
+					return true
+				}),
 			))
 		})
 		//FIXME: opni alertmanager command needs to be in rancher:main for this test to be possible

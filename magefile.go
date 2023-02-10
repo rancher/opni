@@ -358,6 +358,11 @@ func init() {
 			Dest:   "pkg/test/mock/capability/backend.go",
 			Types:  []string{"BackendClient"},
 		},
+		{
+			Source: "pkg/auth/cluster/challenge.go",
+			Dest:   "pkg/test/mock/auth/challenge.go",
+			Types:  []string{"ChallengeHandler"},
+		},
 	}
 
 	ext := ".tar.gz"

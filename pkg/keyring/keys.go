@@ -1,9 +1,9 @@
 package keyring
 
 import (
-	"crypto/ed25519"
 	"crypto/x509"
 
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/pkp"
 	"golang.org/x/exp/slices"
 )
@@ -12,8 +12,8 @@ import (
 // benefit from extra accessor logic (e.g. copying raw byte arrays).
 
 type SharedKeys struct {
-	ClientKey ed25519.PrivateKey `json:"clientKey"`
-	ServerKey ed25519.PrivateKey `json:"serverKey"`
+	ClientKey []byte `json:"clientKey"`
+	ServerKey []byte `json:"serverKey"`
 }
 
 type PKPKey struct {
@@ -25,13 +25,15 @@ type CACertsKey struct {
 	CACerts [][]byte `json:"caCerts"`
 }
 
+type EphemeralKey = ephemeral.Key
+
 func NewSharedKeys(secret []byte) *SharedKeys {
 	if len(secret) != 64 {
 		panic("shared secret must be 64 bytes")
 	}
 	return &SharedKeys{
-		ClientKey: ed25519.NewKeyFromSeed(secret[:32]),
-		ServerKey: ed25519.NewKeyFromSeed(secret[32:]),
+		ClientKey: secret[:32],
+		ServerKey: secret[32:],
 	}
 }
 

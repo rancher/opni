@@ -1619,6 +1619,12 @@
         },
         "connected": {
           "type": "boolean"
+        },
+        "sessionAttributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

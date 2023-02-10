@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -251,7 +251,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 			}
 		}
 
-		return handler(srv, &util.ServerStreamWithContext{
+		return handler(srv, &streams.ServerStreamWithContext{
 			Stream: stream,
 			Ctx:    context.WithValue(stream.Context(), manifestMetadataKey, f.getPluginManifest()),
 		})

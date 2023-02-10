@@ -24,6 +24,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/cortexproject/cortex v0.0.0-00010101000000-000000000000
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
+	github.com/dterei/gotsc v0.0.0-20160722215413-e78f872945c6
 	github.com/gabstv/go-bsdiff v1.0.5
 	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.8.2
@@ -75,8 +76,8 @@ require (
 	github.com/nats-io/nats.go v1.23.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
-	github.com/onsi/ginkgo/v2 v2.8.0
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/ginkgo/v2 v2.8.3
+	github.com/onsi/gomega v1.27.0
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/opensearch-project/opensearch-go/v2 v2.0.0-00010101000000-000000000000
 	github.com/opentracing-contrib/go-stdlib v1.0.0
@@ -131,11 +132,11 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
-	golang.org/x/mod v0.7.0
 	golang.org/x/net v0.5.0
+	golang.org/x/mod v0.8.0
+	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.5.0
-	golang.org/x/tools v0.5.0
+	golang.org/x/tools v0.6.0
 	gonum.org/v1/gonum v0.12.0
 	google.golang.org/genproto v0.0.0-20230124163310-31e0e69b6fc2
 	google.golang.org/grpc v1.52.1
@@ -483,8 +484,9 @@ require (
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/term v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect

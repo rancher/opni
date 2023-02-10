@@ -1,0 +1,234 @@
+package challenges_test
+
+import (
+	"context"
+	"crypto/rand"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/auth/challenges"
+	authutil "github.com/rancher/opni/pkg/auth/util"
+	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+var _ = Describe("Verifier", Label("unit"), Ordered, func() {
+	const expectedId = "test-id"
+	var krStore storage.KeyringStore
+	var broker storage.KeyringStoreBroker
+	var sharedKeys *keyring.SharedKeys
+	var verifier challenges.KeyringVerifier
+	_ = verifier
+
+	BeforeAll(func() {
+		krStore = test.NewTestKeyringStore(ctrl, "gateway", &corev1.Reference{Id: expectedId})
+		bytes := make([]byte, 64)
+		rand.Read(bytes)
+		sharedKeys = keyring.NewSharedKeys(bytes)
+		krStore.Put(context.Background(), keyring.New(sharedKeys))
+		broker = test.NewTestKeyringStoreBroker(ctrl, func(_ string, ref *corev1.Reference) storage.KeyringStore {
+			if ref.GetId() == expectedId {
+				return krStore
+			}
+			return nil
+		})
+		verifier = challenges.NewKeyringVerifier(broker, test.Log)
+	})
+
+	When("preparing a pre-cached verifier", func() {
+		When("the cluster is not found", func() {
+			It("should return an Unauthenticated error", func() {
+				challenge := authutil.NewRandom256()
+				cm := challenges.ClientMetadata{
+					IdAssertion: "not-found",
+					Random:      authutil.NewRandom256(),
+				}
+				cr := &corev1.ChallengeRequest{Challenge: challenge[:]}
+				v, err := verifier.Prepare(context.Background(), cm, cr)
+				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
+				Expect(v).To(BeNil())
+			})
+		})
+		When("an error occurs while getting the keyring", func() {
+			It("should return an unavailable error", func() {
+				challenge := authutil.NewRandom256()
+				cm := challenges.ClientMetadata{
+					IdAssertion: expectedId,
+					Random:      authutil.NewRandom256(),
+				}
+				cr := &corev1.ChallengeRequest{Challenge: challenge[:]}
+				v, err := verifier.Prepare(test.ErrContext_TestKeyringStore_Get, cm, cr)
+				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.Unavailable))
+				Expect(v).To(BeNil())
+			})
+		})
+		When("the keyring is found", func() {
+			It("should return a pre-cached verifier", func() {
+				challenge := authutil.NewRandom256()
+				cm := challenges.ClientMetadata{
+					IdAssertion: expectedId,
+					Random:      authutil.NewRandom256(),
+				}
+				cr := &corev1.ChallengeRequest{Challenge: challenge[:]}
+				v, err := verifier.Prepare(context.Background(), cm, cr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(v).NotTo(BeNil())
+			})
+		})
+	})
+
+	When("verifying a challenge", func() {
+		When("the challenge is correct", func() {
+			It("should return the associated shared keys", func() {
+				challenge := authutil.NewRandom256()
+				cm := challenges.ClientMetadata{
+					IdAssertion: expectedId,
+					Random:      authutil.NewRandom256(),
+				}
+				req := &corev1.ChallengeRequest{Challenge: challenge[:]}
+				v, err := verifier.Prepare(context.Background(), cm, req)
+				Expect(err).NotTo(HaveOccurred())
+
+				resp := req.Solve(cm, sharedKeys.ClientKey)
+
+				keys := v.Verify(resp)
+				Expect(keys).To(Equal(sharedKeys))
+			})
+		})
+		When("the challenge is incorrect", func() {
+			It("should return nil", func() {
+				challenge := authutil.NewRandom256()
+				cm := challenges.ClientMetadata{
+					IdAssertion: expectedId,
+					Random:      authutil.NewRandom256(),
+				}
+				req := &corev1.ChallengeRequest{Challenge: challenge[:]}
+				v, err := verifier.Prepare(context.Background(), cm, req)
+				Expect(err).NotTo(HaveOccurred())
+
+				resp := req.Solve(cm, sharedKeys.ClientKey)
+				resp.Response[0] ^= 0xFF
+
+				keys := v.Verify(&corev1.ChallengeResponse{Response: resp.Response})
+				Expect(keys).To(BeNil())
+			})
+		})
+	})
+
+	Context("valid auth scenarios", func() {
+		It("should succeed when a valid auth header is given", func() {
+			// TODO(session-attributes)
+			// nonce := challenges.AuthV2DomainPrefix()
+			// challenge := challenges.NewRandomChallenge()
+
+			// mac, err := b2mac.New512([]byte(expectedId), nonce, challenge[:], sharedKeys.ClientKey)
+			// Expect(err).NotTo(HaveOccurred())
+
+			// authHeader, err := b2mac.EncodeAuthHeader([]byte(expectedId), nonce, mac)
+			// Expect(err).NotTo(HaveOccurred())
+
+			// actualId, keys, err := verifier.Verify(authHeader, nonce, challenge[:])
+			// Expect(err).NotTo(HaveOccurred())
+
+			// Expect(actualId).To(Equal(expectedId))
+
+			// Expect(keys).To(Equal(sharedKeys))
+		})
+	})
+
+	Context("non-time sensitive failure scenarios", func() {
+		When("an auth header is malformed", func() {
+			It("should return an InvalidArgument error", func() {
+				// TODO(session-attributes)
+				// nonce := challenges.AuthV2DomainPrefix()
+				// challenge := challenges.NewRandomChallenge()
+
+				// for _, malformed := range []string{
+				// 	"malformed",
+				// 	`Bearer XXXXXXXXXX`,
+				// 	`MAC id="xxx",nonce="8GAUBrDHrhkVpSRHbJQstl+MJU6fZK3B3fxsChYeWaA=",mac="Y0jJ6KKKoHWAoKT1blivxRyyB3VSCMvp7rwvgXrMyk8="`,
+				// 	"MAC id=\"\n\",nonce=\"00000000-0000-4000-8000-000000000000\",mac=\"00\"",
+				// } {
+				// 	str, sk, err := verifier.Verify(malformed, nonce, challenge[:])
+				// 	Expect(err).To(HaveOccurred())
+				// 	Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+				// 	Expect(str).To(BeEmpty())
+				// 	Expect(sk).To(BeNil())
+				// }
+
+			})
+		})
+		When("the auth header exceeds the maximum allowed length", func() {
+			It("should return an InvalidArgument error", func() {
+				// TODO(session-attributes)
+
+				// nonce := challenges.AuthV2DomainPrefix()
+				// challenge := challenges.NewRandomChallenge()
+
+				// for _, malformed := range []string{
+				// 	"",
+				// 	"1234567",
+				// 	fmt.Sprintf("MAC id=%q,nonce=%q,mac=%q", strings.Repeat("a", 1024), strings.Repeat("b", 1024), strings.Repeat("c", 1024)),
+				// } {
+				// 	str, sk, err := verifier.Verify(malformed, nonce, challenge[:])
+				// 	Expect(err).To(HaveOccurred())
+				// 	Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+				// 	Expect(str).To(BeEmpty())
+				// 	Expect(sk).To(BeNil())
+				// }
+			})
+		})
+		When("the auth header contains a mismatched nonce from the request", func() {
+			It("should return an InvalidArgument error", func() {
+				// TODO(session-attributes)
+
+				// nonce := challenges.AuthV2DomainPrefix()
+				// challenge := challenges.NewRandomChallenge()
+
+				// mac, err := b2mac.New512([]byte(expectedId), nonce, challenge[:], sharedKeys.ClientKey)
+				// Expect(err).NotTo(HaveOccurred())
+
+				// authHeader, err := b2mac.EncodeAuthHeader([]byte(expectedId), nonce, mac)
+				// Expect(err).NotTo(HaveOccurred())
+
+				// str, sk, err := verifier.Verify(authHeader, b2mac.NewNonce(), challenge[:])
+				// Expect(err).To(HaveOccurred())
+				// Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+				// Expect(str).To(BeEmpty())
+				// Expect(sk).To(BeNil())
+			})
+		})
+		When("the stored keyring is missing shared keys", func() {
+			It("should return an internal error", func() {
+				// TODO(session-attributes)
+				// 	krStore.Put(context.Background(), keyring.New())
+
+				// 	challenge := challenges.NewRandomChallenge()
+
+				// 	request := &corev1.ChallengeRequest{
+				// 		Challenge: challenge[:],
+				// 	}
+
+				// 	resp, err := request.Solve("foo",)
+				// 	response := &corev1.ChallengeResponse{
+				// 		Response: ,
+				// 	}
+
+				// 	authHeader, err := b2mac.EncodeAuthHeader([]byte(expectedId), nonce, mac)
+				// 	Expect(err).NotTo(HaveOccurred())
+
+				// 	actualId, keys, err := verifier.Verify(authHeader, nonce, challenge[:])
+				// 	Expect(err).To(HaveOccurred())
+				// 	Expect(status.Code(err)).To(Equal(codes.Internal))
+				// 	Expect(actualId).To(BeEmpty())
+				// 	Expect(keys).To(BeNil())
+			})
+		})
+	})
+})

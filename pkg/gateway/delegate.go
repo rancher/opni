@@ -2,8 +2,9 @@ package gateway
 
 import (
 	"context"
-	"google.golang.org/protobuf/proto"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kralicky/totem"
 	agentv1 "github.com/rancher/opni/pkg/agent"

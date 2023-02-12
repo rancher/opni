@@ -1543,11 +1543,11 @@ var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_
 	13, // 28: remoteread.RemoteReadGateway.Start:input_type -> remoteread.StartReadRequest
 	14, // 29: remoteread.RemoteReadGateway.Stop:input_type -> remoteread.StopReadRequest
 	15, // 30: remoteread.RemoteReadGateway.GetTargetStatus:input_type -> remoteread.TargetStatusRequest
-	20, // 31: remoteread.RemoteReadGateway.DiscoverPrometheuses:input_type -> remoteread.DiscoveryRequest
+	20, // 31: remoteread.RemoteReadGateway.Discover:input_type -> remoteread.DiscoveryRequest
 	13, // 32: remoteread.RemoteReadAgent.Start:input_type -> remoteread.StartReadRequest
 	14, // 33: remoteread.RemoteReadAgent.Stop:input_type -> remoteread.StopReadRequest
 	15, // 34: remoteread.RemoteReadAgent.GetTargetStatus:input_type -> remoteread.TargetStatusRequest
-	20, // 35: remoteread.RemoteReadAgent.DiscoverPrometheuses:input_type -> remoteread.DiscoveryRequest
+	20, // 35: remoteread.RemoteReadAgent.Discover:input_type -> remoteread.DiscoveryRequest
 	23, // 36: remoteread.RemoteReadGateway.AddTarget:output_type -> google.protobuf.Empty
 	23, // 37: remoteread.RemoteReadGateway.EditTarget:output_type -> google.protobuf.Empty
 	23, // 38: remoteread.RemoteReadGateway.RemoveTarget:output_type -> google.protobuf.Empty
@@ -1555,11 +1555,11 @@ var file_github_com_rancher_opni_plugins_metrics_pkg_apis_remoteread_remoteread_
 	23, // 40: remoteread.RemoteReadGateway.Start:output_type -> google.protobuf.Empty
 	23, // 41: remoteread.RemoteReadGateway.Stop:output_type -> google.protobuf.Empty
 	4,  // 42: remoteread.RemoteReadGateway.GetTargetStatus:output_type -> remoteread.TargetStatus
-	21, // 43: remoteread.RemoteReadGateway.DiscoverPrometheuses:output_type -> remoteread.DiscoveryResponse
+	21, // 43: remoteread.RemoteReadGateway.Discover:output_type -> remoteread.DiscoveryResponse
 	23, // 44: remoteread.RemoteReadAgent.Start:output_type -> google.protobuf.Empty
 	23, // 45: remoteread.RemoteReadAgent.Stop:output_type -> google.protobuf.Empty
 	4,  // 46: remoteread.RemoteReadAgent.GetTargetStatus:output_type -> remoteread.TargetStatus
-	21, // 47: remoteread.RemoteReadAgent.DiscoverPrometheuses:output_type -> remoteread.DiscoveryResponse
+	21, // 47: remoteread.RemoteReadAgent.Discover:output_type -> remoteread.DiscoveryResponse
 	36, // [36:48] is the sub-list for method output_type
 	24, // [24:36] is the sub-list for method input_type
 	24, // [24:24] is the sub-list for extension type_name

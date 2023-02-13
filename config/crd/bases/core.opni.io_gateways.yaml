@@ -1124,6 +1124,9 @@ spec:
                   cpu:
                     default: 500m
                     type: string
+                  dataMountPath:
+                    default: /var/lib
+                    type: string
                   enabled:
                     type: boolean
                   memory:

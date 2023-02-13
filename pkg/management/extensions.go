@@ -2,9 +2,11 @@ package management
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -48,9 +50,11 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.A
 }
 
 type UnknownStreamMetadata struct {
-	Conn       *grpc.ClientConn
-	InputType  *desc.MessageDescriptor
-	OutputType *desc.MessageDescriptor
+	Conn            *grpc.ClientConn
+	InputType       *desc.MessageDescriptor
+	OutputType      *desc.MessageDescriptor
+	ServerStreaming bool
+	ClientStreaming bool
 }
 
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
@@ -90,9 +94,11 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				).Info("loading method")
 
 				methodTable.Store(fullName, &UnknownStreamMetadata{
-					Conn:       cc,
-					InputType:  mtd.GetInputType(),
-					OutputType: mtd.GetOutputType(),
+					Conn:            cc,
+					InputType:       mtd.GetInputType(),
+					OutputType:      mtd.GetOutputType(),
+					ServerStreaming: mtd.IsServerStreaming(),
+					ClientStreaming: mtd.IsClientStreaming(),
 				})
 			}
 			httpRules := loadHttpRuleDescriptors(svcDesc)
@@ -338,16 +344,111 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 		if err != nil {
 			return err
 		}
-		request := dynamic.NewMessage(meta.InputType)
-		if err := stream.RecvMsg(request); err != nil {
-			return err
+
+		switch {
+		case meta.ServerStreaming && !meta.ClientStreaming:
+			request := dynamic.NewMessage(meta.InputType)
+			if err := stream.RecvMsg(request); err != nil {
+				return err
+			}
+			cs, err := meta.Conn.NewStream(outgoingCtx, &grpc.StreamDesc{
+				StreamName:    path.Base(fullMethodName),
+				ServerStreams: true,
+				ClientStreams: false,
+			}, fullMethodName)
+			if err != nil {
+				return err
+			}
+
+			if err := cs.SendMsg(request); err != nil {
+				return err
+			}
+
+			if md, err := cs.Header(); err == nil {
+				stream.SendHeader(md)
+			}
+
+			if err := cs.CloseSend(); err != nil {
+				return err
+			}
+
+			for {
+				reply := dynamic.NewMessage(meta.OutputType)
+				if err := cs.RecvMsg(reply); err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				if err := stream.SendMsg(reply); err != nil {
+					return err
+				}
+			}
+
+			if t := cs.Trailer(); t != nil {
+				stream.SetTrailer(t)
+			}
+
+			return nil
+		case !meta.ServerStreaming && meta.ClientStreaming:
+			cs, err := meta.Conn.NewStream(outgoingCtx, &grpc.StreamDesc{
+				StreamName:    path.Base(fullMethodName),
+				ServerStreams: false,
+				ClientStreams: true,
+			}, fullMethodName)
+			if err != nil {
+				return err
+			}
+
+			if md, err := cs.Header(); err == nil {
+				stream.SendHeader(md)
+			}
+
+			for {
+				toSend := dynamic.NewMessage(meta.InputType)
+				if err := stream.RecvMsg(toSend); err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					return err
+				}
+				if err := cs.SendMsg(toSend); err != nil {
+					return err
+				}
+			}
+			if err := cs.CloseSend(); err != nil {
+				return err
+			}
+
+			reply := dynamic.NewMessage(meta.OutputType)
+			if err := cs.RecvMsg(reply); err != nil {
+				return err
+			}
+			if err := stream.SendMsg(reply); err != nil {
+				return err
+			}
+
+			if t := cs.Trailer(); t != nil {
+				stream.SetTrailer(t)
+			}
+
+			return nil
+		case meta.ServerStreaming && meta.ClientStreaming:
+			return status.Errorf(codes.Unimplemented, "bidirectional apiextension streaming not implemented yet")
+		case !meta.ServerStreaming && !meta.ClientStreaming:
+			fallthrough
+		default:
+			request := dynamic.NewMessage(meta.InputType)
+			if err := stream.RecvMsg(request); err != nil {
+				return err
+			}
+			reply := dynamic.NewMessage(meta.OutputType)
+			err = meta.Conn.Invoke(outgoingCtx, fullMethodName, request, reply)
+			if err != nil {
+				return err
+			}
+			return stream.SendMsg(reply)
 		}
-		reply := dynamic.NewMessage(meta.OutputType)
-		err = meta.Conn.Invoke(outgoingCtx, fullMethodName, request, reply)
-		if err != nil {
-			return err
-		}
-		return stream.SendMsg(reply)
 	}
 }
 

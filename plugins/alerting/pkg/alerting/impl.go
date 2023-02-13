@@ -12,10 +12,9 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alertstorage"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -131,11 +130,11 @@ type internalConditionContext struct {
 }
 
 type internalConditionStorage struct {
-	js              nats.JetStreamContext
-	streamSubject   string
-	durableConsumer *nats.ConsumerConfig
-	storageNode     *alertstorage.StorageNode
-	msgCh           chan *nats.Msg
+	js               nats.JetStreamContext
+	streamSubject    string
+	durableConsumer  *nats.ConsumerConfig
+	storageClientSet storage.AlertingClientSet
+	msgCh            chan *nats.Msg
 }
 
 type internalConditionState struct {
@@ -146,8 +145,8 @@ type internalConditionState struct {
 
 type internalConditionHooks[T proto.Message] struct {
 	healthOnMessage func(h T) (healthy bool, ts *timestamppb.Timestamp)
-	triggerHook     func(ctx context.Context, conditionId string, annotations map[string]string)
-	resolveHook     func(ctx context.Context, conditionId string, annotations map[string]string)
+	triggerHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
+	resolveHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
 }
 
 func NewInternalConditionEvaluator[T proto.Message](
@@ -216,7 +215,7 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 				c.lg.Error(err)
 			}
 			healthy, ts := c.healthOnMessage(status)
-			incomingState := alertstorage.State{
+			incomingState := alertingv1.CachedState{
 				Healthy:   healthy,
 				Firing:    c.IsFiring(),
 				Timestamp: ts,
@@ -239,7 +238,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 		case <-c.evaluationCtx.Done():
 			return
 		case <-ticker.C:
-			lastKnownState, err := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId)
+			lastKnownState, err := c.storageClientSet.States().Get(c.evaluationCtx, c.conditionId)
 			if err != nil {
 				continue
 			}
@@ -248,15 +247,13 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration {
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
-					c.triggerHook(c.evaluationCtx, c.conditionId, metrics.MergeLabels(c.alertmanagerlabels, map[string]string{
-						shared.BackendConditionIdLabel: c.conditionId,
-					}))
+					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
 					if err != nil {
 						c.lg.Error(err)
 					}
 					if !c.IsFiring() {
 						c.SetFiring(true)
-						err = c.UpdateState(c.evaluationCtx, &alertstorage.State{
+						err = c.UpdateState(c.evaluationCtx, &alertingv1.CachedState{
 							Healthy:   lastKnownState.Healthy,
 							Firing:    c.IsFiring(),
 							Timestamp: timestamppb.Now(),
@@ -264,7 +261,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						if err != nil {
 							c.lg.Error(err)
 						}
-						err = c.storageNode.OpenInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+						err = c.storageClientSet.Incidents().OpenInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
 						if err != nil {
 							c.lg.Error(err)
 						}
@@ -275,13 +272,11 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 			} else if lastKnownState.Healthy && c.IsFiring() {
 				c.lg.Debugf("condition %s is now healthy again after having fired", c.conditionName)
 				c.SetFiring(false)
-				err = c.storageNode.CloseInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+				err = c.storageClientSet.Incidents().CloseInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
 				if err != nil {
 					c.lg.Error(err)
 				}
-				c.resolveHook(c.evaluationCtx, c.conditionId, metrics.MergeLabels(c.alertmanagerlabels, map[string]string{
-					shared.BackendConditionIdLabel: c.conditionId,
-				}))
+				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
 			}
 		}
 	}
@@ -299,16 +294,19 @@ func (c *InternalConditionEvaluator[T]) IsFiring() bool {
 	return c.inMemoryFiring
 }
 
-func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *alertstorage.State) error {
+func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *alertingv1.CachedState) error {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
-	return c.storageNode.UpdateConditionStatusTracker(ctx, c.conditionId, s)
+	if c.storageClientSet.States().IsDiff(ctx, c.conditionId, s) {
+		return c.storageClientSet.States().Put(ctx, c.conditionId, s)
+	}
+	return nil
 }
 
 func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
-	incomingState := alertstorage.DefaultState()
-	if _, getErr := c.storageNode.GetIncidentTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		err := c.storageNode.CreateIncidentTracker(c.evaluationCtx, c.conditionId)
+	incomingState := alertingv1.DefaultCachedState()
+	if _, getErr := c.storageClientSet.Incidents().Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
+		err := c.storageClientSet.Incidents().Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
 		if err != nil {
 			c.lg.Error(err)
 			c.cancelEvaluation()
@@ -317,12 +315,11 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	} else if getErr != nil {
 		c.lg.Error(getErr)
 	}
-	if st, getErr := c.storageNode.GetConditionStatusTracker(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		if err := c.storageNode.CreateConditionStatusTracker(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+	if st, getErr := c.storageClientSet.States().Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
+		if err := c.storageClientSet.States().Put(c.evaluationCtx, c.conditionId, incomingState); err != nil {
 			c.cancelEvaluation()
 			return
 		}
-
 	} else if getErr == nil {
 		incomingState = st
 	}

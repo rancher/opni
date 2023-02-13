@@ -16,6 +16,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -77,6 +78,43 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				return &emptypb.Empty{}, nil
 			}).
 			AnyTimes()
+		extSrv.EXPECT().
+			ServerStream(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(req *ext.FooRequest, stream ext.Ext_ServerStreamServer) (*emptypb.Empty, error) {
+				stream.SendHeader(metadata.Pairs("foo", "header"))
+				stream.SetTrailer(metadata.Pairs("foo", "trailer"))
+				for i := 0; i < 10; i++ {
+					if err := stream.Send(&ext.FooResponse{
+						Response: strings.ToUpper(req.Request),
+					}); err != nil {
+						return nil, err
+					}
+				}
+				return &emptypb.Empty{}, nil
+			}).
+			AnyTimes()
+		extSrv.EXPECT().
+			ClientStream(gomock.Any()).
+			DoAndReturn(func(stream ext.Ext_ClientStreamServer) error {
+				stream.SendHeader(metadata.Pairs("foo", "header"))
+				stream.SetTrailer(metadata.Pairs("foo", "trailer"))
+				var requests []string
+				for {
+					req, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return err
+					}
+					requests = append(requests, req.Request)
+				}
+				return stream.SendAndClose(&ext.FooResponse{
+					Response: strings.Join(requests, ","),
+				})
+			}).
+			AnyTimes()
+
 		ext2Srv := mock_ext.NewMockExt2Server(tv.ctrl)
 		ext2Srv.EXPECT().
 			Foo(gomock.Any(), gomock.Any()).
@@ -160,6 +198,8 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].ServiceDesc.Method[0].GetName()).To(Equal("Foo"))
 		Expect(extensions.Items[0].ServiceDesc.Method[1].GetName()).To(Equal("Bar"))
 		Expect(extensions.Items[0].ServiceDesc.Method[2].GetName()).To(Equal("Baz"))
+		Expect(extensions.Items[0].ServiceDesc.Method[3].GetName()).To(Equal("ServerStream"))
+		Expect(extensions.Items[0].ServiceDesc.Method[4].GetName()).To(Equal("ClientStream"))
 		Expect(extensions.Items[0].Rules).To(HaveLen(8))
 		Expect(extensions.Items[0].Rules[0].Http.GetPost()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[0].Http.GetBody()).To(Equal("request"))
@@ -274,6 +314,56 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			}
 			break
 		}
+	})
+	It("should handle server streaming RPCs", func() {
+		cc, err := grpc.Dial(tv.grpcEndpoint,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		defer cc.Close()
+		client := ext.NewExtClient(cc)
+		stream, err := client.ServerStream(context.Background(), &ext.FooRequest{Request: "hello"})
+		Expect(err).NotTo(HaveOccurred())
+		md, err := stream.Header()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(md).To(Equal(metadata.Pairs("foo", "header", "content-type", "application/grpc")))
+		for i := 0; i < 10; i++ {
+			resp, err := stream.Recv()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Response).To(Equal("HELLO"))
+		}
+		_, err = stream.Recv()
+		Expect(err).To(Equal(io.EOF))
+
+		trailer := stream.Trailer()
+		Expect(trailer).To(Equal(metadata.Pairs("foo", "trailer")))
+	})
+	It("should handle client streaming RPCs", func() {
+		cc, err := grpc.Dial(tv.grpcEndpoint,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		defer cc.Close()
+		client := ext.NewExtClient(cc)
+		stream, err := client.ClientStream(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+
+		md, err := stream.Header()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(md).To(Equal(metadata.Pairs("foo", "header", "content-type", "application/grpc")))
+
+		for i := 0; i < 5; i++ {
+			err := stream.Send(&ext.FooRequest{Request: "hello"})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		resp, err := stream.CloseAndRecv()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Response).To(Equal("hello,hello,hello,hello,hello"))
+
+		trailer := stream.Trailer()
+		Expect(trailer).To(Equal(metadata.Pairs("foo", "trailer")))
 	})
 	Context("error handling", func() {
 		When("the plugin's Descriptor method returns an error", func() {

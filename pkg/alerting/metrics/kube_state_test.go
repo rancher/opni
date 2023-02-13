@@ -1,10 +1,10 @@
 package metrics_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 )
 
 var _ = Describe("Building Kube Pod State Alert Rules", func() {
@@ -18,7 +18,7 @@ var _ = Describe("Building Kube Pod State Alert Rules", func() {
 			nil,
 		)
 		Expect(err).To(Succeed())
-		_, err = alertRule.Build(uuid.New().String())
+		_, err = alertRule.Build(shared.NewAlertingRefId())
 		Expect(err).To(Succeed())
 	})
 })

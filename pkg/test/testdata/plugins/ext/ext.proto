@@ -42,6 +42,8 @@ service Ext {
       body: "*"
     };
   }
+  rpc ServerStream(FooRequest) returns (stream FooResponse);
+  rpc ClientStream(stream FooRequest) returns (FooResponse);
 }
 
 service Ext2 {

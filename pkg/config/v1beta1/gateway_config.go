@@ -29,6 +29,7 @@ type GatewayConfigSpec struct {
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 	Alerting       AlertingSpec   `json:"alerting,omitempty"`
 	Profiling      ProfilingSpec  `json:"profiling,omitempty"`
+	Keyring        KeyringSpec    `json:"keyring,omitempty"`
 }
 
 type AlertingSpec struct {
@@ -52,6 +53,13 @@ type MetricsSpec struct {
 type ProfilingSpec struct {
 	//+kubebuilder:default=/debug/pprof
 	Path string `json:"path,omitempty"`
+}
+
+type KeyringSpec struct {
+	// Directories to search for files containing ephemeral keys.
+	// All files in these directories will be loaded into the keyring on
+	// startup. Keys loaded in this way will not be persisted across restarts.
+	EphemeralKeyDirs []string `json:"ephemeralKeyDirs,omitempty"`
 }
 
 func (s MetricsSpec) GetPath() string {

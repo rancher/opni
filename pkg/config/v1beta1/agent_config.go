@@ -38,6 +38,7 @@ type AgentConfigSpec struct {
 	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
 	LogLevel  string         `json:"logLevel,omitempty"`
 	Plugins   PluginsSpec    `json:"plugins,omitempty"`
+	Keyring   KeyringSpec    `json:"keyring,omitempty"`
 }
 
 type BootstrapSpec struct {

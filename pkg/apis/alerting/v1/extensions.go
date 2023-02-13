@@ -3,11 +3,16 @@ package v1
 import (
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
 
 // EnumConditionToDatasource
 //
@@ -270,4 +275,102 @@ func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]str
 		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
 		"unhealthyThreshold": a.GetFor().String(),
 	}
+}
+
+// noop
+func (c *CachedState) RedactSecrets() {}
+
+func (c *CachedState) IsEquivalent(other *CachedState) bool {
+	return c.Healthy == other.Healthy && c.Firing == other.Firing
+}
+
+// if we can't read the last known state assume it is healthy
+// and not firing, set last known state to now
+func DefaultCachedState() *CachedState {
+	return &CachedState{
+		Healthy:   true,
+		Firing:    false,
+		Timestamp: timestamppb.Now(),
+	}
+}
+
+// noop
+func (i *IncidentIntervals) RedactSecrets() {}
+
+func (i *IncidentIntervals) Prune(ttl time.Duration) {
+	pruneIdx := 0
+	now := time.Now()
+	for _, interval := range i.GetItems() {
+		// if is before the ttl, prune it
+		tStart := interval.Start.AsTime()
+		if tStart.Before(now.Add(-ttl)) {
+			// if we know it ends before the known universe
+			if interval.End != nil {
+				tEnd := interval.End.AsTime()
+				if tEnd.Before(now.Add(-ttl)) { //check if we should prune it
+					pruneIdx++
+				} else { // prune the start of the interval to before the ttl
+					interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
+				}
+			}
+		} else {
+			break // we can stop pruning
+		}
+	}
+	i.Items = i.Items[pruneIdx:]
+}
+
+func NewIncidentIntervals() *IncidentIntervals {
+	return &IncidentIntervals{
+		Items: []*Interval{},
+	}
+}
+
+func (r *RateLimitingConfig) Default() *RateLimitingConfig {
+	r.ThrottlingDuration = durationpb.New(10 * time.Minute)
+	r.RepeatInterval = durationpb.New(10 * time.Minute)
+	r.InitialDelay = durationpb.New(10 * time.Second)
+	return r
+}
+
+func (a *AlertCondition) Namespace() string {
+	if a.GetAlertType().GetSystem() != nil {
+		return "disconnect"
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		return "capability"
+	}
+	if a.GetAlertType().GetCpu() != nil {
+		return "cpu"
+	}
+	if a.GetAlertType().GetMemory() != nil {
+		return "memory"
+	}
+	if a.GetAlertType().GetFs() != nil {
+		return "fs"
+	}
+	if a.GetAlertType().GetKubeState() != nil {
+		return "kube-state"
+	}
+	if a.GetAlertType().GetPrometheusQuery() != nil {
+		return "promql"
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		return "monitoring-backend"
+	}
+	return "default"
+}
+
+func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
+	involvedConditions := &InvolvedConditions{
+		Items: []*corev1.Reference{},
+	}
+	for conditionId, endpointIds := range r.RoutingRelationships {
+		if lo.Contains(
+			lo.Map(endpointIds.Items, func(c *corev1.Reference, _ int) string { return c.Id }),
+			endpointId) {
+			involvedConditions.Items = append(involvedConditions.Items, &corev1.Reference{Id: conditionId})
+		}
+	}
+	return involvedConditions
 }

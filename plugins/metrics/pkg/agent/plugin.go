@@ -51,6 +51,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		).Info("node driver is available")
 		drivers.RegisterNodeDriver(d)
 		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, d.ConfigureNode))
+		p.node.SetNodeDriver(d)
 	}
 
 	p.node.AddConfigListener(drivers.NewListenerFunc(ctx, p.onConfigUpdated))

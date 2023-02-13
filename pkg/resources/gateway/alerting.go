@@ -1,21 +1,20 @@
 package gateway
 
 import (
-	"bytes"
 	"fmt"
-	"path"
-
-	"github.com/rancher/opni/pkg/alerting/routing"
-	"gopkg.in/yaml.v3"
+	"net"
+	"strings"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -54,27 +53,217 @@ func alertingMutator(spec *v1beta1.AlertingSpec) {
 	if spec.ClusterGossipInterval == "" {
 		spec.ClusterGossipInterval = "200ms"
 	}
+	if spec.DataMountPath == "" {
+		spec.DataMountPath = shared.DataMountPath
+	}
+}
 
-	// dynamic config
-	if spec.ConfigName == "" {
-		spec.ConfigName = "alertmanager-config"
+func (r *Reconciler) alertmanagerControllerArgs() []string {
+	return []string{
+		fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.gw.Spec.Alerting.ClusterPort),
+		fmt.Sprintf("--config.file=%s", r.configPath()),
+		fmt.Sprintf("--storage.path=%s", r.gw.Spec.Alerting.DataMountPath),
+		fmt.Sprintf("--log.level=%s", "debug"),
+		"--log.format=json",
+		// Maximum time to wait for cluster connections to settle before evaluating notifications.
+		fmt.Sprintf("--cluster.settle-timeout=%s", r.gw.Spec.Alerting.ClusterSettleTimeout),
+		//Interval for gossip state syncs. Setting this interval lower (more frequent)
+		// will increase convergence speeds across larger clusters at the expense
+		// of increased bandwidth usage.
+		fmt.Sprintf("--cluster.pushpull-interval=%s", r.gw.Spec.Alerting.ClusterPushPullInterval),
+		// Interval between sending gossip messages. By lowering this value (more frequent)
+		// gossip messages are propagated across the cluster more quickly at the expense of increased
+		// bandwidth.
+		fmt.Sprintf("--cluster.gossip-interval=%s", r.gw.Spec.Alerting.ClusterGossipInterval),
+		// Time to wait between peers to send notifications
+		"--cluster.peer-timeout=2s",
 	}
-	if spec.RawAlertManagerConfig == "" {
-		var amData bytes.Buffer
-		amData, err := shared.DefaultAlertManagerConfig("http://127.0.0.1:3000")
-		if err != nil {
-			panic(err)
-		}
-		spec.RawAlertManagerConfig = amData.String()
+}
+
+func (r *Reconciler) alertmanagerWorkerArgs() []string {
+	return []string{
+		fmt.Sprintf("--config.file=%s", r.configPath()),
+		fmt.Sprintf("--storage.path=%s", r.gw.Spec.Alerting.DataMountPath),
+		fmt.Sprintf("--log.level=%s", "info"),
+		"--log.format=json",
+		// join to controller
+		fmt.Sprintf("--cluster.peer=%s:%d",
+			shared.OperatorAlertingControllerServiceName,
+			r.gw.Spec.Alerting.ClusterPort,
+		),
 	}
-	if spec.RawInternalRouting == "" {
-		ir := routing.NewDefaultOpniInternalRouting()
-		rtData, err := yaml.Marshal(ir)
-		if err != nil {
-			panic(err)
-		}
-		spec.RawInternalRouting = string(rtData)
+}
+
+func (r *Reconciler) syncerArgs() []string {
+	_, gatewayPort, _ := net.SplitHostPort(strings.TrimPrefix(r.gw.Spec.Management.GRPCListenAddress, "tcp://"))
+	return []string{
+		fmt.Sprintf("--syncer.alertmanager.config.file=%s", r.configPath()),
+		fmt.Sprintf("--syncer.listen.address=:%d", 4000),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", fmt.Sprintf("http://localhost:%d", r.gw.Spec.Alerting.WebPort)),
+		fmt.Sprintf("--syncer.gateway.join.address=opni-internal:%s", gatewayPort),
 	}
+}
+
+func (r *Reconciler) configPath() string {
+	return fmt.Sprintf("%s/%s", r.gw.Spec.Alerting.DataMountPath, shared.AlertManagerConfigKey)
+}
+
+func (r *Reconciler) newAlertingAlertManager(
+	args []string,
+	ports []corev1.ContainerPort,
+) corev1.Container {
+	spec := corev1.Container{
+		Env: []corev1.EnvVar{
+			{
+				Name: "POD_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			},
+			{
+				Name:  "USER",
+				Value: "alerting",
+			},
+		},
+		Name:            "opni-alertmanager",
+		Image:           r.gw.Status.Image,
+		ImagePullPolicy: "Always",
+		Args: append([]string{
+			"alerting-server",
+			"alertmanager",
+		}, args...),
+		Ports: ports,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "opni-alertmanager-data",
+				MountPath: r.gw.Spec.Alerting.DataMountPath,
+			},
+			// // volume mount for alertmanager configmap
+			// {
+			// 	Name:      "opni-alertmanager-config",
+			// 	MountPath: r.gw.Spec.Alerting.ConfigMountPath,
+			// },
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/-/ready",
+					Port: intstr.FromString("web-port"),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/-/healthy",
+					Port: intstr.FromString("web-port"),
+				},
+			},
+		},
+	}
+	return spec
+}
+
+func (r *Reconciler) newAlertingSyncer(args []string) corev1.Container {
+	spec := corev1.Container{
+		Env: []corev1.EnvVar{
+			{
+				Name: "POD_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			},
+			{
+				Name:  "USER",
+				Value: "syncer",
+			},
+		},
+
+		Name:            "opni-syncer",
+		Image:           r.gw.Status.Image,
+		ImagePullPolicy: "Always",
+		Args: append([]string{
+			"alerting-server",
+			"syncer",
+		},
+			args...),
+		Ports: r.syncerPorts(),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "opni-alertmanager-data",
+				MountPath: r.gw.Spec.Alerting.DataMountPath,
+			},
+		},
+	}
+
+	return spec
+}
+
+func (r *Reconciler) newAlertingClusterUnit(
+	alertmanagerArgs []string,
+	alertManagerPorts []corev1.ContainerPort,
+) []corev1.Container {
+	res := []corev1.Container{
+		r.newAlertingAlertManager(alertmanagerArgs, alertManagerPorts),
+		r.newAlertingSyncer(r.syncerArgs()),
+	}
+	return res
+}
+
+func (r *Reconciler) newAlertingCluster(
+	name string,
+	containerArgs []string,
+	serviceLabels map[string]string,
+	deployLabels map[string]string,
+	alertManagerPorts []corev1.ContainerPort,
+	volumes []corev1.Volume,
+	persistentClaims []corev1.PersistentVolumeClaim,
+) (*corev1.Service, *appsv1.StatefulSet) {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.gw.Namespace,
+			Labels:    serviceLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     r.gw.Spec.Alerting.ServiceType,
+			Selector: deployLabels,
+			Ports:    r.serviceAlertManagerPorts(append(alertManagerPorts, r.syncerPorts()...)),
+		},
+	}
+
+	spec := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + "-internal",
+			Namespace: r.gw.Namespace,
+			Labels:    deployLabels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: lo.ToPtr(int32(1)),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: deployLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: deployLabels,
+				},
+				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{},
+					Containers: r.newAlertingClusterUnit(
+						containerArgs,
+						alertManagerPorts,
+					),
+					Volumes: volumes,
+				},
+			},
+			VolumeClaimTemplates: persistentClaims,
+		},
+	}
+	return svc, spec
 }
 
 func (r *Reconciler) alerting() []resources.Resource {
@@ -98,35 +287,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 	publicControllerSvcLabels := publicControllerLabels
 
 	alertingMutator(&r.gw.Spec.Alerting)
-	dataMountPath := shared.DataMountPath
-	configMountPath := shared.ConfigMountPath
-
-	// to be mounted into the alertmanager controller node
-	alertManagerConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.gw.Spec.Alerting.ConfigName,
-			Namespace: r.gw.Namespace,
-		},
-
-		Data: map[string]string{
-			shared.AlertManagerConfigKey:    r.gw.Spec.Alerting.RawAlertManagerConfig,
-			shared.InternalRoutingConfigKey: r.gw.Spec.Alerting.RawInternalRouting,
-		},
-	}
-
-	alertingControllerSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.OperatorAlertingControllerServiceName,
-			Namespace: r.gw.Namespace,
-			Labels:    publicControllerSvcLabels,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     r.gw.Spec.Alerting.ServiceType,
-			Selector: publicControllerLabels,
-			Ports:    r.serviceAlertManagerPorts(r.controllerAlertManagerPorts()),
-		},
-	}
-
 	var resourceRequirements corev1.ResourceRequirements
 
 	if value, err := resource.ParseQuantity(r.gw.Spec.Alerting.Storage); err == nil {
@@ -137,267 +297,85 @@ func (r *Reconciler) alerting() []resources.Resource {
 		}
 	}
 
-	controllerDeploy := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
-			Namespace: r.gw.Namespace,
-			Labels:    publicControllerLabels,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(int32(1)),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: publicControllerLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: publicControllerLabels,
-				},
-				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  lo.ToPtr(int64(1099)),
-						RunAsGroup: lo.ToPtr(int64(1099)),
-						FSGroup:    lo.ToPtr(int64(1099)),
-					},
-					Containers: []corev1.Container{
-						{
-							Env: []corev1.EnvVar{
-								{
-									Name: "POD_IP",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "status.podIP",
-										},
-									},
-								},
-								{
-									Name:  "USER",
-									Value: "alerting",
-								},
-							},
-							Name:            "opni-alertmanager",
-							Image:           r.gw.Status.Image,
-							ImagePullPolicy: "Always",
-							// Defaults to
-							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
-							// "--storage.path=/opt/bitnami/alertmanager/data"
-							Args: []string{
-								"alertmanager",
-								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.gw.Spec.Alerting.ClusterPort),
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
-								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								fmt.Sprintf("--log.level=%s", "debug"),
-								"--log.format=json",
-								// Maximum time to wait for cluster connections to settle before evaluating notifications.
-								fmt.Sprintf("--cluster.settle-timeout=%s", r.gw.Spec.Alerting.ClusterSettleTimeout),
-								//Interval for gossip state syncs. Setting this interval lower (more frequent)
-								// will increase convergence speeds across larger clusters at the expense
-								// of increased bandwidth usage.
-								fmt.Sprintf("--cluster.pushpull-interval=%s", r.gw.Spec.Alerting.ClusterPushPullInterval),
-								// Interval between sending gossip messages. By lowering this value (more frequent)
-								// gossip messages are propagated across the cluster more quickly at the expense of increased
-								// bandwidth.
-								fmt.Sprintf("--cluster.gossip-interval=%s", r.gw.Spec.Alerting.ClusterGossipInterval),
-								// Time to wait between peers to send notifications
-								"--cluster.peer-timeout=1s",
-							},
-							Ports: r.controllerAlertManagerPorts(),
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "opni-alertmanager-data",
-									MountPath: dataMountPath,
-								},
-								// volume mount for alertmanager configmap
-								{
-									Name:      "opni-alertmanager-config",
-									MountPath: configMountPath,
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "opni-alertmanager-data",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "opni-alertmanager-data",
-									ReadOnly:  false,
-								},
-							},
-						},
-						// mount alertmanager config map to volume
-						{
-							Name: "opni-alertmanager-config",
-							VolumeSource: corev1.VolumeSource{
-								//PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								//	ClaimName: "opni-alertmanager-data",
-								//},
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.gw.Spec.Alerting.ConfigName,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "opni-alertmanager-data",
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							corev1.ReadWriteOnce,
-						},
-						Resources: resourceRequirements,
-					},
+	requiredVolumes := []corev1.Volume{
+		{
+			Name: "opni-alertmanager-data",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "opni-alertmanager-data",
+					ReadOnly:  false,
 				},
 			},
 		},
 	}
-	alertingClusterNodeSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        shared.OperatorAlertingClusterNodeServiceName,
-			Namespace:   r.gw.Namespace,
-			Labels:      publicNodeSvcLabels,
-			Annotations: r.gw.Spec.ServiceAnnotations,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     r.gw.Spec.Alerting.ServiceType,
-			Selector: publicNodeLabels,
-			Ports:    r.serviceAlertManagerPorts(r.nodeAlertManagerPorts()),
-		},
-	}
-	nodeDeploy := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
-			Namespace: r.gw.Namespace,
-			Labels:    publicNodeLabels,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(r.gw.Spec.Alerting.Replicas - 1),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: publicNodeLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: publicNodeLabels,
-				},
-				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  lo.ToPtr(int64(1099)),
-						RunAsGroup: lo.ToPtr(int64(1099)),
-						FSGroup:    lo.ToPtr(int64(1099)),
-					},
-					Containers: []corev1.Container{
 
-						{
-							Name:            "opni-alertmanager",
-							Image:           r.gw.Status.Image,
-							ImagePullPolicy: "Always",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "USER",
-									Value: "alerting",
-								},
-							},
-							// Defaults to
-							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
-							// "--storage.path=/opt/bitnami/alertmanager/data"
-							Args: []string{
-								"alertmanager",
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.AlertManagerConfigKey)),
-								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								fmt.Sprintf("--log.level=%s", "info"),
-								"--log.format=json",
-								// join to controller
-								fmt.Sprintf("--cluster.peer=%s:%d",
-									shared.OperatorAlertingControllerServiceName,
-									r.gw.Spec.Alerting.ClusterPort,
-								),
-								//fmt.Sprintf(
-								//	"--cluster.advertise-address=%s:%d",
-								//	shared.OperatorAlertingControllerServiceName,
-								//	r.gw.Spec.Alerting.ClusterPort),
-							},
-							Ports: r.nodeAlertManagerPorts(),
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "opni-alertmanager-data",
-									MountPath: dataMountPath,
-								},
-								// volume mount for alertmanager configmap
-								{
-									Name:      "opni-alertmanager-config",
-									MountPath: configMountPath,
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "opni-alertmanager-data",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "opni-alertmanager-data",
-									ReadOnly:  false,
-								},
-							},
-						},
-						{
-							Name: "opni-alertmanager-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.gw.Spec.Alerting.ConfigName,
-									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  shared.AlertManagerConfigKey,
-											Path: shared.AlertManagerConfigKey,
-										},
-										{
-											Key:  shared.InternalRoutingConfigKey,
-											Path: shared.InternalRoutingConfigKey,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
+	requiredPersistentClaims := []corev1.PersistentVolumeClaim{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "opni-alertmanager-data",
 			},
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "opni-alertmanager-data",
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							corev1.ReadWriteOnce,
-						},
-						Resources: resourceRequirements,
-					},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteOnce,
 				},
+				Resources: resourceRequirements,
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.gw, nodeDeploy, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, alertingClusterNodeSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, controllerDeploy, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, alertingControllerSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+
+	_, _, natsVolumes := nats.ExternalNatsObjects(
+		r.ctx,
+		r.client,
+		types.NamespacedName{
+			Name:      r.gw.Spec.NatsRef.Name,
+			Namespace: r.gw.Namespace,
+		},
+	)
+
+	requiredVolumes = append(requiredVolumes, natsVolumes...)
+
+	controllerService, controllerWorkers := r.newAlertingCluster(
+		shared.OperatorAlertingControllerServiceName,
+		r.alertmanagerControllerArgs(),
+		publicControllerSvcLabels,
+		publicControllerLabels,
+		r.controllerAlertingPorts(),
+		requiredVolumes,
+		requiredPersistentClaims,
+	)
+
+	workerService, workerWorkers := r.newAlertingCluster(
+		shared.OperatorAlertingClusterNodeServiceName,
+		r.alertmanagerWorkerArgs(),
+		publicNodeSvcLabels,
+		publicNodeLabels,
+		r.nodeAlertingPorts(),
+		requiredVolumes,
+		requiredPersistentClaims,
+	)
+	ctrl.SetControllerReference(r.gw, controllerService, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, controllerWorkers, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, workerService, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, workerWorkers, r.client.Scheme())
 	return []resources.Resource{
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, controllerDeploy),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingControllerSvc),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertManagerConfigMap),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.Replicas > 1, nodeDeploy),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingClusterNodeSvc),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, controllerService),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, controllerWorkers),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.Replicas > 1, workerWorkers),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, workerService),
 	}
 }
 
-func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {
+func (r *Reconciler) syncerPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			Name:          "syncer-port",
+			ContainerPort: 8080,
+			Protocol:      "TCP",
+		},
+	}
+}
+
+func (r *Reconciler) nodeAlertingPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			Name:          "opni-port",
@@ -412,7 +390,7 @@ func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *Reconciler) controllerAlertManagerPorts() []corev1.ContainerPort {
+func (r *Reconciler) controllerAlertingPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			Name:          "opni-port",

@@ -23,7 +23,6 @@ Error keywords:
 - exception
 - timeout
 - unavailable
-- OOM
 - crash
 - connection refused
 - network error
@@ -43,24 +42,33 @@ After retrieving all log messages for the training dataset, the GPU controller w
 User Story:
 As a user of Opni, I would like to receive the most accurate log anomaly insights from the workloads I added to the watchlist.
 
-This is the query to be used. It has been verified in the dev console in a long running opensearch cluster:
+This is an example of the query to be used. It has been verified in the dev console in a long running opensearch cluster:
 ```
-GET logs*/_search
 {
-  "query": {
-    "bool": {
-      "must_not": [
+  'query': {
+    'bool': {
+      'filter': [
         {
-          "query_string": {
-            "default_field": "log",
-            "query": "fail OR error OR fatal OR exception OR timeout OR unavailable OR OOM OR crash OR connection refused OR network error OR deadlock OR out of disk OR high load"
-          }
-        }
-      ]
-    }
-  }
-}
+          'range': {
+            'time': {
+              'gte': 1675900581491, 'lte': 1675904181491}}}], 
+              'minimum_should_match': 1, 
+              'should': [
+                {
+                  'query_string': {
+                    'fields': [
+                      'cluster_id', 'kubernetes.namespace_name.keyword', 'deployment.keyword'
+                      ], 
+                      'query': 'c05d5876-51f7-4065-8e25-45133b5b2820 AND default AND checkoutservice'
+                      }
+                      }
+                      ], 
+                      'must_not': [
+                        {'match': {'anomaly_level.keyword': 'Anomaly'}}, 
+                        {'query_string': {'query': '(error) or (fail) or (fatal) or (exception) or (timeout) or (unavailable) or (crash) or (connection refused) or (network error) or (deadlock) or (out of disk) or (high load)', 'default_field': 'log'}}]}}}
 ```
+
+Additionally, for the keyword OOM, further investigation will be needed on how that keyword can be matched as well. This has been expressed as an [idea](https://github.com/rancher/opni/discussions/1049).
 
 ## Dependencies: 
 Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU setup on a cluster, no additional dependencies are present.

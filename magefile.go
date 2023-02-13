@@ -385,7 +385,7 @@ func init() {
 		},
 		{
 			Name:       "alertmanager",
-			Version:    "0.24.0",
+			Version:    "0.25.0",
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},

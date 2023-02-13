@@ -52,15 +52,16 @@ func (s *HttpServer) SetEnabled(enabled bool) {
 func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
 	s.remoteWriteClientMu.Lock()
 	defer s.remoteWriteClientMu.Unlock()
+
 	s.remoteWriteClient = client
 }
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
-	router.POST("/api/agent/push", s.handlePushRequest)
+	router.POST("/api/agent/push", s.handleMetricPushRequest)
 	pprof.Register(router, "/debug/plugin_metrics/pprof")
 }
 
-func (s *HttpServer) handlePushRequest(c *gin.Context) {
+func (s *HttpServer) handleMetricPushRequest(c *gin.Context) {
 	if !s.enabled.Load() {
 		c.Status(http.StatusServiceUnavailable)
 		return

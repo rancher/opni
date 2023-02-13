@@ -178,3 +178,131 @@ var Stream_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "github.com/rancher/opni/pkg/apis/stream/v1/stream.proto",
 }
+
+// DelegateClient is the client API for Delegate service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DelegateClient interface {
+	// A synchronous request-response RPC sent to a single client.
+	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error)
+	// A best-effort broadcast sent to all connected clients, with an
+	// optional target filter.
+	Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReplyList, error)
+}
+
+type delegateClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDelegateClient(cc grpc.ClientConnInterface) DelegateClient {
+	return &delegateClient{cc}
+}
+
+func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error) {
+	out := new(totem.RPC)
+	err := c.cc.Invoke(ctx, "/stream.Delegate/Request", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReplyList, error) {
+	out := new(BroadcastReplyList)
+	err := c.cc.Invoke(ctx, "/stream.Delegate/Broadcast", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DelegateServer is the server API for Delegate service.
+// All implementations must embed UnimplementedDelegateServer
+// for forward compatibility
+type DelegateServer interface {
+	// A synchronous request-response RPC sent to a single client.
+	Request(context.Context, *DelegatedMessage) (*totem.RPC, error)
+	// A best-effort broadcast sent to all connected clients, with an
+	// optional target filter.
+	Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error)
+	mustEmbedUnimplementedDelegateServer()
+}
+
+// UnimplementedDelegateServer must be embedded to have forward compatible implementations.
+type UnimplementedDelegateServer struct {
+}
+
+func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.RPC, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
+}
+func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Broadcast not implemented")
+}
+func (UnimplementedDelegateServer) mustEmbedUnimplementedDelegateServer() {}
+
+// UnsafeDelegateServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DelegateServer will
+// result in compilation errors.
+type UnsafeDelegateServer interface {
+	mustEmbedUnimplementedDelegateServer()
+}
+
+func RegisterDelegateServer(s grpc.ServiceRegistrar, srv DelegateServer) {
+	s.RegisterService(&Delegate_ServiceDesc, srv)
+}
+
+func _Delegate_Request_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DelegatedMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DelegateServer).Request(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/stream.Delegate/Request",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DelegateServer).Request(ctx, req.(*DelegatedMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Delegate_Broadcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BroadcastMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DelegateServer).Broadcast(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/stream.Delegate/Broadcast",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DelegateServer).Broadcast(ctx, req.(*BroadcastMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Delegate_ServiceDesc is the grpc.ServiceDesc for Delegate service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Delegate_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "stream.Delegate",
+	HandlerType: (*DelegateServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Request",
+			Handler:    _Delegate_Request_Handler,
+		},
+		{
+			MethodName: "Broadcast",
+			Handler:    _Delegate_Broadcast_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/stream/v1/stream.proto",
+}

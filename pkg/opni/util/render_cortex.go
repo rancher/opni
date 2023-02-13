@@ -4,6 +4,7 @@ package cliutil
 
 import (
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -201,4 +202,53 @@ func servicesByName[T interface {
 		services[s.GetName()] = s.GetStatus()
 	}
 	return services
+}
+
+func RenderTargetList(list *remoteread.TargetList) string {
+	writer := table.NewWriter()
+	writer.SetStyle(table.StyleColoredDark)
+	writer.AppendHeader(table.Row{"CLUSTER", "NAME", "ENDPOINT", "LAST READ", "STATE", "MESSAGE"})
+
+	for _, target := range list.Targets {
+		var state string
+		switch target.Status.State {
+		case remoteread.TargetState_Running:
+			state = "running"
+		case remoteread.TargetState_Failed:
+			state = "failed"
+		case remoteread.TargetState_Canceled:
+			state = "canceled"
+		case remoteread.TargetState_Completed:
+			state = "complete"
+		case remoteread.TargetState_NotRunning:
+			state = "not running"
+		default:
+			state = "unknown"
+		}
+
+		// todo: we should be able to accept whatever time format given here as the --start parameter to opni import start
+		var lastRead string
+		if progress := target.Status.Progress; progress != nil {
+			lastRead = progress.LastReadTimestamp.AsTime().String()
+		}
+
+		row := table.Row{target.Meta.ClusterId, target.Meta.Name, target.Spec.Endpoint, lastRead, state, target.Status.Message}
+
+		writer.AppendRow(row)
+	}
+
+	return writer.Render()
+}
+
+func RenderDiscoveryEntries(entries []*remoteread.DiscoveryEntry) string {
+	writer := table.NewWriter()
+	writer.SetStyle(table.StyleColoredDark)
+	writer.AppendHeader(table.Row{"CLUSTER", "NAME", "EXTERNAL", "INTERNAL"})
+
+	for _, entry := range entries {
+		row := table.Row{entry.ClusterId, entry.Name, entry.ExternalEndpoint, entry.InternalEndpoint}
+		writer.AppendRow(row)
+	}
+
+	return writer.Render()
 }

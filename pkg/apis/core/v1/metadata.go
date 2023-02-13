@@ -22,6 +22,19 @@ type MetadataAccessor[T Capability[T]] interface {
 	SetResourceVersion(version string)
 }
 
+type IdReader interface {
+	GetId() string
+}
+
+type LabelReader interface {
+	GetLabels() map[string]string
+}
+
+type IdLabelReader interface {
+	IdReader
+	LabelReader
+}
+
 func (t *BootstrapToken) GetCapabilities() []*TokenCapability {
 	return t.GetMetadata().GetCapabilities()
 }

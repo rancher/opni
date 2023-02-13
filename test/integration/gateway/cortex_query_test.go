@@ -118,7 +118,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Expect(code).To(Equal(http.StatusOK))
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
-		fmt.Println(string(body))
+		Expect(err).NotTo(HaveOccurred())
 		Expect(body).NotTo(BeEmpty())
 	})
 })

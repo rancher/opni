@@ -6,8 +6,9 @@ import (
 )
 
 type CollectorSpec struct {
-	AgentEndpoint string                       `json:"agentEndpoint,omitempty"`
-	LoggingConfig *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
+	AgentEndpoint   string                       `json:"agentEndpoint,omitempty"`
+	SystemNamespace string                       `json:"systemNamespace,omitempty"`
+	LoggingConfig   *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector

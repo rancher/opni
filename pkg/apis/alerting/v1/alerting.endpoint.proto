@@ -61,6 +61,7 @@ service AlertEndpoints{
   returns (InvolvedConditions) {
     option (google.api.http) = {
       post : "/delete"
+      body : "*"
     };
   }
 
@@ -195,7 +196,6 @@ message UpdateAlertEndpointRequest {
 message DeleteAlertEndpointRequest {
   bool  forceDelete = 1;
   core.Reference id = 2;
-
 }
 
 message TestAlertEndpointRequest {

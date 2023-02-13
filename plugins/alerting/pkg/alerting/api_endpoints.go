@@ -10,6 +10,8 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/samber/lo"
+	lop "github.com/samber/lo/parallel"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -68,7 +70,8 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.Update
 	if len(refList.Items) > 0 && !req.ForceUpdate {
 		return refList, nil
 	}
-
+	// force the new endpoint to preserve the original endpoint id
+	req.UpdateAlert.Id = req.Id.Id
 	req.UpdateAlert.LastUpdated = timestamppb.Now()
 	if err := p.storageClientSet.Get().Endpoints().Put(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
@@ -122,6 +125,21 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.Delete
 	if err := p.storageClientSet.Get().Endpoints().Delete(ctx, req.Id.Id); err != nil {
 		return nil, err
 	}
+	lop.ForEach(refList.Items, func(condRef *corev1.Reference, _ int) {
+		// delete endpoint metadata from each condition
+		cond, err := p.storageClientSet.Get().Conditions().Get(ctx, condRef.Id)
+		if err != nil {
+			return
+		}
+		if cond.AttachedEndpoints != nil && len(cond.AttachedEndpoints.Items) > 0 {
+			cond.AttachedEndpoints.Items = lo.Filter(cond.AttachedEndpoints.Items, func(item *alertingv1.AttachedEndpoint, _ int) bool {
+				return item.EndpointId != req.Id.Id
+			})
+		}
+		if err := p.storageClientSet.Get().Conditions().Put(ctx, condRef.Id, cond); err != nil {
+			return
+		}
+	})
 
 	return refList, nil
 }

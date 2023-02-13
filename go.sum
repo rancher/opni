@@ -2426,15 +2426,14 @@ github.com/pulumi/pulumi-docker/sdk/v3 v3.2.0/go.mod h1:TACDfD6SWGyaHmWLrtHAuGiZ
 github.com/pulumi/pulumi-eks/sdk v1.0.1 h1:/QstsE+ETWhx3hYVDWHhn4GT7V9aVWrPtyCjKckxB8o=
 github.com/pulumi/pulumi-eks/sdk v1.0.1/go.mod h1:H1+qy3r+WqP4Bw/zSd6vb+ZoY3zjDkCq0B1IScAcxhk=
 github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.17.0/go.mod h1:w+Y1d8uqc+gv7JYWLF4rfzvTsIIHR1SCL+GG6sX1xMM=
-github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.23.1 h1:/80MhL18CCRdDbN1Ed87vf1dCi6F6/YDetOMXldozJg=
-github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.23.1/go.mod h1:NOCrmeTmR12varCHZXBnGUj3OzqTPQuOh1CspxjwgRs=
+github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.24.0 h1:r/z52OLCTno8K3C7FQqn6DR5rXofralmOjl60VnRf4o=
+github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.24.0/go.mod h1:RltaJdUrU/3Ank0h9380XdHpTAXrk6Ca8QHs3aGuFnc=
 github.com/pulumi/pulumi-random/sdk/v4 v4.10.0 h1:F2GFmP8oxD0BUHV9E9yyWBO8u2MLHM51O45++zmmgB8=
 github.com/pulumi/pulumi-random/sdk/v4 v4.10.0/go.mod h1:czSwj+jZnn/VWovMpTLUs/RL/ZS4PFHRdmlXrkvHqeI=
 github.com/pulumi/pulumi/sdk/v3 v3.16.0/go.mod h1:252ou/zAU1g6E8iTwe2Y9ht7pb5BDl2fJlOuAgZCHiA=
 github.com/pulumi/pulumi/sdk/v3 v3.25.0/go.mod h1:VsxW+TGv2VBLe/MeqsAr9r0zKzK/gbAhFT9QxYr24cY=
 github.com/pulumi/pulumi/sdk/v3 v3.27.0/go.mod h1:VsxW+TGv2VBLe/MeqsAr9r0zKzK/gbAhFT9QxYr24cY=
 github.com/pulumi/pulumi/sdk/v3 v3.36.0/go.mod h1:e1xuPnh9aKzCesrFf96DEzcybLdRWRMhKeKVBmb2lm0=
-github.com/pulumi/pulumi/sdk/v3 v3.49.0/go.mod h1:58NOiU6vEdA0S8KFiFt4/eqH7vKtWhDFsEGCUFRBovw=
 github.com/pulumi/pulumi/sdk/v3 v3.53.1 h1:fTYqe0fQiGshlOuHwpjOqQOb2SW3CSqXteeGcAuO+Bk=
 github.com/pulumi/pulumi/sdk/v3 v3.53.1/go.mod h1:IYcBrkAwKEGRVq7R1ne3XJKB5bcux5eL3M/zqco7d6Y=
 github.com/qmuntal/stateless v1.6.2 h1:HZq+/PxrJtGX7mF4pvbu6uuVuqQ/tWQoDZWbo6878ao=
@@ -3805,6 +3804,7 @@ google.golang.org/grpc v1.45.0/go.mod h1:lN7owxKUQEqMfSyQikvvk5tf/6zMPsrK+ONuO11
 google.golang.org/grpc v1.46.0/go.mod h1:vN9eftEi1UMyUsIF80+uQXhHjbXYbm0uXoFCACuMGWk=
 google.golang.org/grpc v1.46.2/go.mod h1:vN9eftEi1UMyUsIF80+uQXhHjbXYbm0uXoFCACuMGWk=
 google.golang.org/grpc v1.47.0/go.mod h1:vN9eftEi1UMyUsIF80+uQXhHjbXYbm0uXoFCACuMGWk=
+google.golang.org/grpc v1.51.0/go.mod h1:wgNDFcnuBGmxLKI/qn4T+m5BtEBYXJPvibbUPsAIPww=
 google.golang.org/grpc v1.52.1 h1:2NpOPk5g5Xtb0qebIEs7hNIa++PdtZLo2AQUpc1YnSU=
 google.golang.org/grpc v1.52.1/go.mod h1:pu6fVzoFb+NBYNAvQL08ic+lvB2IojljRYuun5vorUY=
 google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0/go.mod h1:6Kw0yEErY5E/yWrBtf03jp27GLLJujG4z/JK95pnjjw=

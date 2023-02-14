@@ -18,6 +18,7 @@ type CollectorSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
 	AgentEndpoint      string                       `json:"agentEndpoint,omitempty"`
 	SystemNamespace    string                       `json:"systemNamespace,omitempty"`
+	ClusterID          string                       `json:"clusterID"`
 	LoggingConfig      *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
 }
 

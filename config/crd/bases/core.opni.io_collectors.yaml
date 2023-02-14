@@ -29,6 +29,8 @@ spec:
             properties:
               agentEndpoint:
                 type: string
+              clusterID:
+                type: string
               image:
                 type: string
               imagePullPolicy:
@@ -49,6 +51,8 @@ spec:
                 x-kubernetes-map-type: atomic
               systemNamespace:
                 type: string
+            required:
+            - clusterID
             type: object
           status:
             properties:

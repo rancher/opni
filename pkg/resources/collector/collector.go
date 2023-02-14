@@ -74,10 +74,14 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var resourceList []resources.Resource
 
-	config, data := r.configMap()
-
+	config, configHash := r.agentConfigMap()
 	resourceList = append(resourceList, config)
-	resourceList = append(resourceList, r.daemonSet(data))
+	resourceList = append(resourceList, r.daemonSet(configHash))
+
+	config, configHash = r.aggregatorConfigMap()
+	resourceList = append(resourceList, config)
+	resourceList = append(resourceList, r.deployment(configHash))
+	resourceList = append(resourceList, r.service())
 
 	for _, factory := range resourceList {
 		o, state, err := factory()

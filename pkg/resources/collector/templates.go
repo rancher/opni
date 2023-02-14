@@ -11,7 +11,8 @@ const (
 
 var (
 	// Receivers
-	templateLogAgentK8sReceiver = `filelog/k8s:
+	templateLogAgentK8sReceiver = `
+filelog/k8s:
   include: [ /var/log/pods/*/*/*.log ]
   start_at: beginning
   include_file_path: true
@@ -137,7 +138,8 @@ journald/k8s:
       ($$record._SYSTEMD_UNIT != "user-cloudinit.service") &&
       ($$record._SYSTEMD_UNIT != "var-lib-etcd2.service")
 `
-	templateLogAgentRKE = `filelog/rk3:
+	templateLogAgentRKE = `
+filelog/rk3:
   include: [ /var/lib/rancher/rke/log/*.log ]
   start_at: beginning
   include_file_path: true
@@ -150,21 +152,24 @@ journald/k8s:
       parse_from: time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
 `
-	templateLogAgentK3s = template.Must(template.New("k3sreceiver").Parse(`journald/k3s:
+	templateLogAgentK3s = template.Must(template.New("k3sreceiver").Parse(`
+journald/k3s:
   units: [ "k3s" ]
   directory: {{ . }}
 `))
-	templateLogAgentRKE2 = template.Must(template.New("rke2receiver").Parse(`journald/rke2:
+	templateLogAgentRKE2 = template.Must(template.New("rke2receiver").Parse(`
+journald/rke2:
   units:
   - "rke2-server"
   - "rke2-agent"
   directory: {{ . }}
 `))
 
-	templateMainConfig = template.Must(template.New("main").Parse(`recievers: ${file:receivers.yaml}
+	templateMainConfig = template.Must(template.New("main").Parse(`
+recievers: ${file:receivers.yaml}
 exporters:
   otlp:
-    endpoint: "opni-otel-collector:4317"
+    endpoint: "{{ .Instance }}-otel-aggregator:4317"
     tls:
       insecure: true
     sending_queue:
@@ -180,18 +185,66 @@ processors:
 service:
   pipelines:
   {{- if .Logs.Enabled }}
-  logs:
-    receivers:
-    {{- range .Logs.Receivers }}
-    - {{ . }}
-    {{- end }}
-    processors: ["memory_limiter"]
-    exporters: ["otlp"]
+    logs:
+      receivers:
+      {{- range .Logs.Receivers }}
+      - {{ . }}
+      {{- end }}
+      processors: ["memory_limiter"]
+      exporters: ["otlp"]
+  {{- end }}
+`))
+	templateAggregatorConfig = template.Must(template.New("aggregator").Parse(`
+receivers:
+  otlp:
+    protocols:
+      grpc: {}
+      http: {}
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 15s
+  memory_limiter:
+    limit_mib: 1000
+    spike_limit_mib: 250
+    check_interval: 1s
+  attributes:
+    actions:
+    - key: cluster_id
+      action: upsert
+      value: {{ .ClusterID }}
+exporters:
+  otlp:
+    endpoint: "{{ .AgentEndpoint }}:4317"
+    tls:
+      insecure: true
+    sending_queue:
+      num_consumters: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+service:
+  pipelines:
+  {{- if .LogsEnabled }}
+    logs:
+      receivers: ["otlp"]
+      processors: ["memory_limiter"]
+      exporters: ["otlp"]
   {{- end }}
 `))
 )
 
+type AgentConfig struct {
+	Instance string
+	Logs     LoggingConfig
+}
+
 type LoggingConfig struct {
 	Enabled   bool
 	Receivers []string
+}
+type AggregatorConfig struct {
+	AgentEdpoint string
+	ClusterID    string
+	LogsEnabled  bool
 }

@@ -13,15 +13,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
+	aggregatorKey      = "aggregator.yaml"
 	collectorImageRepo = "docker.io.otel"
 	collectorImage     = "opentelemetry-collector-contrib"
 	collectorVersion   = "0.68.0"
+	otlpGRPCPort       = int32(4317)
 )
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
@@ -158,14 +161,21 @@ func (r *Reconciler) hostLoggingVolumes() (
 	return
 }
 
-func (r *Reconciler) configMapName() string {
-	return fmt.Sprintf("%s-collector-config", r.collector.Name)
+func (r *Reconciler) agentConfigMapName() string {
+	return fmt.Sprintf("%s-agent-config", r.collector.Name)
+}
+
+func (r *Reconciler) aggregatorConfigMapName() string {
+	return fmt.Sprintf("%s-aggregator-config", r.collector.Name)
 }
 
 func (r *Reconciler) mainConfig(receivers []string) ([]byte, error) {
-	config := LoggingConfig{
-		Enabled:   r.collector.Spec.LoggingConfig != nil,
-		Receivers: receivers,
+	config := AgentConfig{
+		Instance: r.collector.Name,
+		Logs: LoggingConfig{
+			Enabled:   r.collector.Spec.LoggingConfig != nil,
+			Receivers: receivers,
+		},
 	}
 
 	var buffer bytes.Buffer
@@ -177,10 +187,10 @@ func (r *Reconciler) mainConfig(receivers []string) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (r *Reconciler) configMap() (resources.Resource, string) {
+func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.configMapName(),
+			Name:      r.agentConfigMapName(),
 			Namespace: r.collector.Spec.SystemNamespace,
 			Labels: map[string]string{
 				resources.PartOfLabel: "opni",
@@ -211,6 +221,38 @@ func (r *Reconciler) configMap() (resources.Resource, string) {
 	return resources.Present(cm), configHash
 }
 
+func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.aggregatorConfigMapName(),
+			Namespace: r.collector.Spec.SystemNamespace,
+			Labels: map[string]string{
+				resources.PartOfLabel: "opni",
+			},
+		},
+		Data: map[string]string{},
+	}
+
+	var buffer bytes.Buffer
+	err := templateAggregatorConfig.Execute(&buffer, AggregatorConfig{
+		LogsEnabled:  r.collector.Spec.LoggingConfig != nil,
+		AgentEdpoint: r.collector.Spec.AgentEndpoint,
+		ClusterID:    r.collector.Spec.ClusterID,
+	})
+	if err != nil {
+		return resources.Error(nil, err), ""
+	}
+	config := buffer.Bytes()
+	cm.Data[aggregatorKey] = string(config)
+	hash := sha256.New()
+	hash.Write(config)
+	configHash := hex.EncodeToString(hash.Sum(nil))
+
+	ctrl.SetControllerReference(r.collector, cm, r.client.Scheme())
+
+	return resources.Present(cm), configHash
+}
+
 func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 	imageSpec := r.imageSpec()
 	volumeMounts := []corev1.VolumeMount{
@@ -225,7 +267,7 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: r.configMapName(),
+						Name: r.agentConfigMapName(),
 					},
 				},
 			},
@@ -244,22 +286,25 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 			Name:      fmt.Sprintf("%s-collector-agent", r.collector.Name),
 			Namespace: r.collector.Spec.SystemNamespace,
 			Labels: map[string]string{
-				resources.AppNameLabel: "collector-agent",
-				resources.PartOfLabel:  "opni",
+				resources.AppNameLabel:  "collector-agent",
+				resources.PartOfLabel:   "opni",
+				resources.InstanceLabel: r.collector.Name,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					resources.AppNameLabel: "collector-agent",
-					resources.PartOfLabel:  "opni",
+					resources.AppNameLabel:  "collector-agent",
+					resources.PartOfLabel:   "opni",
+					resources.InstanceLabel: r.collector.Name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						resources.AppNameLabel: "collector-agent",
-						resources.PartOfLabel:  "opni",
+						resources.AppNameLabel:  "collector-agent",
+						resources.PartOfLabel:   "opni",
+						resources.InstanceLabel: r.collector.Name,
 					},
 					Annotations: map[string]string{
 						resources.OpniConfigHash: configHash,
@@ -305,6 +350,133 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 	ctrl.SetControllerReference(r.collector, ds, r.client.Scheme())
 
 	return resources.Present(ds)
+}
+
+func (r *Reconciler) deployment(configHash string) resources.Resource {
+	imageSpec := r.imageSpec()
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-collector-aggregator", r.collector.Name),
+			Namespace: r.collector.Spec.SystemNamespace,
+			Labels: map[string]string{
+				resources.AppNameLabel:  "collector-aggregator",
+				resources.PartOfLabel:   "opni",
+				resources.InstanceLabel: r.collector.Name,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					resources.AppNameLabel:  "collector-aggregator",
+					resources.PartOfLabel:   "opni",
+					resources.InstanceLabel: r.collector.Name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						resources.AppNameLabel:  "collector-aggregator",
+						resources.PartOfLabel:   "opni",
+						resources.InstanceLabel: r.collector.Name,
+					},
+					Annotations: map[string]string{
+						resources.OpniConfigHash: configHash,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "otel-collector",
+							Command: []string{
+								"/otelcol-contrib",
+								fmt.Sprintf("--config=/etc/otel/%s", aggregatorKey),
+							},
+							Image:           *imageSpec.Image,
+							ImagePullPolicy: *imageSpec.ImagePullPolicy,
+							Env: []corev1.EnvVar{
+								{
+									Name: "NODE_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.nodeName",
+										},
+									},
+								},
+								{
+									Name: "HOST_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.hostIP",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "collector-config",
+									MountPath: "/etc/otel",
+								},
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "otlp-grpc",
+									ContainerPort: otlpGRPCPort,
+								},
+							},
+						},
+					},
+					ImagePullSecrets: imageSpec.ImagePullSecrets,
+					Volumes: []corev1.Volume{
+						{
+							Name: "collector-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: r.aggregatorConfigMapName(),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.collector, deploy, r.client.Scheme())
+
+	return resources.Present(deploy)
+}
+
+func (r *Reconciler) service() resources.Resource {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-otel-aggregator", r.collector.Name),
+			Namespace: r.collector.Spec.SystemNamespace,
+			Labels: map[string]string{
+				resources.AppNameLabel:  "collector-aggregator",
+				resources.PartOfLabel:   "opni",
+				resources.InstanceLabel: r.collector.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "otlp-grpc",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       otlpGRPCPort,
+					TargetPort: intstr.FromInt(int(otlpGRPCPort)),
+				},
+			},
+			Selector: map[string]string{
+				resources.AppNameLabel:  "collector-aggregator",
+				resources.PartOfLabel:   "opni",
+				resources.InstanceLabel: r.collector.Name,
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.collector, svc, r.client.Scheme())
+
+	return resources.Present(svc)
 }
 
 func (r *Reconciler) imageSpec() opnimeta.ImageSpec {

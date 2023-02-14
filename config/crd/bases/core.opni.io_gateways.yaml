@@ -1191,6 +1191,8 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              end_session_endpoint:
+                                type: string
                               id_token_signing_alg_values_supported:
                                 items:
                                   type: string
@@ -1283,6 +1285,8 @@ spec:
                             items:
                               type: string
                             type: array
+                          end_session_endpoint:
+                            type: string
                           id_token_signing_alg_values_supported:
                             items:
                               type: string

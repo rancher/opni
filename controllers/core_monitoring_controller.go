@@ -9,8 +9,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // +kubebuilder:rbac:groups=core.opni.io,resources=monitoringclusters,verbs=get;list;watch;create;update;patch;delete
@@ -60,5 +65,31 @@ func (r *CoreMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
+		Watches(
+			&source.Kind{Type: &corev1beta1.Gateway{}},
+			handler.EnqueueRequestsFromMapFunc(r.findMonitoringClusters),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+func (r *CoreMonitoringReconciler) findMonitoringClusters(gw client.Object) []ctrl.Request {
+	// Look up all MonitoringClusters that reference this gateway
+	monitoringClusters := &corev1beta1.MonitoringClusterList{}
+	err := r.List(context.Background(), monitoringClusters, client.InNamespace(gw.GetNamespace()))
+	if err != nil {
+		return []ctrl.Request{}
+	}
+	var requests []ctrl.Request
+	for _, mc := range monitoringClusters.Items {
+		if mc.Spec.Gateway.Name == gw.GetName() {
+			requests = append(requests, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      mc.Name,
+					Namespace: mc.Namespace,
+				},
+			})
+		}
+	}
+	return requests
 }

@@ -179,6 +179,7 @@ dagger.#Plan & {
 
 		// Build the destination base image
 		_baseimage: alpine.#Build & {
+			version: "3.17"
 			packages: {
 				"bash":            _
 				"ca-certificates": _

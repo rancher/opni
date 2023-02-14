@@ -70,6 +70,12 @@ service AlertConditions {
     };
   }
 
+  rpc ListStatusAlertCondition(ListStatusRequest) returns (ListStatusResponse) {
+    option (google.api.http) = {
+      get : "/listStatus"
+    };
+  }
+
   rpc CloneTo(CloneToRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/clone"
@@ -96,6 +102,17 @@ service AlertConditions {
       post : "/timeline"
     };
   }
+}
+
+message ListStatusRequest {}
+
+message ListStatusResponse {
+  map<string, AlertConditionWithStatus> alertConditions = 1;
+}
+
+message AlertConditionWithStatus {
+  AlertCondition alertCondition = 1;
+  AlertStatusResponse status = 2;
 }
 
 message AlertCondition {
@@ -143,13 +160,14 @@ enum ControlFlowAction {
   IF_NOT_THEN = 1;
 }
 
+// From least important to most important, for logical comparisons
 enum AlertConditionState {
   Unkown = 0;
   Ok = 1;
-  Firing = 2;
-  Silenced = 3;
-  Invalidated = 4;
-  Pending = 5;
+  Pending = 2;
+  Firing = 3;
+  Silenced = 4;
+  Invalidated = 5;
 }
 
 // enum will map to an object of available choices
@@ -429,6 +447,7 @@ message SilenceInfo {
 
 message AlertStatusResponse {
   AlertConditionState state = 1;
+  string reason = 2;
 }
 
 

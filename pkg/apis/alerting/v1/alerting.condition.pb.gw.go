@@ -310,6 +310,24 @@ func local_request_AlertConditions_AlertConditionStatus_0(ctx context.Context, m
 
 }
 
+func request_AlertConditions_ListStatusAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ListStatusRequest
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.ListStatusAlertCondition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_AlertConditions_ListStatusAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ListStatusRequest
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.ListStatusAlertCondition(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 func request_AlertConditions_CloneTo_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CloneToRequest
 	var metadata runtime.ServerMetadata
@@ -631,6 +649,31 @@ func RegisterAlertConditionsHandlerServer(ctx context.Context, mux *runtime.Serv
 
 	})
 
+	mux.Handle("GET", pattern_AlertConditions_ListStatusAlertCondition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/alerting.AlertConditions/ListStatusAlertCondition", runtime.WithHTTPPathPattern("/listStatus"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AlertConditions_ListStatusAlertCondition_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_AlertConditions_ListStatusAlertCondition_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_AlertConditions_CloneTo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -926,6 +969,28 @@ func RegisterAlertConditionsHandlerClient(ctx context.Context, mux *runtime.Serv
 
 	})
 
+	mux.Handle("GET", pattern_AlertConditions_ListStatusAlertCondition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/alerting.AlertConditions/ListStatusAlertCondition", runtime.WithHTTPPathPattern("/listStatus"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AlertConditions_ListStatusAlertCondition_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_AlertConditions_ListStatusAlertCondition_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_AlertConditions_CloneTo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -1032,6 +1097,8 @@ var (
 
 	pattern_AlertConditions_AlertConditionStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"status", "id"}, ""))
 
+	pattern_AlertConditions_ListStatusAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"listStatus"}, ""))
+
 	pattern_AlertConditions_CloneTo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"clone"}, ""))
 
 	pattern_AlertConditions_ActivateSilence_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"silences"}, ""))
@@ -1055,6 +1122,8 @@ var (
 	forward_AlertConditions_DeleteAlertCondition_0 = runtime.ForwardResponseMessage
 
 	forward_AlertConditions_AlertConditionStatus_0 = runtime.ForwardResponseMessage
+
+	forward_AlertConditions_ListStatusAlertCondition_0 = runtime.ForwardResponseMessage
 
 	forward_AlertConditions_CloneTo_0 = runtime.ForwardResponseMessage
 

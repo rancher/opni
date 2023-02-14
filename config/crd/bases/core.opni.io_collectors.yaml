@@ -29,12 +29,26 @@ spec:
             properties:
               agentEndpoint:
                 type: string
+              image:
+                type: string
+              imagePullPolicy:
+                type: string
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
               loggingConfig:
                 properties:
                   name:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              systemNamespace:
+                type: string
             type: object
           status:
             properties:
@@ -42,9 +56,7 @@ spec:
                 items:
                   type: string
                 type: array
-              message:
-                type: string
-              phase:
+              state:
                 type: string
             type: object
         type: object

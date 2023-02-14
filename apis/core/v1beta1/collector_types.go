@@ -1,21 +1,30 @@
 package v1beta1
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type CollectorState string
+
+const (
+	CollectorStatePending CollectorState = "pending"
+	CollectorStateReady   CollectorState = "ready"
+	CollectorStateError   CollectorState = "error"
+)
+
 type CollectorSpec struct {
-	AgentEndpoint   string                       `json:"agentEndpoint,omitempty"`
-	SystemNamespace string                       `json:"systemNamespace,omitempty"`
-	LoggingConfig   *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	AgentEndpoint      string                       `json:"agentEndpoint,omitempty"`
+	SystemNamespace    string                       `json:"systemNamespace,omitempty"`
+	LoggingConfig      *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector
 type CollectorStatus struct {
-	Phase      string   `json:"phase,omitempty"`
-	Message    string   `json:"message,omitempty"`
-	Conditions []string `json:"conditions,omitempty"`
+	Conditions []string       `json:"conditions,omitempty"`
+	State      CollectorState `json:"state,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -147,7 +147,7 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should be able to create some endpoints", func() {
-					numServers := 5
+					numServers := numAgents
 					servers = env.CreateWebhookServer(env.Context(), numServers)
 					for _, server := range servers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
@@ -393,8 +393,66 @@ func BuildAlertingClusterIntegrationTests(
 						} else {
 							Expect(item.Windows).To(HaveLen(0), "conditions that have not fired should not show up on timeline, but do")
 						}
-
 					}
+
+					By("verifying we can edit Alert Endpoints in use by Alert Conditions")
+					endpList, err := alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(endpList.Items)).To(BeNumerically(">", 0))
+					for _, endp := range endpList.Items {
+						_, err := alertEndpointsClient.UpdateAlertEndpoint(env.Context(), &alertingv1.UpdateAlertEndpointRequest{
+							Id: &corev1.Reference{
+								Id: endp.Id.Id,
+							},
+							UpdateAlert: &alertingv1.AlertEndpoint{
+								Name:        "update",
+								Description: "update",
+								Endpoint: &alertingv1.AlertEndpoint_Webhook{
+									Webhook: &alertingv1.WebhookEndpoint{
+										Url: "http://example.com",
+									},
+								},
+								Id: "id",
+							},
+							ForceUpdate: true,
+						})
+						Expect(err).NotTo(HaveOccurred())
+					}
+					endpList, err = alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(endpList.Items).To(HaveLen(numAgents))
+					updatedList := lo.Filter(endpList.Items, func(item *alertingv1.AlertEndpointWithId, _ int) bool {
+						if item.Endpoint.GetWebhook() != nil {
+							return item.Endpoint.GetWebhook().Url == "http://example.com" && item.Endpoint.GetName() == "update" && item.Endpoint.GetDescription() == "update"
+						}
+						return false
+					})
+					Expect(updatedList).To(HaveLen(len(endpList.Items)))
+
+					By("verifying we can delete Alert Endpoint in use by Alert Conditions")
+					for _, endp := range endpList.Items {
+						_, err := alertEndpointsClient.DeleteAlertEndpoint(env.Context(), &alertingv1.DeleteAlertEndpointRequest{
+							Id: &corev1.Reference{
+								Id: endp.Id.Id,
+							},
+							ForceDelete: true,
+						})
+						Expect(err).NotTo(HaveOccurred())
+					}
+					endpList, err = alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(endpList.Items).To(HaveLen(0))
+
+					condList, err = alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(condList.Items).NotTo(HaveLen(0))
+					hasEndpoints := lo.Filter(condList.Items, func(item *alertingv1.AlertConditionWithId, _ int) bool {
+						if item.AlertCondition.AttachedEndpoints != nil {
+							return len(item.AlertCondition.AttachedEndpoints.Items) != 0
+						}
+						return false
+					})
+					Expect(hasEndpoints).To(HaveLen(0))
 				})
 
 				It("should delete the downstream agents", func() {

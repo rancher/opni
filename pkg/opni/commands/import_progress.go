@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package commands
 
 import (

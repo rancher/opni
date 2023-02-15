@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/samber/lo"
 )
 
 /*
@@ -56,22 +57,26 @@ func ConstructFiltersFromMap(in map[string]string) string {
 func NewCortexAlertingRule(
 	alertId,
 	alertName string,
+	opniLabels,
+	opniAnnotations map[string]string,
 	info alertingv1.IndexableMetric,
 	interval *time.Duration,
 	rule metrics.AlertRuleBuilder) (*RuleGroupYAMLv2, error) {
-	actualRuleFmt, err := rule.Build(alertId)
+	idLabels := ConstructIdLabelsForRecordingRule(alertName, alertId)
+	alertingRule, err := rule.Build(alertId)
 	if err != nil {
 		return nil, err
 	}
-	idLabels := ConstructIdLabelsForRecordingRule(alertName, alertId)
 	recordingRuleFmt := &rulefmt.Rule{
 		Record:      ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-		Expr:        actualRuleFmt.Expr,
+		Expr:        alertingRule.Expr,
 		Labels:      idLabels,
 		Annotations: map[string]string{},
 	}
-
-	actualRuleFmt.Expr = fmt.Sprintf("%s{%s}", recordingRuleFmt.Record, ConstructFiltersFromMap(idLabels))
+	// have the alerting rule instead point to the recording rule(s)
+	alertingRule.Expr = fmt.Sprintf("%s{%s}", recordingRuleFmt.Record, ConstructFiltersFromMap(idLabels))
+	alertingRule.Labels = lo.Assign(alertingRule.Labels, opniLabels)
+	alertingRule.Annotations = lo.Assign(alertingRule.Annotations, opniAnnotations)
 
 	var promInterval prommodel.Duration
 	if interval == nil {
@@ -83,6 +88,6 @@ func NewCortexAlertingRule(
 	return &RuleGroupYAMLv2{
 		Name:     CortexRuleIdFromUuid(alertId),
 		Interval: promInterval,
-		Rules:    []rulefmt.Rule{*actualRuleFmt, *recordingRuleFmt},
+		Rules:    []rulefmt.Rule{*alertingRule, *recordingRuleFmt},
 	}, nil
 }

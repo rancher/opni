@@ -17,6 +17,7 @@ const (
 )
 
 type OTELForwarder struct {
+	collogspb.UnsafeLogsServiceServer
 	opts otelForwarderOptions
 
 	Client *AsyncClient[collogspb.LogsServiceClient]

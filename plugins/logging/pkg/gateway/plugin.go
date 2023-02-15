@@ -34,6 +34,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -202,6 +203,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
+var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))

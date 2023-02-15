@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -80,6 +81,7 @@ type LoggingManagerV2 struct {
 	logger            *zap.SugaredLogger
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	opensearchManager *opensearchdata.Manager
+	otelForwarder     *loggingutil.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
 	versionOverride   string
@@ -177,6 +179,8 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
+	m.otelForwarder.BackgroundInitClient()
+
 	exists := true
 	err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,
@@ -1066,7 +1070,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.8.1"
+	version := "0.8.2-rc2"
 	if cluster == nil {
 		osVersion = opensearchVersion
 	} else {
@@ -1083,7 +1087,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.8.1"
+		version = "0.8.2-rc2"
 	}
 
 	if m.versionOverride != "" {

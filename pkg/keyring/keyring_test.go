@@ -1,7 +1,11 @@
 package keyring_test
 
 import (
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
+	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,7 +33,7 @@ var _ = Describe("Keyring", Label("unit"), func() {
 
 			By("ensuring ForEach is never called")
 			counter.Store(0)
-			kr.ForEach(func(key interface{}) {
+			kr.ForEach(func(key any) {
 				counter.Inc()
 			})
 			Expect(counter.Load()).To(Equal(int32(0)))
@@ -129,7 +133,7 @@ var _ = Describe("Keyring", Label("unit"), func() {
 
 			By("ensuring ForEach is called for each key")
 			counter := atomic.NewInt32(0)
-			kr.ForEach(func(key interface{}) {
+			kr.ForEach(func(key any) {
 				counter.Inc()
 			})
 			Expect(counter.Load()).To(Equal(int32(3)))
@@ -194,5 +198,50 @@ var _ = Describe("Keyring", Label("unit"), func() {
 		Expect(func() {
 			keyring.NewSharedKeys([]byte("not_64_bytes"))
 		}).To(PanicWith("shared secret must be 64 bytes"))
+	})
+	It("should discard ephemeral keys when marshaling", func() {
+		var key [32]byte
+		_, err := rand.Read(key[:])
+		Expect(err).NotTo(HaveOccurred())
+
+		ek := &keyring.EphemeralKey{
+			Usage:  keyring.Encryption,
+			Secret: key[:],
+			Labels: map[string]string{"test": "test"},
+		}
+		sk := keyring.NewSharedKeys(make([]byte, 64))
+		kr1 := keyring.New(ek, sk)
+		kr2 := keyring.New(sk)
+
+		kr1Data, err := kr1.Marshal()
+		Expect(err).NotTo(HaveOccurred())
+		kr2Data, err := kr2.Marshal()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kr1Data).To(Equal(kr2Data))
+	})
+	It("should load ephemeral keys from json data", func() {
+		var key [32]byte
+		_, err := rand.Read(key[:])
+		Expect(err).NotTo(HaveOccurred())
+
+		b64key := base64.StdEncoding.EncodeToString(key[:])
+
+		jsonData := fmt.Sprintf(`{
+			"usage": "encryption",
+			"secret": %q,
+			"labels": {
+				"test": "test"
+			}
+		}`, b64key)
+
+		expected := &keyring.EphemeralKey{
+			Usage:  keyring.Encryption,
+			Secret: key[:],
+			Labels: map[string]string{"test": "test"},
+		}
+
+		actual, err := keyring.LoadEphemeralKey(strings.NewReader(jsonData))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(actual).To(Equal(expected))
 	})
 })

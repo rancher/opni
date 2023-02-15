@@ -3,6 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +31,9 @@ type MetricsNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
 
+	// we only need a subset of the methods
+	remoteread.UnsafeRemoteReadAgentServer
+
 	logger *zap.SugaredLogger
 
 	nodeClientMu sync.RWMutex
@@ -38,19 +45,27 @@ type MetricsNode struct {
 	healthListenerClientMu sync.RWMutex
 	healthListenerClient   controlv1.HealthListenerClient
 
+	targetRunnerMu sync.RWMutex
+	targetRunner   TargetRunner
+
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
 
 	listeners  []chan<- *node.MetricsCapabilityConfig
 	conditions health.ConditionTracker
+
+	nodeDriverMu sync.RWMutex
+	nodeDriver   drivers.MetricsNodeDriver
 }
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	node := &MetricsNode{
-		logger:     lg,
-		conditions: ct,
+		logger:       lg,
+		conditions:   ct,
+		targetRunner: NewTargetRunner(lg),
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
+	node.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 	return node
 }
 
@@ -75,6 +90,7 @@ func (m *MetricsNode) sendHealthUpdate() {
 		}
 	}
 }
+
 func (m *MetricsNode) AddConfigListener(ch chan<- *node.MetricsCapabilityConfig) {
 	m.listeners = append(m.listeners, ch)
 }
@@ -102,6 +118,20 @@ func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerCli
 	m.sendHealthUpdate()
 }
 
+func (m *MetricsNode) SetRemoteWriter(client clients.Locker[remotewrite.RemoteWriteClient]) {
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
+
+	m.targetRunner.SetRemoteWriteClient(client)
+}
+
+func (m *MetricsNode) SetNodeDriver(driver drivers.MetricsNodeDriver) {
+	m.nodeDriverMu.Lock()
+	defer m.nodeDriverMu.Unlock()
+
+	m.nodeDriver = driver
+}
+
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityMetrics,
@@ -111,6 +141,7 @@ func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.D
 }
 
 // Implements capabilityv1.NodeServer
+
 func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
 	if len(req.CapabilityNames) > 0 {
 		if !slices.Contains(req.CapabilityNames, wellknown.CapabilityMetrics) {
@@ -135,6 +166,7 @@ func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emp
 }
 
 // Implements controlv1.HealthServer
+
 func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.Health, error) {
 	m.configMu.RLock()
 	defer m.configMu.RUnlock()
@@ -146,6 +178,59 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
 		Timestamp:  timestamppb.New(m.conditions.LastModified()),
+	}, nil
+}
+
+// Start Implements remoteread.RemoteReadServer
+
+func (m *MetricsNode) Start(_ context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
+
+	if err := m.targetRunner.Start(request.Target, request.Query); err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsNode) Stop(_ context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
+	m.targetRunnerMu.Lock()
+	defer m.targetRunnerMu.Unlock()
+
+	if err := m.targetRunner.Stop(request.Meta.Name); err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsNode) GetTargetStatus(_ context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+	m.targetRunnerMu.RLock()
+	defer m.targetRunnerMu.RUnlock()
+
+	return m.targetRunner.GetStatus(request.Meta.Name)
+}
+
+func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
+	m.nodeDriverMu.RLock()
+	defer m.nodeDriverMu.RUnlock()
+
+	if m.nodeDriver == nil {
+		m.logger.Warnf("no node driver available for discvoery")
+
+		return &remoteread.DiscoveryResponse{
+			Entries: []*remoteread.DiscoveryEntry{},
+		}, nil
+	}
+
+	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, *request.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
+	}
+
+	return &remoteread.DiscoveryResponse{
+		Entries: entries,
 	}, nil
 }
 

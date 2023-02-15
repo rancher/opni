@@ -6,16 +6,89 @@ package shared
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 
+	"github.com/lithammer/shortuuid"
+	"github.com/prometheus/alertmanager/pkg/labels"
+	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+const SingleConfigId = "global"
+
 const OpniAlertingCortexNamespace = "opni-alerting"
+
+func NewAlertingRefId(prefixes ...string) string {
+	return strings.Join(append(prefixes, shortuuid.New()), "-")
+}
+
+// config ids
+
+const InternalSlackId = "slack"
+const InternalEmailId = "email"
+const InternalPagerdutyId = "pagerduty"
+const InternalWebhookId = "webhook"
+const InternalPushoverId = "pushover"
+const InternalSNSId = "sns"
+const InternalTelegramId = "telegram"
+const InternalDiscordId = "discord"
+const InternalOpsGenieId = "opsgenie"
+const InternalVictorOpsId = "victorops"
+const InternalWechatId = "wechat"
+
+// -------- const routing identifiers -----------
+
+const OpniDatasourceLabel = "OpniDatasource"
+const OpniSeverityLabel = "OpniSeverity"
+const OpniUnbufferedKey = "OpniGroupKey"
+const OpniBroadcastPrefix = "OpniBroadcast"
+
+const OpniDatasourceMetricsValue = "metrics"
+
+var OpniGroupByClause = []model.LabelName{
+	"alertname",
+}
+
+var OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+	Type:  labels.MatchEqual,
+	Name:  OpniDatasourceLabel,
+	Value: "",
+}
+
+var OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+	Type:  labels.MatchEqual,
+	Name:  OpniDatasourceLabel,
+	Value: OpniDatasourceMetricsValue,
+}
+
+var OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
+	Type:  labels.MatchEqual,
+	Name:  OpniSeverityLabel,
+	Value: "true",
+}
+
+type OpniReceiverId struct {
+	Namespace  string
+	ReceiverId string
+}
+
+func NewOpniReceiverName(id OpniReceiverId) string {
+	return strings.Join([]string{"opni", id.Namespace, id.ReceiverId}, ".")
+}
+
+func ExtractReceiverId(receiverName string) (*OpniReceiverId, error) {
+	parts := strings.Split(receiverName, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid receiver name format: %s", receiverName)
+	}
+	return &OpniReceiverId{
+		Namespace:  parts[1],
+		ReceiverId: parts[2],
+	}, nil
+}
 
 // Condition constants
 var ComparisonOperators = []string{"<", ">", "<=", ">=", "=", "!="}
@@ -47,10 +120,10 @@ const AgentDisconnectStorageType = "agent-disconnect"
 
 // Datasources & Versioning
 
-const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
-const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
-
 // labels
+const OpniTitleLabel = "OpniTitleLabel"
+const OpniBodyLabel = "OpniBodyLabel"
+const BroadcastIdLabel = "broadcastId"
 const BackendConditionIdLabel = "conditionId"
 const BackendConditionNameLabel = "opniname"
 const BackendConditionClusterIdLabel = "clusterId"
@@ -67,12 +140,12 @@ const (
 
 const (
 	ConfigMountPath                        = "/etc/config"
-	DataMountPath                          = "/var/lib/alertmanager/data"
+	DataMountPath                          = "/var/lib"
 	AlertManagerConfigKey                  = "alertmanager.yaml"
 	InternalRoutingConfigKey               = "internal-routing.yaml"
 	OperatorAlertingControllerServiceName  = "opni-alerting-controller"
 	OperatorAlertingClusterNodeServiceName = "opni-alerting"
-	AlertingHookReceiverName               = "opni.hook"
+	AlertingHookReceiverName               = "opni.default.hook"
 	AlertingDefaultHookName                = "/opni/hook"
 	AlertingDefaultHookPort                = 3000
 )
@@ -142,15 +215,6 @@ func DefaultAlertManagerConfig(managementUrl string) (bytes.Buffer, error) {
 		return b, err
 	}
 	return b, nil
-}
-
-func BackendDefaultFile(managementUrl string) error {
-	b, err := DefaultAlertManagerConfig(managementUrl)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(LocalAlertManagerPath, b.Bytes(), 0644)
-	return err
 }
 
 // Error declarations
@@ -258,5 +322,22 @@ func WithFailedPreconditionError(msg string) error {
 func WithFailedPreconditionErrorf(format string, args ...interface{}) error {
 	return &UnimplementedError{
 		message: fmt.Errorf(format, args...).Error(),
+	}
+}
+
+func AlertManagerLabelsToAnnotations(m *labels.Matcher) (map[string]string, error) {
+	switch m.Type {
+	case labels.MatchEqual:
+		return map[string]string{
+			m.Name: m.Value,
+		}, nil
+	case labels.MatchNotEqual:
+		fallthrough
+	case labels.MatchRegexp:
+		fallthrough
+	case labels.MatchNotRegexp:
+		fallthrough
+	default:
+		return nil, fmt.Errorf("unsupported match type for internal routing %v", m.Type)
 	}
 }

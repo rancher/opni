@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *Reconciler) deployment() ([]resources.Resource, error) {
+func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources.Resource, error) {
 	labels := resources.NewGatewayLabels()
 
 	publicPorts, err := r.publicContainerPorts()
@@ -47,7 +47,8 @@ func (r *Reconciler) deployment() ([]resources.Resource, error) {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: extraAnnotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{

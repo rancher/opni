@@ -17,6 +17,8 @@ func (e *AlertEndpoint) RedactSecrets() {
 	}
 }
 
+func (a *AlertCondition) RedactSecrets() {}
+
 func (e *AlertEndpoint) UnredactSecrets(unredacted *AlertEndpoint) {
 	if !e.HasSameImplementation(unredacted) {
 		return

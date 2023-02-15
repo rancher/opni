@@ -129,6 +129,10 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 			return
 		}
 		userID = uid
+	default:
+		lg.Error("could not determine token type")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	c.Header("Authorization", "")
 	c.Set(rbac.UserIDKey, userID)

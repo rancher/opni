@@ -280,7 +280,7 @@ func (s *JetStreamStore) ListClusters(ctx context.Context, matchLabels *corev1.L
 	}
 	defer watcher.Stop()
 
-	selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
+	selectorPredicate := storage.NewSelectorPredicate[*corev1.Cluster](&corev1.ClusterSelector{
 		LabelSelector: matchLabels,
 		MatchOptions:  matchOptions,
 	})

@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/images"
 )
 
-opniVersion: "0.8.1"
+opniVersion: "0.8.2-rc2"
 
 dagger.#Plan & {
 	client: {
@@ -179,6 +179,7 @@ dagger.#Plan & {
 
 		// Build the destination base image
 		_baseimage: alpine.#Build & {
+			version: "3.17"
 			packages: {
 				"bash":            _
 				"ca-certificates": _

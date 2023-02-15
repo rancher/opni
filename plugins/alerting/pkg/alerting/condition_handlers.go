@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/common/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -24,62 +25,61 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
-func setupCondition(
+func (p *Plugin) setupCondition(
 	ctx context.Context,
-	p *Plugin,
 	_ *zap.SugaredLogger,
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
-		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName())
+		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if dc := req.GetAlertType().GetDownstreamCapability(); dc != nil {
-		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName())
+		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if cs := req.GetAlertType().GetMonitoringBackend(); cs != nil {
-		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName())
+		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if k := req.GetAlertType().GetKubeState(); k != nil {
-		err := p.handleKubeAlertCreation(ctx, k, newConditionId, req.Name)
+		err := p.handleKubeAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if c := req.GetAlertType().GetCpu(); c != nil {
-		err := p.handleCpuSaturationAlertCreation(ctx, c, newConditionId, req.Name)
+		err := p.handleCpuSaturationAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if m := req.AlertType.GetMemory(); m != nil {
-		err := p.handleMemorySaturationAlertCreation(ctx, m, newConditionId, req.Name)
+		err := p.handleMemorySaturationAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if fs := req.AlertType.GetFs(); fs != nil {
-		if err := p.handleFsSaturationAlertCreation(ctx, fs, newConditionId, req.Name); err != nil {
+		if err := p.handleFsSaturationAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
 	if q := req.AlertType.GetPrometheusQuery(); q != nil {
-		if err := p.handlePrometheusQueryAlertCreation(ctx, q, newConditionId, req.Name); err != nil {
+		if err := p.handlePrometheusQueryAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
@@ -87,30 +87,30 @@ func setupCondition(
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(ctx context.Context, p *Plugin, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
+func (p *Plugin) deleteCondition(ctx context.Context, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
 	if r := req.GetAlertType().GetSystem(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetDownstreamCapability(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r := req.AlertType.GetMonitoringBackend(); r != nil {
 		p.msgNode.RemoveConfigListener(id)
-		p.storageNode.DeleteIncidentTracker(ctx, id)
-		p.storageNode.DeleteConditionStatusTracker(ctx, id)
+		p.storageClientSet.Get().Incidents().Delete(ctx, id)
+		p.storageClientSet.Get().States().Delete(ctx, id)
 		return nil
 	}
 	if r, _ := handleSwitchCortexRules(req.AlertType); r != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 			ClusterId: r.Id,
 			Namespace: shared.OpniAlertingCortexNamespace,
-			GroupName: CortexRuleIdFromUuid(id),
+			GroupName: cortex.CortexRuleIdFromUuid(id),
 		})
 		return err
 	}
@@ -142,8 +142,9 @@ func (p *Plugin) handleSystemAlertCreation(
 	k *alertingv1.AlertConditionSystem,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onSystemConditionCreate(newConditionId, conditionName, k)
+	err := p.onSystemConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -155,8 +156,9 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 	k *alertingv1.AlertConditionDownstreamCapability,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, k)
+	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create agent condition %s", err)
 	}
@@ -168,27 +170,37 @@ func (p *Plugin) handleMonitoringBackendAlertCreation(
 	k *alertingv1.AlertConditionMonitoringBackend,
 	newConditionId string,
 	conditionName string,
+	namespace string,
 ) error {
-	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, k)
+	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
 		p.Logger.Errorf("failed to create cortex cluster condition %s", err)
 	}
 	return nil
 }
 
-func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.AlertConditionKubeState, newId, alertName string) error {
+func (p *Plugin) handleKubeAlertCreation(ctx context.Context, cond *alertingv1.AlertCondition, newId, alertName string) error {
+	k := cond.GetAlertType().GetKubeState()
 	baseKubeRule, err := metrics.NewKubeStateRule(
 		k.GetObjectType(),
 		k.GetObjectName(),
 		k.GetNamespace(),
 		k.GetState(),
-		timeDurationToPromStr(k.GetFor().AsDuration()),
+		cortex.TimeDurationToPromStr(k.GetFor().AsDuration()),
 		metrics.KubeStateAnnotations,
 	)
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := NewCortexAlertingRule(newId, alertName, k, nil, baseKubeRule)
+	kubeRuleContent, err := cortex.NewCortexAlertingRule(newId, alertName,
+		map[string]string{
+			cond.Namespace(): newId,
+		},
+		map[string]string{
+			"opni_name": cond.Name,
+		},
+		k, nil, baseKubeRule,
+	)
 	p.Logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
 	if err != nil {
 		return err
@@ -211,10 +223,11 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, k *alertingv1.Aler
 
 func (p *Plugin) handleCpuSaturationAlertCreation(
 	ctx context.Context,
-	c *alertingv1.AlertConditionCPUSaturation,
+	cond *alertingv1.AlertCondition,
 	conditionId,
 	alertName string,
 ) error {
+	c := cond.GetAlertType().GetCpu()
 	baseCpuRule, err := metrics.NewCpuRule(
 		c.GetNodeCoreFilters(),
 		c.GetCpuStates(),
@@ -226,7 +239,14 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := NewCortexAlertingRule(conditionId, alertName, c, nil, baseCpuRule)
+	cpuRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+		map[string]string{
+			cond.Namespace(): conditionId,
+		},
+		map[string]string{
+			"opni_name": cond.Name,
+		},
+		c, nil, baseCpuRule)
 	if err != nil {
 		return err
 	}
@@ -244,7 +264,8 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	return err
 }
 
-func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *alertingv1.AlertConditionMemorySaturation, conditionId, alertName string) error {
+func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, cond *alertingv1.AlertCondition, conditionId, alertName string) error {
+	m := cond.GetAlertType().GetMemory()
 	baseMemRule, err := metrics.NewMemRule(
 		m.GetNodeMemoryFilters(),
 		m.UsageTypes,
@@ -256,7 +277,17 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := NewCortexAlertingRule(conditionId, alertName, m, nil, baseMemRule)
+	memRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+		map[string]string{
+			cond.Namespace(): conditionId,
+		},
+		map[string]string{
+			"opni_name": cond.Name,
+		},
+		m,
+		nil,
+		baseMemRule,
+	)
 	if err != nil {
 		return err
 	}
@@ -274,7 +305,8 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, m *ale
 	return err
 }
 
-func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alertingv1.AlertConditionFilesystemSaturation, conditionId, alertName string) error {
+func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, cond *alertingv1.AlertCondition, conditionId, alertName string) error {
+	fs := cond.GetAlertType().GetFs()
 	baseFsRule, err := metrics.NewFsRule(
 		fs.GetNodeFilters(),
 		fs.GetOperation(),
@@ -285,7 +317,19 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := NewCortexAlertingRule(conditionId, alertName, fs, nil, baseFsRule)
+	fsRuleContent, err := cortex.NewCortexAlertingRule(
+		conditionId,
+		alertName,
+		map[string]string{
+			cond.Namespace(): conditionId,
+		},
+		map[string]string{
+			"opni_name": cond.Name,
+		},
+		fs,
+		nil,
+		baseFsRule,
+	)
 	if err != nil {
 		return err
 	}
@@ -303,7 +347,8 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, fs *alerti
 	return err
 }
 
-func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *alertingv1.AlertConditionPrometheusQuery, conditionId, alertName string) error {
+func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *alertingv1.AlertCondition, conditionId, alertName string) error {
+	q := cond.GetAlertType().GetPrometheusQuery()
 	dur := model.Duration(q.GetFor().AsDuration())
 	baseRule := &metrics.AlertingRule{
 		Alert:       "",
@@ -313,7 +358,14 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := NewCortexAlertingRule(conditionId, alertName, q, nil, baseRule)
+	baseRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+		map[string]string{
+			cond.Namespace(): conditionId,
+		},
+		map[string]string{
+			"opni_name": cond.Name,
+		},
+		q, nil, baseRule)
 	if err != nil {
 		return err
 	}
@@ -331,7 +383,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, q *aler
 	return err
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionSystem) error {
+func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionSystem) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -354,11 +406,11 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 			evaluateDuration: condition.GetTimeout().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  NewAgentDurableReplayConsumer(agentId),
+			streamSubject:    NewAgentStreamSubject(agentId),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
@@ -366,16 +418,22 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
 				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},
@@ -397,7 +455,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName string, cond
 	return nil
 }
 
-func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionDownstreamCapability) error {
+func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionDownstreamCapability) error {
 	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -419,11 +477,11 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: NewAgentDurableReplayConsumer(agentId),
-			streamSubject:   NewAgentStreamSubject(agentId),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  NewAgentDurableReplayConsumer(agentId),
+			streamSubject:    NewAgentStreamSubject(agentId),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
@@ -440,20 +498,25 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 							break
 						}
 					}
-
 				}
 				return healthy, h.HealthStatus.Status.Timestamp
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},
@@ -592,7 +655,7 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 	return true, ts
 }
 
-func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, condition *alertingv1.AlertConditionMonitoringBackend) error {
+func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionMonitoringBackend) error {
 	lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
@@ -614,28 +677,34 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName string, 
 			evaluateDuration: condition.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
-			js:              p.js.Get(),
-			durableConsumer: nil,
-			streamSubject:   NewCortexStatusSubject(),
-			storageNode:     p.storageNode,
-			msgCh:           make(chan *nats.Msg, 32),
+			js:               p.js.Get(),
+			durableConsumer:  nil,
+			streamSubject:    NewCortexStatusSubject(),
+			storageClientSet: p.storageClientSet.Get(),
+			msgCh:            make(chan *nats.Msg, 32),
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
 			},
-			triggerHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
-			resolveHook: func(ctx context.Context, conditionId string, labels map[string]string) {
+			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				lg.Debug("resolve cortex status condition")
 				_, _ = p.ResolveAlerts(ctx, &alertingv1.ResolveAlertsRequest{
-					ConditionId: &corev1.Reference{Id: conditionId},
-					Annotations: labels,
+					ConditionId:   &corev1.Reference{Id: conditionId},
+					ConditionName: conditionName,
+					Namespace:     namespace,
+					Labels:        labels,
+					Annotations:   annotations,
 				})
 			},
 		},

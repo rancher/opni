@@ -1,0 +1,55 @@
+global:
+  pagerduty_url: https://events.pagerduty.com/v2/enqueue
+  resolve_timeout: 5m
+receivers:
+- name: "null"
+- name: slack
+  slack_configs:
+  - actions:
+    - text: 'Runbook :green_book:'
+      type: button
+      url: '{{ (index .Alerts 0).Annotations.runbook }}'
+    - text: 'Query :mag:'
+      type: button
+      url: '{{ (index .Alerts 0).GeneratorURL }}'
+    - text: 'Dashboard :grafana:'
+      type: button
+      url: '{{ (index .Alerts 0).Annotations.dashboard }}'
+    - text: 'Silence :no_bell:'
+      type: button
+      url: '{{ template "__alert_silence_link" . }}'
+    - text: '{{ template "slack.monzo.link_button_text" . }}'
+      type: button
+      url: '{{ .CommonAnnotations.link_url }}'
+    api_url: https://REDACTED.slack.com
+    channel: '#redacted-channel'
+    color: '{{ template "slack.monzo.color" . }}'
+    icon_emoji: '{{ template "slack.monzo.icon_emoji" . }}'
+    send_resolved: true
+    text: '{{ template "slack.monzo.text" . }}'
+    title: '{{ template "slack.monzo.title" . }}'
+- name: pagerduty
+  pagerduty_configs:
+  - send_resolved: true
+    service_key: https://REDACTED.service.pagerduty.com
+route:
+  group_by:
+  - job
+  group_interval: 5m
+  group_wait: 30s
+  receiver: "null"
+  repeat_interval: 12h
+  routes:
+  - match:
+      alertname: Watchdog
+    receiver: "null"
+  - continue: true
+    match_re:
+      severity: critical|warning
+    receiver: slack
+  - continue: true
+    match_re:
+      severity: critical
+    receiver: pagerduty
+templates:
+- /etc/alertmanager/config/*.tmpl%

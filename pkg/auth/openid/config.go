@@ -21,6 +21,7 @@ type WellKnownConfiguration struct {
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported,omitempty"`
 	ClaimsSupported                   []string `json:"claims_supported,omitempty"`
 	RequestURIParameterSupported      bool     `json:"request_uri_parameter_supported,omitempty"`
+	EndSessionEndpoint                string   `json:"end_session_endpoint,omitempty"`
 }
 
 type OpenidConfig struct {

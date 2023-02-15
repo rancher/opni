@@ -3,10 +3,10 @@ package metrics_test
 import (
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -28,7 +28,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 
@@ -42,7 +42,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 
@@ -55,7 +55,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 
@@ -71,7 +71,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 
@@ -87,7 +87,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 
@@ -102,7 +102,7 @@ var _ = Describe("compute alerting options pipeline & compute alerts constructio
 				map[string]string{},
 			)
 			Expect(err).To(Succeed())
-			_, err = rule.Build(uuid.New().String())
+			_, err = rule.Build(shared.NewAlertingRefId())
 			Expect(err).To(Succeed())
 		})
 	})

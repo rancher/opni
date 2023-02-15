@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/backend"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-
 	"emperror.dev/errors"
 
 	"github.com/prometheus/common/model"
@@ -23,66 +19,6 @@ import (
 )
 
 var instantMaskDisabled = true
-
-func createRoutingNode(ctx context.Context, p *Plugin, req *alertingv1.AttachedEndpoints, alertId string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
-	defer cancelFunc()
-	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
-	if err != nil {
-		return err
-	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, alertId)
-	if err != nil {
-		p.logger.Error(err)
-		return err
-	}
-	_, err = alertEndpointClient.CreateConditionRoutingNode(ctx, routingNode)
-	if err != nil {
-		p.logger.Error(err)
-	}
-	return nil
-}
-
-func updateRoutingNode(ctx context.Context, p *Plugin, req *alertingv1.AttachedEndpoints, alertId string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
-	defer cancelFunc()
-	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	eList, err := alertEndpointClient.ListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
-	if err != nil {
-		return err
-	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, alertId)
-	if err != nil {
-		p.logger.Error(err)
-		return err
-	}
-	_, err = alertEndpointClient.UpdateConditionRoutingNode(ctx, routingNode)
-	if err != nil {
-		p.logger.Error(err)
-	}
-	return nil
-}
-
-func deleteRoutingNode(ctx context.Context, p *Plugin, alertId string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Second)
-	defer cancelFunc()
-	alertEndpointClient, err := p.alertEndpointClient.GetContext(ctxTimeout)
-	if err != nil {
-		return err
-	}
-	_, err = alertEndpointClient.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: alertId})
-	if err != nil {
-		p.logger.Error(err)
-	}
-	return nil
-}
 
 func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, ruleId string) error {
 	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debugf("creating grafana mask")

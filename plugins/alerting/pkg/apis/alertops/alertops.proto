@@ -3,6 +3,7 @@ option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/sidecar.proto";
 import "google/api/annotations.proto";
 
 package alerting.ops;
@@ -34,44 +35,27 @@ service AlertingAdmin {
       post: "/install"
     };
   }
-  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc UninstallCluster(UninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/uninstall"
     };
   }
 }
 
-// !! opni alerting internal only server
-// Service implemented by the alerting cluster driver
-// to rollout updates to the alert manager config map 
-service DynamicAlerting {
-  rpc Fetch(google.protobuf.Empty) returns (AlertingConfig) {
-    option (google.api.http) = {
-      get: "/fetch"
-    };
-  }
-
-  rpc Update(AlertingConfig) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/update"
-      body: "*"
-    };
-  }
-
-  rpc Reload(ReloadInfo) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/reload"
-    };
-  }
+service ConfigReconciler {
+  rpc ConnectRemoteSyncer(ConnectRequest) returns (stream SyncRequest) {}
 }
 
-message ReloadInfo{
-  string updatedConfig = 1; 
+message ConnectRequest{
+  string lifecycleUuid = 1;
 }
 
-message AlertingConfig{
-  string rawAlertManagerConfig = 1;
-  string rawInternalRouting = 2;
+message SyncRequest {
+  repeated alerting.PutConfigRequest items = 1;
+}
+
+message UninstallRequest {
+  bool deleteData = 1;
 }
 
 enum InstallState {

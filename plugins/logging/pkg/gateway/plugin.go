@@ -33,11 +33,14 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	OpensearchBindingName = "opni-logging"
+	OpensearchBindingName    = "opni-logging"
+	OpniPreprocessingAddress = "opni-preprocess-otel"
+	OpniPreprocessingPort    = 4317
 )
 
 type Plugin struct {
@@ -55,6 +58,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
+	otelForwarder       *loggingutil.OTELForwarder
 }
 
 type PluginOptions struct {
@@ -160,6 +164,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
+		otelForwarder: loggingutil.NewOTELForwarder(
+			loggingutil.WithLogger(lg.Named("otel-forwarder")),
+			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
+		),
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -226,12 +234,15 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
-	if p.opensearchManager.ShouldCreateInitialAdmin() {
-		err = loggingManager.createInitialAdmin()
-		if err != nil {
-			p.logger.Warnf("failed to create initial admin: %v", err)
+	if state := p.logging.ClusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
+		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
+		if p.opensearchManager.ShouldCreateInitialAdmin() {
+			err = loggingManager.createInitialAdmin()
+			if err != nil {
+				p.logger.Warnf("failed to create initial admin: %v", err)
+			}
 		}
+		p.otelForwarder.BackgroundInitClient()
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
@@ -260,5 +271,6 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,
 		versionOverride:   p.version,
+		otelForwarder:     p.otelForwarder,
 	}
 }

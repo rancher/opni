@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"sync"
 
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
@@ -13,6 +14,7 @@ import (
 type MetricsNodeDriver interface {
 	Name() string
 	ConfigureNode(*node.MetricsCapabilityConfig)
+	DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error)
 }
 
 var (

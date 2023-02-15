@@ -58,7 +58,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, etcdResources...)
-	configMap, err := r.configMap()
+	configMap, configDigest, err := r.configMap()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
@@ -68,7 +68,9 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, certs...)
-	deployment, err := r.deployment()
+	deployment, err := r.deployment(map[string]string{
+		"opni.io/config-digest": configDigest,
+	})
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}

@@ -1,0 +1,468 @@
+syntax = "proto3";
+package alerting;
+
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
+
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "google/rpc/status.proto";
+
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.endpoint.proto";
+
+
+
+// -------- CRUD for alerting conditions -------
+service AlertConditions {
+    rpc CreateAlertCondition(alerting.AlertCondition) returns (core.Reference) {
+    option (google.api.http) = {
+      post : "/configure"
+      body : "*"
+    };
+  }
+
+  rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
+    option (google.api.http) = {
+      post : "/list/{id}"
+      body : "*"
+    };
+  }
+
+  rpc ListAlertConditions(ListAlertConditionRequest)
+      returns (AlertConditionList) {
+    option (google.api.http) = {
+      get : "/list"
+    };
+  }
+
+  rpc UpdateAlertCondition(UpdateAlertConditionRequest)
+      returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put : "/configure"
+      body : "*"
+    };
+  }
+
+  rpc ListAlertConditionChoices(AlertDetailChoicesRequest)
+      returns (ListAlertTypeDetails) {
+      option (google.api.http) = {
+        post : "/choices"
+    };
+  }
+
+  rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete : "/configure"
+    };
+  }
+
+  rpc AlertConditionStatus(core.Reference) returns (AlertStatusResponse) {
+    option (google.api.http) = {
+      post : "/status/{id}"
+    };
+  }
+
+  rpc CloneTo(CloneToRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/clone"
+      body : "*"
+    };
+  }
+
+  //  can only active silence when alert is in firing state (limitation of alertmanager)
+  rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/silences"
+      body : "*"
+    };
+  }
+  // id corresponds to conditionId
+  rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete : "/silences"
+    };
+  }
+
+  rpc Timeline(TimelineRequest) returns (TimelineResponse) {
+    option (google.api.http) = {
+      post : "/timeline"
+    };
+  }
+}
+
+message AlertCondition {
+  string name = 1;
+  string description = 2;
+  repeated string labels = 3;
+  OpniSeverity severity = 4;
+  AlertTypeDetails alertType = 5;
+  AttachedEndpoints attachedEndpoints = 6;
+
+  // the following are read-only for consumers of the API
+  
+  SilenceInfo silence = 7;// Set & Unset via the silence API
+  // the object id 
+  google.protobuf.Timestamp lastUpdated = 8;
+  string id = 9;
+  // Explicit field where the golden signal is set
+  GoldenSignal goldenSignal = 10;
+  // overrides the String type of AlertType Details for use in the UI
+  string overrideType = 11;
+}
+
+enum AlertType {
+  System = 0;
+  KubeState = 1;
+  CpuSaturation = 2;
+  MemorySaturation = 3;
+  FsSaturation = 4;
+  DownstreamCapability = 5;
+  // Unimplemented
+  Composition = 6;
+  // Unimplemented
+  ControlFlow = 7;
+  PrometheusQuery = 9;
+  MonitoringBackend = 10;
+}
+
+enum CompositionAction {
+  AND = 0;
+  OR = 1;
+}
+
+enum ControlFlowAction {
+  IF_THEN = 0;
+  IF_NOT_THEN = 1;
+}
+
+enum AlertConditionState {
+  Unkown = 0;
+  Ok = 1;
+  Firing = 2;
+  Silenced = 3;
+  Invalidated = 4;
+  Pending = 5;
+}
+
+// enum will map to an object of available choices
+message AlertDetailChoicesRequest {
+  AlertType alertType = 1;
+}
+
+message AlertDetailChoicesResponse {
+  repeated AlertTypeDetails choices = 1;
+}
+
+message AlertTypeDetails {
+  oneof type {
+    // agent disconnect : golden signal -> errors
+    AlertConditionSystem system = 1;
+    // kube state : golden signal -> errors
+    AlertConditionKubeState kubeState = 2;
+    // not implemented
+    AlertConditionComposition composition = 3;
+    // not implemented
+    AlertConditionControlFlow controlFlow = 4;
+    // cpu saturation : golden signal -> saturation
+    AlertConditionCPUSaturation cpu = 5;
+    // memory saturation : golden signal -> saturation
+    AlertConditionMemorySaturation memory = 6;
+    // fs saturation : golden signal -> saturation
+    AlertConditionFilesystemSaturation fs = 8;
+    // no golden signal; custom
+    AlertConditionPrometheusQuery prometheusQuery = 9;
+    // agent downstream capability alerts
+    AlertConditionDownstreamCapability downstreamCapability = 10;
+    // monitoring backend alerts
+    AlertConditionMonitoringBackend monitoringBackend = 11;
+  }
+}
+
+message ListAlertTypeDetails {
+  oneof type {
+    ListAlertConditionSystem system = 1;
+    ListAlertConditionKubeState kubeState = 2;
+    ListAlertConditionComposition composition = 3;
+    ListAlertConditionControlFlow controlFlow = 4;
+    ListAlertConditionCPUSaturation cpu = 5;
+    ListAlertConditionMemorySaturation memory = 6;
+    ListAlertConditionFilesystemSaturation fs = 7;
+    ListAlertConditionDownstreamCapability downstreamCapability = 8;
+    ListAlertConditionPrometheusQuery prometheusQuery = 9;
+    ListAlertConditionMonitoringBackend monitoringBackend = 10;
+  }
+}
+
+message ListAlertConditionPrometheusQuery{
+  repeated string clusters = 1;
+}
+
+message AlertConditionSystem {
+  // same as clusterId
+  core.Reference clusterId = 1;
+  // after how long should we alert on disconnect?
+  google.protobuf.Duration timeout = 2;
+}
+
+message ListAlertConditionSystem {
+  // clusters we can apply this to
+  repeated string agentIds = 1;
+}
+
+// Requires kube state metrics, otherwise the list of choices will be empty
+message AlertConditionKubeState {
+  string clusterId = 1;
+  // must be one of the listed kube objects
+  string objectType = 2;
+  // kubernetes object name
+  string objectName = 3;
+  // kubernetes namespace
+  string namespace = 4;
+  // must be one of the listed kube states
+  string state = 5;
+  google.protobuf.Duration for = 6;
+}
+
+// clusters --> resourceType --> namespace --> resourceName
+message ListAlertConditionKubeState {
+  map<string, KubeObjectGroups> clusters = 1;
+  repeated string states = 2;
+  repeated google.protobuf.Duration fors = 3;
+}
+
+// Defaults :
+// - cpuState : "user", "system", "guest" selected
+message AlertConditionCPUSaturation {
+  core.Reference clusterId = 1;
+  // optional filters for nodes and cores, restrict observation to said nodes or cores,
+  // if empty, all nodes and cores are selected
+  map<string, Cores> nodeCoreFilters = 2;
+  // at least one cpu state should be specified
+  repeated string cpuStates = 3;
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
+  float expectedRatio = 5; // 0-1
+  google.protobuf.Duration for = 6;
+}
+
+message Cores {
+  repeated int64 items = 1;
+}
+
+message ListAlertConditionCPUSaturation {
+// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
+  map<string, CpuNodeGroup> clusters = 1;
+  // cpu state, one of : 
+  // "user": The time spent in userland
+  // "system": The time spent in the kernel
+  // "iowait": Time spent waiting for I/O
+  // "idle": Time the CPU had nothing to do
+  // "irq" : Time servicing interrupts
+  // "softirq": Time servicing interrupts
+  // "guest" : If you are running VMs, the CPU they use
+  // "steal" : If you are a VM, time other VMs "stole" from your CPUs
+  repeated string cpuStates = 2;
+}
+
+message CpuNodeGroup {
+  map<string, CpuInfo> nodes = 1;
+}
+
+message CpuInfo {
+  // cores
+  repeated int64 coreIds = 1;
+}
+
+message AlertConditionMemorySaturation {
+  core.Reference clusterId = 1;
+  map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices
+  // at least one usageType is required
+  repeated string usageTypes =3;
+  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
+  double expectedRatio = 5;
+  google.protobuf.Duration for =6;
+}
+
+message ListAlertConditionMemorySaturation {
+  map<string, MemoryNodeGroup> clusters = 1;
+  repeated string usageTypes = 2;
+}
+
+message MemoryNodeGroup {
+  map<string, MemoryInfo> nodes = 1;
+}
+
+message MemoryInfo {
+  repeated string devices = 2;
+}
+
+message AlertConditionFilesystemSaturation {
+  core.Reference clusterId  = 1;
+  // optional filters, if none are set then everything is selected
+  map<string, FilesystemInfo> nodeFilters = 2;
+  string operation = 3; // one of "<", ">", "<=", ">=", "=". "!="
+  double expectedRatio = 4; // 0-1
+  google.protobuf.Duration for = 5;
+}
+
+message ListAlertConditionFilesystemSaturation {
+  map<string, FilesystemNodeGroup> clusters = 1;
+}
+
+message FilesystemNodeGroup {
+  map<string, FilesystemInfo> nodes = 1;
+}
+
+message FilesystemInfo {
+  repeated string mountpoints = 1;
+  repeated string devices = 2;
+}
+
+message AlertConditionPrometheusQuery{
+  core.Reference clusterId = 1;
+  string query = 2;
+  google.protobuf.Duration for = 3;
+}
+
+message AlertConditionDownstreamCapability{
+  core.Reference clusterId = 1;
+  repeated string capabilityState = 2;
+  google.protobuf.Duration for = 3;
+}
+
+message ListAlertConditionDownstreamCapability{
+  map<string, CapabilityState> clusters = 1; 
+}
+
+message CapabilityState{
+  repeated string states = 1;
+}
+
+message AlertConditionMonitoringBackend{
+  // this will alert if these any of these components are unhealthy
+  repeated string backendComponents = 1;
+  google.protobuf.Duration for = 2;
+  core.Reference clusterId = 3;
+}
+
+message ListAlertConditionMonitoringBackend{
+  repeated string backendComponents = 1;
+}
+
+message StringArray {
+  repeated string items = 1;
+}
+
+message ObjectList {
+  repeated string objects = 1;
+}
+
+message NamespaceObjects {
+  map<string, ObjectList> namespaces = 1;
+}
+
+message KubeObjectGroups {
+  map<string, NamespaceObjects> resourceTypes = 1;
+}
+
+message ListSelectAlertInfo {
+  AlertType alertType = 1;
+}
+
+message AlertConditionList {
+  repeated AlertConditionWithId items = 1;
+}
+
+message AlertConditionComposition {
+  CompositionAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
+}
+
+message ListAlertConditionComposition {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+}
+
+message AlertConditionControlFlow {
+  ControlFlowAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
+  google.protobuf.Duration for = 4;
+}
+
+message ListAlertConditionControlFlow {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+  repeated google.protobuf.Duration fors = 3;
+}
+
+message AlertConditionWithId {
+  core.Reference id = 1;
+  AlertCondition alertCondition = 2;
+}
+
+message ListAlertConditionRequest {}
+
+message UpdateAlertConditionRequest {
+  core.Reference id = 1;
+  AlertCondition updateAlert = 2;
+}
+
+message SilenceRequest {
+  core.Reference conditionId = 1;
+  google.protobuf.Duration duration = 2;
+}
+
+message SilenceInfo {
+  string silenceId = 1;
+  google.protobuf.Timestamp startsAt = 2;
+  google.protobuf.Timestamp endsAt = 3;
+}
+
+message AlertStatusResponse {
+  AlertConditionState state = 1;
+}
+
+
+
+enum TimelineType {
+  // do not show, backend error 
+  Timeline_Unknown = 0;
+  // red
+  Timeline_Alerting = 1;
+  // blue?
+  Timeline_Silenced = 2;
+}
+
+// query for status timeline page
+message TimelineRequest {
+  google.protobuf.Duration lookbackWindow = 1;
+}
+
+// maps conditionId => list of active windows
+message TimelineResponse {
+  map<string, ActiveWindows> items = 1;
+}
+
+message ActiveWindow {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  TimelineType type = 3;
+}
+
+message ActiveWindows {
+  repeated ActiveWindow windows = 1;
+}
+
+message CloneToRequest {
+  AlertCondition alertCondition = 1;
+  repeated string toClusters = 2;
+}

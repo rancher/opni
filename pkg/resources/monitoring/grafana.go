@@ -312,6 +312,9 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			TLSClientKey:          spec.TLSClientKey,
 			TLSClientCa:           spec.TLSClientCA,
 		}
+		if wkc.EndSessionEndpoint != "" {
+			grafana.Spec.Config.Auth.SignoutRedirectUrl = wkc.EndSessionEndpoint
+		}
 
 		if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
 			r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))

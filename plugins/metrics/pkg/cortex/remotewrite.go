@@ -50,6 +50,7 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	if !f.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
+
 	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")

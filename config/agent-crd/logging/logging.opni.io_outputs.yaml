@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.6.0
   creationTimestamp: null
   name: outputs.logging.opni.io
 spec:
@@ -41,6 +41,41 @@ spec:
             properties:
               awsElasticsearch:
                 properties:
+                  api_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  application_name:
+                    type: string
                   buffer:
                     properties:
                       chunk_full_threshold:
@@ -54,6 +89,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -108,6 +145,164 @@ spec:
                       type:
                         type: string
                     type: object
+                  bulk_message_request_threshold:
+                    type: string
+                  ca_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_cert:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key_pass:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  content_type:
+                    type: string
+                  custom_headers:
+                    type: string
+                  customize_template:
+                    type: string
+                  data_stream_enable:
+                    type: boolean
+                  data_stream_ilm_name:
+                    type: string
+                  data_stream_ilm_policy:
+                    type: string
+                  data_stream_ilm_policy_overwrite:
+                    type: boolean
+                  data_stream_name:
+                    type: string
+                  data_stream_template_name:
+                    type: string
+                  default_elasticsearch_version:
+                    type: string
+                  deflector_alias:
+                    type: string
+                  enable_ilm:
+                    type: boolean
                   endpoint:
                     properties:
                       access_key_id:
@@ -346,6 +541,16 @@ spec:
                       url:
                         type: string
                     type: object
+                  exception_backup:
+                    type: boolean
+                  fail_on_detecting_es_version_retry_exceed:
+                    type: boolean
+                  fail_on_putting_template_retry_exceed:
+                    type: boolean
+                  flatten_hashes:
+                    type: boolean
+                  flatten_hashes_separator:
+                    type: string
                   flush_interval:
                     type: string
                   format:
@@ -365,17 +570,199 @@ spec:
                         - single_value
                         type: string
                     type: object
+                  host:
+                    type: string
+                  hosts:
+                    type: string
+                  http_backend:
+                    type: string
+                  id_key:
+                    type: string
+                  ignore_exceptions:
+                    type: string
+                  ilm_policy:
+                    type: string
+                  ilm_policy_id:
+                    type: string
+                  ilm_policy_overwrite:
+                    type: boolean
+                  include_index_in_url:
+                    type: boolean
                   include_tag_key:
                     type: boolean
                   include_timestamp:
+                    type: boolean
+                  index_date_pattern:
                     type: string
                   index_name:
+                    type: string
+                  index_prefix:
+                    type: string
+                  log_es_400_reason:
+                    type: boolean
+                  logstash_dateformat:
                     type: string
                   logstash_format:
                     type: boolean
                   logstash_prefix:
                     type: string
+                  logstash_prefix_separator:
+                    type: string
+                  max_retry_get_es_version:
+                    type: string
+                  max_retry_putting_template:
+                    type: string
+                  password:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  path:
+                    type: string
+                  pipeline:
+                    type: string
+                  port:
+                    type: integer
+                  prefer_oj_serializer:
+                    type: boolean
+                  reconnect_on_error:
+                    type: boolean
+                  reload_after:
+                    type: string
+                  reload_connections:
+                    type: boolean
+                  reload_on_failure:
+                    type: boolean
+                  remove_keys:
+                    type: string
+                  remove_keys_on_update:
+                    type: string
+                  remove_keys_on_update_key:
+                    type: string
+                  request_timeout:
+                    type: string
+                  resurrect_after:
+                    type: string
+                  retry_tag:
+                    type: string
+                  rollover_index:
+                    type: boolean
+                  routing_key:
+                    type: string
+                  scheme:
+                    type: string
+                  slow_flush_log_threshold:
+                    type: string
+                  sniffer_class_name:
+                    type: string
+                  ssl_max_version:
+                    type: string
+                  ssl_min_version:
+                    type: string
+                  ssl_verify:
+                    type: boolean
+                  ssl_version:
+                    type: string
+                  suppress_doc_wrap:
+                    type: boolean
+                  suppress_type_name:
+                    type: boolean
                   tag_key:
+                    type: string
+                  target_index_key:
+                    type: string
+                  target_type_key:
+                    type: string
+                  template_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  template_name:
+                    type: string
+                  template_overwrite:
+                    type: boolean
+                  templates:
+                    type: string
+                  time_key:
+                    type: string
+                  time_key_format:
+                    type: string
+                  time_parse_error_tag:
+                    type: string
+                  time_precision:
+                    type: string
+                  type_name:
+                    type: string
+                  unrecoverable_error_types:
+                    type: string
+                  user:
+                    type: string
+                  utc_index:
+                    type: boolean
+                  validate_client_version:
+                    type: boolean
+                  verify_es_version_at_startup:
+                    type: boolean
+                  with_transporter_log:
+                    type: boolean
+                  write_operation:
                     type: string
                 type: object
               azurestorage:
@@ -501,6 +888,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -557,6 +946,8 @@ spec:
                   format:
                     type: string
                   path:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                 required:
                 - azure_container
@@ -653,6 +1044,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -776,13 +1169,13 @@ spec:
                     type: string
                   retention_in_days_key:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   use_tag_as_group:
                     type: boolean
                   use_tag_as_stream:
                     type: boolean
                 required:
-                - log_group_name
-                - log_stream_name
                 - region
                 type: object
               datadog:
@@ -833,6 +1226,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -911,6 +1306,8 @@ spec:
                     type: string
                   service:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   ssl_port:
                     type: string
                   tag_key:
@@ -978,6 +1375,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -1176,6 +1575,10 @@ spec:
                     type: boolean
                   data_stream_ilm_name:
                     type: string
+                  data_stream_ilm_policy:
+                    type: string
+                  data_stream_ilm_policy_overwrite:
+                    type: boolean
                   data_stream_name:
                     type: string
                   data_stream_template_name:
@@ -1187,6 +1590,8 @@ spec:
                   enable_ilm:
                     type: boolean
                   exception_backup:
+                    type: boolean
+                  fail_on_detecting_es_version_retry_exceed:
                     type: boolean
                   fail_on_putting_template_retry_exceed:
                     type: boolean
@@ -1285,6 +1690,8 @@ spec:
                     type: boolean
                   reload_on_failure:
                     type: boolean
+                  remove_keys:
+                    type: string
                   remove_keys_on_update:
                     type: string
                   remove_keys_on_update_key:
@@ -1300,6 +1707,8 @@ spec:
                   routing_key:
                     type: string
                   scheme:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                   sniffer_class_name:
                     type: string
@@ -1405,6 +1814,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -1483,6 +1894,8 @@ spec:
                     type: string
                   recompress:
                     type: boolean
+                  slow_flush_log_threshold:
+                    type: string
                   symlink_path:
                     type: boolean
                 required:
@@ -1505,6 +1918,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -1717,6 +2132,8 @@ spec:
                       - host
                       type: object
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   tls_allow_self_signed_cert:
                     type: boolean
                   tls_cert_logical_store_name:
@@ -1865,6 +2282,8 @@ spec:
                     type: boolean
                   tls_version:
                     type: string
+                  transport:
+                    type: string
                   verify_connection_at_startup:
                     type: boolean
                 required:
@@ -1891,6 +2310,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -2025,6 +2446,8 @@ spec:
                     type: string
                   project:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   storage_class:
                     type: string
                   store_as:
@@ -2141,6 +2564,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -2235,6 +2660,8 @@ spec:
                     items:
                       type: integer
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   ssl_timeout:
                     type: integer
                   tls_ca_cert_path:
@@ -2398,6 +2825,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -2500,6 +2929,39 @@ spec:
                     type: integer
                   kafka_agg_max_messages:
                     type: integer
+                  keytab:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
                   max_send_retries:
                     type: integer
                   message_key_key:
@@ -2541,11 +3003,15 @@ spec:
                             type: object
                         type: object
                     type: object
+                  principal:
+                    type: string
                   required_acks:
                     type: integer
                   sasl_over_ssl:
                     type: boolean
                   scram_mechanism:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                   ssl_ca_cert:
                     properties:
@@ -2861,6 +3327,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -2946,6 +3414,8 @@ spec:
                     type: boolean
                   retries_on_batch_request:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   stream_name:
                     type: string
                 required:
@@ -2970,6 +3440,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -3032,6 +3504,8 @@ spec:
                     type: string
                   request_timeout:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   tags:
                     type: string
                 required:
@@ -3055,6 +3529,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -3109,6 +3585,10 @@ spec:
                       type:
                         type: string
                     type: object
+                  bulk_limit:
+                    type: integer
+                  bulk_limit_warning_limit:
+                    type: integer
                   endpoint:
                     properties:
                       port:
@@ -3161,6 +3641,8 @@ spec:
                     type: integer
                   retry_sleep:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                 required:
                 - endpoint
                 type: object
@@ -3179,6 +3661,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -3309,6 +3793,8 @@ spec:
                     type: object
                   extract_kubernetes_labels:
                     type: boolean
+                  include_thread_label:
+                    type: boolean
                   insecure_tls:
                     type: boolean
                   key:
@@ -3387,6 +3873,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   tenant:
                     type: string
                   url:
@@ -3498,6 +3986,434 @@ spec:
                 type: object
               nullout:
                 type: object
+              opensearch:
+                properties:
+                  application_name:
+                    type: string
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      disabled:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  bulk_message_request_threshold:
+                    type: string
+                  ca_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  catch_transport_exception_on_retry:
+                    type: boolean
+                  client_cert:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key_pass:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  compression_level:
+                    type: string
+                  custom_headers:
+                    type: string
+                  customize_template:
+                    type: string
+                  data_stream_enable:
+                    type: boolean
+                  data_stream_name:
+                    type: string
+                  data_stream_template_name:
+                    type: string
+                  default_opensearch_version:
+                    type: integer
+                  emit_error_for_missing_id:
+                    type: boolean
+                  emit_error_label_event:
+                    type: boolean
+                  exception_backup:
+                    type: boolean
+                  fail_on_detecting_os_version_retry_exceed:
+                    type: boolean
+                  fail_on_putting_template_retry_exceed:
+                    type: boolean
+                  flatten_hashes:
+                    type: boolean
+                  flatten_hashes_separator:
+                    type: string
+                  host:
+                    type: string
+                  hosts:
+                    type: string
+                  http_backend:
+                    type: string
+                  http_backend_excon_nonblock:
+                    type: boolean
+                  id_key:
+                    type: string
+                  ignore_exceptions:
+                    type: string
+                  include_index_in_url:
+                    type: boolean
+                  include_tag_key:
+                    type: boolean
+                  include_timestamp:
+                    type: boolean
+                  index_date_pattern:
+                    type: string
+                  index_name:
+                    type: string
+                  index_separator:
+                    type: string
+                  log_os_400_reason:
+                    type: boolean
+                  logstash_dateformat:
+                    type: string
+                  logstash_format:
+                    type: boolean
+                  logstash_prefix:
+                    type: string
+                  logstash_prefix_separator:
+                    type: string
+                  max_retry_get_os_version:
+                    type: integer
+                  max_retry_putting_template:
+                    type: string
+                  parent_key:
+                    type: string
+                  password:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  path:
+                    type: string
+                  pipeline:
+                    type: string
+                  port:
+                    type: integer
+                  prefer_oj_serializer:
+                    type: boolean
+                  reconnect_on_error:
+                    type: boolean
+                  reload_after:
+                    type: string
+                  reload_connections:
+                    type: boolean
+                  reload_on_failure:
+                    type: boolean
+                  remove_keys_on_update:
+                    type: string
+                  remove_keys_on_update_key:
+                    type: string
+                  request_timeout:
+                    type: string
+                  resurrect_after:
+                    type: string
+                  retry_tag:
+                    type: string
+                  routing_key:
+                    type: string
+                  scheme:
+                    type: string
+                  selector_class_name:
+                    type: string
+                  slow_flush_log_threshold:
+                    type: string
+                  sniffer_class_name:
+                    type: string
+                  ssl_verify:
+                    type: boolean
+                  suppress_doc_wrap:
+                    type: boolean
+                  suppress_type_name:
+                    type: boolean
+                  tag_key:
+                    type: string
+                  target_index_affinity:
+                    type: boolean
+                  target_index_key:
+                    type: string
+                  template_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  template_name:
+                    type: string
+                  template_overwrite:
+                    type: boolean
+                  templates:
+                    type: string
+                  time_key:
+                    type: string
+                  time_key_exclude_timestamp:
+                    type: boolean
+                  time_key_format:
+                    type: string
+                  time_parse_error_tag:
+                    type: string
+                  time_precision:
+                    type: string
+                  truncate_caches_interval:
+                    type: string
+                  unrecoverable_error_types:
+                    type: string
+                  unrecoverable_record_types:
+                    type: string
+                  use_legacy_template:
+                    type: boolean
+                  user:
+                    type: string
+                  utc_index:
+                    type: boolean
+                  validate_client_version:
+                    type: boolean
+                  verify_os_version_at_startup:
+                    type: boolean
+                  with_transporter_log:
+                    type: boolean
+                  write_operation:
+                    type: string
+                type: object
               oss:
                 properties:
                   aaccess_key_secret:
@@ -3583,6 +4499,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -3678,6 +4596,8 @@ spec:
                     type: string
                   read_timeout:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   store_as:
                     type: string
                   upload_crc_enable:
@@ -3707,6 +4627,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -3819,6 +4741,8 @@ spec:
                     type: object
                   port:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   strftime_format:
                     type: string
                   ttl:
@@ -3927,6 +4851,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -4079,6 +5005,8 @@ spec:
                     type: object
                   signature_version:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   sse_customer_algorithm:
                     type: string
                   sse_customer_key:
@@ -4117,6 +5045,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -4393,6 +5323,8 @@ spec:
                     type: string
                   read_timeout:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   source:
                     type: string
                   source_key:
@@ -4489,6 +5421,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -4554,6 +5488,8 @@ spec:
                     type: string
                   region:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   sqs_url:
                     type: string
                   tag_property_name:
@@ -4576,6 +5512,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -4689,6 +5627,8 @@ spec:
                     type: integer
                   proxy_uri:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   source_category:
                     type: string
                   source_host:
@@ -4709,6 +5649,8 @@ spec:
                 type: object
               syslog:
                 properties:
+                  allow_self_signed_cert:
+                    type: boolean
                   buffer:
                     properties:
                       chunk_full_threshold:
@@ -4722,6 +5664,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -4776,6 +5720,41 @@ spec:
                       type:
                         type: string
                     type: object
+                  client_cert_path:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  enable_system_cert_store:
+                    type: boolean
                   format:
                     properties:
                       app_name_field:
@@ -4803,12 +5782,82 @@ spec:
                         - single_value
                         type: string
                     type: object
+                  fqdn:
+                    type: string
                   host:
                     type: string
                   insecure:
                     type: boolean
                   port:
                     type: integer
+                  private_key_passphrase:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  private_key_path:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  slow_flush_log_threshold:
+                    type: string
                   transport:
                     type: string
                   trusted_ca_path:
@@ -4844,6 +5893,10 @@ spec:
                             type: object
                         type: object
                     type: object
+                  verify_fqdn:
+                    type: boolean
+                  version:
+                    type: string
                 required:
                 - host
                 type: object
@@ -4887,6 +5940,41 @@ spec:
             properties:
               awsElasticsearch:
                 properties:
+                  api_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  application_name:
+                    type: string
                   buffer:
                     properties:
                       chunk_full_threshold:
@@ -4900,6 +5988,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -4954,6 +6044,164 @@ spec:
                       type:
                         type: string
                     type: object
+                  bulk_message_request_threshold:
+                    type: string
+                  ca_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_cert:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key_pass:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  content_type:
+                    type: string
+                  custom_headers:
+                    type: string
+                  customize_template:
+                    type: string
+                  data_stream_enable:
+                    type: boolean
+                  data_stream_ilm_name:
+                    type: string
+                  data_stream_ilm_policy:
+                    type: string
+                  data_stream_ilm_policy_overwrite:
+                    type: boolean
+                  data_stream_name:
+                    type: string
+                  data_stream_template_name:
+                    type: string
+                  default_elasticsearch_version:
+                    type: string
+                  deflector_alias:
+                    type: string
+                  enable_ilm:
+                    type: boolean
                   endpoint:
                     properties:
                       access_key_id:
@@ -5192,6 +6440,16 @@ spec:
                       url:
                         type: string
                     type: object
+                  exception_backup:
+                    type: boolean
+                  fail_on_detecting_es_version_retry_exceed:
+                    type: boolean
+                  fail_on_putting_template_retry_exceed:
+                    type: boolean
+                  flatten_hashes:
+                    type: boolean
+                  flatten_hashes_separator:
+                    type: string
                   flush_interval:
                     type: string
                   format:
@@ -5211,17 +6469,199 @@ spec:
                         - single_value
                         type: string
                     type: object
+                  host:
+                    type: string
+                  hosts:
+                    type: string
+                  http_backend:
+                    type: string
+                  id_key:
+                    type: string
+                  ignore_exceptions:
+                    type: string
+                  ilm_policy:
+                    type: string
+                  ilm_policy_id:
+                    type: string
+                  ilm_policy_overwrite:
+                    type: boolean
+                  include_index_in_url:
+                    type: boolean
                   include_tag_key:
                     type: boolean
                   include_timestamp:
+                    type: boolean
+                  index_date_pattern:
                     type: string
                   index_name:
+                    type: string
+                  index_prefix:
+                    type: string
+                  log_es_400_reason:
+                    type: boolean
+                  logstash_dateformat:
                     type: string
                   logstash_format:
                     type: boolean
                   logstash_prefix:
                     type: string
+                  logstash_prefix_separator:
+                    type: string
+                  max_retry_get_es_version:
+                    type: string
+                  max_retry_putting_template:
+                    type: string
+                  password:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  path:
+                    type: string
+                  pipeline:
+                    type: string
+                  port:
+                    type: integer
+                  prefer_oj_serializer:
+                    type: boolean
+                  reconnect_on_error:
+                    type: boolean
+                  reload_after:
+                    type: string
+                  reload_connections:
+                    type: boolean
+                  reload_on_failure:
+                    type: boolean
+                  remove_keys:
+                    type: string
+                  remove_keys_on_update:
+                    type: string
+                  remove_keys_on_update_key:
+                    type: string
+                  request_timeout:
+                    type: string
+                  resurrect_after:
+                    type: string
+                  retry_tag:
+                    type: string
+                  rollover_index:
+                    type: boolean
+                  routing_key:
+                    type: string
+                  scheme:
+                    type: string
+                  slow_flush_log_threshold:
+                    type: string
+                  sniffer_class_name:
+                    type: string
+                  ssl_max_version:
+                    type: string
+                  ssl_min_version:
+                    type: string
+                  ssl_verify:
+                    type: boolean
+                  ssl_version:
+                    type: string
+                  suppress_doc_wrap:
+                    type: boolean
+                  suppress_type_name:
+                    type: boolean
                   tag_key:
+                    type: string
+                  target_index_key:
+                    type: string
+                  target_type_key:
+                    type: string
+                  template_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  template_name:
+                    type: string
+                  template_overwrite:
+                    type: boolean
+                  templates:
+                    type: string
+                  time_key:
+                    type: string
+                  time_key_format:
+                    type: string
+                  time_parse_error_tag:
+                    type: string
+                  time_precision:
+                    type: string
+                  type_name:
+                    type: string
+                  unrecoverable_error_types:
+                    type: string
+                  user:
+                    type: string
+                  utc_index:
+                    type: boolean
+                  validate_client_version:
+                    type: boolean
+                  verify_es_version_at_startup:
+                    type: boolean
+                  with_transporter_log:
+                    type: boolean
+                  write_operation:
                     type: string
                 type: object
               azurestorage:
@@ -5347,6 +6787,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -5403,6 +6845,8 @@ spec:
                   format:
                     type: string
                   path:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                 required:
                 - azure_container
@@ -5499,6 +6943,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -5622,13 +7068,13 @@ spec:
                     type: string
                   retention_in_days_key:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   use_tag_as_group:
                     type: boolean
                   use_tag_as_stream:
                     type: boolean
                 required:
-                - log_group_name
-                - log_stream_name
                 - region
                 type: object
               datadog:
@@ -5679,6 +7125,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -5757,6 +7205,8 @@ spec:
                     type: string
                   service:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   ssl_port:
                     type: string
                   tag_key:
@@ -5824,6 +7274,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -6022,6 +7474,10 @@ spec:
                     type: boolean
                   data_stream_ilm_name:
                     type: string
+                  data_stream_ilm_policy:
+                    type: string
+                  data_stream_ilm_policy_overwrite:
+                    type: boolean
                   data_stream_name:
                     type: string
                   data_stream_template_name:
@@ -6033,6 +7489,8 @@ spec:
                   enable_ilm:
                     type: boolean
                   exception_backup:
+                    type: boolean
+                  fail_on_detecting_es_version_retry_exceed:
                     type: boolean
                   fail_on_putting_template_retry_exceed:
                     type: boolean
@@ -6131,6 +7589,8 @@ spec:
                     type: boolean
                   reload_on_failure:
                     type: boolean
+                  remove_keys:
+                    type: string
                   remove_keys_on_update:
                     type: string
                   remove_keys_on_update_key:
@@ -6146,6 +7606,8 @@ spec:
                   routing_key:
                     type: string
                   scheme:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                   sniffer_class_name:
                     type: string
@@ -6251,6 +7713,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -6329,6 +7793,8 @@ spec:
                     type: string
                   recompress:
                     type: boolean
+                  slow_flush_log_threshold:
+                    type: string
                   symlink_path:
                     type: boolean
                 required:
@@ -6351,6 +7817,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -6563,6 +8031,8 @@ spec:
                       - host
                       type: object
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   tls_allow_self_signed_cert:
                     type: boolean
                   tls_cert_logical_store_name:
@@ -6711,6 +8181,8 @@ spec:
                     type: boolean
                   tls_version:
                     type: string
+                  transport:
+                    type: string
                   verify_connection_at_startup:
                     type: boolean
                 required:
@@ -6737,6 +8209,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -6871,6 +8345,8 @@ spec:
                     type: string
                   project:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   storage_class:
                     type: string
                   store_as:
@@ -6987,6 +8463,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -7081,6 +8559,8 @@ spec:
                     items:
                       type: integer
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   ssl_timeout:
                     type: integer
                   tls_ca_cert_path:
@@ -7244,6 +8724,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -7346,6 +8828,39 @@ spec:
                     type: integer
                   kafka_agg_max_messages:
                     type: integer
+                  keytab:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
                   max_send_retries:
                     type: integer
                   message_key_key:
@@ -7387,11 +8902,15 @@ spec:
                             type: object
                         type: object
                     type: object
+                  principal:
+                    type: string
                   required_acks:
                     type: integer
                   sasl_over_ssl:
                     type: boolean
                   scram_mechanism:
+                    type: string
+                  slow_flush_log_threshold:
                     type: string
                   ssl_ca_cert:
                     properties:
@@ -7707,6 +9226,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -7792,6 +9313,8 @@ spec:
                     type: boolean
                   retries_on_batch_request:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   stream_name:
                     type: string
                 required:
@@ -7816,6 +9339,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -7878,6 +9403,8 @@ spec:
                     type: string
                   request_timeout:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   tags:
                     type: string
                 required:
@@ -7901,6 +9428,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -7955,6 +9484,10 @@ spec:
                       type:
                         type: string
                     type: object
+                  bulk_limit:
+                    type: integer
+                  bulk_limit_warning_limit:
+                    type: integer
                   endpoint:
                     properties:
                       port:
@@ -8007,6 +9540,8 @@ spec:
                     type: integer
                   retry_sleep:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                 required:
                 - endpoint
                 type: object
@@ -8025,6 +9560,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -8155,6 +9692,8 @@ spec:
                     type: object
                   extract_kubernetes_labels:
                     type: boolean
+                  include_thread_label:
+                    type: boolean
                   insecure_tls:
                     type: boolean
                   key:
@@ -8233,6 +9772,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  slow_flush_log_threshold:
+                    type: string
                   tenant:
                     type: string
                   url:
@@ -8344,6 +9885,434 @@ spec:
                 type: object
               nullout:
                 type: object
+              opensearch:
+                properties:
+                  application_name:
+                    type: string
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      disabled:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  bulk_message_request_threshold:
+                    type: string
+                  ca_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  catch_transport_exception_on_retry:
+                    type: boolean
+                  client_cert:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  client_key_pass:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  compression_level:
+                    type: string
+                  custom_headers:
+                    type: string
+                  customize_template:
+                    type: string
+                  data_stream_enable:
+                    type: boolean
+                  data_stream_name:
+                    type: string
+                  data_stream_template_name:
+                    type: string
+                  default_opensearch_version:
+                    type: integer
+                  emit_error_for_missing_id:
+                    type: boolean
+                  emit_error_label_event:
+                    type: boolean
+                  exception_backup:
+                    type: boolean
+                  fail_on_detecting_os_version_retry_exceed:
+                    type: boolean
+                  fail_on_putting_template_retry_exceed:
+                    type: boolean
+                  flatten_hashes:
+                    type: boolean
+                  flatten_hashes_separator:
+                    type: string
+                  host:
+                    type: string
+                  hosts:
+                    type: string
+                  http_backend:
+                    type: string
+                  http_backend_excon_nonblock:
+                    type: boolean
+                  id_key:
+                    type: string
+                  ignore_exceptions:
+                    type: string
+                  include_index_in_url:
+                    type: boolean
+                  include_tag_key:
+                    type: boolean
+                  include_timestamp:
+                    type: boolean
+                  index_date_pattern:
+                    type: string
+                  index_name:
+                    type: string
+                  index_separator:
+                    type: string
+                  log_os_400_reason:
+                    type: boolean
+                  logstash_dateformat:
+                    type: string
+                  logstash_format:
+                    type: boolean
+                  logstash_prefix:
+                    type: string
+                  logstash_prefix_separator:
+                    type: string
+                  max_retry_get_os_version:
+                    type: integer
+                  max_retry_putting_template:
+                    type: string
+                  parent_key:
+                    type: string
+                  password:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  path:
+                    type: string
+                  pipeline:
+                    type: string
+                  port:
+                    type: integer
+                  prefer_oj_serializer:
+                    type: boolean
+                  reconnect_on_error:
+                    type: boolean
+                  reload_after:
+                    type: string
+                  reload_connections:
+                    type: boolean
+                  reload_on_failure:
+                    type: boolean
+                  remove_keys_on_update:
+                    type: string
+                  remove_keys_on_update_key:
+                    type: string
+                  request_timeout:
+                    type: string
+                  resurrect_after:
+                    type: string
+                  retry_tag:
+                    type: string
+                  routing_key:
+                    type: string
+                  scheme:
+                    type: string
+                  selector_class_name:
+                    type: string
+                  slow_flush_log_threshold:
+                    type: string
+                  sniffer_class_name:
+                    type: string
+                  ssl_verify:
+                    type: boolean
+                  suppress_doc_wrap:
+                    type: boolean
+                  suppress_type_name:
+                    type: boolean
+                  tag_key:
+                    type: string
+                  target_index_affinity:
+                    type: boolean
+                  target_index_key:
+                    type: string
+                  template_file:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  template_name:
+                    type: string
+                  template_overwrite:
+                    type: boolean
+                  templates:
+                    type: string
+                  time_key:
+                    type: string
+                  time_key_exclude_timestamp:
+                    type: boolean
+                  time_key_format:
+                    type: string
+                  time_parse_error_tag:
+                    type: string
+                  time_precision:
+                    type: string
+                  truncate_caches_interval:
+                    type: string
+                  unrecoverable_error_types:
+                    type: string
+                  unrecoverable_record_types:
+                    type: string
+                  use_legacy_template:
+                    type: boolean
+                  user:
+                    type: string
+                  utc_index:
+                    type: boolean
+                  validate_client_version:
+                    type: boolean
+                  verify_os_version_at_startup:
+                    type: boolean
+                  with_transporter_log:
+                    type: boolean
+                  write_operation:
+                    type: string
+                type: object
               oss:
                 properties:
                   aaccess_key_secret:
@@ -8429,6 +10398,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -8524,6 +10495,8 @@ spec:
                     type: string
                   read_timeout:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   store_as:
                     type: string
                   upload_crc_enable:
@@ -8553,6 +10526,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -8665,6 +10640,8 @@ spec:
                     type: object
                   port:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   strftime_format:
                     type: string
                   ttl:
@@ -8773,6 +10750,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -8925,6 +10904,8 @@ spec:
                     type: object
                   signature_version:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   sse_customer_algorithm:
                     type: string
                   sse_customer_key:
@@ -8963,6 +10944,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -9239,6 +11222,8 @@ spec:
                     type: string
                   read_timeout:
                     type: integer
+                  slow_flush_log_threshold:
+                    type: string
                   source:
                     type: string
                   source_key:
@@ -9335,6 +11320,8 @@ spec:
                         type: string
                       disable_chunk_backup:
                         type: boolean
+                      disabled:
+                        type: boolean
                       flush_at_shutdown:
                         type: boolean
                       flush_interval:
@@ -9400,6 +11387,8 @@ spec:
                     type: string
                   region:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   sqs_url:
                     type: string
                   tag_property_name:
@@ -9422,6 +11411,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -9535,6 +11526,8 @@ spec:
                     type: integer
                   proxy_uri:
                     type: string
+                  slow_flush_log_threshold:
+                    type: string
                   source_category:
                     type: string
                   source_host:
@@ -9555,6 +11548,8 @@ spec:
                 type: object
               syslog:
                 properties:
+                  allow_self_signed_cert:
+                    type: boolean
                   buffer:
                     properties:
                       chunk_full_threshold:
@@ -9568,6 +11563,8 @@ spec:
                       delayed_commit_timeout:
                         type: string
                       disable_chunk_backup:
+                        type: boolean
+                      disabled:
                         type: boolean
                       flush_at_shutdown:
                         type: boolean
@@ -9622,6 +11619,41 @@ spec:
                       type:
                         type: string
                     type: object
+                  client_cert_path:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  enable_system_cert_store:
+                    type: boolean
                   format:
                     properties:
                       app_name_field:
@@ -9649,12 +11681,82 @@ spec:
                         - single_value
                         type: string
                     type: object
+                  fqdn:
+                    type: string
                   host:
                     type: string
                   insecure:
                     type: boolean
                   port:
                     type: integer
+                  private_key_passphrase:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  private_key_path:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  slow_flush_log_threshold:
+                    type: string
                   transport:
                     type: string
                   trusted_ca_path:
@@ -9690,6 +11792,10 @@ spec:
                             type: object
                         type: object
                     type: object
+                  verify_fqdn:
+                    type: boolean
+                  version:
+                    type: string
                 required:
                 - host
                 type: object

@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.6.0
   creationTimestamp: null
   name: clusterflows.logging.opni.io
 spec:
@@ -60,7 +60,13 @@ spec:
                           type: string
                         n_lines:
                           type: integer
+                        partial_cri_logtag_key:
+                          type: string
+                        partial_cri_stream_key:
+                          type: string
                         partial_key:
+                          type: string
+                        partial_metadata_format:
                           type: string
                         partial_value:
                           type: string
@@ -71,6 +77,8 @@ spec:
                         timeout_label:
                           type: string
                         use_first_timestamp:
+                          type: boolean
+                        use_partial_cri_logtag:
                           type: boolean
                         use_partial_metadata:
                           type: string
@@ -84,10 +92,14 @@ spec:
                       type: object
                     detectExceptions:
                       properties:
+                        force_line_breaks:
+                          type: boolean
                         languages:
                           items:
                             type: string
                           type: array
+                        match_tag:
+                          type: string
                         max_bytes:
                           type: integer
                         max_lines:
@@ -100,6 +112,25 @@ spec:
                           type: string
                         stream:
                           type: string
+                      type: object
+                    elasticsearch_genid:
+                      properties:
+                        hash_id_key:
+                          type: string
+                        hash_type:
+                          type: string
+                        include_tag_in_seed:
+                          type: boolean
+                        include_time_in_seed:
+                          type: boolean
+                        record_keys:
+                          type: string
+                        separator:
+                          type: string
+                        use_entire_record:
+                          type: boolean
+                        use_record_as_seed:
+                          type: boolean
                       type: object
                     enhanceK8s:
                       properties:
@@ -364,6 +395,39 @@ spec:
                           type: string
                         parse:
                           properties:
+                            custom_pattern_path:
+                              properties:
+                                mountFrom:
+                                  properties:
+                                    secretKeyRef:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
+                                value:
+                                  type: string
+                                valueFrom:
+                                  properties:
+                                    secretKeyRef:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
+                              type: object
                             delimiter:
                               type: string
                             delimiter_pattern:
@@ -376,6 +440,31 @@ spec:
                               type: string
                             format_firstline:
                               type: string
+                            grok_failure_key:
+                              type: string
+                            grok_name_key:
+                              type: string
+                            grok_pattern:
+                              type: string
+                            grok_patterns:
+                              items:
+                                properties:
+                                  keep_time_key:
+                                    type: boolean
+                                  name:
+                                    type: string
+                                  pattern:
+                                    type: string
+                                  time_format:
+                                    type: string
+                                  time_key:
+                                    type: string
+                                  timezone:
+                                    type: string
+                                required:
+                                - pattern
+                                type: object
+                              type: array
                             keep_time_key:
                               type: boolean
                             keys:
@@ -388,6 +477,8 @@ spec:
                               items:
                                 type: string
                               type: array
+                            multiline_start_regexp:
+                              type: string
                             null_empty_string:
                               type: boolean
                             null_value_pattern:
@@ -395,16 +486,76 @@ spec:
                             patterns:
                               items:
                                 properties:
+                                  custom_pattern_path:
+                                    properties:
+                                      mountFrom:
+                                        properties:
+                                          secretKeyRef:
+                                            properties:
+                                              key:
+                                                type: string
+                                              name:
+                                                type: string
+                                              optional:
+                                                type: boolean
+                                            required:
+                                            - key
+                                            type: object
+                                        type: object
+                                      value:
+                                        type: string
+                                      valueFrom:
+                                        properties:
+                                          secretKeyRef:
+                                            properties:
+                                              key:
+                                                type: string
+                                              name:
+                                                type: string
+                                              optional:
+                                                type: boolean
+                                            required:
+                                            - key
+                                            type: object
+                                        type: object
+                                    type: object
                                   estimate_current_event:
                                     type: boolean
                                   expression:
                                     type: string
                                   format:
                                     type: string
+                                  grok_failure_key:
+                                    type: string
+                                  grok_name_key:
+                                    type: string
+                                  grok_pattern:
+                                    type: string
+                                  grok_patterns:
+                                    items:
+                                      properties:
+                                        keep_time_key:
+                                          type: boolean
+                                        name:
+                                          type: string
+                                        pattern:
+                                          type: string
+                                        time_format:
+                                          type: string
+                                        time_key:
+                                          type: string
+                                        timezone:
+                                          type: string
+                                      required:
+                                      - pattern
+                                      type: object
+                                    type: array
                                   keep_time_key:
                                     type: boolean
                                   local_time:
                                     type: boolean
+                                  multiline_start_regexp:
+                                    type: string
                                   null_empty_string:
                                     type: boolean
                                   null_value_pattern:
@@ -443,6 +594,39 @@ spec:
                         parsers:
                           items:
                             properties:
+                              custom_pattern_path:
+                                properties:
+                                  mountFrom:
+                                    properties:
+                                      secretKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  value:
+                                    type: string
+                                  valueFrom:
+                                    properties:
+                                      secretKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                type: object
                               delimiter:
                                 type: string
                               delimiter_pattern:
@@ -455,6 +639,31 @@ spec:
                                 type: string
                               format_firstline:
                                 type: string
+                              grok_failure_key:
+                                type: string
+                              grok_name_key:
+                                type: string
+                              grok_pattern:
+                                type: string
+                              grok_patterns:
+                                items:
+                                  properties:
+                                    keep_time_key:
+                                      type: boolean
+                                    name:
+                                      type: string
+                                    pattern:
+                                      type: string
+                                    time_format:
+                                      type: string
+                                    time_key:
+                                      type: string
+                                    timezone:
+                                      type: string
+                                  required:
+                                  - pattern
+                                  type: object
+                                type: array
                               keep_time_key:
                                 type: boolean
                               keys:
@@ -467,6 +676,8 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              multiline_start_regexp:
+                                type: string
                               null_empty_string:
                                 type: boolean
                               null_value_pattern:
@@ -474,16 +685,76 @@ spec:
                               patterns:
                                 items:
                                   properties:
+                                    custom_pattern_path:
+                                      properties:
+                                        mountFrom:
+                                          properties:
+                                            secretKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                              required:
+                                              - key
+                                              type: object
+                                          type: object
+                                        value:
+                                          type: string
+                                        valueFrom:
+                                          properties:
+                                            secretKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                              required:
+                                              - key
+                                              type: object
+                                          type: object
+                                      type: object
                                     estimate_current_event:
                                       type: boolean
                                     expression:
                                       type: string
                                     format:
                                       type: string
+                                    grok_failure_key:
+                                      type: string
+                                    grok_name_key:
+                                      type: string
+                                    grok_pattern:
+                                      type: string
+                                    grok_patterns:
+                                      items:
+                                        properties:
+                                          keep_time_key:
+                                            type: boolean
+                                          name:
+                                            type: string
+                                          pattern:
+                                            type: string
+                                          time_format:
+                                            type: string
+                                          time_key:
+                                            type: string
+                                          timezone:
+                                            type: string
+                                        required:
+                                        - pattern
+                                        type: object
+                                      type: array
                                     keep_time_key:
                                       type: boolean
                                     local_time:
                                       type: boolean
+                                    multiline_start_regexp:
+                                      type: string
                                     null_empty_string:
                                       type: boolean
                                     null_value_pattern:
@@ -675,6 +946,8 @@ spec:
                     tag_normaliser:
                       properties:
                         format:
+                          type: string
+                        match_tag:
                           type: string
                       type: object
                     throttle:
@@ -810,7 +1083,13 @@ spec:
                           type: string
                         n_lines:
                           type: integer
+                        partial_cri_logtag_key:
+                          type: string
+                        partial_cri_stream_key:
+                          type: string
                         partial_key:
+                          type: string
+                        partial_metadata_format:
                           type: string
                         partial_value:
                           type: string
@@ -821,6 +1100,8 @@ spec:
                         timeout_label:
                           type: string
                         use_first_timestamp:
+                          type: boolean
+                        use_partial_cri_logtag:
                           type: boolean
                         use_partial_metadata:
                           type: string
@@ -834,10 +1115,14 @@ spec:
                       type: object
                     detectExceptions:
                       properties:
+                        force_line_breaks:
+                          type: boolean
                         languages:
                           items:
                             type: string
                           type: array
+                        match_tag:
+                          type: string
                         max_bytes:
                           type: integer
                         max_lines:
@@ -850,6 +1135,25 @@ spec:
                           type: string
                         stream:
                           type: string
+                      type: object
+                    elasticsearch_genid:
+                      properties:
+                        hash_id_key:
+                          type: string
+                        hash_type:
+                          type: string
+                        include_tag_in_seed:
+                          type: boolean
+                        include_time_in_seed:
+                          type: boolean
+                        record_keys:
+                          type: string
+                        separator:
+                          type: string
+                        use_entire_record:
+                          type: boolean
+                        use_record_as_seed:
+                          type: boolean
                       type: object
                     enhanceK8s:
                       properties:
@@ -1114,6 +1418,39 @@ spec:
                           type: string
                         parse:
                           properties:
+                            custom_pattern_path:
+                              properties:
+                                mountFrom:
+                                  properties:
+                                    secretKeyRef:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
+                                value:
+                                  type: string
+                                valueFrom:
+                                  properties:
+                                    secretKeyRef:
+                                      properties:
+                                        key:
+                                          type: string
+                                        name:
+                                          type: string
+                                        optional:
+                                          type: boolean
+                                      required:
+                                      - key
+                                      type: object
+                                  type: object
+                              type: object
                             delimiter:
                               type: string
                             delimiter_pattern:
@@ -1126,6 +1463,31 @@ spec:
                               type: string
                             format_firstline:
                               type: string
+                            grok_failure_key:
+                              type: string
+                            grok_name_key:
+                              type: string
+                            grok_pattern:
+                              type: string
+                            grok_patterns:
+                              items:
+                                properties:
+                                  keep_time_key:
+                                    type: boolean
+                                  name:
+                                    type: string
+                                  pattern:
+                                    type: string
+                                  time_format:
+                                    type: string
+                                  time_key:
+                                    type: string
+                                  timezone:
+                                    type: string
+                                required:
+                                - pattern
+                                type: object
+                              type: array
                             keep_time_key:
                               type: boolean
                             keys:
@@ -1138,6 +1500,8 @@ spec:
                               items:
                                 type: string
                               type: array
+                            multiline_start_regexp:
+                              type: string
                             null_empty_string:
                               type: boolean
                             null_value_pattern:
@@ -1145,16 +1509,76 @@ spec:
                             patterns:
                               items:
                                 properties:
+                                  custom_pattern_path:
+                                    properties:
+                                      mountFrom:
+                                        properties:
+                                          secretKeyRef:
+                                            properties:
+                                              key:
+                                                type: string
+                                              name:
+                                                type: string
+                                              optional:
+                                                type: boolean
+                                            required:
+                                            - key
+                                            type: object
+                                        type: object
+                                      value:
+                                        type: string
+                                      valueFrom:
+                                        properties:
+                                          secretKeyRef:
+                                            properties:
+                                              key:
+                                                type: string
+                                              name:
+                                                type: string
+                                              optional:
+                                                type: boolean
+                                            required:
+                                            - key
+                                            type: object
+                                        type: object
+                                    type: object
                                   estimate_current_event:
                                     type: boolean
                                   expression:
                                     type: string
                                   format:
                                     type: string
+                                  grok_failure_key:
+                                    type: string
+                                  grok_name_key:
+                                    type: string
+                                  grok_pattern:
+                                    type: string
+                                  grok_patterns:
+                                    items:
+                                      properties:
+                                        keep_time_key:
+                                          type: boolean
+                                        name:
+                                          type: string
+                                        pattern:
+                                          type: string
+                                        time_format:
+                                          type: string
+                                        time_key:
+                                          type: string
+                                        timezone:
+                                          type: string
+                                      required:
+                                      - pattern
+                                      type: object
+                                    type: array
                                   keep_time_key:
                                     type: boolean
                                   local_time:
                                     type: boolean
+                                  multiline_start_regexp:
+                                    type: string
                                   null_empty_string:
                                     type: boolean
                                   null_value_pattern:
@@ -1193,6 +1617,39 @@ spec:
                         parsers:
                           items:
                             properties:
+                              custom_pattern_path:
+                                properties:
+                                  mountFrom:
+                                    properties:
+                                      secretKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  value:
+                                    type: string
+                                  valueFrom:
+                                    properties:
+                                      secretKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                type: object
                               delimiter:
                                 type: string
                               delimiter_pattern:
@@ -1205,6 +1662,31 @@ spec:
                                 type: string
                               format_firstline:
                                 type: string
+                              grok_failure_key:
+                                type: string
+                              grok_name_key:
+                                type: string
+                              grok_pattern:
+                                type: string
+                              grok_patterns:
+                                items:
+                                  properties:
+                                    keep_time_key:
+                                      type: boolean
+                                    name:
+                                      type: string
+                                    pattern:
+                                      type: string
+                                    time_format:
+                                      type: string
+                                    time_key:
+                                      type: string
+                                    timezone:
+                                      type: string
+                                  required:
+                                  - pattern
+                                  type: object
+                                type: array
                               keep_time_key:
                                 type: boolean
                               keys:
@@ -1217,6 +1699,8 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              multiline_start_regexp:
+                                type: string
                               null_empty_string:
                                 type: boolean
                               null_value_pattern:
@@ -1224,16 +1708,76 @@ spec:
                               patterns:
                                 items:
                                   properties:
+                                    custom_pattern_path:
+                                      properties:
+                                        mountFrom:
+                                          properties:
+                                            secretKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                              required:
+                                              - key
+                                              type: object
+                                          type: object
+                                        value:
+                                          type: string
+                                        valueFrom:
+                                          properties:
+                                            secretKeyRef:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                optional:
+                                                  type: boolean
+                                              required:
+                                              - key
+                                              type: object
+                                          type: object
+                                      type: object
                                     estimate_current_event:
                                       type: boolean
                                     expression:
                                       type: string
                                     format:
                                       type: string
+                                    grok_failure_key:
+                                      type: string
+                                    grok_name_key:
+                                      type: string
+                                    grok_pattern:
+                                      type: string
+                                    grok_patterns:
+                                      items:
+                                        properties:
+                                          keep_time_key:
+                                            type: boolean
+                                          name:
+                                            type: string
+                                          pattern:
+                                            type: string
+                                          time_format:
+                                            type: string
+                                          time_key:
+                                            type: string
+                                          timezone:
+                                            type: string
+                                        required:
+                                        - pattern
+                                        type: object
+                                      type: array
                                     keep_time_key:
                                       type: boolean
                                     local_time:
                                       type: boolean
+                                    multiline_start_regexp:
+                                      type: string
                                     null_empty_string:
                                       type: boolean
                                     null_value_pattern:
@@ -1425,6 +1969,8 @@ spec:
                     tag_normaliser:
                       properties:
                         format:
+                          type: string
+                        match_tag:
                           type: string
                       type: object
                     throttle:

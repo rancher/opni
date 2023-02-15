@@ -59,6 +59,7 @@ type Plugin struct {
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *loggingutil.OTELForwarder
+	clusterDriver       drivers.ClusterDriver
 }
 
 type PluginOptions struct {
@@ -151,6 +152,12 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		os.Exit(1)
 	}
 
+	clusterDriver, _ := drivers.NewKubernetesManagerDriver(
+		drivers.WithK8sClient(cli),
+		drivers.WithLogger(lg.Named("cluster-driver")),
+		drivers.WithOpensearchCluster(options.opensearchCluster),
+	)
+
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
@@ -168,6 +175,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			loggingutil.WithLogger(lg.Named("otel-forwarder")),
 			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
 		),
+		clusterDriver: clusterDriver,
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -177,11 +185,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			uninstallController *task.Controller,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 		) {
-			clusterDriver, _ := drivers.NewKubernetesManagerDriver(
-				drivers.WithK8sClient(p.k8sClient),
-				drivers.WithLogger(*p.logger.Named("cluster-driver")),
-				drivers.WithOpensearchCluster(p.opensearchCluster),
-			)
 			p.logging.Initialize(backend.LoggingBackendConfig{
 				Logger:              p.logger.Named("logging-backend"),
 				StorageBackend:      storageBackend,
@@ -189,7 +192,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				OpensearchCluster:   p.opensearchCluster,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
-				ClusterDriver:       clusterDriver,
+				ClusterDriver:       p.clusterDriver,
 			})
 		},
 	)
@@ -234,7 +237,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	if state := p.logging.ClusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
+	if state := p.clusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
 		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
 		if p.opensearchManager.ShouldCreateInitialAdmin() {
 			err = loggingManager.createInitialAdmin()

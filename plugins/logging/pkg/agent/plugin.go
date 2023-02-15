@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/events"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 )
 
@@ -65,6 +66,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	return p
 }
+
+var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))

@@ -37,7 +37,7 @@ type KubernetesManagerDriverOptions struct {
 	k8sClient         client.Client
 	namespace         string
 	opensearchCluster *opnimeta.OpensearchClusterRef
-	logger            zap.SugaredLogger
+	logger            *zap.SugaredLogger
 }
 
 type KubernetesManagerDriverOption func(*KubernetesManagerDriverOptions)
@@ -65,7 +65,7 @@ func WithOpensearchCluster(opensearchCluster *opnimeta.OpensearchClusterRef) Kub
 		o.opensearchCluster = opensearchCluster
 	}
 }
-func WithLogger(logger zap.SugaredLogger) KubernetesManagerDriverOption {
+func WithLogger(logger *zap.SugaredLogger) KubernetesManagerDriverOption {
 	return func(o *KubernetesManagerDriverOptions) {
 		o.logger = logger
 	}

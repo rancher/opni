@@ -27,6 +27,8 @@ var (
 	defaultEvictionInterval = time.Second * 1
 )
 
+type cacheInterceptorConstructor func() util.GrpcCachingInterceptor
+
 var _ = BuildCachingInterceptorSuite(
 	"default grpc middleware",
 	func() util.GrpcCachingInterceptor {
@@ -34,10 +36,23 @@ var _ = BuildCachingInterceptorSuite(
 			caching.NewInMemoryEntityCache("50Mi", defaultEvictionInterval),
 		)
 	},
-	func(clientCacher util.GrpcCachingInterceptor) (testgrpc.CachedServiceServer, testgrpc.CachedServiceClient) {
-		cachedServer := testgrpc.NewCachedServer(defaultTtl)
+	func(buildCache cacheInterceptorConstructor) (
+		testgrpc.SimpleServiceServer,
+		testgrpc.ObjectServiceServer,
+		testgrpc.AggregatorServiceServer,
+		testgrpc.SimpleServiceClient,
+		testgrpc.ObjectServiceClient,
+		testgrpc.AggregatorServiceClient,
+	) {
+		testCacher := buildCache()
+		aggregatorCacher := buildCache()
+		testAggregatorClientCacher := buildCache()
 
-		listener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", util.Must(freeport.GetFreePort())))
+		// ------ setup standalone servers
+		simpleServer := testgrpc.NewSimpleServer(defaultTtl)
+		objectServer := testgrpc.NewObjectServer(defaultTtl)
+
+		defaultListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", util.Must(freeport.GetFreePort())))
 		Expect(err).To(Succeed())
 
 		server := grpc.NewServer(
@@ -50,49 +65,114 @@ var _ = BuildCachingInterceptorSuite(
 				Timeout: 5 * time.Second,
 			}),
 			grpc.ChainUnaryInterceptor(
-				clientCacher.UnaryServerInterceptor(),
+				testCacher.UnaryServerInterceptor(),
 			),
 		)
 
-		testgrpc.RegisterCachedServiceServer(server, cachedServer)
+		testgrpc.RegisterSimpleServiceServer(server, simpleServer)
+		testgrpc.RegisterObjectServiceServer(server, objectServer)
 
 		_ = lo.Async(func() error {
-			return server.Serve(listener)
+			return server.Serve(defaultListener)
 		})
-		opts := []grpc.DialOption{
+		opts1 := []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithChainUnaryInterceptor(
-				clientCacher.UnaryClientInterceptor(),
+				testCacher.UnaryClientInterceptor(),
 			),
 		}
-		conn, err := grpc.Dial(listener.Addr().String(), opts...)
+		opts2 := []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainUnaryInterceptor(
+				aggregatorCacher.UnaryClientInterceptor(),
+			),
+		}
+		userConn, err := grpc.Dial(defaultListener.Addr().String(), opts1...)
 		Expect(err).To(Succeed())
-		cachedClient := testgrpc.NewCachedServiceClient(conn)
+		simpleClientUser := testgrpc.NewSimpleServiceClient(userConn)
+		objectClientUser := testgrpc.NewObjectServiceClient(userConn)
+
+		aggregatorConn, err := grpc.Dial(defaultListener.Addr().String(), opts2...)
+		Expect(err).To(Succeed())
+		simpleClientAggregator := testgrpc.NewSimpleServiceClient(aggregatorConn)
+		objectClientAggregator := testgrpc.NewObjectServiceClient(aggregatorConn)
+
+		// ------ setup server that connects remotely to the other two
+
+		aggregatorServer := testgrpc.NewAggregatorServer(defaultTtl, simpleClientAggregator, objectClientAggregator)
+
+		aggregatorListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", util.Must(freeport.GetFreePort())))
+		Expect(err).To(Succeed())
+
+		server2 := grpc.NewServer(
+			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+				MinTime:             15 * time.Second,
+				PermitWithoutStream: true,
+			}),
+			grpc.KeepaliveParams(keepalive.ServerParameters{
+				Time:    15 * time.Second,
+				Timeout: 5 * time.Second,
+			}),
+			grpc.ChainUnaryInterceptor(
+				aggregatorCacher.UnaryServerInterceptor(),
+			),
+		)
+		_ = lo.Async(func() error {
+			return server2.Serve(aggregatorListener)
+		})
+		testgrpc.RegisterAggregatorServiceServer(server2, aggregatorServer)
+
+		opts3 := []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainUnaryInterceptor(
+				testAggregatorClientCacher.UnaryClientInterceptor(),
+			),
+		}
+		testAggregatorConn, err := grpc.Dial(aggregatorListener.Addr().String(), opts3...)
+		Expect(err).To(Succeed())
+		aggregatorClient := testgrpc.NewAggregatorServiceClient(testAggregatorConn)
 
 		DeferCleanup(func() {
-			conn.Close()
+			userConn.Close()
+			aggregatorConn.Close()
+			testAggregatorConn.Close()
 			server.Stop()
+			server2.Stop()
 		})
-		return cachedServer, cachedClient
+		return simpleServer, objectServer, aggregatorServer, simpleClientUser, objectClientUser, aggregatorClient
 	},
 )
 
 func BuildCachingInterceptorSuite(
 	name string,
-	clientSideCacherConstructor func() util.GrpcCachingInterceptor,
+	buildCache cacheInterceptorConstructor,
 	serverAndClientConstructor func(
-		client util.GrpcCachingInterceptor,
-	) (testgrpc.CachedServiceServer, testgrpc.CachedServiceClient),
+		cacheInterceptorConstructor,
+	) (testgrpc.SimpleServiceServer,
+		testgrpc.ObjectServiceServer,
+		testgrpc.AggregatorServiceServer,
+		testgrpc.SimpleServiceClient,
+		testgrpc.ObjectServiceClient,
+		testgrpc.AggregatorServiceClient),
 ) bool {
 	return Describe(fmt.Sprintf("GRPC caching interceptor for %s", name), Ordered, Label("unit"), func() {
-		var testServer testgrpc.CachedServiceServer
-		var testClient testgrpc.CachedServiceClient
-		var clientEntityCacher util.GrpcCachingInterceptor
+		var testSimpleServer testgrpc.SimpleServiceServer
+		var testAggregatorServer testgrpc.AggregatorServiceServer
+		var testSimpleClient testgrpc.SimpleServiceClient
+		var testObjectClient testgrpc.ObjectServiceClient
+		var testAggregatorClient testgrpc.AggregatorServiceClient
 		var ctx context.Context
+		var id1, id2 string
 		BeforeAll(func() {
 			ctx = context.Background()
-			clientEntityCacher = clientSideCacherConstructor()
-			testServer, testClient = serverAndClientConstructor(clientEntityCacher)
+			testSimpleServer,
+				_,
+				testAggregatorServer,
+				// _,
+				testSimpleClient,
+				testObjectClient,
+				testAggregatorClient = serverAndClientConstructor(buildCache)
+			id1, id2 = uuid.New().String(), uuid.New().String()
 
 		})
 
@@ -100,7 +180,7 @@ func BuildCachingInterceptorSuite(
 
 		When("using the client-side caching interceptor", func() {
 			Specify("the client should be able request caching using cache-control headers", func() {
-				_, err := testClient.Increment(ctx, &testgrpc.IncrementRequest{
+				_, err := testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 					Value: 1,
 				})
 				Expect(err).To(Succeed())
@@ -110,7 +190,7 @@ func BuildCachingInterceptorSuite(
 				Expect(ok).To(BeTrue())
 				Expect(md.Get(util.GrpcCacheControlHeader(util.CacheTypeClient))).NotTo(HaveLen(0))
 
-				value, err := testClient.GetValue(
+				value, err := testSimpleClient.GetValue(
 					ctxMetadata,
 					&emptypb.Empty{},
 				)
@@ -122,7 +202,7 @@ func BuildCachingInterceptorSuite(
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						_, err := testClient.Increment(ctx, &testgrpc.IncrementRequest{
+						_, err := testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 							Value: 1,
 						})
 						Expect(err).To(Succeed())
@@ -130,8 +210,13 @@ func BuildCachingInterceptorSuite(
 					aggregate++
 				}
 				wg.Wait()
+				By("verifying the aggregated value is in the server")
+				value, err = testSimpleServer.GetValue(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(aggregate)))
+
 				By("verifying the value in the cache hasn't expired")
-				value, err = testClient.GetValue(
+				value, err = testSimpleClient.GetValue(
 					ctx,
 					&emptypb.Empty{},
 				)
@@ -139,7 +224,7 @@ func BuildCachingInterceptorSuite(
 				Expect(value.Value).To(Equal(int64(1)))
 
 				By("verifying we can tell the client to bypass any caching")
-				value, err = testClient.GetValue(
+				value, err = testSimpleClient.GetValue(
 					util.WithBypassCache(ctx),
 					&emptypb.Empty{},
 				)
@@ -150,7 +235,7 @@ func BuildCachingInterceptorSuite(
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						_, err := testClient.Increment(ctx, &testgrpc.IncrementRequest{
+						_, err := testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 							Value: 1,
 						})
 						Expect(err).To(Succeed())
@@ -160,7 +245,7 @@ func BuildCachingInterceptorSuite(
 				wg.Wait()
 
 				By("verifying the value in the cache hasn't expired (2)")
-				value, err = testClient.GetValue(
+				value, err = testSimpleClient.GetValue(
 					ctx,
 					&emptypb.Empty{},
 				)
@@ -169,22 +254,22 @@ func BuildCachingInterceptorSuite(
 
 				By("letting the cache expire and getting the server's actual value")
 				Eventually(func() int64 {
-					return util.Must(testServer.GetValue(ctx, &emptypb.Empty{})).Value
+					return util.Must(testSimpleClient.GetValue(ctx, &emptypb.Empty{})).Value
 				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(aggregate)))
 			})
 
 			Specify("the server should be able to force the client to cache the response", func() {
 				Eventually(func() int64 {
-					return util.Must(testServer.GetValue(ctx, &emptypb.Empty{})).Value
+					return util.Must(testSimpleClient.GetValue(ctx, &emptypb.Empty{})).Value
 				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(aggregate)))
 
-				_, err := testClient.Increment(ctx, &testgrpc.IncrementRequest{
+				_, err := testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 					Value: 1,
 				})
 				Expect(err).To(Succeed())
 				aggregate++
 
-				value, err := testClient.GetValueWithForcedClientCaching(ctx, &emptypb.Empty{})
+				value, err := testSimpleClient.GetValueWithForcedClientCaching(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(int64(aggregate)))
 				var wg sync.WaitGroup
@@ -192,7 +277,7 @@ func BuildCachingInterceptorSuite(
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						_, err := testClient.Increment(ctx, &testgrpc.IncrementRequest{
+						_, err := testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 							Value: 1,
 						})
 						Expect(err).To(Succeed())
@@ -202,12 +287,12 @@ func BuildCachingInterceptorSuite(
 				wg.Wait()
 
 				By("verifying the value exists in the cache, despite the client not opting into it")
-				value, err = testClient.GetValueWithForcedClientCaching(ctx, &emptypb.Empty{})
+				value, err = testSimpleClient.GetValueWithForcedClientCaching(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(aggregate - 10))
 
 				By("veryfing the client can still bypass the cache")
-				value, err = testClient.GetValueWithForcedClientCaching(
+				value, err = testSimpleClient.GetValueWithForcedClientCaching(
 					util.WithBypassCache(ctx),
 					&emptypb.Empty{},
 				)
@@ -216,15 +301,14 @@ func BuildCachingInterceptorSuite(
 
 				By("verifying the value in the cache will eventually expire")
 				Eventually(func() int64 {
-					return util.Must(testServer.GetValue(ctx, &emptypb.Empty{})).Value
+					return util.Must(testSimpleClient.GetValue(ctx, &emptypb.Empty{})).Value
 				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(aggregate)))
 			})
 
 			Specify("proto messages can implement their own cache keys", func() {
 				var _ caching.CacheKeyer = (*testgrpc.ObjectReference)(nil)
 
-				id1, id2 := uuid.New().String(), uuid.New().String()
-				_, err := testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+				_, err := testObjectClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
 					Id: &testgrpc.ObjectReference{
 						Id: id1,
 					},
@@ -232,7 +316,7 @@ func BuildCachingInterceptorSuite(
 				})
 				Expect(err).To(Succeed())
 
-				_, err = testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+				_, err = testObjectClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
 					Id: &testgrpc.ObjectReference{
 						Id: id2,
 					},
@@ -241,7 +325,7 @@ func BuildCachingInterceptorSuite(
 				Expect(err).To(Succeed())
 
 				By("sanity checking ObjectReference's use of cache key")
-				value, err := testClient.GetObjectValue(
+				value, err := testObjectClient.GetObjectValue(
 					util.WithGrpcClientCaching(ctx, 5*time.Second),
 					&testgrpc.ObjectReference{
 						Id: id1,
@@ -249,7 +333,7 @@ func BuildCachingInterceptorSuite(
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(int64(1)))
 
-				_, err = testClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+				_, err = testObjectClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
 					Id: &testgrpc.ObjectReference{
 						Id: id2,
 					},
@@ -258,7 +342,7 @@ func BuildCachingInterceptorSuite(
 				Expect(err).To(Succeed())
 
 				// no cache requested for object
-				value, err = testClient.GetObjectValue(
+				value, err = testObjectClient.GetObjectValue(
 					util.WithGrpcClientCaching(ctx, 5*time.Second),
 					&testgrpc.ObjectReference{
 						Id: id2,
@@ -268,7 +352,7 @@ func BuildCachingInterceptorSuite(
 
 				By("verifying that the client can opt out of server's cache keys")
 				ctxMetadata := util.WithGrpcClientCaching(util.WithIgnoreServerCacheKeys(ctx), 5*time.Second)
-				_, err = testClient.IncrementObject(
+				_, err = testObjectClient.IncrementObject(
 					ctxMetadata,
 					&testgrpc.IncrementObjectRequest{
 						Id: &testgrpc.ObjectReference{
@@ -279,17 +363,93 @@ func BuildCachingInterceptorSuite(
 				)
 				Expect(err).To(Succeed())
 				// client-side requests this object without server-set cache keys
-				value, err = testClient.GetObjectValue(util.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
+				value, err = testObjectClient.GetObjectValue(util.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
 					Id: id1,
 				})
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(int64(3)))
 
-				value, err = testClient.GetObjectValue(ctx, &testgrpc.ObjectReference{
+				value, err = testObjectClient.GetObjectValue(ctx, &testgrpc.ObjectReference{
 					Id: id1,
 				})
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(int64(1)))
+			})
+
+			Specify("cache control headers set by client should not leak to nested RPC calls", func() {
+				val, err := testAggregatorServer.GetAll(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(val.Value).To(Equal(int64(27)))
+
+				val, err = testAggregatorClient.GetAll(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(val.Value).To(Equal(int64(27)))
+
+				_, err = testAggregatorClient.IncrementAll(
+					ctx, &testgrpc.IncrementRequest{
+						Value: 1,
+					})
+				Expect(err).To(Succeed())
+				aggregate++
+
+				val, err = testAggregatorClient.GetAll(util.WithGrpcClientCaching(ctx, defaultTtl), &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(val.Value).To(Equal(int64(30)))
+
+				_, err = testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
+					Value: 2,
+				})
+				Expect(err).To(Succeed())
+				aggregate += 2
+
+				val, err = testSimpleClient.GetValue(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(val.Value).To(Equal(int64(aggregate)))
+
+				val, err = testAggregatorClient.GetAll(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(val.Value).To(Equal(int64(30)))
+
+				By("verifying the value in the cache will eventually expire")
+				Eventually(func() int64 {
+					return util.Must(testAggregatorClient.GetAll(ctx, &emptypb.Empty{})).Value
+				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(32)))
+			})
+
+			Specify("cache control headers set by the server should not leak to encapsulating RPC calls", func() {
+				By("veryfing force-cached apis don't force any apis calling them to also cache")
+				value, err := testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(32)))
+
+				_, err = testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+
+				_, err = testObjectClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+					Id: &testgrpc.ObjectReference{
+						Id: id1,
+					},
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+				_, err = testObjectClient.IncrementObject(ctx, &testgrpc.IncrementObjectRequest{
+					Id: &testgrpc.ObjectReference{
+						Id: id2,
+					},
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+
+				value, err = testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(34)))
+
+				By("verifying that the internal call's cache will eventually expire")
+				Eventually(func() int64 {
+					return util.Must(testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})).Value
+				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(35)))
 			})
 		})
 	})

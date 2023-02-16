@@ -19,234 +19,486 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// CachedServiceClient is the client API for CachedService service.
+// SimpleServiceClient is the client API for SimpleService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type CachedServiceClient interface {
+type SimpleServiceClient interface {
 	Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetValue(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error)
 	GetValueWithForcedClientCaching(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error)
-	// Adds the value to the an arbitrary server-side object.
-	// If the object doesn't exist create a new one and it set it to the value.
-	IncrementObject(ctx context.Context, in *IncrementObjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetObjectValue(ctx context.Context, in *ObjectReference, opts ...grpc.CallOption) (*Value, error)
 }
 
-type cachedServiceClient struct {
+type simpleServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewCachedServiceClient(cc grpc.ClientConnInterface) CachedServiceClient {
-	return &cachedServiceClient{cc}
+func NewSimpleServiceClient(cc grpc.ClientConnInterface) SimpleServiceClient {
+	return &simpleServiceClient{cc}
 }
 
-func (c *cachedServiceClient) Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *simpleServiceClient) Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/testgrpc.cached.CachedService/Increment", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.SimpleService/Increment", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cachedServiceClient) GetValue(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
+func (c *simpleServiceClient) GetValue(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
 	out := new(Value)
-	err := c.cc.Invoke(ctx, "/testgrpc.cached.CachedService/GetValue", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.SimpleService/GetValue", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cachedServiceClient) GetValueWithForcedClientCaching(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
+func (c *simpleServiceClient) GetValueWithForcedClientCaching(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
 	out := new(Value)
-	err := c.cc.Invoke(ctx, "/testgrpc.cached.CachedService/GetValueWithForcedClientCaching", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.SimpleService/GetValueWithForcedClientCaching", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cachedServiceClient) IncrementObject(ctx context.Context, in *IncrementObjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/testgrpc.cached.CachedService/IncrementObject", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *cachedServiceClient) GetObjectValue(ctx context.Context, in *ObjectReference, opts ...grpc.CallOption) (*Value, error) {
-	out := new(Value)
-	err := c.cc.Invoke(ctx, "/testgrpc.cached.CachedService/GetObjectValue", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// CachedServiceServer is the server API for CachedService service.
-// All implementations must embed UnimplementedCachedServiceServer
+// SimpleServiceServer is the server API for SimpleService service.
+// All implementations must embed UnimplementedSimpleServiceServer
 // for forward compatibility
-type CachedServiceServer interface {
+type SimpleServiceServer interface {
 	Increment(context.Context, *IncrementRequest) (*emptypb.Empty, error)
 	GetValue(context.Context, *emptypb.Empty) (*Value, error)
 	GetValueWithForcedClientCaching(context.Context, *emptypb.Empty) (*Value, error)
-	// Adds the value to the an arbitrary server-side object.
-	// If the object doesn't exist create a new one and it set it to the value.
-	IncrementObject(context.Context, *IncrementObjectRequest) (*emptypb.Empty, error)
-	GetObjectValue(context.Context, *ObjectReference) (*Value, error)
-	mustEmbedUnimplementedCachedServiceServer()
+	mustEmbedUnimplementedSimpleServiceServer()
 }
 
-// UnimplementedCachedServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedCachedServiceServer struct {
+// UnimplementedSimpleServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedSimpleServiceServer struct {
 }
 
-func (UnimplementedCachedServiceServer) Increment(context.Context, *IncrementRequest) (*emptypb.Empty, error) {
+func (UnimplementedSimpleServiceServer) Increment(context.Context, *IncrementRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Increment not implemented")
 }
-func (UnimplementedCachedServiceServer) GetValue(context.Context, *emptypb.Empty) (*Value, error) {
+func (UnimplementedSimpleServiceServer) GetValue(context.Context, *emptypb.Empty) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetValue not implemented")
 }
-func (UnimplementedCachedServiceServer) GetValueWithForcedClientCaching(context.Context, *emptypb.Empty) (*Value, error) {
+func (UnimplementedSimpleServiceServer) GetValueWithForcedClientCaching(context.Context, *emptypb.Empty) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetValueWithForcedClientCaching not implemented")
 }
-func (UnimplementedCachedServiceServer) IncrementObject(context.Context, *IncrementObjectRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IncrementObject not implemented")
-}
-func (UnimplementedCachedServiceServer) GetObjectValue(context.Context, *ObjectReference) (*Value, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetObjectValue not implemented")
-}
-func (UnimplementedCachedServiceServer) mustEmbedUnimplementedCachedServiceServer() {}
+func (UnimplementedSimpleServiceServer) mustEmbedUnimplementedSimpleServiceServer() {}
 
-// UnsafeCachedServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to CachedServiceServer will
+// UnsafeSimpleServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SimpleServiceServer will
 // result in compilation errors.
-type UnsafeCachedServiceServer interface {
-	mustEmbedUnimplementedCachedServiceServer()
+type UnsafeSimpleServiceServer interface {
+	mustEmbedUnimplementedSimpleServiceServer()
 }
 
-func RegisterCachedServiceServer(s grpc.ServiceRegistrar, srv CachedServiceServer) {
-	s.RegisterService(&CachedService_ServiceDesc, srv)
+func RegisterSimpleServiceServer(s grpc.ServiceRegistrar, srv SimpleServiceServer) {
+	s.RegisterService(&SimpleService_ServiceDesc, srv)
 }
 
-func _CachedService_Increment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SimpleService_Increment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IncrementRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CachedServiceServer).Increment(ctx, in)
+		return srv.(SimpleServiceServer).Increment(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/testgrpc.cached.CachedService/Increment",
+		FullMethod: "/testgrpc.cached.SimpleService/Increment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CachedServiceServer).Increment(ctx, req.(*IncrementRequest))
+		return srv.(SimpleServiceServer).Increment(ctx, req.(*IncrementRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CachedService_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SimpleService_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CachedServiceServer).GetValue(ctx, in)
+		return srv.(SimpleServiceServer).GetValue(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/testgrpc.cached.CachedService/GetValue",
+		FullMethod: "/testgrpc.cached.SimpleService/GetValue",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CachedServiceServer).GetValue(ctx, req.(*emptypb.Empty))
+		return srv.(SimpleServiceServer).GetValue(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CachedService_GetValueWithForcedClientCaching_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SimpleService_GetValueWithForcedClientCaching_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CachedServiceServer).GetValueWithForcedClientCaching(ctx, in)
+		return srv.(SimpleServiceServer).GetValueWithForcedClientCaching(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/testgrpc.cached.CachedService/GetValueWithForcedClientCaching",
+		FullMethod: "/testgrpc.cached.SimpleService/GetValueWithForcedClientCaching",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CachedServiceServer).GetValueWithForcedClientCaching(ctx, req.(*emptypb.Empty))
+		return srv.(SimpleServiceServer).GetValueWithForcedClientCaching(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CachedService_IncrementObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+// SimpleService_ServiceDesc is the grpc.ServiceDesc for SimpleService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SimpleService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "testgrpc.cached.SimpleService",
+	HandlerType: (*SimpleServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Increment",
+			Handler:    _SimpleService_Increment_Handler,
+		},
+		{
+			MethodName: "GetValue",
+			Handler:    _SimpleService_GetValue_Handler,
+		},
+		{
+			MethodName: "GetValueWithForcedClientCaching",
+			Handler:    _SimpleService_GetValueWithForcedClientCaching_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/test/testgrpc/cached.proto",
+}
+
+// ObjectServiceClient is the client API for ObjectService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ObjectServiceClient interface {
+	// Adds the value to the an arbitrary server-side object.
+	// If the object doesn't exist create a new one and it set it to the value.
+	IncrementObject(ctx context.Context, in *IncrementObjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetObjectValue(ctx context.Context, in *ObjectReference, opts ...grpc.CallOption) (*Value, error)
+	List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ObjectList, error)
+}
+
+type objectServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewObjectServiceClient(cc grpc.ClientConnInterface) ObjectServiceClient {
+	return &objectServiceClient{cc}
+}
+
+func (c *objectServiceClient) IncrementObject(ctx context.Context, in *IncrementObjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.ObjectService/IncrementObject", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *objectServiceClient) GetObjectValue(ctx context.Context, in *ObjectReference, opts ...grpc.CallOption) (*Value, error) {
+	out := new(Value)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.ObjectService/GetObjectValue", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *objectServiceClient) List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ObjectList, error) {
+	out := new(ObjectList)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.ObjectService/List", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ObjectServiceServer is the server API for ObjectService service.
+// All implementations must embed UnimplementedObjectServiceServer
+// for forward compatibility
+type ObjectServiceServer interface {
+	// Adds the value to the an arbitrary server-side object.
+	// If the object doesn't exist create a new one and it set it to the value.
+	IncrementObject(context.Context, *IncrementObjectRequest) (*emptypb.Empty, error)
+	GetObjectValue(context.Context, *ObjectReference) (*Value, error)
+	List(context.Context, *emptypb.Empty) (*ObjectList, error)
+	mustEmbedUnimplementedObjectServiceServer()
+}
+
+// UnimplementedObjectServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedObjectServiceServer struct {
+}
+
+func (UnimplementedObjectServiceServer) IncrementObject(context.Context, *IncrementObjectRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IncrementObject not implemented")
+}
+func (UnimplementedObjectServiceServer) GetObjectValue(context.Context, *ObjectReference) (*Value, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetObjectValue not implemented")
+}
+func (UnimplementedObjectServiceServer) List(context.Context, *emptypb.Empty) (*ObjectList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
+}
+func (UnimplementedObjectServiceServer) mustEmbedUnimplementedObjectServiceServer() {}
+
+// UnsafeObjectServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ObjectServiceServer will
+// result in compilation errors.
+type UnsafeObjectServiceServer interface {
+	mustEmbedUnimplementedObjectServiceServer()
+}
+
+func RegisterObjectServiceServer(s grpc.ServiceRegistrar, srv ObjectServiceServer) {
+	s.RegisterService(&ObjectService_ServiceDesc, srv)
+}
+
+func _ObjectService_IncrementObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IncrementObjectRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CachedServiceServer).IncrementObject(ctx, in)
+		return srv.(ObjectServiceServer).IncrementObject(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/testgrpc.cached.CachedService/IncrementObject",
+		FullMethod: "/testgrpc.cached.ObjectService/IncrementObject",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CachedServiceServer).IncrementObject(ctx, req.(*IncrementObjectRequest))
+		return srv.(ObjectServiceServer).IncrementObject(ctx, req.(*IncrementObjectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CachedService_GetObjectValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ObjectService_GetObjectValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ObjectReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CachedServiceServer).GetObjectValue(ctx, in)
+		return srv.(ObjectServiceServer).GetObjectValue(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/testgrpc.cached.CachedService/GetObjectValue",
+		FullMethod: "/testgrpc.cached.ObjectService/GetObjectValue",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CachedServiceServer).GetObjectValue(ctx, req.(*ObjectReference))
+		return srv.(ObjectServiceServer).GetObjectValue(ctx, req.(*ObjectReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// CachedService_ServiceDesc is the grpc.ServiceDesc for CachedService service.
+func _ObjectService_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObjectServiceServer).List(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/testgrpc.cached.ObjectService/List",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObjectServiceServer).List(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ObjectService_ServiceDesc is the grpc.ServiceDesc for ObjectService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var CachedService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "testgrpc.cached.CachedService",
-	HandlerType: (*CachedServiceServer)(nil),
+var ObjectService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "testgrpc.cached.ObjectService",
+	HandlerType: (*ObjectServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Increment",
-			Handler:    _CachedService_Increment_Handler,
-		},
-		{
-			MethodName: "GetValue",
-			Handler:    _CachedService_GetValue_Handler,
-		},
-		{
-			MethodName: "GetValueWithForcedClientCaching",
-			Handler:    _CachedService_GetValueWithForcedClientCaching_Handler,
-		},
-		{
 			MethodName: "IncrementObject",
-			Handler:    _CachedService_IncrementObject_Handler,
+			Handler:    _ObjectService_IncrementObject_Handler,
 		},
 		{
 			MethodName: "GetObjectValue",
-			Handler:    _CachedService_GetObjectValue_Handler,
+			Handler:    _ObjectService_GetObjectValue_Handler,
+		},
+		{
+			MethodName: "List",
+			Handler:    _ObjectService_List_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/test/testgrpc/cached.proto",
+}
+
+// AggregatorServiceClient is the client API for AggregatorService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AggregatorServiceClient interface {
+	// Increments the global value and all object values by 1,
+	// by making nested RPC calls.
+	// returns an aggregate value of all other values.
+	IncrementAll(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// returns sum of all values
+	GetAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error)
+	GetAllWithNestedCaching(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error)
+}
+
+type aggregatorServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAggregatorServiceClient(cc grpc.ClientConnInterface) AggregatorServiceClient {
+	return &aggregatorServiceClient{cc}
+}
+
+func (c *aggregatorServiceClient) IncrementAll(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.AggregatorService/IncrementAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aggregatorServiceClient) GetAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
+	out := new(Value)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.AggregatorService/GetAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aggregatorServiceClient) GetAllWithNestedCaching(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Value, error) {
+	out := new(Value)
+	err := c.cc.Invoke(ctx, "/testgrpc.cached.AggregatorService/GetAllWithNestedCaching", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AggregatorServiceServer is the server API for AggregatorService service.
+// All implementations must embed UnimplementedAggregatorServiceServer
+// for forward compatibility
+type AggregatorServiceServer interface {
+	// Increments the global value and all object values by 1,
+	// by making nested RPC calls.
+	// returns an aggregate value of all other values.
+	IncrementAll(context.Context, *IncrementRequest) (*emptypb.Empty, error)
+	// returns sum of all values
+	GetAll(context.Context, *emptypb.Empty) (*Value, error)
+	GetAllWithNestedCaching(context.Context, *emptypb.Empty) (*Value, error)
+	mustEmbedUnimplementedAggregatorServiceServer()
+}
+
+// UnimplementedAggregatorServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedAggregatorServiceServer struct {
+}
+
+func (UnimplementedAggregatorServiceServer) IncrementAll(context.Context, *IncrementRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IncrementAll not implemented")
+}
+func (UnimplementedAggregatorServiceServer) GetAll(context.Context, *emptypb.Empty) (*Value, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAll not implemented")
+}
+func (UnimplementedAggregatorServiceServer) GetAllWithNestedCaching(context.Context, *emptypb.Empty) (*Value, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllWithNestedCaching not implemented")
+}
+func (UnimplementedAggregatorServiceServer) mustEmbedUnimplementedAggregatorServiceServer() {}
+
+// UnsafeAggregatorServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AggregatorServiceServer will
+// result in compilation errors.
+type UnsafeAggregatorServiceServer interface {
+	mustEmbedUnimplementedAggregatorServiceServer()
+}
+
+func RegisterAggregatorServiceServer(s grpc.ServiceRegistrar, srv AggregatorServiceServer) {
+	s.RegisterService(&AggregatorService_ServiceDesc, srv)
+}
+
+func _AggregatorService_IncrementAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IncrementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AggregatorServiceServer).IncrementAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/testgrpc.cached.AggregatorService/IncrementAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AggregatorServiceServer).IncrementAll(ctx, req.(*IncrementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AggregatorService_GetAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AggregatorServiceServer).GetAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/testgrpc.cached.AggregatorService/GetAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AggregatorServiceServer).GetAll(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AggregatorService_GetAllWithNestedCaching_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AggregatorServiceServer).GetAllWithNestedCaching(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/testgrpc.cached.AggregatorService/GetAllWithNestedCaching",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AggregatorServiceServer).GetAllWithNestedCaching(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AggregatorService_ServiceDesc is the grpc.ServiceDesc for AggregatorService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AggregatorService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "testgrpc.cached.AggregatorService",
+	HandlerType: (*AggregatorServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "IncrementAll",
+			Handler:    _AggregatorService_IncrementAll_Handler,
+		},
+		{
+			MethodName: "GetAll",
+			Handler:    _AggregatorService_GetAll_Handler,
+		},
+		{
+			MethodName: "GetAllWithNestedCaching",
+			Handler:    _AggregatorService_GetAllWithNestedCaching_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

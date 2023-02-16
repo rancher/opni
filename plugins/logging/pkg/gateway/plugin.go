@@ -10,6 +10,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -175,6 +177,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		otelForwarder: loggingutil.NewOTELForwarder(
 			loggingutil.WithLogger(lg.Named("otel-forwarder")),
 			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
+			loggingutil.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
 		clusterDriver: clusterDriver,
 	}

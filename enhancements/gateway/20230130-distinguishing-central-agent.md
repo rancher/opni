@@ -80,9 +80,6 @@ Any dependencies that must be met before the proposal can be implemented. This c
 - If we do end up needing to know if a disconnected agent was labeled as the central agent, we can add session attributes to the "last known session details" metadata that is already tracked by the gateway for each agent connection. Will leave this feature out for now, since it could be confusing/redundant to have the attributes be available in two separate places.
 
 ## Level of Effort:
-1 week total:
-Development: 2 days
-Testing: 2 days
-Docs: 1 day
+2 weeks total
 
 ## Resources:

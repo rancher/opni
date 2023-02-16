@@ -75,6 +75,29 @@ func (a *AlertCondition) GetClusterId() *corev1.Reference {
 	return nil
 }
 
+func (a *AlertCondition) IsType(typVal AlertType) bool {
+	switch typVal {
+	case AlertType_System:
+		return a.GetAlertType().GetSystem() != nil
+	case AlertType_DownstreamCapability:
+		return a.GetAlertType().GetDownstreamCapability() != nil
+	case AlertType_MonitoringBackend:
+		return a.GetAlertType().GetMonitoringBackend() != nil
+	case AlertType_PrometheusQuery:
+		return a.GetAlertType().GetPrometheusQuery() != nil
+	case AlertType_KubeState:
+		return a.GetAlertType().GetKubeState() != nil
+	case AlertType_CpuSaturation:
+		return a.GetAlertType().GetCpu() != nil
+	case AlertType_MemorySaturation:
+		return a.GetAlertType().GetMemory() != nil
+	case AlertType_FsSaturation:
+		return a.GetAlertType().GetFs() != nil
+	default:
+		return false
+	}
+}
+
 // stop-gap solution until we move to the new version of the API
 func (a *AlertCondition) SetClusterId(clusterId *corev1.Reference) error {
 	if a.GetAlertType().GetSystem() != nil {

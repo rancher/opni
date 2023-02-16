@@ -70,9 +70,9 @@ service AlertConditions {
     };
   }
 
-  rpc ListStatusAlertCondition(ListStatusRequest) returns (ListStatusResponse) {
+  rpc ListAlertConditionsWithStatus(ListStatusRequest) returns (ListStatusResponse) {
     option (google.api.http) = {
-      get : "/listStatus"
+      get : "/list/withStatus"
     };
   }
 
@@ -104,7 +104,10 @@ service AlertConditions {
   }
 }
 
-message ListStatusRequest {}
+message ListStatusRequest {
+  ListAlertConditionRequest itemFilter = 1;
+  repeated AlertConditionState states = 2;
+}
 
 message ListStatusResponse {
   map<string, AlertConditionWithStatus> alertConditions = 1;
@@ -427,7 +430,12 @@ message AlertConditionWithId {
   AlertCondition alertCondition = 2;
 }
 
-message ListAlertConditionRequest {}
+message ListAlertConditionRequest {
+  repeated string clusters = 1;
+  repeated alerting.OpniSeverity severities = 2;
+  repeated string labels = 3;
+  repeated AlertType alertTypes = 4;
+}
 
 message UpdateAlertConditionRequest {
   core.Reference id = 1;

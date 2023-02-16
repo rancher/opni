@@ -31,7 +31,7 @@ type AlertConditionsClient interface {
 	ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertStatusResponse, error)
-	ListStatusAlertCondition(ctx context.Context, in *ListStatusRequest, opts ...grpc.CallOption) (*ListStatusResponse, error)
+	ListAlertConditionsWithStatus(ctx context.Context, in *ListStatusRequest, opts ...grpc.CallOption) (*ListStatusResponse, error)
 	CloneTo(ctx context.Context, in *CloneToRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(ctx context.Context, in *SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -111,9 +111,9 @@ func (c *alertConditionsClient) AlertConditionStatus(ctx context.Context, in *v1
 	return out, nil
 }
 
-func (c *alertConditionsClient) ListStatusAlertCondition(ctx context.Context, in *ListStatusRequest, opts ...grpc.CallOption) (*ListStatusResponse, error) {
+func (c *alertConditionsClient) ListAlertConditionsWithStatus(ctx context.Context, in *ListStatusRequest, opts ...grpc.CallOption) (*ListStatusResponse, error) {
 	out := new(ListStatusResponse)
-	err := c.cc.Invoke(ctx, "/alerting.AlertConditions/ListStatusAlertCondition", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.AlertConditions/ListAlertConditionsWithStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ type AlertConditionsServer interface {
 	ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error)
-	ListStatusAlertCondition(context.Context, *ListStatusRequest) (*ListStatusResponse, error)
+	ListAlertConditionsWithStatus(context.Context, *ListStatusRequest) (*ListStatusResponse, error)
 	CloneTo(context.Context, *CloneToRequest) (*emptypb.Empty, error)
 	// can only active silence when alert is in firing state (limitation of alertmanager)
 	ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error)
@@ -202,8 +202,8 @@ func (UnimplementedAlertConditionsServer) DeleteAlertCondition(context.Context, 
 func (UnimplementedAlertConditionsServer) AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AlertConditionStatus not implemented")
 }
-func (UnimplementedAlertConditionsServer) ListStatusAlertCondition(context.Context, *ListStatusRequest) (*ListStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListStatusAlertCondition not implemented")
+func (UnimplementedAlertConditionsServer) ListAlertConditionsWithStatus(context.Context, *ListStatusRequest) (*ListStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlertConditionsWithStatus not implemented")
 }
 func (UnimplementedAlertConditionsServer) CloneTo(context.Context, *CloneToRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloneTo not implemented")
@@ -356,20 +356,20 @@ func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertConditions_ListStatusAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertConditions_ListAlertConditionsWithStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertConditionsServer).ListStatusAlertCondition(ctx, in)
+		return srv.(AlertConditionsServer).ListAlertConditionsWithStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.AlertConditions/ListStatusAlertCondition",
+		FullMethod: "/alerting.AlertConditions/ListAlertConditionsWithStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).ListStatusAlertCondition(ctx, req.(*ListStatusRequest))
+		return srv.(AlertConditionsServer).ListAlertConditionsWithStatus(ctx, req.(*ListStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -482,8 +482,8 @@ var AlertConditions_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AlertConditions_AlertConditionStatus_Handler,
 		},
 		{
-			MethodName: "ListStatusAlertCondition",
-			Handler:    _AlertConditions_ListStatusAlertCondition_Handler,
+			MethodName: "ListAlertConditionsWithStatus",
+			Handler:    _AlertConditions_ListAlertConditionsWithStatus_Handler,
 		},
 		{
 			MethodName: "CloneTo",

@@ -71,16 +71,46 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAl
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	items, err := p.storageClientSet.Get().Conditions().List(ctx)
+	allConds, err := p.storageClientSet.Get().Conditions().List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &alertingv1.AlertConditionList{}
-	for i := range items {
+	conds := lo.Filter(allConds, func(item *alertingv1.AlertCondition, _ int) bool {
+		if len(req.Clusters) != 0 {
+			if !slices.Contains(req.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		if len(req.Labels) != 0 {
+			if len(lo.Intersect(req.Labels, item.Labels)) != len(req.Labels) {
+				return false
+			}
+		}
+		if len(req.Severities) != 0 {
+			if !slices.Contains(req.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(req.Severities) != 0 {
+			matches := false
+			for _, typ := range req.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	})
+	for i := range conds {
 		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
-			Id:             &corev1.Reference{Id: items[i].Id},
-			AlertCondition: items[i],
+			Id:             &corev1.Reference{Id: conds[i].Id},
+			AlertCondition: conds[i],
 		})
 	}
 	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) bool {
@@ -362,8 +392,8 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	return resultStatus, nil
 }
 
-func (p *Plugin) ListStatusAlertCondition(ctx context.Context, _ *alertingv1.ListStatusRequest) (*alertingv1.ListStatusResponse, error) {
-	conds, err := p.storageClientSet.Get().Conditions().List(ctx)
+func (p *Plugin) ListAlertConditionsWithStatus(ctx context.Context, req *alertingv1.ListStatusRequest) (*alertingv1.ListStatusResponse, error) {
+	allConds, err := p.storageClientSet.Get().Conditions().List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -374,6 +404,39 @@ func (p *Plugin) ListStatusAlertCondition(ctx context.Context, _ *alertingv1.Lis
 	if err != nil {
 		return nil, err
 	}
+	conds := lo.Filter(allConds, func(item *alertingv1.AlertCondition, _ int) bool {
+		if req.ItemFilter == nil {
+			return true
+		}
+		if len(req.ItemFilter.Clusters) != 0 {
+			if !slices.Contains(req.ItemFilter.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Labels) != 0 {
+			if len(lo.Intersect(req.ItemFilter.Labels, item.Labels)) != len(req.ItemFilter.Labels) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Severities) != 0 {
+			if !slices.Contains(req.ItemFilter.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Severities) != 0 {
+			matches := false
+			for _, typ := range req.ItemFilter.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	})
 	for _, cond := range conds {
 
 		resultStatus := &alertingv1.AlertStatusResponse{
@@ -412,6 +475,11 @@ func (p *Plugin) ListStatusAlertCondition(ctx context.Context, _ *alertingv1.Lis
 		))
 		compareStatus(statusFromAlertGroup(matchers, statusInfo.alertGroup))
 
+		if len(req.States) != 0 {
+			if !slices.Contains(req.States, resultStatus.State) {
+				continue
+			}
+		}
 		res.AlertConditions[cond.Id] = &alertingv1.AlertConditionWithStatus{
 			AlertCondition: cond,
 			Status:         resultStatus,

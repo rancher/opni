@@ -33,11 +33,11 @@ import (
 var (
 	DefaultFluentbitImage = loggingv1beta1.ImageSpec{
 		Repository: "rancher/mirrored-fluent-fluent-bit",
-		Tag:        "1.7.4",
+		Tag:        "1.9.5",
 	}
 	DefaultFluentdImage = loggingv1beta1.ImageSpec{
-		Repository: "quay.io/dbason/banzaicloud-fluentd",
-		Tag:        "alpine-1.13-2",
+		Repository: "rancher/mirrored-banzaicloud-fluentd",
+		Tag:        "v1.14.6-alpine-5",
 	}
 	DefaultConfigReloaderImage = loggingv1beta1.ImageSpec{
 		Repository: "rancher/mirrored-jimmidyson-configmap-reload",

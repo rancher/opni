@@ -244,7 +244,7 @@ type LoggingConfig struct {
 	Receivers []string
 }
 type AggregatorConfig struct {
-	AgentEdpoint string
-	ClusterID    string
-	LogsEnabled  bool
+	AgentEndpoint string
+	ClusterID     string
+	LogsEnabled   bool
 }

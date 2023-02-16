@@ -235,9 +235,9 @@ func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
 
 	var buffer bytes.Buffer
 	err := templateAggregatorConfig.Execute(&buffer, AggregatorConfig{
-		LogsEnabled:  r.collector.Spec.LoggingConfig != nil,
-		AgentEdpoint: r.collector.Spec.AgentEndpoint,
-		ClusterID:    r.collector.Spec.ClusterID,
+		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
+		AgentEndpoint: r.collector.Spec.AgentEndpoint,
+		ClusterID:     r.collector.Spec.ClusterID,
 	})
 	if err != nil {
 		return resources.Error(nil, err), ""
@@ -319,7 +319,7 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 								fmt.Sprintf("--config=/etc/otel/%s", mainKey),
 							},
 							Image:           *imageSpec.Image,
-							ImagePullPolicy: *imageSpec.ImagePullPolicy,
+							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env: []corev1.EnvVar{
 								{
 									Name: "NODE_NAME",
@@ -392,7 +392,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 								fmt.Sprintf("--config=/etc/otel/%s", aggregatorKey),
 							},
 							Image:           *imageSpec.Image,
-							ImagePullPolicy: *imageSpec.ImagePullPolicy,
+							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env: []corev1.EnvVar{
 								{
 									Name: "NODE_NAME",

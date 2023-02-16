@@ -11,8 +11,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type CoreCollectorReconciler struct {
@@ -55,14 +59,35 @@ func (r *CoreCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	requestMapper := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		var collectorList corev1beta1.CollectorList
+		if err := mgr.GetCache().List(context.Background(), &collectorList); err != nil {
+			return nil
+		}
+		return reconcileRequestsForCollector(collectorList.Items, obj.GetName())
+	})
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1beta1.Collector{}).
-		For(&opniloggingv1beta1.CollectorConfig{}).
+		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
+}
+
+func reconcileRequestsForCollector(collectors []corev1beta1.Collector, name string) (reqs []reconcile.Request) {
+	for _, c := range collectors {
+		if c.Spec.LoggingConfig != nil && c.Spec.LoggingConfig.Name == name {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: c.Namespace,
+					Name:      c.Name,
+				},
+			})
+		}
+	}
+	return
 }

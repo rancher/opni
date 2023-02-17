@@ -2,7 +2,7 @@
 Fetch last hours worth of logs for each workload specified in the watchlist as part of training data for Deep Learning Model
 
 ## Summary: 
-Currently, when a user would like to train a Deep Learning model on a watchlist of workloads, the corresponding logs for all of the workloads specified are fetched from Opensearch within the last hour. However, by having an absolute start and end time to fetch log messages, there is a possibility that some of the workloads specified by the user will not have any log messages present during that time. Hence, a new approach is proposed where for each workload specified by the user in the watchlist, all of the logs within the last hour will be fetched.
+Currently, when a user would like to train a Deep Learning model on a watchlist of workloads, the corresponding logs for all of the workloads specified are fetched from Opensearch within the last hour. However, by having an absolute start and end time to fetch log messages, there is a possibility that some of the workloads specified by the user will not have any log messages present during that time. Hence, a new approach is proposed where for each workload specified by the user in the watchlist, all of the logs within the last 24 hours will be fetched.
 
 ## Use case: 
 This will filter out workload log messages with anomalous keywords from the training data of the Deep Learning model. 
@@ -22,7 +22,7 @@ First, within the training controller service, a query will be made to fetch the
 LogsPerWorkload = MaxTotalLogs // NumWorkloads
 ```
 
-Next, fetch the latest timestamp for each workload specified. Once the timestamps are retrieved, then for each workload take the timestamp fetched and subtract 3600 to get the starting time range. Create a separate query dictionary for each workload and store them in a JSON object.
+Next, fetch the latest timestamp for each workload specified. Once the timestamps are retrieved, then for each workload take the timestamp fetched and subtract 86400 (number of seconds in 24 hours) to get the starting time range. Create a separate query dictionary for each workload and store them in a JSON object.
 
 After all workload queries have been stored, send over the result to the GPU controller service through Nats.
 

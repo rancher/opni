@@ -12,6 +12,7 @@ import (
 )
 
 const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
+const EndpointTagDefault = "default"
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
 	res := []string{}

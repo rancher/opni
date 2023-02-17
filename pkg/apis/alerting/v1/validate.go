@@ -468,3 +468,10 @@ func (r *ResolveAlertsRequest) Validate() error {
 	}
 	return nil
 }
+
+func (t *ToggleDefaultRequest) Validate() error {
+	if t.GetId() == nil || t.GetId().Id == "" {
+		return validation.Error("endpoint id must be set")
+	}
+	return nil
+}

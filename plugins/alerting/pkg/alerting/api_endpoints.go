@@ -211,3 +211,24 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 
 	return &alertingv1.TestAlertEndpointResponse{}, nil
 }
+
+func (p *Plugin) ToggleDefault(ctx context.Context, req *alertingv1.ToggleDefaultRequest) (*emptypb.Empty, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	endp, err := p.storageClientSet.Get().Endpoints().Get(ctx, req.Id.Id)
+	if err != nil {
+		return nil, err
+	}
+	if endp.GetTags() == nil {
+		endp.Tags = map[string]string{}
+	}
+	if _, ok := endp.Tags["default"]; !ok {
+		endp.Tags[alertingv1.EndpointTagDefault] = "true"
+	} else {
+		endp.Tags[alertingv1.EndpointTagDefault] = "false"
+	}
+	endp.LastUpdated = timestamppb.Now()
+	return &emptypb.Empty{}, p.storageClientSet.Get().Endpoints().Put(ctx, req.Id.Id, endp)
+}

@@ -34,6 +34,13 @@ service AlertEndpoints{
     };
   }
 
+  rpc ToggleDefault(ToggleDefaultRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/toggleDefault"
+      body : "*"
+    };
+  }
+
   rpc ListAlertEndpoints(ListAlertEndpointsRequest)
       returns (AlertEndpointList) {
     option (google.api.http) = {
@@ -88,6 +95,9 @@ message AlertEndpoint {
   // the following are read only for consumers of the API
   google.protobuf.Timestamp lastUpdated = 3;
   string id = 4;
+  // tags are used to identify endpoints internally, tags starting with "_" are private 
+  // and represente properties of the endpoint, such as defaults
+  map<string,string> tags = 9;
 }
 
 message EndpointImplementation {
@@ -276,4 +286,8 @@ message EndpointMetadata {
 
 message InvolvedConditions {
   repeated core.Reference items = 1;
+}
+
+message ToggleDefaultRequest {
+  core.Reference id = 1;
 }

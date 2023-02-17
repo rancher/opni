@@ -12,6 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -25,6 +26,7 @@ const _ = grpc.SupportPackageIsVersion7
 type AlertEndpointsClient interface {
 	CreateAlertEndpoint(ctx context.Context, in *AlertEndpoint, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error)
+	ToggleDefault(ctx context.Context, in *ToggleDefaultRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
 	// when forceUpdate = false,
 	// returns a list of conditions this would affect (if none, applies the update)
@@ -60,6 +62,15 @@ func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *Aler
 func (c *alertEndpointsClient) GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error) {
 	out := new(AlertEndpoint)
 	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/GetAlertEndpoint", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertEndpointsClient) ToggleDefault(ctx context.Context, in *ToggleDefaultRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/ToggleDefault", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +119,7 @@ func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *TestAl
 type AlertEndpointsServer interface {
 	CreateAlertEndpoint(context.Context, *AlertEndpoint) (*v1.Reference, error)
 	GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error)
+	ToggleDefault(context.Context, *ToggleDefaultRequest) (*emptypb.Empty, error)
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)
 	// when forceUpdate = false,
 	// returns a list of conditions this would affect (if none, applies the update)
@@ -133,6 +145,9 @@ func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *A
 }
 func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertEndpoint not implemented")
+}
+func (UnimplementedAlertEndpointsServer) ToggleDefault(context.Context, *ToggleDefaultRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ToggleDefault not implemented")
 }
 func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEndpoints not implemented")
@@ -191,6 +206,24 @@ func _AlertEndpoints_GetAlertEndpoint_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertEndpointsServer).GetAlertEndpoint(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AlertEndpoints_ToggleDefault_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleDefaultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertEndpointsServer).ToggleDefault(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.AlertEndpoints/ToggleDefault",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertEndpointsServer).ToggleDefault(ctx, req.(*ToggleDefaultRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -281,6 +314,10 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAlertEndpoint",
 			Handler:    _AlertEndpoints_GetAlertEndpoint_Handler,
+		},
+		{
+			MethodName: "ToggleDefault",
+			Handler:    _AlertEndpoints_ToggleDefault_Handler,
 		},
 		{
 			MethodName: "ListAlertEndpoints",

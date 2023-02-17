@@ -153,7 +153,7 @@ func (dc *AlertConditionDownstreamCapability) Validate() error {
 
 func (m *AlertConditionMonitoringBackend) Validate() error {
 	m.ClusterId = &corev1.Reference{
-		Id: upstreamClusterId,
+		Id: UpstreamClusterId,
 	}
 	if m.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be some positive time")

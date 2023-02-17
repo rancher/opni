@@ -35,7 +35,7 @@ Besides the requirement of having Opni AIOps already enabled with an NVIDIA GPU 
 N/A
 
 ## Level of Effort: 
-* Code implementation: <= 4 days
+* Code implementation: <= 3 days
 * Testing and debugging: <= 2 days
 
 ## Resources: 

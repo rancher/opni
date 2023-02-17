@@ -2,13 +2,13 @@
 Enable GPU Services upon submission of initial training job for workload logs.
 
 ## Summary: 
-Currently, when a user would like to enable AI services, they will go to the Opni Admin Dashboard. First, they are required to enable Logging and once that is done, they will go to the AIOps panel and check the "Enable GPU Services button". When they hit the "Save" button, the GPU services are installed within the Kubernetes cluster. This includes the workload DRAIN service, the training controller service, the GPU Controller service and CPU Inferencing service. However, this feature can be a little more straight forward by simply detecting the existence of a GPU within the cluster and when the user decides to train a Deep Learning model, that is when these GPU services should be installed, rather than through a checkbox button.
+Currently, when a user would like to enable AI services, they will go to the Opni Admin Dashboard. First, they are required to enable Logging and once that is done, they will go to the AIOps panel and check the "Enable GPU Services button". When they hit the "Save" button, the GPU services are installed within the Kubernetes cluster. This includes the workload DRAIN service, the training controller service, the GPU Controller service and CPU Inferencing service. This UX can be avoided by simply detecting the availability of a GPU within the cluster and when the user creates or updates the workload log anomaly watchlist to train a Deep Learning model, that is when these GPU services should be installed, rather than through a checkbox button.
 
 ## Use case: 
-This will remove the "Enable GPU Services" check box and now will install the GPU services when the user decides to update the watchlist for the very first time with workloads.
+This will remove the "Enable GPU Services" check box and now will install the GPU services when the user decides to update the watchlist for the very first time with workloads. Opni GPU services will automatically come up upon the creation or update of a workload log anomaly watchlist.
 
 ## Benefits: 
-* Improves UX of the Opni Admin Dashboard
+* Improves the usability of Opni AIOps log anomaly
 
 
 ## Impact: 
@@ -16,7 +16,7 @@ The impact of this feature would be on several services. The AIOps gateway plugi
 
 ## Implementation details: 
 
-The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), a call will be made that will first enable the GPU services if this is the first request made. Thus, an initial function will be called which first enables the GPU services before calling the TrainModel function.
+The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), a call will be made that will first enable the GPU services if this is the first time a user is updating the watchlist with workload logs that they wish to receive insights for. Thus, an initial function will be called which first enables the GPU services before calling the TrainModel function.
 
 Within the Opni Admin Dashboard UI, the checkbox for enabling GPU services will be removed. 
 
@@ -37,6 +37,8 @@ N/A
 ## Level of Effort: 
 * Code implementation: <= 3 days
 * Testing and debugging: <= 2 days
+* Documentation: 2 days
 
 ## Resources: 
-N/A
+* EC2 instance for building plugin image 
+* NVIDIA GPU 

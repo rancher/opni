@@ -1,146 +1,17 @@
 package v1
 
 import (
-	"reflect"
 	"strings"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// EnumConditionToDatasource
-//
-// nil values indicate they are composition alerts
-// we need this since each alert tree must only have one datasource atm
-var EnumConditionToDatasource = make(map[AlertType]*string)
-
-var EnumConditionToImplementation = make(map[AlertType]AlertTypeDetails)
-
-func init() {
-	//logging := shared.LoggingDatasource
-	monitoring := shared.MonitoringDatasource
-	system := shared.SystemDatasource
-	EnumConditionToDatasource[AlertType_System] = &system
-	EnumConditionToDatasource[AlertType_DownstreamCapability] = &system
-	EnumConditionToDatasource[AlertType_KubeState] = &monitoring
-	EnumConditionToDatasource[AlertType_CpuSaturation] = &monitoring
-	EnumConditionToDatasource[AlertType_MemorySaturation] = &monitoring
-	EnumConditionToDatasource[AlertType_FsSaturation] = &monitoring
-	EnumConditionToDatasource[AlertType_Composition] = &monitoring
-	EnumConditionToDatasource[AlertType_ControlFlow] = &monitoring
-	EnumConditionToDatasource[AlertType_PrometheusQuery] = &monitoring
-	EnumConditionToDatasource[AlertType_MonitoringBackend] = &system
-
-	EnumConditionToImplementation[AlertType_System] = AlertTypeDetails{
-		Type: &AlertTypeDetails_System{
-			System: &AlertConditionSystem{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_KubeState] = AlertTypeDetails{
-		Type: &AlertTypeDetails_KubeState{
-			KubeState: &AlertConditionKubeState{},
-		},
-	}
-
-	EnumConditionToImplementation[AlertType_CpuSaturation] = AlertTypeDetails{
-		Type: &AlertTypeDetails_Cpu{
-			Cpu: &AlertConditionCPUSaturation{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_MemorySaturation] = AlertTypeDetails{
-		Type: &AlertTypeDetails_Memory{
-			Memory: &AlertConditionMemorySaturation{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_FsSaturation] = AlertTypeDetails{
-		Type: &AlertTypeDetails_Fs{
-			Fs: &AlertConditionFilesystemSaturation{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_Composition] = AlertTypeDetails{
-		Type: &AlertTypeDetails_Composition{
-			Composition: &AlertConditionComposition{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_ControlFlow] = AlertTypeDetails{
-		Type: &AlertTypeDetails_ControlFlow{
-			ControlFlow: &AlertConditionControlFlow{},
-		},
-	}
-
-	EnumConditionToImplementation[AlertType_PrometheusQuery] = AlertTypeDetails{
-		Type: &AlertTypeDetails_PrometheusQuery{
-			PrometheusQuery: &AlertConditionPrometheusQuery{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_DownstreamCapability] = AlertTypeDetails{
-		Type: &AlertTypeDetails_DownstreamCapability{
-			DownstreamCapability: &AlertConditionDownstreamCapability{},
-		},
-	}
-	EnumConditionToImplementation[AlertType_MonitoringBackend] = AlertTypeDetails{
-		Type: &AlertTypeDetails_MonitoringBackend{
-			MonitoringBackend: &AlertConditionMonitoringBackend{},
-		},
-	}
-}
-
-func EnumHasImplementation(a AlertType) error {
-	if _, ok := EnumConditionToImplementation[a]; !ok {
-		return shared.AlertingErrNotImplemented
-	}
-	return nil
-}
-
-func DetailsHasImplementation(a *AlertTypeDetails) error {
-	for _, v := range EnumConditionToImplementation {
-		if reflect.TypeOf(v.GetType()) == reflect.TypeOf(a.GetType()) {
-			return nil
-		}
-	}
-	return shared.AlertingErrNotImplemented
-}
-
-type Templateable interface {
-	ListTemplates() []string
-}
-
-var _ Templateable = &AlertTypeDetails{}
-
-func (a *AlertTypeDetails) ListTemplates() []string {
-	if a.GetSystem() != nil {
-		return a.GetSystem().ListTemplates()
-	}
-	if a.GetKubeState() != nil {
-		return a.GetKubeState().ListTemplates()
-	}
-	if a.GetComposition() != nil {
-		return a.GetComposition().ListTemplates()
-	}
-	if a.GetControlFlow() != nil {
-		return a.GetControlFlow().ListTemplates()
-	}
-	panic("No templates returned for alert type")
-}
-func (a *AlertConditionSystem) ListTemplates() []string {
-	return []string{
-		"agentId",
-		"timeout",
-	}
-}
-
-func (a *AlertConditionKubeState) ListTemplates() []string {
-	return []string{}
-}
-
-func (a *AlertConditionComposition) ListTemplates() []string {
-	return []string{}
-}
-
-func (a *AlertConditionControlFlow) ListTemplates() []string {
-	return []string{}
-}
+const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
 	res := []string{}
@@ -155,27 +26,21 @@ func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) 
 	return res
 }
 
-func ShouldCreateRoutingNode(new, old *AttachedEndpoints) bool {
-	// only create if we go from having no endpoints to having some
-	if new == nil || len(new.Items) == 0 {
-		return false
-	} else if (old == nil || len(old.Items) == 0) && new != nil && len(new.Items) > 0 {
-		return true
-	}
-	return false // should update pre-existing routing-node
-}
-
-func ShouldUpdateRoutingNode(new, old *AttachedEndpoints) bool {
-	// only update if both are specified
-	if new != nil && len(new.Items) > 0 && old != nil && len(old.Items) > 0 {
+func IsInternalCondition(cond *AlertCondition) bool {
+	if cond.GetAlertType().GetSystem() != nil ||
+		cond.GetAlertType().GetDownstreamCapability() != nil ||
+		cond.GetAlertType().GetMonitoringBackend() != nil {
 		return true
 	}
 	return false
 }
 
-func ShouldDeleteRoutingNode(new, old *AttachedEndpoints) bool {
-	// only delete if we go from having endpoints to having none
-	if (new == nil || len(new.Items) > 0) && old != nil && len(old.Items) > 0 {
+func IsMetricsCondition(cond *AlertCondition) bool {
+	if cond.GetAlertType().GetPrometheusQuery() != nil ||
+		cond.GetAlertType().GetKubeState() != nil ||
+		cond.GetAlertType().GetCpu() != nil ||
+		cond.GetAlertType().GetMemory() != nil ||
+		cond.GetAlertType().GetFs() != nil {
 		return true
 	}
 	return false
@@ -185,6 +50,12 @@ func ShouldDeleteRoutingNode(new, old *AttachedEndpoints) bool {
 func (a *AlertCondition) GetClusterId() *corev1.Reference {
 	if a.GetAlertType().GetSystem() != nil {
 		return a.GetAlertType().GetSystem().GetClusterId()
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		return a.GetAlertType().GetDownstreamCapability().GetClusterId()
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		return a.GetAlertType().GetMonitoringBackend().GetClusterId()
 	}
 	if a.GetAlertType().GetPrometheusQuery() != nil {
 		return a.GetAlertType().GetPrometheusQuery().GetClusterId()
@@ -202,6 +73,29 @@ func (a *AlertCondition) GetClusterId() *corev1.Reference {
 		return a.GetAlertType().GetFs().GetClusterId()
 	}
 	return nil
+}
+
+func (a *AlertCondition) IsType(typVal AlertType) bool {
+	switch typVal {
+	case AlertType_System:
+		return a.GetAlertType().GetSystem() != nil
+	case AlertType_DownstreamCapability:
+		return a.GetAlertType().GetDownstreamCapability() != nil
+	case AlertType_MonitoringBackend:
+		return a.GetAlertType().GetMonitoringBackend() != nil
+	case AlertType_PrometheusQuery:
+		return a.GetAlertType().GetPrometheusQuery() != nil
+	case AlertType_KubeState:
+		return a.GetAlertType().GetKubeState() != nil
+	case AlertType_CpuSaturation:
+		return a.GetAlertType().GetCpu() != nil
+	case AlertType_MemorySaturation:
+		return a.GetAlertType().GetMemory() != nil
+	case AlertType_FsSaturation:
+		return a.GetAlertType().GetFs() != nil
+	default:
+		return false
+	}
 }
 
 // stop-gap solution until we move to the new version of the API
@@ -270,4 +164,102 @@ func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]str
 		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
 		"unhealthyThreshold": a.GetFor().String(),
 	}
+}
+
+// noop
+func (c *CachedState) RedactSecrets() {}
+
+func (c *CachedState) IsEquivalent(other *CachedState) bool {
+	return c.Healthy == other.Healthy && c.Firing == other.Firing
+}
+
+// if we can't read the last known state assume it is healthy
+// and not firing, set last known state to now
+func DefaultCachedState() *CachedState {
+	return &CachedState{
+		Healthy:   true,
+		Firing:    false,
+		Timestamp: timestamppb.Now(),
+	}
+}
+
+// noop
+func (i *IncidentIntervals) RedactSecrets() {}
+
+func (i *IncidentIntervals) Prune(ttl time.Duration) {
+	pruneIdx := 0
+	now := time.Now()
+	for _, interval := range i.GetItems() {
+		// if is before the ttl, prune it
+		tStart := interval.Start.AsTime()
+		if tStart.Before(now.Add(-ttl)) {
+			// if we know it ends before the known universe
+			if interval.End != nil {
+				tEnd := interval.End.AsTime()
+				if tEnd.Before(now.Add(-ttl)) { //check if we should prune it
+					pruneIdx++
+				} else { // prune the start of the interval to before the ttl
+					interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
+				}
+			}
+		} else {
+			break // we can stop pruning
+		}
+	}
+	i.Items = i.Items[pruneIdx:]
+}
+
+func NewIncidentIntervals() *IncidentIntervals {
+	return &IncidentIntervals{
+		Items: []*Interval{},
+	}
+}
+
+func (r *RateLimitingConfig) Default() *RateLimitingConfig {
+	r.ThrottlingDuration = durationpb.New(10 * time.Minute)
+	r.RepeatInterval = durationpb.New(10 * time.Minute)
+	r.InitialDelay = durationpb.New(10 * time.Second)
+	return r
+}
+
+func (a *AlertCondition) Namespace() string {
+	if a.GetAlertType().GetSystem() != nil {
+		return "disconnect"
+	}
+	if a.GetAlertType().GetDownstreamCapability() != nil {
+		return "capability"
+	}
+	if a.GetAlertType().GetCpu() != nil {
+		return "cpu"
+	}
+	if a.GetAlertType().GetMemory() != nil {
+		return "memory"
+	}
+	if a.GetAlertType().GetFs() != nil {
+		return "fs"
+	}
+	if a.GetAlertType().GetKubeState() != nil {
+		return "kube-state"
+	}
+	if a.GetAlertType().GetPrometheusQuery() != nil {
+		return "promql"
+	}
+	if a.GetAlertType().GetMonitoringBackend() != nil {
+		return "monitoring-backend"
+	}
+	return "default"
+}
+
+func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
+	involvedConditions := &InvolvedConditions{
+		Items: []*corev1.Reference{},
+	}
+	for conditionId, endpointIds := range r.RoutingRelationships {
+		if lo.Contains(
+			lo.Map(endpointIds.Items, func(c *corev1.Reference, _ int) string { return c.Id }),
+			endpointId) {
+			involvedConditions.Items = append(involvedConditions.Items, &corev1.Reference{Id: conditionId})
+		}
+	}
+	return involvedConditions
 }

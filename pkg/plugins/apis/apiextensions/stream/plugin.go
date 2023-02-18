@@ -63,7 +63,7 @@ type streamApiExtensionPlugin struct {
 var _ plugin.GRPCPlugin = (*streamApiExtensionPlugin)(nil)
 
 func (p *streamApiExtensionPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	apiextensions.RegisterStreamAPIExtensionServer(s, p.extensionSrv)
@@ -73,7 +73,7 @@ func (p *streamApiExtensionPlugin) GRPCServer(
 
 func (p *streamApiExtensionPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	// TODO: need to check for stream service availability, otherwise we get 'unknown service stream.Stream' errors
@@ -125,6 +125,7 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 
 type streamExtensionServerImpl struct {
 	streamv1.UnsafeStreamServer
+
 	name string
 	apiextensions.UnimplementedStreamAPIExtensionServer
 	servers                 []*richServer
@@ -182,6 +183,13 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	e.streamClientCond.Broadcast()
 	e.streamClientCond.L.Unlock()
 
+	// todo: necessary for gateway but redundant for clients (will cause UseStreamClient to run twice)
+	if e.clientHandler != nil {
+		if _, err := e.Notify(context.TODO(), &streamv1.StreamEvent{Type: streamv1.EventType_DiscoveryComplete}); err != nil {
+			e.logger.Infof("failed to notify server of new connection")
+		}
+	}
+
 	defer func() {
 		e.streamClientCond.L.Lock()
 		if e.clientDisconnectHandler != nil {
@@ -202,7 +210,7 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
-	).Debug("received notify event")
+	).Debugf("received notify event for '%s'", e.name)
 	returned := make(chan struct{})
 	defer close(returned)
 	go func() {
@@ -215,8 +223,7 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 		}
 	}()
 
-	switch event.Type {
-	case streamv1.EventType_DiscoveryComplete:
+	if event.Type == streamv1.EventType_DiscoveryComplete {
 		e.logger.Debug("processing discovery complete event")
 		e.streamClientCond.L.Lock()
 		for e.streamClient == nil {

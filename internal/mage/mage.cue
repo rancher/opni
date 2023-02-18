@@ -24,7 +24,7 @@ import (
 #Image: docker.#Build & {
 	steps: [
 		docker.#Pull & {
-			source: "golang:1.19"
+			source: "golang:1.20"
 		},
 		docker.#Run & {
 			command: {

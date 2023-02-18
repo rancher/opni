@@ -13,14 +13,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// +kubebuilder:rbac:groups=opni.io,resources=gateways,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=gateways/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=opni.io,resources=gateways/finalizers,verbs=update
-// +kubebuilder:rbac:groups=opni.io,resources=bootstraptokens,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=keyrings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=gateways,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=gateways/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.opni.io,resources=gateways/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.opni.io,resources=bootstraptokens,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=keyrings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete

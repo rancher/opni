@@ -36,33 +36,33 @@ type certMgrOptions struct {
 	restconfig       *rest.Config
 }
 
-type certMgrOption func(*certMgrOptions)
+type CertMgrOption func(*certMgrOptions)
 
-func (o *certMgrOptions) apply(opts ...certMgrOption) {
+func (o *certMgrOptions) apply(opts ...CertMgrOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithNamespace(namespace string) certMgrOption {
+func WithNamespace(namespace string) CertMgrOption {
 	return func(o *certMgrOptions) {
 		o.storageNamespace = namespace
 	}
 }
 
-func WithCluster(cluster string) certMgrOption {
+func WithCluster(cluster string) CertMgrOption {
 	return func(o *certMgrOptions) {
 		o.cluster = cluster
 	}
 }
 
-func WithRestConfig(restconfig *rest.Config) certMgrOption {
+func WithRestConfig(restconfig *rest.Config) CertMgrOption {
 	return func(o *certMgrOptions) {
 		o.restconfig = restconfig
 	}
 }
 
-func NewCertMgrOpensearchCertManager(ctx context.Context, opts ...certMgrOption) OpensearchCertManager {
+func NewCertMgrOpensearchCertManager(ctx context.Context, opts ...CertMgrOption) OpensearchCertManager {
 	options := certMgrOptions{
 		cluster: "opni",
 	}

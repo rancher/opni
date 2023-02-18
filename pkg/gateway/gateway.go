@@ -199,14 +199,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	listener := health.NewListener()
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	sync := NewSyncRequester(lg)
+	delegate := NewDelegateServer(storageBackend, lg)
 	// set up agent connection handlers
-	agentHandler := MultiConnectionHandler(listener, sync)
-	//// set up ref count to health listener
-	//versionHandler := MultiConnectionHandler(listener, )
+	agentHandler := MultiConnectionHandler(listener, sync, delegate)
+
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
+	streamv1.RegisterDelegateServer(streamSvc, delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 

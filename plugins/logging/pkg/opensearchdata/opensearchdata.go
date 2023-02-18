@@ -45,7 +45,7 @@ type Manager struct {
 	OpensearchManagerOptions
 	*loggingutil.AsyncOpensearchClient
 
-	kv     *loggingutil.AsyncJetStreamClient
+	kv     *loggingutil.AsyncClient[nats.KeyValue]
 	logger *zap.SugaredLogger
 
 	adminInitStateRW sync.RWMutex
@@ -74,14 +74,14 @@ func NewManager(logger *zap.SugaredLogger, opts ...OpensearchManagerOption) *Man
 	options.apply(opts...)
 	return &Manager{
 		OpensearchManagerOptions: options,
-		kv:                       loggingutil.NewAsyncJetStreamClient(),
+		kv:                       loggingutil.NewAsyncClient[nats.KeyValue](),
 		AsyncOpensearchClient:    loggingutil.NewAsyncOpensearchClient(),
 		logger:                   logger,
 	}
 }
 
 func (m *Manager) keyExists(keyToCheck string) (bool, error) {
-	keys, err := m.kv.Keys()
+	keys, err := m.kv.Client.Keys()
 	if err != nil {
 		if errors.Is(err, nats.ErrNoKeysFound) {
 			return false, nil

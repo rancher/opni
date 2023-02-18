@@ -262,7 +262,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	}
 }
 
-func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*managementv1.CertsInfoResponse, error) {
+func (m *Server) CertsInfo(_ context.Context, _ *emptypb.Empty) (*managementv1.CertsInfoResponse, error) {
 	resp := &managementv1.CertsInfoResponse{
 		Chain: []*corev1.CertInfo{},
 	}
@@ -329,7 +329,7 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 }
 
 func (m *Server) CapabilityInstaller(
-	ctx context.Context,
+	_ context.Context,
 	req *managementv1.CapabilityInstallerRequest,
 ) (*managementv1.CapabilityInstallerResponse, error) {
 	if m.capabilitiesDataSource == nil {

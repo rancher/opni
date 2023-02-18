@@ -7,6 +7,10 @@ resources:
 - logging/logging.opni.io_flows.yaml
 - logging/logging.opni.io_loggings.yaml
 - logging/logging.opni.io_outputs.yaml
+- logging/logging.opni.io_syslogngclusterflows.yaml
+- logging/logging.opni.io_syslogngclusteroutputs.yaml
+- logging/logging.opni.io_syslogngoutputs.yaml
+- logging/logging.opni.io_syslogngflows.yaml
 - bases/logging.opni.io_logadapters.yaml
 - bases/logging.opni.io_datapreppers.yaml
 - bases/core.opni.io_bootstraptokens.yaml

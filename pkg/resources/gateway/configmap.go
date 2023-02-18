@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -19,7 +21,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func (r *Reconciler) configMap() (resources.Resource, error) {
+func (r *Reconciler) configMap() (resources.Resource, string, error) {
 	gatewayConf := &cfgv1beta1.GatewayConfig{
 		TypeMeta: cfgmeta.TypeMeta{
 			Kind:       "GatewayConfig",
@@ -93,11 +95,12 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 	switch t := cfgv1beta1.AuthProviderType(r.gw.Spec.Auth.Provider); t {
 	case cfgv1beta1.AuthProviderOpenID:
 		apSpec.Type = cfgv1beta1.AuthProviderOpenID
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig); err != nil {
-			return nil, errors.WrapIf(err, "failed to decode openid auth provider options")
-		} else {
-			apSpec.Options = *options
+		options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig)
+		if err != nil {
+			return nil, "", errors.WrapIf(err, "failed to decode openid auth provider options")
 		}
+		apSpec.Options = *options
+
 	case cfgv1beta1.AuthProviderNoAuth:
 		apSpec.Type = cfgv1beta1.AuthProviderNoAuth
 		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.gw.Spec.Hostname)
@@ -119,13 +122,13 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				},
 			},
 		}
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth); err != nil {
-			return nil, errors.WrapIf(err, "failed to decode noauth auth provider options")
-		} else {
-			apSpec.Options = *options
+		options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth)
+		if err != nil {
+			return nil, "", errors.WrapIf(err, "failed to decode noauth auth provider options")
 		}
+		apSpec.Options = *options
 	default:
-		return nil, errors.Errorf("unsupported auth provider: %s", t)
+		return nil, "", errors.Errorf("unsupported auth provider: %s", t)
 	}
 
 	authProvider := &cfgv1beta1.AuthProvider{
@@ -141,11 +144,11 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 
 	gatewayConfData, err := yaml.Marshal(gatewayConf)
 	if err != nil {
-		return nil, errors.WrapIf(err, "failed to marshal gateway config")
+		return nil, "", errors.WrapIf(err, "failed to marshal gateway config")
 	}
 	authProviderData, err := yaml.Marshal(authProvider)
 	if err != nil {
-		return nil, errors.WrapIf(err, "failed to marshal auth provider")
+		return nil, "", errors.WrapIf(err, "failed to marshal auth provider")
 	}
 
 	cm := &corev1.ConfigMap{
@@ -158,7 +161,8 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			"config.yaml": fmt.Sprintf("%s\n---\n%s", gatewayConfData, authProviderData),
 		},
 	}
+	digest := sha256.Sum256([]byte(cm.Data["config.yaml"]))
 
 	ctrl.SetControllerReference(r.gw, cm, r.client.Scheme())
-	return resources.Present(cm), nil
+	return resources.Present(cm), hex.EncodeToString(digest[:]), nil
 }

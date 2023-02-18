@@ -82,7 +82,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.7.0",
+		version: "v0.8.2",
 	}
 	options.apply(opts...)
 
@@ -111,7 +111,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 	}
 }
 
-func (p *AIOpsPlugin) UseManagementAPI(api managementv1.ManagementClient) {
+func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	lg := p.Logger
 	nc, err := newNatsConnection()
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil/provider"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -232,7 +233,7 @@ func (m *KubernetesManagerDriver) buildOpniClusterOutput() *loggingv1beta1.Clust
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{
-						Tags:           "[]",
+						Tags:           lo.ToPtr("[]"),
 						FlushInterval:  "2s",
 						ChunkLimitSize: "1mb",
 					},

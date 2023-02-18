@@ -39,38 +39,38 @@ func (rq RatioQuery) GetTotalEvents() func(w http.ResponseWriter, r *http.Reques
 	return rq.totalEvents
 }
 
-func (r RatioQuery) FillQueryTemplate(info templateExecutor) (string, error) {
+func (rq RatioQuery) FillQueryTemplate(info templateExecutor) (string, error) {
 	var query bytes.Buffer
-	if err := r.query.Execute(&query, info); err != nil {
+	if err := rq.query.Execute(&query, info); err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(query.String()), nil
 }
 
-func (r RatioQuery) GetMetricFilter() string {
-	return r.metricFilter.String()
+func (rq RatioQuery) GetMetricFilter() string {
+	return rq.metricFilter.String()
 }
 
-func (r RatioQuery) Validate() error {
-	return validatePromQl(r.query)
+func (rq RatioQuery) Validate() error {
+	return validatePromQl(rq.query)
 }
 
-func (r RatioQuery) IsRatio() bool {
+func (rq RatioQuery) IsRatio() bool {
 	return true
 }
 
-func (r RatioQuery) IsHistogram() bool {
+func (rq RatioQuery) IsHistogram() bool {
 	return false
 }
 
-func (r RatioQuery) Construct(serv *api.ServiceInfo) (string, error) {
-	return r.FillQueryTemplate(templateExecutor{
+func (rq RatioQuery) Construct(serv *api.ServiceInfo) (string, error) {
+	return rq.FillQueryTemplate(templateExecutor{
 		MetricIdGood:  serv.MetricIdGood,
 		MetricIdTotal: serv.MetricIdTotal,
 		JobId:         serv.JobId,
 	})
 }
 
-func (r RatioQuery) BestMatch(in []string) string {
-	return r.matcher(in)
+func (rq RatioQuery) BestMatch(in []string) string {
+	return rq.matcher(in)
 }

@@ -5,79 +5,16 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
-	prommodel "github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/prometheus/alertmanager/pkg/labels"
+	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/samber/lo"
 )
 
-const alertingSuffix = "opni-alerting"
-const defaultAlertingInterval = prommodel.Duration(time.Minute)
-
-type ruleGroupYAMLv2 struct {
-	Name     string             `yaml:"name"`
-	Interval prommodel.Duration `yaml:"interval,omitempty"`
-	Rules    []rulefmt.Rule     `yaml:"rules"`
-}
-
-func CortexRuleIdFromUuid(id string) string {
-	return id + alertingSuffix
-}
-
-func timeDurationToPromStr(t time.Duration) string {
-	return prommodel.Duration(t).String()
-}
-
-func ConstructRecordingRuleName(prefix, typeName string) string {
-	return fmt.Sprintf("opni:%s:%s", prefix, typeName)
-}
-
-func ConstructIdLabelsForRecordingRule(alertName, alertId string) map[string]string {
-	return map[string]string{
-		"alert_id":   alertId,
-		"alert_name": alertName,
-	}
-}
-
-func ConstructFiltersFromMap(in map[string]string) string {
-	var filters []string
-	for k, v := range in {
-		filters = append(filters, fmt.Sprintf("%s=\"%s\"", k, v))
-	}
-	return strings.Join(filters, ",")
-}
-
-func NewCortexAlertingRule(alertId, alertName string, info alertingv1.IndexableMetric, interval *time.Duration, rule metrics.AlertRuleBuilder) (*ruleGroupYAMLv2, error) {
-	actualRuleFmt, err := rule.Build(alertId)
-	if err != nil {
-		return nil, err
-	}
-	idLabels := ConstructIdLabelsForRecordingRule(alertName, alertId)
-	recordingRuleFmt := &rulefmt.Rule{
-		Record:      ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-		Expr:        actualRuleFmt.Expr,
-		Labels:      idLabels,
-		Annotations: map[string]string{},
-	}
-
-	actualRuleFmt.Expr = fmt.Sprintf("%s{%s}", recordingRuleFmt.Record, ConstructFiltersFromMap(idLabels))
-
-	var promInterval prommodel.Duration
-	if interval == nil {
-		promInterval = defaultAlertingInterval
-	} else {
-		promInterval = prommodel.Duration(*interval)
-	}
-
-	return &ruleGroupYAMLv2{
-		Name:     CortexRuleIdFromUuid(alertId),
-		Interval: promInterval,
-		Rules:    []rulefmt.Rule{*actualRuleFmt, *recordingRuleFmt},
-	}, nil
-}
-
+// as opposed to an errGroup which stops on the first error,
+// this is a best effort to run all tasks and return all errors
 type independentErrGroup struct {
 	errMu sync.Mutex
 	errs  []error
@@ -116,4 +53,76 @@ func (i *independentErrGroup) Error() error {
 	}
 	sort.Strings(resErr)
 	return fmt.Errorf(strings.Join(resErr, ","))
+}
+
+func statusFromLoadedReceivers(
+	cond *alertingv1.AlertCondition,
+	matchers []*labels.Matcher,
+	requiredReceivers,
+	loadedReceivers []string,
+) *alertingv1.AlertStatusResponse {
+	if len(requiredReceivers) == 0 ||
+		cond.AttachedEndpoints == nil ||
+		len(cond.AttachedEndpoints.Items) == 0 {
+		return &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_Ok,
+		}
+	}
+	matchingReceivers := lo.Intersect(requiredReceivers, loadedReceivers)
+	if len(matchers) != 0 && len(matchingReceivers) != len(requiredReceivers) {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "alarm dependencies are updating",
+		}
+	}
+	return &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
+}
+
+func statusFromAlertGroup(
+	matchers []*labels.Matcher,
+	alertGroup []backend.GettableAlert,
+) *alertingv1.AlertStatusResponse {
+	if len(matchers) == 0 {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "alarm dependencies are updating",
+		}
+	}
+	for _, alert := range alertGroup {
+		// must match all matchers from the router spec to the alert's labels
+		if !lo.EveryBy(matchers, func(m *labels.Matcher) bool {
+			for labelName, label := range alert.Labels {
+				if m.Name == labelName && m.Matches(label) {
+					return true
+				}
+			}
+			return false
+		}) {
+			continue // these are not the alerts you are looking for
+		}
+		switch *alert.Status.State {
+		case models.AlertStatusStateSuppressed:
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Silenced,
+			}
+		case models.AlertStatusStateActive:
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Firing,
+			}
+		case models.AlertStatusStateUnprocessed:
+			// in our case unprocessed means it has arrived for firing
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Firing,
+			}
+		default:
+			return &alertingv1.AlertStatusResponse{
+				State: alertingv1.AlertConditionState_Ok,
+			}
+		}
+	}
+	return &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
 }

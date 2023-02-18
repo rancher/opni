@@ -2,11 +2,12 @@ package metrics_test
 
 import (
 	"fmt"
-	"github.com/google/uuid"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/metrics"
-	"time"
+	"github.com/rancher/opni/pkg/alerting/shared"
 )
 
 var _ = Describe("Constructing cortex alerting rules", func() {
@@ -29,14 +30,14 @@ var _ = Describe("Constructing cortex alerting rules", func() {
 			Expr:  "up == 0",
 		}
 		Expect(simple2.Validate()).To(Succeed())
-		buildAndId := uuid.New().String()
+		buildAndId := shared.NewAlertingRefId()
 
 		promRule, err := simple.And(&simple2).Build(buildAndId)
 		Expect(err).To(Succeed())
 		Expect(promRule.Alert).To(Equal(buildAndId))
 		Expect(promRule.Expr).To(Equal(fmt.Sprintf("(%s) and (%s)", simple.Alert, simple2.Alert)))
 
-		buildOrId := uuid.New().String()
+		buildOrId := shared.NewAlertingRefId()
 		promRule, err = simple.Or(&simple2).Build(buildOrId)
 		Expect(err).To(Succeed())
 		Expect(promRule.Alert).To(Equal(buildOrId))

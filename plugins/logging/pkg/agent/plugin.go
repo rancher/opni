@@ -12,13 +12,16 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/events"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 )
 
 type Plugin struct {
-	ctx    context.Context
-	logger *zap.SugaredLogger
-	node   *LoggingNode
+	ctx           context.Context
+	logger        *zap.SugaredLogger
+	node          *LoggingNode
+	otelForwarder *loggingutil.OTELForwarder
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -27,9 +30,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
-		ctx:    ctx,
-		logger: lg,
-		node:   NewLoggingNode(ct, lg),
+		ctx:           ctx,
+		logger:        lg,
+		node:          NewLoggingNode(ct, lg),
+		otelForwarder: loggingutil.NewOTELForwarder(),
 	}
 
 	if d, err := kubernetes.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {
@@ -62,6 +66,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	return p
 }
+
+var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))

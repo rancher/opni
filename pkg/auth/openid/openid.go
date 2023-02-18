@@ -129,6 +129,10 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 			return
 		}
 		userID = uid
+	default:
+		lg.Error("could not determine token type")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	c.Header("Authorization", "")
 	c.Set(rbac.UserIDKey, userID)
@@ -136,7 +140,7 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 
 func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	lg := m.logger
-	result, err, _ := sfGroup.Do(m.configId, func() (interface{}, error) {
+	result, _, _ := sfGroup.Do(m.configId, func() (interface{}, error) {
 		p := backoff.Exponential(
 			backoff.WithMaxRetries(0),
 			backoff.WithMinInterval(50*time.Millisecond),
@@ -163,6 +167,7 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 		}
 		panic("unreachable")
 	})
+
 	wellKnownCfg := result.(*WellKnownConfiguration)
 	lg.With(
 		"issuer", wellKnownCfg.Issuer,
@@ -197,6 +202,7 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.keyRefresher.Configure(wellKnownCfg.JwksUri,
 		jwk.WithHTTPClient(httpClient),
 	)
+	var err error
 	m.cache, err = NewUserInfoCache(m.conf, m.logger, WithHTTPClient(httpClient))
 	if err != nil {
 		lg.With(

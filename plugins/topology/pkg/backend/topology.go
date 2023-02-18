@@ -52,7 +52,7 @@ type TopologyBackend struct {
 	util.Initializer
 }
 
-func (t *TopologyBackend) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*orchestrator.InstallStatus, error) {
+func (t *TopologyBackend) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (*orchestrator.InstallStatus, error) {
 	// nothing to install
 	return &orchestrator.InstallStatus{
 		State: orchestrator.InstallState_Installed,
@@ -148,9 +148,8 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 				Status:  capabilityv1.InstallResponseStatus_Error,
 				Message: err.Error(),
 			}, nil
-		} else {
-			warningErr = err
 		}
+		warningErr = err
 	}
 
 	_, err := t.StorageBackend.UpdateCluster(ctx, req.Cluster,
@@ -173,7 +172,7 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	}, nil
 }
 
-func (t *TopologyBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (t *TopologyBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	t.WaitForInit()
 
 	t.nodeStatusMu.RLock()
@@ -254,7 +253,7 @@ func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.Unins
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyBackend) UninstallStatus(ctx context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
+func (t *TopologyBackend) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
 	t.WaitForInit()
 
 	return t.UninstallController.TaskStatus(cluster.Id)
@@ -269,7 +268,7 @@ func (t *TopologyBackend) CancelUninstall(ctx context.Context, cluster *corev1.R
 }
 
 // ! depecrated : agentv1 only
-func (t *TopologyBackend) InstallerTemplate(ctx context.Context, empty *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
+func (t *TopologyBackend) InstallerTemplate(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
 	t.WaitForInit()
 
 	return nil, status.Error(codes.Unimplemented, "method not implemented : topology does not have an agentv1 implementation")

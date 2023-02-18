@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -80,6 +81,7 @@ type LoggingManagerV2 struct {
 	logger            *zap.SugaredLogger
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	opensearchManager *opensearchdata.Manager
+	otelForwarder     *loggingutil.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
 	versionOverride   string
@@ -177,6 +179,8 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	go m.opensearchManager.SetClient(m.setOpensearchClient)
+	m.otelForwarder.BackgroundInitClient()
+
 	exists := true
 	err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,
@@ -338,7 +342,7 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 	return &emptypb.Empty{}, err
 }
 
-func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
+func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
 	storageClasses := &storagev1.StorageClassList{}
 	if err := m.k8sClient.List(ctx, storageClasses); err != nil {
 		return nil, err
@@ -354,7 +358,7 @@ func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, in *emptypb.Em
 	}, nil
 }
 
-func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
+func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StatusResponse, error) {
 	if err := m.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      m.opensearchCluster.Name,
 		Namespace: m.opensearchCluster.Namespace,
@@ -1066,7 +1070,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.8.1"
+	version := "0.8.2"
 	if cluster == nil {
 		osVersion = opensearchVersion
 	} else {
@@ -1083,7 +1087,7 @@ func (m *LoggingManagerV2) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.8.1"
+		version = "0.8.2"
 	}
 
 	if m.versionOverride != "" {

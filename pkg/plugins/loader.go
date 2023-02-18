@@ -173,8 +173,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		lg.With(
 			"id", id,
 		).Debug("implementation found")
-		switch c := rpcClient.(type) {
-		case *plugin.GRPCClient:
+		if c, ok := rpcClient.(*plugin.GRPCClient); ok {
 			p.hooksMu.RLock()
 			numHooks := len(p.loadHooks)
 			if numHooks > 0 {

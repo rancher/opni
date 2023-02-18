@@ -31,11 +31,15 @@ type AlertingSpec struct {
 	//+kubebuilder:default="1m0s"
 	ClusterPushPullInterval string `json:"clusterPushPullInterval,omitempty"`
 	//+kubebuilder:default="200ms"
-	ClusterGossipInterval string                      `json:"clusterGossipInterval,omitempty"`
-	ConfigName            string                      `json:"configName,omitempty"`
-	GatewayVolumeMounts   []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
-	RawAlertManagerConfig string                      `json:"rawConfigMap,omitempty"`
-	RawInternalRouting    string                      `json:"rawInternalRouting,omitempty"`
+	ClusterGossipInterval string `json:"clusterGossipInterval,omitempty"`
+	ConfigName            string `json:"configName,omitempty"`
+	//+kubebuilder:default="/var/lib"
+	DataMountPath       string                      `json:"dataMountPath,omitempty"`
+	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	//! deprecated
+	RawAlertManagerConfig string `json:"rawConfigMap,omitempty"`
+	//! deprecated
+	RawInternalRouting string `json:"rawInternalRouting,omitempty"`
 }
 
 type StorageBackendType string

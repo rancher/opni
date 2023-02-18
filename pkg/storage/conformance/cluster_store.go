@@ -138,7 +138,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
-				Expect(storage.NewSelectorPredicate(sel)(cluster)).To(BeTrue())
+				Expect(storage.NewSelectorPredicate[*corev1.Cluster](sel)(cluster)).To(BeTrue())
 			}
 			sel = &corev1.ClusterSelector{
 				LabelSelector: &corev1.LabelSelector{
@@ -151,7 +151,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(HaveLen(5))
 			for _, cluster := range clusters.Items {
-				Expect(storage.NewSelectorPredicate(sel)(cluster)).To(BeTrue())
+				Expect(storage.NewSelectorPredicate[*corev1.Cluster](sel)(cluster)).To(BeTrue())
 			}
 		})
 		It("should respect match options", func() {
@@ -527,6 +527,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					c.Metadata.Labels["foo"] = randomUpdatedLabelValue
 				},
 			)
+			Expect(err).NotTo(HaveOccurred())
 
 			ctx, ca := context.WithCancel(context.Background())
 			defer ca()

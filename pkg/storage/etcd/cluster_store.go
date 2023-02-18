@@ -70,7 +70,7 @@ func (e *EtcdStore) ListClusters(
 	clusters := &corev1.ClusterList{
 		Items: []*corev1.Cluster{},
 	}
-	selectorPredicate := storage.NewSelectorPredicate(&corev1.ClusterSelector{
+	selectorPredicate := storage.NewSelectorPredicate[*corev1.Cluster](&corev1.ClusterSelector{
 		LabelSelector: matchLabels,
 		MatchOptions:  matchOptions,
 	})
@@ -137,7 +137,7 @@ func (e *EtcdStore) UpdateCluster(
 			return err
 		}
 		if !txnResp.Succeeded {
-			return retryErr
+			return errRetry
 		}
 		cluster.SetResourceVersion(fmt.Sprint(txnResp.Header.Revision))
 		retCluster = cluster

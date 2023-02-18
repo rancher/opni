@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"fmt"
 	"net/mail"
 	"net/url"
 	"strings"
 
 	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 )
@@ -14,6 +16,22 @@ import (
 func validComparionOperator(op string) error {
 	if !slices.Contains(shared.ComparisonOperators, op) {
 		return validation.Error("Invalid comparison operator")
+	}
+	return nil
+}
+
+func (s *SyncerConfig) Validate() error {
+	if s.GatewayJoinAddress == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "GatewayJoinAddress")
+	}
+	if s.ListenAddress == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "ListenAddress")
+	}
+	if s.AlertmanagerAddress == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "AlertmanagerAddress")
+	}
+	if s.AlertmanagerConfigPath == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "AlertManagerConfigPath")
 	}
 	return nil
 }
@@ -134,6 +152,9 @@ func (dc *AlertConditionDownstreamCapability) Validate() error {
 }
 
 func (m *AlertConditionMonitoringBackend) Validate() error {
+	m.ClusterId = &corev1.Reference{
+		Id: UpstreamClusterId,
+	}
 	if m.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be some positive time")
 	}
@@ -236,6 +257,9 @@ func (a *AlertEndpoint) Validate() error {
 	if a.GetPagerDuty() != nil {
 		return a.GetPagerDuty().Validate()
 	}
+	if a.GetWebhook() != nil {
+		return a.GetWebhook().Validate()
+	}
 	return shared.WithUnimplementedErrorf("AlertEndpoint type %v not implemented yet", a)
 }
 
@@ -282,8 +306,21 @@ func (e *EmailEndpoint) Validate() error {
 }
 
 func (a *PagerDutyEndpoint) Validate() error {
-	if a.GetIntegrationKey() == "" {
-		return validation.Error("integration key must be set for pager duty endpoint")
+	if a.GetIntegrationKey() == "" && a.GetServiceKey() == "" {
+		return validation.Error("integration key or service key must be set for pager duty endpoint")
+	}
+	if a.GetServiceKey() != "" && a.GetIntegrationKey() != "" {
+		return validation.Error("only one of integration key or service key must be set for pager duty endpoint")
+	}
+	return nil
+}
+
+func (w *WebhookEndpoint) Validate() error {
+	if w.GetUrl() == "" {
+		return validation.Error("url must be set")
+	}
+	if _, err := url.Parse(w.GetUrl()); err != nil {
+		return validation.Errorf("url must be a valid url : %s", err)
 	}
 	return nil
 }
@@ -406,21 +443,28 @@ func (c *CloneToRequest) Validate() error {
 	return nil
 }
 
-func (e *EphemeralDispatcherRequest) Validate() error {
-	if e.GetPrefix() == "" {
-		return validation.Error("prefix must be set for ephemeral dispatchers")
+func (t *TriggerAlertsRequest) Validate() error {
+	if t.Namespace == "" {
+		return validation.Error("namespace must be set for triggering alerts")
 	}
-	if e.GetNumDispatches() <= 0 {
-		return validation.Error("numDispatches must be non-zero for ephemeral dispatchers")
+	if t.ConditionId == nil || t.ConditionId.Id == "" {
+		return validation.Error("conditionId must be set for triggering alerts")
 	}
-	if e.GetTtl().AsDuration() == 0 {
-		return validation.Error("numDuration must be non-zero for ephemeral dispatchers")
+	if t.Labels == nil {
+		t.Labels = map[string]string{}
 	}
-	if err := e.GetDetails().Validate(); err != nil {
-		return validation.Errorf("details must be valid for ephemeral dispatchers: %s", err)
+	if t.Annotations == nil {
+		t.Annotations = map[string]string{}
 	}
-	if err := e.GetEndpoint().Validate(); err != nil {
-		return validation.Errorf("endpoints must be valid for ephemeral dispatchers: %s", err)
+	return nil
+}
+
+func (r *ResolveAlertsRequest) Validate() error {
+	if r.Labels == nil {
+		r.Labels = map[string]string{}
+	}
+	if r.Annotations == nil {
+		r.Annotations = map[string]string{}
 	}
 	return nil
 }

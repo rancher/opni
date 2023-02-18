@@ -8,24 +8,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/prometheus/common/model"
-	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/status"
+	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
-	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -33,142 +28,94 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// UI identifier for upstream cluster
-const upstreamClusterId = "UPSTREAM_CLUSTER_ID"
-
-func (p *Plugin) createRoutingNode(
-	ctx context.Context,
-	req *alertingv1.AttachedEndpoints,
-	conditionId string,
-	lg *zap.SugaredLogger) error {
-	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
-	if err != nil {
-		return err
-	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, conditionId)
-	if err != nil {
-		lg.Error(err)
-		return err
-	}
-	_, err = p.CreateConditionRoutingNode(ctx, routingNode)
-	if err != nil {
-		lg.Error(err)
-		return err
-	}
-	return nil
+type AlertStatusNotification lo.Tuple2[*alertingv1.AlertStatusResponse, error]
+type ClusterMap map[string]*corev1.Cluster
+type StatusInfo struct {
+	clusterMap           ClusterMap
+	router               routing.OpniRouting
+	alertGroup           []backend.GettableAlert
+	loadedReceivers      []string
+	metricsBackendStatus *cortexops.InstallStatus
 }
 
-func (p *Plugin) updateRoutingNode(
-	ctx context.Context,
-	req *alertingv1.AttachedEndpoints,
-	conditionId string,
-	lg *zap.SugaredLogger) error {
-	eList, err := p.adminListAlertEndpoints(ctx, &alertingv1.ListAlertEndpointsRequest{})
-	if err != nil {
-		return err
-	}
-	routingNode, err := backend.ConvertEndpointIdsToRoutingNode(eList, req, conditionId)
-	if err != nil {
-		p.Logger.Error(err)
-		return err
-	}
-	_, err = p.UpdateConditionRoutingNode(ctx, routingNode)
-	if err != nil {
-		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // something went wrong and receiver/route can't be found
-			p.Logger.Debug("update failed due to missing internal configuration, creating new routing node")
-			_, err = p.CreateConditionRoutingNode(ctx, routingNode)
-			if err != nil {
-				p.Logger.Error(err)
-				return err
-			}
-		} else if ok && e.Code() == codes.FailedPrecondition { // no changes to apply to k8s objects, force a sync with internal AlertManager config
-			p.Logger.Debug("forcing sync of internal routing config, since owned k8s objects are up to date")
-			info, err := p.opsNode.Fetch(ctx, &emptypb.Empty{})
-			if err != nil {
-				return err
-			}
-			_, err = p.opsNode.Reload(ctx, &alertops.ReloadInfo{
-				UpdatedConfig: info.RawAlertManagerConfig,
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			p.Logger.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Plugin) deleteRoutingNode(
-	ctx context.Context,
-	alertId string,
-	lg *zap.SugaredLogger) error {
-	_, err := p.DeleteConditionRoutingNode(ctx, &corev1.Reference{Id: alertId})
-	if err != nil {
-		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound { // wasn't indexed to being with
-			return nil
-		}
-		p.Logger.Error(err)
-		return err
-	}
-	return nil
-}
-
+// always overwrites id field
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
 	lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	if err := alertingv1.DetailsHasImplementation(req.GetAlertType()); err != nil {
-		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
+	newId := shared.NewAlertingRefId()
+	req.Id = newId
+	req.LastUpdated = timestamppb.Now()
+	if err := p.storageClientSet.Get().Conditions().Put(ctx, newId, req); err != nil {
+		return nil, err
 	}
-	newId := uuid.New().String()
-	_, err := setupCondition(p, lg, ctx, req, newId)
+	status, err := p.opsNode.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	if mb := req.GetAlertType().GetMonitoringBackend(); mb != nil {
-		mb.ClusterId = &corev1.Reference{
-			Id: upstreamClusterId,
-		}
+	if status.State != alertops.InstallState_Installed {
+		return &corev1.Reference{Id: newId}, nil
 	}
-	if alertingv1.ShouldCreateRoutingNode(req.AttachedEndpoints, nil) {
-		lg.Debug("must create routing node")
-		err := p.createRoutingNode(ctx, req.AttachedEndpoints, newId, lg)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		lg.Debug("must not create routing node")
-	}
-	if err := p.storageNode.CreateCondition(ctx, newId, req); err != nil {
+	if _, err := p.setupCondition(ctx, lg, req, newId); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{Id: newId}, nil
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
-	return p.storageNode.GetCondition(ctx, ref.Id)
+	return p.storageClientSet.Get().Conditions().Get(ctx, ref.Id)
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	keys, items, err := p.storageNode.ListWithKeysConditions(ctx)
+	allConds, err := p.storageClientSet.Get().Conditions().List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &alertingv1.AlertConditionList{}
-	for i := range keys {
+	conds := lo.Filter(allConds, func(item *alertingv1.AlertCondition, _ int) bool {
+		if len(req.Clusters) != 0 {
+			if !slices.Contains(req.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		if len(req.Labels) != 0 {
+			if len(lo.Intersect(req.Labels, item.Labels)) != len(req.Labels) {
+				return false
+			}
+		}
+		if len(req.Severities) != 0 {
+			if !slices.Contains(req.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(req.Severities) != 0 {
+			matches := false
+			for _, typ := range req.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	})
+	for i := range conds {
 		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
-			Id:             &corev1.Reference{Id: keys[i]},
-			AlertCondition: items[i],
+			Id:             &corev1.Reference{Id: conds[i].Id},
+			AlertCondition: conds[i],
 		})
 	}
+	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) bool {
+		return a.AlertCondition.Name < b.AlertCondition.Name
+	})
 	return res, nil
 }
 
@@ -180,39 +127,19 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 	lg := p.Logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	conditionId := req.Id.Id
-	existing, err := p.storageNode.GetCondition(ctx, req.Id.Id)
-	if err != nil {
-		return nil, err
-	}
 
-	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
+	req.UpdateAlert.LastUpdated = timestamppb.Now()
+	if err := p.storageClientSet.Get().Conditions().Put(ctx, conditionId, req.UpdateAlert); err != nil {
+		return nil, err
+	}
+	status, err := p.opsNode.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	newAE, oldAE := req.UpdateAlert.AttachedEndpoints, existing.AttachedEndpoints
-	if alertingv1.ShouldCreateRoutingNode(newAE, oldAE) {
-		lg.Debugf("udpated condition %s must create an endpoint implementation", conditionId)
-		err := p.createRoutingNode(ctx, newAE, conditionId, lg)
-		if err != nil {
-			p.Logger.Errorf("creating routing node failed %s", err)
-			return nil, err
-		}
-	} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAE) {
-		lg.Debugf("udpated condition %s must update an existing endpoint implementation", conditionId)
-		err := p.updateRoutingNode(ctx, newAE, conditionId, lg)
-		if err != nil {
-			p.Logger.Errorf("updating routing node failed %s", err)
-			return nil, err
-		}
-	} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAE) {
-		lg.Debugf("udpated condition %s must delete an existing endpoint implementation", conditionId)
-		err := p.deleteRoutingNode(ctx, conditionId, lg)
-		if err != nil {
-			p.Logger.Errorf("deleting routing node failed %s", err)
-			return nil, err
-		}
+	if status.State != alertops.InstallState_Installed {
+		return &emptypb.Empty{}, nil
 	}
-	if err := p.storageNode.UpdateCondition(ctx, conditionId, req.UpdateAlert); err != nil {
+	if _, err := p.setupCondition(ctx, lg, req.UpdateAlert, req.Id.Id); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -220,111 +147,157 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1.Updat
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.Logger.With("Handler", "DeleteAlertCondition")
-	existing, err := p.storageNode.GetCondition(ctx, ref.Id)
+	existing, err := p.storageClientSet.Get().Conditions().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
-	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
-		return nil, err
+	// this can happen if the condition is not in storage
+	if existing == nil {
+		return &emptypb.Empty{}, nil
 	}
 
-	if alertingv1.ShouldDeleteRoutingNode(nil, existing.AttachedEndpoints) {
-		lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
-		_, err = p.DeleteConditionRoutingNode(ctx, ref)
-		if err != nil {
-			return nil, err
-		}
+	if err := p.storageClientSet.Get().Conditions().Delete(ctx, ref.Id); err != nil {
+		return nil, err
 	}
-	err = p.storageNode.DeleteCondition(ctx, ref.Id)
+	status, err := p.opsNode.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	lg.Debug("Deleted alert condition")
+	if status.State != alertops.InstallState_Installed {
+		return &emptypb.Empty{}, nil
+	}
+	if err := p.deleteCondition(ctx, lg, existing, ref.Id); err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
-	lg := p.Logger.With("handler", "AlertConditionStatus")
+func (p *Plugin) checkClusterStatus(cond *alertingv1.AlertCondition, info StatusInfo) *alertingv1.AlertStatusResponse {
+	clusterId := cond.GetClusterId()
+	if clusterId == nil {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Unkown,
+			Reason: "cluster id is not known at this time",
+		}
+	}
+	if alertingv1.IsInternalCondition(cond) {
+		return p.checkInternalClusterStatus(info.clusterMap, clusterId.Id, cond.Id)
+	}
+	if alertingv1.IsMetricsCondition(cond) {
+		return p.checkMetricsClusterStatus(cond, info.metricsBackendStatus, info.clusterMap, clusterId.Id)
+	}
+	return &alertingv1.AlertStatusResponse{
+		State:  alertingv1.AlertConditionState_Unkown,
+		Reason: "unknown condition type",
+	}
+}
 
-	cond, err := p.storageNode.GetCondition(ctx, ref.Id)
-	if err != nil {
-		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
-		return nil, shared.WithNotFoundErrorf("%s", err)
-	}
-
-	if a := cond.GetAlertType().GetSystem(); a != nil {
-		_, err := p.mgmtClient.Get().GetCluster(ctx, a.ClusterId)
-		if err != nil || !p.msgNode.IsRunning(ref.Id) {
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
-			}, nil
+func (p *Plugin) checkMetricsClusterStatus(
+	cond *alertingv1.AlertCondition,
+	metricsBackendStatus *cortexops.InstallStatus,
+	clMap ClusterMap,
+	clusterId string,
+) *alertingv1.AlertStatusResponse {
+	if metricsBackendStatus.State == cortexops.InstallState_NotInstalled {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "metrics backend not installed",
 		}
 	}
-	if dc := cond.GetAlertType().GetDownstreamCapability(); dc != nil {
-		_, err := p.mgmtClient.Get().GetCluster(ctx, dc.ClusterId)
-		if err != nil || !p.msgNode.IsRunning(ref.Id) {
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
-			}, nil
+	cluster, ok := clMap[clusterId]
+	if !ok {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "cluster not found",
 		}
 	}
-	if cc := cond.GetAlertType().GetMonitoringBackend(); cc != nil {
-		if !p.msgNode.IsRunning(ref.Id) {
+	for _, cap := range cluster.Metadata.Capabilities {
+		if cap.Name != wellknown.CapabilityMetrics {
 			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
-			}, nil
-		}
-	}
-
-	if ref, _ := handleSwitchCortexRules(cond.GetAlertType()); ref != nil {
-		// check monitoring backend is installed
-		ctxca, ca := context.WithCancel(ctx)
-		defer ca()
-		cortexOpsClient, err := p.cortexOpsClient.GetContext(ctxca)
-		if err != nil {
-			return nil, err
-		}
-		backendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
-		if err != nil {
-			return nil, err
-		}
-		if backendStatus.State == cortexops.InstallState_NotInstalled {
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
-			}, nil
-		}
-		// check that monitoring is enabled on the cluster
-		deets, err := p.mgmtClient.Get().GetCluster(ctx, ref)
-		if err != nil {
-			return nil, err
-		}
-		found := false
-		for _, cap := range deets.GetCapabilities() {
-			if cap.Name == "metrics" {
-				found = true
+				State:  alertingv1.AlertConditionState_Invalidated,
+				Reason: "cluster does not have metrics capabilities installed",
 			}
 		}
-		if !found {
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_INVALIDATED,
-			}, nil
+	}
+	if cond.GetLastUpdated().AsTime().Before(time.Now().Add(-time.Minute)) {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "alarm metric dependencies are updating",
 		}
 	}
 
-	defaultState := &alertingv1.AlertStatusResponse{
-		State: alertingv1.AlertConditionState_OK,
+	return &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
 	}
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+}
+
+func (p *Plugin) checkInternalClusterStatus(clMap ClusterMap, clusterId, conditionId string) *alertingv1.AlertStatusResponse {
+	_, ok := clMap[clusterId]
+	if clusterId != alertingv1.UpstreamClusterId && !ok {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "cluster not found",
+		}
+	}
+	if !p.msgNode.IsRunning(conditionId) {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "internal server error -- restart gateway",
+		}
+	}
+	return &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
+}
+
+func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
+	lg := p.Logger.With("request", "loadStatusInfo")
+	ctxCa, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
 	if err != nil {
-		lg.Errorf("Failed to get alerting options : %s", err)
 		return nil, err
 	}
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	clusterList, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
 		return nil, err
 	}
+	clMap := ClusterMap{}
+	for _, cl := range clusterList.Items {
+		clMap[cl.Id] = cl
+	}
+
+	cortexOpsClient, err := p.cortexOpsClient.GetContext(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	metricsBackendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
+		metricsBackendStatus = &cortexops.InstallStatus{
+			State: cortexops.InstallState_NotInstalled,
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	router, err := p.storageClientSet.Get().Routers().Get(ctx, shared.SingleConfigId)
+	if err != nil {
+		return nil, err
+	}
+
+	options, err := p.opsNode.GetRuntimeOptions(ctxCa)
+	if err != nil {
+		return nil, err
+	}
+	// FIXME: the alert status returned by this endpoint
+	// will not always be consistent within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
 	respAlertGroup := []backend.GettableAlert{}
-	apiNode := backend.NewAlertManagerGetAlertsClient(
+	apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(lg),
@@ -335,39 +308,184 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 
 			return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
 		}))
-	err = apiNode.DoRequest()
+	err = apiNodeGetAlerts.DoRequest()
 	if err != nil {
 		return nil, err
 	}
 	if respAlertGroup == nil {
 		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
 	}
-	for _, alert := range respAlertGroup {
-		for labelName, label := range alert.Labels {
-			if labelName == shared.BackendConditionIdLabel && label == ref.Id {
-				if alert.Status.State == nil { // pretend everything is ok
-					continue
-				}
-				switch *alert.Status.State {
-				case models.AlertStatusStateSuppressed:
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_SILENCED,
-					}, nil
-				case models.AlertStatusStateActive:
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_FIRING,
-					}, nil
-				case models.AlertStatusStateUnprocessed: // in our case unprocessed means it has arrived for firing
-					return &alertingv1.AlertStatusResponse{
-						State: alertingv1.AlertConditionState_FIRING,
-					}, nil
-				default:
-					return defaultState, nil
-				}
+
+	respReceiver := []backend.Receiver{}
+	apiNodeGetReceivers := backend.NewAlertManagerReceiversClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(lg),
+		backend.WithExpectClosure(func(resp *http.Response) error {
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
 			}
+			return json.NewDecoder(resp.Body).Decode(&respReceiver)
+		}))
+	err = apiNodeGetReceivers.DoRequest()
+	if err != nil {
+		return nil, err
+	}
+	if respReceiver == nil {
+		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
+	}
+	allReceiverNames := lo.Map(respReceiver, func(r backend.Receiver, _ int) string {
+		if r.Name == nil {
+			return ""
+		}
+		return *r.Name
+	})
+
+	return &StatusInfo{
+		clusterMap:           clMap,
+		router:               router,
+		alertGroup:           respAlertGroup,
+		loadedReceivers:      allReceiverNames,
+		metricsBackendStatus: metricsBackendStatus,
+	}, nil
+}
+
+func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
+	lg := p.Logger.With("handler", "AlertConditionStatus")
+
+	// required info
+	cond, err := p.storageClientSet.Get().Conditions().Get(ctx, ref.Id)
+	if err != nil {
+		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
+		return nil, shared.WithNotFoundErrorf("%s", err)
+	}
+
+	statusInfo, err := p.loadStatusInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resultStatus := &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
+
+	compareStatus := func(status *alertingv1.AlertStatusResponse) {
+		if resultStatus.State < status.State {
+			resultStatus.State = status.State
+			resultStatus.Reason = status.Reason
+		} else if resultStatus.State == alertingv1.AlertConditionState_Ok &&
+			status.State == alertingv1.AlertConditionState_Unkown {
+			resultStatus.State = status.State
+			resultStatus.Reason = status.Reason
 		}
 	}
-	return defaultState, nil
+
+	matchers := statusInfo.router.HasLabels(cond.Id)
+	compareStatus(p.checkClusterStatus(cond, *statusInfo))
+	compareStatus(statusFromLoadedReceivers(
+		cond,
+		matchers,
+		statusInfo.router.HasReceivers(cond.Id),
+		statusInfo.loadedReceivers,
+	))
+	compareStatus(statusFromAlertGroup(matchers, statusInfo.alertGroup))
+	return resultStatus, nil
+}
+
+func (p *Plugin) ListAlertConditionsWithStatus(ctx context.Context, req *alertingv1.ListStatusRequest) (*alertingv1.ListStatusResponse, error) {
+	allConds, err := p.storageClientSet.Get().Conditions().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res := &alertingv1.ListStatusResponse{
+		AlertConditions: make(map[string]*alertingv1.AlertConditionWithStatus),
+	}
+	statusInfo, err := p.loadStatusInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conds := lo.Filter(allConds, func(item *alertingv1.AlertCondition, _ int) bool {
+		if req.ItemFilter == nil {
+			return true
+		}
+		if len(req.ItemFilter.Clusters) != 0 {
+			if !slices.Contains(req.ItemFilter.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Labels) != 0 {
+			if len(lo.Intersect(req.ItemFilter.Labels, item.Labels)) != len(req.ItemFilter.Labels) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Severities) != 0 {
+			if !slices.Contains(req.ItemFilter.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(req.ItemFilter.Severities) != 0 {
+			matches := false
+			for _, typ := range req.ItemFilter.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	})
+	for _, cond := range conds {
+
+		resultStatus := &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_Ok,
+		}
+		compareStatus := func(status *alertingv1.AlertStatusResponse) {
+			if resultStatus.State < status.State {
+				resultStatus.State = status.State
+				resultStatus.Reason = status.Reason
+			} else if resultStatus.State == alertingv1.AlertConditionState_Ok &&
+				status.State == alertingv1.AlertConditionState_Unkown {
+				resultStatus.State = status.State
+				resultStatus.Reason = status.Reason
+			}
+		}
+		// do:
+		// |
+		// |--- check cluster configuration based on type
+		// |    |
+		// |    | check cluster dependencies status
+		// |
+		// | --- check router to get labels
+		// |     |
+		// |     | --- check receivers for that router are loaded
+		// |     |
+		// |	 | --- check alertmanager alert status for given labels
+
+		matchers := statusInfo.router.HasLabels(cond.Id)
+
+		compareStatus(p.checkClusterStatus(cond, *statusInfo))
+		compareStatus(statusFromLoadedReceivers(
+			cond,
+			matchers,
+			statusInfo.router.HasReceivers(cond.Id),
+			statusInfo.loadedReceivers,
+		))
+		compareStatus(statusFromAlertGroup(matchers, statusInfo.alertGroup))
+
+		if len(req.States) != 0 {
+			if !slices.Contains(req.States, resultStatus.State) {
+				continue
+			}
+		}
+		res.AlertConditions[cond.Id] = &alertingv1.AlertConditionWithStatus{
+			AlertCondition: cond,
+			Status:         resultStatus,
+		}
+	}
+	return res, nil
 }
 
 func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceRequest) (*emptypb.Empty, error) {
@@ -378,11 +496,11 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetCondition(ctx, req.ConditionId.Id)
+	existing, err := p.storageClientSet.Get().Conditions().Get(ctx, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +538,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1.SilenceReq
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateCondition(ctx, req.ConditionId.Id, newCondition); err != nil {
+	if err := p.storageClientSet.Get().Conditions().Put(ctx, req.ConditionId.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -435,14 +553,14 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if err != nil {
 		return nil, err
 	}
-	existing, err := p.storageNode.GetCondition(ctx, req.Id)
+	existing, err := p.storageClientSet.Get().Conditions().Get(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", req.Id)
 	}
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, options)
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -462,166 +580,10 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
 	// update K,V with new silence info for the respective condition
-	if err := p.storageNode.UpdateCondition(ctx, req.Id, newCondition); err != nil {
+	if err := p.storageClientSet.Get().Conditions().Put(ctx, req.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1.AlertDetailChoicesRequest) (*alertingv1.ListAlertTypeDetails, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	if err := alertingv1.EnumHasImplementation(req.GetAlertType()); err != nil {
-		return nil, err
-	}
-	return handleChoicesByType(p, ctx, req)
-}
-
-func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) (*alertingv1.TimelineResponse, error) {
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	ids, conditions, err := p.storageNode.ListWithKeysConditions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp := &alertingv1.TimelineResponse{
-		Items: make(map[string]*alertingv1.ActiveWindows),
-	}
-	requiresCortex := false
-	for idx, id := range ids {
-		if k, _ := handleSwitchCortexRules(conditions[idx].GetAlertType()); k != nil {
-			requiresCortex = true
-		}
-		resp.Items[id] = &alertingv1.ActiveWindows{
-			Windows: make([]*alertingv1.ActiveWindow, 0),
-		}
-	}
-
-	var cortexAdminClient cortexadmin.CortexAdminClient
-	if requiresCortex {
-		ctxCa, cancel := context.WithCancel(ctx)
-		defer cancel()
-		adminClient, err := p.adminClient.GetContext(ctxCa)
-		if err != nil {
-			return nil, util.StatusError(codes.Code(code.Code_FAILED_PRECONDITION))
-		}
-		cortexAdminClient = adminClient
-	}
-
-	start := timestamppb.New(time.Now().Add(-req.LookbackWindow.AsDuration()))
-	end := timestamppb.Now()
-	cortexStep := durationpb.New(req.LookbackWindow.AsDuration() / 500)
-	var wg sync.WaitGroup
-	var addMu sync.Mutex
-	for idx := range conditions {
-		idx := idx // capture in closure
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			condition := conditions[idx]
-			if s := condition.GetAlertType().GetSystem(); s != nil {
-				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if dc := condition.GetAlertType().GetDownstreamCapability(); dc != nil {
-				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if mb := condition.GetAlertType().GetMonitoringBackend(); mb != nil {
-				// check system tracker
-				activeWindows, err := p.storageNode.GetActiveWindowsFromIncidentTracker(ctx, ids[idx], start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
-				}
-				addMu.Lock()
-				resp.Items[ids[idx]] = &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}
-				addMu.Unlock()
-			}
-			if r, info := handleSwitchCortexRules(condition.GetAlertType()); r != nil {
-				qr, err := cortexAdminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
-					Tenants: []string{r.Id},
-					// Constructed recording rule, NOT alerting rule
-					Query: fmt.Sprintf(
-						"%s{%s}",
-						ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-						ConstructFiltersFromMap(
-							ConstructIdLabelsForRecordingRule(condition.Name, ids[idx]),
-						),
-					),
-					Start: start,
-					End:   end,
-					Step:  cortexStep,
-				})
-				if err != nil {
-					p.Logger.Errorf("failed to query cortex : %s", err)
-					return
-				}
-				rawBytes := qr.Data
-				qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
-				if err != nil {
-					p.Logger.Errorf("failed to unmarshal prometheus response : %s", err)
-					return
-				}
-				dataMatrix, err := qres.GetMatrix()
-				if err != nil {
-					p.Logger.Errorf("failed to get matrix : %s", err)
-					return
-				}
-				isRising := true
-				isFiring := func(v model.SampleValue) bool {
-					return v > 0
-				}
-				activeWindows := alertingv1.ActiveWindows{
-					Windows: make([]*alertingv1.ActiveWindow, 0),
-				}
-				for _, row := range *dataMatrix {
-					for _, rowValue := range row.Values {
-						ts := time.Unix(rowValue.Timestamp.Unix(), 0)
-						if !isFiring(rowValue.Value) && isRising {
-							activeWindows.Windows = append(activeWindows.Windows, &alertingv1.ActiveWindow{
-								Start: timestamppb.New(ts),
-								End:   end,
-								Type:  alertingv1.TimelineType_Timeline_Alerting,
-							})
-							isRising = false
-						} else if isFiring(rowValue.Value) && !isRising {
-							activeWindows.Windows[len(activeWindows.Windows)].End = timestamppb.New(ts)
-							isRising = true
-						}
-					}
-				}
-				addMu.Lock()
-				resp.Items[ids[idx]] = &activeWindows
-				addMu.Unlock()
-			}
-		}()
-	}
-	wg.Wait()
-
-	return resp, nil
 }
 
 func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*emptypb.Empty, error) {
@@ -659,4 +621,63 @@ func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*
 	}
 	iErrGroup.Wait()
 	return &emptypb.Empty{}, iErrGroup.Error()
+}
+
+func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1.AlertDetailChoicesRequest) (*alertingv1.ListAlertTypeDetails, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	return handleChoicesByType(ctx, p, req)
+}
+
+func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) (*alertingv1.TimelineResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	conditions, err := p.storageClientSet.Get().Conditions().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := &alertingv1.TimelineResponse{
+		Items: make(map[string]*alertingv1.ActiveWindows),
+	}
+	start := timestamppb.New(time.Now().Add(-req.LookbackWindow.AsDuration()))
+	end := timestamppb.Now()
+	var wg sync.WaitGroup
+	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
+	go func() {
+		for _, cond := range conditions {
+			cond := cond
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if cortexImpl, _ := handleSwitchCortexRules(cond.GetAlertType()); cortexImpl != nil {
+					return
+				}
+				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+				if err != nil {
+					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+					return
+				}
+				yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+					Windows: activeWindows,
+				}}
+			}()
+		}
+
+		wg.Wait()
+		close(yieldedValues)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case v, ok := <-yieldedValues:
+			if !ok {
+				return resp, nil
+			}
+			resp.Items[v.A] = v.B
+		}
+	}
 }

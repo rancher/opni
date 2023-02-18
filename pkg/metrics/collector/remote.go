@@ -109,7 +109,7 @@ func (s *remoteCollectorServer) MustRegister(collectors ...prometheus.Collector)
 	s.collectors = append(s.collectors, collectors...)
 }
 
-func (s *remoteCollectorServer) Describe(ctx context.Context, _ *emptypb.Empty) (*DescriptorList, error) {
+func (s *remoteCollectorServer) Describe(_ context.Context, _ *emptypb.Empty) (*DescriptorList, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -138,7 +138,7 @@ READ:
 	}, nil
 }
 
-func (s *remoteCollectorServer) Collect(ctx context.Context, _ *emptypb.Empty) (*MetricList, error) {
+func (s *remoteCollectorServer) Collect(_ context.Context, _ *emptypb.Empty) (*MetricList, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

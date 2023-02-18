@@ -1,9 +1,11 @@
 package drivers
 
 import (
+	"context"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/rest"
@@ -74,6 +76,10 @@ func (d *EmbeddedManagerNodeDriver) Name() string {
 	return "embedded-manager"
 }
 
-func (d *EmbeddedManagerNodeDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) {
+func (d *EmbeddedManagerNodeDriver) ConfigureNode(_ *node.MetricsCapabilityConfig) {
 
+}
+
+func (d *EmbeddedManagerNodeDriver) DiscoverPrometheuses(_ context.Context, _ string) ([]*remoteread.DiscoveryEntry, error) {
+	return []*remoteread.DiscoveryEntry{}, nil
 }

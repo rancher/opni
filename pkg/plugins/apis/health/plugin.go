@@ -27,7 +27,7 @@ func NewPlugin(srv controlv1.HealthServer) plugin.Plugin {
 }
 
 func (p *healthPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	controlv1.RegisterHealthServer(s, p.srv)
@@ -36,7 +36,7 @@ func (p *healthPlugin) GRPCServer(
 
 func (p *healthPlugin) GRPCClient(
 	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {

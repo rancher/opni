@@ -45,11 +45,11 @@ func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.Sugared
 func (s *backendStore) Get(name string) (capabilityv1.BackendClient, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if backend, ok := s.backends[name]; !ok {
+	backend, ok := s.backends[name]
+	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, name)
-	} else {
-		return backend, nil
 	}
+	return backend, nil
 }
 
 func (s *backendStore) Add(name string, backend capabilityv1.BackendClient) error {

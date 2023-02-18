@@ -19,7 +19,7 @@ type lifecycler struct {
 	reloadC chan struct{}
 }
 
-func NewLifecycler(objects meta.ObjectList) *lifecycler {
+func NewLifecycler(objects meta.ObjectList) Lifecycler {
 	return &lifecycler{
 		objects: objects,
 		reloadC: make(chan struct{}),
@@ -62,6 +62,6 @@ func (l *unavailableLifecycler) ReloadC() (chan struct{}, error) {
 func (l *unavailableLifecycler) GetObjectList() (meta.ObjectList, error) {
 	return l.objects, nil
 }
-func (l *unavailableLifecycler) UpdateObjectList(objects meta.ObjectList) error {
+func (l *unavailableLifecycler) UpdateObjectList(_ meta.ObjectList) error {
 	return status.Error(codes.Unavailable, "lifecycler not available")
 }

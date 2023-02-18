@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/prometheus/prometheus/promql/parser"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -23,7 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {
+func (s *SLOMonitoring) WithCurrentRequest(ctx context.Context, req proto.Message) SLOStore {
 	s.req = req
 	s.ctx = ctx
 	return s
@@ -35,18 +34,9 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, req.GetSlo().GetClusterId(), &ruleId, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, req.GetSlo().GetClusterId(), &ruleId, toApply)
 	if err != nil {
 		return nil, err
-	}
-	for _, rule := range ralerting.Rules {
-		ae := req.Slo.AttachedEndpoints
-		if rule.Alert != "" && alertingv1.ShouldCreateRoutingNode(ae, nil) {
-			err := createRoutingNode(s.p, s.ctx, ae, rule.Alert)
-			if err != nil {
-				s.p.logger.Errorf("creating routing node failed %s", err)
-			}
-		}
 	}
 	return &corev1.Reference{Id: slo.GetId()}, nil
 }
@@ -56,7 +46,7 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	newSlo := SLODataToStruct(incomingSLO)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
 
 	// successfully applied rules to another cluster
 	if err == nil && existing.SLO.ClusterId != incomingSLO.SLO.ClusterId {
@@ -65,28 +55,6 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 			s.lg.With("sloId", existing.Id).Error(fmt.Sprintf(
 				"Unable to delete SLO when updating between clusters :  %v",
 				err))
-		}
-	}
-	for _, rule := range ralerting.Rules {
-		newAE := existing.SLO.AttachedEndpoints
-		oldAe := incomingSLO.SLO.AttachedEndpoints
-		if rule.Alert != "" {
-			if alertingv1.ShouldCreateRoutingNode(newAE, oldAe) {
-				err := createRoutingNode(s.p, s.ctx, newAE, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("creating routing node failed %s", err)
-				}
-			} else if alertingv1.ShouldUpdateRoutingNode(newAE, oldAe) {
-				err := updateRoutingNode(s.p, s.ctx, newAE, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("updating routing node failed %s", err)
-				}
-			} else if alertingv1.ShouldDeleteRoutingNode(newAE, oldAe) {
-				err := deleteRoutingNode(s.p, s.ctx, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("deleting routing node failed %s", err)
-				}
-			}
 		}
 	}
 	return incomingSLO, err
@@ -102,14 +70,10 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	for _, ruleName := range toApply {
 		for _, rule := range ruleName.Rules {
 			if rule.Alert != "" {
-				err := deleteRoutingNode(s.p, s.ctx, rule.Alert)
-				if err != nil {
-					s.p.logger.Errorf("deleting routing node failed %s", err)
-				}
-				err = deleteCortexSLORules(
+				err := deleteCortexSLORules(
+					s.ctx,
 					s.p,
 					s.p.logger,
-					s.ctx,
 					clusterId,
 					rule.Alert,
 				)
@@ -119,9 +83,9 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 			}
 			if rule.Record != "" {
 				err := deleteCortexSLORules(
+					s.ctx,
 					s.p,
 					s.p.logger,
-					s.ctx,
 					clusterId,
 					rule.Record,
 				)
@@ -131,7 +95,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 			}
 		}
 	}
-	err := createGrafanaSLOMask(s.p, s.ctx, clusterId, id)
+	err := createGrafanaSLOMask(s.ctx, s.p, clusterId, id)
 	if err != nil {
 		s.p.logger.Errorf("creating grafana mask failed %s", err)
 		errArr = append(errArr, err)
@@ -148,7 +112,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, sloData.GetClusterId(), &ruleId, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, sloData.GetClusterId(), &ruleId, toApply)
 	clonedData.SLO.Name = sloData.Name + "-clone"
 	clonedData.Id = slo.GetId()
 	return &corev1.Reference{Id: slo.GetId()}, clonedData, err
@@ -192,10 +156,10 @@ func (s SLOMonitoring) MultiClusterClone(
 				errArr[idx] = fmt.Errorf("cluster %s not found", clusterId.Id)
 				return
 			}
-			svcBackend.WithCurrentRequest(&sloapi.ListServicesRequest{
+			svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListServicesRequest{
 				Datasource: "monitoring",
 				ClusterId:  clusterId.Id,
-			}, s.ctx)
+			})
 			services, err := svcBackend.ListServices()
 			if err != nil {
 				errArr[idx] = err
@@ -205,11 +169,11 @@ func (s SLOMonitoring) MultiClusterClone(
 				errArr[idx] = fmt.Errorf("service %s not found on cluster %s", sloData.GetServiceId(), clusterId.Id)
 				return
 			}
-			svcBackend.WithCurrentRequest(&sloapi.ListMetricsRequest{
+			svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListMetricsRequest{
 				Datasource: "monitoring",
 				ClusterId:  clusterId.Id,
 				ServiceId:  sloData.GetServiceId(),
-			}, s.ctx)
+			})
 			metrics, err := svcBackend.ListMetrics()
 			if err != nil {
 				errArr[idx] = err
@@ -231,7 +195,7 @@ func (s SLOMonitoring) MultiClusterClone(
 				)
 				return
 			}
-			errArr[idx] = tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, clusterId.Id, &ruleId, toApply)
+			errArr[idx] = tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, clusterId.Id, &ruleId, toApply)
 		}()
 		clonedData.SLO.Name = sloData.Name + "-clone-" + strconv.Itoa(idx)
 		clonedData.Id = slo.GetId()
@@ -261,8 +225,8 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	// ======================= sli =======================
 	sliErrorName := slo.ConstructRecordingRuleGroup(nil).Rules[0].Record
 	sliDataVector, err := QuerySLOComponentByRecordName(
-		s.p.adminClient.Get(),
 		s.ctx,
+		s.p.adminClient.Get(),
 		sliErrorName,
 		existing.GetSLO().GetClusterId(),
 	)
@@ -277,7 +241,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	// race condition can cause initial evaluation to fail with empty vector, resulting in no data state
 	// this is why we return creating state with two intervals
 	metadataBudgetRaw := slo.RawBudgetRemainingQuery() // this is not actually raw "raw", contains recording rule refs
-	metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
+	metadataVector, err := QuerySLOComponentByRawQuery(s.ctx, s.p.adminClient.Get(), metadataBudgetRaw, existing.GetSLO().GetClusterId())
 	if err != nil {
 		return nil, err
 	}
@@ -294,11 +258,11 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 
 	alertBudgetRules := slo.ConstructAlertingRuleGroup(nil)
 	short, long := alertBudgetRules.Rules[0].Expr, alertBudgetRules.Rules[1].Expr
-	alertDataVector1, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, short, existing.GetSLO().GetClusterId())
+	alertDataVector1, err := QuerySLOComponentByRawQuery(s.ctx, s.p.adminClient.Get(), short, existing.GetSLO().GetClusterId())
 	if err != nil {
 		return nil, err
 	}
-	alertDataVector2, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, long, existing.GetSLO().GetClusterId())
+	alertDataVector2, err := QuerySLOComponentByRawQuery(s.ctx, s.p.adminClient.Get(), long, existing.GetSLO().GetClusterId())
 	if err != nil {
 		return nil, err
 	}
@@ -335,11 +299,11 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
 	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
 	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(NaN))" // handles the empty case and still differentiates between 0 and empty
-	_, err = promql.ParseExpr(sli)
+	_, err = parser.ParseExpr(sli)
 	if err != nil {
 		panic(err)
 	}
-	sliDataMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(), s.ctx,
+	sliDataMatrix, err := QuerySLOComponentByRawQueryRange(s.ctx, s.p.adminClient.Get(),
 		sli, req.GetSlo().GetClusterId(),
 		startTs, endTs, step,
 	)
@@ -361,7 +325,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	// but for performance reasons, we will only query every 20 minutes
 	alertTimeStep := time.Minute * 20
 
-	alertWindowSevereMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(), s.ctx,
+	alertWindowSevereMatrix, err := QuerySLOComponentByRawQueryRange(s.ctx, s.p.adminClient.Get(),
 		alertSevereRawQuery, req.GetSlo().GetClusterId(),
 		startTs, endTs, alertTimeStep,
 	)
@@ -374,8 +338,8 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	}
 	preview.PlotVector.Windows = append(preview.PlotVector.Windows, severeWindows...)
 
-	alertWindowCriticalMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(),
-		s.ctx, alertCriticalRawQuery, req.GetSlo().GetClusterId(),
+	alertWindowCriticalMatrix, err := QuerySLOComponentByRawQueryRange(s.ctx, s.p.adminClient.Get(),
+		alertCriticalRawQuery, req.GetSlo().GetClusterId(),
 		startTs, endTs, step,
 	)
 	if err != nil {
@@ -389,7 +353,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	return preview, nil
 }
 
-func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {
+func (m *MonitoringServiceBackend) WithCurrentRequest(ctx context.Context, req proto.Message) ServiceBackend {
 	m.req = req
 	m.ctx = ctx
 	return m

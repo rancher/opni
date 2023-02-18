@@ -238,7 +238,7 @@ func (w *ClusterListWatcher) Run(ctx context.Context) error {
 		return err
 	}
 
-	group, ctx := errgroup.WithContext(ctx)
+	group, _ := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		for {
 			msg, err := clusterStream.Recv()

@@ -26,6 +26,8 @@ type ExtClient interface {
 	Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error)
 	Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOption) (*BarResponse, error)
 	Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ServerStream(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (Ext_ServerStreamClient, error)
+	ClientStream(ctx context.Context, opts ...grpc.CallOption) (Ext_ClientStreamClient, error)
 }
 
 type extClient struct {
@@ -63,6 +65,72 @@ func (c *extClient) Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *extClient) ServerStream(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (Ext_ServerStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Ext_ServiceDesc.Streams[0], "/ext.Ext/ServerStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &extServerStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Ext_ServerStreamClient interface {
+	Recv() (*FooResponse, error)
+	grpc.ClientStream
+}
+
+type extServerStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *extServerStreamClient) Recv() (*FooResponse, error) {
+	m := new(FooResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *extClient) ClientStream(ctx context.Context, opts ...grpc.CallOption) (Ext_ClientStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Ext_ServiceDesc.Streams[1], "/ext.Ext/ClientStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &extClientStreamClient{stream}
+	return x, nil
+}
+
+type Ext_ClientStreamClient interface {
+	Send(*FooRequest) error
+	CloseAndRecv() (*FooResponse, error)
+	grpc.ClientStream
+}
+
+type extClientStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *extClientStreamClient) Send(m *FooRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *extClientStreamClient) CloseAndRecv() (*FooResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(FooResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ExtServer is the server API for Ext service.
 // All implementations must embed UnimplementedExtServer
 // for forward compatibility
@@ -70,6 +138,8 @@ type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
 	Bar(context.Context, *BarRequest) (*BarResponse, error)
 	Baz(context.Context, *BazRequest) (*emptypb.Empty, error)
+	ServerStream(*FooRequest, Ext_ServerStreamServer) error
+	ClientStream(Ext_ClientStreamServer) error
 	mustEmbedUnimplementedExtServer()
 }
 
@@ -85,6 +155,12 @@ func (UnimplementedExtServer) Bar(context.Context, *BarRequest) (*BarResponse, e
 }
 func (UnimplementedExtServer) Baz(context.Context, *BazRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Baz not implemented")
+}
+func (UnimplementedExtServer) ServerStream(*FooRequest, Ext_ServerStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ServerStream not implemented")
+}
+func (UnimplementedExtServer) ClientStream(Ext_ClientStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ClientStream not implemented")
 }
 func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
@@ -153,6 +229,53 @@ func _Ext_Baz_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ext_ServerStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FooRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ExtServer).ServerStream(m, &extServerStreamServer{stream})
+}
+
+type Ext_ServerStreamServer interface {
+	Send(*FooResponse) error
+	grpc.ServerStream
+}
+
+type extServerStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *extServerStreamServer) Send(m *FooResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Ext_ClientStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ExtServer).ClientStream(&extClientStreamServer{stream})
+}
+
+type Ext_ClientStreamServer interface {
+	SendAndClose(*FooResponse) error
+	Recv() (*FooRequest, error)
+	grpc.ServerStream
+}
+
+type extClientStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *extClientStreamServer) SendAndClose(m *FooResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *extClientStreamServer) Recv() (*FooRequest, error) {
+	m := new(FooRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Ext_ServiceDesc is the grpc.ServiceDesc for Ext service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -173,7 +296,18 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Ext_Baz_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ServerStream",
+			Handler:       _Ext_ServerStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ClientStream",
+			Handler:       _Ext_ClientStream_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "github.com/rancher/opni/pkg/test/testdata/plugins/ext/ext.proto",
 }
 

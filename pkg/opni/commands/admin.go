@@ -312,13 +312,12 @@ func BuildQueryRangeCmd() *cobra.Command {
 func parseTimeOrDie(timeStr string) time.Time {
 	if t, err := dateparse.ParseAny(timeStr); err == nil {
 		return t
-	} else {
-		t, err := when.EN.Parse(timeStr, time.Now())
-		if err != nil || t == nil {
-			lg.Fatal("could not interpret start time")
-		}
-		return t.Time
 	}
+	t, err := when.EN.Parse(timeStr, time.Now())
+	if err != nil || t == nil {
+		lg.Fatal("could not interpret start time")
+	}
+	return t.Time
 }
 
 func BuildStorageInfoCmd() *cobra.Command {
@@ -351,10 +350,10 @@ func BuildStorageInfoCmd() *cobra.Command {
 				return err
 			}
 			var samples []*model.Sample
-			switch queryResp.V.Type() {
-			case model.ValVector:
+			if queryResp.V.Type() == model.ValVector {
 				samples = append(samples, queryResp.V.(model.Vector)...)
 			}
+
 			fmt.Println(cliutil.RenderMetricSamples(samples))
 			return nil
 		},

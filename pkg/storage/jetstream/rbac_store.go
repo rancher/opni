@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func (s *JetStreamStore) CreateRole(ctx context.Context, role *corev1.Role) error {
+func (s *JetStreamStore) CreateRole(_ context.Context, role *corev1.Role) error {
 	data, err := protojson.Marshal(role)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (s *JetStreamStore) CreateRole(ctx context.Context, role *corev1.Role) erro
 	return err
 }
 
-func (s *JetStreamStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
+func (s *JetStreamStore) DeleteRole(_ context.Context, ref *corev1.Reference) error {
 	if _, err := s.kv.Roles.Get(ref.Id); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return storage.ErrNotFound
@@ -32,7 +32,7 @@ func (s *JetStreamStore) DeleteRole(ctx context.Context, ref *corev1.Reference) 
 	return s.kv.Roles.Delete(ref.Id)
 }
 
-func (s *JetStreamStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error) {
+func (s *JetStreamStore) GetRole(_ context.Context, ref *corev1.Reference) (*corev1.Role, error) {
 	entry, err := s.kv.Roles.Get(ref.Id)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) || (errors.Is(err, nats.ErrInvalidKey) && ref.GetId() == "") {
@@ -47,7 +47,7 @@ func (s *JetStreamStore) GetRole(ctx context.Context, ref *corev1.Reference) (*c
 	return role, nil
 }
 
-func (s *JetStreamStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding) error {
+func (s *JetStreamStore) CreateRoleBinding(_ context.Context, rb *corev1.RoleBinding) error {
 	data, err := protojson.Marshal(rb)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (s *JetStreamStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleB
 	return err
 }
 
-func (s *JetStreamStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
+func (s *JetStreamStore) DeleteRoleBinding(_ context.Context, ref *corev1.Reference) error {
 	if _, err := s.kv.RoleBindings.Get(ref.Id); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return storage.ErrNotFound

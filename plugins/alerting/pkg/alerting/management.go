@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
@@ -78,29 +77,32 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(pluginCtx context.Context, opts ...drivers.AlertingManagerDriverOption) {
+func (p *Plugin) configureAlertManagerConfiguration(_ context.Context, opts ...drivers.AlertingManagerDriverOption) {
 	// load default cluster drivers
+	var (
+		driver drivers.ClusterDriver
+		err    error
+	)
 	drivers.ResetClusterDrivers()
 	if kcd, err := drivers.NewAlertingManagerDriver(opts...); err == nil {
 		drivers.RegisterClusterDriver(kcd)
 	} else {
 		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
 	}
-
-	name := "alerting-mananger"
-	driver, err := drivers.GetClusterDriver(name)
+	name := "alerting-manager"
+	driver, err = drivers.GetClusterDriver(name)
 	if err != nil {
 		p.Logger.With(
 			"driver", name,
 			zap.Error(err),
-		).Error("failed to load cluster driver, using fallback no-op driver")
-		if os.Getenv(shared.LocalBackendEnvToggle) != "" {
-			driver = drivers.NewLocalManager(
-				drivers.WithLocalManagerLogger(p.Logger),
-				drivers.WithLocalManagerContext(pluginCtx),
-			)
-
-		} else {
+		).Error("failed to load kubernetes driver, checking other drivers...")
+		localName := "local-alerting"
+		driver, err = drivers.GetClusterDriver(localName)
+		if err != nil {
+			p.Logger.With(
+				"driver", localName,
+				zap.Error(err),
+			).Error("failed to load cluster driver, using fallback no-op driver")
 			driver = &drivers.NoopClusterDriver{}
 		}
 	}

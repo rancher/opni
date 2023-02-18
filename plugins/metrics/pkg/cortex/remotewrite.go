@@ -50,6 +50,7 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	if !f.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
+
 	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
@@ -83,6 +84,9 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	url := fmt.Sprintf("https://%s/api/v1/push", f.Config.Cortex.Distributor.HTTPAddress)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
 		bytes.NewReader(payload.Contents))
+	if err != nil {
+		return nil, err
+	}
 
 	if err := user.InjectOrgIDIntoHTTPRequest(user.InjectOrgID(ctx, clusterId), req); err != nil {
 		return nil, err

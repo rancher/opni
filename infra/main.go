@@ -46,13 +46,13 @@ func run(ctx *Context) (runErr error) {
 	}
 
 	var id StringOutput
-	if rand, err := random.NewRandomId(ctx, "id", &random.RandomIdArgs{
+	rand, err := random.NewRandomId(ctx, "id", &random.RandomIdArgs{
 		ByteLength: Int(4),
-	}); err != nil {
+	})
+	if err != nil {
 		return errors.WithStack(err)
-	} else {
-		id = rand.Hex
 	}
+	id = rand.Hex
 
 	tags := map[string]string{}
 	for k, v := range conf.Tags {

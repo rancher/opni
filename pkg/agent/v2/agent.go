@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -257,6 +258,18 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	trust, err := machinery.BuildTrustStrategy(conf.Spec.TrustStrategy, kr)
 	if err != nil {
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
+	}
+
+	// Load ephemeral keyrings from disk, if any search dirs are configured
+	ekeys, err := machinery.LoadEphemeralKeys(afero.Afero{
+		Fs: afero.NewOsFs(),
+	}, conf.Spec.Keyring.EphemeralKeyDirs...)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Warn("error loading ephemeral keys")
+	} else if len(ekeys) > 0 {
+		kr = kr.Merge(keyring.New(lo.ToAnySlice(ekeys)...))
 	}
 
 	gatewayClient, err := clients.NewGatewayClient(ctx,

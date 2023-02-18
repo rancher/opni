@@ -1,9 +1,12 @@
-/* API implementation
- */
+// API implementation
+
 package slo
 
 import (
 	"context"
+	"path"
+	"time"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/slo/shared"
@@ -13,8 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"path"
-	"time"
 )
 
 func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
@@ -62,6 +63,9 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 		return nil, err
 	}
 	clusterList, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
 	validCluster := false
 	for _, clusterListItem := range clusterList.Items {
 		if clusterListItem.Id == slorequest.Slo.ClusterId {
@@ -69,10 +73,10 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 			break
 		}
 	}
-	if validCluster == false {
+	if !validCluster {
 		return nil, validation.Error("invalid cluster")
 	}
-	sloStore := datasourceToSLO[slorequest.GetSlo().GetDatasource()].WithCurrentRequest(slorequest, ctx)
+	sloStore := datasourceToSLO[slorequest.GetSlo().GetDatasource()].WithCurrentRequest(ctx, slorequest)
 	id, err := sloStore.Create()
 	if err != nil {
 		return nil, err
@@ -93,6 +97,9 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 		return nil, err
 	}
 	clusterList, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
 	validCluster := false
 	for _, clusterListItem := range clusterList.Items {
 		if clusterListItem.Id == req.SLO.ClusterId {
@@ -100,14 +107,14 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 			break
 		}
 	}
-	if validCluster == false {
+	if !validCluster {
 		return nil, validation.Error("invalid cluster")
 	}
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[req.GetSLO().GetDatasource()].WithCurrentRequest(req, ctx)
+	sloStore := datasourceToSLO[req.GetSLO().GetDatasource()].WithCurrentRequest(ctx, req)
 	updatedSLO, err := sloStore.Update(existing)
 	if err != nil { // exit when update fails
 		return nil, err
@@ -129,7 +136,7 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ctx, req)
 	err = sloStore.Delete(existing)
 	if err != nil {
 		return nil, err
@@ -151,7 +158,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ctx, ref)
 	newId, newData, anyError := sloStore.Clone(existing)
 	newData.CreatedAt = timestamppb.New(time.Now())
 	if anyError != nil {
@@ -174,7 +181,7 @@ func (p *Plugin) CloneToClusters(ctx context.Context, req *sloapi.MultiClusterSL
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ctx, req)
 	svcBackend := datasourceToService[existing.SLO.GetDatasource()] // with current request is set in multi cluster clone
 	failures := []string{}
 	createdIds, createdData, errors := sloStore.MultiClusterClone(existing, req.Clusters, svcBackend)
@@ -207,7 +214,7 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ctx, ref)
 	status, err := sloStore.Status(existing)
 	return status, err
 }
@@ -220,7 +227,7 @@ func (p *Plugin) Preview(ctx context.Context, req *sloapi.CreateSLORequest) (*sl
 	if err := checkDatasource(req.GetSlo().GetDatasource()); err != nil {
 		return nil, err
 	}
-	sloStore := datasourceToSLO[req.GetSlo().GetDatasource()].WithCurrentRequest(req, ctx)
+	sloStore := datasourceToSLO[req.GetSlo().GetDatasource()].WithCurrentRequest(ctx, req)
 	return sloStore.Preview(slo)
 }
 
@@ -232,7 +239,7 @@ func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServicesReque
 	if err != nil {
 		return nil, shared.ErrInvalidDatasource
 	}
-	backend := datasourceToService[req.Datasource].WithCurrentRequest(req, ctx)
+	backend := datasourceToService[req.Datasource].WithCurrentRequest(ctx, req)
 	return backend.ListServices()
 }
 
@@ -241,7 +248,7 @@ func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest
 	if err != nil {
 		return nil, shared.ErrInvalidDatasource
 	}
-	backend := datasourceToService[req.Datasource].WithCurrentRequest(req, ctx)
+	backend := datasourceToService[req.Datasource].WithCurrentRequest(ctx, req)
 	return backend.ListMetrics()
 }
 
@@ -254,6 +261,6 @@ func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) 
 	if err := checkDatasource(datasource); err != nil {
 		return nil, shared.ErrInvalidDatasource
 	}
-	backend := datasourceToService[datasource].WithCurrentRequest(req, ctx)
+	backend := datasourceToService[datasource].WithCurrentRequest(ctx, req)
 	return backend.ListEvents()
 }

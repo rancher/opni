@@ -2,10 +2,10 @@ package slo
 
 import (
 	"context"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/server/endpoint"
 
 	"go.uber.org/zap"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -28,7 +28,7 @@ type Plugin struct {
 	storage             future.Future[StorageAPIs]
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	adminClient         future.Future[cortexadmin.CortexAdminClient]
-	alertEndpointClient future.Future[endpoint.AlertEndpointsClient]
+	alertEndpointClient future.Future[alertingv1.AlertEndpointsClient]
 }
 
 type StorageAPIs struct {
@@ -44,7 +44,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		storage:             future.New[StorageAPIs](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		adminClient:         future.New[cortexadmin.CortexAdminClient](),
-		alertEndpointClient: future.New[endpoint.AlertEndpointsClient](),
+		alertEndpointClient: future.New[alertingv1.AlertEndpointsClient](),
 	}
 }
 

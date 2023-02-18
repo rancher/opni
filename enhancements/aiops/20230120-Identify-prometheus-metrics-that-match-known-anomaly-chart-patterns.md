@@ -14,30 +14,30 @@ This enhancement proposal offers a new feature to match prometheus metrics to a 
 * reduce economic loss.
 
 ## Impact: 
-* No direct impact to existing system in terms of performance. However, if this new feature is deployed in a `proactively` in the future, then it might require some resources as it would have to continuously compute for all metrics.
+* No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
-* pattern classification process. Inspired by this paper, https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf. 
+* Pattern classification process. Inspired by this paper, https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf. 
 	a. A simple metric anomaly detection algorithm, that predicts every metric either normal or anomaly. An example method is Kolmogorov-Smirnov test.
-	b. A machine-learning or deep-learning model will be pre-trained for pattern classification. This would require some abnormal metric data collection and to apply data augmentation techniques. Once model is trained, it will be applied to anomaly metrics from step a and categorize them into a few pre-defined patterns.
-	c. analyse report. A report should be generated to summarize the notable patterns.
-* metric data collection. Data will be pulled from Cortex as chunks. Likely it would require data from last a few hours before an outage.
-* back-end apis for frontend to connect to.
+	b. A machine-learning or deep-learning model will be pre-trained for pattern classification. This would require some real abnormal metric data with human labels, and then apply data augmentation techniques to them. Once model is trained, it will be applied to anomaly metrics from step a and categorize them into a few pre-defined patterns.
+	c. Analyse report. A report should be generated to summarize the notable patterns.
+* Metric data collection. Data will be pulled from Cortex as chunks. Likely it would require data from last a few hours before an outage.
+* Back-end apis for frontend to connect to.
 * UI. 
 	a. User would need to manually trigger this feature, so there needs to buttons attached to each alerts to trigger this analysis.
-	b. the analyse report should be visualized in UI.
+	b. The analyse report should be visualized in UI.
 
 ## Acceptance criteria: 
-* pattern classification accuracy should be good. Threshold to be decided. 
-* analyse report generated correctly.
-* pulling metrics data should be efficient.
+* Pattern classification accuracy should be good. Threshold to be decided. 
+* Analyse report generated correctly.
+* Pulling metrics data should be efficient.
 * UI. Buttons to trigger this new feature work as expected and the analyse report gets visualized.
 
 ## Supporting documents: 
 https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf. 
 
 ## Dependencies: 
-* the Opni metric back-end enabled.
+* the Opni monitoring back-end enabled.
 
 ## Risks and contingencies: 
 * Risks: None

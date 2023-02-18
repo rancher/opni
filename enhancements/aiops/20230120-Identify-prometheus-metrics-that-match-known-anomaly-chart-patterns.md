@@ -8,10 +8,10 @@ This enhancement proposal offers a new feature to match prometheus metrics to a 
 * Monitoring metrics in a multi-cluster setup is challenging. Operators could be responsible for hundreds of clusters and each cluster has tons of different metrics. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis. Users need tools to help them reduce the scope and identify anomaly metrics faster.
 
 ## Benefits: 
-* makes operators' life easier in the process of outage diagnosis.
-* improve user experience. Metric data will get condensed and categorized into insights that are much easier to digest.
-* reduce mean time to resolve outages. This method will shorten the time operators taken to find out root cause.
-* reduce economic loss.
+* Makes operators' life easier in the process of outage diagnosis.
+* Improve user experience. Metric data will get condensed and categorized into insights that are much easier to digest.
+* Reduce mean time to resolve outages. This method will shorten the time operators taken to find out root cause.
+* Reduce economic loss.
 
 ## Impact: 
 * No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.

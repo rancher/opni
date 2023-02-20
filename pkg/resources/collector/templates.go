@@ -22,67 +22,61 @@ filelog/k8s:
   - type: regex_parser
     id: get-format
     regex: '^((?P<docker_format>\{)|(?P<crio_format>[^ Z]+) |(?P<containerd_format>[^ ^Z]+Z) )'
-    preserve_to: original
   # Parse CRI-O format
   - type: regex_parser
     id: parser-crio
-    if: '$$record.crio_format != ""'
-    parse_from: original
+    if: 'attributes.crio_format != ""'
     regex: '^(?P<time>[^ Z]+) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$'
     timestamp:
-      parse_from: time
+      parse_from: attributes.time
       layout_type: gotime
       layout: '2006-01-02T15:04:05.000000000-07:00'
   # Parse CRI-Containerd format
   - type: regex_parser
     id: parser-containerd
-    if: '$$record.containerd_format != ""'
-    parse_from: original
+    if: 'attributes.containerd_format != ""'
     regex: '^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$'
     timestamp:
-      parse_from: time
+      parse_from: attributes.time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
   # Parse Docker format
   - type: json_parser
     id: parser-docker
-    if: '$$record.docker_format != ""'
-    parse_from: original
+    if: 'attributes.docker_format != ""'
     timestamp:
-      parse_from: time
+      parse_from: attributes.time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
   # Clean up format detection
-  - type: restructure
-    id: clean-up-format-detection
-    ops:
-    - remove: original
-    - remove: docker_format
-    - remove: crio_format
-    - remove: containerd_format
+  - type: remove
+    id: remove-original
+    field: attributes.original
+  - type: remove
+    id: remove-docker-format
+    field: attributes.docker_format
+  - type: remove
+    id: remove-crio-format
+    field: attributes.crio_format
+  - type: remove
+    id: remove-containerd-format
+    field: attributes.containerd_format
   # Extract metadata from file path
   - type: regex_parser
     id: extract_metadata_from_filepath
     regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<uid>[a-f0-9\-]{36})\/(?P<container_name>[^\._]+)\/(?P<run_id>\d+)\.log$'
-    parse_from: $$labels.file_path
+    parse_from: attributes.log.file.path
   # Move out attributes to Attributes
-  - type: metadata
-    labels:
-      stream: 'EXPR($.stream)'
-      k8s.container.name: 'EXPR($.container_name)'
-      k8s.namespace.name: 'EXPR($.namespace)'
-      k8s.pod.name: 'EXPR($.pod_name)'
-      run_id: 'EXPR($.run_id)'
-      k8s.pod.uid: 'EXPR($.uid)'
-  # Clean up log record
-  - type: restructure
-    id: clean-up-log-record
-    ops:
-    - remove: logtag
-    - remove: stream
-    - remove: container_name
-    - remove: namespace
-    - remove: pod_name
-    - remove: run_id
-    - remove: uid
+  - type: move
+    id: move-namespace
+    from: attributes.namespace
+    to: attributes.k8s.namespace.name
+  - type: move
+    id: move-pod-name
+    from: attributes.pod_name
+    to: attributes.k8s.pod.name
+  - type: move
+    id: move-container-name
+    from: attributes.container_name
+    to: attributes.k8s.container.name
 journald/k8s:
   operators:
   # Filter in only related units
@@ -139,7 +133,7 @@ journald/k8s:
       ($$record._SYSTEMD_UNIT != "var-lib-etcd2.service")
 `
 	templateLogAgentRKE = `
-filelog/rk3:
+filelog/rke:
   include: [ /var/lib/rancher/rke/log/*.log ]
   start_at: beginning
   include_file_path: true
@@ -147,9 +141,8 @@ filelog/rk3:
   operators:
   - type: json_parser
     id: parser-docker
-    parse_from: original
     timestamp:
-      parse_from: time
+      parse_from: attributes.time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
 `
 	templateLogAgentK3s = template.Must(template.New("k3sreceiver").Parse(`
@@ -166,14 +159,14 @@ journald/rke2:
 `))
 
 	templateMainConfig = template.Must(template.New("main").Parse(`
-recievers: ${file:receivers.yaml}
+receivers: ${file:/etc/otel/receivers.yaml}
 exporters:
   otlp:
     endpoint: "{{ .Instance }}-otel-aggregator:4317"
     tls:
       insecure: true
     sending_queue:
-      num_consumters: 4
+      num_consumers: 4
       queue_size: 100
     retry_on_failure:
       enabled: true
@@ -219,7 +212,7 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumters: 4
+      num_consumers: 4
       queue_size: 100
     retry_on_failure:
       enabled: true

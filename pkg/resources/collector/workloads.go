@@ -21,7 +21,7 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "docker.io.otel"
+	collectorImageRepo = "docker.io/otel"
 	collectorImage     = "opentelemetry-collector-contrib"
 	collectorVersion   = "0.68.0"
 	otlpGRPCPort       = int32(4317)
@@ -343,6 +343,23 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
 					Volumes:          volumes,
+					Tolerations: []corev1.Toleration{
+						{
+							Key:    "node-role.kubernetes.io/controlplane",
+							Value:  "true",
+							Effect: corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:    "node-role.kubernetes.io/control-plane",
+							Value:  "true",
+							Effect: corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:    "node-role.kubernetes.io/etcd",
+							Value:  "true",
+							Effect: corev1.TaintEffectNoExecute,
+						},
+					},
 				},
 			},
 		},

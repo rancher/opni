@@ -39,14 +39,20 @@ const InternalOpsGenieId = "opsgenie"
 const InternalVictorOpsId = "victorops"
 const InternalWechatId = "wechat"
 
-// -------- const routing identifiers -----------
+// -------- const routing label identifiers -----------
 
 const OpniDatasourceLabel = "OpniDatasource"
 const OpniSeverityLabel = "OpniSeverity"
 const OpniUnbufferedKey = "OpniGroupKey"
-const OpniBroadcastPrefix = "OpniBroadcast"
+const OpniDatasourceMetrics = "metrics"
 
-const OpniDatasourceMetricsValue = "metrics"
+// -------- const routing annotation identifiers ------
+
+const OpniHeaderAnnotations = "OpniHeader"
+const OpniBodyAnnotations = "OpniSummary"
+const OpniClusterAnnotation = "OpniCluster"
+const OpniAlarmNameAnnotation = "OpniAlarmName"
+const OpniGoldenSignalAnnotation = "OpniGoldenSignal"
 
 var OpniGroupByClause = []model.LabelName{
 	"alertname",
@@ -61,7 +67,7 @@ var OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
 var OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
 	Type:  labels.MatchEqual,
 	Name:  OpniDatasourceLabel,
-	Value: OpniDatasourceMetricsValue,
+	Value: OpniDatasourceMetrics,
 }
 
 var OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{

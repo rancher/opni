@@ -305,7 +305,7 @@ func BuildAlertingClusterIntegrationTests(
 
 					By("setting the default servers as default endpoints")
 					for _, server := range defaultServers {
-						_, err = alertEndpointsClient.ToggleDefault(env.Context(), &alertingv1.ToggleDefaultRequest{
+						_, err = alertEndpointsClient.ToggleNotifications(env.Context(), &alertingv1.ToggleRequest{
 							Id: &corev1.Reference{Id: server.EndpointId},
 						})
 						Expect(err).To(Succeed())
@@ -426,8 +426,8 @@ func BuildAlertingClusterIntegrationTests(
 					By("verifying the defaul servers have received the disconnect messages")
 					Eventually(func() error {
 						for _, server := range defaultServers {
-							if len(server.GetBuffer()) == 0 {
-								return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.Buffer))
+							if len(server.GetBuffer()) != 0 {
+								return fmt.Errorf("expected webhook server %s to not have any notifications, got %d", server.EndpointId, len(server.Buffer))
 							}
 						}
 						return nil

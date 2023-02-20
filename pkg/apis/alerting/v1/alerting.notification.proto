@@ -16,7 +16,7 @@ import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 package alerting;
 
 // Opni-Alerting internal use
-service AlertTriggers {
+service AlertNotifications {
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post : "/trigger"
@@ -26,8 +26,10 @@ service AlertTriggers {
 
   rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
 
-  rpc ListRoutingRelationships(google.protobuf.Empty) returns (ListRoutingRelationshipsResponse) {}
+  rpc ListRoutingRelationships(google.protobuf.Empty) 
+    returns (ListRoutingRelationshipsResponse) {}
 }
+
 
 // opni-alerting internal use
 message TriggerAlertsRequest {

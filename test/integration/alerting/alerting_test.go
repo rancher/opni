@@ -63,8 +63,8 @@ func init() {
 		func() alertingv1.AlertEndpointsClient {
 			return env.NewAlertEndpointsClient()
 		},
-		func() alertingv1.AlertTriggersClient {
-			return env.NewAlertTriggersClient()
+		func() alertingv1.AlertNotificationsClient {
+			return env.NewAlertNotificationsClient()
 		},
 		func() managementv1.ManagementClient {
 			return env.NewManagementClient()
@@ -84,14 +84,14 @@ func BuildAlertingClusterIntegrationTests(
 	alertingAdminConstructor func() alertops.AlertingAdminClient,
 	alertingConditionsConstructor func() alertingv1.AlertConditionsClient,
 	alertingEndpointsConstructor func() alertingv1.AlertEndpointsClient,
-	alertingTriggersConstructor func() alertingv1.AlertTriggersClient,
+	alertingNotificationsConstructor func() alertingv1.AlertNotificationsClient,
 	mgmtClientConstructor func() managementv1.ManagementClient,
 ) bool {
 	return Describe("Alerting Cluster Integration tests", Ordered, func() {
 		var alertClusterClient alertops.AlertingAdminClient
 		var alertEndpointsClient alertingv1.AlertEndpointsClient
 		var alertConditionsClient alertingv1.AlertConditionsClient
-		var alertTriggerClient alertingv1.AlertTriggersClient
+		var alertNotificationsClient alertingv1.AlertNotificationsClient
 		var mgmtClient managementv1.ManagementClient
 		var numAgents int
 
@@ -110,11 +110,10 @@ func BuildAlertingClusterIntegrationTests(
 				alertClusterClient = alertingAdminConstructor()
 				alertEndpointsClient = alertingEndpointsConstructor()
 				alertConditionsClient = alertingConditionsConstructor()
-				alertTriggerClient = alertingTriggersConstructor()
+				alertNotificationsClient = alertingNotificationsConstructor()
 				mgmtClient = mgmtClientConstructor()
 				numAgents = 5
 			})
-
 			for _, clusterConf := range clusterConfigurations {
 				It("should install the alerting cluster", func() {
 					_, err := alertClusterClient.InstallCluster(env.Context(), &emptypb.Empty{})
@@ -326,7 +325,7 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Second*90, time.Second*20).Should(Succeed())
 
 					By("verifying the routing relationships are correctly loaded")
-					relationships, err := alertTriggerClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
+					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
 					Expect(len(relationships.RoutingRelationships)).To(Equal(len(expectedRouting)))
 					for conditionId, rel := range relationships.RoutingRelationships {

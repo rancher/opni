@@ -14,7 +14,7 @@ import "google/rpc/status.proto";
 
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
-import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.trigger.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.notification.proto";
 
 
 service AlertEndpoints{

@@ -46,6 +46,34 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 	return false
 }
 
+func (n *Notification) GetRoutingLabels() map[string]string {
+	res := map[string]string{
+		shared.OpniSeverityLabel:       n.GetSeverity().String(),
+		shared.BackendConditionIdLabel: n.GetId(),
+	}
+	if n.GroupKey != nil {
+		res[shared.BroadcastIdLabel] = *n.GroupKey
+	}
+	return res
+}
+
+func (n *Notification) GetRoutingAnnotations() map[string]string {
+	res := map[string]string{
+		shared.OpniHeaderAnnotations:      n.Title,
+		shared.OpniBodyAnnotations:        n.Body,
+		shared.OpniGoldenSignalAnnotation: n.GetRoutingGoldenSignal(),
+	}
+
+	if n.ClusterId != nil {
+		res[shared.OpniClusterAnnotation] = n.ClusterId.GetId()
+	}
+	return res
+}
+
+func (n *Notification) GetRoutingGoldenSignal() string {
+	return n.GetGoldenSignal().String()
+}
+
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
 	return map[string]string{
 		shared.OpniSeverityLabel:       a.GetSeverity().String(),

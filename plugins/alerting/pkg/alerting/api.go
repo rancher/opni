@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -106,6 +107,41 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 	return &alertingv1.ResolveAlertsResponse{}, nil
 }
 
+func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
+	// lg := p.Logger.With("Handler", "PushNotification")
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	if req.Id == nil || *req.Id == "" {
+		req.Id = lo.ToPtr(util.HashStrings([]string{req.Title, req.Body}))
+	}
+
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
+	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
+	apiNode := backend.NewAlertManagerPostAlertClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(backend.NewExpectStatusOk()),
+		backend.WithPostAlertBody(
+			"notification-"+*req.Id,
+			req.GetRoutingLabels(),
+			req.GetRoutingAnnotations(),
+		),
+		backend.WithDefaultRetrier(),
+	)
+	return &emptypb.Empty{}, apiNode.DoRequest()
+}
+
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {
 	cond, err := p.ListAlertConditions(ctx, &alertingv1.ListAlertConditionRequest{})
 	if err != nil {
@@ -125,7 +161,6 @@ func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty)
 			}
 			relationships[c.Id.Id] = refs
 		}
-
 	}
 	return &alertingv1.ListRoutingRelationshipsResponse{
 		RoutingRelationships: relationships,

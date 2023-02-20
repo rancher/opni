@@ -475,3 +475,22 @@ func (t *ToggleRequest) Validate() error {
 	}
 	return nil
 }
+
+func (n *Notification) Validate() error {
+	if n.Title == "" {
+		return validation.Error("field Title must be set")
+	}
+	if n.Body == "" {
+		return validation.Error("field Body must be set")
+	}
+	if n.Severity == nil {
+		n.Severity = OpniSeverity_Info.Enum()
+	}
+	if n.GoldenSignal == nil {
+		n.GoldenSignal = GoldenSignal_Custom.Enum()
+	}
+	if n.ClusterId != nil && n.ClusterId.Id == "" {
+		return validation.Error("cluster's id must be set if providing a clusterId")
+	}
+	return nil
+}

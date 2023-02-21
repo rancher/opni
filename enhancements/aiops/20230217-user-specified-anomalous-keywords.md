@@ -32,7 +32,7 @@ Currently, this is the list of anomalous keywords that are to be used by default
 
 Within the Opni admin dashboard, there will be a box which shows the anomalous keywords that are used by default. The user will then have the option to remove any keywords that they would not like to use as well as include any additional keywords. The user will also make sure to select the workloads of interest to the watchlist. There will be an update button which the user will then hit which sends the keywords to the AIOps gateway endpoint /train/model which will send the workloads to train on and the anomalous keywords to filter out. The /train/model endpoint will then send that data over to the training controller service.
 
-The training controller service will then use the specified list of anomalous keywords to create the Opensearch query which will then be sent to the GPU controller service. After this, the same approach for fetching the logs and training the Deep Learning model will be followed.
+The training controller service will then receive workloads that are part of the watchlist as well as the user specified anomalous keywords through Nats. It will then use the specified list of anomalous keywords to create the Opensearch query which will then be sent to the GPU controller service. After this, the same approach for fetching the logs and training the Deep Learning model will be followed.
 
 ## Acceptance criteria: 
 * Deep Learning models should only be trained on workload logs within the last hour that are not marked as anomalous and do not contain any of the designated anomalous keywords.

@@ -12,6 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -25,17 +26,20 @@ const _ = grpc.SupportPackageIsVersion7
 type AlertEndpointsClient interface {
 	CreateAlertEndpoint(ctx context.Context, in *AlertEndpoint, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error)
+	// update the endpoint to opt in/out of opni notifications
+	ToggleNotifications(ctx context.Context, in *ToggleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
 	// when forceUpdate = false,
-	// returns a list of conditions this would affect (if none, applies the update)
+	// returns a list of conditions this would affect(if none, applies the update)
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
 	UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error)
 	// when forceDelete = false,
-	// returns a list of conditions this would affect (if none, applies the delete)
+	// returns a list of conditions this would affect(if none, applies the delete)
 	// when forceDelete = true
-	// deletes and applies the consequences of those changes to everything without warning
+	// deletes and applies the consequences of those changes
+	// to everything without warning
 	DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error)
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
 }
@@ -60,6 +64,15 @@ func (c *alertEndpointsClient) CreateAlertEndpoint(ctx context.Context, in *Aler
 func (c *alertEndpointsClient) GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error) {
 	out := new(AlertEndpoint)
 	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/GetAlertEndpoint", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertEndpointsClient) ToggleNotifications(ctx context.Context, in *ToggleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/alerting.AlertEndpoints/ToggleNotifications", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,17 +121,20 @@ func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *TestAl
 type AlertEndpointsServer interface {
 	CreateAlertEndpoint(context.Context, *AlertEndpoint) (*v1.Reference, error)
 	GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error)
+	// update the endpoint to opt in/out of opni notifications
+	ToggleNotifications(context.Context, *ToggleRequest) (*emptypb.Empty, error)
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)
 	// when forceUpdate = false,
-	// returns a list of conditions this would affect (if none, applies the update)
+	// returns a list of conditions this would affect(if none, applies the update)
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
 	UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*InvolvedConditions, error)
 	// when forceDelete = false,
-	// returns a list of conditions this would affect (if none, applies the delete)
+	// returns a list of conditions this would affect(if none, applies the delete)
 	// when forceDelete = true
-	// deletes and applies the consequences of those changes to everything without warning
+	// deletes and applies the consequences of those changes
+	// to everything without warning
 	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*InvolvedConditions, error)
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
@@ -133,6 +149,9 @@ func (UnimplementedAlertEndpointsServer) CreateAlertEndpoint(context.Context, *A
 }
 func (UnimplementedAlertEndpointsServer) GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertEndpoint not implemented")
+}
+func (UnimplementedAlertEndpointsServer) ToggleNotifications(context.Context, *ToggleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ToggleNotifications not implemented")
 }
 func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEndpoints not implemented")
@@ -191,6 +210,24 @@ func _AlertEndpoints_GetAlertEndpoint_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertEndpointsServer).GetAlertEndpoint(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AlertEndpoints_ToggleNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertEndpointsServer).ToggleNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.AlertEndpoints/ToggleNotifications",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertEndpointsServer).ToggleNotifications(ctx, req.(*ToggleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -281,6 +318,10 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAlertEndpoint",
 			Handler:    _AlertEndpoints_GetAlertEndpoint_Handler,
+		},
+		{
+			MethodName: "ToggleNotifications",
+			Handler:    _AlertEndpoints_ToggleNotifications_Handler,
 		},
 		{
 			MethodName: "ListAlertEndpoints",

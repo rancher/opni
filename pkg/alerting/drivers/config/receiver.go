@@ -24,14 +24,23 @@ const missingTitle = "<missing title>"
 // panics when the receiver type
 type OpniReceiver interface {
 	InternalId() string
-	// FIXME: maybe this isn't necessary, just pass in all alerts with {{ .Annotations.Body }} {{ .Annotations.Title }}
-	// Note this is necessary when updating individual endpoints and propagating those details
-	ExtractMessage() *alertingv1.EndpointImplementation
-	StoreMessage(details *alertingv1.EndpointImplementation)
+	// extract non-specific receiver info
+	ExtractInfo() *alertingv1.EndpointImplementation
+	// set non-specific receiver info
+	StoreInfo(details *alertingv1.EndpointImplementation)
+	// configure receiver specific info
 	Configure(*alertingv1.AlertEndpoint) OpniReceiver
 	Clone() OpniReceiver
 	MarshalYAML() ([]byte, error)
 	yaml.Unmarshaler
+}
+
+func HeaderTemplate() string {
+	return fmt.Sprintf("{{ range .Alerts }} {{ .Annotations.%s }} \n {{ end }}", shared.OpniHeaderAnnotations)
+}
+
+func BodyTemplate() string {
+	return fmt.Sprintf("{{ range .Alerts }} {{ .Annotations.%s }} \n {{ end }}", shared.OpniBodyAnnotations)
 }
 
 func ExtractReceiver(unmarshall func(interface{}) error, _ /*data*/ interface{}) (OpniReceiver, error) {
@@ -172,19 +181,13 @@ func (c *EmailConfig) InternalId() string {
 	return shared.InternalEmailId
 }
 
-func (c *EmailConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *EmailConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	res := &alertingv1.EndpointImplementation{}
-	if def, ok := c.Headers["Subject"]; ok {
-		res.Title = def
-	} else {
-		res.Title = missingBody
-	}
-	res.Body = c.HTML
 	res.SendResolved = &c.VSendResolved
 	return res
 }
 
-func (c *EmailConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *EmailConfig) StoreInfo(details *alertingv1.EndpointImplementation) {
 	if def := details.SendResolved; def != nil {
 		c.NotifierConfig = NotifierConfig{
 			VSendResolved: *def,
@@ -223,6 +226,11 @@ func (c *EmailConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	if emailSpec.SmtpAuthIdentity != nil {
 		c.AuthIdentity = *emailSpec.SmtpAuthIdentity
 	}
+	if c.Headers == nil {
+		c.Headers = map[string]string{}
+	}
+	c.Headers["Subject"] = HeaderTemplate()
+	c.HTML = BodyTemplate()
 	return c
 }
 
@@ -238,15 +246,13 @@ func (c *SlackConfig) InternalId() string {
 	return shared.InternalSlackId
 }
 
-func (c *SlackConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *SlackConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	res := &alertingv1.EndpointImplementation{}
-	res.Title = c.Title
-	res.Body = c.Text
 	res.SendResolved = &c.VSendResolved
 	return res
 }
 
-func (c *SlackConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *SlackConfig) StoreInfo(details *alertingv1.EndpointImplementation) {
 	if def := details.SendResolved; def != nil {
 		c.NotifierConfig = NotifierConfig{
 			VSendResolved: *def,
@@ -256,8 +262,6 @@ func (c *SlackConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
 			VSendResolved: false,
 		}
 	}
-	c.Title = details.Title
-	c.Text = details.Body
 }
 
 func (c *SlackConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
@@ -270,6 +274,8 @@ func (c *SlackConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 		URL: parsedURL,
 	}
 	c.Channel = slackSpec.Channel
+	c.Title = HeaderTemplate()
+	c.Text = BodyTemplate()
 	return c
 }
 
@@ -285,19 +291,13 @@ func (c *PagerdutyConfig) InternalId() string {
 	return shared.InternalPagerdutyId
 }
 
-func (c *PagerdutyConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *PagerdutyConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	res := &alertingv1.EndpointImplementation{}
-	if title, ok := c.Details["title"]; ok {
-		res.Title = title
-	} else {
-		res.Title = missingTitle
-	}
-	res.Body = c.Description
 	res.SendResolved = &c.VSendResolved
 	return res
 }
 
-func (c *PagerdutyConfig) StoreMessage(details *alertingv1.EndpointImplementation) {
+func (c *PagerdutyConfig) StoreInfo(details *alertingv1.EndpointImplementation) {
 	if def := details.SendResolved; def != nil {
 		c.NotifierConfig = NotifierConfig{
 			VSendResolved: *def,
@@ -307,17 +307,6 @@ func (c *PagerdutyConfig) StoreMessage(details *alertingv1.EndpointImplementatio
 			VSendResolved: false,
 		}
 	}
-	if c.Details == nil {
-		c.Details = map[string]string{}
-	}
-	c.Details = lo.Assign(
-		c.Details,
-		DefaultPagerdutyDetails,
-		map[string]string{
-			"title": details.Title,
-		},
-	)
-	c.Description = details.Body
 }
 
 func (c *PagerdutyConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
@@ -328,6 +317,15 @@ func (c *PagerdutyConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver
 	if pagerdutySpec.IntegrationKey != "" {
 		c.ServiceKey = pagerdutySpec.IntegrationKey
 	}
+	if c.Details == nil {
+		c.Details = map[string]string{}
+	}
+	c.Details = lo.Assign(c.Details,
+		DefaultPagerdutyDetails,
+		map[string]string{
+			"title": HeaderTemplate(),
+		})
+	c.Description = HeaderTemplate() + "\n" + BodyTemplate()
 	return c
 }
 
@@ -343,11 +341,23 @@ func (c *WebhookConfig) InternalId() string {
 	return shared.InternalWebhookId
 }
 
-func (c *WebhookConfig) ExtractMessage() *alertingv1.EndpointImplementation {
-	return &alertingv1.EndpointImplementation{}
+func (c *WebhookConfig) ExtractInfo() *alertingv1.EndpointImplementation {
+	res := &alertingv1.EndpointImplementation{}
+	res.SendResolved = &c.VSendResolved
+	return res
 }
 
-func (c *WebhookConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {}
+func (c *WebhookConfig) StoreInfo(details *alertingv1.EndpointImplementation) {
+	if def := details.SendResolved; def != nil {
+		c.NotifierConfig = NotifierConfig{
+			VSendResolved: *def,
+		}
+	} else {
+		c.NotifierConfig = NotifierConfig{
+			VSendResolved: false,
+		}
+	}
+}
 
 func (c *WebhookConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	webhookSpec := endp.GetWebhook()
@@ -370,12 +380,12 @@ func (c *OpsGenieConfig) InternalId() string {
 	return shared.InternalOpsGenieId
 }
 
-func (c *OpsGenieConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *OpsGenieConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *OpsGenieConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *OpsGenieConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -395,12 +405,12 @@ func (c *VictorOpsConfig) InternalId() string {
 	return shared.InternalVictorOpsId
 }
 
-func (c *VictorOpsConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *VictorOpsConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *VictorOpsConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *VictorOpsConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -420,12 +430,12 @@ func (c *WechatConfig) InternalId() string {
 	return shared.InternalWechatId
 }
 
-func (c *WechatConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *WechatConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *WechatConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *WechatConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -445,12 +455,12 @@ func (c *PushoverConfig) InternalId() string {
 	return shared.InternalPushoverId
 }
 
-func (c *PushoverConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *PushoverConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *PushoverConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *PushoverConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -470,12 +480,12 @@ func (c *SNSConfig) InternalId() string {
 	return shared.InternalSNSId
 }
 
-func (c *SNSConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *SNSConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *SNSConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *SNSConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 
@@ -495,12 +505,12 @@ func (c *TelegramConfig) InternalId() string {
 	return shared.InternalTelegramId
 }
 
-func (c *TelegramConfig) ExtractMessage() *alertingv1.EndpointImplementation {
+func (c *TelegramConfig) ExtractInfo() *alertingv1.EndpointImplementation {
 	//TODO
 	return nil
 }
 
-func (c *TelegramConfig) StoreMessage(_ *alertingv1.EndpointImplementation) {
+func (c *TelegramConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 	//TODO
 }
 

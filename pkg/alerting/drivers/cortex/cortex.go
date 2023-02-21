@@ -61,7 +61,8 @@ func NewCortexAlertingRule(
 	opniAnnotations map[string]string,
 	info alertingv1.IndexableMetric,
 	interval *time.Duration,
-	rule metrics.AlertRuleBuilder) (*RuleGroupYAMLv2, error) {
+	rule metrics.AlertRuleBuilder,
+) (*RuleGroupYAMLv2, error) {
 	idLabels := ConstructIdLabelsForRecordingRule(alertName, alertId)
 	alertingRule, err := rule.Build(alertId)
 	if err != nil {

@@ -211,3 +211,24 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 
 	return &alertingv1.TestAlertEndpointResponse{}, nil
 }
+
+func (p *Plugin) ToggleNotifications(ctx context.Context, req *alertingv1.ToggleRequest) (*emptypb.Empty, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	endp, err := p.storageClientSet.Get().Endpoints().Get(ctx, req.Id.Id, opts.WithUnredacted())
+	if err != nil {
+		return nil, err
+	}
+	if endp.GetProperties() == nil {
+		endp.Properties = map[string]string{}
+	}
+	if _, ok := endp.Properties[alertingv1.EndpointTagNotifications]; !ok {
+		endp.Properties[alertingv1.EndpointTagNotifications] = "true"
+	} else {
+		delete(endp.Properties, alertingv1.EndpointTagNotifications)
+	}
+	endp.LastUpdated = timestamppb.Now()
+	return &emptypb.Empty{}, p.storageClientSet.Get().Endpoints().Put(ctx, req.Id.Id, endp)
+}

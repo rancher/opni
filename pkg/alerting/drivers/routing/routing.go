@@ -170,16 +170,16 @@ func newReceiverImplementationFromEndpoint(endp *alertingv1.AlertEndpoint, detai
 	switch endp.GetEndpoint().(type) {
 	case *alertingv1.AlertEndpoint_Email:
 		newConfig = (&config.EmailConfig{}).Configure(endp)
-		newConfig.StoreMessage(details)
+		newConfig.StoreInfo(details)
 	case *alertingv1.AlertEndpoint_Slack:
 		newConfig = (&config.SlackConfig{}).Configure(endp)
-		newConfig.StoreMessage(details)
+		newConfig.StoreInfo(details)
 	case *alertingv1.AlertEndpoint_PagerDuty:
 		newConfig = (&config.PagerdutyConfig{}).Configure(endp)
-		newConfig.StoreMessage(details)
+		newConfig.StoreInfo(details)
 	case *alertingv1.AlertEndpoint_Webhook:
 		newConfig = (&config.WebhookConfig{}).Configure(endp)
-		newConfig.StoreMessage(details)
+		newConfig.StoreInfo(details)
 	default:
 		strRepr, _ := protojson.Marshal(endp)
 		panic(fmt.Sprintf("no such endpoint type implemented %s", strRepr))
@@ -232,7 +232,7 @@ func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {
 func (o *OpniRouterV1) SetDefaultNamespaceConfig(endpoints []*alertingv1.AlertEndpoint) error {
 	for _, val := range DefaultSubTreeValues() {
 		if len(endpoints) == 0 { // delete
-			delete(o.DefaultNamespaceConfigs, val)
+			delete(o.DefaultNamespaceConfigs, val.A)
 			return nil
 		}
 		validKeys := map[string]struct{}{}
@@ -247,9 +247,9 @@ func (o *OpniRouterV1) SetDefaultNamespaceConfig(endpoints []*alertingv1.AlertEn
 			Title: fmt.Sprintf("{{ .%s }}", shared.OpniTitleLabel),
 			Body:  fmt.Sprintf("{{ .%s }}", shared.OpniBodyLabel),
 		}
-		o.DefaultNamespaceConfigs[val] = map[string]config.OpniReceiver{}
+		o.DefaultNamespaceConfigs[val.A] = map[string]config.OpniReceiver{}
 		for _, spec := range endpoints {
-			o.DefaultNamespaceConfigs[val][spec.Id] = newReceiverImplementationFromEndpoint(spec, details)
+			o.DefaultNamespaceConfigs[val.A][spec.Id] = newReceiverImplementationFromEndpoint(spec, details)
 		}
 	}
 	return nil
@@ -298,7 +298,7 @@ func (o *OpniRouterV1) UpdateEndpoint(id string, spec *alertingv1.AlertEndpoint)
 	for _ /* namespace */, route := range o.NamespacedSpecs {
 		for _ /* routeId */, endpoint := range route {
 			if _, ok := endpoint[id]; ok {
-				details := endpoint[id].ExtractMessage()
+				details := endpoint[id].ExtractInfo()
 				endpoint[id] = newReceiverImplementationFromEndpoint(spec, details)
 			}
 		}
@@ -306,7 +306,7 @@ func (o *OpniRouterV1) UpdateEndpoint(id string, spec *alertingv1.AlertEndpoint)
 
 	for _ /*defaultValue*/, endpoints := range o.DefaultNamespaceConfigs {
 		if _, ok := endpoints[id]; ok {
-			details := endpoints[id].ExtractMessage()
+			details := endpoints[id].ExtractInfo()
 			endpoints[id] = newReceiverImplementationFromEndpoint(spec, details)
 		}
 	}
@@ -415,7 +415,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 			}
 
 			// production configs get added here, to the metrics subtree
-			if m.Name == shared.OpniDatasourceLabel && m.Type == labels.MatchEqual && m.Value == shared.OpniDatasourceMetricsValue {
+			if m.Name == shared.OpniDatasourceLabel && m.Type == labels.MatchEqual && m.Value == shared.OpniDatasourceMetrics {
 				if o.SyncedConfig != nil {
 					// add the entire tree to the subroute
 					subRoute.Routes = []*config.Route{o.SyncedConfig.Route}

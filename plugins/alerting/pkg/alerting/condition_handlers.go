@@ -30,55 +30,55 @@ func (p *Plugin) setupCondition(
 	_ *zap.SugaredLogger,
 	req *alertingv1.AlertCondition,
 	newConditionId string) (*corev1.Reference, error) {
-	if s := req.GetAlertType().GetSystem(); s != nil {
-		err := p.handleSystemAlertCreation(ctx, s, newConditionId, req.GetName(), req.Namespace())
+	if req.GetAlertType().GetSystem() != nil {
+		err := p.handleSystemAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if dc := req.GetAlertType().GetDownstreamCapability(); dc != nil {
-		err := p.handleDownstreamCapabilityAlertCreation(ctx, dc, newConditionId, req.GetName(), req.Namespace())
+	if req.GetAlertType().GetDownstreamCapability() != nil {
+		err := p.handleDownstreamCapabilityAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if cs := req.GetAlertType().GetMonitoringBackend(); cs != nil {
-		err := p.handleMonitoringBackendAlertCreation(ctx, cs, newConditionId, req.GetName(), req.Namespace())
+	if req.GetAlertType().GetMonitoringBackend() != nil {
+		err := p.handleMonitoringBackendAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if k := req.GetAlertType().GetKubeState(); k != nil {
+	if req.GetAlertType().GetKubeState() != nil {
 		err := p.handleKubeAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if c := req.GetAlertType().GetCpu(); c != nil {
+	if req.GetAlertType().GetCpu() != nil {
 		err := p.handleCpuSaturationAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if m := req.AlertType.GetMemory(); m != nil {
+	if req.AlertType.GetMemory() != nil {
 		err := p.handleMemorySaturationAlertCreation(ctx, req, newConditionId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if fs := req.AlertType.GetFs(); fs != nil {
+	if req.AlertType.GetFs() != nil {
 		if err := p.handleFsSaturationAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
 		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if q := req.AlertType.GetPrometheusQuery(); q != nil {
+	if req.AlertType.GetPrometheusQuery() != nil {
 		if err := p.handlePrometheusQueryAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
 			return nil, err
 		}
@@ -139,7 +139,7 @@ func handleSwitchCortexRules(t *alertingv1.AlertTypeDetails) (*corev1.Reference,
 
 func (p *Plugin) handleSystemAlertCreation(
 	_ context.Context,
-	k *alertingv1.AlertConditionSystem,
+	k *alertingv1.AlertCondition,
 	newConditionId string,
 	conditionName string,
 	namespace string,
@@ -153,7 +153,7 @@ func (p *Plugin) handleSystemAlertCreation(
 
 func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 	_ context.Context,
-	k *alertingv1.AlertConditionDownstreamCapability,
+	k *alertingv1.AlertCondition,
 	newConditionId string,
 	conditionName string,
 	namespace string,
@@ -167,7 +167,7 @@ func (p *Plugin) handleDownstreamCapabilityAlertCreation(
 
 func (p *Plugin) handleMonitoringBackendAlertCreation(
 	_ context.Context,
-	k *alertingv1.AlertConditionMonitoringBackend,
+	k *alertingv1.AlertCondition,
 	newConditionId string,
 	conditionName string,
 	namespace string,
@@ -193,12 +193,8 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, cond *alertingv1.A
 		return err
 	}
 	kubeRuleContent, err := cortex.NewCortexAlertingRule(newId, alertName,
-		map[string]string{
-			cond.Namespace(): newId,
-		},
-		map[string]string{
-			"opni_name": cond.Name,
-		},
+		cond.GetRoutingLabels(),
+		cond.GetRoutingAnnotations(),
 		k, nil, baseKubeRule,
 	)
 	p.Logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
@@ -240,12 +236,8 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 		return err
 	}
 	cpuRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
-		map[string]string{
-			cond.Namespace(): conditionId,
-		},
-		map[string]string{
-			"opni_name": cond.Name,
-		},
+		cond.GetRoutingLabels(),
+		cond.GetRoutingAnnotations(),
 		c, nil, baseCpuRule)
 	if err != nil {
 		return err
@@ -278,12 +270,8 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, cond *
 		return err
 	}
 	memRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
-		map[string]string{
-			cond.Namespace(): conditionId,
-		},
-		map[string]string{
-			"opni_name": cond.Name,
-		},
+		cond.GetRoutingLabels(),
+		cond.GetRoutingAnnotations(),
 		m,
 		nil,
 		baseMemRule,
@@ -320,12 +308,8 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, cond *aler
 	fsRuleContent, err := cortex.NewCortexAlertingRule(
 		conditionId,
 		alertName,
-		map[string]string{
-			cond.Namespace(): conditionId,
-		},
-		map[string]string{
-			"opni_name": cond.Name,
-		},
+		cond.GetRoutingLabels(),
+		cond.GetRoutingAnnotations(),
 		fs,
 		nil,
 		baseFsRule,
@@ -359,12 +343,8 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *a
 	}
 
 	baseRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
-		map[string]string{
-			cond.Namespace(): conditionId,
-		},
-		map[string]string{
-			"opni_name": cond.Name,
-		},
+		cond.GetRoutingLabels(),
+		cond.GetRoutingAnnotations(),
 		q, nil, baseRule)
 	if err != nil {
 		return err
@@ -383,27 +363,27 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *a
 	return err
 }
 
-func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionSystem) error {
+func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
 	lg := p.Logger.With("onSystemConditionCreate", conditionId)
 	lg.Debugf("received condition update: %v", condition)
+	disconnect := condition.GetAlertType().GetSystem()
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	lg.Debugf("Creating agent disconnect with timeout %s", condition.GetTimeout().AsDuration())
+	lg.Debugf("Creating agent disconnect with timeout %s", disconnect.GetTimeout().AsDuration())
 	agentId := condition.GetClusterId().Id
-
 	evaluator := NewInternalConditionEvaluator(
 		&internalConditionMetadata{
 			conditionId:        conditionId,
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          agentId,
-			alertmanagerlabels: condition.GetTriggerAnnotations(),
+			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: time.Second * 10,
 			cancelEvaluation: cancel,
-			evaluateDuration: condition.GetTimeout().AsDuration(),
+			evaluateDuration: disconnect.GetTimeout().AsDuration(),
 		},
 		&internalConditionStorage{
 			js:               p.js.Get(),
@@ -423,8 +403,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -432,8 +412,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 		},
@@ -455,11 +435,12 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 	return nil
 }
 
-func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionDownstreamCapability) error {
+func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
 	lg := p.Logger.With("onCapabilityStatusCreate", conditionId)
+	capability := condition.GetAlertType().GetDownstreamCapability()
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	lg.Debugf("Creating agent capability unhealthy with timeout %s", condition.GetFor().AsDuration())
+	lg.Debugf("Creating agent capability unhealthy with timeout %s", capability.GetFor().AsDuration())
 	agentId := condition.GetClusterId().Id
 	evaluator := NewInternalConditionEvaluator(
 		&internalConditionMetadata{
@@ -467,14 +448,14 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          agentId,
-			alertmanagerlabels: condition.GetTriggerAnnotations(),
+			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: time.Second * 10,
 			cancelEvaluation: cancel,
-			evaluateDuration: condition.GetFor().AsDuration(),
+			evaluateDuration: capability.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
 			js:               p.js.Get(),
@@ -492,7 +473,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 				}
 				lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
 				for _, s := range h.HealthStatus.Health.Conditions {
-					for _, badState := range condition.GetCapabilityState() {
+					for _, badState := range capability.GetCapabilityState() {
 						if strings.Contains(s, badState) {
 							healthy = false
 							break
@@ -506,8 +487,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -515,8 +496,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 		},
@@ -655,11 +636,12 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 	return true, ts
 }
 
-func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertConditionMonitoringBackend) error {
+func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
 	lg := p.Logger.With("onCortexClusterStatusCreate", conditionId)
+	cortex := condition.GetAlertType().GetMonitoringBackend()
 	lg.Debugf("received condition update: %v", condition)
 	jsCtx, cancel := context.WithCancel(p.Ctx)
-	lg.Debugf("Creating cortex status with timeout %s", condition.GetFor().AsDuration())
+	lg.Debugf("Creating cortex status with timeout %s", cortex.GetFor().AsDuration())
 
 	evaluator := NewInternalConditionEvaluator(
 		&internalConditionMetadata{
@@ -667,14 +649,14 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 			conditionName:      conditionName,
 			lg:                 lg,
 			clusterId:          "", // unused here
-			alertmanagerlabels: condition.GetTriggerAnnotations(),
+			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
 			parentCtx:        p.Ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: time.Minute,
 			cancelEvaluation: cancel,
-			evaluateDuration: condition.GetFor().AsDuration(),
+			evaluateDuration: cortex.GetFor().AsDuration(),
 		},
 		&internalConditionStorage{
 			js:               p.js.Get(),
@@ -686,15 +668,15 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
-				return reduceCortexAdminStates(condition.GetBackendComponents(), h)
+				return reduceCortexAdminStates(cortex.GetBackendComponents(), h)
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -703,8 +685,8 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        labels,
-					Annotations:   annotations,
+					Labels:        condition.GetRoutingLabels(),
+					Annotations:   condition.GetRoutingAnnotations(),
 				})
 			},
 		},

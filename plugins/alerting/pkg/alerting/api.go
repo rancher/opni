@@ -113,8 +113,8 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 		return nil, err
 	}
 
-	if req.Id == nil || *req.Id == "" {
-		req.Id = lo.ToPtr(util.HashStrings([]string{req.Title, req.Body}))
+	if _, ok := req.GetProperties()[alertingv1.NotificationPropertyDedupeKey]; !ok {
+		req.Properties[alertingv1.NotificationPropertyDedupeKey] = util.HashStrings([]string{req.Title, req.Body})
 	}
 
 	options, err := p.opsNode.GetRuntimeOptions(ctx)
@@ -133,7 +133,7 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 		backend.WithLogger(p.Logger),
 		backend.WithExpectClosure(backend.NewExpectStatusOk()),
 		backend.WithPostAlertBody(
-			"notification-"+*req.Id,
+			"notification-"+req.Properties[alertingv1.NotificationPropertyDedupeKey],
 			req.GetRoutingLabels(),
 			req.GetRoutingAnnotations(),
 		),

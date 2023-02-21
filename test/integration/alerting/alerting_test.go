@@ -466,7 +466,9 @@ func BuildAlertingClusterIntegrationTests(
 						Title: "hello",
 						Body:  "world",
 						// set to critical in order to expedite the notification during testing
-						Severity: lo.ToPtr(alertingv1.OpniSeverity_Critical),
+						Properties: map[string]string{
+							alertingv1.NotificationPropertySeverity: alertingv1.OpniSeverity_Critical.String(),
+						},
 					})
 					Expect(err).To(Succeed())
 

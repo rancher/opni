@@ -483,14 +483,27 @@ func (n *Notification) Validate() error {
 	if n.Body == "" {
 		return validation.Error("field Body must be set")
 	}
-	if n.Severity == nil {
-		n.Severity = OpniSeverity_Info.Enum()
+	if n.Properties == nil {
+		n.Properties = map[string]string{}
 	}
-	if n.GoldenSignal == nil {
-		n.GoldenSignal = GoldenSignal_Custom.Enum()
+	if v, ok := n.Properties[NotificationPropertyGoldenSignal]; ok {
+		if _, ok := GoldenSignal_value[v]; !ok {
+			return validation.Errorf("invalid golden signal value %s", v)
+		}
+	} else {
+		n.Properties[NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
 	}
-	if n.ClusterId != nil && n.ClusterId.Id == "" {
-		return validation.Error("cluster's id must be set if providing a clusterId")
+	if v, ok := n.Properties[NotificationPropertySeverity]; ok {
+		if _, ok := OpniSeverity_value[v]; !ok {
+			return validation.Errorf("invalid severity value %s", v)
+		}
+	} else {
+		n.Properties[NotificationPropertySeverity] = OpniSeverity_Info.String()
+	}
+	if v, ok := n.Properties[NotificationPropertyClusterId]; ok {
+		if v == "" {
+			return validation.Error("if specifying a cluster id property, it must be set")
+		}
 	}
 	return nil
 }

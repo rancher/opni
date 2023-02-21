@@ -41,17 +41,12 @@ service AlertNotifications {
 message Notification{
   string title = 1;
   string body = 2;
-  optional core.Reference clusterId = 3;
-  // opaque id set by the caller, used to deduplicate messages
-  // if none is provided, hashes the title and body as a key
-  optional string id = 4;
-  // defaults to `Info`
-  optional alerting.OpniSeverity severity = 5;
-  // rate limiting key set by the caller, sending messages with the same key 
-  // will be grouped and sent together
-  optional string groupKey = 6;
-  // defaults to `Custom`
-  optional alerting.GoldenSignal goldenSignal = 7;
+  // sets notification properties, for example
+  // severity, golden signal, dedupe keys, group keys etc...
+  // 
+  // It is recommended to set severity, golden signal, 
+  // dedupe keys and group keys 
+  map<string,string> properties = 3;
 }
 
 // opni-alerting internal use

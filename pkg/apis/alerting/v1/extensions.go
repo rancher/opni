@@ -13,6 +13,20 @@ import (
 const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
 const EndpointTagNotifications = "notifications"
 
+const (
+	// Any messages already in the queue with the same dedupe key will not be processed
+	NotificationPropertyDedupeKey = "opni.io/dedupeKey"
+	// Any messages with the same group key will be sent together
+	NotificationPropertyGroupKey = "opni.io/groupKey"
+	// Opaque identifier for the cluster that generated the notification
+	NotificationPropertyClusterId = "opni.io/clusterId"
+	// Property that specifies how to classify the notification according to golden signal
+	NotificationPropertyGoldenSignal = "opni.io/goldenSignal"
+	// Property that specifies the severity of the notification. Severity impacts how quickly the
+	// notification is dispatched & repeated, as well as how long to persist it.
+	NotificationPropertySeverity = "opni.io/severity"
+)
+
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
 	res := []string{}
 	for conditionId, endpointMap := range r.GetConditions() {
@@ -48,11 +62,11 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 
 func (n *Notification) GetRoutingLabels() map[string]string {
 	res := map[string]string{
-		shared.OpniSeverityLabel:       n.GetSeverity().String(),
-		shared.BackendConditionIdLabel: n.GetId(),
+		shared.OpniSeverityLabel:       n.GetProperties()[NotificationPropertySeverity],
+		shared.BackendConditionIdLabel: n.GetProperties()[NotificationPropertyDedupeKey],
 	}
-	if n.GroupKey != nil {
-		res[shared.BroadcastIdLabel] = *n.GroupKey
+	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
+		res[shared.BroadcastIdLabel] = v
 	}
 	return res
 }
@@ -64,14 +78,18 @@ func (n *Notification) GetRoutingAnnotations() map[string]string {
 		shared.OpniGoldenSignalAnnotation: n.GetRoutingGoldenSignal(),
 	}
 
-	if n.ClusterId != nil {
-		res[shared.OpniClusterAnnotation] = n.ClusterId.GetId()
+	if v, ok := n.GetProperties()[NotificationPropertyClusterId]; ok {
+		res[shared.OpniClusterAnnotation] = v
 	}
 	return res
 }
 
 func (n *Notification) GetRoutingGoldenSignal() string {
-	return n.GetGoldenSignal().String()
+	v, ok := n.GetProperties()[NotificationPropertyGoldenSignal]
+	if ok {
+		return v
+	}
+	return GoldenSignal_Custom.String()
 }
 
 func (a *AlertCondition) GetRoutingLabels() map[string]string {

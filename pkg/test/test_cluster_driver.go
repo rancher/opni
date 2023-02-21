@@ -325,6 +325,16 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
 	}
+	l.managedInstances[0].ClusterPort = 11080
+	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
+	rTreeBytes, err := yaml.Marshal(rTree)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	l.enabled.Store(true)
 	l.ClusterSettleTimeout = "1m0s"
@@ -378,6 +388,7 @@ func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Refer
 type AlertingServerUnit struct {
 	AlertManagerPort int
 	ClusterPort      int
+	OpniPort         int
 	Ctx              context.Context
 	CancelFunc       context.CancelFunc
 }
@@ -426,7 +437,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctxCa, cancelFunc := context.WithCancel(ctx)
 	alertmanagerCmd := exec.CommandContext(ctxCa, opniBin, alertmanagerArgs...)
 	plugins.ConfigureSysProcAttr(alertmanagerCmd)
-	l.Logger.With("port", webPort).Info("Starting AlertManager")
+	l.Logger.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(alertmanagerCmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {

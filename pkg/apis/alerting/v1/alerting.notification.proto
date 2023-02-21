@@ -33,8 +33,34 @@ service AlertNotifications {
     };
   }
 
+  rpc ListNotifications(google.protobuf.Empty ) 
+    returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get : "/list"
+    };
+  }
+
   rpc ListRoutingRelationships(google.protobuf.Empty) 
     returns (ListRoutingRelationshipsResponse) {}
+}
+
+enum NotificationType {
+  TypeNotification = 0;
+  TypeAlarm = 1;
+}
+
+message ListNotificationRequest{
+  // defaults to 100 most severe (frequency + severity heuristic)
+  optional int32 limit = 1;
+
+  // filter properties of notifications to list 
+  repeated NotificationType typeFilters = 2;
+  repeated alerting.OpniSeverity severityFilters = 3;
+  repeated alerting.GoldenSignal goldenSignalFilters = 4;
+}
+
+message ListNotificationResponse{
+  repeated Notification items = 1;
 }
 
 

@@ -9,6 +9,8 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -140,6 +142,10 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 		backend.WithDefaultRetrier(),
 	)
 	return &emptypb.Empty{}, apiNode.DoRequest()
+}
+
+func (p *Plugin) ListNotifications(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {

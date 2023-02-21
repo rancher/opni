@@ -820,7 +820,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 		}
 	}
 	e.Logger.Info("Waiting for alertmanager to start...")
-	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", ports[0])).Info("AlertManager started")
+	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", ports[0]), "opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).Info("AlertManager started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		cmd, _ := session.G()

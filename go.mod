@@ -103,7 +103,7 @@ require (
 	github.com/qmuntal/stateless v1.6.2
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
-	github.com/samber/lo v1.37.0
+	github.com/samber/lo v1.36.1-0.20230220015530-adcf8499eb6a
 	github.com/spf13/afero v1.9.3
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5

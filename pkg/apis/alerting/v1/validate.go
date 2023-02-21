@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 )
 
@@ -503,6 +504,38 @@ func (n *Notification) Validate() error {
 	if v, ok := n.Properties[NotificationPropertyClusterId]; ok {
 		if v == "" {
 			return validation.Error("if specifying a cluster id property, it must be set")
+		}
+	}
+	return nil
+}
+
+func (l *ListNotificationRequest) Validate() error {
+	if l.Limit == nil {
+		l.Limit = lo.ToPtr(int32(100))
+	}
+	if l.TypeFilters == nil {
+		l.TypeFilters = []NotificationType{}
+	}
+	if l.GoldenSignalFilters == nil {
+		l.GoldenSignalFilters = []GoldenSignal{}
+	}
+	if l.SeverityFilters == nil {
+		l.SeverityFilters = []OpniSeverity{}
+	}
+
+	if len(l.TypeFilters) == 0 {
+		for _, t := range NotificationType_value {
+			l.TypeFilters = append(l.TypeFilters, NotificationType(t))
+		}
+	}
+	if len(l.GoldenSignalFilters) == 0 {
+		for _, t := range GoldenSignal_value {
+			l.GoldenSignalFilters = append(l.GoldenSignalFilters, GoldenSignal(t))
+		}
+	}
+	if len(l.SeverityFilters) == 0 {
+		for _, t := range OpniSeverity_value {
+			l.SeverityFilters = append(l.SeverityFilters, OpniSeverity(t))
 		}
 	}
 	return nil

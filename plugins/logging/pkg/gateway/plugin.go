@@ -10,6 +10,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +36,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -59,6 +62,7 @@ type Plugin struct {
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *loggingutil.OTELForwarder
+	clusterDriver       drivers.ClusterDriver
 }
 
 type PluginOptions struct {
@@ -151,6 +155,12 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		os.Exit(1)
 	}
 
+	clusterDriver, _ := drivers.NewKubernetesManagerDriver(
+		drivers.WithK8sClient(cli),
+		drivers.WithLogger(lg.Named("cluster-driver")),
+		drivers.WithOpensearchCluster(options.opensearchCluster),
+	)
+
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
@@ -167,7 +177,9 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		otelForwarder: loggingutil.NewOTELForwarder(
 			loggingutil.WithLogger(lg.Named("otel-forwarder")),
 			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
+			loggingutil.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
+		clusterDriver: clusterDriver,
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -177,11 +189,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			uninstallController *task.Controller,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 		) {
-			clusterDriver, _ := drivers.NewKubernetesManagerDriver(
-				drivers.WithK8sClient(p.k8sClient),
-				drivers.WithLogger(*p.logger.Named("cluster-driver")),
-				drivers.WithOpensearchCluster(p.opensearchCluster),
-			)
 			p.logging.Initialize(backend.LoggingBackendConfig{
 				Logger:              p.logger.Named("logging-backend"),
 				StorageBackend:      storageBackend,
@@ -189,7 +196,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				OpensearchCluster:   p.opensearchCluster,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
-				ClusterDriver:       clusterDriver,
+				ClusterDriver:       p.clusterDriver,
 			})
 		},
 	)
@@ -199,6 +206,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
+var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
@@ -234,7 +242,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	if state := p.logging.ClusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
+	if state := p.clusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
 		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
 		if p.opensearchManager.ShouldCreateInitialAdmin() {
 			err = loggingManager.createInitialAdmin()

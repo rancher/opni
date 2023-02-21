@@ -34,6 +34,15 @@ service AlertEndpoints{
     };
   }
 
+
+  // update the endpoint to opt in/out of opni notifications
+  rpc ToggleNotifications(ToggleRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/toggleNotifications"
+      body : "*"
+    };
+  }
+
   rpc ListAlertEndpoints(ListAlertEndpointsRequest)
       returns (AlertEndpointList) {
     option (google.api.http) = {
@@ -42,7 +51,7 @@ service AlertEndpoints{
   }
 
   // when forceUpdate = false, 
-  // returns a list of conditions this would affect (if none, applies the update)
+  // returns a list of conditions this would affect(if none, applies the update)
   // when forceUpdate = true, 
   //  updates everything without warning
   rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest)
@@ -54,9 +63,10 @@ service AlertEndpoints{
   }
 
   // when forceDelete = false,
-  // returns a list of conditions this would affect (if none, applies the delete)
+  // returns a list of conditions this would affect(if none, applies the delete)
   // when forceDelete = true
-  // deletes and applies the consequences of those changes to everything without warning
+  // deletes and applies the consequences of those changes 
+  // to everything without warning
   rpc DeleteAlertEndpoint(DeleteAlertEndpointRequest) 
   returns (InvolvedConditions) {
     option (google.api.http) = {
@@ -84,6 +94,10 @@ message AlertEndpoint {
     PagerDutyEndpoint pagerDuty = 7;
     WebhookEndpoint webhook = 8;
   }
+  // properties are used to flag properties of endpoints, for
+  // example opting into opni notifications
+  // Properties starting with "_" are private 
+  map<string,string> properties = 9;
 
   // the following are read only for consumers of the API
   google.protobuf.Timestamp lastUpdated = 3;
@@ -276,4 +290,8 @@ message EndpointMetadata {
 
 message InvolvedConditions {
   repeated core.Reference items = 1;
+}
+
+message ToggleRequest {
+  core.Reference id = 1;
 }

@@ -9,11 +9,15 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
@@ -90,9 +94,9 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 	return nil
 }
 
-func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, opts ...storage_opts.SyncOption) ([]string, error) {
+func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, incomingOpts ...storage_opts.SyncOption) ([]string, error) {
 	syncOpts := storage_opts.NewSyncOptions()
-	syncOpts.Apply(opts...)
+	syncOpts.Apply(incomingOpts...)
 	key := shared.SingleConfigId
 
 	// List all conditions & map their endpoints
@@ -100,6 +104,16 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, opts 
 	if err != nil {
 		return nil, err
 	}
+	endps, err := c.Endpoints().List(ctx, opts.WithUnredacted())
+	if err != nil {
+		return nil, err
+	}
+
+	endpMap := lo.Associate(endps, func(a *alertingv1.AlertEndpoint) (string, *alertingv1.AlertEndpoint) {
+		return a.Id, a
+	})
+
+	// create router specs for conditions
 	for _, cond := range conds {
 		if cond.Id == "" {
 			cond.Id = cond.GetClusterId().GetId()
@@ -117,22 +131,14 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, opts 
 			continue
 		}
 		endpointConfigs := make([]*alertingv1.AlertEndpoint, len(endpoints.GetItems()))
-		var errG errgroup.Group
 		for i, endpoint := range endpoints.GetItems() {
 			i := i
 			endpoint := endpoint
-			errG.Go(func() error {
-				endpoint, err := c.Endpoints().Get(ctx, endpoint.EndpointId, storage_opts.WithUnredacted())
-				if err != nil {
-					return err
-				}
-				endpointConfigs[i] = endpoint
-				return err
-			})
-		}
-		err := errG.Wait()
-		if err != nil {
-			return nil, err
+			if endp, ok := endpMap[endpoint.EndpointId]; ok {
+				endpointConfigs[i] = endp
+			} else {
+				return nil, status.Error(codes.NotFound, "endpoint not found")
+			}
 		}
 		routingNode, err := backend.ConvertEndpointIdsToRoutingNode(
 			endpointConfigs,
@@ -146,7 +152,25 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, opts 
 		if err != nil {
 			return nil, err
 		}
+		if util.StatusCode(err) == codes.InvalidArgument { // sync & build logic are mismatched
+			panic(err)
+		}
 	}
+	// set expected defaults based on endpoint configuration
+	defaults := lo.Filter(endps, func(a *alertingv1.AlertEndpoint, _ int) bool {
+		if len(a.GetProperties()) == 0 {
+			return false
+		}
+		_, ok := a.GetProperties()[alertingv1.EndpointTagNotifications]
+		return ok
+	})
+	if err := syncOpts.Router.SetDefaultNamespaceConfig(defaults); err != nil {
+		return nil, err
+	}
+	if util.StatusCode(err) == codes.InvalidArgument { // sync & build logic are mismatched
+		panic(err)
+	}
+
 	// when we implement attaching endpoints to the default namespace. do this here
 	if err := c.Routers().Put(ctx, key, syncOpts.Router); err != nil {
 		return nil, err

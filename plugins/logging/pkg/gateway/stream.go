@@ -16,7 +16,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		},
 		{
 			Desc:              &collogspb.LogsService_ServiceDesc,
-			Impl:              &p.otelForwarder,
+			Impl:              p.otelForwarder,
 			RequireCapability: wellknown.CapabilityLogs,
 		},
 	}

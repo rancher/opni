@@ -14,5 +14,5 @@ questions:
   valid_chars: 'http(s)?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
 - variable: kube-prometheus-stack.enabled
   label: Install Prometheus Operator
-  default: "false"
+  default: "true"
   type: boolean

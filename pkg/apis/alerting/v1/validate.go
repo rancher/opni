@@ -153,7 +153,7 @@ func (dc *AlertConditionDownstreamCapability) Validate() error {
 
 func (m *AlertConditionMonitoringBackend) Validate() error {
 	m.ClusterId = &corev1.Reference{
-		Id: upstreamClusterId,
+		Id: UpstreamClusterId,
 	}
 	if m.For.AsDuration() == 0 {
 		return validation.Error("\"for\" duration must be some positive time")
@@ -465,6 +465,13 @@ func (r *ResolveAlertsRequest) Validate() error {
 	}
 	if r.Annotations == nil {
 		r.Annotations = map[string]string{}
+	}
+	return nil
+}
+
+func (t *ToggleRequest) Validate() error {
+	if t.GetId() == nil || t.GetId().Id == "" {
+		return validation.Error("endpoint id must be set")
 	}
 	return nil
 }

@@ -15,7 +15,7 @@ When Opni's user launches a workload log anomaly detection training job with hug
 * This feature will prevent the model training service from running out of memory.
 
 ## Implementation details: 
-![Untitled Diagram drawio-9](https://user-images.githubusercontent.com/4568163/220510227-2337714b-666c-45a7-a586-eba31f28a93d.png)
+![Dataflow chart](https://user-images.githubusercontent.com/4568163/220510227-2337714b-666c-45a7-a586-eba31f28a93d.png)
 
 
 * Training controller: Forms a payload with a few queries that can be used to download logs of `user-selected deployments` from Opensearch. The default number of queries is fixed value `3`, because the default number of CPUs assigned to the GPU service is 4. The GPU service needs to maintain the main process for model-training and it can spawn 3 subprocess for the streaming-dataloader.

@@ -20,6 +20,7 @@ The 2 types of pre-defined patterns:
 * No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
+![Flow chart](https://user-images.githubusercontent.com/4568163/220777699-1dca2286-4ed0-4d35-9a39-5029415ecc95.png)
 
 * Pattern classification process. 
 	a. A simple metric anomaly detection algorithm, that predicts every metric either normal or anomaly. An example method is Kolmogorov-Smirnov test.

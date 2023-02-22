@@ -2,10 +2,10 @@
 Identify prometheus metrics that match known anomaly chart patterns
 
 ## Summary: 
-This enhancement proposal offers a new feature to match prometheus metrics to a set of known pre-defined anomaly chart patterns. This feature will make operators' life easier in the process of outage diagnosis.
+This enhancement proposal offers a new feature to match prometheus metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
 
 ## Use case: 
-* Monitoring metrics in a multi-cluster setup is challenging. Operators could be responsible for hundreds of clusters and each cluster has tons of different metrics. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis. Users need tools to help them reduce the scope and identify anomaly metrics faster.
+* Keeping track of all metrics in a multi-cluster setup is challenging. Subject matter experts could be responsible for hundreds of clusters and each cluster has tons of different metrics. Often times, SMEs are required to identify metrics that are important to a workload. Because only certain metrics are selected, there can be blind spots - as other metrics may capture details of the system overlooked by the metrics curated by SMEs. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis. Users need tools to help them reduce the scope and identify anomaly metrics faster.
 
 ## Benefits: 
 * Makes operators' life easier in the process of outage diagnosis.
@@ -17,7 +17,8 @@ This enhancement proposal offers a new feature to match prometheus metrics to a 
 * No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
-* Pattern classification process. Inspired by this paper, https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf. 
+
+* Pattern classification process. 
 	a. A simple metric anomaly detection algorithm, that predicts every metric either normal or anomaly. An example method is Kolmogorov-Smirnov test.
 	b. A machine-learning or deep-learning model will be pre-trained for pattern classification. This would require some real abnormal metric data with human labels, and then apply data augmentation techniques to them. Once model is trained, it will be applied to anomaly metrics from step a and categorize them into a few pre-defined patterns.
 	c. Analyse report. A report should be generated to summarize the notable patterns.

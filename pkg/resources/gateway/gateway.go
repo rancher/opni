@@ -69,7 +69,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	}
 	allResources = append(allResources, certs...)
 	deployment, err := r.deployment(map[string]string{
-		"opni.io/config-digest": configDigest,
+		resources.OpniConfigHash: configDigest,
 	})
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()

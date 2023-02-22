@@ -33,7 +33,7 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 	alertingv1.UnsafeAlertConditionsServer
 	alertingv1.UnsafeAlertEndpointsServer
-	alertingv1.UnsafeAlertTriggersServer
+	alertingv1.UnsafeAlertNotificationsServer
 
 	Ctx    context.Context
 	Logger *zap.SugaredLogger
@@ -86,7 +86,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 var _ alertingv1.AlertEndpointsServer = (*Plugin)(nil)
 var _ alertingv1.AlertConditionsServer = (*Plugin)(nil)
-var _ alertingv1.AlertTriggersServer = (*Plugin)(nil)
+var _ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -104,7 +104,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p,
 			),
 			util.PackService(
-				&alertingv1.AlertTriggers_ServiceDesc,
+				&alertingv1.AlertNotifications_ServiceDesc,
 				p,
 			),
 			util.PackService(

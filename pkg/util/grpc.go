@@ -1,9 +1,12 @@
 package util
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/zeebo/xxh3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -104,4 +107,16 @@ func StatusCode(err error) codes.Code {
 		code = grpcStatus.GRPCStatus().Code()
 	}
 	return code
+}
+
+func HashStrings(strings []string) string {
+	var buf bytes.Buffer
+	for _, s := range strings {
+		buf.WriteString(fmt.Sprintf("%s-", s))
+	}
+	return fmt.Sprintf("%d", HashString(buf.String()))
+}
+
+func HashString(s string) uint64 {
+	return xxh3.HashString(s)
 }

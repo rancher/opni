@@ -11,3 +11,4 @@ type Routable interface {
 }
 
 var _ Routable = (*alertingv1.AlertCondition)(nil)
+var _ Routable = (*alertingv1.Notification)(nil)

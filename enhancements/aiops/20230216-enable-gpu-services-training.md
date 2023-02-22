@@ -14,14 +14,40 @@ This will remove the "Enable GPU Services" check box and now will install the GP
 ## Impact: 
 The impact of this feature would be on several services. The AIOps gateway plugin will need to be modified to be the one which enables the GPU services when the workload watchlist is enabled for the first time. Additionally, since the update of the watchlist will be launching the GPU services, logic will have to be added to AIOps gateway plugin to update the current watchlist of workloads into Opensearch and the training controller service will need to fetch these workloads from Opensearch upon startup. Lastly, the Opni Admin Dashboard UI will also be modified to no longer include the check box.
 
-## Implementation details: 
+## Implementation details:
 
-The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), a call will be made that will first enable the GPU services if this is the first time a user is updating the watchlist with workload logs that they wish to receive insights for. Thus, an initial function will be called which first enables the GPU services before calling the TrainModel function.
+There are a couple of different scenarios that will be addressed.
 
-Within the Opni Admin Dashboard UI, the checkbox for enabling GPU services will be removed. 
+Scenario 1: GPU is not available in central Opni cluster
+In this case, the Opni Admin Dashboard will make a request to the gpu_info endpoint within the AIOps gateway. When, it receives the response that the GPU is not available. It will still display the deployments by cluster and namespace. However, the user will not be able to update the watchlist as that button will be greyed out. Additionally, a banner will be displayed within the Opni Admin Dashboard informing the user that they need to configure a GPU on this cluster to receive insights and it will point them to a link for reference.
+
+Scenario 2: GPU is available in central Opni cluster
+
+The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), a check will need to be made to determine if the log anomaly deployments are already running for the GPU services through the Kubernetes Go library. 
+
+These deployments are:
+* opni-svc-preprocessing
+* opni-workload-drain
+* opni-svc-training-controller
+* opni-svc-gpu-controller
+* opni-svc-inference
+* opni-svc-opensearch-update
+
+If any of these deployment are not currently running within the namespace specified by the user to run Opni, the AIOps gateway plugin should launch these services. When the deployments are launched, within the Opni Admin Dashboard UI, a button will appear that says "Disable GPU Services". This button when hovering over it will explain that if the user ever decides to remove a GPU from the cluster, then they can first click on the button which will clean up the GPU services from the cluster and then the user can detach the GPU node from the cluster. The button will specifically clean up these deployments within the namespace specified by the user to run Opni:
+* opni-workload-drain
+* opni-svc-training-controller
+* opni-svc-gpu-controller
+* opni-svc-inference 
+
+Additionally, when installing any of these deployments, the watchlist of workloads will be saved by the model/train function to Nats jetstream kv storage under the name "model-training-parameters". 
+
+When, the training controller service launches for the first time, it will check Nats jetstream kv storage for the most recent watchlist of workloads which it will then use to construct the Opensearch query before sending it to the GPU controller service.
+
+As for the Opni Admin Dashboard UI, the checkbox for enabling GPU services will be removed. 
 
 ## Acceptance criteria: 
-* The GPU services should only be enabled upon the user updating the watchlist of workloads for the first time.
+* The GPU services should only be enabled when user updates a watchlist of workloads for the first time overall or after disabling GPU services.
+* The "Disable GPU Services" button should remove the opni-workload-drain, opni-svc-training-controller, opni-svc-gpu-controller and opni-svc-inference deployments from the cluster.
 
 ## Supporting documents: 
 User Story:

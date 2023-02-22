@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/samber/lo"
 	"net/http"
 	"sort"
 	"strings"
@@ -224,7 +225,9 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		}, nil
 	}
 
-	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, *request.Namespace)
+	namespace := lo.FromPtrOr[string](request.Namespace, "")
+
+	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}

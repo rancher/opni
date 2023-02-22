@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	MockCAName = "mock-ca-cert"
+	MockCAName         = "mock-ca-cert"
+	MockClientCertName = "mock-client-cert"
 )
 
 type TestCertManager struct{}
@@ -27,7 +28,21 @@ func (m *TestCertManager) PopulateK8sObjects(ctx context.Context, client ctrlcli
 			"ca.key": TestData("root_ca.key"),
 		},
 	}
-	return client.Create(ctx, secret)
+	err := client.Create(ctx, secret)
+	if err != nil {
+		return err
+	}
+	clientsecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MockCAName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"tls.crt": TestData("localhost.crt"),
+			"tls.key": TestData("localhost.key"),
+		},
+	}
+	return client.Create(ctx, clientsecret)
 }
 
 func (m *TestCertManager) GenerateRootCACert() error {
@@ -79,5 +94,11 @@ func (m *TestCertManager) GetTransportCARef() (corev1.LocalObjectReference, erro
 func (m *TestCertManager) GetHTTPCARef() (corev1.LocalObjectReference, error) {
 	return corev1.LocalObjectReference{
 		Name: MockCAName,
+	}, nil
+}
+
+func (m *TestCertManager) GetClientCertRef(_ string) (corev1.LocalObjectReference, error) {
+	return corev1.LocalObjectReference{
+		Name: MockClientCertName,
 	}, nil
 }

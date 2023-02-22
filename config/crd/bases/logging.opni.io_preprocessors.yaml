@@ -47,7 +47,10 @@ spec:
                     type: string
                 type: object
               replicas:
+                format: int32
                 type: integer
+              writeIndex:
+                type: string
             type: object
           status:
             properties:

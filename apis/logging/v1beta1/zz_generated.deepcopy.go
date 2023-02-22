@@ -1115,7 +1115,7 @@ func (in *PreprocessorSpec) DeepCopyInto(out *PreprocessorSpec) {
 	in.ImageSpec.DeepCopyInto(&out.ImageSpec)
 	if in.Replicas != nil {
 		in, out := &in.Replicas, &out.Replicas
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.OpensearchCluster != nil {

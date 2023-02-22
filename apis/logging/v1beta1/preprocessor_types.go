@@ -15,7 +15,8 @@ const (
 
 type PreprocessorSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
-	Replicas           *int                           `json:"replicas,omitempty"`
+	Replicas           *int32                         `json:"replicas,omitempty"`
+	WriteIndex         string                         `json:"writeIndex,omitempty"`
 	OpensearchCluster  *opnimeta.OpensearchClusterRef `json:"opensearch,omitempty"`
 }
 

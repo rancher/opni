@@ -14,13 +14,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	ns           string
-	config       *opniloggingv1beta1.CollectorConfig
-	collectorObj *opnicorev1beta1.Collector
-)
-
 var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow"), func() {
+	var (
+		ns           string
+		config       *opniloggingv1beta1.CollectorConfig
+		collectorObj *opnicorev1beta1.Collector
+	)
+
 	When("creating a collector resource", func() {
 		It("should succeed", func() {
 			ns = makeTestNamespace()

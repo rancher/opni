@@ -259,6 +259,12 @@ func (m *certMgrOpensearchManager) GetHTTPCARef() (corev1.LocalObjectReference, 
 	}, nil
 }
 
+func (m *certMgrOpensearchManager) GetClientCertRef(user string) (corev1.LocalObjectReference, error) {
+	return corev1.LocalObjectReference{
+		Name: m.clientCertName(user),
+	}, nil
+}
+
 func (m *certMgrOpensearchManager) generateSelfSignedIssuer() *cmv1.ClusterIssuer {
 	return &cmv1.ClusterIssuer{
 		ObjectMeta: metav1.ObjectMeta{

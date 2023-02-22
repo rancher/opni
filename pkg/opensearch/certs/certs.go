@@ -35,4 +35,5 @@ type OpensearchCertReader interface {
 type K8sOpensearchCertManager interface {
 	GetTransportCARef() (corev1.LocalObjectReference, error)
 	GetHTTPCARef() (corev1.LocalObjectReference, error)
+	GetClientCertRef(user string) (corev1.LocalObjectReference, error)
 }

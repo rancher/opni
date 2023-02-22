@@ -4,6 +4,9 @@ Identify prometheus metrics that match known anomaly chart patterns
 ## Summary: 
 This enhancement proposal offers a new feature to match prometheus metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
 
+The 2 types of pre-defined patterns:
+<img width="1401" alt="Screen Shot 2023-02-22 at 1 54 28 PM" src="https://user-images.githubusercontent.com/4568163/220768433-82056fd1-494c-4afe-9822-77b0566fd99d.png">
+
 ## Use case: 
 * Keeping track of all metrics in a multi-cluster setup is challenging. Subject matter experts could be responsible for hundreds of clusters and each cluster has tons of different metrics. Often times, SMEs are required to identify metrics that are important to a workload. Because only certain metrics are selected, there can be blind spots - as other metrics may capture details of the system overlooked by the metrics curated by SMEs. When an outage occurs, it's difficult to identify root-cause metrics to assist outage diagnosis. Users need tools to help them reduce the scope and identify anomaly metrics faster.
 

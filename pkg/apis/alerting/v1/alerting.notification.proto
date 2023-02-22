@@ -16,7 +16,7 @@ import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 package alerting;
 
 // Opni-Alerting internal use
-service AlertTriggers {
+service AlertNotifications {
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post : "/trigger"
@@ -26,7 +26,27 @@ service AlertTriggers {
 
   rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
 
-  rpc ListRoutingRelationships(google.protobuf.Empty) returns (ListRoutingRelationshipsResponse) {}
+  rpc PushNotification(Notification) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      post : "/push"
+      body : "*"
+    };
+  }
+
+  rpc ListRoutingRelationships(google.protobuf.Empty) 
+    returns (ListRoutingRelationshipsResponse) {}
+}
+
+
+message Notification{
+  string title = 1;
+  string body = 2;
+  // sets notification properties, for example
+  // severity, golden signal, dedupe keys, group keys etc...
+  // 
+  // It is recommended to set severity, golden signal, 
+  // dedupe keys and group keys 
+  map<string,string> properties = 3;
 }
 
 // opni-alerting internal use

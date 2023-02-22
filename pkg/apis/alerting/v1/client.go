@@ -54,7 +54,7 @@ func NewConditionsClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption)
 	return NewAlertConditionsClient(cc), nil
 }
 
-func NewTriggersClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption) (AlertTriggersClient, error) {
+func NewNotificationsClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption) (AlertNotificationsClient, error) {
 	options := OpsClientOptions{
 		listenAddr: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
@@ -72,7 +72,7 @@ func NewTriggersClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption) (
 		<-ctx.Done()
 		cc.Close()
 	})
-	return NewAlertTriggersClient(cc), nil
+	return NewAlertNotificationsClient(cc), nil
 }
 
 func NewEndpointsClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption) (AlertEndpointsClient, error) {

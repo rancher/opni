@@ -1507,11 +1507,11 @@ func (e *Environment) NewAlertConditionsClient() alertingv1.AlertConditionsClien
 	return c
 }
 
-func (e *Environment) NewAlertTriggersClient() alertingv1.AlertTriggersClient {
+func (e *Environment) NewAlertNotificationsClient() alertingv1.AlertNotificationsClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	c, err := alertingv1.NewTriggersClient(e.ctx,
+	c, err := alertingv1.NewNotificationsClient(e.ctx,
 		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
 		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
 	if err != nil {

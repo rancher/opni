@@ -111,6 +111,7 @@ require (
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/bytebufferpool v1.0.0
 	github.com/weaveworks/common v0.0.0-20221201103051-7c2720a9024d
+	github.com/zeebo/xxh3 v1.0.2
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
 	go.etcd.io/etcd/etcdctl/v3 v3.5.6

@@ -224,7 +224,12 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		}, nil
 	}
 
-	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, *request.Namespace)
+	var namespace string
+	if request.Namespace != nil {
+		namespace = *request.Namespace
+	}
+
+	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
 	}

@@ -239,8 +239,10 @@ func run(args []string) int {
 	kingpin.Version(version.Print("alertmanager"))
 	kingpin.CommandLine.GetFlag("help").Short('h')
 	kingpin.Parse()
+	ctxCa, cancelCa := context.WithCancel(context.Background())
+	defer cancelCa()
 	if opniAddr != nil && *opniAddr != "" {
-		opniSrv := extensions.StartOpniEmbeddedServer(*opniAddr)
+		opniSrv := extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr)
 		defer func() {
 			err := opniSrv.Shutdown(context.TODO())
 			if err != nil {

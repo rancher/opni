@@ -8,6 +8,9 @@ type Routable interface {
 	GetRoutingLabels() map[string]string
 	GetRoutingAnnotations() map[string]string
 	GetRoutingGoldenSignal() string
+	// build-time identifier to flag optimizations where possible
+	// notifications have the default namespace
+	Namespace() string
 }
 
 var _ Routable = (*alertingv1.AlertCondition)(nil)

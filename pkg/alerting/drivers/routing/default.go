@@ -26,7 +26,7 @@ func abs(x int) int {
 type DefaultRouteValues lo.Tuple2[string, rateLimitingConfig]
 
 func DefaultSubTreeLabel() string {
-	return shared.OpniSeverityLabel
+	return alertingv1.NotificationPropertySeverity
 }
 
 // ! values must be returned sorted in a deterministic order
@@ -56,34 +56,32 @@ func DefaultSubTreeValues() []DefaultRouteValues {
 }
 
 func NewOpniAlarmLabels(conditionId string) (map[string]string, error) {
-	treeLabels, err := shared.AlertManagerLabelsToAnnotations(shared.OpniSubRoutingTreeMatcher)
+	treeLabels, err := shared.AlertManagerLabelsToAnnotations(alertingv1.OpniSubRoutingTreeMatcher)
 	if err != nil {
 		return nil, err
 	}
 	return lo.Assign(map[string]string{
-		shared.BackendConditionIdLabel: conditionId,
+		alertingv1.NotificationPropertyOpniUuid: conditionId,
 	},
 		treeLabels,
 	), nil
 }
 
-func NewOpniSeverityLabels(title, body, severity string) (map[string]string, error) {
-	treeLabels, err := shared.AlertManagerLabelsToAnnotations(shared.OpniSeverityTreeMatcher)
+func NewOpniSeverityLabels(severity string) (map[string]string, error) {
+	treeLabels, err := shared.AlertManagerLabelsToAnnotations(alertingv1.OpniSeverityTreeMatcher)
 	if err != nil {
 		return nil, err
 	}
 	return lo.Assign(
 		map[string]string{
-			shared.OpniSeverityLabel: severity,
-			shared.OpniTitleLabel:    title,
-			shared.OpniBodyLabel:     body,
+			alertingv1.NotificationPropertySeverity: severity,
 		},
 		treeLabels,
 	), nil
 }
 
 var OpniSubRoutingTreeId config.Matchers = []*labels.Matcher{
-	shared.OpniSubRoutingTreeMatcher,
+	alertingv1.OpniSubRoutingTreeMatcher,
 }
 
 func DefaultOpniReceiver(embeddedServerHook string) *config.Receiver {
@@ -152,7 +150,7 @@ func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	defaultNamespaceRoute, recvs := NewOpniNamespacedSubTree(DefaultSubTreeLabel(), DefaultSubTreeValues()...)
 
 	// rate limits messages pushed from an opni source that itself should decide how to group messages
-	defaultNamespaceRoute.GroupBy = append(defaultNamespaceRoute.GroupBy, shared.OpniUnbufferedKey)
+	defaultNamespaceRoute.GroupBy = append(defaultNamespaceRoute.GroupBy, alertingv1.NotificationPropertyDedupeKey)
 	opniRoute.Routes = append(opniRoute.Routes, defaultNamespaceRoute)
 	allRecvs = append(allRecvs, recvs...)
 

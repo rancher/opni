@@ -41,11 +41,6 @@ const InternalWechatId = "wechat"
 
 // -------- const routing label identifiers -----------
 
-const OpniDatasourceLabel = "OpniDatasource"
-const OpniSeverityLabel = "OpniSeverity"
-const OpniUnbufferedKey = "OpniGroupKey"
-const OpniDatasourceMetrics = "metrics"
-
 // -------- const routing annotation identifiers ------
 
 const OpniHeaderAnnotations = "OpniHeader"
@@ -58,35 +53,17 @@ var OpniGroupByClause = []model.LabelName{
 	"alertname",
 }
 
-var OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniDatasourceLabel,
-	Value: "",
-}
-
-var OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniDatasourceLabel,
-	Value: OpniDatasourceMetrics,
-}
-
-var OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniSeverityLabel,
-	Value: "true",
-}
-
 type OpniReceiverId struct {
 	Namespace  string
 	ReceiverId string
 }
 
 func NewOpniReceiverName(id OpniReceiverId) string {
-	return strings.Join([]string{"opni", id.Namespace, id.ReceiverId}, ".")
+	return strings.Join([]string{"opni", id.Namespace, id.ReceiverId}, "__")
 }
 
 func ExtractReceiverId(receiverName string) (*OpniReceiverId, error) {
-	parts := strings.Split(receiverName, ".")
+	parts := strings.Split(receiverName, "__")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid receiver name format: %s", receiverName)
 	}
@@ -129,8 +106,6 @@ const AgentDisconnectStorageType = "agent-disconnect"
 // labels
 const OpniTitleLabel = "OpniTitleLabel"
 const OpniBodyLabel = "OpniBodyLabel"
-const BroadcastIdLabel = "broadcastId"
-const BackendConditionIdLabel = "conditionId"
 const BackendConditionNameLabel = "opniname"
 const BackendConditionClusterIdLabel = "clusterId"
 const BackendConditionSeverityLabel = "severity"

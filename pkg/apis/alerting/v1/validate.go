@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/google/uuid"
 	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -505,6 +506,9 @@ func (n *Notification) Validate() error {
 		if v == "" {
 			return validation.Error("if specifying a cluster id property, it must be set")
 		}
+	}
+	if _, ok := n.Properties[NotificationPropertyOpniUuid]; !ok {
+		n.Properties[NotificationPropertyOpniUuid] = uuid.New().String()
 	}
 	return nil
 }

@@ -41,8 +41,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[shared.BackendConditionIdLabel]; !ok {
-		req.Labels[shared.BackendConditionIdLabel] = req.ConditionId.Id
+	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
@@ -87,8 +87,8 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[shared.BackendConditionIdLabel]; !ok {
-		req.Labels[shared.BackendConditionIdLabel] = req.ConditionId.Id
+	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {

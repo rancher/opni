@@ -3,8 +3,10 @@ package v1
 import (
 	"time"
 
+	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -13,18 +15,52 @@ import (
 const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
 const EndpointTagNotifications = "notifications"
 
+// Note these properties have to conform to the AlertManager label naming convention
+// https://prometheus.io/docs/alerting/latest/configuration/#labelname
 const (
-	// Any messages already in the queue with the same dedupe key will not be processed
-	NotificationPropertyDedupeKey = "opni.io/dedupeKey"
+	// maps to a wellknown.Capability
+	RoutingPropertyDatasource = "opni_datasource"
+)
+
+var (
+	OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  RoutingPropertyDatasource,
+		Value: "",
+	}
+
+	OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  RoutingPropertyDatasource,
+		Value: wellknown.CapabilityMetrics,
+	}
+
+	OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchNotEqual,
+		Name:  NotificationPropertySeverity,
+		Value: "",
+	}
+)
+
+// Note these properties have to conform to the AlertManager label naming convention
+// https://prometheus.io/docs/alerting/latest/configuration/#labelname
+const (
+	// Property that specifies the unique identifier for the notification
+	// Corresponds to condition id for `AlertCondition` and an opaque identifier for
+	// an each ephemeral `Notification` instance
+	NotificationPropertyOpniUuid = "opni_uuid"
+	// Any messages already in the notification queue with the same dedupe key will not be processed
+	// immediately, but will be deduplicated.
+	NotificationPropertyDedupeKey = "opni_dedupeKey"
 	// Any messages with the same group key will be sent together
-	NotificationPropertyGroupKey = "opni.io/groupKey"
+	NotificationPropertyGroupKey = "opni_groupKey"
 	// Opaque identifier for the cluster that generated the notification
-	NotificationPropertyClusterId = "opni.io/clusterId"
+	NotificationPropertyClusterId = "opni_clusterId"
 	// Property that specifies how to classify the notification according to golden signal
-	NotificationPropertyGoldenSignal = "opni.io/goldenSignal"
+	NotificationPropertyGoldenSignal = "opni_goldenSignal"
 	// Property that specifies the severity of the notification. Severity impacts how quickly the
 	// notification is dispatched & repeated, as well as how long to persist it.
-	NotificationPropertySeverity = "opni.io/severity"
+	NotificationPropertySeverity = "opni_severity"
 )
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
@@ -62,11 +98,11 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 
 func (n *Notification) GetRoutingLabels() map[string]string {
 	res := map[string]string{
-		shared.OpniSeverityLabel:       n.GetProperties()[NotificationPropertySeverity],
-		shared.BackendConditionIdLabel: n.GetProperties()[NotificationPropertyDedupeKey],
+		NotificationPropertySeverity: n.GetProperties()[NotificationPropertySeverity],
+		NotificationPropertyOpniUuid: n.GetProperties()[NotificationPropertyOpniUuid],
 	}
 	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
-		res[shared.BroadcastIdLabel] = v
+		res[NotificationPropertyDedupeKey] = v
 	}
 	return res
 }
@@ -92,11 +128,15 @@ func (n *Notification) GetRoutingGoldenSignal() string {
 	return GoldenSignal_Custom.String()
 }
 
+func (n *Notification) Namespace() string {
+	return NotificationPropertySeverity
+}
+
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
 	return map[string]string{
-		shared.OpniSeverityLabel:       a.GetSeverity().String(),
-		shared.BackendConditionIdLabel: a.GetId(),
-		a.Namespace():                  a.GetId(),
+		NotificationPropertySeverity: a.GetSeverity().String(),
+		NotificationPropertyOpniUuid: a.GetId(),
+		a.Namespace():                a.GetId(),
 	}
 }
 

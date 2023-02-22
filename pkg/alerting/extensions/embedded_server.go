@@ -7,6 +7,7 @@ deploymed node in the AlertManager cluster.
 */
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -33,8 +34,9 @@ const (
 var defaultSeverity = alertingv1.OpniSeverity_Info.String()
 
 type messageMetadata struct {
-	uuid     string
-	severity int32
+	uuid           string
+	groupDedupeKey string
+	severity       int32
 }
 
 // Embedded Server handles all incoming webhook requests from the AlertManager
@@ -65,14 +67,24 @@ func NewEmbeddedServer(
 	c2 := make(map[int32]*lru.TwoQueueCache)
 	for _, severity := range alertingv1.OpniSeverity_value {
 		// TODO : param heuristic
-		c1[severity], _ = lru.New2QParams(lub, 0.8, 0.2)
-		c2[severity], _ = lru.New2QParams(lub, 0.8, 0.2)
+		notificationLayer, err := lru.New2QParams(lub, 0.8, 0.2)
+		if err != nil {
+			panic(err)
+		}
+		alarmLayer, err := lru.New2QParams(lub, 0.8, 0.2)
+		if err != nil {
+			panic(err)
+		}
+		c1[severity] = notificationLayer
+		c2[severity] = alarmLayer
 	}
 	return &EmbeddedServer{
-		logger:         lg,
-		lub:            lub,
-		notificationMu: &sync.RWMutex{},
-		alarmMu:        &sync.RWMutex{},
+		logger:            lg,
+		lub:               lub,
+		notificationMu:    &sync.RWMutex{},
+		alarmMu:           &sync.RWMutex{},
+		notificationCache: c1,
+		alarmCache:        c2,
 	}
 }
 
@@ -83,9 +95,10 @@ func isAlarmMessage(annotations map[string]string) bool {
 
 func parseLabels(labels map[string]string) messageMetadata {
 	return messageMetadata{
-		uuid: lo.ValueOr(labels, shared.BackendConditionIdLabel, ""),
+		uuid:           lo.ValueOr(labels, alertingv1.NotificationPropertyOpniUuid, ""),
+		groupDedupeKey: lo.ValueOr(labels, alertingv1.NotificationPropertyDedupeKey, ""),
 		severity: lo.ValueOr(alertingv1.OpniSeverity_value,
-			lo.ValueOr(labels, shared.OpniSeverityLabel, defaultSeverity),
+			lo.ValueOr(labels, alertingv1.NotificationPropertySeverity, defaultSeverity),
 			0,
 		),
 	}
@@ -134,46 +147,50 @@ func (e *EmbeddedServer) HandleWebhook(wr http.ResponseWriter, req *http.Request
 		return
 	}
 	req.Body.Close()
-	msgMeta := parseLabels(wMsg.CommonLabels)
-	if msgMeta.uuid == "" {
-		// we assume a non-opni "indexed" source is pushing messages to us
-		// we do not persist these as their format is not known
-		e.logger.Debug("received message from non-opni source, ignoring")
-		wr.WriteHeader(http.StatusOK)
-		return
-	}
 
-	if isAlarmMessage(wMsg.CommonAnnotations) {
-		cache, ok := e.alarmCache[msgMeta.severity]
+	for _, alert := range wMsg.Alerts {
+		msgMeta := parseLabels(alert.Labels)
+		if msgMeta.uuid == "" {
+			// we assume a non-opni "indexed" source is pushing messages to us
+			// we do not persist these as their format is not known
+			e.logger.Debug("received message from non-opni source, ignoring")
+			wr.WriteHeader(http.StatusOK)
+			continue
+		}
+
+		if isAlarmMessage(alert.Annotations) {
+			cache, ok := e.alarmCache[msgMeta.severity]
+			if !ok {
+				wr.WriteHeader(http.StatusPreconditionFailed)
+				return
+			}
+			cache.Add(e.cacheKey(msgMeta.groupDedupeKey, msgMeta.uuid), &alertingv1.Notification{
+				Title: lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle),
+				Body:  lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody),
+				Properties: map[string]string{
+					alertingv1.NotificationPropertySeverity:     lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
+					alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(alert.Annotations, shared.OpniGoldenSignalAnnotation, alertingv1.OpniSeverity_Info.String()),
+				},
+			})
+			wr.WriteHeader(http.StatusOK)
+			return
+		}
+
+		cache, ok := e.notificationCache[msgMeta.severity]
 		if !ok {
 			wr.WriteHeader(http.StatusPreconditionFailed)
 			return
 		}
-		cache.Add(e.cacheKey(wMsg.GroupKey, msgMeta.uuid), alertingv1.Notification{
-			Title: lo.ValueOr(wMsg.CommonAnnotations, shared.OpniHeaderAnnotations, missingTitle),
-			Body:  lo.ValueOr(wMsg.CommonAnnotations, shared.OpniBodyAnnotations, missingBody),
+		cache.Add(e.cacheKey(msgMeta.groupDedupeKey, msgMeta.uuid), &alertingv1.Notification{
+			Title: lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle),
+			Body:  lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody),
 			Properties: map[string]string{
 				alertingv1.NotificationPropertySeverity:     lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
-				alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(wMsg.CommonAnnotations, shared.OpniGoldenSignalAnnotation, alertingv1.OpniSeverity_Info.String()),
+				alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(alert.Annotations, shared.OpniGoldenSignalAnnotation, alertingv1.GoldenSignal_Custom.String()),
 			},
 		})
-		wr.WriteHeader(http.StatusOK)
-		return
 	}
 
-	cache, ok := e.notificationCache[msgMeta.severity]
-	if !ok {
-		wr.WriteHeader(http.StatusPreconditionFailed)
-		return
-	}
-	cache.Add(e.cacheKey(wMsg.GroupKey, msgMeta.uuid), alertingv1.Notification{
-		Title: lo.ValueOr(wMsg.CommonAnnotations, shared.OpniHeaderAnnotations, missingTitle),
-		Body:  lo.ValueOr(wMsg.CommonAnnotations, shared.OpniBodyAnnotations, missingBody),
-		Properties: map[string]string{
-			alertingv1.NotificationPropertySeverity:     lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
-			alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(wMsg.CommonAnnotations, shared.OpniGoldenSignalAnnotation, alertingv1.OpniSeverity_Info.String()),
-		},
-	})
 	wr.WriteHeader(http.StatusOK)
 }
 
@@ -183,14 +200,11 @@ func writeResponse(wr http.ResponseWriter, res *alertingv1.ListNotificationRespo
 		wr.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	wr.WriteHeader(http.StatusOK)
 }
 
 func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *http.Request) {
 	var listRequest alertingv1.ListNotificationRequest
-	err := json.NewDecoder(req.Body).Decode(&listRequest)
-	defer req.Body.Close()
-	if err != nil {
+	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -206,23 +220,19 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 	goldenSignals := lo.Associate(listRequest.GoldenSignalFilters, func(s alertingv1.GoldenSignal) (string, struct{}) {
 		return s.String(), struct{}{}
 	})
-	checkAlarmCache := lo.PickByKeys(e.alarmCache, lo.Map(listRequest.SeverityFilters, func(s alertingv1.OpniSeverity, _ int) int32 {
-		return int32(s)
-	}))
-	checkNotificationCache := lo.PickByKeys(e.alarmCache, lo.Map(listRequest.SeverityFilters, func(s alertingv1.OpniSeverity, _ int) int32 {
-		return int32(s)
-	}))
 
-	traverseAlarmKeys := lo.Keys(checkAlarmCache)
+	traverseAlarmKeys := lo.Map(listRequest.SeverityFilters, func(s alertingv1.OpniSeverity, _ int) int32 {
+		return int32(s)
+	})
+	// traverse by descending severity
 	slices.SortFunc(traverseAlarmKeys, func(a, b int32) bool {
 		return a > b
 	})
 
 	// traverse by priority first
-	for _, key := range traverseAlarmKeys {
-		alarmCache := checkAlarmCache[key]
-		for _, key := range alarmCache.Keys() {
-			msg, _ := alarmCache.Get(key)
+	for _, severityKey := range traverseAlarmKeys {
+		for _, key := range e.alarmCache[severityKey].Keys() {
+			msg, _ := e.alarmCache[severityKey].Get(key)
 			notif := msg.(*alertingv1.Notification)
 			properties := notif.Properties
 			if properties == nil {
@@ -243,9 +253,8 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 			}
 		}
 
-		notificationCache := checkNotificationCache[key]
-		for _, key := range notificationCache.Keys() {
-			msg, _ := notificationCache.Get(key)
+		for _, key := range e.notificationCache[severityKey].Keys() {
+			msg, _ := e.notificationCache[severityKey].Get(key)
 			notif := msg.(*alertingv1.Notification)
 			properties := notif.Properties
 			if properties == nil {
@@ -269,11 +278,12 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 	writeResponse(wr, &res)
 }
 
-func StartOpniEmbeddedServer(opniAddr string) *http.Server {
+func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server {
 	lg := logger.NewPluginLogger().Named("opni.alerting")
 	es := NewEmbeddedServer(lg, 125)
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/list", es.HandleListNotifications)
 	// request body will be in the form of AM webhook payload :
 	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
 	//
@@ -281,7 +291,6 @@ func StartOpniEmbeddedServer(opniAddr string) *http.Server {
 	//    Webhooks are assumed to respond with 2xx response codes on a successful
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	mux.HandleFunc("/list", es.HandleListNotifications)
 	mux.HandleFunc(shared.AlertingDefaultHookName, es.HandleWebhook)
 
 	hookServer := &http.Server{
@@ -292,6 +301,12 @@ func StartOpniEmbeddedServer(opniAddr string) *http.Server {
 	go func() {
 		err := hookServer.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	}()
+	go func() {
+		<-ctx.Done()
+		if err := hookServer.Close(); err != nil {
 			panic(err)
 		}
 	}()

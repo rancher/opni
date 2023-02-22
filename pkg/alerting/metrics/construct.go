@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	promql "github.com/prometheus/prometheus/promql/parser"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
 const NodeFilter = "instance"
@@ -200,10 +200,10 @@ func (a *AlertingRule) Build(id string) (*rulefmt.Rule, error) {
 		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr, err)
 	}
 	promRule.Annotations = MergeLabels(promRule.Annotations, map[string]string{
-		shared.BackendConditionIdLabel: id,
+		alertingv1.NotificationPropertyOpniUuid: id,
 	})
 	promRule.Labels = MergeLabels(promRule.Labels, map[string]string{
-		shared.BackendConditionIdLabel: id,
+		alertingv1.NotificationPropertyOpniUuid: id,
 	})
 	return promRule, nil
 }

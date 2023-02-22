@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test/freeport"
@@ -520,4 +521,39 @@ func ExpectConfigNotEqual(c1, c2 *config.Config, name ...string) {
 		}
 	}
 	Expect(util.Must(yaml.Marshal(c1))).NotTo(MatchYAML(util.Must(yaml.Marshal(c2))))
+}
+
+// list request to expect length of notifications
+type RoutingDatasetKV = lo.Tuple2[*alertingv1.ListNotificationRequest, int]
+
+type RoutableDataset struct {
+	Routables     []interfaces.Routable
+	ExpectedPairs []RoutingDatasetKV
+}
+
+func NewRoutableDataset() *RoutableDataset {
+	r := []interfaces.Routable{}
+	i := 0
+	for _, name := range alertingv1.OpniSeverity_name {
+		notif := &alertingv1.Notification{
+			Title: fmt.Sprintf("test %d", i),
+			Body:  "test",
+			Properties: map[string]string{
+				alertingv1.NotificationPropertySeverity: name,
+				alertingv1.NotificationPropertyOpniUuid: uuid.New().String(),
+			},
+		}
+		err := notif.Validate()
+		if err != nil {
+			panic(err)
+		}
+		r = append(r, notif)
+		i++
+	}
+	return &RoutableDataset{
+		Routables: r,
+		ExpectedPairs: []RoutingDatasetKV{
+			{A: &alertingv1.ListNotificationRequest{}, B: len(r)},
+		},
+	}
 }

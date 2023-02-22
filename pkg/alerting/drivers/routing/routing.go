@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
@@ -74,7 +75,7 @@ func NewDefaultOpniRoutingWithOverrideHook(hook string) OpniRouting {
 }
 
 func NewDefaultOpniRouting() OpniRouting {
-	return NewOpniRouterV1("http://localhost:3000")
+	return NewOpniRouterV1(fmt.Sprintf("http://localhost:3000%s", shared.AlertingDefaultHookName))
 }
 
 var _ interfaces.Cloneable[OpniRouting] = (OpniRouting)(nil)
@@ -409,13 +410,13 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 	// add opni subtree dependencies (opni namespaced & metrics)
 	for _, subRoute := range root.Route.Routes {
 		for _, m := range subRoute.Matchers {
-			if m.Name == shared.OpniDatasourceLabel && m.Type == labels.MatchEqual && m.Value == "" { // if isDefaultSubTree() {}
+			if m.Name == alertingv1.RoutingPropertyDatasource && m.Type == labels.MatchEqual && m.Value == "" { // if isDefaultSubTree() {}
 				// prepend
 				subRoute.Routes = append(opniRoutes, subRoute.Routes...)
 			}
 
 			// production configs get added here, to the metrics subtree
-			if m.Name == shared.OpniDatasourceLabel && m.Type == labels.MatchEqual && m.Value == shared.OpniDatasourceMetrics {
+			if m.Name == alertingv1.RoutingPropertyDatasource && m.Type == labels.MatchEqual && m.Value == wellknown.CapabilityMetrics {
 				if o.SyncedConfig != nil {
 					// add the entire tree to the subroute
 					subRoute.Routes = []*config.Route{o.SyncedConfig.Route}

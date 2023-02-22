@@ -9,7 +9,7 @@ import (
 )
 
 type InMemoryHttpTtlCache struct {
-	*ccache.Cache
+	cache *ccache.Cache
 
 	maxAge time.Duration
 }
@@ -19,9 +19,9 @@ func (i InMemoryHttpTtlCache) MaxAge() time.Duration {
 }
 
 func (i InMemoryHttpTtlCache) Get(key string) (req []byte, ok bool) {
-	item := i.Cache.Get(key)
+	item := i.cache.Get(key)
 	if item == nil || item.Expired() {
-		i.Cache.Delete(key)
+		i.cache.Delete(key)
 		return nil, false
 	}
 
@@ -29,11 +29,11 @@ func (i InMemoryHttpTtlCache) Get(key string) (req []byte, ok bool) {
 }
 
 func (i InMemoryHttpTtlCache) Set(key string, req []byte) {
-	i.Cache.Set(key, req, i.maxAge)
+	i.cache.Set(key, req, i.maxAge)
 }
 
 func (i InMemoryHttpTtlCache) Delete(key string) {
-	i.Cache.Delete(key)
+	_ = i.cache.Delete(key)
 }
 
 var _ storage.HttpTtlCache = (*InMemoryHttpTtlCache)(nil)
@@ -50,7 +50,7 @@ func NewInMemoryHttpTtlCache(
 
 	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitInt).ItemsToPrune(15))
 	return &InMemoryHttpTtlCache{
-		Cache:  ttlCache,
+		cache:  ttlCache,
 		maxAge: maxAge,
 	}
 }

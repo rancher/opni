@@ -22,15 +22,42 @@ The 2 types of pre-defined patterns:
 ## Implementation details: 
 ![Flow chart](https://user-images.githubusercontent.com/4568163/220794014-5e4b70d2-94f5-451d-9e68-f5b27e1e2a24.png)
 
+* UI -- Admin dashboard
+	- Metric insights page: Add a button in the UI for user to manually invoke this feature.
+	- Alert overview page: Attach a button to alerts for user to manually invoke this feature.
+	- the UX: a table that displays all downstream clusters so user can easily select 1 or more of them to generate metric-analysis report.
 
-* Pattern classification process. 
-	a. A simple metric anomaly detection algorithm, that predicts every metric either normal or anomaly. An example method is Kolmogorov-Smirnov test.
-	b. A machine-learning or deep-learning model will be pre-trained for pattern classification. This would require some real abnormal metric data with human labels, and then apply data augmentation techniques to them. Once model is trained, it will be applied to anomaly metrics from step a and categorize them into a few pre-defined patterns.
-	c. Analyse report. A report should be generated to summarize the notable patterns.
-* Metric data collection. Data will be pulled from Cortex as chunks. Likely it would require data from last a few hours before an outage.
-* Back-end apis for frontend to connect to.
-* UI. 
-	- Admin Dashboard. 
+* UI -- Dynamic Grafana dashboard: For each request of metric-analysis, generate 2 grafana dashboards for detected anomaly metrics with classified pattern types, 1 dashboard for metrics of Type-I patterns and another dashboard for metrics of Type-II patterns. 
+
+* Metric-analysis service
+	- HTTP server: serves backend APIs using FastAPI. APIs:
+		* POST /request: post a request to invoke this feature, returns a random ID that can be used later. Spawns a background process to run the metric-analysis process.
+		* GET /get_all_requests_id: get all the history requests posted, return all the ids.
+		* GET /get_analysis_report_by_id: get an analysis report of given `id`.
+		* GET /get_all_analysis_report: get all history reports
+		* DELETE /delete_report_by_id: delete a report by id
+		* DELETE /delete_all_reports: delete all history reports
+	- Anomaly Detection: Apply [`KS-test`](https://en.wikipedia.org/wiki/Kolmogorov–Smirnov_test) as the base metric anomaly detection method, this step will filter out normal metrics and only pass forward anomalous metric to the pattern classification model.
+		* Input: a list of metrics, each metric with last 1 hour(in terms of the last 1 hour of time `t` that request is submitted) worth of value split by 1 minute time interval, which means there are 60 data points. 
+		* What to do: split the 60 data points [t-60, t-59, ...t-1] into 2 groups, the normal window, aka the first 45 points [t-60, t-16], and the test window [t-15, t-1], use KS-test to compare them. If the p-value of the test `p < 0.05` then this metric is abnormal and will be pass forward to next step.
+		* Output: the same list of metrics as input, but with a label of either `Normal` or `Abnormal` with the corresponding p-value.
+	- Metric Pattarn Classification:
+		* Model pre-train: A pre-trained model will be prepared offline and uploaded to Opni's S3 bucket. It can then be downloaded to every central Opni cluster to serve. Initially, the training data will be simulated plus data argumentation. With more real world data available in the future, the model can be further improved.
+		* Model inferencing: the pre-trained model will be downloaded from S3 and serve for inferencing. No GPU is needed for inferencing.
+		* Model details: 1D-[CNN](https://en.wikipedia.org/wiki/Convolutional_neural_network) deep learning model, 1D means its input is 1D time-series data. This model will consist of 3 conv1d layers with max pooling, 2 fully-connected layers and softmax layer at last. 
+		* Model input: A list of abnormal metrics from anomaly detection step, each metric with 60 data points.
+		* What to do: run inferencing on each metric data to classify it into one of the pre-defined patterns.
+		* Model output: A list of abnormal metrics with their classified patterns.
+
+* The insights report: A summary of the metric-analysis results. The metadata to include in the report:
+	- ID: assigned in the /request API.
+	- cluster ID/name: the downstream cluster this analysis was applied on.
+	- request time: the time this request was submitted.
+	- Analysis results:
+		* A list of abnormal metrics of Type-I patterns: a list of metrics that are identified as anomalous and with Type-I patterns, which indicates these metrics should be investigated first.
+		* A list of abnormal metrics of Type-II patterns: a list of metrics that are identified as anomalous and with Type-II patterns, which indicates these metrics were at abnormal state but recovered back to a relative normal state. These metrics still worth investigating if SMEs have the bandwith.
+
+* Cortex, collect metric data. Send a request to Cortex to pull related metric data.
 
 ## Acceptance criteria: 
 * Pattern classification accuracy should be good. Threshold to be decided. 

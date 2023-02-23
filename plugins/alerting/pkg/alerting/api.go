@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -129,16 +130,17 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	if err != nil {
 		return nil, err
 	}
-
+	routingLabels := req.GetRoutingLabels()
 	apiNode := backend.NewAlertManagerPostAlertClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(p.Logger),
 		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithPostAlertBody(
-			"notification-"+req.Properties[alertingv1.NotificationPropertyDedupeKey],
-			req.GetRoutingLabels(),
+		backend.WithPostNotificationBody(
+			routingLabels[alertingv1.NotificationPropertyOpniUuid],
+			routingLabels,
 			req.GetRoutingAnnotations(),
+			time.Minute*2,
 		),
 		backend.WithDefaultRetrier(),
 	)

@@ -326,16 +326,6 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
 	}
-	l.managedInstances[0].ClusterPort = 11080
-	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
-	rTreeBytes, err := yaml.Marshal(rTree)
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
-	if err != nil {
-		panic(err)
-	}
 
 	l.enabled.Store(true)
 	l.ClusterSettleTimeout = "1m0s"
@@ -349,6 +339,16 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
 	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
+
+	rTree := routing.NewDefaultRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTreeBytes, err := yaml.Marshal(rTree)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	for _, subscriber := range l.Subscribers {
 		subscriber <- shared.AlertingClusterNotification{

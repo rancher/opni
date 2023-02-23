@@ -42,13 +42,14 @@ func DefaultSubTreeValues() []DefaultRouteValues {
 	res := []DefaultRouteValues{}
 	n := len(alertingv1.OpniSeverity_name)
 	for i, sev := range severityKey {
-		r := time.Duration(3*abs(i-n)) - 2 // r = formula for throttling factor
+		r := time.Duration(2*abs(i-n)) - 1    // r = formula for grouping factor
+		i := time.Duration((abs(i - n)) * 10) // i = forula for rate limiting
 		res = append(res, DefaultRouteValues{
 			A: alertingv1.OpniSeverity_name[sev],
 			B: rateLimitingConfig{
-				InitialDelay:       time.Second * 10,
-				RepeatInterval:     time.Hour * 5,
+				InitialDelay:       i * time.Second,
 				ThrottlingDuration: r * time.Minute,
+				RepeatInterval:     time.Hour * 5,
 			},
 		})
 	}
@@ -155,7 +156,11 @@ func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	allRecvs = append(allRecvs, recvs...)
 
 	// must be last to prevent any opni alerts from leaking into the user's production routing tree
-	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil))
+	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil, rateLimitingConfig{
+		InitialDelay:       time.Second * 10,
+		ThrottlingDuration: time.Minute * 1,
+		RepeatInterval:     time.Hour * 5,
+	}))
 	return opniRoute, allRecvs
 }
 
@@ -167,7 +172,7 @@ func newNamespaceParentMatcher(namespace string) *labels.Matcher {
 	}
 }
 
-func newFinalizer(optionalNamespace *string) *config.Route {
+func newFinalizer(optionalNamespace *string, rc rateLimitingConfig) *config.Route {
 	matchers := func() []*labels.Matcher {
 		if optionalNamespace == nil {
 			return []*labels.Matcher{}
@@ -184,6 +189,7 @@ func newFinalizer(optionalNamespace *string) *config.Route {
 		// the user's synced production config
 		Continue: false,
 	}
+	setRateLimiting(finalizerRoute, rc)
 	return finalizerRoute
 }
 
@@ -247,7 +253,11 @@ func NewOpniNamespacedSubTree(namespace string, defaultValues ...DefaultRouteVal
 		receivers = append(receivers, recv)
 	}
 	// always terminate the namespace with a finalizer
-	finalizer := newFinalizer(lo.ToPtr(namespace))
+	finalizer := newFinalizer(lo.ToPtr(namespace), rateLimitingConfig{
+		InitialDelay:       time.Second * 30,
+		ThrottlingDuration: time.Minute * 5,
+		RepeatInterval:     time.Minute * 10,
+	})
 	subRoutes = append(subRoutes, finalizer) // finalizer must always be last
 	parentRoute.Routes = subRoutes
 	return parentRoute, receivers

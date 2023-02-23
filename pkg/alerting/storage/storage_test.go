@@ -465,11 +465,12 @@ func BuildStorageClientSetSuite(
 		})
 
 		When("initializing the hash ring", func() {
+			syncOpts := opts.NewSyncOptions()
 			Specify("the hash should be empty unless it is explicitly requested to calculate it", func() {
 				hash := s.GetHash(ctx, shared.SingleConfigId)
 				Expect(hash).To(BeEmpty())
 
-				err := s.CalculateHash(ctx, shared.SingleConfigId)
+				err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 				Expect(err).To(Succeed())
 			})
 
@@ -530,7 +531,18 @@ func BuildStorageClientSetSuite(
 				for _, f := range mutateState {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					f()
-					err := s.CalculateHash(ctx, shared.SingleConfigId)
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
+					Expect(err).To(Succeed())
+					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					Expect(newHash).NotTo(Equal(oldHash))
+				}
+			})
+
+			Specify("the default caching endpoint changing should trigger a hash change", func() {
+				for i := 0; i < 10; i++ {
+					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					syncOpts.DefaultEndpoint = uuid.New().String()
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					Expect(newHash).NotTo(Equal(oldHash))
@@ -540,12 +552,11 @@ func BuildStorageClientSetSuite(
 			Specify("the hash should not change when no meaningul configuration change occurs", func() {
 				for i := 0; i < 10; i++ {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					err := s.CalculateHash(ctx, shared.SingleConfigId)
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					Expect(newHash).To(Equal(oldHash))
 				}
-
 			})
 		})
 

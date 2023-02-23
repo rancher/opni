@@ -157,6 +157,33 @@ func WithPostAlertBody(conditionId string, labels, annotations map[string]string
 	}
 }
 
+func WithPostNotificationBody(conditionId string, labels, annotations map[string]string, resolveAfter time.Duration) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		var alertsArr []*PostableAlert
+		alert := &PostableAlert{}
+		alert.WithCondition(conditionId)
+		for labelName, labelValue := range labels {
+			alert.WithLabels(labelName, labelValue)
+		}
+		for annotationName, annotationValue := range annotations {
+			alert.WithAnnotations(annotationName, annotationValue)
+		}
+		cur := time.Now()
+		alertsArr = append(alertsArr, alert)
+		for _, alert := range alertsArr {
+			alert.EndsAt = lo.ToPtr(cur.Add(resolveAfter))
+			if err := alert.Must(); err != nil {
+				panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+			}
+		}
+		b, err := json.Marshal(alertsArr)
+		if err != nil {
+			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+		}
+		o.body = b
+	}
+}
+
 func WithPostResolveAlertBody(conditionId string, labels, annotations map[string]string) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		var alertsArr []*PostableAlert

@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
@@ -40,21 +39,11 @@ type messageMetadata struct {
 }
 
 // Embedded Server handles all incoming webhook requests from the AlertManager
-//
-// It needs to be simple and optimized for high throughput so we make some
-// native performance optimizations:
-//   - Maintain *lru.TwoQueueCache for each pair of  (opni message type, opni severity)
-//   - Do not define map[string]*Cache for each cache pair to avoid additional lock contention
-//   - Maintain a least upper bound` on the size of the combined caches
-//
-// We do make the tradeoff of maintaining `TwoQueueCache` instead of regular `LRU` cache to also
-// account for frequency.
 type EmbeddedServer struct {
 	logger *zap.SugaredLogger
 	// maxSize of the combined caches
-	lub               int
-	notificationMu    *sync.RWMutex
-	alarmMu           *sync.RWMutex
+	lub int
+	// layered caches
 	notificationCache map[int32]*lru.TwoQueueCache
 	alarmCache        map[int32]*lru.TwoQueueCache
 }
@@ -65,24 +54,43 @@ func NewEmbeddedServer(
 ) *EmbeddedServer {
 	c1 := make(map[int32]*lru.TwoQueueCache)
 	c2 := make(map[int32]*lru.TwoQueueCache)
-	for _, severity := range alertingv1.OpniSeverity_value {
-		// TODO : param heuristic
-		notificationLayer, err := lru.New2QParams(lub, 0.8, 0.2)
+	i := float64(0)
+	n := float64(len(alertingv1.OpniSeverity_value))
+
+	sortedKeys := lo.Values(alertingv1.OpniSeverity_value)
+	slices.SortFunc(sortedKeys, func(i, j int32) bool {
+		return i < j
+	})
+	for _, severity := range sortedKeys {
+		recentRatio := (n - i) * (1 / (1 + n))
+		ghostRatio := ((i + 1) / (2 * n))
+		lg.With(
+			"cache-type", "notification",
+			"severity", alertingv1.OpniSeverity_name[severity],
+			"recent-ratio", recentRatio,
+			"ghost-ratio", ghostRatio,
+		).Info("Initializing cache")
+		notificationLayer, err := lru.New2QParams(lub, recentRatio, ghostRatio)
 		if err != nil {
 			panic(err)
 		}
-		alarmLayer, err := lru.New2QParams(lub, 0.8, 0.2)
+		lg.With(
+			"cache-type", "alarm",
+			"severity", alertingv1.OpniSeverity_name[severity],
+			"recent-ratio", recentRatio,
+			"ghost-ratio", ghostRatio,
+		).Info("Initializing cache")
+		alarmLayer, err := lru.New2QParams(lub, recentRatio, ghostRatio)
 		if err != nil {
 			panic(err)
 		}
 		c1[severity] = notificationLayer
 		c2[severity] = alarmLayer
+		i++
 	}
 	return &EmbeddedServer{
 		logger:            lg,
 		lub:               lub,
-		notificationMu:    &sync.RWMutex{},
-		alarmMu:           &sync.RWMutex{},
 		notificationCache: c1,
 		alarmCache:        c2,
 	}
@@ -93,7 +101,7 @@ func isAlarmMessage(annotations map[string]string) bool {
 	return ok
 }
 
-func parseLabels(labels map[string]string) messageMetadata {
+func parseLabelsToOpniMd(labels map[string]string) messageMetadata {
 	return messageMetadata{
 		uuid:           lo.ValueOr(labels, alertingv1.NotificationPropertyOpniUuid, ""),
 		groupDedupeKey: lo.ValueOr(labels, alertingv1.NotificationPropertyDedupeKey, ""),
@@ -125,7 +133,7 @@ func (e *EmbeddedServer) cacheKey(groupKey string, conditionId string) string {
 	return groupKey
 }
 
-// HandleWebhook
+// handleWebhook handles caching the incoming webhook messages
 //
 // We expect the request body will be in the form of AM webhook payload :
 // https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
@@ -139,7 +147,7 @@ func (e *EmbeddedServer) cacheKey(groupKey string, conditionId string) string {
 //
 // This HTTP handler needs to be able to handle a large throughput of requests
 // so we make some performance optimizations
-func (e *EmbeddedServer) HandleWebhook(wr http.ResponseWriter, req *http.Request) {
+func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request) {
 	e.logger.Debug("handling webhook persistence request")
 	wMsg, err := ParseIcomingWebhookMessage(req)
 	if err != nil {
@@ -149,7 +157,7 @@ func (e *EmbeddedServer) HandleWebhook(wr http.ResponseWriter, req *http.Request
 	req.Body.Close()
 
 	for _, alert := range wMsg.Alerts {
-		msgMeta := parseLabels(alert.Labels)
+		msgMeta := parseLabelsToOpniMd(alert.Labels)
 		if msgMeta.uuid == "" {
 			// we assume a non-opni "indexed" source is pushing messages to us
 			// we do not persist these as their format is not known
@@ -190,7 +198,6 @@ func (e *EmbeddedServer) HandleWebhook(wr http.ResponseWriter, req *http.Request
 			},
 		})
 	}
-
 	wr.WriteHeader(http.StatusOK)
 }
 
@@ -202,7 +209,7 @@ func writeResponse(wr http.ResponseWriter, res *alertingv1.ListMessageResponse) 
 	}
 }
 
-func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *http.Request) {
+func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *http.Request) {
 	var listRequest alertingv1.ListMessageRequest
 	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
 		wr.WriteHeader(http.StatusBadRequest)
@@ -283,7 +290,6 @@ func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server 
 	es := NewEmbeddedServer(lg, 125)
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/list", es.HandleListNotifications)
 	// request body will be in the form of AM webhook payload :
 	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
 	//
@@ -291,7 +297,8 @@ func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server 
 	//    Webhooks are assumed to respond with 2xx response codes on a successful
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
-	mux.HandleFunc(shared.AlertingDefaultHookName, es.HandleWebhook)
+	mux.HandleFunc(shared.AlertingDefaultHookName, es.handleWebhook)
+	mux.HandleFunc("/list", es.handleListNotifications)
 
 	hookServer := &http.Server{
 		// explicitly set this to 0.0.0.0 for test environment
@@ -299,6 +306,7 @@ func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server 
 		Handler: mux,
 	}
 	go func() {
+		lg.With("addr", opniAddr).Info("starting opni embedded server")
 		err := hookServer.ListenAndServe()
 		if !errors.Is(err, http.ErrServerClosed) {
 			panic(err)

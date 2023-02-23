@@ -12,9 +12,11 @@ resources:
 - logging/logging.opni.io_syslogngoutputs.yaml
 - logging/logging.opni.io_syslogngflows.yaml
 - bases/logging.opni.io_logadapters.yaml
+- bases/logging.opni.io_collectorconfigs.yaml
 - bases/logging.opni.io_datapreppers.yaml
 - bases/core.opni.io_bootstraptokens.yaml
 - bases/core.opni.io_keyrings.yaml
+- bases/core.opni.io_collectors.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

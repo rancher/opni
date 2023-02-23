@@ -435,10 +435,7 @@ func BuildDiscoverCmd() *cobra.Command {
 
 			request := &remoteread.DiscoveryRequest{
 				ClusterIds: clusterIds,
-			}
-
-			if namespace != "" {
-				request.Namespace = &namespace
+				Namespace:  &namespace,
 			}
 
 			response, err := remoteReadClient.Discover(cmd.Context(), request)

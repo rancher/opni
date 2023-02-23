@@ -23,6 +23,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const (
+	numServers             = 5
+	numNotificationServers = 2
+)
+
 func init() {
 	BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
 		{
@@ -58,8 +63,8 @@ func init() {
 		func() alertingv1.AlertEndpointsClient {
 			return env.NewAlertEndpointsClient()
 		},
-		func() alertingv1.AlertTriggersClient {
-			return env.NewAlertTriggersClient()
+		func() alertingv1.AlertNotificationsClient {
+			return env.NewAlertNotificationsClient()
 		},
 		func() managementv1.ManagementClient {
 			return env.NewManagementClient()
@@ -79,14 +84,14 @@ func BuildAlertingClusterIntegrationTests(
 	alertingAdminConstructor func() alertops.AlertingAdminClient,
 	alertingConditionsConstructor func() alertingv1.AlertConditionsClient,
 	alertingEndpointsConstructor func() alertingv1.AlertEndpointsClient,
-	alertingTriggersConstructor func() alertingv1.AlertTriggersClient,
+	alertingNotificationsConstructor func() alertingv1.AlertNotificationsClient,
 	mgmtClientConstructor func() managementv1.ManagementClient,
 ) bool {
 	return Describe("Alerting Cluster Integration tests", Ordered, func() {
 		var alertClusterClient alertops.AlertingAdminClient
 		var alertEndpointsClient alertingv1.AlertEndpointsClient
 		var alertConditionsClient alertingv1.AlertConditionsClient
-		var alertTriggerClient alertingv1.AlertTriggersClient
+		var alertNotificationsClient alertingv1.AlertNotificationsClient
 		var mgmtClient managementv1.ManagementClient
 		var numAgents int
 
@@ -94,6 +99,8 @@ func BuildAlertingClusterIntegrationTests(
 		var agents []*agentWithContext
 		// physical servers that receive opni alerting notifications
 		var servers []*test.MockIntegrationWebhookServer
+		// physical servers that receive all opni alerting notifications
+		var notificationServers []*test.MockIntegrationWebhookServer
 		// expected ways the conditions dispatch to endpoints
 		expectedRouting := map[string][]string{}
 		// maps condition ids where agents are disconnect to their webhook ids
@@ -103,11 +110,10 @@ func BuildAlertingClusterIntegrationTests(
 				alertClusterClient = alertingAdminConstructor()
 				alertEndpointsClient = alertingEndpointsConstructor()
 				alertConditionsClient = alertingConditionsConstructor()
-				alertTriggerClient = alertingTriggersConstructor()
+				alertNotificationsClient = alertingNotificationsConstructor()
 				mgmtClient = mgmtClientConstructor()
 				numAgents = 5
 			})
-
 			for _, clusterConf := range clusterConfigurations {
 				It("should install the alerting cluster", func() {
 					_, err := alertClusterClient.InstallCluster(env.Context(), &emptypb.Empty{})
@@ -154,8 +160,8 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should be able to create some endpoints", func() {
-					numServers := numAgents
 					servers = env.CreateWebhookServer(env.Context(), numServers)
+
 					for _, server := range servers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
 						Expect(err).To(Succeed())
@@ -253,8 +259,8 @@ func BuildAlertingClusterIntegrationTests(
 					By("attaching a sample of random endpoints to default agent conditions")
 					condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
 					Expect(err).To(Succeed())
+					endpList, err := alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 					for _, cond := range condList.Items {
-						endpList, err := alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 						Expect(err).To(Succeed())
 						endps := lo.Map(
 							lo.Samples(endpList.Items, 1+rand.Intn(len(endpList.Items)-1)),
@@ -285,6 +291,25 @@ func BuildAlertingClusterIntegrationTests(
 						}
 					}
 
+					By("creating some default webhook servers as endpoints")
+					notificationServers = env.CreateWebhookServer(env.Context(), numNotificationServers)
+					for _, server := range notificationServers {
+						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
+						Expect(err).To(Succeed())
+						server.EndpointId = ref.Id
+					}
+					endpList, err = alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
+					Expect(err).To(Succeed())
+					Expect(endpList.Items).To(HaveLen(numNotificationServers + numServers))
+
+					By("setting the default servers as default endpoints")
+					for _, server := range notificationServers {
+						_, err = alertEndpointsClient.ToggleNotifications(env.Context(), &alertingv1.ToggleRequest{
+							Id: &corev1.Reference{Id: server.EndpointId},
+						})
+						Expect(err).To(Succeed())
+					}
+
 					By("expecting the conditions to eventually move to the 'OK' state")
 					Eventually(func() error {
 						for _, cond := range condList.Items {
@@ -300,7 +325,7 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Second*90, time.Second*20).Should(Succeed())
 
 					By("verifying the routing relationships are correctly loaded")
-					relationships, err := alertTriggerClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
+					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
 					Expect(len(relationships.RoutingRelationships)).To(Equal(len(expectedRouting)))
 					for conditionId, rel := range relationships.RoutingRelationships {
@@ -340,6 +365,7 @@ func BuildAlertingClusterIntegrationTests(
 					webhooks := lo.Uniq(lo.Flatten(lo.Values(involvedDisconnects)))
 					Expect(len(webhooks)).To(BeNumerically(">", 0))
 
+					By("verifying the agents are actually disconnected")
 					Eventually(func() error {
 						clusters, err := mgmtClient.ListClusters(env.Context(), &managementv1.ListClustersRequest{})
 						if err != nil {
@@ -360,6 +386,7 @@ func BuildAlertingClusterIntegrationTests(
 						return nil
 					}, 90*time.Second, 5*time.Second).Should(Succeed())
 
+					By("verifying the physical servers have received the disconnect messages")
 					Eventually(func() error {
 						servers := servers
 						conditionIds := lo.Keys(involvedDisconnects)
@@ -394,6 +421,16 @@ func BuildAlertingClusterIntegrationTests(
 						}
 						return nil
 					}, time.Minute*2, time.Second*15).Should(Succeed())
+
+					By("verifying the notification servers have not received any alarm disconnect messages")
+					Eventually(func() error {
+						for _, server := range notificationServers {
+							if len(server.GetBuffer()) != 0 {
+								return fmt.Errorf("expected webhook server %s to not have any notifications, got %d", server.EndpointId, len(server.Buffer))
+							}
+						}
+						return nil
+					}, time.Second*30, time.Second*7)
 				})
 
 				It("should be able to batch list status and filter by status", func() {
@@ -420,6 +457,30 @@ func BuildAlertingClusterIntegrationTests(
 					for _, cond := range firingOnlyStatusList.AlertConditions {
 						Expect(cond.Status.State).To(Equal(alertingv1.AlertConditionState_Firing))
 					}
+				})
+
+				It("should be able to push notifications to our notification endpoints", func() {
+					Expect(len(notificationServers)).To(BeNumerically(">", 0))
+					By("forwarding the message to AlertManager")
+					_, err := alertNotificationsClient.PushNotification(env.Context(), &alertingv1.Notification{
+						Title: "hello",
+						Body:  "world",
+						// set to critical in order to expedite the notification during testing
+						Properties: map[string]string{
+							alertingv1.NotificationPropertySeverity: alertingv1.OpniSeverity_Critical.String(),
+						},
+					})
+					Expect(err).To(Succeed())
+
+					By("verifying the endpoints have received the notification messages")
+					Eventually(func() error {
+						for _, server := range notificationServers {
+							if len(server.GetBuffer()) == 0 {
+								return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.Buffer))
+							}
+						}
+						return nil
+					}, time.Minute*2, time.Second*30)
 				})
 
 				It("should return warnings when trying to edit/delete alert endpoints that are involved in conditions", func() {
@@ -503,7 +564,7 @@ func BuildAlertingClusterIntegrationTests(
 					}
 					endpList, err = alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(endpList.Items).To(HaveLen(numAgents))
+					Expect(endpList.Items).To(HaveLen(numServers + numNotificationServers))
 					updatedList := lo.Filter(endpList.Items, func(item *alertingv1.AlertEndpointWithId, _ int) bool {
 						if item.Endpoint.GetWebhook() != nil {
 							return item.Endpoint.GetWebhook().Url == "http://example.com" && item.Endpoint.GetName() == "update" && item.Endpoint.GetDescription() == "update"

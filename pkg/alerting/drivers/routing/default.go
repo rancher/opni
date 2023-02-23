@@ -15,16 +15,43 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// DefaultRouteValues (receiver name, rate limiting config)
+type DefaultRouteValues lo.Tuple2[string, rateLimitingConfig]
+
 func DefaultSubTreeLabel() string {
 	return shared.OpniSeverityLabel
 }
 
 // ! values must be returned sorted in a deterministic order
-func DefaultSubTreeValues() []string {
-	res := lo.Values(alertingv1.OpniSeverity_name)
-	slices.SortFunc(res, func(a, b string) bool {
+//
+// these are used by the router to catch eveyrthing that is not an explicit alarm
+// that is also part of opni, i.e. plain text notifications
+func DefaultSubTreeValues() []DefaultRouteValues {
+	// sorted by ascending severity
+	severityKey := lo.Keys(alertingv1.OpniSeverity_name)
+	slices.SortFunc(severityKey, func(a, b int32) bool {
 		return a < b
 	})
+	res := []DefaultRouteValues{}
+	n := len(alertingv1.OpniSeverity_name)
+	for i, sev := range severityKey {
+		r := time.Duration(3*abs(i-n)) - 2 // r = formula for throttling factor
+		res = append(res, DefaultRouteValues{
+			A: alertingv1.OpniSeverity_name[sev],
+			B: rateLimitingConfig{
+				InitialDelay:       time.Second * 10,
+				RepeatInterval:     time.Hour * 5,
+				ThrottlingDuration: r * time.Minute,
+			},
+		})
+	}
 	return res
 }
 
@@ -170,6 +197,12 @@ func newNamespaceMatcher(namespace, value string) *labels.Matcher {
 	}
 }
 
+func setRateLimiting(route *config.Route, rl rateLimitingConfig) {
+	route.RepeatInterval = lo.ToPtr(model.Duration(rl.RepeatInterval))
+	route.GroupWait = lo.ToPtr(model.Duration(rl.InitialDelay))
+	route.GroupInterval = lo.ToPtr(model.Duration(rl.ThrottlingDuration))
+}
+
 func setDefaultRateLimitingFromProto(route *config.Route) {
 	rateLimitingConfig := (&alertingv1.RateLimitingConfig{}).Default()
 	if dur := rateLimitingConfig.GetThrottlingDuration(); dur != nil {
@@ -195,7 +228,7 @@ func setDefaultRateLimitingFromProto(route *config.Route) {
 	}
 }
 
-func NewOpniNamespacedSubTree(namespace string, defaultValues ...string) (*config.Route, []*config.Receiver) {
+func NewOpniNamespacedSubTree(namespace string, defaultValues ...DefaultRouteValues) (*config.Route, []*config.Receiver) {
 	parentRoute := &config.Route{
 		GroupBy: []model.LabelName{"..."},
 		Matchers: config.Matchers{
@@ -222,19 +255,19 @@ func NewOpniNamespacedSubTree(namespace string, defaultValues ...string) (*confi
 	return parentRoute, receivers
 }
 
-func NewOpniSubRoutingTreeWithDefaultValue(namespace, value string) (*config.Route, *config.Receiver) {
+func NewOpniSubRoutingTreeWithDefaultValue(namespace string, value DefaultRouteValues) (*config.Route, *config.Receiver) {
 	valueRoute := &config.Route{
 		Matchers: config.Matchers{
-			newNamespaceMatcher(namespace, value),
+			newNamespaceMatcher(namespace, value.A),
 		},
 		// even though each value in the namespace should be unique, we should traverse the entire namespace
 		// until we make it to the finalizer route
 		Continue: true,
 	}
-	setDefaultRateLimitingFromProto(valueRoute)
+	setRateLimiting(valueRoute, value.B)
 	constructedReceiverId := shared.NewOpniReceiverName(shared.OpniReceiverId{
 		Namespace:  namespace,
-		ReceiverId: value,
+		ReceiverId: value.A,
 	})
 	valueRoute.Receiver = constructedReceiverId
 	valueReceiver := &config.Receiver{

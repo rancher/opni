@@ -101,6 +101,11 @@ func BuildClientCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.CoreCollectorReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Core Collector")
+			return err
+		}
+
 		// +kubebuilder:scaffold:builder
 
 		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

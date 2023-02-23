@@ -468,3 +468,42 @@ func (r *ResolveAlertsRequest) Validate() error {
 	}
 	return nil
 }
+
+func (t *ToggleRequest) Validate() error {
+	if t.GetId() == nil || t.GetId().Id == "" {
+		return validation.Error("endpoint id must be set")
+	}
+	return nil
+}
+
+func (n *Notification) Validate() error {
+	if n.Title == "" {
+		return validation.Error("field Title must be set")
+	}
+	if n.Body == "" {
+		return validation.Error("field Body must be set")
+	}
+	if n.Properties == nil {
+		n.Properties = map[string]string{}
+	}
+	if v, ok := n.Properties[NotificationPropertyGoldenSignal]; ok {
+		if _, ok := GoldenSignal_value[v]; !ok {
+			return validation.Errorf("invalid golden signal value %s", v)
+		}
+	} else {
+		n.Properties[NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
+	}
+	if v, ok := n.Properties[NotificationPropertySeverity]; ok {
+		if _, ok := OpniSeverity_value[v]; !ok {
+			return validation.Errorf("invalid severity value %s", v)
+		}
+	} else {
+		n.Properties[NotificationPropertySeverity] = OpniSeverity_Info.String()
+	}
+	if v, ok := n.Properties[NotificationPropertyClusterId]; ok {
+		if v == "" {
+			return validation.Error("if specifying a cluster id property, it must be set")
+		}
+	}
+	return nil
+}

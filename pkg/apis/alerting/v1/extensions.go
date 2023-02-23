@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"strings"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -12,6 +11,21 @@ import (
 )
 
 const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
+const EndpointTagNotifications = "notifications"
+
+const (
+	// Any messages already in the queue with the same dedupe key will not be processed
+	NotificationPropertyDedupeKey = "opni.io/dedupeKey"
+	// Any messages with the same group key will be sent together
+	NotificationPropertyGroupKey = "opni.io/groupKey"
+	// Opaque identifier for the cluster that generated the notification
+	NotificationPropertyClusterId = "opni.io/clusterId"
+	// Property that specifies how to classify the notification according to golden signal
+	NotificationPropertyGoldenSignal = "opni.io/goldenSignal"
+	// Property that specifies the severity of the notification. Severity impacts how quickly the
+	// notification is dispatched & repeated, as well as how long to persist it.
+	NotificationPropertySeverity = "opni.io/severity"
+)
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
 	res := []string{}
@@ -44,6 +58,123 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 		return true
 	}
 	return false
+}
+
+func (n *Notification) GetRoutingLabels() map[string]string {
+	res := map[string]string{
+		shared.OpniSeverityLabel:       n.GetProperties()[NotificationPropertySeverity],
+		shared.BackendConditionIdLabel: n.GetProperties()[NotificationPropertyDedupeKey],
+	}
+	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
+		res[shared.BroadcastIdLabel] = v
+	}
+	return res
+}
+
+func (n *Notification) GetRoutingAnnotations() map[string]string {
+	res := map[string]string{
+		shared.OpniHeaderAnnotations:      n.Title,
+		shared.OpniBodyAnnotations:        n.Body,
+		shared.OpniGoldenSignalAnnotation: n.GetRoutingGoldenSignal(),
+	}
+
+	if v, ok := n.GetProperties()[NotificationPropertyClusterId]; ok {
+		res[shared.OpniClusterAnnotation] = v
+	}
+	return res
+}
+
+func (n *Notification) GetRoutingGoldenSignal() string {
+	v, ok := n.GetProperties()[NotificationPropertyGoldenSignal]
+	if ok {
+		return v
+	}
+	return GoldenSignal_Custom.String()
+}
+
+func (a *AlertCondition) GetRoutingLabels() map[string]string {
+	return map[string]string{
+		shared.OpniSeverityLabel:       a.GetSeverity().String(),
+		shared.BackendConditionIdLabel: a.GetId(),
+		a.Namespace():                  a.GetId(),
+	}
+}
+
+func (a *AlertCondition) header() string {
+	// check custom user-set title
+	if ae := a.GetAttachedEndpoints(); ae != nil {
+		if ae.Details != nil {
+			if ae.Details.Title != "" {
+				return ae.Details.Title
+			}
+		}
+	}
+	return a.GetName()
+}
+
+func (a *AlertCondition) body() string {
+	// check custom user-set body
+	if ae := a.GetAttachedEndpoints(); ae != nil {
+		if ae.Details != nil {
+			if ae.Details.Title != "" {
+				return ae.Details.Body
+			}
+		}
+	}
+
+	// otherwise check description
+	if desc := a.GetDescription(); desc != "" {
+		return desc
+	}
+
+	// fallback on default descriptions based on alert type
+	if fallback := a.GetAlertType().body(); fallback != "" {
+		return fallback
+	}
+
+	return "Sorry, no alarm body available for this alert type"
+}
+
+func (a *AlertTypeDetails) body() string {
+	if a.GetSystem() != nil {
+		return "Agent disconnect"
+	}
+	if a.GetDownstreamCapability() != nil {
+		return "Downstream cluster capability"
+	}
+	if a.GetMonitoringBackend() != nil {
+		return "Monitoring backend"
+	}
+	if a.GetPrometheusQuery() != nil {
+		return "Prometheus query"
+	}
+	if a.GetKubeState() != nil {
+		return "Kube state"
+	}
+	if a.GetCpu() != nil {
+		return "CPU"
+	}
+	if a.GetMemory() != nil {
+		return "Memory"
+	}
+	if a.GetFs() != nil {
+		return "Filesystem"
+	}
+	return ""
+}
+
+func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
+	return map[string]string{
+		shared.OpniHeaderAnnotations:      a.header(),
+		shared.OpniBodyAnnotations:        a.body(),
+		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
+		shared.OpniAlarmNameAnnotation:    a.GetName(),
+		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
+	}
+}
+
+func (a *AlertCondition) GetRoutingGoldenSignal() string {
+	return a.GetGoldenSignal().String()
 }
 
 // stop-gap solution, until we move to the new versin of the API
@@ -125,45 +256,6 @@ func (a *AlertCondition) SetClusterId(clusterId *corev1.Reference) error {
 		return nil
 	}
 	return shared.WithInternalServerErrorf("AlertCondition could not find its clusterId")
-}
-
-func (a *AlertCondition) GetTriggerAnnotations(conditionId string) map[string]string {
-	res := map[string]string{}
-	res[shared.BackendConditionSeverityLabel] = a.GetSeverity().String()
-	res[shared.BackendConditionNameLabel] = a.GetName()
-	res[shared.BackendConditionIdLabel] = conditionId
-	res[shared.BackendConditionClusterIdLabel] = a.GetClusterId().Id
-	if a.GetAlertType().GetSystem() != nil {
-		res = lo.Assign(res, a.GetAlertType().GetSystem().GetTriggerAnnotations())
-	}
-	if a.GetAlertType().GetDownstreamCapability() != nil {
-		res = lo.Assign(res, a.GetAlertType().GetDownstreamCapability().GetTriggerAnnotations())
-	}
-	if a.GetAlertType().GetMonitoringBackend() != nil {
-		res = lo.Assign(res, a.GetAlertType().GetMonitoringBackend().GetTriggerAnnotations())
-	}
-	// prometheus query won't have specific template args
-	return res
-}
-
-func (a *AlertConditionSystem) GetTriggerAnnotations() map[string]string {
-	return map[string]string{
-		"disconnectTimeout": a.GetTimeout().String(),
-	}
-}
-
-func (a *AlertConditionDownstreamCapability) GetTriggerAnnotations() map[string]string {
-	return map[string]string{
-		"capabilitiesTracked": strings.Join(a.GetCapabilityState(), ","),
-		"unhealthyThreshold":  a.GetFor().String(),
-	}
-}
-
-func (a *AlertConditionMonitoringBackend) GetTriggerAnnotations() map[string]string {
-	return map[string]string{
-		"cortexComponents":   strings.Join(a.GetBackendComponents(), ","),
-		"unhealthyThreshold": a.GetFor().String(),
-	}
 }
 
 // noop

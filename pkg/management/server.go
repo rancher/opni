@@ -145,7 +145,7 @@ func NewServer(
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(
-			util.NewClientGrpcEntityCacher(nil).UnaryServerInterceptor(),
+			util.NewClientGrpcTtlCacher(nil).UnaryServerInterceptor(),
 			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)

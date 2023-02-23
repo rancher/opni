@@ -163,16 +163,19 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	}
 	lg.Debug("authenticated")
 
-	entityCacher := util.NewClientGrpcEntityCacher(
-		caching.NewInMemoryEntityCache("5Mi", 1*time.Minute),
+	entityCacher := util.NewClientGrpcTtlCacher(
+		caching.NewInMemoryGrpcTtlCache("5Mi", 1*time.Minute),
 	)
 
-	cachingInterceptor := util.NewClientGrpcEntityCacher(entityCacher)
+	cachingInterceptor := util.NewClientGrpcTtlCacher(entityCacher)
 
 	ts, err := totem.NewServer(
 		stream,
 		totem.WithName("gateway-client"),
-		totem.WithUnaryServerInterceptor(cachingInterceptor.UnaryServerInterceptor()),
+		totem.WithInterceptors(totem.InterceptorConfig{
+			Incoming: cachingInterceptor.UnaryServerInterceptor(),
+			Outgoing: cachingInterceptor.UnaryClientInterceptor(),
+		}),
 	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
@@ -214,9 +217,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 		}()
 	}
 
-	cc, errC := ts.Serve(
-		totem.WithUnaryClientInterceptor(cachingInterceptor.UnaryClientInterceptor()),
-	)
+	cc, errC := ts.Serve()
 	f := future.NewFromChannel(errC)
 	if f.IsSet() {
 		gc.logger.With(

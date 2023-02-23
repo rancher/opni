@@ -106,7 +106,7 @@ type HttpTtlCache interface {
 	Delete(key string)
 }
 
-type EntityCache interface {
+type GrpcTtlCache interface {
 	// getter for default cache's configuration
 	MaxAge() time.Duration
 

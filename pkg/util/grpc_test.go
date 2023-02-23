@@ -32,8 +32,8 @@ type cacheInterceptorConstructor func() util.GrpcCachingInterceptor
 var _ = BuildCachingInterceptorSuite(
 	"default grpc middleware",
 	func() util.GrpcCachingInterceptor {
-		return util.NewClientGrpcEntityCacher(
-			caching.NewInMemoryEntityCache("50Mi", defaultEvictionInterval),
+		return util.NewClientGrpcTtlCacher(
+			caching.NewInMemoryGrpcTtlCache("50Mi", defaultEvictionInterval),
 		)
 	},
 	func(buildCache cacheInterceptorConstructor) (
@@ -52,7 +52,7 @@ var _ = BuildCachingInterceptorSuite(
 		simpleServer := testgrpc.NewSimpleServer(defaultTtl)
 		objectServer := testgrpc.NewObjectServer(defaultTtl)
 
-		defaultListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", util.Must(freeport.GetFreePort())))
+		defaultListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", freeport.GetFreePort()))
 		Expect(err).To(Succeed())
 
 		server := grpc.NewServer(
@@ -101,7 +101,7 @@ var _ = BuildCachingInterceptorSuite(
 
 		aggregatorServer := testgrpc.NewAggregatorServer(defaultTtl, simpleClientAggregator, objectClientAggregator)
 
-		aggregatorListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", util.Must(freeport.GetFreePort())))
+		aggregatorListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", freeport.GetFreePort()))
 		Expect(err).To(Succeed())
 
 		server2 := grpc.NewServer(

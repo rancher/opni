@@ -1391,8 +1391,8 @@ func (e *EnvClientOptions) apply(opts ...EnvClientOption) {
 
 func WithClientCaching(memoryLimit string, maxAge time.Duration) EnvClientOption {
 	return func(o *EnvClientOptions) {
-		entityCacher := caching.NewInMemoryEntityCache(memoryLimit, time.Minute)
-		interceptor := util.NewClientGrpcEntityCacher(
+		entityCacher := caching.NewInMemoryGrpcTtlCache(memoryLimit, time.Minute)
+		interceptor := util.NewClientGrpcTtlCacher(
 			entityCacher,
 		)
 		o.dialOptions = append(o.dialOptions, grpc.WithChainUnaryInterceptor(

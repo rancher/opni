@@ -63,42 +63,42 @@ func NewInMemoryHttpTtlCache(
 	}
 }
 
-type InMemoryEntityCache struct {
-	*ccache.Cache
+type InMemoryGrpcTtlCache struct {
+	cache *ccache.Cache
 
 	maxAge time.Duration
 	// expired is a channel that is used to notify the cache
 	// that an item has to be delete
 }
 
-func (i InMemoryEntityCache) MaxAge() time.Duration {
+func (i InMemoryGrpcTtlCache) MaxAge() time.Duration {
 	return i.maxAge
 }
 
-func (i InMemoryEntityCache) Get(key string) (req proto.Message, ok bool) {
-	item := i.Cache.Get(key)
+func (i InMemoryGrpcTtlCache) Get(key string) (req proto.Message, ok bool) {
+	item := i.cache.Get(key)
 	if item == nil || item.Expired() {
-		i.Cache.Delete(key)
+		i.cache.Delete(key)
 		return nil, false
 	}
 
 	return item.Value().(proto.Message), true
 }
 
-func (i InMemoryEntityCache) Set(key string, req proto.Message, ttl time.Duration) {
-	i.Cache.Set(key, req, ttl)
+func (i InMemoryGrpcTtlCache) Set(key string, req proto.Message, ttl time.Duration) {
+	i.cache.Set(key, req, ttl)
 }
 
-func (i InMemoryEntityCache) Delete(key string) {
-	i.Cache.Delete(key)
+func (i InMemoryGrpcTtlCache) Delete(key string) {
+	i.cache.Delete(key)
 }
 
-var _ storage.EntityCache = (*InMemoryEntityCache)(nil)
+var _ storage.GrpcTtlCache = (*InMemoryGrpcTtlCache)(nil)
 
-func NewInMemoryEntityCache(
+func NewInMemoryGrpcTtlCache(
 	memoryLimit string,
 	maxAge time.Duration,
-) *InMemoryEntityCache {
+) *InMemoryGrpcTtlCache {
 	q, err := resource.ParseQuantity(memoryLimit)
 	if err != nil {
 		panic(err)
@@ -106,8 +106,8 @@ func NewInMemoryEntityCache(
 	memoryLimitInt := q.Value()
 
 	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitInt).ItemsToPrune(15))
-	return &InMemoryEntityCache{
-		Cache:  ttlCache,
+	return &InMemoryGrpcTtlCache{
+		cache:  ttlCache,
 		maxAge: maxAge,
 	}
 }

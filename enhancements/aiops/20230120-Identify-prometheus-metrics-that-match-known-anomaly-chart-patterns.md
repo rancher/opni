@@ -20,7 +20,8 @@ The 2 types of pre-defined patterns:
 * No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
-![Flow chart](https://user-images.githubusercontent.com/4568163/220777699-1dca2286-4ed0-4d35-9a39-5029415ecc95.png)
+![Flow chart](https://user-images.githubusercontent.com/4568163/220794014-5e4b70d2-94f5-451d-9e68-f5b27e1e2a24.png)
+
 
 * Pattern classification process. 
 	a. A simple metric anomaly detection algorithm, that predicts every metric either normal or anomaly. An example method is Kolmogorov-Smirnov test.
@@ -29,8 +30,7 @@ The 2 types of pre-defined patterns:
 * Metric data collection. Data will be pulled from Cortex as chunks. Likely it would require data from last a few hours before an outage.
 * Back-end apis for frontend to connect to.
 * UI. 
-	a. User would need to manually trigger this feature, so there needs to buttons attached to each alerts to trigger this analysis.
-	b. The analyse report should be visualized in UI.
+	- Admin Dashboard. 
 
 ## Acceptance criteria: 
 * Pattern classification accuracy should be good. Threshold to be decided. 

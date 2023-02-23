@@ -485,6 +485,51 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Minute*2, time.Second*30)
 				})
 
+				It("should be able to list opni messages", func() {
+					Eventually(func() int {
+						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{})
+						if err != nil {
+							return 0
+						}
+						return len(list.Items)
+					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
+
+					By("verifying we enforce limits")
+					list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
+						Limit: lo.ToPtr(int32(1)),
+					})
+					Expect(err).To(Succeed())
+					Expect(len(list.Items)).To(Equal(1))
+				})
+
+				It("should be able to list opni alarm messages", func() {
+					Eventually(func() int {
+						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
+							TypeFilters: []alertingv1.MessageType{
+								alertingv1.MessageType_TypeAlarm,
+							},
+						})
+						if err != nil {
+							return 0
+						}
+						return len(list.Items)
+					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
+				})
+
+				It("should be able to list opni notification messages", func() {
+					Eventually(func() int {
+						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
+							TypeFilters: []alertingv1.MessageType{
+								alertingv1.MessageType_TypeNotification,
+							},
+						})
+						if err != nil {
+							return 0
+						}
+						return len(list.Items)
+					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
+				})
+
 				It("should return warnings when trying to edit/delete alert endpoints that are involved in conditions", func() {
 					webhooks := lo.Uniq(lo.Flatten(lo.Values(involvedDisconnects)))
 					Expect(len(webhooks)).To(BeNumerically(">", 0))

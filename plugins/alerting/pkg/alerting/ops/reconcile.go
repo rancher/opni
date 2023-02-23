@@ -3,9 +3,12 @@ package ops
 import (
 	"context"
 	"fmt"
+	"path"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
+	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc/codes"
@@ -13,6 +16,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )
+
+func cacheEndpointToWebhook(endpoint string) string {
+	return fmt.Sprintf("http://%s", path.Join(endpoint, shared.AlertingDefaultHookName))
+}
 
 func (a *AlertingOpsNode) ConnectRemoteSyncer(
 	req *alertops.ConnectRequest,
@@ -76,6 +83,16 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 			if status.State != alertops.InstallState_Installed {
 				continue
 			}
+			options, err := a.GetRuntimeOptions(ctx)
+			if err != nil {
+				lg.Warnf("skipping periodic sync due to unaivalable runtime options: %s", err)
+				continue
+			}
+			endpoint, err := a.GetAvailableCacheEndpoint(ctx, &options)
+			if err != nil {
+				lg.Warnf("skipping periodic sync due to unaivalable cache endpoint: %s", err)
+				continue
+			}
 			lg.Info("Running periodic sync for alerting")
 			go func() {
 				a.syncMu.Lock()
@@ -87,7 +104,9 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 					return
 				}
-				routerKeys, err := clientSet.Sync(ctx)
+				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
+					cacheEndpointToWebhook(endpoint),
+				))
 				if err != nil {
 					lg.Errorf("failed to sync configuration in alerting clientset %s", err)
 				}
@@ -100,6 +119,22 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 		case <-longTicker.C:
 			lg.Info("Running long periodic sync for alerting")
 			// forcibly recalculates the hash
+			status, err := a.GetClusterStatus(ctx, &emptypb.Empty{})
+			if err != nil {
+				lg.Warnf("skipping periodic sync due to status error: %s", err)
+				continue
+			}
+			if status.State != alertops.InstallState_Installed {
+				continue
+			}
+			options, err := a.GetRuntimeOptions(ctx)
+			if err != nil {
+				continue
+			}
+			endpoint, err := a.GetAvailableCacheEndpoint(ctx, &options)
+			if err != nil {
+				continue
+			}
 			go func() {
 				a.syncMu.Lock()
 				defer a.syncMu.Unlock()
@@ -110,7 +145,9 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 					return
 				}
-				if err := clientSet.ForceSync(ctx); err != nil {
+				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
+					cacheEndpointToWebhook(endpoint),
+				)); err != nil {
 					lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
 					return
 				}

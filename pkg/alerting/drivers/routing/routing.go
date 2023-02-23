@@ -43,6 +43,7 @@ type ProductionConfigSyncer interface {
 type RoutingIdentifer interface {
 	HasLabels(routingId string) []*labels.Matcher
 	HasReceivers(routingId string) []string
+	SetDefaultReceiver(endpoint string)
 }
 
 // OpniRouting Responsible for handling the mapping of ids
@@ -218,6 +219,10 @@ func (o *OpniRouterV1) HasReceivers(routingId string) []string {
 		}
 	}
 	return []string{}
+}
+
+func (o *OpniRouterV1) SetDefaultReceiver(endpoint string) {
+	o.HookEndpoint = endpoint
 }
 
 func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {

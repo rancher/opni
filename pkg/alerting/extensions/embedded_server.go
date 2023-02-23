@@ -194,7 +194,7 @@ func (e *EmbeddedServer) HandleWebhook(wr http.ResponseWriter, req *http.Request
 	wr.WriteHeader(http.StatusOK)
 }
 
-func writeResponse(wr http.ResponseWriter, res *alertingv1.ListNotificationResponse) {
+func writeResponse(wr http.ResponseWriter, res *alertingv1.ListMessageResponse) {
 	wr.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(wr).Encode(res); err != nil {
 		wr.WriteHeader(http.StatusInternalServerError)
@@ -203,7 +203,7 @@ func writeResponse(wr http.ResponseWriter, res *alertingv1.ListNotificationRespo
 }
 
 func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *http.Request) {
-	var listRequest alertingv1.ListNotificationRequest
+	var listRequest alertingv1.ListMessageRequest
 	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
 		wr.WriteHeader(http.StatusBadRequest)
 		return
@@ -214,7 +214,7 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 	}
 
 	foundAlarms := int32(0)
-	res := alertingv1.ListNotificationResponse{
+	res := alertingv1.ListMessageResponse{
 		Items: make([]*alertingv1.Notification, 0),
 	}
 	goldenSignals := lo.Associate(listRequest.GoldenSignalFilters, func(s alertingv1.GoldenSignal) (string, struct{}) {
@@ -247,7 +247,7 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 			}
 			res.Items = append(res.Items, msg.(*alertingv1.Notification))
 			foundAlarms++
-			if foundAlarms > *listRequest.Limit {
+			if foundAlarms >= *listRequest.Limit {
 				writeResponse(wr, &res)
 				return
 			}
@@ -269,7 +269,7 @@ func (e *EmbeddedServer) HandleListNotifications(wr http.ResponseWriter, req *ht
 			}
 			res.Items = append(res.Items, msg.(*alertingv1.Notification))
 			foundAlarms++
-			if foundAlarms > *listRequest.Limit {
+			if foundAlarms >= *listRequest.Limit {
 				writeResponse(wr, &res)
 				return
 			}

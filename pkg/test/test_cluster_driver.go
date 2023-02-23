@@ -275,6 +275,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 	if len(l.managedInstances) > 1 {
 		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
+		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
 	l.ClusterConfiguration = configuration
 
@@ -347,6 +348,8 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
+	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
+
 	for _, subscriber := range l.Subscribers {
 		subscriber <- shared.AlertingClusterNotification{
 			A: true,
@@ -485,6 +488,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	return AlertingServerUnit{
 		AlertManagerPort: webPort,
 		ClusterPort:      clusterPort,
+		OpniPort:         opniPort,
 		Ctx:              ctxCa,
 		CancelFunc:       cancelFunc,
 	}

@@ -242,13 +242,7 @@ func run(args []string) int {
 	ctxCa, cancelCa := context.WithCancel(context.Background())
 	defer cancelCa()
 	if opniAddr != nil && *opniAddr != "" {
-		opniSrv := extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr)
-		defer func() {
-			err := opniSrv.Shutdown(context.TODO())
-			if err != nil {
-				panic(err)
-			}
-		}()
+		extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr)
 	}
 
 	logger := promlog.New(&promlogConfig)

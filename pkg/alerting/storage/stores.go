@@ -31,7 +31,7 @@ type AlertingClientSet interface {
 
 // HashRing Hash ring uniquely maps groups of objects to a (key, hash) pairs
 type HashRing interface {
-	CalculateHash(ctx context.Context, key string) error
+	CalculateHash(ctx context.Context, key string, syncOptions *opts.SyncOptions) error
 	GetHash(ctx context.Context, key string) string
 	// Sync reads from the client set and updates the router storage in the appropriate way
 	// It returns the router keys that have changed.

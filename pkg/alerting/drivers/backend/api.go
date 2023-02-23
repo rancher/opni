@@ -18,6 +18,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -183,6 +184,12 @@ func WithPostResolveAlertBody(conditionId string, labels, annotations map[string
 	}
 }
 
+func WithPostListMessagesBody(req *alertingv1.ListMessageRequest) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		o.body = util.Must(json.Marshal(req))
+	}
+}
+
 type AlertManagerAPI struct {
 	*AlertManagerApiOptions
 	Endpoint string
@@ -320,6 +327,18 @@ func NewAlertManagerOpniConfigClient(ctx context.Context, endpoint string, opts 
 		Endpoint:               endpoint,
 		Verb:                   GET,
 		Route:                  "/config",
+		ctx:                    ctx,
+	}
+}
+
+func NewAlertManagerOpniMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return &AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Verb:                   POST,
+		Route:                  "/list",
 		ctx:                    ctx,
 	}
 }

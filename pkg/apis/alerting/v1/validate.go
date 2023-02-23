@@ -513,12 +513,12 @@ func (n *Notification) Validate() error {
 	return nil
 }
 
-func (l *ListNotificationRequest) Validate() error {
+func (l *ListMessageRequest) Validate() error {
 	if l.Limit == nil {
 		l.Limit = lo.ToPtr(int32(100))
 	}
 	if l.TypeFilters == nil {
-		l.TypeFilters = []NotificationType{}
+		l.TypeFilters = []MessageType{}
 	}
 	if l.GoldenSignalFilters == nil {
 		l.GoldenSignalFilters = []GoldenSignal{}
@@ -528,18 +528,36 @@ func (l *ListNotificationRequest) Validate() error {
 	}
 
 	if len(l.TypeFilters) == 0 {
-		for _, t := range NotificationType_value {
-			l.TypeFilters = append(l.TypeFilters, NotificationType(t))
+		for _, t := range MessageType_value {
+			l.TypeFilters = append(l.TypeFilters, MessageType(t))
+		}
+	} else {
+		for _, t := range l.TypeFilters {
+			if _, ok := MessageType_name[int32(t)]; !ok {
+				return validation.Errorf("invalid message type %s", t.String())
+			}
 		}
 	}
 	if len(l.GoldenSignalFilters) == 0 {
 		for _, t := range GoldenSignal_value {
 			l.GoldenSignalFilters = append(l.GoldenSignalFilters, GoldenSignal(t))
 		}
+	} else {
+		for _, t := range l.GoldenSignalFilters {
+			if _, ok := GoldenSignal_name[int32(t)]; !ok {
+				return validation.Errorf("invalid golden signal type %s", t.String())
+			}
+		}
 	}
 	if len(l.SeverityFilters) == 0 {
 		for _, t := range OpniSeverity_value {
 			l.SeverityFilters = append(l.SeverityFilters, OpniSeverity(t))
+		}
+	} else {
+		for _, t := range l.SeverityFilters {
+			if _, ok := OpniSeverity_name[int32(t)]; !ok {
+				return validation.Errorf("invalid severity type %s", t.String())
+			}
 		}
 	}
 	return nil

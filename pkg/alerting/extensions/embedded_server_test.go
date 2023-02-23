@@ -51,7 +51,7 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	listMsg := func(client *http.Client, listReq *alertingv1.ListNotificationRequest, opniPort int) *alertingv1.ListNotificationResponse {
+	listMsg := func(client *http.Client, listReq *alertingv1.ListMessageRequest, opniPort int) *alertingv1.ListMessageResponse {
 		content, err := json.Marshal(listReq)
 		Expect(err).NotTo(HaveOccurred())
 		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/list"), bytes.NewReader(content))
@@ -59,7 +59,7 @@ func BuildEmbeddedServerNotificationTests(
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		var listResp *alertingv1.ListNotificationResponse
+		var listResp *alertingv1.ListMessageResponse
 		err = json.NewDecoder(resp.Body).Decode(&listResp)
 		Expect(err).NotTo(HaveOccurred())
 		return listResp
@@ -124,14 +124,14 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(webPort).NotTo(BeZero())
 				Expect(opniPort).NotTo(BeZero())
 
-				listReq := &alertingv1.ListNotificationRequest{}
+				listReq := &alertingv1.ListMessageRequest{}
 				respList := listMsg(client, listReq, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 			})
 
 			Specify("it should dedupe frequency-based persistenced based on group keys and id keys based on what is available", func() {
-				listRequest := &alertingv1.ListNotificationRequest{
+				listRequest := &alertingv1.ListMessageRequest{
 					SeverityFilters: []alertingv1.OpniSeverity{
 						alertingv1.OpniSeverity_Warning,
 					},

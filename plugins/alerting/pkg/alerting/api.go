@@ -2,6 +2,9 @@ package alerting
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -9,8 +12,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -144,8 +145,42 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	return &emptypb.Empty{}, apiNode.DoRequest()
 }
 
-func (p *Plugin) ListNotifications(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+func (p *Plugin) ListMessages(ctx context.Context, req *alertingv1.ListMessageRequest) (*alertingv1.ListMessageResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// FIXME: the messages returned by this endpoint will not always be consistent
+	// within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
+	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &alertingv1.ListMessageResponse{}
+	apiNode := backend.NewAlertManagerOpniMessagesClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(func(incoming *http.Response) error {
+			defer incoming.Body.Close()
+			if incoming.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
+			}
+			return json.NewDecoder(incoming.Body).Decode(resp)
+		}),
+		backend.WithPostListMessagesBody(req),
+		backend.WithDefaultRetrier(),
+	)
+
+	if err := apiNode.DoRequest(); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {

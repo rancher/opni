@@ -46,10 +46,10 @@ The 2 types of pre-defined patterns:
 		* Model inferencing: the pre-trained model will be downloaded from S3 and serve for inferencing. No GPU is needed for inferencing.
 		* Model details: 1D-[CNN](https://en.wikipedia.org/wiki/Convolutional_neural_network) deep learning model, 1D means its input is 1D time-series data. This model will consist of 3 conv1d layers with max pooling, 2 fully-connected layers and softmax layer at last. 
 		* Model input: A list of abnormal metrics from anomaly detection step, each metric with 60 data points.
-		* What to do: run inferencing on each metric data to classify it into one of the pre-defined patterns.
+		* What to do: Apply [MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html) to normalize input data points, then run inferencing on each normalized metric data to classify it into one of the pre-defined patterns.
 		* Model output: A list of abnormal metrics with their classified patterns.
 
-* The insights report: A summary of the metric-analysis results. The metadata to include in the report:
+* The insights report: A summary of the metric-analysis results, saved to Nats KV storage. The metadata to include in the report:
 	- ID: assigned in the /request API.
 	- cluster ID/name: the downstream cluster this analysis was applied on.
 	- request time: the time this request was submitted.
@@ -60,10 +60,14 @@ The 2 types of pre-defined patterns:
 * Cortex, collect metric data. Send a request to Cortex to pull related metric data.
 
 ## Acceptance criteria: 
-* Pattern classification accuracy should be good. Threshold to be decided. 
-* Analyse report generated correctly.
-* Pulling metrics data should be efficient.
-* UI. Buttons to trigger this new feature work as expected and the analyse report gets visualized.
+* UI, Admin Dashboard, metric insights page. 
+ 	- Buttons to trigger this new feature work as expected.
+ 	- A table to display all submitted request and their corresponding report. Click on each item to show the report. Attach a link to the generated grafana dashboards.
+* Metric-analysis service:
+	- all the backend APIs should work as expected.
+	- pattern classification model has an accuracy above 98%. Pre-trained model downloaded from S3 and serve correctly, 
+* Analyse report generated correctly, with all the required metadata fields and information, save successfully to Nats KV storage.
+
 
 ## Supporting documents: 
 https://netman.aiops.org/wp-content/uploads/2021/10/wch_ISSRE-1.pdf. 

@@ -23,7 +23,7 @@ In this case, the Opni Admin Dashboard will make a request to the gpu_info endpo
 
 Scenario 2: GPU is available in central Opni cluster
 
-The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), a check will need to be made to determine if the log anomaly deployments are already running for the GPU services through the Kubernetes Go library. 
+The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), the following deployments will be enabled on the cluster. 
 
 These deployments are:
 * opni-svc-preprocessing
@@ -33,7 +33,7 @@ These deployments are:
 * opni-svc-inference
 * opni-svc-opensearch-update
 
-If any of these deployment are not currently running within the namespace specified by the user to run Opni, the AIOps gateway plugin should launch these services. When the deployments are launched, within the Opni Admin Dashboard UI, a button will appear that says "Disable GPU Services". This button when hovering over it will explain that if the user ever decides to remove a GPU from the cluster, then they can first click on the button which will clean up the GPU services from the cluster and then the user can detach the GPU node from the cluster. The button will specifically clean up these deployments within the namespace specified by the user to run Opni:
+ When the deployments are launched, within the Opni Admin Dashboard UI, a button will appear that says "Disable GPU Services". This button when hovering over it will explain that if the user ever decides to remove a GPU from the cluster, then they can first click on the button which will clean up the GPU services from the cluster and then the user can detach the GPU node from the cluster. The button will specifically clean up these deployments within the namespace specified by the user to run Opni:
 * opni-workload-drain
 * opni-svc-training-controller
 * opni-svc-gpu-controller

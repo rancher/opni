@@ -524,7 +524,7 @@ func ExpectConfigNotEqual(c1, c2 *config.Config, name ...string) {
 }
 
 // list request to expect length of notifications
-type RoutingDatasetKV = lo.Tuple2[*alertingv1.ListMessageRequest, int]
+type RoutingDatasetKV = lo.Tuple2[*alertingv1.ListNotificationRequest, int]
 
 type RoutableDataset struct {
 	Routables     []interfaces.Routable
@@ -553,7 +553,7 @@ func NewRoutableDataset() *RoutableDataset {
 	return &RoutableDataset{
 		Routables: r,
 		ExpectedPairs: []RoutingDatasetKV{
-			{A: &alertingv1.ListMessageRequest{}, B: len(r)},
+			{A: &alertingv1.ListNotificationRequest{}, B: len(r)},
 		},
 	}
 }

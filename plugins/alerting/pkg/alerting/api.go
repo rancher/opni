@@ -13,7 +13,9 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // --- Trigger ---
@@ -147,7 +149,7 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	return &emptypb.Empty{}, apiNode.DoRequest()
 }
 
-func (p *Plugin) ListMessages(ctx context.Context, req *alertingv1.ListMessageRequest) (*alertingv1.ListMessageResponse, error) {
+func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -164,7 +166,7 @@ func (p *Plugin) ListMessages(ctx context.Context, req *alertingv1.ListMessageRe
 	}
 
 	resp := &alertingv1.ListMessageResponse{}
-	apiNode := backend.NewAlertManagerOpniMessagesClient(
+	apiNode := backend.NewListNotificationMessagesClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(p.Logger),
@@ -175,10 +177,59 @@ func (p *Plugin) ListMessages(ctx context.Context, req *alertingv1.ListMessageRe
 			}
 			return json.NewDecoder(incoming.Body).Decode(resp)
 		}),
-		backend.WithPostListMessagesBody(req),
+		backend.WithPostProto(req),
 		backend.WithDefaultRetrier(),
 	)
 
+	if err := apiNode.DoRequest(); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// FIXME: the messages returned by this endpoint will not always be consistent
+	// within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
+	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
+	cond, err := p.GetAlertCondition(ctx, &corev1.Reference{
+		Id: req.ConditionId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	consistencyInterval := durationpb.New(time.Second * 30)
+	if cond.AttachedEndpoints != nil {
+		consistencyInterval = cond.AttachedEndpoints.InitialDelay
+	}
+	req.End = timestamppb.New(req.End.AsTime().Add(consistencyInterval.AsDuration()))
+
+	resp := &alertingv1.ListMessageResponse{}
+	apiNode := backend.NewListAlarmMessagesClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(func(incoming *http.Response) error {
+			defer incoming.Body.Close()
+			if incoming.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
+			}
+			return json.NewDecoder(incoming.Body).Decode(resp)
+		}),
+		backend.WithPostProto(req),
+		backend.WithDefaultRetrier(),
+	)
 	if err := apiNode.DoRequest(); err != nil {
 		return nil, err
 	}

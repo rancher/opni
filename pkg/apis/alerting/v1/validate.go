@@ -513,30 +513,15 @@ func (n *Notification) Validate() error {
 	return nil
 }
 
-func (l *ListMessageRequest) Validate() error {
-	if l.Limit == nil {
+func (l *ListNotificationRequest) Validate() error {
+	if l.Limit == nil || *l.Limit == 10 {
 		l.Limit = lo.ToPtr(int32(100))
-	}
-	if l.TypeFilters == nil {
-		l.TypeFilters = []MessageType{}
 	}
 	if l.GoldenSignalFilters == nil {
 		l.GoldenSignalFilters = []GoldenSignal{}
 	}
 	if l.SeverityFilters == nil {
 		l.SeverityFilters = []OpniSeverity{}
-	}
-
-	if len(l.TypeFilters) == 0 {
-		for _, t := range MessageType_value {
-			l.TypeFilters = append(l.TypeFilters, MessageType(t))
-		}
-	} else {
-		for _, t := range l.TypeFilters {
-			if _, ok := MessageType_name[int32(t)]; !ok {
-				return validation.Errorf("invalid message type %s", t.String())
-			}
-		}
 	}
 	if len(l.GoldenSignalFilters) == 0 {
 		for _, t := range GoldenSignal_value {
@@ -559,6 +544,19 @@ func (l *ListMessageRequest) Validate() error {
 				return validation.Errorf("invalid severity type %s", t.String())
 			}
 		}
+	}
+	return nil
+}
+
+func (l *ListAlarmMessageRequest) Validate() error {
+	if l.Limit == nil || *l.Limit == 0 {
+		l.Limit = lo.ToPtr(int32(3))
+	}
+	if l.ConditionId == "" {
+		return validation.Error("field conditionId must be set")
+	}
+	if l.Start.AsTime().After(l.End.AsTime()) {
+		return validation.Error("start time must be before end time")
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -20,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	// add profiles
 	_ "net/http/pprof"
@@ -31,6 +33,13 @@ const (
 )
 
 var defaultSeverity = alertingv1.OpniSeverity_Info.String()
+
+func truncateMessageContent(content string) string {
+	if len(content) > 1000 {
+		content = content[:1000] + "<truncated>"
+	}
+	return content
+}
 
 type messageMetadata struct {
 	uuid           string
@@ -121,16 +130,77 @@ func ParseIcomingWebhookMessage(req *http.Request) (config.WebhookMessage, error
 	return wMsg, nil
 }
 
-// cacheKey
+// compoudKey
 // conditionId is just an opaque id attached to a message.
 // In the case of alarms it uniquely identifies an alarm instance, while for messages
 // it uniquely identifies a message instance -- which means that the same message(s)
 // that are not deduped properly will have different conditionIds
-func (e *EmbeddedServer) cacheKey(groupKey string, conditionId string) string {
+func (e *EmbeddedServer) compoundKey(groupKey string, conditionId string) string {
 	if groupKey == "" {
 		return conditionId
 	}
 	return groupKey
+}
+
+func (e *EmbeddedServer) cacheAlarm(msgMeta messageMetadata, alert config.Alert) error {
+	cache, ok := e.alarmCache[msgMeta.severity]
+	if !ok {
+		return fmt.Errorf("no cache for severity '%d'", msgMeta.severity)
+	}
+	updateObj := []*alertingv1.MessageInstance{}
+	if data, ok := cache.Get(msgMeta.uuid); ok {
+		updateObj = data.([]*alertingv1.MessageInstance)
+	}
+	updateObj = append(
+		updateObj,
+		&alertingv1.MessageInstance{
+			At: timestamppb.Now(),
+			Notification: &alertingv1.Notification{
+				Title: truncateMessageContent(
+					lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle),
+				),
+				Body: truncateMessageContent(
+					lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody),
+				),
+				Properties: map[string]string{
+					alertingv1.NotificationPropertySeverity: lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
+					alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(
+						alert.Annotations,
+						alertingv1.NotificationPropertyGoldenSignal,
+						alertingv1.GoldenSignal_Custom.String(),
+					),
+				},
+			},
+		},
+	)
+	if len(updateObj) > 10 {
+		updateObj = updateObj[1:]
+	}
+	cache.Add(msgMeta.uuid, updateObj)
+	return nil
+}
+
+func (e *EmbeddedServer) cacheNotification(msgMeta messageMetadata, alert config.Alert) error {
+	cache, ok := e.notificationCache[msgMeta.severity]
+	if !ok {
+		return fmt.Errorf("no cache for severity '%d'", msgMeta.severity)
+	}
+	cache.Add(e.compoundKey(msgMeta.groupDedupeKey, msgMeta.uuid), &alertingv1.MessageInstance{
+		At: timestamppb.Now(),
+		Notification: &alertingv1.Notification{
+			Title: truncateMessageContent(lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle)),
+			Body:  truncateMessageContent(lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody)),
+			Properties: map[string]string{
+				alertingv1.NotificationPropertySeverity: lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
+				alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(
+					alert.Annotations,
+					shared.OpniGoldenSignalAnnotation,
+					alertingv1.GoldenSignal_Custom.String(),
+				),
+			},
+		},
+	})
+	return nil
 }
 
 // handleWebhook handles caching the incoming webhook messages
@@ -167,36 +237,17 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 		}
 
 		if isAlarmMessage(alert.Annotations) {
-			cache, ok := e.alarmCache[msgMeta.severity]
-			if !ok {
+			if err := e.cacheAlarm(msgMeta, alert); err != nil {
 				wr.WriteHeader(http.StatusPreconditionFailed)
 				return
 			}
-			cache.Add(e.cacheKey(msgMeta.groupDedupeKey, msgMeta.uuid), &alertingv1.Notification{
-				Title: lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle),
-				Body:  lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody),
-				Properties: map[string]string{
-					alertingv1.NotificationPropertySeverity:     lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
-					alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(alert.Annotations, shared.OpniGoldenSignalAnnotation, alertingv1.OpniSeverity_Info.String()),
-				},
-			})
-			wr.WriteHeader(http.StatusOK)
-			return
+		} else {
+			if err := e.cacheNotification(msgMeta, alert); err != nil {
+				wr.WriteHeader(http.StatusPreconditionFailed)
+				return
+			}
 		}
 
-		cache, ok := e.notificationCache[msgMeta.severity]
-		if !ok {
-			wr.WriteHeader(http.StatusPreconditionFailed)
-			return
-		}
-		cache.Add(e.cacheKey(msgMeta.groupDedupeKey, msgMeta.uuid), &alertingv1.Notification{
-			Title: lo.ValueOr(alert.Annotations, shared.OpniHeaderAnnotations, missingTitle),
-			Body:  lo.ValueOr(alert.Annotations, shared.OpniBodyAnnotations, missingBody),
-			Properties: map[string]string{
-				alertingv1.NotificationPropertySeverity:     lo.ToPtr(alertingv1.OpniSeverity(msgMeta.severity)).String(),
-				alertingv1.NotificationPropertyGoldenSignal: lo.ValueOr(alert.Annotations, shared.OpniGoldenSignalAnnotation, alertingv1.GoldenSignal_Custom.String()),
-			},
-		})
 	}
 	wr.WriteHeader(http.StatusOK)
 }
@@ -210,7 +261,63 @@ func writeResponse(wr http.ResponseWriter, res *alertingv1.ListMessageResponse) 
 }
 
 func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *http.Request) {
-	var listRequest alertingv1.ListMessageRequest
+	var listRequest alertingv1.ListNotificationRequest
+	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
+		e.logger.Error(err)
+		wr.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := listRequest.Validate(); err != nil {
+		e.logger.Error(err)
+		wr.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	found := int32(0)
+	res := alertingv1.ListMessageResponse{
+		Items: make([]*alertingv1.MessageInstance, 0),
+	}
+	goldenSignals := lo.Associate(listRequest.GoldenSignalFilters, func(s alertingv1.GoldenSignal) (string, struct{}) {
+		return s.String(), struct{}{}
+	})
+
+	traverseMessageKeys := lo.Map(listRequest.SeverityFilters, func(s alertingv1.OpniSeverity, _ int) int32 {
+		return int32(s)
+	})
+	// traverse by descending severity
+	slices.SortFunc(traverseMessageKeys, func(a, b int32) bool {
+		return a > b
+	})
+
+	// traverse by priority first
+	for _, severityKey := range traverseMessageKeys {
+		for _, key := range e.notificationCache[severityKey].Keys() {
+			msg, _ := e.notificationCache[severityKey].Get(key)
+			notif := msg.(*alertingv1.MessageInstance)
+			properties := notif.Notification.Properties
+			if properties == nil {
+				properties = map[string]string{}
+			}
+			if _, ok := goldenSignals[lo.ValueOr(
+				properties,
+				alertingv1.NotificationPropertyGoldenSignal,
+				alertingv1.OpniSeverity_Info.String(),
+			)]; !ok {
+				continue
+			}
+			res.Items = append(res.Items, msg.(*alertingv1.MessageInstance))
+			found++
+			if found >= *listRequest.Limit {
+				writeResponse(wr, &res)
+				return
+			}
+		}
+	}
+	writeResponse(wr, &res)
+}
+
+func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Request) {
+	var listRequest alertingv1.ListAlarmMessageRequest
 	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
 		wr.WriteHeader(http.StatusBadRequest)
 		return
@@ -219,66 +326,32 @@ func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *ht
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	foundAlarms := int32(0)
+	// found := int32(0)
 	res := alertingv1.ListMessageResponse{
-		Items: make([]*alertingv1.Notification, 0),
+		Items: make([]*alertingv1.MessageInstance, 0),
 	}
-	goldenSignals := lo.Associate(listRequest.GoldenSignalFilters, func(s alertingv1.GoldenSignal) (string, struct{}) {
-		return s.String(), struct{}{}
-	})
 
-	traverseAlarmKeys := lo.Map(listRequest.SeverityFilters, func(s alertingv1.OpniSeverity, _ int) int32 {
-		return int32(s)
-	})
+	traverseMessageKeys := lo.Values(alertingv1.OpniSeverity_value)
 	// traverse by descending severity
-	slices.SortFunc(traverseAlarmKeys, func(a, b int32) bool {
+	slices.SortFunc(traverseMessageKeys, func(a, b int32) bool {
 		return a > b
 	})
+	found := int32(0)
 
-	// traverse by priority first
-	for _, severityKey := range traverseAlarmKeys {
-		for _, key := range e.alarmCache[severityKey].Keys() {
-			msg, _ := e.alarmCache[severityKey].Get(key)
-			notif := msg.(*alertingv1.Notification)
-			properties := notif.Properties
-			if properties == nil {
-				properties = map[string]string{}
-			}
-			if _, ok := goldenSignals[lo.ValueOr(
-				properties,
-				alertingv1.NotificationPropertyGoldenSignal,
-				alertingv1.OpniSeverity_Info.String(),
-			)]; !ok {
-				continue
-			}
-			res.Items = append(res.Items, msg.(*alertingv1.Notification))
-			foundAlarms++
-			if foundAlarms >= *listRequest.Limit {
-				writeResponse(wr, &res)
-				return
-			}
-		}
-
-		for _, key := range e.notificationCache[severityKey].Keys() {
-			msg, _ := e.notificationCache[severityKey].Get(key)
-			notif := msg.(*alertingv1.Notification)
-			properties := notif.Properties
-			if properties == nil {
-				properties = map[string]string{}
-			}
-			if _, ok := goldenSignals[lo.ValueOr(
-				properties,
-				alertingv1.NotificationPropertyGoldenSignal,
-				alertingv1.OpniSeverity_Info.String(),
-			)]; !ok {
-				continue
-			}
-			res.Items = append(res.Items, msg.(*alertingv1.Notification))
-			foundAlarms++
-			if foundAlarms >= *listRequest.Limit {
-				writeResponse(wr, &res)
-				return
+	for _, severityKey := range traverseMessageKeys {
+		data, ok := e.alarmCache[severityKey].Get(listRequest.ConditionId)
+		if ok {
+			msgs := data.([]*alertingv1.MessageInstance)
+			for i := len(msgs) - 1; i >= 0; i-- {
+				if msgs[i].At.AsTime().After(listRequest.Start.AsTime()) &&
+					msgs[i].At.AsTime().Before(listRequest.End.AsTime()) {
+					res.Items = append(res.Items, msgs[i])
+				}
+				found++
+				if found >= *listRequest.Limit {
+					writeResponse(wr, &res)
+					return
+				}
 			}
 		}
 	}
@@ -298,7 +371,8 @@ func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server 
 	//	  request and 5xx response codes are assumed to be recoverable.
 	// therefore, non-recoverable errors should have error codes 3XX and 4XX
 	mux.HandleFunc(shared.AlertingDefaultHookName, es.handleWebhook)
-	mux.HandleFunc("/list", es.handleListNotifications)
+	mux.HandleFunc("/notifications/list", es.handleListNotifications)
+	mux.HandleFunc("/alarms/list", es.handleListAlarms)
 
 	hookServer := &http.Server{
 		// explicitly set this to 0.0.0.0 for test environment

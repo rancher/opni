@@ -26,7 +26,8 @@ type AlertNotificationsClient interface {
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	ResolveAlerts(ctx context.Context, in *ResolveAlertsRequest, opts ...grpc.CallOption) (*ResolveAlertsResponse, error)
 	PushNotification(ctx context.Context, in *Notification, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListMessages(ctx context.Context, in *ListMessageRequest, opts ...grpc.CallOption) (*ListMessageResponse, error)
+	ListNotifications(ctx context.Context, in *ListNotificationRequest, opts ...grpc.CallOption) (*ListMessageResponse, error)
+	ListAlarmMessages(ctx context.Context, in *ListAlarmMessageRequest, opts ...grpc.CallOption) (*ListMessageResponse, error)
 	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListRoutingRelationshipsResponse, error)
 }
 
@@ -65,9 +66,18 @@ func (c *alertNotificationsClient) PushNotification(ctx context.Context, in *Not
 	return out, nil
 }
 
-func (c *alertNotificationsClient) ListMessages(ctx context.Context, in *ListMessageRequest, opts ...grpc.CallOption) (*ListMessageResponse, error) {
+func (c *alertNotificationsClient) ListNotifications(ctx context.Context, in *ListNotificationRequest, opts ...grpc.CallOption) (*ListMessageResponse, error) {
 	out := new(ListMessageResponse)
-	err := c.cc.Invoke(ctx, "/alerting.AlertNotifications/ListMessages", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/alerting.AlertNotifications/ListNotifications", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertNotificationsClient) ListAlarmMessages(ctx context.Context, in *ListAlarmMessageRequest, opts ...grpc.CallOption) (*ListMessageResponse, error) {
+	out := new(ListMessageResponse)
+	err := c.cc.Invoke(ctx, "/alerting.AlertNotifications/ListAlarmMessages", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +100,8 @@ type AlertNotificationsServer interface {
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	ResolveAlerts(context.Context, *ResolveAlertsRequest) (*ResolveAlertsResponse, error)
 	PushNotification(context.Context, *Notification) (*emptypb.Empty, error)
-	ListMessages(context.Context, *ListMessageRequest) (*ListMessageResponse, error)
+	ListNotifications(context.Context, *ListNotificationRequest) (*ListMessageResponse, error)
+	ListAlarmMessages(context.Context, *ListAlarmMessageRequest) (*ListMessageResponse, error)
 	ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error)
 	mustEmbedUnimplementedAlertNotificationsServer()
 }
@@ -108,8 +119,11 @@ func (UnimplementedAlertNotificationsServer) ResolveAlerts(context.Context, *Res
 func (UnimplementedAlertNotificationsServer) PushNotification(context.Context, *Notification) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PushNotification not implemented")
 }
-func (UnimplementedAlertNotificationsServer) ListMessages(context.Context, *ListMessageRequest) (*ListMessageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListMessages not implemented")
+func (UnimplementedAlertNotificationsServer) ListNotifications(context.Context, *ListNotificationRequest) (*ListMessageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNotifications not implemented")
+}
+func (UnimplementedAlertNotificationsServer) ListAlarmMessages(context.Context, *ListAlarmMessageRequest) (*ListMessageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlarmMessages not implemented")
 }
 func (UnimplementedAlertNotificationsServer) ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoutingRelationships not implemented")
@@ -181,20 +195,38 @@ func _AlertNotifications_PushNotification_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertNotifications_ListMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListMessageRequest)
+func _AlertNotifications_ListNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNotificationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AlertNotificationsServer).ListMessages(ctx, in)
+		return srv.(AlertNotificationsServer).ListNotifications(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/alerting.AlertNotifications/ListMessages",
+		FullMethod: "/alerting.AlertNotifications/ListNotifications",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertNotificationsServer).ListMessages(ctx, req.(*ListMessageRequest))
+		return srv.(AlertNotificationsServer).ListNotifications(ctx, req.(*ListNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AlertNotifications_ListAlarmMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAlarmMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertNotificationsServer).ListAlarmMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/alerting.AlertNotifications/ListAlarmMessages",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertNotificationsServer).ListAlarmMessages(ctx, req.(*ListAlarmMessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -237,8 +269,12 @@ var AlertNotifications_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AlertNotifications_PushNotification_Handler,
 		},
 		{
-			MethodName: "ListMessages",
-			Handler:    _AlertNotifications_ListMessages_Handler,
+			MethodName: "ListNotifications",
+			Handler:    _AlertNotifications_ListNotifications_Handler,
+		},
+		{
+			MethodName: "ListAlarmMessages",
+			Handler:    _AlertNotifications_ListAlarmMessages_Handler,
 		},
 		{
 			MethodName: "ListRoutingRelationships",

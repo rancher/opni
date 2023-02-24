@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -487,47 +488,19 @@ func BuildAlertingClusterIntegrationTests(
 
 				It("should be able to list opni messages", func() {
 					Eventually(func() int {
-						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{})
+						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
 						if err != nil {
-							return 0
+							return -1
 						}
 						return len(list.Items)
 					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
 
 					By("verifying we enforce limits")
-					list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
+					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{
 						Limit: lo.ToPtr(int32(1)),
 					})
 					Expect(err).To(Succeed())
 					Expect(len(list.Items)).To(Equal(1))
-				})
-
-				It("should be able to list opni alarm messages", func() {
-					Eventually(func() int {
-						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
-							TypeFilters: []alertingv1.MessageType{
-								alertingv1.MessageType_TypeAlarm,
-							},
-						})
-						if err != nil {
-							return 0
-						}
-						return len(list.Items)
-					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
-				})
-
-				It("should be able to list opni notification messages", func() {
-					Eventually(func() int {
-						list, err := alertNotificationsClient.ListMessages(env.Context(), &alertingv1.ListMessageRequest{
-							TypeFilters: []alertingv1.MessageType{
-								alertingv1.MessageType_TypeNotification,
-							},
-						})
-						if err != nil {
-							return 0
-						}
-						return len(list.Items)
-					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
 				})
 
 				It("should return warnings when trying to edit/delete alert endpoints that are involved in conditions", func() {
@@ -565,24 +538,49 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should have a functional timeline", func() {
-					By("verifying the timeline shows only the firing conditions")
-					timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
-						LookbackWindow: durationpb.New(time.Minute * 5),
-					})
-					Expect(err).To(Succeed())
-					// Expect(len(timeline.GetItems())).To(Equal(len(involvedDisconnects)))
-
 					condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
 					Expect(err).To(Succeed())
 
-					Expect(timeline.GetItems()).To(HaveLen(len(condList.Items)))
-					for id, item := range timeline.GetItems() {
-						if slices.Contains(lo.Keys(involvedDisconnects), id) {
-							Expect(item.Windows).NotTo(HaveLen(0), "firing condition should show up on timeline, but does not")
-						} else {
-							Expect(item.Windows).To(HaveLen(0), "conditions that have not fired should not show up on timeline, but do")
+					// By("verifying the timeline shows only the firing conditions ")
+					Eventually(func() error {
+						timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
+							LookbackWindow: durationpb.New(time.Minute * 5),
+						})
+						if err != nil {
+							return err
 						}
-					}
+
+						By("verifying the timeline matches the conditions")
+						if len(timeline.Items) != len(condList.Items) {
+							return fmt.Errorf("expected timeline to have %d items, got %d", len(condList.Items), len(timeline.Items))
+						}
+
+						for id, item := range timeline.GetItems() {
+							if slices.Contains(lo.Keys(involvedDisconnects), id) {
+								if len(item.Windows) == 0 {
+									return fmt.Errorf("firing condition should show up on timeline, but does not")
+								}
+								if len(item.Windows) != 1 {
+									return fmt.Errorf("condition evaluation is flaky, should only have one window, but has %d", len(item.Windows))
+								}
+								messages, err := alertNotificationsClient.ListAlarmMessages(env.Context(), &alertingv1.ListAlarmMessageRequest{
+									ConditionId: id,
+									Start:       item.Windows[0].Start,
+									End:         timestamppb.Now(),
+								})
+								if err != nil {
+									return err
+								}
+								Expect(len(messages.Items)).To(BeNumerically(">", 0))
+
+							} else {
+								if len(item.Windows) != 0 {
+									return fmt.Errorf("conditions that have not fired should not show up on timeline, but do")
+								}
+							}
+						}
+						return nil
+					}, time.Minute*2, time.Second*15)
 				})
 
 				It("should force update/delete alert endpoints involved in conditions", func() {

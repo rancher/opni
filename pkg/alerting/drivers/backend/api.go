@@ -18,10 +18,10 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -211,9 +211,12 @@ func WithPostResolveAlertBody(conditionId string, labels, annotations map[string
 	}
 }
 
-func WithPostListMessagesBody(req *alertingv1.ListMessageRequest) AlertManagerApiOption {
+func WithPostProto(req proto.Message) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
-		o.body = util.Must(json.Marshal(req))
+		bytes, err := json.Marshal(req)
+		if err == nil {
+			o.body = bytes
+		}
 	}
 }
 
@@ -358,14 +361,26 @@ func NewAlertManagerOpniConfigClient(ctx context.Context, endpoint string, opts 
 	}
 }
 
-func NewAlertManagerOpniMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+func NewListNotificationMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
 	options := NewDefaultAlertManagerOptions()
 	options.apply(opts...)
 	return &AlertManagerAPI{
 		AlertManagerApiOptions: options,
 		Endpoint:               endpoint,
 		Verb:                   POST,
-		Route:                  "/list",
+		Route:                  "/notifications/list",
+		ctx:                    ctx,
+	}
+}
+
+func NewListAlarmMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return &AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Verb:                   POST,
+		Route:                  "/alarms/list",
 		ctx:                    ctx,
 	}
 }

@@ -51,10 +51,10 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	listMsg := func(client *http.Client, listReq *alertingv1.ListMessageRequest, opniPort int) *alertingv1.ListMessageResponse {
+	listNotif := func(client *http.Client, listReq *alertingv1.ListNotificationRequest, opniPort int) *alertingv1.ListMessageResponse {
 		content, err := json.Marshal(listReq)
 		Expect(err).NotTo(HaveOccurred())
-		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/list"), bytes.NewReader(content))
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/notifications/list"), bytes.NewReader(content))
 		Expect(err).NotTo(HaveOccurred())
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
@@ -120,18 +120,18 @@ func BuildEmbeddedServerNotificationTests(
 				sendMsg(client, msg, opniPort)
 			})
 
-			It("should list webhook messages indexed by Opni", func() {
+			It("should list notification messages indexed by Opni", func() {
 				Expect(webPort).NotTo(BeZero())
 				Expect(opniPort).NotTo(BeZero())
 
-				listReq := &alertingv1.ListMessageRequest{}
-				respList := listMsg(client, listReq, opniPort)
+				listReq := &alertingv1.ListNotificationRequest{}
+				respList := listNotif(client, listReq, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 			})
 
 			Specify("it should dedupe frequency-based persistenced based on group keys and id keys based on what is available", func() {
-				listRequest := &alertingv1.ListMessageRequest{
+				listRequest := &alertingv1.ListNotificationRequest{
 					SeverityFilters: []alertingv1.OpniSeverity{
 						alertingv1.OpniSeverity_Warning,
 					},
@@ -158,14 +158,14 @@ func BuildEmbeddedServerNotificationTests(
 					ExternalURL:     fmt.Sprintf("http://localhost:%d", webPort),
 				}
 				sendMsg(client, msg, opniPort)
-				respList := listMsg(client, listRequest, opniPort)
+				respList := listNotif(client, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 
 				// send the same message again with group key but different uuid
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
 				sendMsg(client, msg, opniPort)
-				respList = listMsg(client, listRequest, opniPort)
+				respList = listNotif(client, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 
@@ -174,19 +174,19 @@ func BuildEmbeddedServerNotificationTests(
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
 
 				sendMsg(client, msg, opniPort)
-				respList = listMsg(client, listRequest, opniPort)
+				respList = listNotif(client, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(2))
 
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
 				sendMsg(client, msg, opniPort)
-				respList = listMsg(client, listRequest, opniPort)
+				respList = listNotif(client, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(3))
 
 				sendMsg(client, msg, opniPort)
-				respList = listMsg(client, listRequest, opniPort)
+				respList = listNotif(client, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(3))
 
@@ -249,7 +249,7 @@ func BuildEmbeddedServerNotificationTests(
 					_ = opniPort
 					_ = tmpConfigDir
 					for _, pair := range dataset.ExpectedPairs {
-						listResp := listMsg(client, pair.A, opniPort)
+						listResp := listNotif(client, pair.A, opniPort)
 						if len(listResp.Items) != pair.B {
 							return false
 						}

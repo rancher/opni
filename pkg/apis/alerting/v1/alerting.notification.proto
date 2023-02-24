@@ -33,10 +33,19 @@ service AlertNotifications {
     };
   }
 
-  rpc ListMessages(ListMessageRequest) 
+  rpc ListNotifications(ListNotificationRequest) 
     returns (ListMessageResponse) {
     option (google.api.http) = {
-      post : "/list"
+      post : "/notifications/list"
+      body : "*"
+    };
+  }
+
+  rpc ListAlarmMessages(ListAlarmMessageRequest) 
+    returns (ListMessageResponse) {
+    option (google.api.http) = {
+      post : "/alarms/list"
+      body : "*"
     };
   }
 
@@ -44,23 +53,24 @@ service AlertNotifications {
     returns (ListRoutingRelationshipsResponse) {}
 }
 
-enum MessageType {
-  TypeNotification = 0;
-  TypeAlarm = 1;
+message ListAlarmMessageRequest {
+  // defaults to 100 most severe (frequency + severity heuristic)
+  optional int32 limit = 1;
+  string conditionId = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
 }
 
-message ListMessageRequest{
+message ListNotificationRequest{
   // defaults to 100 most severe (frequency + severity heuristic)
   optional int32 limit = 1;
 
-  // filter properties of notifications to list 
-  repeated MessageType typeFilters = 2;
-  repeated alerting.OpniSeverity severityFilters = 3;
-  repeated alerting.GoldenSignal goldenSignalFilters = 4;
+  repeated alerting.OpniSeverity severityFilters = 2;
+  repeated alerting.GoldenSignal goldenSignalFilters = 3;
 }
 
 message ListMessageResponse{
-  repeated Notification items = 1;
+  repeated MessageInstance items = 1;
 }
 
 
@@ -75,6 +85,10 @@ message Notification{
   map<string,string> properties = 3;
 }
 
+message MessageInstance {
+  google.protobuf.Timestamp at = 1;
+  Notification notification = 2;
+}
 // opni-alerting internal use
 message TriggerAlertsRequest {
   core.Reference conditionId = 1;

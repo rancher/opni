@@ -23,6 +23,8 @@ In this case, the Opni Admin Dashboard will make a request to the gpu_info endpo
 
 Scenario 2: GPU is available in central Opni cluster
 
+![GPU Services Modification Diagram](https://user-images.githubusercontent.com/8761010/221271577-ac8740a6-75a2-461c-9d8c-a74c10e0e257.png)
+
 The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), the following deployments will be enabled on the cluster. 
 
 These deployments are:

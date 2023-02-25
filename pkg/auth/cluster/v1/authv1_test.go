@@ -55,7 +55,7 @@ var _ = Describe("Cluster Auth V1 Compatibility", Ordered, Label("unit"), func()
 			broker.KeyringStore("gateway", &corev1.Reference{Id: clusterId}).Put(context.Background(), testKeyring)
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 				clientStream, err := streamer(ctx, desc, cc, method, opts...)
 				if err != nil {
 					return clientStream, err
@@ -102,7 +102,7 @@ var _ = Describe("Cluster Auth V1 Compatibility", Ordered, Label("unit"), func()
 			broker.KeyringStore("gateway", &corev1.Reference{Id: clusterId}).Put(context.Background(), testKeyring)
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 				clientStream, err := streamer(ctx, desc, cc, method, opts...)
 				if err != nil {
 					return clientStream, err
@@ -147,7 +147,7 @@ var _ = Describe("Cluster Auth V1 Compatibility", Ordered, Label("unit"), func()
 			broker.KeyringStore("gateway", &corev1.Reference{Id: clusterId}).Put(context.Background(), testKeyring)
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 				clientStream, err := streamer(ctx, desc, cc, method, opts...)
 				if err != nil {
 					return clientStream, err

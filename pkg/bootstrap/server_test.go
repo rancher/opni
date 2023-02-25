@@ -92,7 +92,7 @@ var _ = Describe("Server", Label("slow"), func() {
 
 		cc, err := grpc.Dial("bufconn", grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
 			return listener.Dial()
-		}), grpc.WithInsecure())
+		}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).NotTo(HaveOccurred())
 		client = bootstrapv1.NewBootstrapClient(cc)
 

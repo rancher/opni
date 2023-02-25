@@ -112,7 +112,7 @@ var _ = Describe("Cluster Auth Middleware", Ordered, Label("unit"), func() {
 
 		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return listener.Dial()
-		}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientChallengeHandler)))
+		}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientChallengeHandler)))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(cc.Close)
 

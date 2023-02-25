@@ -46,7 +46,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, func() {
 			challenges.If(clientChallenge.HasAttributes).Then(clientChallenge),
 		)
 
-		return grpc.Dial("bufconn", grpc.WithContextDialer(dialer), grpc.WithInsecure(),
+		return grpc.Dial("bufconn", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(handler)))
 	}
 	BeforeAll(func() {

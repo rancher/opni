@@ -359,7 +359,7 @@ func init() {
 			Types:  []string{"BackendClient"},
 		},
 		{
-			Source: "pkg/auth/cluster/challenge.go",
+			Source: "pkg/auth/challenges/handlers.go",
 			Dest:   "pkg/test/mock/auth/challenge.go",
 			Types:  []string{"ChallengeHandler"},
 		},

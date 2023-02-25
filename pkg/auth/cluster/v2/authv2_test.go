@@ -74,7 +74,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 		addKeyring()
 		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return listener.Dial()
-		}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
+		}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
 		Expect(err).NotTo(HaveOccurred())
 		defer cc.Close()
 
@@ -86,7 +86,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 		It("should fail", func() {
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
 			Expect(err).NotTo(HaveOccurred())
 			defer cc.Close()
 
@@ -100,7 +100,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 			addKeyring()
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 				stream, err := streamer(ctx, desc, cc, method, opts...)
 				if err != nil {
 					return nil, err
@@ -126,7 +126,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 			addKeyring()
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return listener.Dial()
-			}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 				ctx = outgoingCtx(ctx)
 				clientStream, err := streamer(ctx, desc, cc, method, opts...)
 				if err != nil {
@@ -177,7 +177,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					streamer(ctx, desc, cc, method, opts...)
 					return nil, errors.New("test error")
@@ -195,7 +195,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					clientStream, err := streamer(ctx, desc, cc, method, opts...)
 					if err != nil {
@@ -234,7 +234,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
 					var req corev1.ChallengeRequestList
@@ -271,7 +271,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
 					var req corev1.ChallengeRequestList
@@ -300,7 +300,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
 					var req corev1.ChallengeRequestList
@@ -333,7 +333,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				addKeyring()
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
-				}), grpc.WithInsecure(), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
 					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
 					var req corev1.ChallengeRequestList
@@ -385,7 +385,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 			// 		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			// 			return listener.Dial()
-			// 		}), grpc.WithInsecure(), grpc.WithStreamInterceptor(clientMw.StreamClientInterceptor()))
+			// 		}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(clientMw.StreamClientInterceptor()))
 			// 		Expect(err).NotTo(HaveOccurred())
 			// 		client := testgrpc.NewStreamServiceClient(cc)
 
@@ -416,7 +416,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 			// 		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			// 			return listener.Dial()
-			// 		}), grpc.WithInsecure(), grpc.WithStreamInterceptor(clientMw.StreamClientInterceptor()))
+			// 		}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(clientMw.StreamClientInterceptor()))
 			// 		Expect(err).NotTo(HaveOccurred())
 			// 		client := testgrpc.NewStreamServiceClient(cc)
 
@@ -466,7 +466,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 					cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 						return listener.Dial()
-					}), grpc.WithInsecure(), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
+					}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
 					Expect(err).NotTo(HaveOccurred())
 					client := testgrpc.NewStreamServiceClient(cc)
 

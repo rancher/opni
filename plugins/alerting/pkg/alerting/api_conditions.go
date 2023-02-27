@@ -1,24 +1,32 @@
 package alerting
 
 import (
+	"container/heap"
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -219,7 +227,7 @@ func (p *Plugin) checkMetricsClusterStatus(
 			Reason: "cluster does not have metrics capabilities installed",
 		}
 	}
-	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-time.Second * 90)) {
+	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-(90 * time.Second))) {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "alarm metric dependencies are updating",
@@ -634,6 +642,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	lg := p.Logger.With("handler", "Timeline")
 	conditions, err := p.storageClientSet.Get().Conditions().List(ctx)
 	if err != nil {
 		return nil, err
@@ -643,6 +652,12 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	}
 	start := timestamppb.New(time.Now().Add(-req.LookbackWindow.AsDuration()))
 	end := timestamppb.Now()
+	ctxTimeout, ca := context.WithTimeout(ctx, 5*time.Second)
+	defer ca()
+	adminClient, err := p.adminClient.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	var wg sync.WaitGroup
 	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
 	go func() {
@@ -651,17 +666,43 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if cortexImpl, _ := handleSwitchCortexRules(cond.GetAlertType()); cortexImpl != nil {
-					return
+				if alertingv1.IsInternalCondition(cond) {
+					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
+					if err != nil {
+						p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+						return
+					}
+					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+						Windows: activeWindows,
+					}}
 				}
-				activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
-				if err != nil {
-					p.Logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
-					return
+
+				if alertingv1.IsMetricsCondition(cond) {
+					res, err := adminClient.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
+						Tenants: []string{cond.GetClusterId().GetId()},
+						Query:   fmt.Sprintf("ALERTS_FOR_STATE{opni_uuid=\"%s\"}", cond.Id),
+						Start:   start,
+						End:     end,
+						Step:    durationpb.New(time.Minute * 1),
+					})
+					if err != nil {
+						lg.Errorf("failed to query active windows from cortex : %s", err)
+						return
+					}
+					qr, err := unmarshal.UnmarshalPrometheusResponse(res.Data)
+					if err != nil {
+						lg.Errorf("failed to unmarshal prometheus response : %s", err)
+						return
+					}
+					matrix, err := qr.GetMatrix()
+					if err != nil || matrix == nil {
+						lg.Errorf("expected to get matrix from prometheus response : %s", err)
+						return
+					}
+					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
+						Windows: reducePrometheusMatrix(matrix, lg),
+					}}
 				}
-				yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-					Windows: activeWindows,
-				}}
 			}()
 		}
 
@@ -680,4 +721,87 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			resp.Items[v.A] = v.B
 		}
 	}
+}
+
+func promValueToUnix(v *model.SamplePair) time.Time {
+	// note prometheus unmarshals to float64 samples, but the timestamp values
+	// are int64 with unix nano seconds, so math.Round is predictable
+	return time.Unix(int64(math.Round(float64(v.Value))), 0)
+}
+
+// `ALERTS` can have several root causes for causing the active alerting rule to fire;
+// prometheus store each root cause as a separate synthetic timeseries.
+// This function reduces the matrix of synthetic timeseries into a single array of sorted active windows
+// !! Assumes the input matrix is non-nil
+func reducePrometheusMatrix(matrix *model.Matrix, lg *zap.SugaredLogger) []*alertingv1.ActiveWindow {
+	timeline := make([]*alertingv1.ActiveWindow, 0)
+	lg.With("reduce-matrix", "ALERTS_FOR_STATE").Infof("looking to reduce %d potential causes", len(*matrix))
+	h := &MatrixHeap{}
+	heap.Init(h)
+	for i, metric := range *matrix {
+		if len(metric.Values) > 0 {
+			heap.Push(h, MatrixRef{A: i, B: 0, C: &metric.Values[0]})
+		}
+	}
+	for h.Len() > 0 {
+		ref := heap.Pop(h).(MatrixRef)
+
+		// increment next value of metric.Values to process
+		if ref.B+1 < len((*matrix)[ref.A].Values) {
+			heap.Push(h, MatrixRef{A: ref.A, B: ref.B + 1, C: &(*matrix)[ref.A].Values[ref.B+1]})
+		}
+
+		// Incidents are uniquely identified in the `ALERTS_FOR_STATE` metric by their value which is
+		// a "fingerprint" timestamp, note that this fingerprint timestamp changes if the labels on
+		// the alerting rule change, and thus will be considered separate incidents
+
+		// We can consider this fingerprint timestamp as the source time for the alarm.
+
+		fingerprintTs, curTs := promValueToUnix(ref.C), ref.C.Timestamp.Time()
+		if len(timeline) == 0 {
+			timeline = append(timeline, &alertingv1.ActiveWindow{
+				Start: timestamppb.New(fingerprintTs),
+				End:   timestamppb.New(curTs),
+			})
+		} else {
+			last := timeline[len(timeline)-1]
+			if last.Start.AsTime().Equal(fingerprintTs) {
+				last.End = timestamppb.New(curTs)
+				// due to eventual consistency in rule evaluation, we may encounter a fingerprint timestamp
+				// that is before the last window, but we should ignore it, and consider it as part of the earlier incident
+			} else if last.Start.AsTime().Before(fingerprintTs) && last.End.AsTime().Before(fingerprintTs) {
+				timeline = append(timeline, &alertingv1.ActiveWindow{
+					Start: timestamppb.New(fingerprintTs),
+					End:   timestamppb.New(curTs),
+				})
+			}
+		}
+	}
+	return timeline
+}
+
+// MatrixRef
+// A : Refers to the index of a specific metric in the matrix
+// B : Refers to the position in the metric.Values array to process
+type MatrixRef lo.Tuple3[int, int, *model.SamplePair]
+
+// Implements the container/heap.Heap interface
+type MatrixHeap []MatrixRef
+
+func (h MatrixHeap) Len() int { return len(h) }
+func (h MatrixHeap) Less(i, j int) bool {
+	return h[i].C.Timestamp.Before(h[j].C.Timestamp)
+}
+func (h MatrixHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+
+func (h *MatrixHeap) Push(x any) {
+	*h = append(*h, x.(MatrixRef))
+}
+
+func (h *MatrixHeap) Pop() any {
+	old := *h
+	n := len(*h)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
 }

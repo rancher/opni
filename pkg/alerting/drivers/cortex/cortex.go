@@ -41,8 +41,7 @@ func ConstructRecordingRuleName(prefix, typeName string) string {
 
 func ConstructIdLabelsForRecordingRule(alertName, alertId string) map[string]string {
 	return map[string]string{
-		"alert_id":   alertId,
-		"alert_name": alertName,
+		alertingv1.NotificationPropertyOpniUuid: alertId,
 	}
 }
 

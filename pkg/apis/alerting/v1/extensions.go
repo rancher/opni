@@ -341,6 +341,10 @@ func (i *IncidentIntervals) Prune(ttl time.Duration) {
 	i.Items = i.Items[pruneIdx:]
 }
 
+func (i *IncidentIntervals) Smooth(evaluationInterval time.Duration) {
+	// TODO : need to smooth based on evaluation interval
+}
+
 func NewIncidentIntervals() *IncidentIntervals {
 	return &IncidentIntervals{
 		Items: []*Interval{},

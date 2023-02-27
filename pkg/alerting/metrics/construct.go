@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	promql "github.com/prometheus/prometheus/promql/parser"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/samber/lo"
 )
 
 const NodeFilter = "instance"
@@ -166,8 +167,8 @@ func (a *AlertingRule) And(other *AlertingRule) AlertRuleBuilder {
 		// want Expr to use recording rule names to minimize computations
 		Expr:        "(" + a.Alert + ") and (" + other.Alert + ")",
 		For:         timeDurationToModelDuration(time.Second * 0),
-		Labels:      MergeLabels(a.Labels, other.Labels),
-		Annotations: MergeLabels(a.Annotations, other.Annotations),
+		Labels:      lo.Assign(a.Labels, other.Labels),
+		Annotations: lo.Assign(a.Annotations, other.Annotations),
 	}
 }
 
@@ -177,8 +178,8 @@ func (a *AlertingRule) Or(other *AlertingRule) AlertRuleBuilder {
 		// want Expr to use recording rule names to minimize computations
 		Expr:        "(" + a.Alert + ") or (" + other.Alert + ")",
 		For:         timeDurationToModelDuration(time.Second * 0),
-		Labels:      MergeLabels(a.Labels, other.Labels),
-		Annotations: MergeLabels(a.Annotations, other.Annotations),
+		Labels:      lo.Assign(a.Labels, other.Labels),
+		Annotations: lo.Assign(a.Annotations, other.Annotations),
 	}
 }
 
@@ -199,10 +200,10 @@ func (a *AlertingRule) Build(id string) (*rulefmt.Rule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr, err)
 	}
-	promRule.Annotations = MergeLabels(promRule.Annotations, map[string]string{
+	promRule.Annotations = lo.Assign(promRule.Annotations, map[string]string{
 		alertingv1.NotificationPropertyOpniUuid: id,
 	})
-	promRule.Labels = MergeLabels(promRule.Labels, map[string]string{
+	promRule.Labels = lo.Assign(promRule.Labels, map[string]string{
 		alertingv1.NotificationPropertyOpniUuid: id,
 	})
 	return promRule, nil
@@ -215,16 +216,6 @@ func WithSloId(sloId, alertType, suffix string) string {
 // Pretty simple durations for prometheus.
 func timeDurationToModelDuration(t time.Duration) model.Duration {
 	return model.Duration(t)
-}
-
-func MergeLabels(ms ...map[string]string) map[string]string {
-	res := map[string]string{}
-	for _, m := range ms {
-		for k, v := range m {
-			res[k] = v
-		}
-	}
-	return res
 }
 
 func PostProcessRuleString(inputString string) string {

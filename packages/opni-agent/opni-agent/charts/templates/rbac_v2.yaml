@@ -38,6 +38,12 @@ rules:
   verbs:
   - "*"
 - apiGroups:
+  - core.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
   - apps
   resources:
   - daemonsets

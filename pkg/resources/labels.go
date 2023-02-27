@@ -11,6 +11,7 @@ const (
 	OpniClusterID        = "opni.io/cluster-id"
 	OpniBootstrapToken   = "opni.io/bootstrap-token"
 	OpniInferenceType    = "opni.io/inference-type"
+	OpniConfigHash       = "opni.io/config-hash"
 )
 
 func CombineLabels(maps ...map[string]string) map[string]string {

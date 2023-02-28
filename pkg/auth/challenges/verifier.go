@@ -22,12 +22,14 @@ type PreCachedVerifier interface {
 }
 
 type keyringVerifier struct {
+	domain             string
 	keyringStoreBroker storage.KeyringStoreBroker
 	logger             *zap.SugaredLogger
 }
 
-func NewKeyringVerifier(ksb storage.KeyringStoreBroker, lg *zap.SugaredLogger) KeyringVerifier {
+func NewKeyringVerifier(ksb storage.KeyringStoreBroker, domain string, lg *zap.SugaredLogger) KeyringVerifier {
 	return &keyringVerifier{
+		domain:             domain,
 		keyringStoreBroker: ksb,
 		logger:             lg,
 	}
@@ -56,7 +58,7 @@ func (v *keyringVerifier) Prepare(ctx context.Context, cm ClientMetadata, req *c
 	kr.Try(func(shared *keyring.SharedKeys) {
 		possibleSolutions = append(possibleSolutions, preCachedSolution{
 			keys:     shared,
-			solution: req.Solve(cm, shared.ClientKey),
+			solution: Solve(req, cm, shared.ClientKey, v.domain),
 		})
 	})
 	return &preCachedVerifier{

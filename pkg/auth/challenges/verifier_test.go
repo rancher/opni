@@ -18,6 +18,7 @@ import (
 
 var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 	const expectedId = "test-id"
+	const domain = "Verifier Test"
 	var krStore storage.KeyringStore
 	var broker storage.KeyringStoreBroker
 	var sharedKeys *keyring.SharedKeys
@@ -36,7 +37,7 @@ var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 			}
 			return nil
 		})
-		verifier = challenges.NewKeyringVerifier(broker, test.Log)
+		verifier = challenges.NewKeyringVerifier(broker, domain, test.Log)
 	})
 
 	When("preparing a pre-cached verifier", func() {
@@ -95,7 +96,7 @@ var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 				v, err := verifier.Prepare(context.Background(), cm, req)
 				Expect(err).NotTo(HaveOccurred())
 
-				resp := req.Solve(cm, sharedKeys.ClientKey)
+				resp := challenges.Solve(req, cm, sharedKeys.ClientKey, domain)
 
 				keys := v.Verify(resp)
 				Expect(keys).To(Equal(sharedKeys))
@@ -112,7 +113,7 @@ var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 				v, err := verifier.Prepare(context.Background(), cm, req)
 				Expect(err).NotTo(HaveOccurred())
 
-				resp := req.Solve(cm, sharedKeys.ClientKey)
+				resp := challenges.Solve(req, cm, sharedKeys.ClientKey, domain)
 				resp.Response[0] ^= 0xFF
 
 				keys := v.Verify(&corev1.ChallengeResponse{Response: resp.Response})

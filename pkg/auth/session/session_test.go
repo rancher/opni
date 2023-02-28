@@ -98,7 +98,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, func() {
 		broker := test.NewTestKeyringStoreBroker(ctrl)
 		broker.KeyringStore("gateway", &corev1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
 
-		verifier := challenges.NewKeyringVerifier(broker, test.Log)
+		verifier := challenges.NewKeyringVerifier(broker, authv2.DomainString, test.Log)
 
 		serverMw := challenges.Chained(
 			testutil.Must(authv2.NewServerChallenge(verifier, test.Log)),

@@ -23,6 +23,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	DomainString = "agent auth v2"
+)
+
 type Client struct {
 	logger     *zap.SugaredLogger
 	clientId   string
@@ -163,7 +167,7 @@ func (a *Client) DoChallenge(clientStream streams.Stream) (context.Context, erro
 
 	challengeResponses := &corev1.ChallengeResponseList{
 		Items: []*corev1.ChallengeResponse{
-			req.Solve(cm, a.sharedKeys.ClientKey),
+			challenges.Solve(req, cm, a.sharedKeys.ClientKey, DomainString),
 		},
 	}
 

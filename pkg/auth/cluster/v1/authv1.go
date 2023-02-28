@@ -23,6 +23,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	DomainString = ""
+)
+
 type Server struct {
 	method   string
 	logger   *zap.SugaredLogger
@@ -110,8 +114,7 @@ func decodeLegacyAuthHeader(hdr []byte) (id, nonce, mac []byte, err error) {
 	// MAC id="%s",nonce="%s",mac="%s"
 	// where id is a base64-encoded v4 uuid, nonce is a v4 uuid, and mac is a base64 encoded 512-bit mac.
 
-	// We can "hard-code" the decoding logic here, as it only exists in past
-	// versions of the code, so we know exactly what the format is.
+	// We can "hard-code" the decoding logic here, as it only exists in past versions of the code.
 
 	if len(hdr) != 195 {
 		err = fmt.Errorf("invalid auth header length")

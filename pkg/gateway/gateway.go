@@ -168,7 +168,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to load ephemeral keys")
 	}
 
-	verifier := challenges.NewKeyringVerifier(storageBackend, lg)
+	v1Verifier := challenges.NewKeyringVerifier(storageBackend, authv1.DomainString, lg.Named("authv1"))
+	v2Verifier := challenges.NewKeyringVerifier(storageBackend, authv2.DomainString, lg.Named("authv2"))
 
 	sessionAttrChallenge, err := session.NewServerChallenge(
 		keyring.New(lo.ToAnySlice(ephemeralKeys)...))
@@ -178,8 +179,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to configure authentication")
 	}
 
-	v1Challenge := authv1.NewServerChallenge("/stream.Stream/Connect", verifier, lg)
-	v2Challenge := authv2.NewServerChallenge(verifier, lg)
+	v1Challenge := authv1.NewServerChallenge("/stream.Stream/Connect", v1Verifier, lg.Named("authv1"))
+	v2Challenge := authv2.NewServerChallenge(v2Verifier, lg.Named("authv2"))
 
 	clusterAuth := cluster.StreamServerInterceptor(challenges.Chained(
 		challenges.If(authv2.ShouldEnableIncoming).Then(v2Challenge).Else(v1Challenge),

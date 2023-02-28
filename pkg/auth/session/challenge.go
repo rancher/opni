@@ -16,6 +16,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	DomainString = "session auth v1"
+)
+
 type ServerChallenge struct {
 	attrLoader
 }

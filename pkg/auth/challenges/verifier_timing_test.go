@@ -94,8 +94,9 @@ var _ = Describe("Keyring Verifier Timing", Ordered, FlakeAttempts(2), Label("un
 		broker.KeyringStore("gateway", &corev1.Reference{
 			Id: "cluster-1",
 		}).Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
+		const domain = "Verifier Timing Test"
 
-		mw := challenges.NewKeyringVerifier(broker, zap.NewNop().Sugar())
+		mw := challenges.NewKeyringVerifier(broker, domain, zap.NewNop().Sugar())
 
 		challenge := [32]byte{
 			0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
@@ -112,7 +113,7 @@ var _ = Describe("Keyring Verifier Timing", Ordered, FlakeAttempts(2), Label("un
 			Random:      []byte("nothing-up-my-sleeve"),
 		}
 
-		response := cluster1Req.Solve(clientMeta, testClientKey)
+		response := challenges.Solve(cluster1Req, clientMeta, testClientKey, domain)
 
 		cluster1Verifier, err := mw.Prepare(context.Background(), clientMeta, cluster1Req)
 		Expect(err).NotTo(HaveOccurred())

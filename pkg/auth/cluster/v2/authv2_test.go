@@ -63,7 +63,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 	JustBeforeEach(func() {
 		broker = test.NewTestKeyringStoreBroker(ctrl)
 		var err error
-		verifier = challenges.NewKeyringVerifier(broker, test.Log)
+		verifier = challenges.NewKeyringVerifier(broker, authv2.DomainString, test.Log)
 		Expect(err).NotTo(HaveOccurred())
 		clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
 		Expect(err).NotTo(HaveOccurred())

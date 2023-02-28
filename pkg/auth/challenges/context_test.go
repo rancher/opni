@@ -33,8 +33,19 @@ func doTest(params testParams) {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return false when the metadata contains an empty slice", func() {
-		md := metadata.MD{string(challenges.ClientIdAssertionMetadataKey): []string{}}
+	It("should return false when the asserted ID is an empty string", func() {
+		md := metadata.MD{
+			challenges.ClientIdAssertionMetadataKey: []string{""},
+		}
+		ctx := params.NewContextFunc(context.Background(), md)
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return false when the asserted ID metadata is an empty slice", func() {
+		md := metadata.MD{
+			challenges.ClientIdAssertionMetadataKey: []string{},
+		}
 		ctx := params.NewContextFunc(context.Background(), md)
 		_, err := params.GetMetadataFunc(ctx)
 		Expect(err).To(HaveOccurred())
@@ -70,7 +81,7 @@ func doTest(params testParams) {
 	})
 }
 
-var _ = Describe("Cluster package", func() {
+var _ = Describe("Challenge Context Utils", Label("unit"), func() {
 	Describe("ClientMetadataFromIncomingContext", func() {
 		doTest(testParams{
 			GetMetadataFunc: challenges.ClientMetadataFromIncomingContext,

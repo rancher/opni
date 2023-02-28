@@ -28,7 +28,7 @@ var _ = Describe("Challenge", func() {
 		Entry(nil, "challenge", "id", "rand2", []byte("key"), "domain"),
 		Entry(nil, "challenge", "id", "rand", []byte("key2"), "domain"),
 		Entry(nil, "challenge", "id", "rand", []byte("key"), "domain2"),
-		Entry(nil, randomString(), randomString(), randomString(), authutil.NewRandom256(), randomString()),
+		Entry("random data", randomString(), randomString(), randomString(), authutil.NewRandom256(), randomString()),
 	)
 
 	When("the provided key is too long", func() {

@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 )
 
-var _ = Describe("Cluster package", func() {
+var _ = Describe("Cluster Context Utils", Label("unit"), func() {
 	Describe("StreamAuthorizedKeys", func() {
 		It("should return shared keys from context", func() {
 			keys := keyring.NewSharedKeys(make([]byte, 64))

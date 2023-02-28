@@ -49,6 +49,7 @@ func NewClientChallenge(kr keyring.Keyring, clientId string, logger *zap.Sugared
 }
 
 type Server struct {
+	ChallengeOptions
 	logger   *zap.SugaredLogger
 	verifier challenges.KeyringVerifier
 }
@@ -57,10 +58,33 @@ func (a *Server) InterceptContext(ctx context.Context) context.Context {
 	return ctx
 }
 
-func NewServerChallenge(verifier challenges.KeyringVerifier, logger *zap.SugaredLogger) challenges.ChallengeHandler {
+type ChallengeOptions struct {
+	challengeTimeout time.Duration
+}
+
+type ChallengeOption func(*ChallengeOptions)
+
+func (o *ChallengeOptions) apply(opts ...ChallengeOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithChallengeTimeout(challengeTimeout time.Duration) ChallengeOption {
+	return func(o *ChallengeOptions) {
+		o.challengeTimeout = challengeTimeout
+	}
+}
+
+func NewServerChallenge(verifier challenges.KeyringVerifier, logger *zap.SugaredLogger, opts ...ChallengeOption) challenges.ChallengeHandler {
+	options := ChallengeOptions{
+		challengeTimeout: 1 * time.Second,
+	}
+	options.apply(opts...)
 	return &Server{
-		logger:   logger,
-		verifier: verifier,
+		ChallengeOptions: options,
+		logger:           logger,
+		verifier:         verifier,
 	}
 }
 
@@ -100,7 +124,7 @@ func (a *Server) DoChallenge(ss streams.Stream) (context.Context, error) {
 	select {
 	case <-ss.Context().Done():
 		return nil, ss.Context().Err()
-	case <-time.After(1 * time.Second):
+	case <-time.After(a.challengeTimeout):
 		return nil, status.Errorf(codes.DeadlineExceeded, "timed out waiting for challenge response")
 	case err := <-lo.Async(func() error { return ss.RecvMsg(challengeResponses) }):
 		if err != nil {

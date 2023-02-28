@@ -30,7 +30,7 @@ func (m *mockStream) Context() context.Context {
 	return context.Background()
 }
 
-var _ = Describe("Handlers", func() {
+var _ = Describe("Handlers", Label("unit"), func() {
 	Context("Conditional Handler", func() {
 		ifTrueH := test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
 			return context.WithValue(s.Context(), conditionChallengeKey, true), nil

@@ -28,19 +28,19 @@ type ClientMetadata struct {
 
 func ClientIdAssertionFromMetadata(md metadata.MD) (string, bool) {
 	ids := md.Get(ClientIdAssertionMetadataKey)
-	if len(ids) == 0 {
+	if len(ids) == 0 || len(ids[0]) == 0 {
 		return "", false
 	}
 	return ids[0], true
 }
 
 func ClientRandomFromMetadata(md metadata.MD) ([]byte, bool) {
-	ids := md.Get(ClientRandomMetadataKey)
-	if len(ids) == 0 {
+	v := md.Get(ClientRandomMetadataKey)
+	if len(v) == 0 || len(v[0]) == 0 {
 		return nil, false
 	}
 
-	data, err := base64.RawURLEncoding.DecodeString(ids[0])
+	data, err := base64.RawURLEncoding.DecodeString(v[0])
 	if err != nil {
 		return nil, false
 	}

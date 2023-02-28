@@ -88,9 +88,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		grpc.ReadBufferSize(0),
 		grpc.WriteBufferSize(0),
 		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
-		// todo: leaving these unset appears to enable a dynamic window size
-		//grpc.InitialConnWindowSize(64*1024*1024), // 64MB
-		//grpc.InitialWindowSize(64*1024*1024),     // 64MB
+		grpc.MaxHeaderListSize(1024*8),
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	s.servicesMu.Lock()

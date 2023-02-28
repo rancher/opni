@@ -70,7 +70,7 @@ type chained struct {
 	challenges []ChallengeHandler
 }
 
-func Chained(challenges ...ChallengeHandler) *chained {
+func Chained(challenges ...ChallengeHandler) ChallengeHandler {
 	return &chained{
 		challenges: challenges,
 	}

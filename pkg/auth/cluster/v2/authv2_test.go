@@ -67,7 +67,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
 		Expect(err).NotTo(HaveOccurred())
-		serverMw = authv2.NewServerChallenge(verifier, test.Log)
+		serverMw = authv2.NewServerChallenge(verifier, test.Log, authv2.WithChallengeTimeout(100*time.Millisecond))
 
 		server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()),
 			grpc.ChainStreamInterceptor(append(serverInterceptors, cluster.StreamServerInterceptor(serverMw))...))
@@ -233,7 +233,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 					if err != nil {
 						return nil, err
 					}
-					time.Sleep(1100 * time.Millisecond) // wait for the deadline to expire
+					time.Sleep(110 * time.Millisecond) // wait for the deadline to expire
 					// the server should have timed out waiting for the challenge response
 					// and closed the stream
 					var x corev1.ChallengeResponseList
@@ -266,7 +266,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
 					var req corev1.ChallengeRequestList
 					clientStream.RecvMsg(&req)
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(15 * time.Millisecond)
 					// at this point, ctx should have been canceled by us, so sending a
 					// challenge response should fail with a DeadlineExceeded error
 					var x corev1.ChallengeResponseList
@@ -285,7 +285,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				client := testgrpc.NewStreamServiceClient(cc)
 
 				// cancel the context before the server timeout expires
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 				defer cancel()
 				_, err = client.Stream(ctx)
 
@@ -316,9 +316,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				defer cc.Close()
 				client := testgrpc.NewStreamServiceClient(cc)
 
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-				defer cancel()
-				_, err = client.Stream(ctx)
+				_, err = client.Stream(context.Background())
 				Expect(status.Code(err)).To(Equal(codes.Aborted))
 			})
 		})
@@ -348,9 +346,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				defer cc.Close()
 				client := testgrpc.NewStreamServiceClient(cc)
 
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-				defer cancel()
-				_, err = client.Stream(ctx)
+				_, err = client.Stream(context.Background())
 				Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 				Expect(err.Error()).To(ContainSubstring("expected challenge response, but received incorrect message data"))
 			})
@@ -439,52 +435,27 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 		When("an error occurs sending the challenge response", func() {
 			It("should return an error", func() {
-				stop := make(chan struct{})
-				handler := test.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
-					// send challenge request
-					challenge := authutil.NewRandom256()
-
-					req := corev1.ChallengeRequestList{
-						Items: []*corev1.ChallengeRequest{
-							{
-								Challenge: challenge[:],
-							},
-						},
-					}
-					if err := ss.SendMsg(&req); err != nil {
-						return nil, err
-					}
-
-					// exit, causing the client to fail to send the response
-					stop <- struct{}{}
-					<-stop
-
-					return nil, io.EOF
-				})
-				var err error
-				serverMw := handler
-				clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
+				clientChallenge, err := authv2.NewClientChallenge(testKeyring, "foo", test.Log)
 				Expect(err).NotTo(HaveOccurred())
-				addKeyring()
-				server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(cluster.StreamServerInterceptor(serverMw)))
-				testgrpc.RegisterStreamServiceServer(server, testServer)
-				listener = bufconn.Listen(1024 * 1024)
-				go server.Serve(listener)
-				go func() {
-					<-stop
-					listener.Close()
-					close(stop)
-				}()
 
-				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-					return listener.Dial()
-				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(cluster.StreamClientInterceptor(clientMw)))
-				Expect(err).NotTo(HaveOccurred())
-				client := testgrpc.NewStreamServiceClient(cc)
+				ctx := outgoingCtx(context.Background())
+				mockClientStream := mock_grpc.NewMockClientStream(ctrl)
+				mockClientStream.EXPECT().Context().Return(ctx).AnyTimes()
+				recv := mockClientStream.EXPECT().RecvMsg(gomock.Any()).DoAndReturn(func(msg interface{}) error {
+					m := msg.(*corev1.ChallengeRequestList)
+					m.Items = []*corev1.ChallengeRequest{
+						{Challenge: make([]byte, 32)},
+					}
+					return nil
+				}).Times(1)
+				mockClientStream.EXPECT().
+					SendMsg(gomock.Any()).
+					After(recv).
+					Return(errors.New("send error")).
+					Times(1)
 
-				_, err = client.Stream(context.Background())
-				Expect(status.Code(err)).To(Equal(codes.Aborted))
-				Expect(err.Error()).To(ContainSubstring("error sending challenge response"))
+				_, err = clientChallenge.DoChallenge(mockClientStream)
+				Expect(err).To(testutil.MatchStatusCode(codes.Aborted, ContainSubstring("error sending challenge response")))
 			})
 		})
 

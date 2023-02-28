@@ -137,8 +137,6 @@ func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig
 			grpc.MaxCallSendMsgSize(math.MaxInt32),
 			grpc.MaxCallRecvMsgSize(math.MaxInt32),
 		),
-		grpc.WithInitialConnWindowSize(1024*1024), // 1MB
-		grpc.WithInitialWindowSize(1024*1024),     // 1MB
 	)
 }
 
@@ -147,6 +145,22 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	stream, err := streamClient.Connect(ctx)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
+	}
+
+	{
+		authorizedId := cluster.StreamAuthorizedID(stream.Context())
+		attrs := session.StreamAuthorizedAttributes(stream.Context())
+		lg := gc.logger.With(
+			"id", authorizedId,
+		)
+		if len(attrs) > 0 {
+			var attrNames []string
+			for _, attr := range attrs {
+				attrNames = append(attrNames, attr.Name())
+			}
+			lg = lg.With("attributes", attrNames)
+		}
+		lg.Debug("authenticated")
 	}
 
 	ts, err := totem.NewServer(stream, totem.WithName("gateway-client"))

@@ -113,7 +113,7 @@ func (a *ServerChallenge) DoChallenge(ss streams.Stream) (context.Context, error
 		return nil, err
 	}
 
-	ctx := context.WithValue(ss.Context(), AttributesContextKey, reqAttributes)
+	ctx := context.WithValue(ss.Context(), AttributesKey, reqAttributes)
 
 	return ctx, nil
 }
@@ -196,7 +196,7 @@ func (a *ClientChallenge) DoChallenge(cs streams.Stream) (context.Context, error
 		}
 	}
 
-	ctx := context.WithValue(cs.Context(), AttributesContextKey, a.attributes)
+	ctx := context.WithValue(cs.Context(), AttributesKey, a.attributes)
 	return ctx, nil
 }
 

@@ -3,7 +3,9 @@ package session_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"sync/atomic"
 
 	"github.com/golang/mock/gomock"
@@ -28,7 +30,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-var _ = Describe("Session Attributes Challenge", Ordered, func() {
+var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() {
 	var (
 		goodKey1, goodKey2,
 		badKey1, badKey2,
@@ -105,7 +107,9 @@ var _ = Describe("Session Attributes Challenge", Ordered, func() {
 			challenges.If(session.ShouldEnableIncoming).Then(attrChallenge),
 		)
 
-		server := grpc.NewServer(grpc.Creds(insecure.NewCredentials()),
+		server := grpc.NewServer(
+			grpc.MaxHeaderListSize(1024*8),
+			grpc.Creds(insecure.NewCredentials()),
 			grpc.ChainStreamInterceptor(append(serverInterceptors, cluster.StreamServerInterceptor(serverMw))...))
 
 		testgrpc.RegisterStreamServiceServer(server, testServer)
@@ -234,6 +238,45 @@ var _ = Describe("Session Attributes Challenge", Ordered, func() {
 				_, err = client.Stream(context.Background())
 				Expect(err).To(HaveOccurred())
 				Expect(attrs).NotTo(Receive())
+			})
+		})
+		When("the client requests too many attributes", func() {
+			It("should error", func() {
+				serverHandler.Store(lo.ToPtr(func(stream testgrpc.StreamService_StreamServer) error {
+					return nil
+				}))
+				keys := make([]any, 0, 160)
+				for i := 0; i < cap(keys); i++ {
+					k := ephemeral.NewKey(ephemeral.Authentication, map[string]string{
+						session.AttributeLabelKey: fmt.Sprintf("too-many-attributes-%d", i),
+					})
+					keys = append(keys, k)
+				}
+				bigKeyring := keyring.New(keys...)
+				cc, err := dial(testKeyring.Merge(bigKeyring))
+				Expect(err).NotTo(HaveOccurred())
+				defer cc.Close()
+
+				client := testgrpc.NewStreamServiceClient(cc)
+				_, err = client.Stream(context.Background())
+				Expect(err).To(testutil.MatchStatusCode(codes.Internal, Equal("header list size to send violates the maximum size (8192 bytes) set by server")))
+			})
+		})
+		When("the client requests a very large attribute name", func() {
+			It("should error", func() {
+				serverHandler.Store(lo.ToPtr(func(stream testgrpc.StreamService_StreamServer) error {
+					return nil
+				}))
+				bigKey := ephemeral.NewKey(ephemeral.Authentication, map[string]string{
+					session.AttributeLabelKey: strings.Repeat("a", 8192),
+				})
+				cc, err := dial(testKeyring.Merge(keyring.New(bigKey)))
+				Expect(err).NotTo(HaveOccurred())
+				defer cc.Close()
+
+				client := testgrpc.NewStreamServiceClient(cc)
+				_, err = client.Stream(context.Background())
+				Expect(err).To(testutil.MatchStatusCode(codes.Internal, Equal("header list size to send violates the maximum size (8192 bytes) set by server")))
 			})
 		})
 		When("the client fails an authentication challenge", func() {

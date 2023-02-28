@@ -219,9 +219,9 @@ func (p *Plugin) checkMetricsClusterStatus(
 			}
 		}
 	}
-	if cond.GetLastUpdated().AsTime().Before(time.Now().Add(-time.Minute)) {
+	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-time.Second * 90)) {
 		return &alertingv1.AlertStatusResponse{
-			State:  alertingv1.AlertConditionState_Invalidated,
+			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "alarm metric dependencies are updating",
 		}
 	}

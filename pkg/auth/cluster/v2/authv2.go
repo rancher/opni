@@ -157,7 +157,7 @@ func (a *Client) DoChallenge(clientStream streams.Stream) (context.Context, erro
 		return nil, err
 	}
 	if len(challengeRequests.Items) != 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid challenge request received")
+		return nil, status.Errorf(codes.Aborted, "invalid challenge request received from server")
 	}
 	req := challengeRequests.Items[0]
 
@@ -173,6 +173,10 @@ func (a *Client) DoChallenge(clientStream streams.Stream) (context.Context, erro
 
 	var authInfo corev1.AuthInfo
 	if err := clientStream.RecvMsg(&authInfo); err != nil {
+		if status.Code(err) == codes.Unknown {
+			// EOF, etc
+			return nil, status.Errorf(codes.Aborted, "error receiving auth info: %v", err)
+		}
 		return nil, err
 	}
 

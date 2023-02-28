@@ -165,7 +165,7 @@ func (a *ClientChallenge) DoChallenge(cs streams.Stream) (context.Context, error
 	}
 
 	if err := cs.SendMsg(&challengeResponses); err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Aborted, "error sending challenge response: %v", err)
 	}
 
 	var sessionInfo corev1.SessionInfo

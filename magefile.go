@@ -363,6 +363,11 @@ func init() {
 			Dest:   "pkg/test/mock/auth/challenge.go",
 			Types:  []string{"ChallengeHandler"},
 		},
+		{
+			Source: "pkg/util/streams/streams.go",
+			Dest:   "pkg/test/mock/streams/streams.go",
+			Types:  []string{"Stream"},
+		},
 	}
 
 	ext := ".tar.gz"

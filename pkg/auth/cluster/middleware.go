@@ -11,6 +11,7 @@ import (
 func StreamServerInterceptor(challenge challenges.ChallengeHandler) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		stream := streams.NewServerStreamWithContext(ss)
+		stream.Ctx = challenge.InterceptContext(stream.Ctx)
 		var err error
 		if stream.Ctx, err = challenge.DoChallenge(stream); err != nil {
 			return err

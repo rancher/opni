@@ -9,31 +9,78 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+type testParams struct {
+	NewContextFunc  func(ctx context.Context, md metadata.MD) context.Context
+	GetMetadataFunc func(ctx context.Context) (challenges.ClientMetadata, error)
+}
+
+func doTest(params testParams) {
+	It("should extract asserted ID and client random from incoming metadata", func() {
+		md := metadata.Pairs(
+			challenges.ClientIdAssertionMetadataKey, "cluster-123",
+			challenges.ClientRandomMetadataKey, "bm90aGluZy11cC1teS1zbGVldmU",
+		)
+		ctx := params.NewContextFunc(context.Background(), md)
+		cm, err := params.GetMetadataFunc(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cm.IdAssertion).To(Equal("cluster-123"))
+		Expect(string(cm.Random)).To(Equal("nothing-up-my-sleeve"))
+	})
+
+	It("should return false when the asserted ID is not found in metadata", func() {
+		ctx := context.Background()
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return false when the metadata contains an empty slice", func() {
+		md := metadata.MD{string(challenges.ClientIdAssertionMetadataKey): []string{}}
+		ctx := params.NewContextFunc(context.Background(), md)
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return false when the client random is not found in metadata", func() {
+		md := metadata.Pairs(
+			challenges.ClientIdAssertionMetadataKey, "cluster-123",
+		)
+		ctx := params.NewContextFunc(context.Background(), md)
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return false when the client random is empty", func() {
+		md := metadata.Pairs(
+			challenges.ClientIdAssertionMetadataKey, "cluster-123",
+			challenges.ClientRandomMetadataKey, "",
+		)
+		ctx := params.NewContextFunc(context.Background(), md)
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return false when the client random is not base64 encoded", func() {
+		md := metadata.Pairs(
+			challenges.ClientIdAssertionMetadataKey, "cluster-123",
+			challenges.ClientRandomMetadataKey, "????",
+		)
+		ctx := params.NewContextFunc(context.Background(), md)
+		_, err := params.GetMetadataFunc(ctx)
+		Expect(err).To(HaveOccurred())
+	})
+}
+
 var _ = Describe("Cluster package", func() {
 	Describe("ClientMetadataFromIncomingContext", func() {
-		It("should extract asserted ID and client random from incoming metadata", func() {
-			md := metadata.Pairs(
-				challenges.ClientIdAssertionMetadataKey, "cluster-123",
-				challenges.ClientRandomMetadataKey, "bm90aGluZy11cC1teS1zbGVldmU",
-			)
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-			cm, err := challenges.ClientMetadataFromIncomingContext(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cm.IdAssertion).To(Equal("cluster-123"))
-			Expect(string(cm.Random)).To(Equal("nothing-up-my-sleeve"))
+		doTest(testParams{
+			GetMetadataFunc: challenges.ClientMetadataFromIncomingContext,
+			NewContextFunc:  metadata.NewIncomingContext,
 		})
-
-		It("should return false when the asserted ID is not found in metadata", func() {
-			ctx := context.Background()
-			_, err := challenges.ClientMetadataFromIncomingContext(ctx)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should return false when the metadata contains an empty slice", func() {
-			md := metadata.MD{string(challenges.ClientIdAssertionMetadataKey): []string{}}
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-			_, err := challenges.ClientMetadataFromIncomingContext(ctx)
-			Expect(err).To(HaveOccurred())
+	})
+	Describe("ClientMetadataFromOutgoingContext", func() {
+		doTest(testParams{
+			GetMetadataFunc: challenges.ClientMetadataFromOutgoingContext,
+			NewContextFunc:  metadata.NewOutgoingContext,
 		})
 	})
 })

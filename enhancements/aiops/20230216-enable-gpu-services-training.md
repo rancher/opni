@@ -22,8 +22,9 @@ Scenario 1: GPU is not available in central Opni cluster
 In this case, the Opni Admin Dashboard will make a request to the gpu_info endpoint within the AIOps gateway. When, it receives the response that the GPU is not available. It will still display the deployments by cluster and namespace. However, the user will not be able to update the watchlist as that button will be greyed out. Additionally, a banner will be displayed within the Opni Admin Dashboard informing the user that they need to configure a GPU on this cluster to receive insights and it will point them to a link for reference.
 
 Scenario 2: GPU is available in central Opni cluster
+![GPU Services Modification Diagram (2)](https://user-images.githubusercontent.com/8761010/221774628-4c7698cc-679f-48e6-9a7b-80c0b1574f2f.png)
 
-![GPU Services Modification Diagram (1)](https://user-images.githubusercontent.com/8761010/221273618-c3a88b3e-d169-4951-b790-5b3a1c8f41f6.png)
+
 
 
 The AIOps gateway plugin will need to be modified, specifically the /model/train endpoint. When a request is sent to that endpoint, in the [corresponding function](https://github.com/rancher/opni/blob/main/plugins/aiops/pkg/gateway/modeltraining.go#L21), the following deployments will be enabled on the cluster. 

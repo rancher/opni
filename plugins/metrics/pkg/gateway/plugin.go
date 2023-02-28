@@ -22,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
@@ -52,7 +51,6 @@ type Plugin struct {
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
-	delegate            future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -72,7 +70,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexClientSet:     future.New[cortex.ClientSet](),
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
-		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
 	}
 
 	future.Wait2(p.cortexClientSet, p.config,
@@ -102,14 +99,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait6(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate,
+	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
-			delegate streamext.StreamDelegate[remoteread.RemoteReadAgentClient],
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
@@ -119,7 +115,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 				RemoteWriteClient:   &p.cortexRemoteWrite,
-				Delegate:            delegate,
 			})
 		})
 
@@ -155,7 +150,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, &p.cortexAdmin),
 		util.PackService(&cortexops.CortexOps_ServiceDesc, &p.metrics),
-		util.PackService(&remoteread.RemoteReadGateway_ServiceDesc, &p.metrics),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))

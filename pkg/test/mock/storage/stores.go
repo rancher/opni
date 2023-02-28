@@ -1019,3 +1019,79 @@ func (mr *MockSubjectAccessCapableStoreMockRecorder) ListRoleBindings(ctx interf
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockSubjectAccessCapableStore)(nil).ListRoleBindings), ctx)
 }
+
+// MockHttpTtlCache is a mock of HttpTtlCache interface.
+type MockHttpTtlCache struct {
+	ctrl     *gomock.Controller
+	recorder *MockHttpTtlCacheMockRecorder
+}
+
+// MockHttpTtlCacheMockRecorder is the mock recorder for MockHttpTtlCache.
+type MockHttpTtlCacheMockRecorder struct {
+	mock *MockHttpTtlCache
+}
+
+// NewMockHttpTtlCache creates a new mock instance.
+func NewMockHttpTtlCache(ctrl *gomock.Controller) *MockHttpTtlCache {
+	mock := &MockHttpTtlCache{ctrl: ctrl}
+	mock.recorder = &MockHttpTtlCacheMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHttpTtlCache) EXPECT() *MockHttpTtlCacheMockRecorder {
+	return m.recorder
+}
+
+// Delete mocks base method.
+func (m *MockHttpTtlCache) Delete(key string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Delete", key)
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockHttpTtlCacheMockRecorder) Delete(key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockHttpTtlCache)(nil).Delete), key)
+}
+
+// Get mocks base method.
+func (m *MockHttpTtlCache) Get(key string) ([]byte, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", key)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockHttpTtlCacheMockRecorder) Get(key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockHttpTtlCache)(nil).Get), key)
+}
+
+// MaxAge mocks base method.
+func (m *MockHttpTtlCache) MaxAge() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MaxAge")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// MaxAge indicates an expected call of MaxAge.
+func (mr *MockHttpTtlCacheMockRecorder) MaxAge() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxAge", reflect.TypeOf((*MockHttpTtlCache)(nil).MaxAge))
+}
+
+// Set mocks base method.
+func (m *MockHttpTtlCache) Set(key string, resp []byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Set", key, resp)
+}
+
+// Set indicates an expected call of Set.
+func (mr *MockHttpTtlCacheMockRecorder) Set(key, resp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockHttpTtlCache)(nil).Set), key, resp)
+}

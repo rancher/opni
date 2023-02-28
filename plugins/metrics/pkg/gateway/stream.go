@@ -4,9 +4,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
-	"google.golang.org/grpc"
 )
 
 func (p *Plugin) StreamServers() []streamext.Server {
@@ -17,18 +15,9 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 		{
-			Desc:              &remoteread.RemoteReadGateway_ServiceDesc,
-			Impl:              &p.metrics,
-			RequireCapability: wellknown.CapabilityMetrics,
-		},
-		{
 			Desc:              &node.NodeMetricsCapability_ServiceDesc,
 			Impl:              &p.metrics,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 	}
-}
-
-func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	p.delegate.Set(streamext.NewDelegate(cc, remoteread.NewRemoteReadAgentClient))
 }

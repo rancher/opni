@@ -4,7 +4,7 @@ package commands
 
 import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 	"strings"

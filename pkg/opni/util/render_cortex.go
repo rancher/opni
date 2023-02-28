@@ -4,7 +4,7 @@ package cliutil
 
 import (
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"

@@ -3,7 +3,7 @@
 package commands
 
 import (
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
 )
 

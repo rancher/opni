@@ -5,7 +5,7 @@ import (
 	"fmt"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"

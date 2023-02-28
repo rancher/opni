@@ -10,7 +10,7 @@ import (
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -76,9 +76,9 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 		By("starting test environment")
 		env = &test.Environment{
 			EnvironmentOptions: test.EnvironmentOptions{},
-			TestBin:            "../../../../testbin/bin",
+			TestBin:            "../../../testbin/bin",
 			CRDDirectoryPaths: []string{
-				"../../../../config/crd/prometheus",
+				"../../../config/crd/prometheus",
 			},
 		}
 		Expect(env.Start()).To(Succeed())

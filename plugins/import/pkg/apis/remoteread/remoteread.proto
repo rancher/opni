@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread";
+option go_package = "github.com/rancher/opni/plugins/import/pkg/apis/remoteread";
 
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 

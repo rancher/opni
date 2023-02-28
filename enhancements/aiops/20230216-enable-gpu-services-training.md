@@ -37,6 +37,8 @@ These deployments are:
 * opni-svc-inference
 * opni-svc-opensearch-update
 
+These deployments are idempotent so even if they are already enabled beforehand, if the AIOps gateway plugin attempts to enable them again, it will see that the deployment is already up and running and thus will not attempt to launch that deployment.
+
  When the deployments are launched, within the Opni Admin Dashboard UI, a button will appear that says "Disable GPU Services". This button when hovering over it will explain that if the user ever decides to remove a GPU from the cluster, then they can first click on the button which will clean up the GPU services from the cluster and then the user can detach the GPU node from the cluster. The button will specifically clean up these deployments within the namespace specified by the user to run Opni:
 * opni-workload-drain
 * opni-svc-training-controller

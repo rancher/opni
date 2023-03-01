@@ -359,11 +359,6 @@ func init() {
 			Types:  []string{"BackendClient"},
 		},
 		{
-			Source: "pkg/auth/challenges/handlers.go",
-			Dest:   "pkg/test/mock/auth/challenge.go",
-			Types:  []string{"ChallengeHandler"},
-		},
-		{
 			Source: "pkg/util/streams/streams.go",
 			Dest:   "pkg/test/mock/streams/streams.go",
 			Types:  []string{"Stream"},

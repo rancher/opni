@@ -140,6 +140,26 @@ func (a *AlertCondition) GetRoutingLabels() map[string]string {
 	}
 }
 
+func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
+	res := map[string]string{
+		shared.OpniHeaderAnnotations:      a.header(),
+		shared.OpniBodyAnnotations:        a.body(),
+		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
+		shared.OpniAlarmNameAnnotation:    a.GetName(),
+		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
+		"fingerprint":                     "{{ \"ALERTS\" | query }}",
+	}
+	if IsMetricsCondition(a) {
+		//FIXME: wip
+		res["fingerprint"] = "{{ \"ALERTS\" | query }}"
+	}
+	return res
+}
+
+func (a *AlertCondition) GetRoutingGoldenSignal() string {
+	return a.GetGoldenSignal().String()
+}
+
 func (a *AlertCondition) header() string {
 	// check custom user-set title
 	if ae := a.GetAttachedEndpoints(); ae != nil {
@@ -201,20 +221,6 @@ func (a *AlertTypeDetails) body() string {
 		return "Filesystem"
 	}
 	return ""
-}
-
-func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
-	return map[string]string{
-		shared.OpniHeaderAnnotations:      a.header(),
-		shared.OpniBodyAnnotations:        a.body(),
-		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
-		shared.OpniAlarmNameAnnotation:    a.GetName(),
-		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
-	}
-}
-
-func (a *AlertCondition) GetRoutingGoldenSignal() string {
-	return a.GetGoldenSignal().String()
 }
 
 // stop-gap solution, until we move to the new versin of the API

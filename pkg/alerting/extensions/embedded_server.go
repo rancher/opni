@@ -313,6 +313,9 @@ func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *ht
 			}
 		}
 	}
+	slices.SortFunc(res.Items, func(a, b *alertingv1.MessageInstance) bool {
+		return a.At.AsTime().Before(b.At.AsTime())
+	})
 	writeResponse(wr, &res)
 }
 

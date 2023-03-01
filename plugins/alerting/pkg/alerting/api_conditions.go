@@ -1,17 +1,16 @@
 package alerting
 
 import (
-	"container/heap"
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
@@ -19,7 +18,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"github.com/rancher/opni/pkg/util"
@@ -699,8 +697,9 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 						lg.Errorf("expected to get matrix from prometheus response : %s", err)
 						return
 					}
+					lg.With("reduce-matrix", cond.Id).Infof("looking to reduce %d potential causes", len(*matrix))
 					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: reducePrometheusMatrix(matrix, lg),
+						Windows: cortex.ReducePrometheusMatrix(matrix),
 					}}
 				}
 			}()
@@ -721,63 +720,6 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			resp.Items[v.A] = v.B
 		}
 	}
-}
-
-func promValueToUnix(v *model.SamplePair) time.Time {
-	// note prometheus unmarshals to float64 samples, but the timestamp values
-	// are int64 with unix nano seconds, so math.Round is predictable
-	return time.Unix(int64(math.Round(float64(v.Value))), 0)
-}
-
-// `ALERTS` can have several root causes for causing the active alerting rule to fire;
-// prometheus store each root cause as a separate synthetic timeseries.
-// This function reduces the matrix of synthetic timeseries into a single array of sorted active windows
-// !! Assumes the input matrix is non-nil
-func reducePrometheusMatrix(matrix *model.Matrix, lg *zap.SugaredLogger) []*alertingv1.ActiveWindow {
-	timeline := make([]*alertingv1.ActiveWindow, 0)
-	lg.With("reduce-matrix", "ALERTS_FOR_STATE").Infof("looking to reduce %d potential causes", len(*matrix))
-	h := &MatrixHeap{}
-	heap.Init(h)
-	for i, metric := range *matrix {
-		if len(metric.Values) > 0 {
-			heap.Push(h, MatrixRef{A: i, B: 0, C: &metric.Values[0]})
-		}
-	}
-	for h.Len() > 0 {
-		ref := heap.Pop(h).(MatrixRef)
-
-		// increment next value of metric.Values to process
-		if ref.B+1 < len((*matrix)[ref.A].Values) {
-			heap.Push(h, MatrixRef{A: ref.A, B: ref.B + 1, C: &(*matrix)[ref.A].Values[ref.B+1]})
-		}
-
-		// Incidents are uniquely identified in the `ALERTS_FOR_STATE` metric by their value which is
-		// a "fingerprint" timestamp, note that this fingerprint timestamp changes if the labels on
-		// the alerting rule change, and thus will be considered separate incidents
-
-		// We can consider this fingerprint timestamp as the source time for the alarm.
-
-		fingerprintTs, curTs := promValueToUnix(ref.C), ref.C.Timestamp.Time()
-		if len(timeline) == 0 {
-			timeline = append(timeline, &alertingv1.ActiveWindow{
-				Start: timestamppb.New(fingerprintTs),
-				End:   timestamppb.New(curTs),
-			})
-		} else {
-			last := timeline[len(timeline)-1]
-			if last.Start.AsTime().Equal(fingerprintTs) {
-				last.End = timestamppb.New(curTs)
-				// due to eventual consistency in rule evaluation, we may encounter a fingerprint timestamp
-				// that is before the last window, but we should ignore it, and consider it as part of the earlier incident
-			} else if last.Start.AsTime().Before(fingerprintTs) && last.End.AsTime().Before(fingerprintTs) {
-				timeline = append(timeline, &alertingv1.ActiveWindow{
-					Start: timestamppb.New(fingerprintTs),
-					End:   timestamppb.New(curTs),
-				})
-			}
-		}
-	}
-	return timeline
 }
 
 // MatrixRef

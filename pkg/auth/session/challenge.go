@@ -21,17 +21,42 @@ const (
 )
 
 type ServerChallenge struct {
+	ServerChallengeOptions
 	attrLoader
 }
 
-func NewServerChallenge(kr keyring.Keyring) (*ServerChallenge, error) {
+type ServerChallengeOptions struct {
+	attributeRequestLimit int
+}
+
+type ServerChallengeOption func(*ServerChallengeOptions)
+
+func (o *ServerChallengeOptions) apply(opts ...ServerChallengeOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithAttributeRequestLimit(attributeRequestLimit int) ServerChallengeOption {
+	return func(o *ServerChallengeOptions) {
+		o.attributeRequestLimit = attributeRequestLimit
+	}
+}
+
+func NewServerChallenge(kr keyring.Keyring, opts ...ServerChallengeOption) (*ServerChallenge, error) {
+	options := ServerChallengeOptions{
+		attributeRequestLimit: 10,
+	}
+	options.apply(opts...)
+
 	attr, err := loadAttributes(kr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ServerChallenge{
-		attrLoader: attr,
+		ServerChallengeOptions: options,
+		attrLoader:             attr,
 	}, nil
 }
 
@@ -51,7 +76,12 @@ func (a *ServerChallenge) DoChallenge(ss streams.Stream) (context.Context, error
 		return nil, status.Errorf(codes.InvalidArgument, "metadata not found in context")
 	}
 
-	for _, v := range md.Get(AttributeMetadataKey) {
+	attrRequests := md.Get(AttributeMetadataKey)
+	if len(attrRequests) > a.attributeRequestLimit {
+		return nil, status.Errorf(codes.InvalidArgument, "number of attribute requests exceeds limit")
+	}
+
+	for _, v := range attrRequests {
 		if attr, ok := a.attributesByName[v]; ok {
 			cr := &corev1.ChallengeRequest{
 				Challenge: authutil.NewRandom256(),

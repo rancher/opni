@@ -94,7 +94,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 	}
 
 	JustBeforeEach(func() {
-		attrChallenge, err := session.NewServerChallenge(testKeyring)
+		attrChallenge, err := session.NewServerChallenge(testKeyring, session.WithAttributeRequestLimit(50))
 		Expect(err).NotTo(HaveOccurred())
 
 		broker := test.NewTestKeyringStoreBroker(ctrl)
@@ -240,20 +240,20 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 				Expect(attrs).NotTo(Receive())
 			})
 		})
-		When("the client requests too many attributes", func() {
+		When("the client's attribute request exceeds the metadata size limit", func() {
 			It("should error", func() {
 				serverHandler.Store(lo.ToPtr(func(stream testgrpc.StreamService_StreamServer) error {
 					return nil
 				}))
-				keys := make([]any, 0, 160)
+				keys := make([]any, 0, 50)
 				for i := 0; i < cap(keys); i++ {
 					k := ephemeral.NewKey(ephemeral.Authentication, map[string]string{
-						session.AttributeLabelKey: fmt.Sprintf("too-many-attributes-%d", i),
+						session.AttributeLabelKey: fmt.Sprintf("very-large-attribute-name-to-exceed-the-metadata-size-limit-of-eight-thousand-one-hundred-and-ninety-two-bytes-%d", i),
 					})
 					keys = append(keys, k)
 				}
-				bigKeyring := keyring.New(keys...)
-				cc, err := dial(testKeyring.Merge(bigKeyring))
+				bigKeyring := keyring.New(append([]any{testSharedKeys}, keys...)...)
+				cc, err := dial(bigKeyring)
 				Expect(err).NotTo(HaveOccurred())
 				defer cc.Close()
 
@@ -277,6 +277,26 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 				client := testgrpc.NewStreamServiceClient(cc)
 				_, err = client.Stream(context.Background())
 				Expect(err).To(testutil.MatchStatusCode(codes.Internal, Equal("header list size to send violates the maximum size (8192 bytes) set by server")))
+			})
+		})
+		When("the client requests more attributes than the server allows", func() {
+			It("should error", func() {
+				// limited to 200 above
+				keys := make([]any, 0, 51)
+				for i := 0; i < cap(keys); i++ {
+					k := ephemeral.NewKey(ephemeral.Authentication, map[string]string{
+						session.AttributeLabelKey: fmt.Sprintf("attribute-%d", i),
+					})
+					keys = append(keys, k)
+				}
+				bigKeyring := keyring.New(append([]any{testSharedKeys}, keys...)...)
+				cc, err := dial(testKeyring.Merge(bigKeyring))
+				Expect(err).NotTo(HaveOccurred())
+				defer cc.Close()
+
+				client := testgrpc.NewStreamServiceClient(cc)
+				_, err = client.Stream(context.Background())
+				Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, Equal("number of attribute requests exceeds limit")))
 			})
 		})
 		When("the client fails an authentication challenge", func() {

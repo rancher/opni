@@ -110,12 +110,12 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 
 	// lock the mutex associated with the cluster ID
 	// TODO: when scaling the gateway we need a distributed lock
-	lock := h.clusterIdLocks.Get(authReq.ClientID)
+	lock := h.clusterIdLocks.Get(authReq.ClientId)
 	lock.Lock()
 	defer lock.Unlock()
 
 	existing := &corev1.Reference{
-		Id: authReq.ClientID,
+		Id: authReq.ClientId,
 	}
 
 	if cluster, err := h.storage.GetCluster(ctx, existing); err == nil {
@@ -140,8 +140,11 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 		tokenLabels = map[string]string{}
 	}
 	tokenLabels[annotations.AgentVersion] = annotations.Version2
+	if authReq.FriendlyName != nil {
+		tokenLabels[corev1.NameLabel] = *authReq.FriendlyName
+	}
 	newCluster := &corev1.Cluster{
-		Id: authReq.ClientID,
+		Id: authReq.ClientId,
 		Metadata: &corev1.ClusterMetadata{
 			Labels: tokenLabels,
 		},

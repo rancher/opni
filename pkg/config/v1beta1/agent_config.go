@@ -47,6 +47,11 @@ type BootstrapSpec struct {
 	// the main cluster.
 	InClusterManagementAddress *string `json:"inClusterManagementAddress,omitempty"`
 
+	// An optional display name to assign to the cluster when creating it.
+	// This value corresponds to the label `opni.io/name`, and can be modified
+	// at any time after the cluster is created.
+	FriendlyName *string `json:"friendlyName,omitempty"`
+
 	// Bootstrap token
 	Token string `json:"token,omitempty"`
 	// List of public key pins. Used when the trust strategy is "pkp".

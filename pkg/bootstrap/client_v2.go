@@ -29,6 +29,7 @@ type ClientConfigV2 struct {
 	K8sConfig     *rest.Config
 	K8sNamespace  string
 	TrustStrategy trust.Strategy
+	FriendlyName  *string
 }
 
 func (c *ClientConfigV2) Bootstrap(
@@ -75,8 +76,9 @@ func (c *ClientConfigV2) Bootstrap(
 		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)
 	}
 	authReq := &bootstrapv2.BootstrapAuthRequest{
-		ClientID:     id,
+		ClientId:     id,
 		ClientPubKey: ekp.PublicKey,
+		FriendlyName: c.FriendlyName,
 	}
 
 	authResp, err := client.Auth(metadata.NewOutgoingContext(ctx, metadata.Pairs(

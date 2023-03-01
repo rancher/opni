@@ -237,6 +237,7 @@ func configureBootstrapV2(conf *v1beta1.AgentConfig, agentlg logger.ExtendedSuga
 			Token:         token,
 			Endpoint:      conf.Spec.GatewayAddress,
 			TrustStrategy: trustStrategy,
+			FriendlyName:  conf.Spec.Bootstrap.FriendlyName,
 		}
 	}
 

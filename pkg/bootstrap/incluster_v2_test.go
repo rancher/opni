@@ -6,6 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/test"
@@ -36,7 +38,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 
 		By("checking tokens")
 		tokens, err := managementClient.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(tokens.Items).To(HaveLen(0))
 
 		By("bootstrapping")
@@ -45,7 +47,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 
 		By("checking tokens after bootstrap")
 		tokens, err = managementClient.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(tokens.Items).To(HaveLen(1))
 
 		By("finalizing")
@@ -54,8 +56,19 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 
 		By("checking tokens after finalize")
 		tokens, err = managementClient.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(tokens.Items).To(HaveLen(0))
+
+		By("checking the cluster")
+		cluster, err := managementClient.GetCluster(context.Background(), &corev1.Reference{
+			Id: "foo",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cluster).NotTo(BeNil())
+		Expect(cluster.Id).To(Equal("foo"))
+		Expect(cluster.Metadata).NotTo(BeNil())
+		Expect(cluster.Metadata.Capabilities).To(BeEmpty())
+		Expect(cluster.Metadata.Labels).To(HaveKeyWithValue(corev1.NameLabel, bootstrapv2.DefaultInClusterFriendlyName))
 	})
 	Context("error handling", func() {
 		When("the gateway endpoint is missing", func() {

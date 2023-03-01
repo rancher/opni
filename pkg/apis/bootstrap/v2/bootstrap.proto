@@ -11,14 +11,15 @@ service Bootstrap {
 message BootstrapJoinRequest {}
 
 message BootstrapJoinResponse {
-  map<string, bytes> Signatures = 1;
+  map<string, bytes> signatures = 1;
 }
 
 message BootstrapAuthRequest {
-  string ClientID = 1;
-  bytes ClientPubKey = 2;
+  string clientId = 1;
+  bytes clientPubKey = 2;
+  optional string friendlyName = 3;
 }
 
 message BootstrapAuthResponse {
-  bytes ServerPubKey = 1;
+  bytes serverPubKey = 1;
 }

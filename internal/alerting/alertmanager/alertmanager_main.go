@@ -42,6 +42,7 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/rancher/opni/pkg/alerting/extensions"
+	"github.com/rancher/opni/pkg/alerting/templates"
 
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"
@@ -115,6 +116,9 @@ func init() {
 	prometheus.MustRegister(configuredReceivers)
 	prometheus.MustRegister(configuredIntegrations)
 	prometheus.MustRegister(version.NewCollector("alertmanager"))
+
+	// register custom opni template functions to AlertManager
+	templates.RegisterNewAlertManagerDefaults(template.DefaultFuncs, templates.DefaultTemplateFuncs)
 }
 
 func instrumentHandler(handlerName string, handler http.HandlerFunc) http.HandlerFunc {

@@ -32,7 +32,10 @@ service AlertNotifications {
       body : "*"
     };
   }
-
+  
+  // In the cache we evict the keys with the highest (priority,severity) 
+  // according to the given filter 
+  // but return the filtered messages sorted by timestamp.
   rpc ListNotifications(ListNotificationRequest) 
     returns (ListMessageResponse) {
     option (google.api.http) = {
@@ -41,6 +44,9 @@ service AlertNotifications {
     };
   }
 
+  // best-effort listing of alarm messages for a given window
+  // messages with low frequency and severity are dropped frequently
+  // so may not show up with their associated incident
   rpc ListAlarmMessages(ListAlarmMessageRequest) 
     returns (ListMessageResponse) {
     option (google.api.http) = {

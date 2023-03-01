@@ -40,14 +40,14 @@ var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func
 	When("creating the default routing tree", func() {
 		Specify("The default opni routing tree root should be valid for alertmanager", func() {
 			fp := freeport.GetFreePort()
-			cfg := routing.NewDefaultRoutingTreeRoot(fmt.Sprintf("http://localhost:%d", fp))
+			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
 			Expect(cfg).ToNot(BeNil())
 			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTreeRoot.yaml", env.Context(), cfg, fp)
 		})
 
 		Specify("the opni subtree should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
-			cfg := routing.NewDefaultRoutingTreeRoot(fmt.Sprintf("http://localhost:%d", fp))
+			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
 			subtree, recvs := routing.NewOpniSubRoutingTree()
 			cfg.Route.Routes = append(cfg.Route.Routes, subtree)
 			cfg.Receivers = append(cfg.Receivers, recvs...)
@@ -56,7 +56,7 @@ var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func
 
 		Specify("the default routing tree of opni routing should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
-			cfg := routing.NewDefaultRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
+			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
 			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTree.yaml", env.Context(), cfg, fp)
 		})
 	})

@@ -26,7 +26,13 @@ type AlertNotificationsClient interface {
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	ResolveAlerts(ctx context.Context, in *ResolveAlertsRequest, opts ...grpc.CallOption) (*ResolveAlertsResponse, error)
 	PushNotification(ctx context.Context, in *Notification, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// In the cache we evict the keys with the highest (priority,severity)
+	// according to the given filter
+	// but return the filtered messages sorted by timestamp.
 	ListNotifications(ctx context.Context, in *ListNotificationRequest, opts ...grpc.CallOption) (*ListMessageResponse, error)
+	// best-effort listing of alarm messages for a given window
+	// messages with low frequency and severity are dropped frequently
+	// so may not show up with their associated incident
 	ListAlarmMessages(ctx context.Context, in *ListAlarmMessageRequest, opts ...grpc.CallOption) (*ListMessageResponse, error)
 	ListRoutingRelationships(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListRoutingRelationshipsResponse, error)
 }
@@ -100,7 +106,13 @@ type AlertNotificationsServer interface {
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	ResolveAlerts(context.Context, *ResolveAlertsRequest) (*ResolveAlertsResponse, error)
 	PushNotification(context.Context, *Notification) (*emptypb.Empty, error)
+	// In the cache we evict the keys with the highest (priority,severity)
+	// according to the given filter
+	// but return the filtered messages sorted by timestamp.
 	ListNotifications(context.Context, *ListNotificationRequest) (*ListMessageResponse, error)
+	// best-effort listing of alarm messages for a given window
+	// messages with low frequency and severity are dropped frequently
+	// so may not show up with their associated incident
 	ListAlarmMessages(context.Context, *ListAlarmMessageRequest) (*ListMessageResponse, error)
 	ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error)
 	mustEmbedUnimplementedAlertNotificationsServer()

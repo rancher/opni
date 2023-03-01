@@ -236,7 +236,7 @@ func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {
 }
 
 func (o *OpniRouterV1) SetDefaultNamespaceConfig(endpoints []*alertingv1.AlertEndpoint) error {
-	for _, val := range DefaultSubTreeValues() {
+	for _, val := range NotificationSubTreeValues() {
 		if len(endpoints) == 0 { // delete
 			delete(o.DefaultNamespaceConfigs, val.A)
 			return nil
@@ -265,7 +265,7 @@ func (o *OpniRouterV1) SetNamespaceSpec(namespace, routeId string, specs *alerti
 	if namespace == "" {
 		return validation.Error("namespace cannot be empty when setting specs")
 	}
-	if namespace == DefaultSubTreeLabel() {
+	if namespace == NotificationSubTreeLabel() {
 		return validation.Error("namespace cannot be the default namespace label")
 	}
 	// set receiver specs
@@ -339,7 +339,7 @@ func (o *OpniRouterV1) DeleteEndpoint(id string) error {
 }
 
 func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
-	root := NewDefaultRoutingTree(o.HookEndpoint)
+	root := NewRoutingTree(o.HookEndpoint)
 
 	// update the default namespace with the configs
 	for i, recv := range root.Receivers {
@@ -385,7 +385,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 		slices.SortFunc(routeIds, func(a, b string) bool {
 			return a < b
 		})
-		namespacedSubTree, _ := NewOpniNamespacedSubTree(namespace)
+		namespacedSubTree, _ := NewNamespaceTree(namespace)
 		for _, routeId := range routeIds {
 			if len(o.NamespacedSpecs[namespace][routeId]) == 0 {
 				// no opni receivers attached, do not build & skip...
@@ -399,7 +399,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 			for i, endpointId := range endpointIds {
 				endpoints[i] = o.NamespacedSpecs[namespace][routeId][endpointId]
 			}
-			namespacedValueSubTree, namespacedReceivers := NewOpniSubRoutingTreeWithValue(
+			namespacedValueSubTree, namespacedReceivers := NewNamespaceLeaf(
 				o.NamespacedRateLimiting[namespace][routeId],
 				endpoints,
 				o.HasLabels(routeId),

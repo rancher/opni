@@ -219,7 +219,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 		Logger: lg,
 	}
 	options.Apply(opts...)
-	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
+	rTree := routing.NewRoutingTree("http://localhost:6000")
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -340,7 +340,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
 	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
 
-	rTree := routing.NewDefaultRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTree := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)

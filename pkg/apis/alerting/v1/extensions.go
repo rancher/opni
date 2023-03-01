@@ -3,6 +3,7 @@ package v1
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -51,9 +52,9 @@ const (
 	NotificationPropertyOpniUuid = "opni_uuid"
 	// Any messages already in the notification queue with the same dedupe key will not be processed
 	// immediately, but will be deduplicated.
-	NotificationPropertyDedupeKey = "opni_dedupeKey"
+	NotificationPropertyDedupeKey = "opni_dedupe_key"
 	// Any messages with the same group key will be sent together
-	NotificationPropertyGroupKey = "opni_groupKey"
+	NotificationPropertyGroupKey = "opni_group_key"
 	// Opaque identifier for the cluster that generated the notification
 	NotificationPropertyClusterId = "opni_clusterId"
 	// Property that specifies how to classify the notification according to golden signal
@@ -101,8 +102,17 @@ func (n *Notification) GetRoutingLabels() map[string]string {
 		NotificationPropertySeverity: n.GetProperties()[NotificationPropertySeverity],
 		NotificationPropertyOpniUuid: n.GetProperties()[NotificationPropertyOpniUuid],
 	}
-	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
+	if v, ok := n.GetProperties()[NotificationPropertyDedupeKey]; ok {
 		res[NotificationPropertyDedupeKey] = v
+	} else {
+		res[NotificationPropertyDedupeKey] = n.GetProperties()[NotificationPropertyOpniUuid]
+	}
+
+	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
+		res[NotificationPropertyGroupKey] = v
+	} else {
+		// we have no knowledge of how to group messages by context
+		res[NotificationPropertyGroupKey] = uuid.New().String()
 	}
 	return res
 }
@@ -133,11 +143,15 @@ func (n *Notification) Namespace() string {
 }
 
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
-	return map[string]string{
+	res := map[string]string{
 		NotificationPropertySeverity: a.GetSeverity().String(),
 		NotificationPropertyOpniUuid: a.GetId(),
 		a.Namespace():                a.GetId(),
 	}
+	if IsMetricsCondition(a) {
+		res[NotificationPropertyGroupKey] = "{{ \"ALERTS\" | query }}"
+	}
+	return res
 }
 
 func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
@@ -347,7 +361,7 @@ func (i *IncidentIntervals) Prune(ttl time.Duration) {
 	i.Items = i.Items[pruneIdx:]
 }
 
-func (i *IncidentIntervals) Smooth(evaluationInterval time.Duration) {
+func (i *IncidentIntervals) Smooth(_ time.Duration) {
 	// TODO : need to smooth based on evaluation interval
 }
 

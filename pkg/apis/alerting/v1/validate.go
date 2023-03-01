@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/uuid"
 	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -508,7 +508,7 @@ func (n *Notification) Validate() error {
 		}
 	}
 	if _, ok := n.Properties[NotificationPropertyOpniUuid]; !ok {
-		n.Properties[NotificationPropertyOpniUuid] = uuid.New().String()
+		n.Properties[NotificationPropertyOpniUuid] = util.HashStrings([]string{n.Title, n.Body})
 	}
 	return nil
 }

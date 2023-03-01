@@ -209,7 +209,7 @@ func BuildEmbeddedServerNotificationTests(
 				router := routerConstructor(opniPort)
 				By("building the required routes for the routables")
 				for _, r := range dataset.Routables {
-					if r.Namespace() == routing.DefaultSubTreeLabel() {
+					if r.Namespace() == routing.NotificationSubTreeLabel() {
 						// no need to build this one
 						continue
 					}

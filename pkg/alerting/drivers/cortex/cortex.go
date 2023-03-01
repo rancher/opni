@@ -39,7 +39,7 @@ func ConstructRecordingRuleName(prefix, typeName string) string {
 	return fmt.Sprintf("opni:%s:%s", prefix, typeName)
 }
 
-func ConstructIdLabelsForRecordingRule(alertName, alertId string) map[string]string {
+func ConstructIdLabelsForRecordingRule(alertId string) map[string]string {
 	return map[string]string{
 		alertingv1.NotificationPropertyOpniUuid: alertId,
 	}
@@ -62,7 +62,7 @@ func NewCortexAlertingRule(
 	interval *time.Duration,
 	rule metrics.AlertRuleBuilder,
 ) (*RuleGroupYAMLv2, error) {
-	idLabels := ConstructIdLabelsForRecordingRule(alertName, alertId)
+	idLabels := ConstructIdLabelsForRecordingRule(alertId)
 	alertingRule, err := rule.Build(alertId)
 	if err != nil {
 		return nil, err

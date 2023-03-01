@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -17,6 +19,22 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// groups notifications by the duration "context" that is sending them
+// resolveContext's value will depend on the values the notification routing tree holds
+var resolveContext time.Duration
+
+func init() {
+	notificationSubtree := routing.NotificationSubTreeValues()
+	maxDur := time.Duration(0)
+	for _, node := range notificationSubtree {
+		dur := node.B.InitialDelay + node.B.ThrottlingDuration
+		if dur > maxDur {
+			maxDur = dur
+		}
+	}
+	resolveContext = time.Microsecond * time.Duration((math.Round(float64(maxDur.Microseconds()) * 1.2)))
+}
 
 // --- Trigger ---
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
@@ -142,9 +160,8 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 			routingLabels[alertingv1.NotificationPropertyOpniUuid],
 			routingLabels,
 			req.GetRoutingAnnotations(),
-			time.Minute*2,
+			resolveContext,
 		),
-		backend.WithDefaultRetrier(),
 	)
 	return &emptypb.Empty{}, apiNode.DoRequest()
 }

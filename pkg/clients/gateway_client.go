@@ -128,8 +128,8 @@ func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig
 	return grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithChainStreamInterceptor(
-			cluster.StreamClientInterceptor(challengeHandler),
 			otelgrpc.StreamClientInterceptor(),
+			cluster.StreamClientInterceptor(challengeHandler),
 		),
 		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithDefaultCallOptions(

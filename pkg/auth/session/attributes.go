@@ -85,15 +85,3 @@ func NewAttribute(name string, key []byte) (Attribute, error) {
 		key:  [KeyLength]byte(key),
 	}, nil
 }
-
-// func AuthorizedOutgoingContext(ctx context.Context) context.Context {
-// 	attrs := StreamAuthorizedAttributes(ctx)
-// 	if len(attrs) == 0 {
-// 		return ctx
-// 	}
-// 	kvs := make([]string, 0, len(attrs)*2)
-// 	for _, attr := range attrs {
-// 		kvs = append(kvs, string(AttributesKey), attr.Name())
-// 	}
-// 	return metadata.AppendToOutgoingContext(ctx, kvs...)
-// }

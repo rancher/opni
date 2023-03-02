@@ -47,5 +47,11 @@ This feature will have thorough unit testing to ensure proper security and perfo
 ## Risks and contingencies
 None identified so far.
 
+## Acceptance Criteria
+1. The opni_cluster_info metrics are available to all tenants regardless of rbac rules
+2. The opni_cluster_info metrics can correctly be used in Grafana dashboards
+3. The opni_cluster_info metrics can only be sent by the privileged local agent
+4. The opni_cluster_info metrics do not contain information about tenants other than of those queried
+
 ## Level of effort
 1 week total for development and testing.

@@ -4,7 +4,7 @@ dist:
   description: "Custom OpenTelemetry Collector distribution" # a long name for the application. Optional.
   otelcol_version: "0.71.0"
   version: "0.71.0"
-  output_path: ./
+  output_path: .
 
 receivers:
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.71.0
@@ -44,4 +44,4 @@ processors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.71.0
 
 replaces:
-- github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opensearchexporter => github.com/dbason/opentelemetry-collector-contrib/exporter/opensearchexporter v0.0.0-20230220215934-fc1091406dd0
+- github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opensearchexporter => github.com/dbason/opentelemetry-collector-contrib/exporter/opensearchexporter v0.0.0-20230302003609-e755d38a87ec

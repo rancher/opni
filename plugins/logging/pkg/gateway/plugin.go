@@ -36,7 +36,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -62,7 +62,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
-	otelForwarder       *loggingutil.OTELForwarder
+	otelForwarder       *otel.OTELForwarder
 	clusterDriver       drivers.ClusterDriver
 }
 
@@ -175,14 +175,14 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
-		otelForwarder: loggingutil.NewOTELForwarder(
-			loggingutil.WithLogger(lg.Named("otel-forwarder")),
-			loggingutil.WithAddress(fmt.Sprintf(
-				"http://%s:%d",
+		otelForwarder: otel.NewOTELForwarder(
+			otel.WithLogger(lg.Named("otel-forwarder")),
+			otel.WithAddress(fmt.Sprintf(
+				"%s:%d",
 				preprocessor.PreprocessorServiceName(OpniPreprocessingInstanceName),
 				OpniPreprocessingPort,
 			)),
-			loggingutil.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
 		clusterDriver: clusterDriver,
 	}
@@ -211,7 +211,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
-var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
+var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))

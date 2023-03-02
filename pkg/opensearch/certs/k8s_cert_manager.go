@@ -186,7 +186,7 @@ func (m *certMgrOpensearchManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 	}
 	ok = pool.AppendCertsFromPEM(http.Data[corev1.TLSCertKey])
 	if !ok {
-		return nil, errors.New("failed to append transport crt to pool")
+		return nil, errors.New("failed to append http crt to pool")
 	}
 	return pool, nil
 }

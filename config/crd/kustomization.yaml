@@ -37,6 +37,7 @@ resources:
 - bases/logging.opni.io_collectorconfigs.yaml
 - bases/monitoring.opni.io_rolebindings.yaml
 - bases/monitoring.opni.io_roles.yaml
+- bases/logging.opni.io_preprocessors.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

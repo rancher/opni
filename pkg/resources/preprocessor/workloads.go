@@ -34,18 +34,53 @@ receivers:
     protocols:
       grpc: {}
       http: {}
+processors:
+  resource:
+    attributes:
+    - key: container_image
+      action: insert
+      from_attribute: container.image.name
+    - key: deployment
+      action: insert
+      from_attribute: k8s.deployment.name
+    - key: deployment
+      action: insert
+      from_attribute: k8s.deployment.name
+    - key: pod_name
+      action: insert
+      from_attribute: k8s.pod.name
+    - key: namespace_name
+      action: insert
+      from_attribute: k8s.namespace.name
+    - key: log
+      action: delete
+  attributes:
+    actions:
+    - key: filename
+      action: insert
+      from_attribute: log.file.path
+    - key: log.file.path
+      action: delete
+    - key: message
+      action: insert
+      from_attribute: log
+    - key: log
+      action: delete
 exporters:
   opensearch:
     endpoints: [ "{{ .Endpoint }}" ]
     index: {{ .WriteIndex }}
+    mapping:
+      mode: flatten_attributes
     tls:
-      ca_file: /etc/otel/certs/ca.crt
+      ca_file: /etc/otel/chain.crt
       cert_file: /etc/otel/certs/tls.crt
       key_file: /etc/otel/certs/tls.key
 service:
   pipelines:
     logs:
       receivers: ["otlp"]
+      processors: ["resource", "attributes"]
       exporters: ["opensearch"]
 `))
 )
@@ -57,6 +92,10 @@ type PreprocessorConfig struct {
 
 func (r *Reconciler) configMapName() string {
 	return fmt.Sprintf("%s-preprocess-config", r.preprocessor.Name)
+}
+
+func (r *Reconciler) caChainSecretName() string {
+	return fmt.Sprintf("%s-client-ca-chain", r.preprocessor.Name)
 }
 
 func (r *Reconciler) opensearchEndpoint() string {
@@ -91,6 +130,20 @@ func (r *Reconciler) preprocessorVolumes() (
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: r.configMapName(),
 				},
+			},
+		},
+	})
+
+	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+		Name:      "preprocessor-chain",
+		MountPath: "/etc/otel/chain.crt",
+		SubPath:   "chain.crt",
+	})
+	retVolumes = append(retVolumes, corev1.Volume{
+		Name: "preprocessor-chain",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: r.caChainSecretName(),
 			},
 		},
 	})
@@ -246,6 +299,36 @@ func (r *Reconciler) service() resources.Resource {
 	ctrl.SetControllerReference(r.preprocessor, svc, r.client.Scheme())
 
 	return resources.Present(svc)
+}
+
+func (r *Reconciler) caChain() resources.Resource {
+	caRef, err := r.certMgr.GetHTTPCARef()
+	if err != nil {
+		return resources.Error(nil, err)
+	}
+	caSecret := &corev1.Secret{}
+	err = r.client.Get(r.ctx, types.NamespacedName{
+		Name:      caRef.Name,
+		Namespace: r.preprocessor.Namespace,
+	}, caSecret)
+	if err != nil {
+		return resources.Error(nil, err)
+	}
+
+	chain := caSecret.Data["ca.crt"]
+	chain = append(chain, caSecret.Data[corev1.TLSCertKey]...)
+
+	chainSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.caChainSecretName(),
+			Namespace: r.preprocessor.Namespace,
+		},
+		Data: map[string][]byte{
+			"chain.crt": chain,
+		},
+	}
+	ctrl.SetControllerReference(r.preprocessor, chainSecret, r.client.Scheme())
+	return resources.Present(chainSecret)
 }
 
 func (r *Reconciler) imageSpec() opnimeta.ImageSpec {

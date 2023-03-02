@@ -120,6 +120,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	config, configHash := r.configMap()
 	resourceList = append(resourceList, config)
+	resourceList = append(resourceList, r.caChain())
 	resourceList = append(resourceList, r.deployment(configHash))
 	resourceList = append(resourceList, r.service())
 

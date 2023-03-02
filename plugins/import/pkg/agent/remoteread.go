@@ -69,7 +69,13 @@ func (client *remoteReader) Read(ctx context.Context, endpoint string, readReque
 	}
 
 	if response.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("endpoint '%s' responded with status code '%d'", endpoint, response.StatusCode)
+		body, err := io.ReadAll(response.Body)
+
+		if err != nil {
+			return nil, fmt.Errorf("endpoint '%s' responded with status code '%d'", endpoint, response.StatusCode)
+		}
+
+		return nil, fmt.Errorf("endpoint '%s' responded with status code '%d': %s", endpoint, response.StatusCode, string(body))
 	}
 
 	uncompressedData, err = snappy.Decode(nil, compressedData)

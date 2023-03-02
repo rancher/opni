@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -11,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/import/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/import/pkg/backend"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"go.uber.org/zap"
 )
 
@@ -20,9 +22,12 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	importBackend backend.ImportBackend
+	importBackend     backend.ImportBackend
+	cortexRemoteWrite cortex.RemoteWriteForwarder
 
-	delegate future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
+	config          future.Future[*v1beta1.GatewayConfig]
+	cortexClientSet future.Future[cortex.ClientSet]
+	delegate        future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -30,8 +35,19 @@ func NewPlugin(ctx context.Context) *Plugin {
 		ctx:    ctx,
 		logger: logger.NewPluginLogger().Named("import"),
 
-		delegate: future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
+		config:          future.New[*v1beta1.GatewayConfig](),
+		cortexClientSet: future.New[cortex.ClientSet](),
+		delegate:        future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
 	}
+
+	future.Wait2(p.cortexClientSet, p.config,
+		func(cortexClientSet cortex.ClientSet, config *v1beta1.GatewayConfig) {
+			p.cortexRemoteWrite.Initialize(cortex.RemoteWriteForwarderConfig{
+				CortexClientSet: cortexClientSet,
+				Config:          &config.Spec,
+				Logger:          p.logger.Named("cortex-rw"),
+			})
+		})
 
 	future.Wait1(p.delegate,
 		func(delegate streamext.StreamDelegate[remoteread.RemoteReadAgentClient]) {

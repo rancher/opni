@@ -216,10 +216,24 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 
 			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
-					return
+					// todo: code duplication form opni/plugins/metrics/pkg/agent/http.go
+					// As a special case, status code 400 may indicate a success.
+					// Cortex handles a variety of cases where prometheus would normally
+					// return an error, such as duplicate or out of order samples. Cortex
+					// will return code 400 to prometheus, which prometheus will treat as
+					// a non-retriable error. In this case, the remote write status condition
+					// will be cleared as if the request succeeded.
+					if message := err.Error(); !strings.Contains(message, "out of bounds") &&
+						strings.Contains(message, "out of order sample") &&
+						strings.Contains(message, "duplicate sample for timestamp") &&
+						strings.Contains(message, "exemplars not ingested becaues series not already present") {
+
+						activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
+						return
+					}
 				}
 
+				fmt.Printf("=== [OntargetRunning] pushed %d bytes pushed to remote write ===\n", len(payload.Contents))
 				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
 			})
 

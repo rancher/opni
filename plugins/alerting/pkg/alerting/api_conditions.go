@@ -211,12 +211,12 @@ func (p *Plugin) checkMetricsClusterStatus(
 			Reason: "cluster not found",
 		}
 	}
-	for _, cap := range cluster.Metadata.Capabilities {
-		if cap.Name != wellknown.CapabilityMetrics {
-			return &alertingv1.AlertStatusResponse{
-				State:  alertingv1.AlertConditionState_Invalidated,
-				Reason: "cluster does not have metrics capabilities installed",
-			}
+	if len(lo.Filter(cluster.Metadata.Capabilities, func(cap *corev1.ClusterCapability, _ int) bool {
+		return cap.Name == wellknown.CapabilityMetrics
+	})) == 0 {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Invalidated,
+			Reason: "cluster does not have metrics capabilities installed",
 		}
 	}
 	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-time.Second * 90)) {

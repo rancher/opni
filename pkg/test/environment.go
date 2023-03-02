@@ -1362,12 +1362,16 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				},
 				Ruler: v1beta1.RulerSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				QueryFrontend: v1beta1.QueryFrontendSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				Purger: v1beta1.PurgerSpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+				},
+				Querier: v1beta1.QuerierSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Certs: v1beta1.MTLSSpec{

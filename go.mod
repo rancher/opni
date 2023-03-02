@@ -57,7 +57,7 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.11.3
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
-	github.com/kralicky/ragu v1.0.0-rc4
+	github.com/kralicky/ragu v1.0.0-rc4.0.20230302180009-d3d4b6e195f5
 	github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105
 	github.com/kralicky/totem v1.1.0-rc8
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
@@ -131,6 +131,7 @@ require (
 	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
 	golang.org/x/mod v0.7.0
+	golang.org/x/net v0.5.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.5.0
 	golang.org/x/tools v0.5.0
@@ -140,6 +141,7 @@ require (
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.1
@@ -480,10 +482,9 @@ require (
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/term v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -492,7 +493,6 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/op/go-logging.v1 v1.0.0-20160211212156-b2cb9fa56473 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/telebot.v3 v3.1.2 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect

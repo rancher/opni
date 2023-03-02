@@ -449,13 +449,14 @@ func ProtobufGo() error {
 
 func ProtobufPython() error {
 	out, err := ragu.GenerateCode([]ragu.Generator{python.Generator},
+		"plugins/metrics/pkg/apis/cortexadmin/*.proto",
 		"aiops/**/*.proto",
 	)
 	if err != nil {
 		return err
 	}
 	for _, file := range out {
-		if err := file.WriteToDisk(); err != nil {
+		if err := os.WriteFile(filepath.Join("aiops/apis/opni_proto", file.Name), []byte(file.Content), 0644); err != nil {
 			return err
 		}
 	}

@@ -43,3 +43,9 @@ This should not impact high availability.
 
 ## Testing:
 This feature will have thorough unit testing to ensure proper security and performance characteristics.
+
+## Risks and contingencies
+None identified so far.
+
+## Level of effort
+1 week total for development and testing.

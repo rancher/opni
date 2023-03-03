@@ -211,7 +211,6 @@ func (n *ImportNode) Discover(ctx context.Context, request *remoteread.Discovery
 	n.nodeDriverMu.RLock()
 	defer n.nodeDriverMu.RUnlock()
 
-	// todo: we still need to implement this node driver
 	if n.nodeDriver == nil {
 		n.logger.Warnf("no node driver available for discvoery")
 

@@ -65,9 +65,13 @@ func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
 }
 
 func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
+	if len(logs) == 0 {
+		return ""
+	}
+
 	for i := len(logs) - 1; i >= 0; i-- {
 		log := logs[i]
-		if log.Level == int32(zapcore.ErrorLevel) {
+		if log.Level != int32(zapcore.DebugLevel) {
 			return log.Msg
 		}
 	}

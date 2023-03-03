@@ -4,7 +4,6 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -55,7 +54,7 @@ type ProgressModel struct {
 	percent  float64
 	progress progress.Model
 
-	err      error
+	message  string
 	lastRead *timestamppb.Timestamp
 	state    string
 }
@@ -93,13 +92,13 @@ func (model ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return model, nil
 
-	case error:
-		model.err = msg
+	case string:
+		model.message = msg
 		return model, tea.Quit
 
 	case *remoteread.TargetStatus:
 		if msg.Message != "" {
-			model.err = fmt.Errorf(msg.Message)
+			model.message = msg.Message
 		}
 
 		importDone := false
@@ -158,8 +157,8 @@ func (model ProgressModel) View() string {
 		builder.WriteString(paddingStr + "Last Read Timestamp: " + model.lastRead.AsTime().String() + "\n")
 	}
 
-	if model.err != nil {
-		builder.WriteString(paddingStr + "Error: " + model.err.Error() + "\n\n")
+	if model.message != "" {
+		builder.WriteString(paddingStr + "Message: " + model.message + "\n\n")
 	}
 
 	return builder.String()

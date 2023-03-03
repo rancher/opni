@@ -155,9 +155,11 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
+	progressDelta := nextStart
+
 	progress := &corev1.Progress{
 		Current: 0,
-		Total:   uint64(importEnd - nextStart),
+		Total:   uint64(importEnd - progressDelta),
 	}
 
 	activeTask.SetProgress(progress)
@@ -233,11 +235,10 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 					}
 				}
 
-				fmt.Printf("=== [OntargetRunning] pushed %d bytes pushed to remote write ===\n", len(payload.Contents))
 				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
 			})
 
-			progress.Current = uint64(nextEnd)
+			progress.Current = uint64(nextEnd - progressDelta)
 			activeTask.SetProgress(progress)
 		}
 	}

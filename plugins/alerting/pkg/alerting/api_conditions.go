@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
-	"sync"
 	"time"
 
-	"github.com/prometheus/common/model"
+	"github.com/alitto/pond"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
@@ -83,36 +83,7 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1.ListAl
 	}
 
 	res := &alertingv1.AlertConditionList{}
-	conds := lo.Filter(allConds, func(item *alertingv1.AlertCondition, _ int) bool {
-		if len(req.Clusters) != 0 {
-			if !slices.Contains(req.Clusters, item.GetClusterId().Id) {
-				return false
-			}
-		}
-		if len(req.Labels) != 0 {
-			if len(lo.Intersect(req.Labels, item.Labels)) != len(req.Labels) {
-				return false
-			}
-		}
-		if len(req.Severities) != 0 {
-			if !slices.Contains(req.Severities, item.Severity) {
-				return false
-			}
-		}
-		if len(req.Severities) != 0 {
-			matches := false
-			for _, typ := range req.GetAlertTypes() {
-				if item.IsType(typ) {
-					matches = true
-					break
-				}
-			}
-			if !matches {
-				return false
-			}
-		}
-		return true
-	})
+	conds := lo.Filter(allConds, req.FilterFunc())
 	for i := range conds {
 		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
 			Id:             &corev1.Reference{Id: conds[i].Id},
@@ -645,6 +616,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	if err != nil {
 		return nil, err
 	}
+	conds := lo.Filter(conditions, req.Filters.FilterFunc())
 	resp := &alertingv1.TimelineResponse{
 		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
@@ -656,14 +628,13 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	var wg sync.WaitGroup
 	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
 	go func() {
-		for _, cond := range conditions {
+		n := int(req.Limit)
+		pool := pond.New(int(math.Max(25, float64(n/10))), n, pond.Strategy(pond.Balanced()))
+		for _, cond := range conds {
 			cond := cond
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			pool.Submit(func() {
 				if alertingv1.IsInternalCondition(cond) {
 					activeWindows, err := p.storageClientSet.Get().Incidents().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 					if err != nil {
@@ -702,10 +673,9 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 						Windows: cortex.ReducePrometheusMatrix(matrix),
 					}}
 				}
-			}()
+			})
 		}
-
-		wg.Wait()
+		pool.StopAndWait()
 		close(yieldedValues)
 	}()
 
@@ -720,30 +690,4 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 			resp.Items[v.A] = v.B
 		}
 	}
-}
-
-// MatrixRef
-// A : Refers to the index of a specific metric in the matrix
-// B : Refers to the position in the metric.Values array to process
-type MatrixRef lo.Tuple3[int, int, *model.SamplePair]
-
-// Implements the container/heap.Heap interface
-type MatrixHeap []MatrixRef
-
-func (h MatrixHeap) Len() int { return len(h) }
-func (h MatrixHeap) Less(i, j int) bool {
-	return h[i].C.Timestamp.Before(h[j].C.Timestamp)
-}
-func (h MatrixHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
-
-func (h *MatrixHeap) Push(x any) {
-	*h = append(*h, x.(MatrixRef))
-}
-
-func (h *MatrixHeap) Pop() any {
-	old := *h
-	n := len(*h)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
 }

@@ -17,6 +17,10 @@ func promValueToUnix(v *model.SamplePair) time.Time {
 	return time.Unix(int64(math.Round(float64(v.Value))), 0)
 }
 
+func between(start, end, ts time.Time) bool {
+	return ts.After(start) && ts.Before(end)
+}
+
 // `ALERTS` can have several root causes for causing the active alerting rule to fire;
 // prometheus store each root cause as a separate synthetic timeseries.
 // This function reduces the matrix of synthetic timeseries into a single array of sorted active windows
@@ -31,7 +35,6 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 			heap.Push(processingHeap, MatrixRef{A: i, B: 0, C: &metric.Values[0]})
 		}
 	}
-	// fingerprintStack := []A{}
 	for processingHeap.Len() > 0 {
 		ref := heap.Pop(processingHeap).(MatrixRef)
 
@@ -46,50 +49,46 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 
 		// We can consider this fingerprint timestamp as the source time for the alarm.
 
+		fingerprintStr := ref.C
 		fingerprintTs, curTs := promValueToUnix(ref.C), ref.C.Timestamp.Time()
 		if len(timeline) == 0 {
 			timeline = append(timeline, &alertingv1.ActiveWindow{
-				Start: timestamppb.New(fingerprintTs),
-				End:   timestamppb.New(curTs),
+				Start:        timestamppb.New(fingerprintTs),
+				End:          timestamppb.New(curTs),
+				Fingerprints: []string{fingerprintStr.Value.String()},
 			})
-		} else {
-			// eventual consistency shenanigans
-			last := timeline[len(timeline)-1]
-			if last.Start.AsTime().Equal(fingerprintTs) {
-				last.End = timestamppb.New(curTs)
-			} else if fingerprintTs.Before(last.End.AsTime()) && fingerprintTs.After(last.Start.AsTime()) {
-				// if our rule evaluations are taking longer than 90 seconds to push new evaluations to cortex,
-				// we've got bigger problems
-
-				if curTs.After(last.End.AsTime().Add(time.Second * 90)) {
-					//FIXME: this isn't necessarily what we want to do here
-					// last.End = curTs
-					timeline = append(timeline, &alertingv1.ActiveWindow{
-						Start: timestamppb.New(fingerprintTs),
-						End:   timestamppb.New(curTs),
-					})
-				} else {
-					last.End = timestamppb.New(curTs)
-				}
-
-			} else if fingerprintTs.Before(last.Start.AsTime()) {
-				if curTs.After(last.End.AsTime().Add(time.Second * 90)) {
-					// last.End = curTs
-					timeline = append(timeline, &alertingv1.ActiveWindow{
-						Start: timestamppb.New(last.End.AsTime().Add(time.Minute)),
-						End:   timestamppb.New(curTs),
-					})
-				} else {
-					last.End = timestamppb.New(curTs)
-				}
-			} else {
-				timeline = append(timeline, &alertingv1.ActiveWindow{
-					Start: timestamppb.New(fingerprintTs),
-					End:   timestamppb.New(curTs),
-				})
-			}
-
+			continue
 		}
+
+		// eventual consistency shenanigans
+		last := timeline[len(timeline)-1]
+		startTs, endTs := last.Start.AsTime(), last.End.AsTime()
+
+		// easy base case
+		if startTs.Equal(fingerprintTs) {
+			last.End = timestamppb.New(curTs)
+		} else if startTs.After(fingerprintTs) || between(startTs, endTs, fingerprintTs) {
+			if curTs.After(last.End.AsTime().Add(time.Second * 90)) {
+				// last.End = curTs
+				timeline = append(timeline, &alertingv1.ActiveWindow{
+					Start:        timestamppb.New(last.End.AsTime().Add(time.Minute)),
+					End:          timestamppb.New(curTs),
+					Fingerprints: []string{fingerprintStr.Value.String()},
+				})
+			} else {
+				last.End = timestamppb.New(curTs)
+				last.Fingerprints = append(last.Fingerprints, fingerprintStr.Value.String())
+			}
+		} else {
+			timeline = append(timeline, &alertingv1.ActiveWindow{
+				Start:        timestamppb.New(fingerprintTs),
+				End:          timestamppb.New(curTs),
+				Fingerprints: []string{fingerprintStr.Value.String()},
+			})
+		}
+	}
+	for _, t := range timeline {
+		t.Fingerprints = lo.Uniq(t.Fingerprints)
 	}
 	return timeline
 }

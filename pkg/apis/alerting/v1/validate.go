@@ -432,7 +432,13 @@ func (t *TimelineRequest) Validate() error {
 	if t.GetLookbackWindow().GetSeconds() == 0 {
 		return validation.Error("lookbackWindow must have a non zero time")
 	}
-	return nil
+	if t.GetLimit() == 0 {
+		t.Limit = 100
+	}
+	if t.Filters == nil {
+		t.Filters = &ListAlertConditionRequest{}
+	}
+	return t.Filters.Validate()
 }
 
 func (c *CloneToRequest) Validate() error {

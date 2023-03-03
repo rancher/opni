@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 
@@ -162,6 +163,7 @@ func NewInternalConditionEvaluator[T proto.Message](
 		storage,
 		state,
 		hooks,
+		"",
 	}
 }
 
@@ -172,6 +174,7 @@ type InternalConditionEvaluator[T proto.Message] struct {
 	*internalConditionStorage
 	*internalConditionState
 	*internalConditionHooks[T]
+	fingerprint string
 }
 
 // infinite & blocking : must be run in a goroutine
@@ -247,7 +250,10 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration {
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
-					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
+					c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
+					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{
+						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					})
 					if err != nil {
 						c.lg.Error(err)
 					}

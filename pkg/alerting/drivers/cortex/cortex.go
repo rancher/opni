@@ -55,7 +55,7 @@ func ConstructFiltersFromMap(in map[string]string) string {
 
 func NewCortexAlertingRule(
 	alertId,
-	alertName string,
+	_ string,
 	opniLabels,
 	opniAnnotations map[string]string,
 	info alertingv1.IndexableMetric,

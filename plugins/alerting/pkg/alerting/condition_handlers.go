@@ -11,6 +11,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
@@ -404,7 +405,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -413,7 +414,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},
@@ -488,7 +489,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -497,7 +498,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},
@@ -676,7 +677,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -686,7 +687,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionName: conditionName,
 					Namespace:     namespace,
 					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},

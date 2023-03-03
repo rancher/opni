@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,6 +10,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -62,6 +64,8 @@ const (
 	// Property that specifies the severity of the notification. Severity impacts how quickly the
 	// notification is dispatched & repeated, as well as how long to persist it.
 	NotificationPropertySeverity = "opni_severity"
+	// Property that is used to correlate messages to particular incidents
+	NotificationPropertyFingerprint = "opni_fingerprint"
 )
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
@@ -148,9 +152,6 @@ func (a *AlertCondition) GetRoutingLabels() map[string]string {
 		NotificationPropertyOpniUuid: a.GetId(),
 		a.Namespace():                a.GetId(),
 	}
-	if IsMetricsCondition(a) {
-		res[NotificationPropertyGroupKey] = "{{ \"ALERTS\" | query }}"
-	}
 	return res
 }
 
@@ -161,11 +162,12 @@ func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
 		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
 		shared.OpniAlarmNameAnnotation:    a.GetName(),
 		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
-		"fingerprint":                     "{{ \"ALERTS\" | query }}",
 	}
 	if IsMetricsCondition(a) {
-		//FIXME: wip
-		res["fingerprint"] = "{{ \"ALERTS\" | query }}"
+		res[NotificationPropertyFingerprint] = fmt.Sprintf(
+			"{{ \"ALERTS_FOR_STATE{opni_uuid=\"%s\"}\" | query | first | value }}",
+			a.Id,
+		)
 	}
 	return res
 }
@@ -380,30 +382,30 @@ func (r *RateLimitingConfig) Default() *RateLimitingConfig {
 
 func (a *AlertCondition) Namespace() string {
 	if a.GetAlertType().GetSystem() != nil {
-		return "disconnect"
+		return "opni_disconnect"
 	}
 	if a.GetAlertType().GetDownstreamCapability() != nil {
-		return "capability"
+		return "opni_capability"
 	}
 	if a.GetAlertType().GetCpu() != nil {
-		return "cpu"
+		return "opni_cpu"
 	}
 	if a.GetAlertType().GetMemory() != nil {
-		return "memory"
+		return "opni_memory"
 	}
 	if a.GetAlertType().GetFs() != nil {
-		return "fs"
+		return "opni_fs"
 	}
 	if a.GetAlertType().GetKubeState() != nil {
-		return "kube-state"
+		return "opni_kube_state"
 	}
 	if a.GetAlertType().GetPrometheusQuery() != nil {
-		return "promql"
+		return "opni_promql"
 	}
 	if a.GetAlertType().GetMonitoringBackend() != nil {
-		return "monitoring-backend"
+		return "opni_monitoring_backend"
 	}
-	return "default"
+	return "opni_default"
 }
 
 func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
@@ -418,4 +420,36 @@ func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId stri
 		}
 	}
 	return involvedConditions
+}
+func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool {
+	return func(item *AlertCondition, _ int) bool {
+		if len(l.Clusters) != 0 {
+			if !slices.Contains(l.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		if len(l.Labels) != 0 {
+			if len(lo.Intersect(l.Labels, item.Labels)) != len(l.Labels) {
+				return false
+			}
+		}
+		if len(l.Severities) != 0 {
+			if !slices.Contains(l.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(l.Severities) != 0 {
+			matches := false
+			for _, typ := range l.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	}
 }

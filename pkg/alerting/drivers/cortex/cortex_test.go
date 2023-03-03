@@ -29,22 +29,28 @@ var _ = Describe("Alerting cortex suite", func() {
 			windows := convertToMatrix("alerting/matrix/matrix.json")
 			Expect(windows).NotTo(HaveLen(0))
 			Expect(windows).To(HaveLen(1))
+			Expect(windows[0].Fingerprints).To(HaveLen(1))
 
 			windows = convertToMatrix("alerting/matrix/overlapping_causes.json")
 			Expect(windows).NotTo(HaveLen(0))
 			Expect(windows).To(HaveLen(1))
+			Expect(windows[0].Fingerprints).To(HaveLen(2))
 		})
 
 		It("should discern discrete incidents", func() {
 			windows := convertToMatrix("alerting/matrix/discrete_incidents.json")
 			Expect(windows).NotTo(HaveLen(0))
 			Expect(windows).To(HaveLen(2))
+			Expect(windows[0].Fingerprints).To(HaveLen(1))
+			Expect(windows[1].Fingerprints).To(HaveLen(1))
 		})
 
 		It("should discern when overlapping intervals should be treated as discrete incidents", func() {
 			windows := convertToMatrix("alerting/matrix/overlapping_but_discrete.json")
 			Expect(windows).NotTo(HaveLen(0))
 			Expect(windows).To(HaveLen(2))
+			Expect(windows[0].Fingerprints).To(HaveLen(2))
+			Expect(windows[1].Fingerprints).To(HaveLen(2))
 		})
 	})
 

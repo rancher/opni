@@ -22,11 +22,14 @@ import (
 	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v2"
 )
 
@@ -524,11 +527,14 @@ func ExpectConfigNotEqual(c1, c2 *config.Config, name ...string) {
 }
 
 // list request to expect length of notifications
-type RoutingDatasetKV = lo.Tuple2[*alertingv1.ListNotificationRequest, int]
+type NotificationPair = lo.Tuple2[*alertingv1.ListNotificationRequest, int]
+
+type AlarmPair = lo.Tuple2[*alertingv1.ListAlarmMessageRequest, int]
 
 type RoutableDataset struct {
-	Routables     []interfaces.Routable
-	ExpectedPairs []RoutingDatasetKV
+	Routables             []interfaces.Routable
+	ExpectedNotifications []NotificationPair
+	ExpectedAlarms        []AlarmPair
 }
 
 func NewRoutableDataset() *RoutableDataset {
@@ -550,10 +556,54 @@ func NewRoutableDataset() *RoutableDataset {
 		r = append(r, notif)
 		i++
 	}
+	condId1 := uuid.New().String()
+	condId2 := uuid.New().String()
+	for i := 0; i < 5; i++ {
+		r = append(r, &alertingv1.AlertCondition{
+			Name:        "test header 1",
+			Description: "test header 2",
+			Id:          condId1,
+			Severity:    alertingv1.OpniSeverity_Error,
+			AlertType: &alertingv1.AlertTypeDetails{
+				Type: &alertingv1.AlertTypeDetails_System{
+					System: &alertingv1.AlertConditionSystem{
+						ClusterId: &corev1.Reference{Id: uuid.New().String()},
+						Timeout:   durationpb.New(10 * time.Minute),
+					},
+				},
+			},
+		})
+	}
+	r = append(r, &alertingv1.AlertCondition{
+		Name:        "test header 2",
+		Description: "body 2",
+		Id:          condId2,
+		Severity:    alertingv1.OpniSeverity_Error,
+		AlertType: &alertingv1.AlertTypeDetails{
+			Type: &alertingv1.AlertTypeDetails_System{
+				System: &alertingv1.AlertConditionSystem{
+					ClusterId: &corev1.Reference{Id: uuid.New().String()},
+					Timeout:   durationpb.New(10 * time.Minute),
+				},
+			},
+		},
+	})
 	return &RoutableDataset{
 		Routables: r,
-		ExpectedPairs: []RoutingDatasetKV{
-			{A: &alertingv1.ListNotificationRequest{}, B: len(r)},
+		ExpectedNotifications: []NotificationPair{
+			{A: &alertingv1.ListNotificationRequest{}, B: 4},
+		},
+		ExpectedAlarms: []AlarmPair{
+			{A: &alertingv1.ListAlarmMessageRequest{
+				ConditionId: condId1,
+				Start:       timestamppb.New(time.Now().Add(-10000 * time.Hour)),
+				End:         timestamppb.New(time.Now().Add(10000 * time.Hour)),
+			}, B: 1},
+			{A: &alertingv1.ListAlarmMessageRequest{
+				ConditionId: condId2,
+				Start:       timestamppb.New(time.Now().Add(-10000 * time.Hour)),
+				End:         timestamppb.New(time.Now().Add(10000 * time.Hour)),
+			}, B: 1},
 		},
 	}
 }

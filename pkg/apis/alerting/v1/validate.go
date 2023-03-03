@@ -551,18 +551,19 @@ func (l *ListNotificationRequest) Validate() error {
 			}
 		}
 	}
+	slices.Sort(l.SeverityFilters)
 	return nil
 }
 
 func (l *ListAlarmMessageRequest) Validate() error {
-	if l.Limit == nil || *l.Limit == 0 {
-		l.Limit = lo.ToPtr(int32(3))
-	}
 	if l.ConditionId == "" {
 		return validation.Error("field conditionId must be set")
 	}
 	if l.Start.AsTime().After(l.End.AsTime()) {
 		return validation.Error("start time must be before end time")
+	}
+	if l.Fingerprints == nil {
+		l.Fingerprints = []string{}
 	}
 	return nil
 }

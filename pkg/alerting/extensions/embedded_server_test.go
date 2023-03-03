@@ -21,8 +21,13 @@ import (
 	"github.com/rancher/opni/pkg/alerting/extensions"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/samber/lo"
+
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func BuildEmbeddedServerNotificationTests(
@@ -64,8 +69,24 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 		return listResp
 	}
+
+	listAlarm := func(client *http.Client, listReq *alertingv1.ListAlarmMessageRequest, opniPort int) *alertingv1.ListMessageResponse {
+		content, err := json.Marshal(listReq)
+		Expect(err).NotTo(HaveOccurred())
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/alarms/list"), bytes.NewReader(content))
+		Expect(err).NotTo(HaveOccurred())
+		resp, err := client.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		var listResp *alertingv1.ListMessageResponse
+		err = json.NewDecoder(resp.Body).Decode(&listResp)
+		Expect(err).NotTo(HaveOccurred())
+		return listResp
+	}
 	return Describe("EmbeddedServer test suite", Ordered, Label("unit"), func() {
 		var client *http.Client
+		var fingerprints []string
+		var id string
 		BeforeAll(func() {
 			// start embedded alert manager with config that points to opni embedded server
 			Expect(env).NotTo(BeNil())
@@ -197,7 +218,8 @@ func BuildEmbeddedServerNotificationTests(
 			It("should reset the embedded server state", func() {
 				By("verifying there is an input dataset defined")
 				Expect(len(dataset.Routables)).NotTo(BeZero())
-				Expect(len(dataset.ExpectedPairs)).NotTo(BeZero())
+				Expect(len(dataset.ExpectedNotifications)).NotTo(BeZero())
+				Expect(len(dataset.ExpectedAlarms)).NotTo(BeZero())
 
 				By("restarting the embedded server")
 				freeport, err := freeport.GetFreePort()
@@ -214,7 +236,7 @@ func BuildEmbeddedServerNotificationTests(
 						continue
 					}
 					err = router.SetNamespaceSpec(
-						"",
+						r.Namespace(),
 						r.GetRoutingLabels()[alertingv1.NotificationPropertyOpniUuid],
 						&alertingv1.FullAttachedEndpoints{
 							Items: []*alertingv1.FullAttachedEndpoint{},
@@ -240,24 +262,95 @@ func BuildEmbeddedServerNotificationTests(
 				webPort = port
 			})
 			It("should persist the routables", func() {
-
 				for _, r := range dataset.Routables {
 					sendMsgAlertManager(env.Context(), r.GetRoutingLabels(), r.GetRoutingAnnotations(), webPort)
 				}
-				Eventually(func() bool {
+				fingerprints = []string{
+					uuid.New().String(),
+					uuid.New().String(),
+					uuid.New().String(),
+					uuid.New().String(),
+				}
+				id = uuid.New().String()
+				r := &alertingv1.AlertCondition{
+					Name:        "test header 2",
+					Description: "body 2",
+					Id:          id,
+					Severity:    alertingv1.OpniSeverity_Critical,
+					AlertType: &alertingv1.AlertTypeDetails{
+						Type: &alertingv1.AlertTypeDetails_System{
+							System: &alertingv1.AlertConditionSystem{
+								ClusterId: &corev1.Reference{Id: uuid.New().String()},
+								Timeout:   durationpb.New(10 * time.Minute),
+							},
+						},
+					},
+				}
+				for i := 0; i < 50; i++ {
+					sendMsgAlertManager(
+						env.Context(),
+						r.GetRoutingLabels(),
+						lo.Assign(
+							r.GetRoutingAnnotations(),
+							map[string]string{
+								alertingv1.NotificationPropertyFingerprint: fingerprints[i%len(fingerprints)],
+							},
+						),
+						webPort,
+					)
+				}
+				Eventually(func() error {
 					_ = webPort
 					_ = opniPort
 					_ = tmpConfigDir
-					for _, pair := range dataset.ExpectedPairs {
+					for _, pair := range dataset.ExpectedNotifications {
 						listResp := listNotif(client, pair.A, opniPort)
 						if len(listResp.Items) != pair.B {
-							return false
+							return fmt.Errorf(
+								"notification pair failed %s : %d vs %d",
+								util.Must(json.Marshal(pair.A)),
+								len(listResp.Items),
+								pair.B,
+							)
 						}
 					}
-					return true
-				}, time.Minute*3, time.Second*5,
-				).Should(BeTrue())
+
+					for _, pair := range dataset.ExpectedAlarms {
+						listResp := listAlarm(client, pair.A, opniPort)
+						if len(listResp.Items) != pair.B {
+							return fmt.Errorf(
+								"alarm pair failed %s : %d vs %d",
+								util.Must(json.Marshal(pair.A)),
+								len(listResp.Items),
+								pair.B,
+							)
+						}
+					}
+					return nil
+				}, time.Minute, time.Second*5,
+				).Should(BeNil())
 			})
+		})
+
+		XIt("should handle fingerprints when correlating alarm incident windows to messages", func() {
+			Eventually(func() error {
+				listResp := listAlarm(client,
+					&alertingv1.ListAlarmMessageRequest{
+						ConditionId:  id,
+						Fingerprints: fingerprints,
+						Start:        timestamppb.New(time.Now().Add(-time.Hour)),
+						End:          timestamppb.New(time.Now().Add(time.Hour)),
+					},
+					opniPort)
+				if len(listResp.GetItems()) != len(fingerprints) {
+					return fmt.Errorf(
+						"expected to match %d=%d persisted alarm messages & number of fingerprints",
+						len(listResp.GetItems()),
+						len(fingerprints),
+					)
+				}
+				return nil
+			}, time.Second*90, time.Second*5).Should(BeNil())
 		})
 	})
 }

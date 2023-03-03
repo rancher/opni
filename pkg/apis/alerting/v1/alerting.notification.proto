@@ -61,8 +61,8 @@ service AlertNotifications {
 
 message ListAlarmMessageRequest {
   // defaults to 100 most severe (frequency + severity heuristic)
-  optional int32 limit = 1;
-  string conditionId = 2;
+  string conditionId = 1;
+  repeated string fingerprints = 2;
   google.protobuf.Timestamp start = 3;
   google.protobuf.Timestamp end = 4;
 }
@@ -92,8 +92,11 @@ message Notification{
 }
 
 message MessageInstance {
-  google.protobuf.Timestamp at = 1;
-  Notification notification = 2;
+  google.protobuf.Timestamp receivedAt = 1;
+  google.protobuf.Timestamp lastUpdatedAt = 2;
+  Notification notification = 3;
+  map<string,string> startDetails = 4;
+  map<string,string> lastDetails = 5;
 }
 // opni-alerting internal use
 message TriggerAlertsRequest {

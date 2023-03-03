@@ -47,7 +47,7 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 		// a "fingerprint" timestamp, note that this fingerprint timestamp changes if the labels on
 		// the alerting rule change, and thus will be considered separate incidents
 
-		// We can consider this fingerprint timestamp as the source time for the alarm.
+		// We can consider this fingerprint timestamp as the source time for the alarm
 
 		fingerprintStr := ref.C
 		fingerprintTs, curTs := promValueToUnix(ref.C), ref.C.Timestamp.Time()
@@ -60,11 +60,9 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 			continue
 		}
 
-		// eventual consistency shenanigans
 		last := timeline[len(timeline)-1]
 		startTs, endTs := last.Start.AsTime(), last.End.AsTime()
 
-		// easy base case
 		if startTs.Equal(fingerprintTs) {
 			last.End = timestamppb.New(curTs)
 		} else if startTs.After(fingerprintTs) || between(startTs, endTs, fingerprintTs) {

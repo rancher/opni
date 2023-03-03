@@ -15,6 +15,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -201,6 +202,9 @@ func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNoti
 	if err := apiNode.DoRequest(); err != nil {
 		return nil, err
 	}
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
+		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	})
 	return resp, nil
 }
 
@@ -250,6 +254,9 @@ func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlar
 	if err := apiNode.DoRequest(); err != nil {
 		return nil, err
 	}
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
+		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	})
 	return resp, nil
 }
 

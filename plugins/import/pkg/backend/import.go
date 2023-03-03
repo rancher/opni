@@ -60,7 +60,7 @@ func (b *ImportBackend) Initialize(conf ImportBackendConfig) {
 	})
 }
 
-func (b *ImportBackend) AddTarget(ctx context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+func (b *ImportBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
 	b.WaitForInit()
 
 	b.remoteReadTargetMu.Lock()

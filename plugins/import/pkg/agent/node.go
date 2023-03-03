@@ -65,7 +65,7 @@ func NewImportNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *ImportNod
 	return node
 }
 
-func (n *ImportNode) doSync(ctx context.Context) {
+func (n *ImportNode) doSync(_ context.Context) {
 	n.logger.Debug("syncing import node")
 	n.nodeClientMu.RLock()
 	defer n.nodeClientMu.RUnlock()
@@ -140,7 +140,7 @@ func (n *ImportNode) SetHealthListenerClient(client controlv1.HealthListenerClie
 
 // capabilityv1.NodeServer
 
-func (n *ImportNode) SyncNow(ctx context.Context, filter *capabilityv1.Filter) (*emptypb.Empty, error) {
+func (n *ImportNode) SyncNow(_ context.Context, filter *capabilityv1.Filter) (*emptypb.Empty, error) {
 	if len(filter.CapabilityNames) > 0 {
 		if !slices.Contains(filter.CapabilityNames, wellknown.CapabilityMetrics) {
 			n.logger.Debug("ignoring sync request due to capability filter")
@@ -165,7 +165,7 @@ func (n *ImportNode) SyncNow(ctx context.Context, filter *capabilityv1.Filter) (
 
 // ontrolv1.HealthServer
 
-func (n *ImportNode) GetHealth(ctx context.Context, empty *emptypb.Empty) (*corev1.Health, error) {
+func (n *ImportNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.Health, error) {
 	conditions := n.conditions.List()
 
 	sort.Strings(conditions)

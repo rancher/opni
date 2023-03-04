@@ -9,7 +9,6 @@ import (
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
@@ -39,10 +38,7 @@ func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusReq
 func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	b.WaitForInit()
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
+	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
 	cluster, err := b.StorageBackend.GetCluster(ctx, &opnicorev1.Reference{

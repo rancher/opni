@@ -70,6 +70,11 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 				ControllerClusterPort: r.gw.Spec.Alerting.ClusterPort,
 				ConfigMap:             "alertmanager-config",
 			},
+			Keyring: cfgv1beta1.KeyringSpec{
+				EphemeralKeyDirs: []string{
+					"/run/opni/keyring",
+				},
+			},
 		},
 	}
 	gatewayConf.Spec.SetDefaults()

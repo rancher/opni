@@ -22,6 +22,7 @@ import (
 	mock_grpc "github.com/rancher/opni/pkg/test/mock/grpc"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -620,6 +621,93 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 				_, err = clientChallenge.DoChallenge(mockClientStream)
 				Expect(err).To(testutil.MatchStatusCode(codes.Aborted, ContainSubstring("error sending challenge response")))
 			})
+		})
+	})
+	Context("PerRPCCredentials", func() {
+		It("should allow using session attributes as PerRPCCredentials", func() {
+			server := grpc.NewServer(
+				grpc.Creds(insecure.NewCredentials()),
+				grpc.ChainStreamInterceptor(
+					func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+						stream := streams.NewServerStreamWithContext(ss)
+						stream.Ctx = session.AttributesKey.FromIncomingCredentials(stream.Ctx)
+						return handler(srv, stream)
+					},
+				),
+			)
+
+			attrs := make(chan []session.Attribute, 1)
+			testgrpc.RegisterStreamServiceServer(server, &testgrpc.StreamServer{
+				ServerHandler: func(stream testgrpc.StreamService_StreamServer) error {
+					attrs <- session.StreamAuthorizedAttributes(stream.Context())
+					return nil
+				},
+			})
+			listener := bufconn.Listen(1024 * 1024)
+			go server.Serve(listener)
+			DeferCleanup(listener.Close)
+
+			cc, _ := grpc.Dial("bufconn",
+				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+					return listener.Dial()
+				}),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithPerRPCCredentials(session.AttributesKey),
+			)
+
+			client := testgrpc.NewStreamServiceClient(cc)
+			{
+				ctx := context.WithValue(context.Background(), session.AttributesKey, []session.Attribute{
+					session.NewAttribute("foo"),
+					session.NewAttribute("bar"),
+				})
+
+				_, err := client.Stream(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				var attrNames []string
+				for _, attr := range <-attrs {
+					attrNames = append(attrNames, attr.Name())
+				}
+				Expect(attrNames).To(ConsistOf("foo", "bar"))
+			}
+			{
+				ctx := context.WithValue(context.Background(), session.AttributesKey, []session.SecretAttribute{
+					testutil.Must(session.NewSecretAttribute("baz", make([]byte, 32))),
+				})
+
+				_, err := client.Stream(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				var attrNames []string
+				for _, attr := range <-attrs {
+					attrNames = append(attrNames, attr.Name())
+				}
+				Expect(attrNames).To(ConsistOf("baz"))
+			}
+			{
+				ctx := context.WithValue(context.Background(), session.AttributesKey, []string{
+					"wrong-type",
+				})
+
+				_, err := client.Stream(ctx)
+				Expect(err).To(testutil.MatchStatusCode(codes.Unauthenticated,
+					Equal("transport: per-RPC creds failed due to error: invalid session attribute type []string")))
+			}
+			{
+				_, err := client.Stream(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(<-attrs).To(BeEmpty())
+			}
+		})
+		Specify("misc error checking", func() {
+			ctx := session.AttributesKey.FromIncomingCredentials(context.Background())
+			Expect(ctx).To(Equal(context.Background()))
+
+			attrs := session.StreamAuthorizedAttributes(
+				context.WithValue(context.Background(), session.AttributesKey, []string{"foo"}))
+			Expect(attrs).To(BeNil())
 		})
 	})
 })

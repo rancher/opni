@@ -237,14 +237,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 
-	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		if err := streamSvc.AddRemote(cc, md.Filename()); err != nil {
-			lg.With(
-				zap.Error(err),
-				"plugin", md.Module,
-			).Error("failed to add plugin remote stream service")
-		}
-	}))
+	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 
 	// set up bootstrap server
 	bootstrapServerV1 := bootstrap.NewServer(storageBackend, pkey, capBackendStore)

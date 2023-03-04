@@ -277,10 +277,7 @@ func (t *TopologyBackend) InstallerTemplate(_ context.Context, _ *emptypb.Empty)
 func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	t.WaitForInit()
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
+	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
 	cluster, err := t.StorageBackend.GetCluster(ctx, &corev1.Reference{

@@ -2,11 +2,16 @@ package cluster_test
 
 import (
 	"context"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/keyring"
-	"google.golang.org/grpc/metadata"
+	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/util/streams"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/rancher/opni/pkg/auth/cluster"
 )
@@ -26,36 +31,57 @@ var _ = Describe("Cluster Context Utils", Label("unit"), func() {
 			Expect(cluster.StreamAuthorizedID(ctx)).To(Equal("cluster-123"))
 		})
 	})
+	Context("PerRPCCredentials", func() {
+		It("should allow using cluster ID as PerRPCCredentials", func() {
+			server := grpc.NewServer(
+				grpc.Creds(insecure.NewCredentials()),
+				grpc.ChainStreamInterceptor(
+					func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+						stream := streams.NewServerStreamWithContext(ss)
+						stream.Ctx = cluster.ClusterIDKey.FromIncomingCredentials(stream.Ctx)
+						return handler(srv, stream)
+					},
+				),
+			)
 
-	Describe("AuthorizedOutgoingContext", func() {
-		It("should append cluster ID to outgoing metadata", func() {
-			ctx := context.WithValue(context.Background(), cluster.ClusterIDKey, "cluster-123")
-			outgoingCtx := cluster.AuthorizedOutgoingContext(ctx)
-			md, ok := metadata.FromOutgoingContext(outgoingCtx)
-			Expect(ok).To(BeTrue())
-			Expect(md[string(cluster.ClusterIDKey)]).To(ConsistOf("cluster-123"))
-		})
-	})
+			id := make(chan any, 1)
+			testgrpc.RegisterStreamServiceServer(server, &testgrpc.StreamServer{
+				ServerHandler: func(stream testgrpc.StreamService_StreamServer) error {
+					id <- stream.Context().Value(cluster.ClusterIDKey)
+					return nil
+				},
+			})
+			listener := bufconn.Listen(1024 * 1024)
+			go server.Serve(listener)
+			DeferCleanup(listener.Close)
 
-	Describe("AuthorizedIDFromIncomingContext", func() {
-		It("should extract cluster ID from incoming metadata", func() {
-			md := metadata.Pairs(string(cluster.ClusterIDKey), "cluster-123")
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-			id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(id).To(Equal("cluster-123"))
-		})
+			cc, _ := grpc.Dial("bufconn",
+				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+					return listener.Dial()
+				}),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
+			)
 
-		It("should return false when cluster ID is not found in metadata", func() {
-			ctx := context.Background()
-			_, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-			Expect(ok).To(BeFalse())
+			client := testgrpc.NewStreamServiceClient(cc)
+			{
+				ctx := context.WithValue(context.Background(), cluster.ClusterIDKey, "foo")
+
+				_, err := client.Stream(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(<-id).To(BeEquivalentTo("foo"))
+			}
+			{
+				_, err := client.Stream(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(<-id).To(BeNil())
+			}
 		})
-		It("should return false when the metadata contains an empty slice", func() {
-			md := metadata.MD{string(cluster.ClusterIDKey): []string{}}
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-			_, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-			Expect(ok).To(BeFalse())
+		Specify("misc error checking", func() {
+			ctx := cluster.ClusterIDKey.FromIncomingCredentials(context.Background())
+			Expect(ctx).To(Equal(context.Background()))
 		})
 	})
 })

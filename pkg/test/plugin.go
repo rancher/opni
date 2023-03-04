@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"sync"
 
@@ -74,6 +75,7 @@ func NewApiExtensionTestPlugin(
 		Logger: hclog.New(&hclog.LoggerOptions{
 			Level: hclog.Error,
 		}),
+		Stderr: os.Stderr,
 	}
 }
 

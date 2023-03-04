@@ -30,18 +30,26 @@ func StreamAuthorizedID(ctx context.Context) string {
 	return ctx.Value(ClusterIDKey).(string)
 }
 
-func AuthorizedOutgoingContext(ctx context.Context) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, string(ClusterIDKey), StreamAuthorizedID(ctx))
+func (k clusterIDKeyType) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	if v := ctx.Value(k); v != nil {
+		return map[string]string{
+			string(k): v.(string),
+		}, nil
+	}
+	return nil, nil
 }
 
-func AuthorizedIDFromIncomingContext(ctx context.Context) (string, bool) {
+func (k clusterIDKeyType) RequireTransportSecurity() bool {
+	return false
+}
+
+func (k clusterIDKeyType) FromIncomingCredentials(ctx context.Context) context.Context {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return "", false
+		return ctx
 	}
-	ids := md.Get(string(ClusterIDKey))
-	if len(ids) == 0 {
-		return "", false
+	if values := md.Get(string(k)); len(values) == 1 {
+		ctx = context.WithValue(ctx, k, values[0])
 	}
-	return ids[0], true
+	return ctx
 }

@@ -59,6 +59,18 @@ opni-agent:
   bootstrapInCluster:
     enabled: true
     managementAddress: opni-internal:11090
+  volumeMounts:
+    - name: local-agent-key
+      mountPath: /run/opni-agent/keyring
+      readOnly: true
+  volumes:
+    - name: local-agent-key
+      secret:
+        secretName: opni-local-agent-key
+        defaultMode: 256
+        items:
+          - key: session-attribute.json
+            path: session-attribute.json
   agent:
     version: v2
   kube-prometheus-stack:

@@ -51,10 +51,20 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 		return nil, util.StatusError(codes.Unavailable)
 	}
 
-	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
-	}
+	clusterId := cluster.StreamAuthorizedID(ctx)
+
+	// example: detecting the local cluster via session attributes
+	//
+	// attributes := session.StreamAuthorizedAttributes(ctx)
+	// attrNames := make([]string, 0, len(attributes))
+	// for _, attr := range attributes {
+	// 	attrNames = append(attrNames, attr.Name())
+	// }
+	// for _, attr := range attributes {
+	// 	if attr.Name() == "local" {
+	// 		f.Logger.Debug("detected local cluster")
+	// 	}
+	// }
 
 	defer func() {
 		code := status.Code(pushErr)
@@ -110,10 +120,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	if !f.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
-	}
+	clusterId := cluster.StreamAuthorizedID(ctx)
 
 	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
 		trace.WithAttributes(attribute.String("clusterId", clusterId)))

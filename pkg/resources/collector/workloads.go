@@ -23,7 +23,7 @@ const (
 	aggregatorKey      = "aggregator.yaml"
 	collectorImageRepo = "docker.io/otel"
 	collectorImage     = "opentelemetry-collector-contrib"
-	collectorVersion   = "0.68.0"
+	collectorVersion   = "0.71.0"
 	otlpGRPCPort       = int32(4317)
 )
 
@@ -106,6 +106,19 @@ func (r *Reconciler) hostLoggingVolumes() (
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
 				Path: "/var/log/pods",
+			},
+		},
+	})
+
+	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+		Name:      "varlibdockercontainers",
+		MountPath: "/var/lib/docker/containers",
+	})
+	retVolumes = append(retVolumes, corev1.Volume{
+		Name: "varlibdockercontainers",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/var/lib/docker/containers",
 			},
 		},
 	})
@@ -360,6 +373,7 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 							Effect: corev1.TaintEffectNoExecute,
 						},
 					},
+					ServiceAccountName: "opni-agent",
 				},
 			},
 		},

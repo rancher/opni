@@ -135,6 +135,10 @@ func BuildManagerCmd() *cobra.Command {
 			setupLog.Error(err, "unable to create controller", "controller", "NatsCluster")
 			return err
 		}
+		if err = (&controllers.LoggingPreprocessorReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Preprocessor")
+			return err
+		}
 
 		if err = (&controllers.GrafanaReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Grafana")

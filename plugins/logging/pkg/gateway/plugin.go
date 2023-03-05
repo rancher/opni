@@ -25,6 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/resources/preprocessor"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -35,15 +36,15 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	OpensearchBindingName    = "opni-logging"
-	OpniPreprocessingAddress = "opni-preprocess-otel"
-	OpniPreprocessingPort    = 4317
+	OpensearchBindingName         = "opni-logging"
+	OpniPreprocessingInstanceName = "opni"
+	OpniPreprocessingPort         = 4317
 )
 
 type Plugin struct {
@@ -61,7 +62,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
-	otelForwarder       *loggingutil.OTELForwarder
+	otelForwarder       *otel.OTELForwarder
 	clusterDriver       drivers.ClusterDriver
 }
 
@@ -174,10 +175,14 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			opensearchdata.WithNatsConnection(options.nc),
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
-		otelForwarder: loggingutil.NewOTELForwarder(
-			loggingutil.WithLogger(lg.Named("otel-forwarder")),
-			loggingutil.WithAddress(fmt.Sprintf("http://%s:%d", OpniPreprocessingAddress, OpniPreprocessingPort)),
-			loggingutil.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		otelForwarder: otel.NewOTELForwarder(
+			otel.WithLogger(lg.Named("otel-forwarder")),
+			otel.WithAddress(fmt.Sprintf(
+				"%s:%d",
+				preprocessor.PreprocessorServiceName(OpniPreprocessingInstanceName),
+				OpniPreprocessingPort,
+			)),
+			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
 		clusterDriver: clusterDriver,
 	}
@@ -206,7 +211,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
-var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
+var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))

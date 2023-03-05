@@ -18,7 +18,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -81,7 +81,7 @@ type LoggingManagerV2 struct {
 	logger            *zap.SugaredLogger
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	opensearchManager *opensearchdata.Manager
-	otelForwarder     *loggingutil.OTELForwarder
+	otelForwarder     *otel.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
 	versionOverride   string

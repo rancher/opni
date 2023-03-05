@@ -1,10 +1,16 @@
-package util
+package otel
 
 import (
 	"context"
+	"net/http"
+	"sync"
 	"time"
 
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/backoff/v2"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -18,9 +24,10 @@ const (
 
 type OTELForwarder struct {
 	collogspb.UnsafeLogsServiceServer
-	opts otelForwarderOptions
+	otelForwarderOptions
 
-	Client *AsyncClient[collogspb.LogsServiceClient]
+	Client   *util.AsyncClient[collogspb.LogsServiceClient]
+	clientMu sync.RWMutex
 }
 
 type otelForwarderOptions struct {
@@ -65,11 +72,12 @@ func WithDialOptions(opts ...grpc.DialOption) OTELForwarderOption {
 func NewOTELForwarder(opts ...OTELForwarderOption) *OTELForwarder {
 	options := otelForwarderOptions{
 		collectorAddressOverride: defaultAddress,
+		lg:                       logger.NewPluginLogger().Named("default-otel"),
 	}
 	options.apply(opts...)
 	return &OTELForwarder{
-		opts:   options,
-		Client: NewAsyncClient[collogspb.LogsServiceClient](),
+		otelForwarderOptions: options,
+		Client:               util.NewAsyncClient[collogspb.LogsServiceClient](),
 	}
 }
 
@@ -78,12 +86,15 @@ func (f *OTELForwarder) BackgroundInitClient() {
 }
 
 func (f *OTELForwarder) SetClient(cc grpc.ClientConnInterface) {
+	f.clientMu.Lock()
+	defer f.clientMu.Unlock()
+
 	client := collogspb.NewLogsServiceClient(cc)
 	f.Client.SetClient(client)
 }
 
 func (f *OTELForwarder) initializeOTELForwarder() collogspb.LogsServiceClient {
-	if f.opts.cc == nil {
+	if f.cc == nil {
 		ctx := context.Background()
 		expBackoff := backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -96,23 +107,22 @@ func (f *OTELForwarder) initializeOTELForwarder() collogspb.LogsServiceClient {
 		for {
 			select {
 			case <-b.Done():
-				f.opts.lg.Warn("plugin context cancelled before gRPC client created")
+				f.lg.Warn("plugin context cancelled before gRPC client created")
 				return nil
 			case <-b.Next():
-				opts := append(f.opts.dialOptions, grpc.WithBlock())
 				conn, err := grpc.Dial(
-					f.opts.collectorAddressOverride,
-					opts...,
+					f.collectorAddressOverride,
+					f.dialOptions...,
 				)
 				if err != nil {
-					f.opts.lg.Errorf("failed dial grpc: %v", err)
+					f.lg.Errorf("failed dial grpc: %v", err)
 					continue
 				}
 				return collogspb.NewLogsServiceClient(conn)
 			}
 		}
 	}
-	return collogspb.NewLogsServiceClient(f.opts.cc)
+	return collogspb.NewLogsServiceClient(f.cc)
 }
 
 func (f *OTELForwarder) Export(
@@ -120,7 +130,44 @@ func (f *OTELForwarder) Export(
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
 	if f.Client.IsSet() {
-		return f.Client.Client.Export(ctx, request)
+		return f.forwardLogs(ctx, request)
 	}
+	f.lg.Error("collector is unavailable")
 	return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
+}
+
+func (f *OTELForwarder) forwardLogs(
+	ctx context.Context,
+	request *collogspb.ExportLogsServiceRequest,
+) (*collogspb.ExportLogsServiceResponse, error) {
+	resp, err := f.Client.Client.Export(ctx, request)
+	if err != nil {
+		f.lg.Error("failed to forward logs: %v", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (f *OTELForwarder) handleLogsPost(c *gin.Context) {
+	f.clientMu.RLock()
+	defer f.clientMu.RUnlock()
+	if !f.Client.IsSet() {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+
+	switch c.ContentType() {
+	case pbContentType:
+		f.renderProto(c)
+	case jsonContentType:
+		f.renderProtoJSON(c)
+	default:
+		c.String(http.StatusUnsupportedMediaType, "unsupported media type, supported: [%s,%s]", jsonContentType, pbContentType)
+		return
+	}
+}
+
+func (f *OTELForwarder) ConfigureRoutes(router *gin.Engine) {
+	router.POST("/api/agent/otel/v1/logs", f.handleLogsPost)
+	pprof.Register(router, "/debug/plugin_logging/pprof")
 }

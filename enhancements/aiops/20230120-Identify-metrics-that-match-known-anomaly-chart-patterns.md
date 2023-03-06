@@ -17,7 +17,7 @@ The 2 types of pre-defined patterns:
 * Reduce economic loss.
 
 ## Impact: 
-* No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired or when user manually click a button. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
+* No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired or when a user clicks a button that invokes it. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
 ![Flow chart](https://user-images.githubusercontent.com/4568163/220794014-5e4b70d2-94f5-451d-9e68-f5b27e1e2a24.png)

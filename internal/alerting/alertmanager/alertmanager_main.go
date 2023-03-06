@@ -28,7 +28,7 @@ import (
 	"syscall"
 	"time"
 
-
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -42,7 +42,6 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/rancher/opni/pkg/alerting/extensions"
-	kingpin "github.com/alecthomas/kingpin/v2"
 
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"

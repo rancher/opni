@@ -3,10 +3,11 @@ package collector
 import "html/template"
 
 const (
-	logReceiverK8s  = "filelog/k8s"
-	logReceiverRKE  = "filelog/rke"
-	logReceiverK3s  = "journald/k3s"
-	logReceiverRKE2 = "journald/rke2"
+	logReceiverK8s      = "filelog/k8s"
+	logReceiverRKE      = "filelog/rke"
+	logReceiverK3s      = "journald/k3s"
+	logReceiverRKE2     = "journald/rke2"
+	fileLogReceiverRKE2 = "filelog/rke2"
 )
 
 var (
@@ -74,60 +75,6 @@ filelog/k8s:
   - type: move
     from: attributes.uid
     to: resource["k8s.pod.uid"]
-journald/k8s:
-  operators:
-  # Filter in only related units
-  - type: filter
-    id: filter
-    expr: >-
-      ($$record._SYSTEMD_UNIT != "addon-config.service") &&
-      ($$record._SYSTEMD_UNIT != "addon-run.service") &&
-      ($$record._SYSTEMD_UNIT != "cfn-etcd-environment.service") &&
-      ($$record._SYSTEMD_UNIT != "cfn-signal.service") &&
-      ($$record._SYSTEMD_UNIT != "clean-ca-certificates.service") &&
-      ($$record._SYSTEMD_UNIT != "containerd.service") &&
-      ($$record._SYSTEMD_UNIT != "coreos-metadata.service") &&
-      ($$record._SYSTEMD_UNIT != "coreos-setup-environment.service") &&
-      ($$record._SYSTEMD_UNIT != "coreos-tmpfiles.service") &&
-      ($$record._SYSTEMD_UNIT != "dbus.service") &&
-      ($$record._SYSTEMD_UNIT != "docker.service") &&
-      ($$record._SYSTEMD_UNIT != "efs.service") &&
-      ($$record._SYSTEMD_UNIT != "etcd-member.service") &&
-      ($$record._SYSTEMD_UNIT != "etcd.service") &&
-      ($$record._SYSTEMD_UNIT != "etcd2.service") &&
-      ($$record._SYSTEMD_UNIT != "etcd3.service") &&
-      ($$record._SYSTEMD_UNIT != "etcdadm-check.service") &&
-      ($$record._SYSTEMD_UNIT != "etcdadm-reconfigure.service") &&
-      ($$record._SYSTEMD_UNIT != "etcdadm-save.service") &&
-      ($$record._SYSTEMD_UNIT != "etcdadm-update-status.service") &&
-      ($$record._SYSTEMD_UNIT != "flanneld.service") &&
-      ($$record._SYSTEMD_UNIT != "format-etcd2-volume.service") &&
-      ($$record._SYSTEMD_UNIT != "kube-node-taint-and-uncordon.service") &&
-      ($$record._SYSTEMD_UNIT != "kubelet.service") &&
-      ($$record._SYSTEMD_UNIT != "ldconfig.service") &&
-      ($$record._SYSTEMD_UNIT != "locksmithd.service") &&
-      ($$record._SYSTEMD_UNIT != "logrotate.service") &&
-      ($$record._SYSTEMD_UNIT != "lvm2-monitor.service") &&
-      ($$record._SYSTEMD_UNIT != "mdmon.service") &&
-      ($$record._SYSTEMD_UNIT != "nfs-idmapd.service") &&
-      ($$record._SYSTEMD_UNIT != "nfs-mountd.service") &&
-      ($$record._SYSTEMD_UNIT != "nfs-server.service") &&
-      ($$record._SYSTEMD_UNIT != "nfs-utils.service") &&
-      ($$record._SYSTEMD_UNIT != "node-problem-detector.service") &&
-      ($$record._SYSTEMD_UNIT != "ntp.service") &&
-      ($$record._SYSTEMD_UNIT != "oem-cloudinit.service") &&
-      ($$record._SYSTEMD_UNIT != "rkt-gc.service") &&
-      ($$record._SYSTEMD_UNIT != "rkt-metadata.service") &&
-      ($$record._SYSTEMD_UNIT != "rpc-idmapd.service") &&
-      ($$record._SYSTEMD_UNIT != "rpc-mountd.service") &&
-      ($$record._SYSTEMD_UNIT != "rpc-statd.service") &&
-      ($$record._SYSTEMD_UNIT != "rpcbind.service") &&
-      ($$record._SYSTEMD_UNIT != "set-aws-environment.service") &&
-      ($$record._SYSTEMD_UNIT != "system-cloudinit.service") &&
-      ($$record._SYSTEMD_UNIT != "systemd-timesyncd.service") &&
-      ($$record._SYSTEMD_UNIT != "update-ca-certificates.service") &&
-      ($$record._SYSTEMD_UNIT != "user-cloudinit.service") &&
-      ($$record._SYSTEMD_UNIT != "var-lib-etcd2.service")
 `
 	templateLogAgentRKE = `
 filelog/rke:
@@ -153,6 +100,26 @@ journald/rke2:
   - "rke2-server"
   - "rke2-agent"
   directory: {{ . }}
+filelog/rke2:
+  include: [ /var/lib/rancher/rke2/agent/logs/kubelet.log ]
+  start_at: beginning
+  include_file_path: true
+  include_file_name: false
+  operators:
+  - type: regex_parser
+    id: time-sev
+    on_error: drop
+    regex: '^(?P<klog_level>[IWEF])(?P<klog_time>\d{4} \d{2}:\d{2}:\d{2}\.\d+)\s*(?P<message>.*)'
+    timestamp:
+      parse_from: attributes.klog_time
+      layout: '%m%d %H:%M:%S.%L'
+    severity:
+      parse_from: attributes.klog_level
+      mapping:
+        info: I
+        warn: W
+        error: E
+        fatal: F
 `))
 
 	templateMainConfig = template.Must(template.New("main").Parse(`

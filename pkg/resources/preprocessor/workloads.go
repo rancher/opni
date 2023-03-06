@@ -66,6 +66,13 @@ processors:
       from_attribute: log
     - key: log
       action: delete
+  transform:
+    log_statements:
+    - context: log
+      statements:
+      - merge_maps(attributes, body, "upsert") where attributes["filename"] == nil
+      - set(attributes["COMM"], attributes["_COMM"])
+      - delete_matching_keys(attributes, "_.*")
 exporters:
   opensearch:
     endpoints: [ "{{ .Endpoint }}" ]
@@ -80,7 +87,7 @@ service:
   pipelines:
     logs:
       receivers: ["otlp"]
-      processors: ["resource", "attributes"]
+      processors: ["resource", "attributes", "transform"]
       exporters: ["opensearch"]
 `))
 )

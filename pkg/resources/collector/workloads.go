@@ -21,10 +21,16 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "docker.io/otel"
-	collectorImage     = "opentelemetry-collector-contrib"
+	collectorImageRepo = "ghcr.io/dbason"
+	collectorImage     = "otelcol-custom"
 	collectorVersion   = "0.71.0"
 	otlpGRPCPort       = int32(4317)
+	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
+	machineID          = "/etc/machine-id"
+)
+
+var (
+	directoryOrCreate = corev1.HostPathDirectoryOrCreate
 )
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
@@ -38,14 +44,14 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 			return
 		}
 		retData = append(retData, data...)
-		if receiver != "" {
-			retReceivers = append(retReceivers, receiver)
+		if len(receiver) > 0 {
+			retReceivers = append(retReceivers, receiver...)
 		}
 	}
 	return
 }
 
-func (r *Reconciler) generateDistributionReceiver() (receiver string, retBytes []byte, retErr error) {
+func (r *Reconciler) generateDistributionReceiver() (receiver []string, retBytes []byte, retErr error) {
 	config := &opniloggingv1beta1.CollectorConfig{}
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.collector.Spec.LoggingConfig.Name,
@@ -57,9 +63,9 @@ func (r *Reconciler) generateDistributionReceiver() (receiver string, retBytes [
 	var providerReceiver bytes.Buffer
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:
-		return logReceiverRKE, []byte(templateLogAgentRKE), nil
+		return []string{logReceiverRKE}, []byte(templateLogAgentRKE), nil
 	case opniloggingv1beta1.LogProviderK3S:
-		journaldDir := "/var/log/journald"
+		journaldDir := "/var/log/journal"
 		if config.Spec.K3S != nil && config.Spec.K3S.LogPath != "" {
 			journaldDir = config.Spec.K3S.LogPath
 		}
@@ -67,9 +73,9 @@ func (r *Reconciler) generateDistributionReceiver() (receiver string, retBytes [
 		if retErr != nil {
 			return
 		}
-		return logReceiverK3s, providerReceiver.Bytes(), nil
+		return []string{logReceiverK3s}, providerReceiver.Bytes(), nil
 	case opniloggingv1beta1.LogProviderRKE2:
-		journaldDir := "/var/log/journald"
+		journaldDir := "/var/log/journal"
 		if config.Spec.RKE2 != nil && config.Spec.RKE2.LogPath != "" {
 			journaldDir = config.Spec.RKE2.LogPath
 		}
@@ -77,7 +83,10 @@ func (r *Reconciler) generateDistributionReceiver() (receiver string, retBytes [
 		if retErr != nil {
 			return
 		}
-		return logReceiverRKE2, providerReceiver.Bytes(), nil
+		return []string{
+			logReceiverRKE2,
+			fileLogReceiverRKE2,
+		}, providerReceiver.Bytes(), nil
 	default:
 		return
 	}
@@ -137,13 +146,18 @@ func (r *Reconciler) hostLoggingVolumes() (
 			},
 		})
 	case opniloggingv1beta1.LogProviderK3S:
-		journaldDir := "/var/log/journald"
+		journaldDir := "/var/log/journal"
 		if config.Spec.K3S != nil && config.Spec.K3S.LogPath != "" {
 			journaldDir = config.Spec.K3S.LogPath
 		}
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "journald",
 			MountPath: journaldDir,
+		})
+		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+			Name:      "machineid",
+			MountPath: machineID,
+			ReadOnly:  true,
 		})
 		retVolumes = append(retVolumes, corev1.Volume{
 			Name: "journald",
@@ -153,8 +167,17 @@ func (r *Reconciler) hostLoggingVolumes() (
 				},
 			},
 		})
+		retVolumes = append(retVolumes, corev1.Volume{
+			Name: "machineid",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: machineID,
+				},
+			},
+		})
+
 	case opniloggingv1beta1.LogProviderRKE2:
-		journaldDir := "/var/log/journald"
+		journaldDir := "/var/log/journal"
 		if config.Spec.RKE2 != nil && config.Spec.RKE2.LogPath != "" {
 			journaldDir = config.Spec.RKE2.LogPath
 		}
@@ -162,11 +185,37 @@ func (r *Reconciler) hostLoggingVolumes() (
 			Name:      "journald",
 			MountPath: journaldDir,
 		})
+		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+			Name:      "indir",
+			MountPath: rke2AgentLogDir,
+		})
+		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+			Name:      "machineid",
+			MountPath: machineID,
+			ReadOnly:  true,
+		})
 		retVolumes = append(retVolumes, corev1.Volume{
 			Name: "journald",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: journaldDir,
+				},
+			},
+		})
+		retVolumes = append(retVolumes, corev1.Volume{
+			Name: "machineid",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: machineID,
+				},
+			},
+		})
+		retVolumes = append(retVolumes, corev1.Volume{
+			Name: "indir",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: rke2AgentLogDir,
+					Type: &directoryOrCreate,
 				},
 			},
 		})
@@ -324,15 +373,21 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 					},
 				},
 				Spec: corev1.PodSpec{
+
 					Containers: []corev1.Container{
 						{
 							Name: "otel-collector",
 							Command: []string{
-								"/otelcol-contrib",
+								"/otelcol-custom",
 								fmt.Sprintf("--config=/etc/otel/%s", mainKey),
 							},
 							Image:           *imageSpec.Image,
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+							SecurityContext: &corev1.SecurityContext{
+								SELinuxOptions: &corev1.SELinuxOptions{
+									Type: "rke_logreader_t",
+								},
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name: "NODE_NAME",
@@ -419,7 +474,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 						{
 							Name: "otel-collector",
 							Command: []string{
-								"/otelcol-contrib",
+								"/otelcol-custom",
 								fmt.Sprintf("--config=/etc/otel/%s", aggregatorKey),
 							},
 							Image:           *imageSpec.Image,

@@ -9,9 +9,11 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/backoff/v2"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,6 +22,7 @@ import (
 
 const (
 	defaultAddress = "http://localhost:8080"
+	clusterIDKey   = "cluster_id"
 )
 
 type OTELForwarder struct {
@@ -129,11 +132,41 @@ func (f *OTELForwarder) Export(
 	ctx context.Context,
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
-	if f.Client.IsSet() {
-		return f.forwardLogs(ctx, request)
+	if !f.Client.IsSet() {
+		f.lg.Error("collector is unavailable")
+		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
-	f.lg.Error("collector is unavailable")
-	return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
+	clusterID, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
+	}
+
+	logs := request.GetResourceLogs()
+	for _, log := range logs {
+		resource := log.GetResource()
+		if resource != nil && !clusterIDExists(resource.GetAttributes()) {
+			resource.Attributes = append(resource.Attributes, &otlpcommonv1.KeyValue{
+				Key: clusterIDKey,
+				Value: &otlpcommonv1.AnyValue{
+					Value: &otlpcommonv1.AnyValue_StringValue{
+						StringValue: clusterID,
+					},
+				},
+			})
+		}
+	}
+	request.ResourceLogs = logs
+
+	return f.forwardLogs(ctx, request)
+}
+
+func clusterIDExists(attr []*otlpcommonv1.KeyValue) bool {
+	for _, kv := range attr {
+		if kv.GetKey() == clusterIDKey {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *OTELForwarder) forwardLogs(

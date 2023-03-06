@@ -14,69 +14,66 @@ var (
 	templateLogAgentK8sReceiver = `
 filelog/k8s:
   include: [ /var/log/pods/*/*/*.log ]
+  exclude: []
   start_at: beginning
   include_file_path: true
   include_file_name: false
   operators:
   # FInd out which format is used by kubernetes
-  - type: regex_parser
+  - type: router
     id: get-format
-    regex: '^((?P<docker_format>\{)|(?P<crio_format>[^ Z]+) |(?P<containerd_format>[^ ^Z]+Z) )'
-  # Parse CRI-O format
+    routes:
+    - output: parser-docker
+      expr: 'body matches "^\\{"'
+    - output: parser-crio
+      expr: 'body matches "^[^ Z]+ "'
+    - output: parser-containerd
+      expr: 'body matches "^[^ Z]+Z"'
+      # Parse CRI-O format
   - type: regex_parser
     id: parser-crio
-    if: 'attributes.crio_format != ""'
-    regex: '^(?P<time>[^ Z]+) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$'
+    regex: '^(?P<time>[^ Z]+) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) ?(?P<log>.*)$'
+    output: extract_metadata_from_filepath
     timestamp:
       parse_from: attributes.time
       layout_type: gotime
       layout: '2006-01-02T15:04:05.000000000-07:00'
-  # Parse CRI-Containerd format
+    # Parse CRI-Containerd format
   - type: regex_parser
     id: parser-containerd
-    if: 'attributes.containerd_format != ""'
-    regex: '^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$'
+    regex: '^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) ?(?P<log>.*)$'
+    output: extract_metadata_from_filepath
     timestamp:
       parse_from: attributes.time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
-  # Parse Docker format
+    # Parse Docker format
   - type: json_parser
     id: parser-docker
-    if: 'attributes.docker_format != ""'
+    output: extract_metadata_from_filepath
     timestamp:
       parse_from: attributes.time
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
-  # Clean up format detection
-  - type: remove
-    id: remove-original
-    field: attributes.original
-  - type: remove
-    id: remove-docker-format
-    field: attributes.docker_format
-  - type: remove
-    id: remove-crio-format
-    field: attributes.crio_format
-  - type: remove
-    id: remove-containerd-format
-    field: attributes.containerd_format
-  # Extract metadata from file path
+    # Extract metadata from file path
   - type: regex_parser
     id: extract_metadata_from_filepath
-    regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<uid>[a-f0-9\-]{36})\/(?P<container_name>[^\._]+)\/(?P<run_id>\d+)\.log$'
-    parse_from: attributes.log.file.path
+    regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<uid>[a-f0-9\-]+)\/(?P<container_name>[^\._]+)\/(?P<restart_count>\d+)\.log$'
+    parse_from: attributes["log.file.path"]
   # Move out attributes to Attributes
   - type: move
     id: move-namespace
     from: attributes.namespace
-    to: attributes.k8s.namespace.name
+    to: resource["k8s.namespace.name"]
   - type: move
     id: move-pod-name
     from: attributes.pod_name
-    to: attributes.k8s.pod.name
+    to: resource["k8s.pod.name"]
   - type: move
     id: move-container-name
     from: attributes.container_name
-    to: attributes.k8s.container.name
+    to: resource["k8s.container.name"]
+  - type: move
+    from: attributes.uid
+    to: resource["k8s.pod.uid"]
 journald/k8s:
   operators:
   # Filter in only related units
@@ -175,6 +172,27 @@ processors:
     limit_mib: 250
     spike_limit_mib: 50
     check_interval: 1s
+  k8sattributes:
+    passthrough: false
+    pod_association:
+    - sources:
+      - from: resource_attribute
+        name: k8s.pod.ip
+    - sources:
+      - from: resource_attribute
+        name: k8s.pod.uid
+    - sources:
+      - from: connection
+    extract:
+      metadata:
+      - "k8s.deployment.name"
+      - "k8s.statefulset.name"
+      - "k8s.daemonset.name"
+      - "k8s.cronjob.name"
+      - "k8s.job.name"
+      - "k8s.node.name"
+      - "container.image.name"
+      - "container.image.tag"
 service:
   pipelines:
   {{- if .Logs.Enabled }}
@@ -183,7 +201,7 @@ service:
       {{- range .Logs.Receivers }}
       - {{ . }}
       {{- end }}
-      processors: ["memory_limiter"]
+      processors: ["memory_limiter", "k8sattributes"]
       exporters: ["otlp"]
   {{- end }}
 `))
@@ -207,22 +225,17 @@ processors:
       action: upsert
       value: {{ .ClusterID }}
 exporters:
-  otlp:
-    endpoint: "{{ .AgentEndpoint }}:4317"
+  otlphttp:
+    endpoint: "{{ .AgentEndpoint }}"
     tls:
       insecure: true
-    sending_queue:
-      num_consumers: 4
-      queue_size: 100
-    retry_on_failure:
-      enabled: true
 service:
   pipelines:
   {{- if .LogsEnabled }}
     logs:
       receivers: ["otlp"]
       processors: ["memory_limiter"]
-      exporters: ["otlp"]
+      exporters: ["otlphttp"]
   {{- end }}
 `))
 )

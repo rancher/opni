@@ -25,6 +25,9 @@ stringData:
         {{- else }}
         token: {{ .Values.token }}
         pins: [{{ .Values.pin }}]
+        {{- if .Values.friendlyName }}
+        friendlyName: {{ .Values.friendlyName }}
+        {{- end }}
         {{- end }}
       {{- if .Values.logLevel }}
       logLevel: {{ .Values.logLevel }}

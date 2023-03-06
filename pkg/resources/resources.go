@@ -11,6 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	InternalIndexingUser = "opni-indexer"
+)
+
 // ComponentReconciler reconciler interface
 type ComponentReconciler func() (*reconcile.Result, error)
 

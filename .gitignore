@@ -15,6 +15,7 @@ Dockerfile.dapper*
 *.DS_Store
 infra/Pulumi.*.yaml
 !infra/Pulumi.e2e.yaml
+otelcol-custom
 
 # Distribution/packaging
 dist/

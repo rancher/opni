@@ -5,6 +5,7 @@ import (
 
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/health"
@@ -12,7 +13,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/events"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
 )
@@ -21,7 +22,7 @@ type Plugin struct {
 	ctx           context.Context
 	logger        *zap.SugaredLogger
 	node          *LoggingNode
-	otelForwarder *loggingutil.OTELForwarder
+	otelForwarder *otel.OTELForwarder
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -33,7 +34,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		ctx:           ctx,
 		logger:        lg,
 		node:          NewLoggingNode(ct, lg),
-		otelForwarder: loggingutil.NewOTELForwarder(),
+		otelForwarder: otel.NewOTELForwarder(otel.WithLogger(lg.Named("otel-forwarder"))),
 	}
 
 	if d, err := kubernetes.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {
@@ -67,7 +68,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
-var _ collogspb.LogsServiceServer = (*loggingutil.OTELForwarder)(nil)
+var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
@@ -75,5 +76,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewPlugin(p))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.otelForwarder))
 	return scheme
 }

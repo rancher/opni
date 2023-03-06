@@ -8,16 +8,19 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
@@ -129,7 +132,7 @@ var _ = Describe("Server V2", func() {
 					})
 				})
 				When("the client sends a bootstrap auth request", func() {
-					It("should return http 200", func() {
+					It("should succeed", func() {
 						rawToken, err := tokens.FromBootstrapToken(token)
 						Expect(err).NotTo(HaveOccurred())
 						jsonData, err := json.Marshal(rawToken)
@@ -140,7 +143,7 @@ var _ = Describe("Server V2", func() {
 						ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
 						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrapv2.BootstrapAuthRequest{
-							ClientID:     "foo",
+							ClientId:     "foo",
 							ClientPubKey: ekp.PublicKey,
 						}
 
@@ -154,6 +157,7 @@ var _ = Describe("Server V2", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(clusterList.Items).To(HaveLen(1))
 						Expect(clusterList.Items[0].GetLabels()).To(HaveKeyWithValue("foo", "bar"))
+						Expect(clusterList.Items[0].GetLabels()).NotTo(HaveKey(corev1.NameLabel))
 
 						By("checking that the cluster's keyring was stored")
 						ks := mockKeyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
@@ -163,6 +167,62 @@ var _ = Describe("Server V2", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(kr).NotTo(BeNil())
 					})
+					When("the client sets a friendly name in the auth request", func() {
+						It("should set the cluster's friendly name label", func() {
+							rawToken, err := tokens.FromBootstrapToken(token)
+							Expect(err).NotTo(HaveOccurred())
+							jsonData, err := json.Marshal(rawToken)
+							Expect(err).NotTo(HaveOccurred())
+							sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+							Expect(err).NotTo(HaveOccurred())
+
+							ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
+							ekp := ecdh.NewEphemeralKeyPair()
+							authReq := bootstrapv2.BootstrapAuthRequest{
+								ClientId:     "bar",
+								ClientPubKey: ekp.PublicKey,
+								FriendlyName: lo.ToPtr("test-cluster"),
+							}
+
+							_, err = client.Auth(ctx, &authReq)
+							Expect(err).NotTo(HaveOccurred())
+							token, err := mockTokenStore.GetToken(context.Background(), rawToken.Reference())
+							Expect(err).NotTo(HaveOccurred())
+							Expect(token.GetMetadata().GetUsageCount()).To(Equal(int64(1)))
+
+							c, err := mockClusterStore.GetCluster(context.Background(), &corev1.Reference{
+								Id: "bar",
+							})
+							Expect(err).NotTo(HaveOccurred())
+							Expect(c.GetLabels()).To(HaveKeyWithValue(corev1.NameLabel, "test-cluster"))
+						})
+						It("should reject invalid names", func() {
+							for _, name := range []string{
+								"invalid name",
+								"",
+								"invalid/name",
+								strings.Repeat("a", 256),
+							} {
+								rawToken, err := tokens.FromBootstrapToken(token)
+								Expect(err).NotTo(HaveOccurred())
+								jsonData, err := json.Marshal(rawToken)
+								Expect(err).NotTo(HaveOccurred())
+								sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+								Expect(err).NotTo(HaveOccurred())
+
+								ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
+								ekp := ecdh.NewEphemeralKeyPair()
+								authReq := bootstrapv2.BootstrapAuthRequest{
+									ClientId:     "bar",
+									ClientPubKey: ekp.PublicKey,
+									FriendlyName: &name,
+								}
+
+								_, err = client.Auth(ctx, &authReq)
+								Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+							}
+						})
+					})
 				})
 			})
 			When("the token is invalid", func() {
@@ -170,7 +230,7 @@ var _ = Describe("Server V2", func() {
 					ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer invalid"))
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
-						ClientID:     "foo",
+						ClientId:     "foo",
 						ClientPubKey: ekp.PublicKey,
 					}
 
@@ -193,7 +253,7 @@ var _ = Describe("Server V2", func() {
 
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
-						ClientID:     "foo",
+						ClientId:     "foo",
 						ClientPubKey: ekp.PublicKey,
 					}
 					_, err = client.Auth(ctx, &authReq)
@@ -213,7 +273,7 @@ var _ = Describe("Server V2", func() {
 
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
-						ClientID:     "foo",
+						ClientId:     "foo",
 						ClientPubKey: ekp.PublicKey,
 					}
 					_, err = client.Auth(ctx, &authReq)
@@ -235,7 +295,7 @@ var _ = Describe("Server V2", func() {
 
 						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrapv2.BootstrapAuthRequest{
-							ClientID:     "foo",
+							ClientId:     "foo",
 							ClientPubKey: ekp.PublicKey,
 						}
 						_, err = client.Auth(ctx, &authReq)

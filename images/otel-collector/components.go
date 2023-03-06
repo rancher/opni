@@ -31,6 +31,8 @@ import (
 	spanprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/spanprocessor"
 	probabilisticsamplerprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor"
 	filterprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor"
+	k8sattributesprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor"
+	transformprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 	hostmetricsreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver"
 	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
@@ -38,6 +40,8 @@ import (
 	opencensusreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver"
 	prometheusreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
 	zipkinreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver"
+	journaldreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver"
+	filelogreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver"
 )
 
 func components() (otelcol.Factories, error) {
@@ -62,6 +66,8 @@ func components() (otelcol.Factories, error) {
 		opencensusreceiver.NewFactory(),
 		prometheusreceiver.NewFactory(),
 		zipkinreceiver.NewFactory(),
+		journaldreceiver.NewFactory(),
+		filelogreceiver.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
@@ -92,6 +98,8 @@ func components() (otelcol.Factories, error) {
 		spanprocessor.NewFactory(),
 		probabilisticsamplerprocessor.NewFactory(),
 		filterprocessor.NewFactory(),
+		k8sattributesprocessor.NewFactory(),
+		transformprocessor.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err

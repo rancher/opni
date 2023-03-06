@@ -26,7 +26,7 @@ const (
 	AttributesKey sessionAttributesKeyType = "session_attributes"
 )
 
-func (k sessionAttributesKeyType) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (k sessionAttributesKeyType) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) {
 	if v := ctx.Value(k); v != nil {
 		var names []string
 		switch v := v.(type) {

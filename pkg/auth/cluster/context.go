@@ -30,7 +30,7 @@ func StreamAuthorizedID(ctx context.Context) string {
 	return ctx.Value(ClusterIDKey).(string)
 }
 
-func (k clusterIDKeyType) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (k clusterIDKeyType) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) {
 	if v := ctx.Value(k); v != nil {
 		return map[string]string{
 			string(k): v.(string),

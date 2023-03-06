@@ -139,7 +139,7 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.services = append(s.services, util.PackService(desc, impl))
 }
 
-func (s *StreamServer) OnPluginLoad(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+func (s *StreamServer) OnPluginLoad(_ types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 	s.remotesMu.Lock()
 	defer s.remotesMu.Unlock()
 	s.logger.With(

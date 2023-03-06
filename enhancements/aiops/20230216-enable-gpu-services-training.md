@@ -22,7 +22,8 @@ Scenario 1: GPU is not available in central Opni cluster
 In this case, the Opni Admin Dashboard will make a request to the gpu_info endpoint within the AIOps gateway. When, it receives the response that the GPU is not available. It will still display the deployments by cluster and namespace. However, the user will not be able to update the watchlist as that button will be greyed out. Additionally, a banner will be displayed within the Opni Admin Dashboard informing the user that they need to configure a GPU on this cluster to receive insights and it will point them to a link for reference.
 
 Scenario 2: GPU is available in central Opni cluster
-![GPU Services Modification Diagram (2)](https://user-images.githubusercontent.com/8761010/221774628-4c7698cc-679f-48e6-9a7b-80c0b1574f2f.png)
+![GPU Services Modification Diagram (3)](https://user-images.githubusercontent.com/8761010/223262962-7dc2ec90-260a-433d-92ea-e79cf354bbae.png)
+
 
 
 

@@ -149,7 +149,7 @@ func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error 
 	return nil
 }
 
-func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -168,7 +168,16 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 
 	activeTask.SetProgress(progress)
 
+	activeTask.AddLogEntry(zapcore.InfoLevel, "import running")
+
 	for nextStart < importEnd {
+		select {
+		case <-ctx.Done():
+			activeTask.AddLogEntry(zapcore.InfoLevel, "import stopped")
+			return ctx.Err()
+		default: // continue with import
+		}
+
 		nextStart = nextEnd
 		nextEnd = nextStart + TimeDeltaMillis
 

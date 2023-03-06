@@ -1,8 +1,8 @@
 # Title: 
-Identify prometheus metrics that match known anomaly chart patterns
+Identify metrics that match known anomaly chart patterns
 
 ## Summary: 
-This enhancement proposal offers a new feature to match prometheus metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
+This enhancement proposal offers a new feature to match metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
 
 The 2 types of pre-defined patterns:
 <img width="1401" alt="Screen Shot 2023-02-22 at 1 54 28 PM" src="https://user-images.githubusercontent.com/4568163/220768433-82056fd1-494c-4afe-9822-77b0566fd99d.png">
@@ -17,7 +17,7 @@ The 2 types of pre-defined patterns:
 * Reduce economic loss.
 
 ## Impact: 
-* No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
+* No direct impact to existing system in terms of performance. However, initially this feature will only be deployed in `reactive mode` -- it's only triggered when an alert is fired or when user manually click a button. If this new feature is deployed in a `proactive mode`(which means it runs periodically) in the future, then it might require more resources as it would have to continuously compute for all metrics.
 
 ## Implementation details: 
 ![Flow chart](https://user-images.githubusercontent.com/4568163/220794014-5e4b70d2-94f5-451d-9e68-f5b27e1e2a24.png)

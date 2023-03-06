@@ -45,7 +45,7 @@ func (k sessionAttributesKeyType) GetRequestMetadata(ctx context.Context, uri ..
 }
 
 func (k sessionAttributesKeyType) RequireTransportSecurity() bool {
-	return false
+	return true
 }
 
 func (k sessionAttributesKeyType) FromIncomingCredentials(ctx context.Context) context.Context {

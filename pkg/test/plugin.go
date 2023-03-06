@@ -2,18 +2,19 @@ package test
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"runtime"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"google.golang.org/grpc"
-
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
 	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
@@ -21,6 +22,7 @@ import (
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	topology_agent "github.com/rancher/opni/plugins/topology/pkg/topology/agent"
 	topology_gateway "github.com/rancher/opni/plugins/topology/pkg/topology/gateway"
+	"google.golang.org/grpc"
 )
 
 type apiextensionTestPlugin struct {
@@ -60,10 +62,27 @@ func NewApiExtensionTestPlugin(
 	scheme := meta.NewScheme()
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, p)
 
+	cert, caPool, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
+		CACertData:      TestData("root_ca.crt"),
+		ServingCertData: TestData("localhost.crt"),
+		ServingKeyData:  TestData("localhost.key"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+		RootCAs:      caPool,
+		ServerName:   "localhost",
+	}
+
 	cfg := plugins.ServeConfig(scheme)
 	ch := make(chan *plugin.ReattachConfig)
 	cfg.Test = &plugin.ServeTestConfig{
 		ReattachConfigCh: ch,
+	}
+	cfg.TLSProvider = func() (*tls.Config, error) {
+		return tlsConfig, nil
 	}
 	go plugin.Serve(cfg)
 
@@ -75,7 +94,8 @@ func NewApiExtensionTestPlugin(
 		Logger: hclog.New(&hclog.LoggerOptions{
 			Level: hclog.Error,
 		}),
-		Stderr: os.Stderr,
+		Stderr:    os.Stderr,
+		TLSConfig: tlsConfig,
 	}
 }
 
@@ -143,6 +163,21 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 			},
 		},
 	}
+
+	cert, caPool, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
+		CACertData:      TestData("root_ca.crt"),
+		ServingCertData: TestData("localhost.crt"),
+		ServingKeyData:  TestData("localhost.key"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+		RootCAs:      caPool,
+		ServerName:   "localhost",
+	}
+
 	wg := &sync.WaitGroup{}
 	for _, p := range testPlugins {
 		p := p
@@ -151,8 +186,12 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 		sc.Test = &plugin.ServeTestConfig{
 			ReattachConfigCh: ch,
 		}
+		sc.TLSProvider = func() (*tls.Config, error) {
+			return tlsConfig, nil
+		}
 		go plugin.Serve(sc)
 		cc := plugins.ClientConfig(p.Metadata, scheme, plugins.WithReattachConfig(<-ch))
+		cc.TLSConfig = tlsConfig
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

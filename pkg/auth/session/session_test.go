@@ -2,6 +2,8 @@ package session_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -26,6 +28,7 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
@@ -626,7 +629,9 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 	Context("PerRPCCredentials", func() {
 		It("should allow using session attributes as PerRPCCredentials", func() {
 			server := grpc.NewServer(
-				grpc.Creds(insecure.NewCredentials()),
+				grpc.Creds(credentials.NewServerTLSFromCert(
+					lo.ToPtr(testutil.Must(tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key")))),
+				)),
 				grpc.ChainStreamInterceptor(
 					func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 						stream := streams.NewServerStreamWithContext(ss)
@@ -647,13 +652,18 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 			go server.Serve(listener)
 			DeferCleanup(listener.Close)
 
-			cc, _ := grpc.Dial("bufconn",
+			pool := x509.NewCertPool()
+			pool.AppendCertsFromPEM(test.TestData("root_ca.crt"))
+			cc, err := grpc.Dial("localhost",
 				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
 				}),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+					RootCAs: pool,
+				})),
 				grpc.WithPerRPCCredentials(session.AttributesKey),
 			)
+			Expect(err).NotTo(HaveOccurred())
 
 			client := testgrpc.NewStreamServiceClient(cc)
 			{

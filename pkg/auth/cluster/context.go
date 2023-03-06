@@ -40,7 +40,7 @@ func (k clusterIDKeyType) GetRequestMetadata(ctx context.Context, uri ...string)
 }
 
 func (k clusterIDKeyType) RequireTransportSecurity() bool {
-	return false
+	return true
 }
 
 func (k clusterIDKeyType) FromIncomingCredentials(ctx context.Context) context.Context {

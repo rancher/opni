@@ -8,6 +8,7 @@ import (
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
+	"github.com/rancher/opni/pkg/resources/multiclusterrolebinding"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +18,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	OpniPreprocessingInstanceName = "opni"
 )
 
 var (
@@ -178,6 +183,28 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 	}
 	ctrl.SetControllerReference(r.instance, configmap, r.client.Scheme())
 	return configmap
+}
+
+func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
+	always := corev1.PullAlways
+	otel := &loggingv1beta1.Preprocessor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpniPreprocessingInstanceName,
+			Namespace: r.instance.Namespace,
+		},
+		Spec: loggingv1beta1.PreprocessorSpec{
+			ImageSpec: opnimeta.ImageSpec{
+				ImagePullPolicy: &always,
+			},
+			OpensearchCluster: &opnimeta.OpensearchClusterRef{
+				Name:      r.instance.Name,
+				Namespace: r.instance.Namespace,
+			},
+			WriteIndex: multiclusterrolebinding.LogIndexAlias,
+		},
+	}
+	ctrl.SetControllerReference(r.instance, otel, r.client.Scheme())
+	return otel
 }
 
 func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {

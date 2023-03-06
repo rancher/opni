@@ -142,6 +142,10 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	if r.instance.Spec.NatsRef != nil {
 		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
 	}
+	result.Combine(r.ReconcileResource(r.buildOTELPreprocessor(), reconciler.StateCreated))
+	if r.instance.Spec.NatsRef != nil {
+		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
+	}
 
 	if result.Err != nil || !result.Result.IsZero() {
 		return &result.Result, result.Err

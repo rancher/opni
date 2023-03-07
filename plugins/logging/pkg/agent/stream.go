@@ -26,10 +26,3 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.node.SetClient(nodeClient)
 	p.otelForwarder.SetClient(cc)
 }
-
-func (p *Plugin) StreamDisconnected() {
-	config := &node.LoggingCapabilityConfig{
-		Enabled: false,
-	}
-	p.node.updateConfig(config)
-}

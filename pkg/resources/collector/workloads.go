@@ -359,6 +359,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 							},
 						},
 					},
+					ServiceAccountName: "opni-agent",
 				},
 			},
 		},

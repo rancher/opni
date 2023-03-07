@@ -682,6 +682,8 @@ github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceive
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.71.0/go.mod h1:X0q9h1bbP3z2a3DdHJzRX05nr+75g2AV5b80pGAcqU8=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.71.0 h1:pzpCrwQcMHCJhBfyEwNF2QkGrRGkLOBdEHRcILdsDwg=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.71.0/go.mod h1:6uPBs3zuFFIl4qjmHgEUq5grnAblNlfxnX3jiKgWldk=
+github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8seventsreceiver v0.71.0 h1:gFmybOvU7jfkXQ93qIs4uMYApieRapqFLNrOJy/dlXk=
+github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8seventsreceiver v0.71.0/go.mod h1:1T2tG3X89NL9PYbeG+/iQP0PbHyS8C0FX+5CIZ0EquE=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver v0.71.0 h1:J44a6fpTgoA70XQPofaudHy/QHXWCV6BRwBDvijhWCk=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver v0.71.0/go.mod h1:z8gcC0gG++gJ4R3od+V0v7nII2oiBFJ93ho1V06LhCs=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver v0.71.0 h1:tUZisEip83ZKuhAXqz7g3KiqKAor1UOZ+bwegCq2pJ4=

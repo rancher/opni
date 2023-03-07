@@ -5,6 +5,7 @@
 package alerting
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"time"
@@ -350,15 +351,17 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *a
 	if err != nil {
 		return err
 	}
-	out, err := yaml.Marshal(baseRuleContent)
+	var out bytes.Buffer
+	encoder := yaml.NewEncoder(&out)
+	err = encoder.Encode(baseRuleContent)
 	if err != nil {
 		return err
 	}
-	p.Logger.With("Expr", "user-query").Debugf("%s", string(out))
+	p.Logger.With("Expr", "user-query").Debugf("%s", string(out.Bytes()))
 	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
-		YamlContent: out,
+		YamlContent: out.Bytes(),
 	})
 
 	return err
@@ -404,7 +407,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
@@ -413,7 +416,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
@@ -488,7 +491,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
@@ -497,7 +500,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
@@ -676,7 +679,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
@@ -686,7 +689,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
 					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},

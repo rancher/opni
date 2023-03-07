@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/alitto/pond"
+	promClient "github.com/prometheus/client_golang/api/prometheus/v1"
+
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
-	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
@@ -19,6 +21,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -33,16 +36,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-type AlertStatusNotification lo.Tuple2[*alertingv1.AlertStatusResponse, error]
-type ClusterMap map[string]*corev1.Cluster
-type StatusInfo struct {
-	clusterMap           ClusterMap
-	router               routing.OpniRouting
-	alertGroup           []backend.GettableAlert
-	loadedReceivers      []string
-	metricsBackendStatus *cortexops.InstallStatus
-}
 
 // always overwrites id field
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
@@ -149,7 +142,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) checkClusterStatus(cond *alertingv1.AlertCondition, info StatusInfo) *alertingv1.AlertStatusResponse {
+func (p *Plugin) checkClusterStatus(cond *alertingv1.AlertCondition, info statusInfo) *alertingv1.AlertStatusResponse {
 	clusterId := cond.GetClusterId()
 	if clusterId == nil {
 		return &alertingv1.AlertStatusResponse{
@@ -158,10 +151,10 @@ func (p *Plugin) checkClusterStatus(cond *alertingv1.AlertCondition, info Status
 		}
 	}
 	if alertingv1.IsInternalCondition(cond) {
-		return p.checkInternalClusterStatus(info.clusterMap, clusterId.Id, cond.Id)
+		return p.checkInternalClusterStatus(clusterId.Id, cond.Id, info.coreInfo)
 	}
 	if alertingv1.IsMetricsCondition(cond) {
-		return p.checkMetricsClusterStatus(cond, info.metricsBackendStatus, info.clusterMap, clusterId.Id)
+		return p.checkMetricsClusterStatus(clusterId.Id, cond, info.coreInfo, info.metricsInfo)
 	}
 	return &alertingv1.AlertStatusResponse{
 		State:  alertingv1.AlertConditionState_Unkown,
@@ -170,18 +163,18 @@ func (p *Plugin) checkClusterStatus(cond *alertingv1.AlertCondition, info Status
 }
 
 func (p *Plugin) checkMetricsClusterStatus(
-	cond *alertingv1.AlertCondition,
-	metricsBackendStatus *cortexops.InstallStatus,
-	clMap ClusterMap,
 	clusterId string,
+	cond *alertingv1.AlertCondition,
+	coreInfo *coreInfo,
+	metricsInfo *metricsInfo,
 ) *alertingv1.AlertStatusResponse {
-	if metricsBackendStatus.State == cortexops.InstallState_NotInstalled {
+	if metricsInfo.metricsBackendStatus.State == cortexops.InstallState_NotInstalled {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
 			Reason: "metrics backend not installed",
 		}
 	}
-	cluster, ok := clMap[clusterId]
+	cluster, ok := coreInfo.clusterMap[clusterId]
 	if !ok {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
@@ -196,20 +189,22 @@ func (p *Plugin) checkMetricsClusterStatus(
 			Reason: "cluster does not have metrics capabilities installed",
 		}
 	}
-	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-(90 * time.Second))) {
+	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-(60 * time.Second))) {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "alarm metric dependencies are updating",
 		}
 	}
-
+	if status := evaluatePrometheusRuleHealth(metricsInfo.cortexRules, cond.GetId()); status != nil {
+		return status
+	}
 	return &alertingv1.AlertStatusResponse{
 		State: alertingv1.AlertConditionState_Ok,
 	}
 }
 
-func (p *Plugin) checkInternalClusterStatus(clMap ClusterMap, clusterId, conditionId string) *alertingv1.AlertStatusResponse {
-	_, ok := clMap[clusterId]
+func (p *Plugin) checkInternalClusterStatus(clusterId, conditionId string, coreInfo *coreInfo) *alertingv1.AlertStatusResponse {
+	_, ok := coreInfo.clusterMap[clusterId]
 	if clusterId != alertingv1.UpstreamClusterId && !ok {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
@@ -227,8 +222,7 @@ func (p *Plugin) checkInternalClusterStatus(clMap ClusterMap, clusterId, conditi
 	}
 }
 
-func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
-	lg := p.Logger.With("request", "loadStatusInfo")
+func (p *Plugin) loadCoreInfo(ctx context.Context) (*coreInfo, error) {
 	ctxCa, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
@@ -239,29 +233,22 @@ func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	clMap := ClusterMap{}
+	clMap := clusterMap{}
 	for _, cl := range clusterList.Items {
 		clMap[cl.Id] = cl
 	}
+	return &coreInfo{
+		clusterMap: clMap,
+	}, nil
+}
 
-	cortexOpsClient, err := p.cortexOpsClient.GetContext(ctxCa)
-	if err != nil {
-		return nil, err
-	}
-	metricsBackendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
-	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
-		metricsBackendStatus = &cortexops.InstallStatus{
-			State: cortexops.InstallState_NotInstalled,
-		}
-	} else if err != nil {
-		return nil, err
-	}
+func (p *Plugin) loadAlertingInfo(ctx context.Context) (*alertingInfo, error) {
 	router, err := p.storageClientSet.Get().Routers().Get(ctx, shared.SingleConfigId)
 	if err != nil {
 		return nil, err
 	}
 
-	options, err := p.opsNode.GetRuntimeOptions(ctxCa)
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +264,6 @@ func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
 	apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
 		ctx,
 		availableEndpoint,
-		backend.WithLogger(lg),
 		backend.WithExpectClosure(func(resp *http.Response) error {
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
@@ -297,7 +283,6 @@ func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
 	apiNodeGetReceivers := backend.NewAlertManagerReceiversClient(
 		ctx,
 		availableEndpoint,
-		backend.WithLogger(lg),
 		backend.WithExpectClosure(func(resp *http.Response) error {
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
@@ -317,14 +302,102 @@ func (p *Plugin) loadStatusInfo(ctx context.Context) (*StatusInfo, error) {
 		}
 		return *r.Name
 	})
-
-	return &StatusInfo{
-		clusterMap:           clMap,
-		router:               router,
-		alertGroup:           respAlertGroup,
-		loadedReceivers:      allReceiverNames,
-		metricsBackendStatus: metricsBackendStatus,
+	return &alertingInfo{
+		router:          router,
+		alertGroup:      respAlertGroup,
+		loadedReceivers: allReceiverNames,
 	}, nil
+}
+
+func (p *Plugin) loadMetricsInfo(ctx context.Context) (*metricsInfo, error) {
+	mgmtClient, err := p.mgmtClient.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	clusterList, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	cortexOpsClient, err := p.cortexOpsClient.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metricsBackendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
+		metricsBackendStatus = &cortexops.InstallStatus{
+			State: cortexops.InstallState_NotInstalled,
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	var crs *cortexadmin.RuleGroups
+	if metricsBackendStatus.State == cortexops.InstallState_Installed {
+		cortexAdminClient, err := p.adminClient.GetContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ruleResp, err := cortexAdminClient.ListRules(ctx, &cortexadmin.ListRulesRequest{
+			ClusterId: lo.Map(clusterList.Items, func(cl *corev1.Cluster, _ int) string {
+				return cl.Id
+			}),
+			RuleType:        []string{string(promClient.RuleTypeAlerting)},
+			NamespaceRegexp: shared.OpniAlertingCortexNamespace,
+		})
+		if err != nil {
+			return nil, err
+		}
+		crs = ruleResp.Data
+	}
+	return &metricsInfo{
+		metricsBackendStatus: metricsBackendStatus,
+		cortexRules:          crs,
+	}, nil
+}
+
+func (p *Plugin) loadStatusInfo(ctx context.Context) (*statusInfo, error) {
+	// lg := p.Logger.With("request", "loadStatusInfo")
+
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+	eg, _ := errgroup.WithContext(ctxca)
+	status := &statusInfo{
+		mu: &sync.Mutex{},
+	}
+	eg.Go(
+		func() error {
+			info, err := p.loadCoreInfo(ctx)
+			if err != nil {
+				return err
+			}
+			status.setCoreInfo(info)
+			return nil
+		},
+	)
+	eg.Go(
+		func() error {
+			info, err := p.loadMetricsInfo(ctx)
+			if err != nil {
+				return err
+			}
+			status.setMetricsInfo(info)
+			return nil
+		},
+	)
+	eg.Go(
+		func() error {
+			info, err := p.loadAlertingInfo(ctx)
+			if err != nil {
+				return err
+			}
+			status.setAlertingInfo(info)
+			return nil
+		},
+	)
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return status, nil
 }
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
@@ -357,15 +430,15 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 		}
 	}
 
-	matchers := statusInfo.router.HasLabels(cond.Id)
 	compareStatus(p.checkClusterStatus(cond, *statusInfo))
 	compareStatus(statusFromLoadedReceivers(
 		cond,
-		matchers,
-		statusInfo.router.HasReceivers(cond.Id),
-		statusInfo.loadedReceivers,
+		statusInfo.alertingInfo,
 	))
-	compareStatus(statusFromAlertGroup(matchers, statusInfo.alertGroup))
+	compareStatus(statusFromAlertGroup(
+		cond,
+		statusInfo.alertingInfo,
+	))
 	return resultStatus, nil
 }
 
@@ -441,16 +514,15 @@ func (p *Plugin) ListAlertConditionsWithStatus(ctx context.Context, req *alertin
 		// |     |
 		// |	 | --- check alertmanager alert status for given labels
 
-		matchers := statusInfo.router.HasLabels(cond.Id)
-
 		compareStatus(p.checkClusterStatus(cond, *statusInfo))
 		compareStatus(statusFromLoadedReceivers(
 			cond,
-			matchers,
-			statusInfo.router.HasReceivers(cond.Id),
-			statusInfo.loadedReceivers,
+			statusInfo.alertingInfo,
 		))
-		compareStatus(statusFromAlertGroup(matchers, statusInfo.alertGroup))
+		compareStatus(statusFromAlertGroup(
+			cond,
+			statusInfo.alertingInfo,
+		))
 
 		if len(req.States) != 0 {
 			if !slices.Contains(req.States, resultStatus.State) {

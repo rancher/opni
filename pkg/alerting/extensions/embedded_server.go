@@ -35,10 +35,12 @@ func truncateMessageContent(content string) string {
 }
 
 type messageMetadata struct {
-	uuid           string
-	groupDedupeKey string
-	fingerprint    string
-	severity       int32
+	isAlarm           bool
+	uuid              string
+	groupDedupeKey    string
+	fingerprint       string
+	sourceFingerprint string
+	severity          int32
 }
 
 // Embedded Server handles all incoming webhook requests from the AlertManager

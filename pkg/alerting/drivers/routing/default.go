@@ -114,7 +114,7 @@ func NewRootNode(embeddedServerHook string) *config.Config {
 // contains the setup for broadcasting and conditions
 func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	opniRoute := &config.Route{
-		GroupByStr: []string{alertingv1.NotificationPropertyFingerprint},
+		GroupByStr: []string{alertingv1.NotificationPropertyOpniUuid},
 
 		Matchers: OpniSubRoutingTreeId,
 		Routes:   []*config.Route{},

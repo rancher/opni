@@ -13,6 +13,7 @@ import (
 	promql "github.com/prometheus/prometheus/promql/parser"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
+	"gopkg.in/yaml.v3"
 )
 
 const NodeFilter = "instance"
@@ -148,13 +149,20 @@ type AlertRuleBuilder interface {
 	Or(rule *AlertingRule) AlertRuleBuilder
 	IfForSecondsThen(*AlertingRule, time.Duration) AlertRuleBuilder
 	IfNotForSecondsThen(*AlertingRule, time.Duration) AlertRuleBuilder
-	Build(id string) (*rulefmt.Rule, error)
+	Build(id string) (*rulefmt.RuleNode, error)
 }
 
-func (a *AlertingRule) AsRuleFmt() *rulefmt.Rule {
-	return &rulefmt.Rule{
-		Alert:       a.Alert,
-		Expr:        a.Expr,
+func (a *AlertingRule) AsRuleFmt() *rulefmt.RuleNode {
+	return &rulefmt.RuleNode{
+		Alert: yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: a.Alert,
+		},
+		//a.Alert,
+		Expr: yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: a.Expr,
+		},
 		For:         a.For,
 		Labels:      a.Labels,
 		Annotations: a.Annotations,
@@ -163,9 +171,8 @@ func (a *AlertingRule) AsRuleFmt() *rulefmt.Rule {
 
 func (a *AlertingRule) And(other *AlertingRule) AlertRuleBuilder {
 	return &AlertingRule{
-		Alert: "",
-		// want Expr to use recording rule names to minimize computations
-		Expr:        "(" + a.Alert + ") and (" + other.Alert + ")",
+		Alert:       a.Alert,
+		Expr:        fmt.Sprintf("(%s) and (%s)", a.Expr, other.Expr),
 		For:         timeDurationToModelDuration(time.Second * 0),
 		Labels:      lo.Assign(a.Labels, other.Labels),
 		Annotations: lo.Assign(a.Annotations, other.Annotations),
@@ -174,9 +181,8 @@ func (a *AlertingRule) And(other *AlertingRule) AlertRuleBuilder {
 
 func (a *AlertingRule) Or(other *AlertingRule) AlertRuleBuilder {
 	return &AlertingRule{
-		Alert: "",
-		// want Expr to use recording rule names to minimize computations
-		Expr:        "(" + a.Alert + ") or (" + other.Alert + ")",
+		Alert:       a.Alert,
+		Expr:        fmt.Sprintf("(%s) or (%s)", a.Expr, other.Expr),
 		For:         timeDurationToModelDuration(time.Second * 0),
 		Labels:      lo.Assign(a.Labels, other.Labels),
 		Annotations: lo.Assign(a.Annotations, other.Annotations),
@@ -193,12 +199,12 @@ func (a *AlertingRule) IfNotForSecondsThen(_ *AlertingRule, _ time.Duration) Ale
 	return nil
 }
 
-func (a *AlertingRule) Build(id string) (*rulefmt.Rule, error) {
+func (a *AlertingRule) Build(id string) (*rulefmt.RuleNode, error) {
+	a.Alert = id
 	promRule := a.AsRuleFmt()
-	promRule.Alert = id
-	_, err := promql.ParseExpr(promRule.Expr)
+	_, err := promql.ParseExpr(promRule.Expr.Value)
 	if err != nil {
-		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr, err)
+		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr.Value, err)
 	}
 	promRule.Annotations = lo.Assign(promRule.Annotations, map[string]string{
 		alertingv1.NotificationPropertyOpniUuid: id,

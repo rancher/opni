@@ -248,16 +248,9 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 			if !lastKnownState.Healthy {
 				c.lg.Debugf("condition %s is unhealthy", c.conditionName)
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
-				if interval > c.evaluateDuration {
-					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
-					c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
-					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
-					})
-					if err != nil {
-						c.lg.Error(err)
-					}
+				if interval > c.evaluateDuration { // then we must fire an alert
 					if !c.IsFiring() {
+						c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
 						c.SetFiring(true)
 						err = c.UpdateState(c.evaluationCtx, &alertingv1.CachedState{
 							Healthy:   lastKnownState.Healthy,
@@ -267,22 +260,33 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						if err != nil {
 							c.lg.Error(err)
 						}
-						err = c.storageClientSet.Incidents().OpenInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+						err = c.storageClientSet.Incidents().OpenInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
 						if err != nil {
 							c.lg.Error(err)
 						}
 					}
-				} else {
-					c.SetFiring(false)
+					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
+					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
+						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					}, map[string]string{
+						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					})
 				}
-			} else if lastKnownState.Healthy && c.IsFiring() {
+			} else if lastKnownState.Healthy && c.IsFiring() &&
+				// avoid potential noise from api streams & replays
+				lastKnownState.Timestamp.AsTime().Add(-c.evaluateInterval).Before(time.Now()) {
 				c.lg.Debugf("condition %s is now healthy again after having fired", c.conditionName)
 				c.SetFiring(false)
-				err = c.storageClientSet.Incidents().CloseInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+				err = c.storageClientSet.Incidents().CloseInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
 				if err != nil {
 					c.lg.Error(err)
 				}
-				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
+				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
+					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+				}, map[string]string{
+					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+				})
+				c.fingerprint = ""
 			}
 		}
 	}

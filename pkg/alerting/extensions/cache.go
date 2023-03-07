@@ -150,11 +150,14 @@ func toMessageInstance(alert config.Alert) *alertingv1.MessageInstance {
 }
 
 func (l lfuMessageCache) Key(msgMeta messageMetadata) string {
+	if msgMeta.isAlarm {
+		if msgMeta.fingerprint != "" {
+			return fmt.Sprintf("%s-%s", msgMeta.uuid, msgMeta.fingerprint)
+		}
+		return msgMeta.uuid
+	}
 	if msgMeta.groupDedupeKey != "" {
 		return msgMeta.groupDedupeKey
-	}
-	if msgMeta.fingerprint != "" {
-		return fmt.Sprintf("%s-%s", msgMeta.uuid, msgMeta.fingerprint)
 	}
 	return msgMeta.uuid
 }

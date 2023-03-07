@@ -34,14 +34,14 @@ var _ = Describe("Constructing cortex alerting rules", func() {
 
 		promRule, err := simple.And(&simple2).Build(buildAndId)
 		Expect(err).To(Succeed())
-		Expect(promRule.Alert).To(Equal(buildAndId))
-		Expect(promRule.Expr).To(Equal(fmt.Sprintf("(%s) and (%s)", simple.Alert, simple2.Alert)))
+		Expect(promRule.Alert.Value).To(Equal(buildAndId))
+		Expect(promRule.Expr.Value).To(Equal(fmt.Sprintf("(%s) and (%s)", simple.Expr, simple2.Expr)))
 
 		buildOrId := shared.NewAlertingRefId()
 		promRule, err = simple.Or(&simple2).Build(buildOrId)
 		Expect(err).To(Succeed())
-		Expect(promRule.Alert).To(Equal(buildOrId))
-		Expect(promRule.Expr).To(Equal(fmt.Sprintf("(%s) or (%s)", simple.Alert, simple2.Alert)))
+		Expect(promRule.Alert.Value).To(Equal(buildOrId))
+		Expect(promRule.Expr.Value).To(Equal(fmt.Sprintf("(%s) or (%s)", simple.Expr, simple2.Expr)))
 	})
 
 	It("Should have the control flow composition disabled", func() {

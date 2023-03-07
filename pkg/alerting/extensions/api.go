@@ -36,7 +36,7 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 	req.Body.Close()
 
 	for _, alert := range wMsg.Alerts {
-		msgMeta := parseLabelsToOpniMd(alert.Labels, alert.Annotations)
+		msgMeta := parseAlertToOpniMd(alert)
 		if msgMeta.uuid == "" {
 			// we assume a non-opni "indexed" source is pushing messages to us
 			// we do not persist these as their format is not known
@@ -45,7 +45,7 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 			continue
 		}
 
-		if isAlarmMessage(alert.Annotations) {
+		if msgMeta.isAlarm {
 			if err := e.cacheAlarm(msgMeta, alert); err != nil {
 				wr.WriteHeader(http.StatusPreconditionFailed)
 				return
@@ -138,18 +138,19 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 			}
 
 			if len(key) == n {
+				e.logger.Warnf("fallback matching for condition %s -- no fingerprints found", listRequest.ConditionId)
 				// fallback : match purely based on timestamp
 				msg, _ := e.alarmCache.Get(severity, key)
-				received := msg.ReceivedAt.AsTime()
-				lastUpdated := func() time.Time {
+				receivedAt := msg.ReceivedAt.AsTime()
+				endedAt := func() time.Time {
 					if msg.LastUpdatedAt == nil {
 						return time.Date(2070, 0, 0, 0, 0, 0, 0, time.Local)
 					}
 					return msg.LastUpdatedAt.AsTime()
 				}()
 				start, end := listRequest.Start.AsTime(), listRequest.End.AsTime()
-				if between(start, end, received) ||
-					between(start, end, lastUpdated) {
+				if between(start, end, receivedAt) ||
+					between(start, end, endedAt) {
 					res.Items = append(
 						res.Items,
 						msg,
@@ -158,7 +159,7 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 			} else {
 				// more deterministic matching using fingerprints
 				for fingerprint := range reducedFingerprints {
-					if strings.Contains(key, fingerprint) {
+					if strings.HasSuffix(key, fingerprint) {
 						msg, _ := e.alarmCache.Get(severity, key)
 						res.Items = append(
 							res.Items,
@@ -176,15 +177,17 @@ func isAlarmMessage(annotations map[string]string) bool {
 	return ok
 }
 
-func parseLabelsToOpniMd(labels, annotations map[string]string) messageMetadata {
+func parseAlertToOpniMd(alert config.Alert) messageMetadata {
 	return messageMetadata{
-		uuid:           lo.ValueOr(labels, alertingv1.NotificationPropertyOpniUuid, ""),
-		groupDedupeKey: lo.ValueOr(labels, alertingv1.NotificationPropertyDedupeKey, ""),
+		isAlarm:        isAlarmMessage(alert.Annotations),
+		uuid:           lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyOpniUuid, ""),
+		groupDedupeKey: lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyDedupeKey, ""),
 		severity: lo.ValueOr(alertingv1.OpniSeverity_value,
-			lo.ValueOr(labels, alertingv1.NotificationPropertySeverity, defaultSeverity),
+			lo.ValueOr(alert.Labels, alertingv1.NotificationPropertySeverity, defaultSeverity),
 			0,
 		),
-		fingerprint: lo.ValueOr(annotations, alertingv1.NotificationPropertyFingerprint, ""),
+		fingerprint:       lo.ValueOr(alert.Annotations, alertingv1.NotificationPropertyFingerprint, ""),
+		sourceFingerprint: alert.Fingerprint,
 	}
 }
 

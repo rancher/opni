@@ -65,8 +65,8 @@ type StateStorage = AlertingStateCache[*alertingv1.CachedState]
 
 type AlertingIncidentTracker[T interfaces.AlertingSecret] interface {
 	AlertingStorage[T]
-	OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error
-	CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error
+	OpenInterval(ctx context.Context, conditionId, fingerprint string, start *timestamppb.Timestamp) error
+	CloseInterval(ctx context.Context, conditionId, fingerprint string, end *timestamppb.Timestamp) error
 	GetActiveWindowsFromIncidentTracker(
 		ctx context.Context,
 		conditionId string,

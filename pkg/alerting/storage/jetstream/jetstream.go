@@ -266,7 +266,7 @@ func (j *JetStreamAlertingStateCache) Get(ctx context.Context, key string, opts 
 	return j.JetStreamAlertingStorage.Get(ctx, key, opts...)
 }
 
-func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error {
+func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, conditionId, fingerprint string, start *timestamppb.Timestamp) error {
 	// get
 	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
 	var intervals *alertingv1.IncidentIntervals
@@ -290,8 +290,9 @@ func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, con
 	// update
 	if len(intervals.Items) == 0 {
 		intervals.Items = append(intervals.Items, &alertingv1.Interval{
-			Start: start,
-			End:   nil,
+			Start:        start,
+			End:          nil,
+			Fingerprints: []string{fingerprint},
 		})
 	} else {
 		last := intervals.Items[len(intervals.Items)-1]
@@ -300,8 +301,9 @@ func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, con
 		} else {
 			last.End = start
 			intervals.Items = append(intervals.Items, &alertingv1.Interval{
-				Start: start,
-				End:   nil,
+				Start:        start,
+				End:          nil,
+				Fingerprints: []string{fingerprint},
 			})
 		}
 	}
@@ -309,7 +311,7 @@ func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, con
 	return j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
 }
 
-func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error {
+func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, conditionId, fingerprint string, end *timestamppb.Timestamp) error {
 	// get
 	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
 	var intervals *alertingv1.IncidentIntervals
@@ -333,8 +335,9 @@ func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, co
 	// put
 	if len(intervals.Items) == 0 { // weird
 		intervals.Items = append(intervals.Items, &alertingv1.Interval{
-			Start: end,
-			End:   end,
+			Start:        end,
+			End:          end,
+			Fingerprints: []string{fingerprint},
 		})
 	} else {
 		last := intervals.Items[len(intervals.Items)-1]
@@ -371,9 +374,10 @@ func (j *JetStreamAlertingIncidentTracker) GetActiveWindowsFromIncidentTracker(
 			continue
 		}
 		window := &alertingv1.ActiveWindow{
-			Start: step.Start,
-			End:   step.End, // overwritten if it is found later
-			Type:  alertingv1.TimelineType_Timeline_Alerting,
+			Start:        step.Start,
+			End:          step.End, // overwritten if it is found later
+			Type:         alertingv1.TimelineType_Timeline_Alerting,
+			Fingerprints: step.Fingerprints,
 		}
 		if window.End == nil {
 			window.End = end

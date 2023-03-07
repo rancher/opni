@@ -49,6 +49,7 @@ func ExpectWindowsAreOk(v []*alertingv1.ActiveWindow, neverBefore time.Time) {
 			By("expecting the window ends after it starts")
 			Expect(cur.Start.AsTime().Before(cur.End.AsTime())).To(BeTrue())
 		}
+		Expect(cur.Fingerprints).NotTo(BeEmpty())
 	}
 }
 
@@ -322,13 +323,15 @@ func BuildAlertingIncidentTrackerTestSuite(
 				ts := timestamppb.Now()
 				Expect(tracker).NotTo(BeNil())
 				key = shared.NewAlertingRefId()
+				fingerprint := shared.NewAlertingRefId()
 				generateOption := func() {
+
 					r := rand.Intn(2)
 					if r == 0 {
-						err := tracker.OpenInterval(ctx, key, timestamppb.Now())
+						err := tracker.OpenInterval(ctx, key, fingerprint, timestamppb.Now())
 						Expect(err).To(Succeed())
 					} else {
-						err := tracker.CloseInterval(ctx, key, timestamppb.Now())
+						err := tracker.CloseInterval(ctx, key, fingerprint, timestamppb.Now())
 						Expect(err).To(Succeed())
 					}
 				}
@@ -351,6 +354,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 
 			It("should evict data that has expired from the cache", func() {
 				oldKey := shared.NewAlertingRefId()
+				oldFingerprint := shared.NewAlertingRefId()
 				startTs := time.Now().Add(-2 * testTTL)
 				endTs := time.Now()
 				delta := int((endTs.Add(-time.Duration(startTs.Unix()) * time.Second)).Unix())
@@ -359,10 +363,10 @@ func BuildAlertingIncidentTrackerTestSuite(
 					By("checking the incident tracker can open and close intervals")
 					newDelta := delta * (i + 1) * n
 					start := int(startTs.Unix()) + newDelta
-					err := tracker.OpenInterval(ctx, oldKey, timestamppb.New(time.Unix(int64(start), 0)))
+					err := tracker.OpenInterval(ctx, oldKey, oldFingerprint, timestamppb.New(time.Unix(int64(start), 0)))
 					Expect(err).To(Succeed())
 					end := int(endTs.Unix()) + newDelta*(3/2) // halfway to the next delta offset
-					err = tracker.CloseInterval(ctx, oldKey, timestamppb.New(time.Unix(int64(end), 0)))
+					err = tracker.CloseInterval(ctx, oldKey, oldFingerprint, timestamppb.New(time.Unix(int64(end), 0)))
 					Expect(err).To(Succeed())
 				}
 				By("checking the incident tracker is only reporting incident windows")

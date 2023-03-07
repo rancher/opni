@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
+	"gopkg.in/yaml.v3"
 )
 
 /*
@@ -18,16 +19,11 @@ communicate with cortex.
 */
 
 const alertingSuffix = "-opni-alerting"
-const defaultAlertingInterval = prommodel.Duration(time.Minute)
 
-// Marshals to the same format a cortex rule group expects
-type RuleGroupYAMLv2 struct {
-	Name     string             `yaml:"name"`
-	Interval prommodel.Duration `yaml:"interval,omitempty"`
-	Rules    []rulefmt.Rule     `yaml:"rules"`
-}
+// this enforces whatever default the remote prometheus instance has
+const defaultAlertingInterval = prommodel.Duration(0 * time.Minute)
 
-func CortexRuleIdFromUuid(id string) string {
+func RuleIdFromUuid(id string) string {
 	return id + alertingSuffix
 }
 
@@ -53,7 +49,7 @@ func ConstructFiltersFromMap(in map[string]string) string {
 	return strings.Join(filters, ",")
 }
 
-func NewCortexAlertingRule(
+func NewPrometheusAlertingRule(
 	alertId,
 	_ string,
 	opniLabels,
@@ -61,20 +57,26 @@ func NewCortexAlertingRule(
 	info alertingv1.IndexableMetric,
 	interval *time.Duration,
 	rule metrics.AlertRuleBuilder,
-) (*RuleGroupYAMLv2, error) {
+) (*rulefmt.RuleGroup, error) {
 	idLabels := ConstructIdLabelsForRecordingRule(alertId)
 	alertingRule, err := rule.Build(alertId)
 	if err != nil {
 		return nil, err
 	}
-	recordingRuleFmt := &rulefmt.Rule{
-		Record:      ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-		Expr:        alertingRule.Expr,
+	recordingRuleFmt := &rulefmt.RuleNode{
+		Record: yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
+		}, //ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
+		Expr: yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: alertingRule.Expr.Value,
+		},
 		Labels:      idLabels,
 		Annotations: map[string]string{},
 	}
 	// have the alerting rule instead point to the recording rule(s)
-	alertingRule.Expr = fmt.Sprintf("%s{%s}", recordingRuleFmt.Record, ConstructFiltersFromMap(idLabels))
+	alertingRule.Expr.Value = fmt.Sprintf("%s{%s}", recordingRuleFmt.Record.Value, ConstructFiltersFromMap(idLabels))
 	alertingRule.Labels = lo.Assign(alertingRule.Labels, opniLabels)
 	alertingRule.Annotations = lo.Assign(alertingRule.Annotations, opniAnnotations)
 
@@ -85,9 +87,9 @@ func NewCortexAlertingRule(
 		promInterval = prommodel.Duration(*interval)
 	}
 
-	return &RuleGroupYAMLv2{
-		Name:     CortexRuleIdFromUuid(alertId),
+	return &rulefmt.RuleGroup{
+		Name:     RuleIdFromUuid(alertId),
 		Interval: promInterval,
-		Rules:    []rulefmt.Rule{*alertingRule, *recordingRuleFmt},
+		Rules:    []rulefmt.RuleNode{*alertingRule, *recordingRuleFmt},
 	}, nil
 }

@@ -69,6 +69,9 @@ import (
 	"github.com/prometheus/alertmanager/timeinterval"
 	"github.com/prometheus/alertmanager/types"
 	"github.com/prometheus/alertmanager/ui"
+
+	// add profiles for opni
+	_ "net/http/pprof"
 )
 
 var (

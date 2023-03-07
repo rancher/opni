@@ -14,7 +14,6 @@ import (
 	"github.com/kralicky/yaml/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
@@ -22,10 +21,12 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -57,7 +58,10 @@ func BuildEmbeddedServerNotificationTests(
 	}
 
 	listNotif := func(client *http.Client, listReq *alertingv1.ListNotificationRequest, opniPort int) *alertingv1.ListMessageResponse {
-		content, err := json.Marshal(listReq)
+		listReq.Sanitize()
+		err := listReq.Validate()
+		Expect(err).NotTo(HaveOccurred())
+		content, err := protojson.Marshal(listReq)
 		Expect(err).NotTo(HaveOccurred())
 		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/notifications/list"), bytes.NewReader(content))
 		Expect(err).NotTo(HaveOccurred())
@@ -71,7 +75,10 @@ func BuildEmbeddedServerNotificationTests(
 	}
 
 	listAlarm := func(client *http.Client, listReq *alertingv1.ListAlarmMessageRequest, opniPort int) *alertingv1.ListMessageResponse {
-		content, err := json.Marshal(listReq)
+		listReq.Sanitize()
+		err := listReq.Validate()
+		Expect(err).NotTo(HaveOccurred())
+		content, err := protojson.Marshal(listReq)
 		Expect(err).NotTo(HaveOccurred())
 		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d%s", opniPort, "/alarms/list"), bytes.NewReader(content))
 		Expect(err).NotTo(HaveOccurred())
@@ -91,8 +98,7 @@ func BuildEmbeddedServerNotificationTests(
 			// start embedded alert manager with config that points to opni embedded server
 			Expect(env).NotTo(BeNil())
 
-			freeport, err := freeport.GetFreePort()
-			Expect(err).NotTo(HaveOccurred())
+			freeport := freeport.GetFreePort()
 			Expect(freeport).NotTo(BeZero())
 			opniPort = freeport
 			extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
@@ -222,8 +228,7 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(len(dataset.ExpectedAlarms)).NotTo(BeZero())
 
 				By("restarting the embedded server")
-				freeport, err := freeport.GetFreePort()
-				Expect(err).NotTo(HaveOccurred())
+				freeport := freeport.GetFreePort()
 				Expect(freeport).NotTo(BeZero())
 				opniPort = freeport
 				extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
@@ -235,7 +240,7 @@ func BuildEmbeddedServerNotificationTests(
 						// no need to build this one
 						continue
 					}
-					err = router.SetNamespaceSpec(
+					err := router.SetNamespaceSpec(
 						r.Namespace(),
 						r.GetRoutingLabels()[alertingv1.NotificationPropertyOpniUuid],
 						&alertingv1.FullAttachedEndpoints{
@@ -263,7 +268,20 @@ func BuildEmbeddedServerNotificationTests(
 			})
 			It("should persist the routables", func() {
 				for _, r := range dataset.Routables {
-					sendMsgAlertManager(env.Context(), r.GetRoutingLabels(), r.GetRoutingAnnotations(), webPort)
+					sendMsgAlertManager(env.Context(),
+						lo.Assign(
+							r.GetRoutingLabels(),
+							map[string]string{
+								alertingv1.NotificationPropertyFingerprint: "fingerprint",
+							},
+						),
+						lo.Assign(
+							r.GetRoutingAnnotations(),
+							map[string]string{
+								alertingv1.NotificationPropertyFingerprint: "fingerprint",
+							},
+						),
+						webPort)
 				}
 				fingerprints = []string{
 					uuid.New().String(),
@@ -273,8 +291,8 @@ func BuildEmbeddedServerNotificationTests(
 				}
 				id = uuid.New().String()
 				r := &alertingv1.AlertCondition{
-					Name:        "test header 2",
-					Description: "body 2",
+					Name:        "fingerprint test",
+					Description: "fingerprint test",
 					Id:          id,
 					Severity:    alertingv1.OpniSeverity_Critical,
 					AlertType: &alertingv1.AlertTypeDetails{
@@ -287,13 +305,19 @@ func BuildEmbeddedServerNotificationTests(
 					},
 				}
 				for i := 0; i < 50; i++ {
+					fingerprint := fingerprints[i%len(fingerprints)]
 					sendMsgAlertManager(
 						env.Context(),
-						r.GetRoutingLabels(),
+						lo.Assign(
+							r.GetRoutingLabels(),
+							map[string]string{
+								alertingv1.NotificationPropertyFingerprint: fingerprint,
+							},
+						),
 						lo.Assign(
 							r.GetRoutingAnnotations(),
 							map[string]string{
-								alertingv1.NotificationPropertyFingerprint: fingerprints[i%len(fingerprints)],
+								alertingv1.NotificationPropertyFingerprint: fingerprint,
 							},
 						),
 						webPort,
@@ -332,7 +356,36 @@ func BuildEmbeddedServerNotificationTests(
 			})
 		})
 
-		XIt("should handle fingerprints when correlating alarm incident windows to messages", func() {
+		It("should handle fingerprints when correlating alarm incident windows to messages", func() {
+			By("verifying the alerting cluster has received unique alerts for each unique fingerprint")
+			Eventually(func() error {
+				respAlertGroup := []backend.GettableAlert{}
+				apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
+					env.Context(),
+					fmt.Sprintf("http://localhost:%d", webPort),
+					backend.WithExpectClosure(func(resp *http.Response) error {
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+						}
+						return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
+					}))
+				err := apiNodeGetAlerts.DoRequest()
+				if err != nil {
+					return err
+				}
+				foundFingerprints := map[string]struct{}{}
+				for _, alert := range respAlertGroup {
+					if v, ok := alert.Labels[alertingv1.NotificationPropertyFingerprint]; ok {
+						foundFingerprints[v] = struct{}{}
+					}
+				}
+				if len(lo.Intersect(lo.Keys(foundFingerprints), fingerprints)) != len(fingerprints) {
+					return fmt.Errorf("never received all fingerprints %s", fingerprints)
+				}
+				return nil
+			}, time.Minute, time.Second*5).Should(BeNil())
+
+			By("verifying the embedded server has persisted notifications for each fingerprint")
 			Eventually(func() error {
 				listResp := listAlarm(client,
 					&alertingv1.ListAlarmMessageRequest{
@@ -350,7 +403,7 @@ func BuildEmbeddedServerNotificationTests(
 					)
 				}
 				return nil
-			}, time.Second*90, time.Second*5).Should(BeNil())
+			}, time.Second*120, time.Second*5).Should(BeNil())
 		})
 	})
 }

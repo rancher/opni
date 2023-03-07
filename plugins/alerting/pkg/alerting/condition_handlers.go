@@ -112,7 +112,7 @@ func (p *Plugin) deleteCondition(ctx context.Context, _ *zap.SugaredLogger, req 
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 			ClusterId: r.Id,
 			Namespace: shared.OpniAlertingCortexNamespace,
-			GroupName: cortex.CortexRuleIdFromUuid(id),
+			GroupName: cortex.RuleIdFromUuid(id),
 		})
 		return err
 	}
@@ -194,7 +194,7 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, cond *alertingv1.A
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := cortex.NewCortexAlertingRule(newId, alertName,
+	kubeRuleContent, err := cortex.NewPrometheusAlertingRule(newId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		k, nil, baseKubeRule,
@@ -237,7 +237,7 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	cpuRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		c, nil, baseCpuRule)
@@ -271,7 +271,7 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, cond *
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	memRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		m,
@@ -307,7 +307,7 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, cond *aler
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := cortex.NewCortexAlertingRule(
+	fsRuleContent, err := cortex.NewPrometheusAlertingRule(
 		conditionId,
 		alertName,
 		cond.GetRoutingLabels(),
@@ -344,7 +344,7 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *a
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	baseRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		q, nil, baseRule)

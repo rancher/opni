@@ -2,6 +2,9 @@ package templates_test
 
 import (
 	"bytes"
+	"context"
+	"fmt"
+	"net/url"
 	"reflect"
 	"time"
 
@@ -14,12 +17,16 @@ import (
 	"github.com/rancher/opni/pkg/alerting/templates"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/util"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"text/template"
 
 	amtemplate "github.com/prometheus/alertmanager/template"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/promql"
+	promtemplate "github.com/prometheus/prometheus/template"
 )
 
 func init() {
@@ -30,6 +37,64 @@ type TestMessage interface {
 	interfaces.Routable
 	Validate() error
 }
+
+var _ = Describe("Prometheus fingerprint templating", func() {
+	When("we use a promteheus template expander we should get back a fingerprint", func() {
+		It("should create a valid template expander mock", func() {
+			fingerprintTs := float64(time.Now().UnixMilli()) / 1000
+			scenarios := []scenario{
+				{
+					text:   "{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"}\"  | query | first | value | printf \"%.0f\" }}",
+					output: fmt.Sprintf("%.0f", fingerprintTs),
+					queryResult: promql.Vector{
+						{
+							Metric: labels.Labels{
+								{
+									Name:  "__name__",
+									Value: "ALERTS_FOR_STATE",
+								},
+							},
+							Point: promql.Point{
+								T: time.Now().Unix(),
+								V: fingerprintTs,
+							},
+						},
+					},
+				},
+				{
+					text:   "{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"} OR on() vector(0))\" | query | first | value | printf \"%.0f\" }}",
+					output: "0",
+					queryResult: promql.Vector{
+						{
+							Point: promql.Point{
+								T: time.Now().Unix(),
+								V: 0,
+							},
+						},
+					},
+				},
+			}
+			for _, s := range scenarios {
+				queryFunc := func(_ context.Context, _ string, _ time.Time) (promql.Vector, error) {
+					return s.queryResult, nil
+				}
+				expander := promtemplate.NewTemplateExpander(
+					context.Background(),
+					s.text,
+					"test",
+					s.input,
+					0,
+					queryFunc,
+					util.Must(url.Parse("http://localhost:9093")),
+					s.options,
+				)
+				result, err := expander.Expand()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(s.output))
+			}
+		})
+	})
+})
 
 var _ = DescribeTable("Message templating",
 	func(incomingMsg TestMessage, status string, headerContains, bodyContains []string) {
@@ -176,3 +241,13 @@ var _ = DescribeTable("Message templating",
 		[]string{"notification body"},
 	),
 )
+
+// From : github.com/prometheus/prometheus/template/template_test.go
+
+type scenario struct {
+	text        string
+	output      string
+	input       interface{}
+	options     []string
+	queryResult promql.Vector
+}

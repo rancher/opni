@@ -165,9 +165,9 @@ func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
 	}
 	if IsMetricsCondition(a) {
 		res[NotificationPropertyFingerprint] = fmt.Sprintf(
-			"{{ \"ALERTS_FOR_STATE{opni_uuid=\"%s\"}\" | query | first | value }}",
+			"{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"} OR vector(0)\" | query | first | value",
 			a.Id,
-		)
+		) + "| printf \".0%f\" }}"
 	}
 	return res
 }
@@ -361,10 +361,6 @@ func (i *IncidentIntervals) Prune(ttl time.Duration) {
 		}
 	}
 	i.Items = i.Items[pruneIdx:]
-}
-
-func (i *IncidentIntervals) Smooth(_ time.Duration) {
-	// TODO : need to smooth based on evaluation interval
 }
 
 func NewIncidentIntervals() *IncidentIntervals {

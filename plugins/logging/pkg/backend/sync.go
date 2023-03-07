@@ -82,19 +82,9 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		b.ClusterDriver.SetSyncTime()
 	}
 
-	var osConf *node.OpensearchConfig
-
-	if !b.shouldDisableNode(ctx) {
-		osConf, err = b.getOpensearchConfig(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return b.buildResponse(req.GetCurrentConfig(), &node.LoggingCapabilityConfig{
-		Enabled:          enabled,
-		Conditions:       conditions,
-		OpensearchConfig: osConf,
+		Enabled:    enabled,
+		Conditions: conditions,
 	}), nil
 }
 
@@ -108,17 +98,6 @@ func (b *LoggingBackend) buildResponse(old, new *node.LoggingCapabilityConfig) *
 		ConfigStatus:  node.ConfigStatus_NeedsUpdate,
 		UpdatedConfig: new,
 	}
-}
-
-func (b *LoggingBackend) getOpensearchConfig(ctx context.Context, id string) (*node.OpensearchConfig, error) {
-	username, password := b.ClusterDriver.GetCredentials(ctx, id)
-
-	return &node.OpensearchConfig{
-		Username:       username,
-		Password:       password,
-		Url:            b.ClusterDriver.GetExternalURL(ctx),
-		TracingEnabled: true,
-	}, nil
 }
 
 func (b *LoggingBackend) shouldDisableNode(ctx context.Context) bool {

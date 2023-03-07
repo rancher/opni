@@ -186,11 +186,6 @@ processors:
     limit_mib: 1000
     spike_limit_mib: 250
     check_interval: 1s
-  attributes:
-    actions:
-    - key: cluster_id
-      action: upsert
-      value: {{ .ClusterID }}
 exporters:
   otlphttp:
     endpoint: "{{ .AgentEndpoint }}"
@@ -201,7 +196,7 @@ service:
   {{- if .LogsEnabled }}
     logs:
       receivers: ["otlp"]
-      processors: ["memory_limiter"]
+      processors: ["memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
 `))
@@ -218,6 +213,5 @@ type LoggingConfig struct {
 }
 type AggregatorConfig struct {
 	AgentEndpoint string
-	ClusterID     string
 	LogsEnabled   bool
 }

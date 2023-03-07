@@ -186,7 +186,6 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 }
 
 func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
-	always := corev1.PullAlways
 	otel := &loggingv1beta1.Preprocessor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniPreprocessingInstanceName,
@@ -194,7 +193,7 @@ func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
 		},
 		Spec: loggingv1beta1.PreprocessorSpec{
 			ImageSpec: opnimeta.ImageSpec{
-				ImagePullPolicy: &always,
+				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
 			OpensearchCluster: &opnimeta.OpensearchClusterRef{
 				Name:      r.instance.Name,

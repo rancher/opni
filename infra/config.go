@@ -18,6 +18,8 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	tags := map[string]string{}
 	config.GetObject(ctx, "opni:tags", &tags)
 	useIdInDnsNames := config.GetBool(ctx, "opni:useIdInDnsNames")
+	prometheusCrdChartMode := config.Get(ctx, "opni:prometheusCrdChartMode")
+	disableKubePrometheusStack := config.GetBool(ctx, "opni:disableKubePrometheusStack")
 	clusterConfig.LoadDefaults()
 
 	var cloud, imageRepo, imageTag, minimalImageTag string
@@ -44,36 +46,44 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	}
 
 	conf := &Config{
-		NamePrefix:      namePrefix,
-		ZoneID:          zoneID,
-		Cloud:           cloud,
-		ImageRepo:       imageRepo,
-		ImageTag:        imageTag,
-		MinimalImageTag: minimalImageTag,
-		UseLocalCharts:  useLocalCharts,
-		ChartsRepo:      chartsRepo,
-		ChartVersion:    chartVersion,
-		Cluster:         clusterConfig,
-		Tags:            tags,
-		UseIdInDnsNames: useIdInDnsNames,
+		NamePrefix:                 namePrefix,
+		ZoneID:                     zoneID,
+		Cloud:                      cloud,
+		ImageRepo:                  imageRepo,
+		ImageTag:                   imageTag,
+		MinimalImageTag:            minimalImageTag,
+		UseLocalCharts:             useLocalCharts,
+		ChartsRepo:                 chartsRepo,
+		ChartVersion:               chartVersion,
+		Cluster:                    clusterConfig,
+		Tags:                       tags,
+		UseIdInDnsNames:            useIdInDnsNames,
+		DisableKubePrometheusStack: disableKubePrometheusStack,
+		PrometheusCrdChartMode:     prometheusCrdChartMode,
 	}
 	conf.LoadDefaults()
 	return conf
 }
 
 type Config struct {
-	NamePrefix      string            `json:"namePrefix"`
-	ZoneID          string            `json:"zoneID"`
-	Cloud           string            `json:"cloud"`
-	ImageRepo       string            `json:"imageRepo"`
-	ImageTag        string            `json:"imageTag"`
-	MinimalImageTag string            `json:"minimalImageTag"`
-	UseLocalCharts  bool              `json:"useLocalCharts"`
-	ChartsRepo      string            `json:"chartsRepo"`
-	ChartVersion    string            `json:"chartVersion"`
-	Cluster         ClusterConfig     `json:"cluster"`
-	Tags            map[string]string `json:"tags"`
-	UseIdInDnsNames bool              `json:"useIdInDnsNames"`
+	NamePrefix                 string            `json:"namePrefix"`
+	ZoneID                     string            `json:"zoneID"`
+	Cloud                      string            `json:"cloud"`
+	ImageRepo                  string            `json:"imageRepo"`
+	ImageTag                   string            `json:"imageTag"`
+	MinimalImageTag            string            `json:"minimalImageTag"`
+	UseLocalCharts             bool              `json:"useLocalCharts"`
+	ChartsRepo                 string            `json:"chartsRepo"`
+	ChartVersion               string            `json:"chartVersion"`
+	Cluster                    ClusterConfig     `json:"cluster"`
+	Tags                       map[string]string `json:"tags"`
+	UseIdInDnsNames            bool              `json:"useIdInDnsNames"`
+	DisableKubePrometheusStack bool              `json:"disableKubePrometheusStack"`
+
+	// "separate" to deploy the opni-prometheus-crd chart separately
+	// "embedded" to deploy the opni-prometheus-crd chart as a subchart of opni
+	// "skip" to skip deploying the opni-prometheus-crd chart
+	PrometheusCrdChartMode string `json:"prometheusCrdChartMode"`
 }
 
 type ClusterConfig struct {
@@ -98,6 +108,9 @@ func (c *Config) LoadDefaults() {
 	}
 	if c.ChartsRepo == "" {
 		c.ChartsRepo = "https://raw.githubusercontent.com/rancher/opni/charts-repo/"
+	}
+	if c.PrometheusCrdChartMode == "" {
+		c.PrometheusCrdChartMode = "separate"
 	}
 	c.Cluster.LoadDefaults()
 }

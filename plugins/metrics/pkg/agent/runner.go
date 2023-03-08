@@ -65,9 +65,13 @@ func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
 }
 
 func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
+	if len(logs) == 0 {
+		return ""
+	}
+
 	for i := len(logs) - 1; i >= 0; i-- {
 		log := logs[i]
-		if log.Level == int32(zapcore.ErrorLevel) {
+		if log.Level != int32(zapcore.DebugLevel) {
 			return log.Msg
 		}
 	}
@@ -145,7 +149,7 @@ func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error 
 	return nil
 }
 
-func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -155,14 +159,25 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
+	progressDelta := nextStart
+
 	progress := &corev1.Progress{
 		Current: 0,
-		Total:   uint64(importEnd - nextStart),
+		Total:   uint64(importEnd - progressDelta),
 	}
 
 	activeTask.SetProgress(progress)
 
+	activeTask.AddLogEntry(zapcore.InfoLevel, "import running")
+
 	for nextStart < importEnd {
+		select {
+		case <-ctx.Done():
+			activeTask.AddLogEntry(zapcore.InfoLevel, "import stopped")
+			return ctx.Err()
+		default: // continue with import
+		}
+
 		nextStart = nextEnd
 		nextEnd = nextStart + TimeDeltaMillis
 
@@ -216,14 +231,26 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 
 			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
-					return
+					// As a special case, status code 400 may indicate a success.
+					// Cortex handles a variety of cases where prometheus would normally
+					// return an error, such as duplicate or out of order samples. Cortex
+					// will return code 400 to prometheus, which prometheus will treat as
+					// a non-retriable error. In this case, the remote write status condition
+					// will be cleared as if the request succeeded.
+					if message := err.Error(); !strings.Contains(message, "out of bounds") &&
+						strings.Contains(message, "out of order sample") &&
+						strings.Contains(message, "duplicate sample for timestamp") &&
+						strings.Contains(message, "exemplars not ingested becaues series not already present") {
+
+						activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
+						return
+					}
 				}
 
 				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
 			})
 
-			progress.Current = uint64(nextEnd)
+			progress.Current = uint64(nextEnd - progressDelta)
 			activeTask.SetProgress(progress)
 		}
 	}

@@ -136,10 +136,7 @@ func (f *OTELForwarder) Export(
 		f.lg.Error("collector is unavailable")
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
-	clusterID, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
-	}
+	clusterID := cluster.StreamAuthorizedID(ctx)
 
 	logs := request.GetResourceLogs()
 	for _, log := range logs {

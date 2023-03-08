@@ -60,14 +60,14 @@ def eval():
 
     with torch.no_grad():
         for i, (x_batch, y_batch) in enumerate(test_loader):
-        y_pred = model(x_batch.to(device))
-        y_pred = torch.argmax(y_pred, dim=1).cpu()
-        nc = torch.sum(y_pred == y_batch).item()
-        num_correct += nc
-        nt = y_batch.size(0)
-        num_total += nt
-        if nc == 0:
-            mistakes.append(i)
+            y_pred = model(x_batch.to(device))
+            y_pred = torch.argmax(y_pred, dim=1).cpu()
+            nc = torch.sum(y_pred == y_batch).item()
+            num_correct += nc
+            nt = y_batch.size(0)
+            num_total += nt
+            if nc == 0:
+                mistakes.append(i)
 
     accuracy = num_correct / num_total
     print(f"accuracy : {accuracy}")

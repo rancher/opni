@@ -17,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
@@ -67,8 +66,8 @@ func (c *CompositeAlertingClientSet) GetHash(_ context.Context, key string) stri
 
 func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string, syncOptions *storage_opts.SyncOptions) error {
 	aggregate := ""
-	if syncOptions.DefaultEndpoint != "" {
-		aggregate += syncOptions.DefaultEndpoint
+	if syncOptions.DefaultEndpoint != nil {
+		aggregate += syncOptions.DefaultEndpoint.String()
 	}
 	if key == shared.SingleConfigId {
 		conds, err := c.Conditions().List(ctx)
@@ -112,7 +111,7 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 	if err != nil {
 		return nil, err
 	}
-	endps, err := c.Endpoints().List(ctx, opts.WithUnredacted())
+	endps, err := c.Endpoints().List(ctx, storage_opts.WithUnredacted())
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +182,8 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 	}
 
 	// when we implement attaching endpoints to the default namespace. do this here
-	if syncOpts.DefaultEndpoint != "" {
-		syncOpts.Router.SetDefaultReceiver(syncOpts.DefaultEndpoint)
+	if syncOpts.DefaultEndpoint != nil {
+		syncOpts.Router.SetDefaultReceiver(*syncOpts.DefaultEndpoint)
 	}
 	if err := c.Routers().Put(ctx, key, syncOpts.Router); err != nil {
 		return nil, err

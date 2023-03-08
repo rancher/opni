@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strings"
 	"time"
 
@@ -545,7 +546,7 @@ func BuildStorageClientSetSuite(
 			Specify("the default caching endpoint changing should trigger a hash change", func() {
 				for i := 0; i < 10; i++ {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					syncOpts.DefaultEndpoint = uuid.New().String()
+					syncOpts.DefaultEndpoint = util.Must(url.Parse(fmt.Sprintf("http://localhost/%s", uuid.New().String()[0:4])))
 					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))

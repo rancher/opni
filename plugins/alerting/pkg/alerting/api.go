@@ -133,7 +133,7 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 }
 
 func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
-	// lg := p.Logger.With("Handler", "PushNotification")
+	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -168,6 +168,7 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 }
 
 func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
+	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -209,6 +210,7 @@ func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNoti
 }
 
 func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}

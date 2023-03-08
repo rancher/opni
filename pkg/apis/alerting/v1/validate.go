@@ -484,6 +484,21 @@ func (t *ToggleRequest) Validate() error {
 	return nil
 }
 
+func (n *Notification) Sanitize() {
+	if n.Properties == nil {
+		n.Properties = map[string]string{}
+	}
+	if _, ok := n.Properties[NotificationPropertyGoldenSignal]; !ok {
+		n.Properties[NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
+	}
+	if _, ok := n.Properties[NotificationPropertySeverity]; !ok {
+		n.Properties[NotificationPropertySeverity] = OpniSeverity_Info.String()
+	}
+	if _, ok := n.Properties[NotificationPropertyOpniUuid]; !ok {
+		n.Properties[NotificationPropertyOpniUuid] = util.HashStrings([]string{n.Title, n.Body})
+	}
+}
+
 func (n *Notification) Validate() error {
 	if n.Title == "" {
 		return validation.Error("field Title must be set")
@@ -491,35 +506,28 @@ func (n *Notification) Validate() error {
 	if n.Body == "" {
 		return validation.Error("field Body must be set")
 	}
-	if n.Properties == nil {
-		n.Properties = map[string]string{}
-	}
 	if v, ok := n.Properties[NotificationPropertyGoldenSignal]; ok {
 		if _, ok := GoldenSignal_value[v]; !ok {
 			return validation.Errorf("invalid golden signal value %s", v)
 		}
 	} else {
-		n.Properties[NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
+		return validation.Errorf("property map must include a golden signal property '%s'", NotificationPropertyGoldenSignal)
 	}
 	if v, ok := n.Properties[NotificationPropertySeverity]; ok {
 		if _, ok := OpniSeverity_value[v]; !ok {
 			return validation.Errorf("invalid severity value %s", v)
 		}
 	} else {
-		n.Properties[NotificationPropertySeverity] = OpniSeverity_Info.String()
+		return validation.Errorf("property map must include a severity property '%s'", NotificationPropertySeverity)
 	}
 	if v, ok := n.Properties[NotificationPropertyClusterId]; ok {
 		if v == "" {
 			return validation.Error("if specifying a cluster id property, it must be set")
 		}
 	}
-	if _, ok := n.Properties[NotificationPropertyOpniUuid]; !ok {
-		n.Properties[NotificationPropertyOpniUuid] = util.HashStrings([]string{n.Title, n.Body})
-	}
 	return nil
 }
-
-func (l *ListNotificationRequest) Validate() error {
+func (l *ListNotificationRequest) Sanitize() {
 	if l.Limit == nil || *l.Limit == 10 {
 		l.Limit = lo.ToPtr(int32(100))
 	}
@@ -533,26 +541,41 @@ func (l *ListNotificationRequest) Validate() error {
 		for _, t := range GoldenSignal_value {
 			l.GoldenSignalFilters = append(l.GoldenSignalFilters, GoldenSignal(t))
 		}
-	} else {
-		for _, t := range l.GoldenSignalFilters {
-			if _, ok := GoldenSignal_name[int32(t)]; !ok {
-				return validation.Errorf("invalid golden signal type %s", t.String())
-			}
-		}
 	}
 	if len(l.SeverityFilters) == 0 {
 		for _, t := range OpniSeverity_value {
 			l.SeverityFilters = append(l.SeverityFilters, OpniSeverity(t))
 		}
-	} else {
-		for _, t := range l.SeverityFilters {
-			if _, ok := OpniSeverity_name[int32(t)]; !ok {
-				return validation.Errorf("invalid severity type %s", t.String())
-			}
+	}
+}
+
+func (l *ListNotificationRequest) Validate() error {
+	if len(l.GoldenSignalFilters) == 0 {
+		return validation.Error("golden signal filters must be set")
+	}
+	for _, t := range l.GoldenSignalFilters {
+		if _, ok := GoldenSignal_name[int32(t)]; !ok {
+			return validation.Errorf("invalid golden signal type %s", t.String())
 		}
 	}
+	if len(l.SeverityFilters) == 0 {
+		return validation.Error("severity filters must be set")
+	}
+
+	for _, t := range l.SeverityFilters {
+		if _, ok := OpniSeverity_name[int32(t)]; !ok {
+			return validation.Errorf("invalid severity type %s", t.String())
+		}
+	}
+
 	slices.Sort(l.SeverityFilters)
 	return nil
+}
+
+func (l *ListAlarmMessageRequest) Sanitize() {
+	if l.Fingerprints == nil {
+		l.Fingerprints = []string{}
+	}
 }
 
 func (l *ListAlarmMessageRequest) Validate() error {

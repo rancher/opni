@@ -96,7 +96,7 @@ func (l lfuMessageCache) Set(severity alertingv1.OpniSeverity, key string, alert
 	if ok {
 		msg := data.(*alertingv1.MessageInstance)
 		mapPartitions := assignByPartition(func(key, value string) string {
-			if strings.HasPrefix(key, "opni") || strings.HasPrefix(key, "Opni") {
+			if strings.HasPrefix(strings.ToLower(key), "opni") {
 				return partitionProperty
 			}
 			return partitionDetails

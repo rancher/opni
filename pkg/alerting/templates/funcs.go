@@ -23,7 +23,7 @@ func floatToTime(v float64) (*time.Time, error) {
 	return &t, nil
 }
 
-func convertToFloat(i interface{}) (float64, error) {
+func convertToFloat(i any) (float64, error) {
 	switch v := i.(type) {
 	case float64:
 		return v, nil
@@ -45,7 +45,7 @@ func convertToFloat(i interface{}) (float64, error) {
 var errNaNOrInf = errors.New("value is NaN or Inf")
 
 var DefaultTemplateFuncs = amtemplate.FuncMap{
-	"humanize": func(i interface{}) (string, error) {
+	"humanize": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return "", err
@@ -74,7 +74,7 @@ var DefaultTemplateFuncs = amtemplate.FuncMap{
 		}
 		return fmt.Sprintf("%.4g%s", v, prefix), nil
 	},
-	"humanize1024": func(i interface{}) (string, error) {
+	"humanize1024": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return "", err
@@ -92,7 +92,7 @@ var DefaultTemplateFuncs = amtemplate.FuncMap{
 		}
 		return fmt.Sprintf("%.4g%s", v, prefix), nil
 	},
-	"humanizeDuration": func(i interface{}) (string, error) {
+	"humanizeDuration": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return "", err
@@ -137,14 +137,14 @@ var DefaultTemplateFuncs = amtemplate.FuncMap{
 		}
 		return fmt.Sprintf("%.4g%ss", v, prefix), nil
 	},
-	"humanizePercentage": func(i interface{}) (string, error) {
+	"humanizePercentage": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%.4g%%", v*100), nil
 	},
-	"humanizeTimestamp": func(i interface{}) (string, error) {
+	"humanizeTimestamp": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return "", err
@@ -160,14 +160,14 @@ var DefaultTemplateFuncs = amtemplate.FuncMap{
 
 		return fmt.Sprint(tm), nil
 	},
-	"formatTime": func(i interface{}) (string, error) {
+	"formatTime": func(i any) (string, error) {
 		ts, ok := i.(time.Time)
 		if !ok {
 			return "", fmt.Errorf("formatTime: expected time.Time, got %T", i)
 		}
 		return fmt.Sprint(ts.Format(time.RFC822)), nil
 	},
-	"toTime": func(i interface{}) (*time.Time, error) {
+	"toTime": func(i any) (*time.Time, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
 			return nil, err

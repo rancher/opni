@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -213,7 +214,7 @@ func WithPostResolveAlertBody(conditionId string, labels, annotations map[string
 
 func WithPostProto(req proto.Message) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
-		bytes, err := json.Marshal(req)
+		bytes, err := protojson.Marshal(req)
 		if err == nil {
 			o.body = bytes
 		}

@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage"
 	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -105,7 +107,9 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					return
 				}
 				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
-					cacheEndpointToWebhook(endpoint),
+					util.Must(
+						url.Parse(cacheEndpointToWebhook(endpoint)),
+					),
 				))
 				if err != nil {
 					lg.Errorf("failed to sync configuration in alerting clientset %s", err)
@@ -146,7 +150,9 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					return
 				}
 				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
-					cacheEndpointToWebhook(endpoint),
+					util.Must(
+						url.Parse(cacheEndpointToWebhook(endpoint)),
+					),
 				)); err != nil {
 					lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
 					return

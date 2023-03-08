@@ -487,13 +487,16 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should be able to list opni messages", func() {
-					Eventually(func() int {
+					Eventually(func() error {
 						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
 						if err != nil {
-							return -1
+							return err
 						}
-						return len(list.Items)
-					}, time.Minute*2, time.Second*15).Should(BeNumerically(">", 0))
+						if len(list.Items) == 0 {
+							return fmt.Errorf("expected to find at least one notification, got 0")
+						}
+						return nil
+					}, time.Minute*2, time.Second*15).Should(BeNil())
 
 					By("verifying we enforce limits")
 					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{

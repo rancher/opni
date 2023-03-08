@@ -35,16 +35,44 @@ func init() {
 
 type TestMessage interface {
 	interfaces.Routable
+	Sanitize()
 	Validate() error
 }
 
 var _ = Describe("Prometheus fingerprint templating", func() {
 	When("we use a promteheus template expander we should get back a fingerprint", func() {
 		It("should create a valid template expander mock", func() {
+			prometheusAlert := &alertingv1.AlertCondition{
+				Name:        "test header 1",
+				Description: "test header 2",
+				Id:          uuid.New().String(),
+				Severity:    alertingv1.OpniSeverity_Error,
+				AlertType: &alertingv1.AlertTypeDetails{
+					Type: &alertingv1.AlertTypeDetails_PrometheusQuery{
+						PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{
+							ClusterId: &corev1.Reference{Id: uuid.New().String()},
+							Query:     "up > 0",
+						},
+					},
+				},
+			}
+			prometheusFingerprintTemplate := prometheusAlert.GetRoutingAnnotations()[alertingv1.NotificationPropertyFingerprint]
 			fingerprintTs := float64(time.Now().UnixMilli()) / 1000
 			scenarios := []scenario{
 				{
-					text:   "{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"}\"  | query | first | value | printf \"%.0f\" }}",
+					text:   "{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"} OR on() vector(0))\" | query | first | value | printf \"%.0f\" }}",
+					output: "0",
+					queryResult: promql.Vector{
+						{
+							Point: promql.Point{
+								T: time.Now().Unix(),
+								V: 0,
+							},
+						},
+					},
+				},
+				{
+					text:   prometheusFingerprintTemplate,
 					output: fmt.Sprintf("%.0f", fingerprintTs),
 					queryResult: promql.Vector{
 						{
@@ -57,18 +85,6 @@ var _ = Describe("Prometheus fingerprint templating", func() {
 							Point: promql.Point{
 								T: time.Now().Unix(),
 								V: fingerprintTs,
-							},
-						},
-					},
-				},
-				{
-					text:   "{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"} OR on() vector(0))\" | query | first | value | printf \"%.0f\" }}",
-					output: "0",
-					queryResult: promql.Vector{
-						{
-							Point: promql.Point{
-								T: time.Now().Unix(),
-								V: 0,
 							},
 						},
 					},
@@ -99,6 +115,7 @@ var _ = Describe("Prometheus fingerprint templating", func() {
 var _ = DescribeTable("Message templating",
 	func(incomingMsg TestMessage, status string, headerContains, bodyContains []string) {
 		Expect(incomingMsg).ToNot(BeNil())
+		incomingMsg.Sanitize()
 		Expect(incomingMsg.Validate()).ToNot(HaveOccurred())
 
 		msg := &config.WebhookMessage{

@@ -12,7 +12,7 @@ import (
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/prometheus/prometheus/promql/parser"
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -103,7 +103,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 
 		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 			Name: wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{
+			Target: &capabilityv1.InstallRequest{
 				Cluster: &corev1.Reference{Id: "agent"},
 			},
 		})
@@ -111,7 +111,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		Expect(err).NotTo(HaveOccurred())
 		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 			Name: wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{
+			Target: &capabilityv1.InstallRequest{
 				Cluster: &corev1.Reference{Id: "agent2"},
 			},
 		})

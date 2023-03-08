@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // handleWebhook handles caching the incoming webhook messages
@@ -28,7 +30,7 @@ import (
 // so we make some performance optimizations
 func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request) {
 	e.logger.Debug("handling webhook persistence request")
-	wMsg, err := ParseIcomingWebhookMessage(req)
+	wMsg, err := ParseIncomingWebhookMessage(req)
 	if err != nil {
 		wr.WriteHeader(http.StatusPreconditionFailed)
 		return
@@ -63,7 +65,13 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 
 func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *http.Request) {
 	var listRequest alertingv1.ListNotificationRequest
-	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
+	var b bytes.Buffer
+	if _, err := b.ReadFrom(req.Body); err != nil {
+		e.logger.Error(err)
+		wr.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := protojson.Unmarshal(b.Bytes(), &listRequest); err != nil {
 		e.logger.Error(err)
 		wr.WriteHeader(http.StatusBadRequest)
 		return
@@ -110,7 +118,14 @@ func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *ht
 
 func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Request) {
 	var listRequest alertingv1.ListAlarmMessageRequest
-	if err := json.NewDecoder(req.Body).Decode(&listRequest); err != nil {
+	var b bytes.Buffer
+	if _, err := b.ReadFrom(req.Body); err != nil {
+		e.logger.Error(err)
+		wr.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := protojson.Unmarshal(b.Bytes(), &listRequest); err != nil {
+		e.logger.Error(err)
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -192,7 +207,7 @@ func parseAlertToOpniMd(alert config.Alert) messageMetadata {
 }
 
 // ParseIncomingWebhookMessage return non-pointer for performance reasons
-func ParseIcomingWebhookMessage(req *http.Request) (config.WebhookMessage, error) {
+func ParseIncomingWebhookMessage(req *http.Request) (config.WebhookMessage, error) {
 	var wMsg config.WebhookMessage
 	if err := json.NewDecoder(req.Body).Decode(&wMsg); err != nil {
 		return config.WebhookMessage{}, err

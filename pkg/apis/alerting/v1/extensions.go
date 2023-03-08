@@ -146,6 +146,8 @@ func (n *Notification) Namespace() string {
 	return NotificationPropertySeverity
 }
 
+func (a *AlertCondition) Sanitize() {}
+
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
 	res := map[string]string{
 		NotificationPropertySeverity: a.GetSeverity().String(),
@@ -165,9 +167,9 @@ func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
 	}
 	if IsMetricsCondition(a) {
 		res[NotificationPropertyFingerprint] = fmt.Sprintf(
-			"{{ \"ALERTS_FOR_STATE{opni_uuid=\\\"%s\\\"} OR vector(0)\" | query | first | value",
+			`{{ "ALERTS_FOR_STATE{opni_uuid=\"%s\"} OR vector(0)" | query | first | value `,
 			a.Id,
-		) + "| printf \".0%f\" }}"
+		) + `| printf "%.0f" }}`
 	}
 	return res
 }
@@ -424,9 +426,12 @@ func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool
 				return false
 			}
 		}
+		itemLabelMap := lo.Associate(item.Labels, func(label string) (string, struct{}) { return label, struct{}{} })
 		if len(l.Labels) != 0 {
-			if len(lo.Intersect(l.Labels, item.Labels)) != len(l.Labels) {
-				return false
+			for _, label := range l.Labels {
+				if _, ok := itemLabelMap[label]; !ok {
+					return false
+				}
 			}
 		}
 		if len(l.Severities) != 0 {
@@ -434,7 +439,7 @@ func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool
 				return false
 			}
 		}
-		if len(l.Severities) != 0 {
+		if len(l.AlertTypes) != 0 {
 			matches := false
 			for _, typ := range l.GetAlertTypes() {
 				if item.IsType(typ) {

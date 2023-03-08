@@ -549,6 +549,7 @@ func NewRoutableDataset() *RoutableDataset {
 				alertingv1.NotificationPropertyOpniUuid: uuid.New().String(),
 			},
 		}
+		notif.Sanitize()
 		err := notif.Validate()
 		if err != nil {
 			panic(err)

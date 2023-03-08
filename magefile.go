@@ -296,11 +296,12 @@ func getKubeVersion(binary string) string {
 }
 
 func getKubectlVersion(binary string) string {
-	version, err := sh.Output(binary, "version", "--client", "--short")
+	versions, err := sh.Output(binary, "version", "--client", "--short")
 	if err != nil {
 		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
 	}
-	return strings.TrimSpace(strings.TrimPrefix(version, "Client Version: v"))
+	rows := strings.Split(versions, "\n")
+	return strings.TrimSpace(strings.TrimPrefix(rows[0], "Client Version: v"))
 }
 
 func k8sModuleVersion() string {

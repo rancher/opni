@@ -38,7 +38,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
-	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{RemainingTime: 3600})
+	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
 	}
@@ -53,13 +53,13 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(_ context.Context, in *modeltrainin
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
 	}
 	bytesAggregation := []byte(jsonParameters)
-	p.kv.Get().Put("modelTrainingStatus", bytesAggregation)
+	p.statisticsKv.Get().Put("modelTrainingStatus", bytesAggregation)
 	return nil, nil
 
 }
 
 func (p *AIOpsPlugin) ClusterWorkloadAggregation(_ context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
-	result, err := p.kv.Get().Get("aggregation")
+	result, err := p.aggregationKv.Get().Get("aggregation")
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %v", err)
 	}
@@ -95,7 +95,7 @@ func (p *AIOpsPlugin) GetModelStatus(_ context.Context, _ *emptypb.Empty) (*mode
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
-	result, err := p.kv.Get().Get("modelTrainingStatus")
+	result, err := p.statisticsKv.Get().Get("modelTrainingStatus")
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{

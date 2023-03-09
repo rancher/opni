@@ -1,8 +1,8 @@
 # Use OTEL for logging
 
 ## Status
- - [x] Pending
- - [ ] Completed
+ - [ ] Pending
+ - [x] Completed
  - [ ] Superceded/Deprecated
 
 ## Summary: 

@@ -72,7 +72,7 @@ processors:
       statements:
       - merge_maps(attributes, body, "upsert") where attributes["filename"] == nil
       - set(attributes["COMM"], attributes["_COMM"])
-      - delete_matching_keys(attributes, "_.*")
+      - delete_matching_keys(attributes, "^_.*")
 exporters:
   opensearch:
     endpoints: [ "{{ .Endpoint }}" ]

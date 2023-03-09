@@ -39,7 +39,6 @@ var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow
 				Spec: opnicorev1beta1.CollectorSpec{
 					SystemNamespace: ns,
 					AgentEndpoint:   "http://test-endpoint",
-					ClusterID:       "test-id",
 					LoggingConfig: &corev1.LocalObjectReference{
 						Name: config.Name,
 					},

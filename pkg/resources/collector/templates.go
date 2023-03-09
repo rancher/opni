@@ -178,6 +178,11 @@ receivers:
     protocols:
       grpc: {}
       http: {}
+{{- if .LogsEnabled }}
+  k8s_events:
+    auth_type: serviceAccount
+{{- end }}
+
 processors:
   batch:
     send_batch_size: 1000
@@ -186,11 +191,11 @@ processors:
     limit_mib: 1000
     spike_limit_mib: 250
     check_interval: 1s
-  attributes:
-    actions:
-    - key: cluster_id
-      action: upsert
-      value: {{ .ClusterID }}
+  transform:
+    log_statements:
+    - context: log
+      statements:
+      - set(attributes["log_type"], "event") where attributes["k8s.event.uid"] != nil
 exporters:
   otlphttp:
     endpoint: "{{ .AgentEndpoint }}"
@@ -200,8 +205,8 @@ service:
   pipelines:
   {{- if .LogsEnabled }}
     logs:
-      receivers: ["otlp"]
-      processors: ["memory_limiter"]
+      receivers: ["otlp", "k8s_events"]
+      processors: ["transform", "memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
 `))
@@ -218,6 +223,5 @@ type LoggingConfig struct {
 }
 type AggregatorConfig struct {
 	AgentEndpoint string
-	ClusterID     string
 	LogsEnabled   bool
 }

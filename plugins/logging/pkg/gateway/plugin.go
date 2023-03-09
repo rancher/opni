@@ -25,6 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
@@ -42,9 +43,8 @@ import (
 )
 
 const (
-	OpensearchBindingName         = "opni-logging"
-	OpniPreprocessingInstanceName = "opni"
-	OpniPreprocessingPort         = 4317
+	OpensearchBindingName = "opni-logging"
+	OpniPreprocessingPort = 4317
 )
 
 type Plugin struct {
@@ -179,7 +179,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			otel.WithLogger(lg.Named("otel-forwarder")),
 			otel.WithAddress(fmt.Sprintf(
 				"%s:%d",
-				preprocessor.PreprocessorServiceName(OpniPreprocessingInstanceName),
+				preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
 				OpniPreprocessingPort,
 			)),
 			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),

@@ -16,12 +16,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
@@ -90,10 +90,7 @@ func (e *Environment) CreateWebhookServer(parentCtx context.Context, num int) []
 }
 
 func (e *Environment) NewWebhookMemoryServer(parentCtx context.Context, webHookRoute string) *MockIntegrationWebhookServer {
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
 	buf := []*config.WebhookMessage{}
 	mu := &sync.RWMutex{}
 	mux := http.NewServeMux()
@@ -404,8 +401,7 @@ func (e *Environment) RunAlertManager(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	freePort, err := freeport.GetFreePort()
-	Expect(err).To(Succeed())
+	freePort := freeport.GetFreePort()
 	apiPort, ctxCa := e.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(freePort))
 	defer ctxCa()
 	apiNode := backend.NewAlertManagerReadyClient(

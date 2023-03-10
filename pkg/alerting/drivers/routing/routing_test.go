@@ -6,12 +6,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -38,16 +37,14 @@ var _ = Describe("Alerting Router defaults", Ordered, Label(test.Unit), func() {
 
 	When("creating the default routing tree", func() {
 		Specify("The default opni routing tree root should be valid for alertmanager", func() {
-			fp, err := freeport.GetFreePort()
-			Expect(err).To(Succeed())
+			fp := freeport.GetFreePort()
 			cfg := routing.NewDefaultRoutingTreeRoot(fmt.Sprintf("http://localhost:%d", fp))
 			Expect(cfg).ToNot(BeNil())
 			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTreeRoot.yaml", env.Context(), cfg, fp)
 		})
 
 		Specify("the opni subtree should be in a valid alertmanager format", func() {
-			fp, err := freeport.GetFreePort()
-			Expect(err).To(Succeed())
+			fp := freeport.GetFreePort()
 			cfg := routing.NewDefaultRoutingTreeRoot(fmt.Sprintf("http://localhost:%d", fp))
 			subtree, recvs := routing.NewOpniSubRoutingTree()
 			cfg.Route.Routes = append(cfg.Route.Routes, subtree)
@@ -56,8 +53,7 @@ var _ = Describe("Alerting Router defaults", Ordered, Label(test.Unit), func() {
 		})
 
 		Specify("the default routing tree of opni routing should be in a valid alertmanager format", func() {
-			fp, err := freeport.GetFreePort()
-			Expect(err).To(Succeed())
+			fp := freeport.GetFreePort()
 			cfg := routing.NewDefaultRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
 			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTree.yaml", env.Context(), cfg, fp)
 		})
@@ -76,8 +72,7 @@ func BuildRoutingTreeSuiteTest(
 		When("manipulating the opni condition routing tree", func() {
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
-				fp, err := freeport.GetFreePort()
-				Expect(err).To(Succeed())
+				fp := freeport.GetFreePort()
 				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})
 
@@ -149,8 +144,7 @@ func BuildRoutingTreeSuiteTest(
 		When("manipulating the opni default namespaced routing tree", func() {
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
-				fp, err := freeport.GetFreePort()
-				Expect(err).To(Succeed())
+				fp := freeport.GetFreePort()
 				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})
 
@@ -240,7 +234,7 @@ func BuildRoutingTreeSuiteTest(
 					calculatedConfig, err := router.BuildConfig()
 					Expect(err).To(Succeed())
 					currentCfg = calculatedConfig
-					test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+"-"+path.Base(file), env.Context(), currentCfg, util.Must(freeport.GetFreePort()))
+					test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+"-"+path.Base(file), env.Context(), currentCfg, freeport.GetFreePort())
 				}
 			})
 

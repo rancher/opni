@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/test/freeport"
 
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
@@ -598,7 +598,7 @@ func BuildStorageClientSetSuite(
 					"default-after-force-sync.yaml",
 					ctx,
 					cfg,
-					util.Must(freeport.GetFreePort()),
+					freeport.GetFreePort(),
 				)
 			})
 		})
@@ -664,7 +664,7 @@ func BuildStorageClientSetSuite(
 					"user-configs-force-sync.yaml",
 					ctx,
 					cfg,
-					util.Must(freeport.GetFreePort()),
+					freeport.GetFreePort(),
 				)
 			})
 		})

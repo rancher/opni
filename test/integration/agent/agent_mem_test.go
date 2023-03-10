@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gmeasure"
-	"github.com/phayes/freeport"
 	"github.com/prometheus/procfs"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/tokens"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -58,7 +58,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 	var agentSession *gexec.Session
 	var gatewaySession *gexec.Session
 	var startGateway func()
-	agentListenPort := freeport.GetPort()
+	agentListenPort := freeport.GetFreePort()
 
 	waitForGatewayReady := func(timeout time.Duration) {
 		// ping /healthz until it returns 200

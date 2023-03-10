@@ -3,13 +3,17 @@ package _import
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -17,9 +21,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"net/http"
-	"os"
-	"time"
 )
 
 const testNamespace = "test-ns"
@@ -142,8 +143,7 @@ var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slo
 		importClient = remoteread.NewRemoteReadGatewayClient(env.ManagementClientConn())
 
 		By("adding a dummy remote read server")
-		port, err := freeport.GetFreePort()
-		Expect(err).ToNot(HaveOccurred())
+		port := freeport.GetFreePort()
 
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 		target.Spec.Endpoint = "http://" + addr + "/block"

@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"go.uber.org/atomic"
 
 	"github.com/rancher/opni/pkg/auth/openid"
@@ -22,8 +22,7 @@ var _ = Describe("User Info Cache", Ordered, Label("unit"), func() {
 	userMap := map[string]string{} // token: sub
 
 	BeforeAll(func() {
-		port, err := freeport.GetFreePort()
-		Expect(err).NotTo(HaveOccurred())
+		port := freeport.GetFreePort()
 		addr = fmt.Sprintf("localhost:%d", port)
 		mux := http.NewServeMux()
 		mux.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {

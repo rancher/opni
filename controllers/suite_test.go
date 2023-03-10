@@ -28,11 +28,11 @@ import (
 	"github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
@@ -86,8 +86,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	logf.SetLogger(testutil.NewTestLogger())
-	port, err := freeport.GetFreePort()
-	Expect(err).NotTo(HaveOccurred())
+	port := freeport.GetFreePort()
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		Scheme: scheme,

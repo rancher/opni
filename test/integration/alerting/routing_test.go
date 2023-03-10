@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -53,8 +53,7 @@ func BuildRoutingLogicTest(
 				currentCfg, err := router.BuildConfig()
 				Expect(err).To(Succeed())
 				By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
-				fp, err := freeport.GetFreePort()
-				Expect(err).To(Succeed())
+				fp := freeport.GetFreePort()
 
 				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})

@@ -7,8 +7,8 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/test/freeport"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,8 +55,7 @@ func RunTestEnvironment(
 	scheme := apis.NewScheme()
 	apis.InitScheme(scheme)
 
-	ports, err := freeport.GetFreePorts(2)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	ports := freeport.GetFreePorts(2)
 
 	// add the opnicluster manager
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{

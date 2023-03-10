@@ -37,7 +37,7 @@ func (h blockingHttpHandler) ServeHTTP(_ http.ResponseWriter, request *http.Requ
 	}
 }
 
-var _ = Describe("Remote Read Import", Ordered, Label(test.Integration, test.Slow), func() {
+var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
 	agentId := "import-agent"
 

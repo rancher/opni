@@ -19,17 +19,19 @@ import (
 var sharedEndpointSet map[string]*alertingv1.FullAttachedEndpoint
 
 func init() {
-	sharedEndpointSet = make(map[string]*alertingv1.FullAttachedEndpoint)
-	sharedEndpointSet = test.CreateRandomSetOfEndpoints()
-	var _ = BuildRoutingTreeSuiteTest(
-		routing.NewDefaultOpniRouting(),
-		test.CreateRandomNamespacedTestCases(45, sharedEndpointSet),
-		test.CreateRandomDefaultNamespacedTestcases(sharedEndpointSet),
-		test.CreateRandomIndividualEndpointTestcases(sharedEndpointSet),
-	)
+	test.IfIntegration(func() {
+		sharedEndpointSet = make(map[string]*alertingv1.FullAttachedEndpoint)
+		sharedEndpointSet = test.CreateRandomSetOfEndpoints()
+		var _ = BuildRoutingTreeSuiteTest(
+			routing.NewDefaultOpniRouting(),
+			test.CreateRandomNamespacedTestCases(45, sharedEndpointSet),
+			test.CreateRandomDefaultNamespacedTestcases(sharedEndpointSet),
+			test.CreateRandomIndividualEndpointTestcases(sharedEndpointSet),
+		)
+	})
 }
 
-var _ = Describe("Alerting Router defaults", Ordered, Label(test.Unit), func() {
+var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func() {
 
 	BeforeAll(func() {
 		Expect(sharedEndpointSet).ToNot(BeNil())
@@ -66,7 +68,7 @@ func BuildRoutingTreeSuiteTest(
 	broadcastSubtreeTestcases []test.DefaultNamespaceSubTreeTestcase,
 	individualEndpointTestcases []test.IndividualEndpointTestcase,
 ) bool {
-	return Describe("Alerting Routing tree building tests", Ordered, Label(test.Unit, test.Slow), func() {
+	return Describe("Alerting Routing tree building tests", Ordered, Label("integration", "slow"), func() {
 		var currentCfg *config.Config
 		var step string
 		When("manipulating the opni condition routing tree", func() {

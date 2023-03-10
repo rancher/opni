@@ -29,47 +29,49 @@ const (
 )
 
 func init() {
-	BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
-		{
-			NumReplicas: 1,
-			ResourceLimits: &alertops.ResourceLimitSpec{
-				Cpu:     "100m",
-				Memory:  "100Mi",
-				Storage: "5Gi",
+	test.IfIntegration(func() {
+		BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
+			{
+				NumReplicas: 1,
+				ResourceLimits: &alertops.ResourceLimitSpec{
+					Cpu:     "100m",
+					Memory:  "100Mi",
+					Storage: "5Gi",
+				},
+				ClusterSettleTimeout:    "1m",
+				ClusterGossipInterval:   "1m",
+				ClusterPushPullInterval: "1m",
 			},
-			ClusterSettleTimeout:    "1m",
-			ClusterGossipInterval:   "1m",
-			ClusterPushPullInterval: "1m",
+			// HA Mode has inconsistent state results
+			// {
+			// 	NumReplicas: 3,
+			// 	ResourceLimits: &alertops.ResourceLimitSpec{
+			// 		Cpu:     "100m",
+			// 		Memory:  "100Mi",
+			// 		Storage: "5Gi",
+			// 	},
+			// 	ClusterSettleTimeout:    "1m",
+			// 	ClusterGossipInterval:   "1m",
+			// 	ClusterPushPullInterval: "1m",
+			// },
 		},
-		// HA Mode has inconsistent state results
-		// {
-		// 	NumReplicas: 3,
-		// 	ResourceLimits: &alertops.ResourceLimitSpec{
-		// 		Cpu:     "100m",
-		// 		Memory:  "100Mi",
-		// 		Storage: "5Gi",
-		// 	},
-		// 	ClusterSettleTimeout:    "1m",
-		// 	ClusterGossipInterval:   "1m",
-		// 	ClusterPushPullInterval: "1m",
-		// },
-	},
-		func() alertops.AlertingAdminClient {
-			return env.NewAlertOpsClient()
-		},
-		func() alertingv1.AlertConditionsClient {
-			return env.NewAlertConditionsClient()
-		},
-		func() alertingv1.AlertEndpointsClient {
-			return env.NewAlertEndpointsClient()
-		},
-		func() alertingv1.AlertNotificationsClient {
-			return env.NewAlertNotificationsClient()
-		},
-		func() managementv1.ManagementClient {
-			return env.NewManagementClient()
-		},
-	)
+			func() alertops.AlertingAdminClient {
+				return env.NewAlertOpsClient()
+			},
+			func() alertingv1.AlertConditionsClient {
+				return env.NewAlertConditionsClient()
+			},
+			func() alertingv1.AlertEndpointsClient {
+				return env.NewAlertEndpointsClient()
+			},
+			func() alertingv1.AlertNotificationsClient {
+				return env.NewAlertNotificationsClient()
+			},
+			func() managementv1.ManagementClient {
+				return env.NewManagementClient()
+			},
+		)
+	})
 }
 
 type agentWithContext struct {
@@ -87,7 +89,7 @@ func BuildAlertingClusterIntegrationTests(
 	alertingNotificationsConstructor func() alertingv1.AlertNotificationsClient,
 	mgmtClientConstructor func() managementv1.ManagementClient,
 ) bool {
-	return Describe("Alerting Cluster Integration tests", Ordered, func() {
+	return Describe("Alerting Cluster Integration tests", Ordered, Label("integration"), func() {
 		var alertClusterClient alertops.AlertingAdminClient
 		var alertEndpointsClient alertingv1.AlertEndpointsClient
 		var alertConditionsClient alertingv1.AlertConditionsClient

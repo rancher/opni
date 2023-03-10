@@ -32,7 +32,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func() {
 	var srv *patch.FilesystemPluginSyncServer
 	fsys := afero.Afero{Fs: test.NewModeAwareMemFs()}
 	tmpDir := "/tmp/test"

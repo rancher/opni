@@ -27,19 +27,21 @@ import (
 var defaultHook *test.MockIntegrationWebhookServer
 
 func init() {
-	var _ = BuildRoutingLogicTest(
-		func() routing.OpniRouting {
-			defaultHooks := env.NewWebhookMemoryServer(env.Context(), "webhook")
-			defaultHook = defaultHooks
-			return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
-		},
-	)
+	test.IfIntegration(func() {
+		BuildRoutingLogicTest(
+			func() routing.OpniRouting {
+				defaultHooks := env.NewWebhookMemoryServer(env.Context(), "webhook")
+				defaultHook = defaultHooks
+				return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
+			},
+		)
+	})
 }
 
 func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
-	return Describe("Alerting routing logic translation to physical dispatching", Ordered, func() {
+	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		When("setting namespace specs on the routing tree", func() {
 			var step string = "initial"
 			var router routing.OpniRouting

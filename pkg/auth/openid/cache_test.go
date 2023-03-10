@@ -25,6 +25,9 @@ var _ = Describe("User Info Cache", Ordered, Label("unit"), func() {
 		port := freeport.GetFreePort()
 		addr = fmt.Sprintf("localhost:%d", port)
 		mux := http.NewServeMux()
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
 		mux.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
 			requestCount.Inc()
 			token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -35,6 +38,13 @@ var _ = Describe("User Info Cache", Ordered, Label("unit"), func() {
 			Handler: mux,
 		}
 		go srv.ListenAndServe()
+		// wait for server to start
+		for {
+			_, err := http.Get("http://" + addr + "/health")
+			if err == nil {
+				break
+			}
+		}
 		DeferCleanup(srv.Close)
 	})
 

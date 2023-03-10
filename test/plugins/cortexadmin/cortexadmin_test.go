@@ -91,7 +91,7 @@ func setMockKubernetesPodState(kubePort int, pod *mockPod) {
 	}()
 }
 
-var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
 	var env *test.Environment
 	var adminClient apis.CortexAdminClient

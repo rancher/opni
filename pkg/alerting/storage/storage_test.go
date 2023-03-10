@@ -76,7 +76,7 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 	storageConstructor func() TestAlertStorage[T],
 	testcases map[string]T,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var st TestAlertStorage[T]
 		BeforeAll(func() {
@@ -161,7 +161,7 @@ func BuildAlertingStateCacheTestSuite(
 	name string,
 	stateCacheConstructor func() storage.AlertingStateCache[*alertingv1.CachedState],
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var cache storage.AlertingStateCache[*alertingv1.CachedState]
 		BeforeAll(func() {
@@ -296,7 +296,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 	name string,
 	incidentTrackerConstructor func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var tracker storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
 		BeforeAll(func() {
@@ -381,7 +381,7 @@ func BuildAlertRouterStorageTestSuite(
 	routerStoreConstructor func() storage.RouterStorage,
 	defaultRouter routing.OpniRouting,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var routerStore storage.RouterStorage
 		BeforeAll(func() {
@@ -448,7 +448,7 @@ func BuildStorageClientSetSuite(
 	name string,
 	brokerConstructor func() storage.AlertingStoreBroker,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		var s storage.AlertingClientSet
 		var ctx context.Context
 		BeforeAll(func() {

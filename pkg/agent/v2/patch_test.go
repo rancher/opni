@@ -1,6 +1,6 @@
 package v2_test
 
-//var _ = Describe("Using the self updating controlv1 service", Ordered, Label(test.Unit, test.Slow), func() {
+//var _ = Describe("Using the self updating controlv1 service", Ordered, Label("unit", "slow"), func() {
 //	var dirRoot string
 //	ctx := context.Background()
 //	BeforeAll(func() {

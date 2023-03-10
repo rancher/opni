@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/slo/query"
-	"github.com/rancher/opni/pkg/test"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -15,7 +14,7 @@ func constructionShouldSucceed(q *query.SLOQueryResult, err error) {
 	Expect(q.TotalQuery).To(Not(BeNil()))
 }
 
-var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("unit", "slow"), func() {
 	// ctx := context.Background()
 
 	validMetricQuery := func(query query.MetricQuery) error {

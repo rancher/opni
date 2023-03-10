@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -118,7 +119,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
-				RemoteWriteClient:   &p.cortexRemoteWrite,
 				Delegate:            delegate,
 			})
 		})

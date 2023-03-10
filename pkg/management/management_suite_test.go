@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -19,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/grpc"
 )
@@ -63,8 +63,7 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 		}
 		ctx, ca := context.WithCancel(waitctx.Background())
 		tv.storageBackend = test.NewTestStorageBackend(ctx, tv.ctrl)
-		ports, err := freeport.GetFreePorts(2)
-		Expect(err).NotTo(HaveOccurred())
+		ports := freeport.GetFreePorts(2)
 		conf := &v1beta1.ManagementSpec{
 			GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", ports[0]),
 			HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", ports[1]),

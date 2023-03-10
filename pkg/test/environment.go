@@ -35,10 +35,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mattn/go-tty"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -305,10 +305,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(14)
-	if err != nil {
-		panic(err)
-	}
+	ports := freeport.GetFreePorts(14)
+
 	e.ports = servicePorts{
 		Etcd:             ports[0],
 		GatewayGRPC:      ports[1],
@@ -325,6 +323,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		DisconnectPort:   ports[12],
 		NodeExporterPort: ports[13],
 	}
+	var err error
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
 		if err != nil {
@@ -524,10 +523,7 @@ func (e *Environment) Context() context.Context {
 }
 
 func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
-	ports, err := freeport.GetFreePorts(1)
-	if err != nil {
-		return nil, err
-	}
+	ports := freeport.GetFreePorts(1)
 
 	opts := natstest.DefaultTestOptions
 	opts.Port = ports[0]
@@ -548,10 +544,8 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 
 	lg := Log.Named("k8s")
 
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
+
 	scheme := apis.NewScheme()
 
 	for _, path := range e.CRDDirectoryPaths {
@@ -645,7 +639,7 @@ func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 }
 
 func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {
-	ports := util.Must(freeport.GetFreePorts(2))
+	ports := freeport.GetFreePorts(2)
 
 	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 e.k8sEnv.Scheme,
@@ -788,10 +782,8 @@ func (e *Environment) StartEmbeddedAlertManager(
 	opniPort *int,
 ) (webPort int, caF context.CancelFunc) {
 	amBin := path.Join(e.TestBin, "../../bin/opni")
-	ports, err := freeport.GetFreePorts(2)
-	if err != nil {
-		panic(err)
-	}
+	ports := freeport.GetFreePorts(2)
+
 	defaultArgs := []string{
 		"alerting-server",
 		"alertmanager",
@@ -987,10 +979,8 @@ func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overr
 // `slo/prometheus/config.yaml` is the default SLO config.
 func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePrometheusConfig) int {
 	lg := e.Logger
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
+
 	var configTemplate string
 	var jobs []PrometheusJob
 
@@ -1062,10 +1052,8 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 // Returns port number of the server & a channel that shutdowns the server
 func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan struct{}) {
 	// lg := e.logger
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
+
 	mux := http.NewServeMux()
 	reg := prometheus.NewRegistry()
 
@@ -1110,10 +1098,8 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 }
 
 func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port int) {
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port = freeport.GetFreePort()
+
 	mux := http.NewServeMux()
 	reg := prometheus.NewRegistry()
 
@@ -1650,11 +1636,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 
 	errC := make(chan error, 2)
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-
+	port := freeport.GetFreePort()
 	if err := ident.RegisterProvider(id, func() ident.Provider {
 		return NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {

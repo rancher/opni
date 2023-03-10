@@ -13,7 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
+	"github.com/rancher/opni/pkg/test/freeport"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	openidauth "github.com/rancher/opni/pkg/auth/openid"
@@ -22,8 +22,8 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
-var _ = Describe("Server", Ordered, Label("slow"), func() {
-	ports, _ := freeport.GetFreePorts(2)
+var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
+	ports := freeport.GetFreePorts(2)
 	BeforeAll(func() {
 		env := test.Environment{
 			TestBin: "../../testbin/bin",

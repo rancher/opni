@@ -14,7 +14,7 @@ import (
 	jwtopenid "github.com/lestrrat-go/jwx/jwt/openid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
+	"github.com/rancher/opni/pkg/test/freeport"
 
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -120,8 +120,7 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 	Context("server or discovery config errors", func() {
 		When("the server is unavailable", func() {
 			It("should retry until the server becomes available", func() {
-				port, err := freeport.GetFreePort()
-				Expect(err).NotTo(HaveOccurred())
+				port := freeport.GetFreePort()
 
 				mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
 					Type: "openid",

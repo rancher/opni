@@ -16,13 +16,13 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
@@ -377,18 +377,9 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	configFilePath string,
 ) AlertingServerUnit {
 	opniBin := path.Join(l.env.TestBin, "../../bin/opni")
-	webPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	opniPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	syncerPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	webPort := freeport.GetFreePort()
+	opniPort := freeport.GetFreePort()
+	syncerPort := freeport.GetFreePort()
 	syncerArgs := []string{
 		"alerting-server",
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", configFilePath),
@@ -400,10 +391,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 
 	l.Logger.Debug("Syncer start : " + strings.Join(syncerArgs, " "))
 
-	clusterPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	clusterPort := freeport.GetFreePort()
 
 	alertmanagerArgs := []string{
 		"alerting-server",

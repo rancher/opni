@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/phayes/freeport"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -54,10 +54,7 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 		},
 		CurrentContext: "default",
 	}
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
 	clientcmd.WriteToFile(apiCfg, path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"))
 	cmd := exec.CommandContext(ctx, controllerMgrBin,
 		"--kubeconfig", path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"),

@@ -30,12 +30,15 @@ Currently, this is the list of error keywords that are to be used by default.
 - out of disk
 - high load
 
-This is an immutable list so the user cannot remove any of these keywords. Within the Opni admin dashboard, there will be a box which shows the error keywords that are used by default. The user will then have the option to remove any keywords that they would not like to use as well as include any additional keywords. The user will also make sure to select the workloads of interest to the watchlist. There will be an update button which the user will then hit which sends the keywords to the AIOps gateway endpoint /train/model which will send the workloads to train on and the error keywords to filter out. The /train/model endpoint will then send that data over to the training controller service.
+This is an immutable list so the user cannot remove any of these keywords. However,wWithin the Opni admin dashboard, there will be a box which shows the error keywords that are used by default. The user will then have the option to add any additional error keywords to this list. The user will also make sure to select the workloads of interest to the watchlist. There will be an update button which the user will then hit which sends the keywords to the AIOps gateway endpoint /train/model which will send the workloads to train on and the error keywords to filter out. The /train/model endpoint will then send that data over to the training controller service.
 
 The training controller service will then receive workloads that are part of the watchlist as well as the user specified anomalous keywords through Nats. It will then use the specified list of anomalous keywords to create the Opensearch query which will then be sent to the GPU controller service. After this, the same approach for fetching the logs and training the Deep Learning model will be followed.
 
+Additionally, within the Workload Watchlist panel within the Opni Admin Dashboard page, there will be a breakdown which gives the number of log messages which contains each of the specified error keywords.
+
 ## Acceptance criteria: 
-* Deep Learning models should only be trained on workload logs within the last hour that are not marked as anomalous and do not contain any of the designated anomalous keywords.
+* Deep Learning models should only be trained on workload logs within the last hour that are not marked as anomalous and do not contain any of the designated error keywords.
+* The Opni Admin Dashboard should contain a separate panel which shows the breakdown for the number of log messages that contain each of the error keywords.
 
 ## Supporting documents: 
 User Story:

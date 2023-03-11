@@ -1,2 +1,4 @@
 grpclib
 betterproto==2.0.0b5
+scipy
+scikit-learn

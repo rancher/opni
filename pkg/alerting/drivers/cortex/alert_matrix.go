@@ -55,6 +55,7 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 			timeline = append(timeline, &alertingv1.ActiveWindow{
 				Start:        timestamppb.New(fingerprintTs),
 				End:          timestamppb.New(curTs),
+				Type:         alertingv1.TimelineType_Timeline_Alerting,
 				Fingerprints: []string{fingerprintStr.Value.String()},
 			})
 			continue
@@ -71,6 +72,7 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 				timeline = append(timeline, &alertingv1.ActiveWindow{
 					Start:        timestamppb.New(last.End.AsTime().Add(time.Minute)),
 					End:          timestamppb.New(curTs),
+					Type:         alertingv1.TimelineType_Timeline_Alerting,
 					Fingerprints: []string{fingerprintStr.Value.String()},
 				})
 			} else {
@@ -81,6 +83,7 @@ func ReducePrometheusMatrix(matrix *model.Matrix) []*alertingv1.ActiveWindow {
 			timeline = append(timeline, &alertingv1.ActiveWindow{
 				Start:        timestamppb.New(fingerprintTs),
 				End:          timestamppb.New(curTs),
+				Type:         alertingv1.TimelineType_Timeline_Alerting,
 				Fingerprints: []string{fingerprintStr.Value.String()},
 			})
 		}

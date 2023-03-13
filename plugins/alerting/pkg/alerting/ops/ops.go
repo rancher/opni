@@ -178,7 +178,7 @@ func (a *AlertingOpsNode) GetAvailableCacheEndpoint(ctx context.Context, options
 	} else {
 		availableEndpoint = options.GetWorkerEndpoint()
 	}
-	_, addr, _ := strings.Cut(availableEndpoint, "://")
+	_, addr, _ := strings.Cut(availableEndpoint, "http://")
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", err

@@ -113,11 +113,7 @@ func BuildEmbeddedServerNotificationTests(
 			Expect(config).NotTo(BeNil())
 			err = os.WriteFile(confFile, util.Must(yaml.Marshal(config)), 0644)
 			Expect(err).NotTo(HaveOccurred())
-
-			port, caF := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
-			DeferCleanup(
-				caF,
-			)
+			port := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
 			webPort = port
 			client = http.DefaultClient
 		})
@@ -259,11 +255,7 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(config).NotTo(BeNil())
 				err = os.WriteFile(confFile, util.Must(yaml.Marshal(config)), 0644)
 				Expect(err).NotTo(HaveOccurred())
-
-				port, caF := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
-				DeferCleanup(
-					caF,
-				)
+				port := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
 				webPort = port
 			})
 			It("should persist the routables", func() {

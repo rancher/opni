@@ -793,7 +793,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 	ctx context.Context,
 	configFilePath string,
 	opniPort *int,
-) (webPort int, caF context.CancelFunc) {
+) (webPort int) {
 	amBin := path.Join(e.TestBin, "../../bin/opni")
 	ports := freeport.GetFreePorts(2)
 	webPort = ports[0]
@@ -810,7 +810,6 @@ func (e *Environment) StartEmbeddedAlertManager(
 	if opniPort != nil {
 		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))
 	}
-	_, caF = context.WithCancel(ctx)
 	cmd := exec.CommandContext(ctx, amBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
@@ -838,7 +837,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 			cmd.Signal(os.Signal(syscall.SIGTERM))
 		}
 	})
-	return
+	return webPort
 }
 
 func (e *Environment) startEtcd() {

@@ -406,8 +406,8 @@ func (e *Environment) RunAlertManager(
 
 	By("Verifying that the config can be loaded by alertmanager")
 	freePort := freeport.GetFreePort()
-	apiPort, ctxCa := e.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(freePort))
-	defer ctxCa()
+	ctxCa, caF := context.WithCancel(ctx)
+	apiPort := e.StartEmbeddedAlertManager(ctxCa, tmpPath, lo.ToPtr(freePort))
 	apiNode := backend.NewAlertManagerReadyClient(
 		ctx,
 		fmt.Sprintf("http://localhost:%d", apiPort),
@@ -416,7 +416,7 @@ func (e *Environment) RunAlertManager(
 	)
 	err = apiNode.DoRequest()
 	Expect(err).To(Succeed())
-	return apiPort, ctxCa
+	return apiPort, caF
 }
 
 func ExpectAlertManagerConfigToBeValid(
@@ -452,8 +452,7 @@ func ExpectAlertManagerConfigToBeValid(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	apiPort, ctxCa := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
-	defer ctxCa()
+	apiPort := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
 	apiNode := backend.NewAlertManagerReadyClient(
 		ctx,
 		fmt.Sprintf("http://localhost:%d", apiPort),

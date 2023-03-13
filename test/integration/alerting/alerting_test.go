@@ -583,7 +583,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Minute*2, time.Second*15)
+					}, time.Minute*1, time.Second*15)
 				})
 
 				It("should force update/delete alert endpoints involved in conditions", func() {

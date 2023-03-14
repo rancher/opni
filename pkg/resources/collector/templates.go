@@ -109,7 +109,7 @@ filelog/rke2:
   - type: regex_parser
     id: time-sev
     on_error: drop
-    regex: '^(?P<klog_level>[IWEF])(?P<klog_time>\d{4} \d{2}:\d{2}:\d{2}\.\d+)\s*(?P<message>.*)'
+    regex: '^(?P<klog_level>[IWEF])(?P<klog_time>\d{4} \d{2}:\d{2}:\d{2}\.\d+)'
     timestamp:
       parse_from: attributes.klog_time
       layout: '%m%d %H:%M:%S.%L'
@@ -120,6 +120,9 @@ filelog/rke2:
         warn: W
         error: E
         fatal: F
+  - type: move
+    from: body
+    to: attributes.message
 `))
 
 	templateMainConfig = template.Must(template.New("main").Parse(`

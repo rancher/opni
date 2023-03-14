@@ -84,7 +84,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 					},
 					{
 						"regexp": map[string]any{
-							"kubernetes.namespace_name.keyword": ".+",
+							"namespace_name.keyword": ".+",
 						},
 					},
 					{
@@ -110,7 +110,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 						{
 							"namespace_name": map[string]any{
 								"terms": map[string]any{
-									"field": "kubernetes.namespace_name.keyword",
+									"field": "namespace_name.keyword",
 								},
 							},
 						},

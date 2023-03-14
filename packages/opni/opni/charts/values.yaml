@@ -61,7 +61,8 @@ opni-agent:
     managementAddress: opni-internal:11090
   volumeMounts:
     - name: local-agent-key
-      mountPath: /run/opni-agent/keyring
+      mountPath: /run/opni-agent/keyring/session-attribute.json
+      subPath: session-attribute.json
       readOnly: true
   volumes:
     - name: local-agent-key

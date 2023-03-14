@@ -6,7 +6,7 @@ Enhance User Experience when Cluster Agents are Disconnected
 Currently, when a user would like to train a Deep Learning model on a watchlist of workloads, there is no indication on whether or not the cluster agent is connected to the upstream Opni cluster. As a result, it is possible the user may be selecting deployments that are stale and are not producing any current logs. Hence, I propose that within the Opni Admin Dashboard there should be a mechanism to detect whether or not a given downstream cluster's agent is connected to the upstream Opni cluster and to display that information within the dashboard.
 
 ## Use case: 
-This will denote any Kubernetes clusters which have a disconnected cluster agent as inactive such that when the user is updating the watchlist, for any clusters which do not have a cluster agent connected to the upstream cluster, those clusters will be marked as "Inactive". 
+This will denote any Kubernetes clusters which have a disconnected cluster agent as inactive such that when the user is updating the watchlist, for any clusters which do not have a cluster agent connected to the upstream cluster, those clusters will be marked as "Inactive". Additionally, for any deployments that are a part of a cluster that is actively shipping over logs, there will be another column present called "Last Active" which denotes the last time logs for that deployment were shipped over. 
 
 ## Benefits: 
 * Enhances user experience as now it is clear which clusters are actively shipping over logs.

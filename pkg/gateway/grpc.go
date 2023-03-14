@@ -85,11 +85,10 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		}),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
-		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
 		grpc.ReadBufferSize(0),
+		grpc.WriteBufferSize(0),
 		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
-		grpc.InitialConnWindowSize(64*1024*1024), // 64MB
-		grpc.InitialWindowSize(64*1024*1024),     // 64MB
+		grpc.MaxHeaderListSize(1024*8),
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	s.servicesMu.Lock()

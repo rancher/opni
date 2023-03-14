@@ -72,28 +72,31 @@ type ClusterListModel struct {
 	help                 help.Model
 	keymap               help.KeyMap
 	width                int
+	columns              []table.Column
+	showSessionAttrs     bool
 }
 
 func NewClusterListModel() ClusterListModel {
+	cols := []table.Column{
+		{
+			Title: "ID",
+			Width: 36,
+		},
+		{
+			Title: "LABELS",
+			Width: 24,
+		},
+		{
+			Title: "CAPABILITIES",
+			Width: 16,
+		},
+		{
+			Title: "STATUS",
+			Width: 16,
+		},
+	}
 	t := table.New(
-		table.WithColumns([]table.Column{
-			{
-				Title: "ID",
-				Width: 36,
-			},
-			{
-				Title: "LABELS",
-				Width: 24,
-			},
-			{
-				Title: "CAPABILITIES",
-				Width: 16,
-			},
-			{
-				Title: "STATUS",
-				Width: 16,
-			},
-		}),
+		table.WithColumns(cols),
 		table.WithFocused(true),
 		table.WithHeight(10),
 	)
@@ -112,6 +115,7 @@ func NewClusterListModel() ClusterListModel {
 			KeyMap: table.DefaultKeyMap(),
 			Quit:   key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		},
+		columns:              cols,
 		lateJoinHealthStatus: make(map[string]*corev1.HealthStatus),
 	}
 }
@@ -196,7 +200,17 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		row := table.Row{t.cluster.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ",")}
 		if t.healthStatus != nil {
+			if !m.showSessionAttrs && len(t.healthStatus.GetStatus().GetSessionAttributes()) > 0 {
+				m.showSessionAttrs = true
+				m.t.SetColumns(append(m.columns, table.Column{
+					Title: "ATTRIBUTES",
+					Width: 24,
+				}))
+			}
 			row = append(row, t.healthStatus.Summary())
+			if m.showSessionAttrs {
+				row = append(row, strings.Join(t.healthStatus.GetStatus().GetSessionAttributes(), ", "))
+			}
 		} else {
 			row = append(row, "(unknown)")
 		}

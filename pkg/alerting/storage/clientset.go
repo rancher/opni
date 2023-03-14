@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +18,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )

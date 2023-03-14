@@ -3,6 +3,10 @@ package ecdh_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
+
+	cryptoecdh "crypto/ecdh"
+	"crypto/rand"
 
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
@@ -70,19 +74,12 @@ var _ = Describe("ECDH", Label("unit"), func() {
 		ekpB := ecdh.NewEphemeralKeyPair()
 
 		By("using a scalar of incorrect length")
-		_, err := ecdh.DeriveSharedSecret(ecdh.EphemeralKeyPair{
-			PrivateKey: make([]byte, 31),
-		}, ecdh.PeerPublicKey{
-			PublicKey: ekpB.PublicKey,
-			PeerType:  ecdh.PeerTypeClient,
-		})
-		Expect(err).To(MatchError("bad scalar length: 31, expected 32"))
+		_, err := cryptoecdh.X25519().NewPrivateKey(make([]byte, 31))
+		Expect(err).To(MatchError("crypto/ecdh: invalid private key size"))
 
 		By("using a point of incorrect length")
-		_, err = ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{
-			PublicKey: make([]byte, 31),
-		})
-		Expect(err).To(MatchError("bad point length: 31, expected 32"))
+		_, err = cryptoecdh.X25519().NewPublicKey(make([]byte, 33))
+		Expect(err).To(MatchError("crypto/ecdh: invalid public key"))
 
 		By("specifying an invalid peer type")
 		_, err = ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{
@@ -92,13 +89,55 @@ var _ = Describe("ECDH", Label("unit"), func() {
 		Expect(err).To(MatchError(ecdh.ErrInvalidPeerType))
 
 		By("using a low order point")
-		_, err = ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{
-			PublicKey: []byte{
-				0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24, 0xb1, 0xd0, 0xb1,
-				0x55, 0x9c, 0x83, 0xef, 0x5b, 0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c,
-				0x8e, 0x86, 0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57,
-			},
+		pub, err := cryptoecdh.X25519().NewPublicKey([]byte{
+			0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24, 0xb1, 0xd0, 0xb1,
+			0x55, 0x9c, 0x83, 0xef, 0x5b, 0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c,
+			0x8e, 0x86, 0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57,
 		})
-		Expect(err).To(MatchError("bad input point: low order point"))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{
+			PeerType:  ecdh.PeerTypeClient,
+			PublicKey: pub,
+		})
+		Expect(err).To(MatchError("crypto/ecdh: bad X25519 remote ECDH input: low order point"))
+	})
+	It("should convert from other message types", func() {
+		By("converting from a BootstrapAuthRequest")
+		{
+			keypair := ecdh.NewEphemeralKeyPair()
+			req := &bootstrapv2.BootstrapAuthRequest{
+				ClientPubKey: keypair.PublicKey.Bytes(),
+			}
+			ppk, err := ecdh.ClientPubKey(req)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ppk.PublicKey.Equal(keypair.PublicKey)).To(BeTrue())
+		}
+
+		By("converting from a BootstrapAuthResponse")
+		{
+			keypair := ecdh.NewEphemeralKeyPair()
+			resp := &bootstrapv2.BootstrapAuthResponse{
+				ServerPubKey: keypair.PublicKey.Bytes(),
+			}
+
+			ppk, err := ecdh.ServerPubKey(resp)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ppk.PublicKey.Equal(keypair.PublicKey)).To(BeTrue())
+		}
+
+		By("handling invalid public keys")
+		{
+			var buf [31]byte
+			rand.Read(buf[:])
+			_, err := ecdh.ClientPubKey(&bootstrapv2.BootstrapAuthRequest{
+				ClientPubKey: buf[:],
+			})
+			Expect(err).To(MatchError("crypto/ecdh: invalid public key"))
+
+			_, err = ecdh.ServerPubKey(&bootstrapv2.BootstrapAuthResponse{
+				ServerPubKey: buf[:],
+			})
+			Expect(err).To(MatchError("crypto/ecdh: invalid public key"))
+		}
 	})
 })

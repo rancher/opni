@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/logger"
 )
 
@@ -40,7 +41,7 @@ func LoadEphemeralKeys(fsys afero.Afero, dirs ...string) ([]*keyring.EphemeralKe
 				return nil, err
 			}
 
-			ekey, err := keyring.LoadEphemeralKey(f)
+			ekey, err := ephemeral.LoadKey(f)
 			if err != nil {
 				lg.With(
 					zap.Error(err),

@@ -53,7 +53,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 		},
-		Stderr: os.Stderr,
+		SyncStderr: os.Stderr,
+		// Stderr: os.Stderr,
 	}
 
 	if options.reattach != nil {

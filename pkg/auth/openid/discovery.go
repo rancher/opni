@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+// +k8s:deepcopy-gen=true
 type DiscoverySpec struct {
 	// Relative path at which to find the openid configuration. If not set,
 	// defaults to '/.well-known/openid-configuration'.

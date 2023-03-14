@@ -3,6 +3,8 @@ package future
 import (
 	"context"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Future[T any] interface {
@@ -109,4 +111,112 @@ func Wait6[T, U, V, W, X, Y any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Fu
 
 func Wait7[T, U, V, W, X, Y, Z any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], f6 Future[Y], f7 Future[Z], callback func(T, U, V, W, X, Y, Z)) {
 	go func() { callback(f1.Get(), f2.Get(), f3.Get(), f4.Get(), f5.Get(), f6.Get(), f7.Get()) }()
+}
+
+func Wait1Ctx[T any](ctx context.Context, f1 Future[T], callback func(T), errCallback func(error)) {
+	var v1 T
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1)
+	}()
+}
+
+func Wait2Ctx[T, U any](ctx context.Context, f1 Future[T], f2 Future[U], callback func(T, U), errCallback func(error)) {
+	var v1 T
+	var v2 U
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	eg.Go(func() (err error) { v2, err = f2.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1, v2)
+	}()
+}
+
+func Wait3Ctx[T, U, V any](ctx context.Context, f1 Future[T], f2 Future[U], f3 Future[V], callback func(T, U, V), errCallback func(error)) {
+	var v1 T
+	var v2 U
+	var v3 V
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	eg.Go(func() (err error) { v2, err = f2.GetContext(ctx); return })
+	eg.Go(func() (err error) { v3, err = f3.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1, v2, v3)
+	}()
+}
+
+func Wait4Ctx[T, U, V, W any](ctx context.Context, f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], callback func(T, U, V, W), errCallback func(error)) {
+	var v1 T
+	var v2 U
+	var v3 V
+	var v4 W
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	eg.Go(func() (err error) { v2, err = f2.GetContext(ctx); return })
+	eg.Go(func() (err error) { v3, err = f3.GetContext(ctx); return })
+	eg.Go(func() (err error) { v4, err = f4.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1, v2, v3, v4)
+	}()
+}
+
+func Wait5Ctx[T, U, V, W, X any](ctx context.Context, f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], callback func(T, U, V, W, X), errCallback func(error)) {
+	var v1 T
+	var v2 U
+	var v3 V
+	var v4 W
+	var v5 X
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	eg.Go(func() (err error) { v2, err = f2.GetContext(ctx); return })
+	eg.Go(func() (err error) { v3, err = f3.GetContext(ctx); return })
+	eg.Go(func() (err error) { v4, err = f4.GetContext(ctx); return })
+	eg.Go(func() (err error) { v5, err = f5.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1, v2, v3, v4, v5)
+	}()
+}
+
+func Wait6Ctx[T, U, V, W, X, Y any](ctx context.Context, f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], f6 Future[Y], callback func(T, U, V, W, X, Y), errCallback func(error)) {
+	var v1 T
+	var v2 U
+	var v3 V
+	var v4 W
+	var v5 X
+	var v6 Y
+	var eg errgroup.Group
+	eg.Go(func() (err error) { v1, err = f1.GetContext(ctx); return })
+	eg.Go(func() (err error) { v2, err = f2.GetContext(ctx); return })
+	eg.Go(func() (err error) { v3, err = f3.GetContext(ctx); return })
+	eg.Go(func() (err error) { v4, err = f4.GetContext(ctx); return })
+	eg.Go(func() (err error) { v5, err = f5.GetContext(ctx); return })
+	eg.Go(func() (err error) { v6, err = f6.GetContext(ctx); return })
+	go func() {
+		if err := eg.Wait(); err != nil {
+			errCallback(err)
+			return
+		}
+		callback(v1, v2, v3, v4, v5, v6)
+	}()
 }

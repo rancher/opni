@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -30,14 +29,13 @@ func NewToken(source ...io.Reader) *Token {
 	if len(source) > 0 {
 		entropy = source[0]
 	}
-	buf := make([]byte, 256)
+	buf := make([]byte, 32)
 	if _, err := io.ReadFull(entropy, buf); err != nil {
 		panic(err)
 	}
-	sum := sha256.Sum256(buf)
 	return &Token{
-		ID:     sum[:6],
-		Secret: sum[6:],
+		ID:     buf[:6],
+		Secret: buf[6:],
 	}
 }
 

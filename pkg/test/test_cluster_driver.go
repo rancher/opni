@@ -193,6 +193,7 @@ type TestEnvAlertingClusterDriver struct {
 	managedInstances []AlertingServerUnit
 	enabled          *atomic.Bool
 	ConfigFile       string
+	stateMu          *sync.RWMutex
 
 	*shared.AlertingClusterOptions
 
@@ -239,6 +240,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 			ResourceLimits: &alertops.ResourceLimitSpec{},
 		},
 		AlertingManagerDriverOptions: options,
+		stateMu:                      &sync.RWMutex{},
 	}
 }
 
@@ -247,6 +249,8 @@ func (l *TestEnvAlertingClusterDriver) GetClusterConfiguration(ctx context.Conte
 }
 
 func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	if err := configuration.Validate(); err != nil {
 		return nil, err
 	}
@@ -289,6 +293,8 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, emp
 			State: alertops.InstallState_NotInstalled,
 		}, nil
 	}
+	l.stateMu.RLock()
+	defer l.stateMu.RUnlock()
 	for _, replica := range l.managedInstances {
 		apiNode := backend.NewAlertManagerReadyClient(ctx, fmt.Sprintf("127.0.0.1:%d", replica.AlertManagerPort))
 		if err := apiNode.DoRequest(); err != nil {
@@ -310,6 +316,8 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	if len(l.managedInstances) > 0 {
 		panic("should not have existing replicas")
 	}
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	l.NumReplicas = 1
 	for i := 0; i < int(l.NumReplicas); i++ {
 		l.managedInstances = append(
@@ -339,6 +347,8 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 }
 
 func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	for _, replica := range l.managedInstances {
 		replica.CancelFunc()
 	}

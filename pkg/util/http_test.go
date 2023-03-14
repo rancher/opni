@@ -111,16 +111,18 @@ func BuildHttpTransportCaching(
 			cachingHttpServer := testgrpc.NewCachingHttpServer(
 				serverPort,
 			)
-
+			shutdownchan := make(chan error, 1)
 			go func() {
 				err := cachingHttpServer.ListenAndServe()
 				if !errors.Is(err, http.ErrServerClosed) {
-					panic(err)
+					shutdownchan <- err
 				}
+				shutdownchan <- nil
 			}()
 
 			DeferCleanup(func() {
 				cachingHttpServer.Shutdown(context.TODO())
+				Expect(shutdownchan).Should(Receive(BeNil()))
 			})
 			defaultClient = http.DefaultClient
 			client := http.DefaultClient

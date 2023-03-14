@@ -59,6 +59,8 @@ filelog/k8s:
     id: extract_metadata_from_filepath
     regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<uid>[a-f0-9\-]+)\/(?P<container_name>[^\._]+)\/(?P<restart_count>\d+)\.log$'
     parse_from: attributes["log.file.path"]
+  - type: remove
+    field: attributes["log.file.path"]
   # Move out attributes to Attributes
   - type: move
     id: move-namespace

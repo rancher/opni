@@ -26,6 +26,8 @@ const (
 	kibanaDashboardVersionDocID = "latest"
 	kibanaDashboardVersion      = "v0.5.4"
 	kibanaDashboardVersionIndex = "opni-dashboard-version"
+
+	clusterMetadataIndexName = "opni-cluster-metadata"
 )
 
 var (
@@ -406,6 +408,19 @@ var (
 	// index patterns and dashboards
 	//go:embed dashboard.ndjson
 	kibanaObjects string
+
+	clusterMetadataIndexSettings = map[string]opensearchtypes.TemplateMappingsSpec{
+		"mappings": {
+			Properties: map[string]opensearchtypes.PropertySettings{
+				"id": {
+					Type: "text",
+				},
+				"name": {
+					Type: "text",
+				},
+			},
+		},
+	}
 )
 
 func (r *Reconciler) logISMPolicy() opensearchtypes.ISMPolicySpec {

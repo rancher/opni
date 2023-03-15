@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"os"
 
 	"github.com/dbason/featureflags"
@@ -64,6 +65,9 @@ type Plugin struct {
 	logging             backend.LoggingBackend
 	otelForwarder       *otel.OTELForwarder
 	clusterDriver       drivers.ClusterDriver
+
+	// todo: we might want to move these watcher types into opni/pkg
+	globalWatchers *alerting.SimpleInternalConditionWatcher
 }
 
 type PluginOptions struct {
@@ -107,6 +111,7 @@ func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
 		o.featureOverride = flagOverride
 	}
 }
+
 func WithVersion(version string) PluginOption {
 	return func(o *PluginOptions) {
 		o.version = version
@@ -203,6 +208,15 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				NodeManagerClient:   nodeManagerClient,
 				ClusterDriver:       p.clusterDriver,
 			})
+
+			p.globalWatchers = &alerting.SimpleInternalConditionWatcher{
+				Closures: []func(){
+					func() {
+						p.watchGlobalCluster(mgmtClient)
+					},
+				},
+			}
+			p.globalWatchers.WatchEvents()
 		},
 	)
 

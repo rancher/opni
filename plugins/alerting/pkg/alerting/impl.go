@@ -95,17 +95,17 @@ func deleteClusterEvent(event *managementv1.WatchEvent) bool {
 var _ InternalConditionWatcher = &SimpleInternalConditionWatcher{}
 
 type SimpleInternalConditionWatcher struct {
-	closures []func()
+	Closures []func()
 }
 
 func NewSimpleInternalConditionWatcher(cl ...func()) *SimpleInternalConditionWatcher {
 	return &SimpleInternalConditionWatcher{
-		closures: cl,
+		Closures: cl,
 	}
 }
 
 func (s *SimpleInternalConditionWatcher) WatchEvents() {
-	for _, f := range s.closures {
+	for _, f := range s.Closures {
 		f := f
 		go func() {
 			f()

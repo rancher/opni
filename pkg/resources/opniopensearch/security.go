@@ -155,7 +155,7 @@ func (r *Reconciler) generateAuthSecret(password []byte) runtime.Object {
 			Namespace: r.instance.Namespace,
 		},
 		Data: map[string][]byte{
-			"username": []byte("internalopni"),
+			"username": []byte(internalUsername),
 			"password": password,
 		},
 	}

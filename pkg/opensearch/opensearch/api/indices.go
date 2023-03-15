@@ -316,3 +316,22 @@ func (a *IndicesAPI) UpdateDocument(ctx context.Context, index, documentID strin
 	res, err := a.Perform(req)
 	return (*Response)(res), err
 }
+
+func (a *IndicesAPI) AddDocument(ctx context.Context, index, documentID string, body io.Reader) (*Response, error) {
+	method := http.MethodPost
+	path := generateDocumentPath(index, documentID)
+
+	req, err := http.NewRequest(method, path.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	req.Header.Add(headerContentType, jsonContentHeader)
+
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}

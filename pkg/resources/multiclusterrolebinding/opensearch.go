@@ -136,6 +136,15 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
+	fmt.Printf("=== [Reconciler.Reconcile] created index '%s' ===\n", serviceMapIndexName)
+
+	retErr = reconciler.MaybeCreateIndex(clusterMetadataIndexName, clusterMetadataIndexSettings)
+	if retErr != nil {
+		return
+	}
+
+	fmt.Printf("=== [Reconciler.Reconcile] created index '%s' ===\n", clusterMetadataIndexName)
+
 	if opensearchCluster.Spec.Dashboards.Enable {
 		retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
 	}

@@ -36,7 +36,10 @@ type Notification struct {
 	Title string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	Body  string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// sets notification properties, for example
-	// severity, golden signal, deduplication keys, etc...
+	// severity, golden signal, dedupe keys, group keys etc...
+	//
+	// It is recommended to set severity, golden signal,
+	// dedupe keys and group keys
 	Properties map[string]string `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

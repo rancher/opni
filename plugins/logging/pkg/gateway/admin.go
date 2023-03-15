@@ -411,7 +411,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var osVersion string
-	version := "0.9.0-rc1"
+	version := "0.9.0-rc2"
 	if cluster == nil {
 		if versions.Version != "unversioned" {
 			version = strings.TrimPrefix(versions.Version, "v")
@@ -437,7 +437,7 @@ func (p *Plugin) convertProtobufToDashboards(
 	}
 
 	if version == "unversioned" {
-		version = "0.9.0-rc1"
+		version = "0.9.0-rc2"
 	}
 
 	image := fmt.Sprintf(

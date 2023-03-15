@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -45,7 +45,7 @@ type messageCache[L comparable, T any] interface {
 	Key(msg MessageMetadata) string
 }
 
-type lfuMessageCache map[alertingv1.OpniSeverity]*lru.TwoQueueCache
+type lfuMessageCache map[alertingv1.OpniSeverity]*lru.TwoQueueCache[string, *alertingv1.MessageInstance]
 
 var _ messageCache[alertingv1.OpniSeverity, *alertingv1.MessageInstance] = (*lfuMessageCache)(nil)
 
@@ -62,7 +62,7 @@ func NewLFUMessageCache(lub int) messageCache[alertingv1.OpniSeverity, *alerting
 		recentRatio := (n - i) * (1 / (1 + n))
 		ghostRatio := ((i + 1) / (2 * n))
 
-		notificationLayer, err := lru.New2QParams(lub, recentRatio, ghostRatio)
+		notificationLayer, err := lru.New2QParams[string, *alertingv1.MessageInstance](lub, recentRatio, ghostRatio)
 		if err != nil {
 			panic(err)
 		}
@@ -83,7 +83,7 @@ func (l lfuMessageCache) Get(severity alertingv1.OpniSeverity, key string) (*ale
 		return nil, ok
 	}
 
-	return msg.(*alertingv1.MessageInstance), true
+	return msg, true
 }
 
 func (l lfuMessageCache) Set(severity alertingv1.OpniSeverity, key string, alert config.Alert) {
@@ -94,7 +94,7 @@ func (l lfuMessageCache) Set(severity alertingv1.OpniSeverity, key string, alert
 
 	data, ok := v.Get(key)
 	if ok {
-		msg := data.(*alertingv1.MessageInstance)
+		msg := data
 		mapPartitions := assignByPartition(func(key, value string) string {
 			if strings.HasPrefix(strings.ToLower(key), "opni") {
 				return partitionProperty

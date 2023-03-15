@@ -225,7 +225,7 @@ func local_request_CortexAdmin_QueryRange_1(ctx context.Context, marshaler runti
 }
 
 var (
-	filter_CortexAdmin_GetRule_0 = &utilities.DoubleArray{Encoding: map[string]int{"namespace": 0, "groupName": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
+	filter_CortexAdmin_GetRule_0 = &utilities.DoubleArray{Encoding: map[string]int{"namespace": 0, "groupName": 1}, Base: []int{1, 2, 4, 0, 0, 0, 0}, Check: []int{0, 1, 1, 2, 2, 3, 3}}
 )
 
 func request_CortexAdmin_GetRule_0(ctx context.Context, marshaler runtime.Marshaler, client CortexAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -387,7 +387,7 @@ func local_request_CortexAdmin_LoadRules_0(ctx context.Context, marshaler runtim
 }
 
 var (
-	filter_CortexAdmin_DeleteRule_0 = &utilities.DoubleArray{Encoding: map[string]int{"groupName": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_CortexAdmin_DeleteRule_0 = &utilities.DoubleArray{Encoding: map[string]int{"groupName": 0}, Base: []int{1, 2, 0, 0}, Check: []int{0, 1, 2, 2}}
 )
 
 func request_CortexAdmin_DeleteRule_0(ctx context.Context, marshaler runtime.Marshaler, client CortexAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -1048,7 +1048,7 @@ func RegisterCortexAdminHandlerServer(ctx context.Context, mux *runtime.ServeMux
 // RegisterCortexAdminHandlerFromEndpoint is same as RegisterCortexAdminHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterCortexAdminHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}

@@ -2158,8 +2158,11 @@ spec:
                 default: LoadBalancer
                 type: string
               storageType:
-                default: etcd
+                default: jetstream
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               tolerations:
                 items:
                   properties:

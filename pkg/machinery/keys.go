@@ -40,8 +40,8 @@ func LoadEphemeralKeys(fsys afero.Afero, dirs ...string) ([]*keyring.EphemeralKe
 			if err != nil {
 				return nil, err
 			}
-
 			ekey, err := ephemeral.LoadKey(f)
+			f.Close()
 			if err != nil {
 				lg.With(
 					zap.Error(err),

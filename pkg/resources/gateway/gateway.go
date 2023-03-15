@@ -68,6 +68,11 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, certs...)
+	keys, err := r.ephemeralKeys()
+	if err != nil {
+		return k8sutil.RequeueErr(err).Result()
+	}
+	allResources = append(allResources, keys...)
 	deployment, err := r.deployment(map[string]string{
 		resources.OpniConfigHash: configDigest,
 	})

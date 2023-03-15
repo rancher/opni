@@ -30,6 +30,8 @@ import (
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/auth/session"
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -132,8 +134,9 @@ type Environment struct {
 	cancel context.CancelFunc
 	once   sync.Once
 
-	tempDir string
-	ports   servicePorts
+	tempDir        string
+	ports          servicePorts
+	localAgentOnce sync.Once
 
 	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
@@ -438,6 +441,16 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		return err
 	}
 	os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
+
+	if err := os.Mkdir(path.Join(e.tempDir, "keyring"), 0700); err != nil {
+		return err
+	}
+
+	key := ephemeral.NewKey(ephemeral.Authentication, map[string]string{
+		session.AttributeLabelKey: "local",
+	})
+	keyData, _ := json.Marshal(key)
+	os.WriteFile(path.Join(e.tempDir, "keyring", "local-agent.json"), keyData, 0400)
 
 	if options.enableEtcd {
 		if options.delayStartEtcd != nil {
@@ -1348,12 +1361,16 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				},
 				Ruler: v1beta1.RulerSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				QueryFrontend: v1beta1.QueryFrontendSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				Purger: v1beta1.PurgerSpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+				},
+				Querier: v1beta1.QuerierSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Certs: v1beta1.MTLSSpec{
@@ -1393,6 +1410,11 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				ControllerNodePort:    9093,
 				ControllerClusterPort: 9094,
 				ManagementHookHandler: shared.AlertingDefaultHookName,
+			},
+			Keyring: v1beta1.KeyringSpec{
+				EphemeralKeyDirs: []string{
+					path.Join(e.tempDir, "keyring"),
+				},
 			},
 		},
 	}
@@ -1590,6 +1612,7 @@ type StartAgentOptions struct {
 	remoteGatewayAddress string
 	remoteKubeconfig     string
 	version              string
+	local                bool
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -1621,6 +1644,12 @@ func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
 func WithAgentVersion(version string) StartAgentOption {
 	return func(o *StartAgentOptions) {
 		o.version = version
+	}
+}
+
+func WithLocalAgent() StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.local = true
 	}
 }
 
@@ -1672,6 +1701,11 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				},
 			},
 		},
+	}
+	if options.local {
+		agentConfig.Spec.Keyring.EphemeralKeyDirs = append(agentConfig.Spec.Keyring.EphemeralKeyDirs,
+			path.Join(e.tempDir, "keyring"),
+		)
 	}
 
 	Log.With(
@@ -1874,6 +1908,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	randSrc := rand.New(rand.NewSource(0))
 	var iPort int
 	var kPort int
+	var localAgent sync.Once
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1902,6 +1937,9 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 			startOpts := slices.Clone(options.defaultAgentOpts)
+			localAgent.Do(func() {
+				startOpts = append(startOpts, WithLocalAgent())
+			})
 			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
 				append(startOpts, WithAgentVersion(body.Version))...)
 			if err := <-errC; err != nil {

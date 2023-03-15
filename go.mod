@@ -9,6 +9,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
+	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/andybalholm/brotli v1.0.4
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/aws/aws-sdk-go v1.44.194
@@ -35,7 +36,6 @@ require (
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/go-test/deep v1.1.0
-	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
@@ -61,7 +61,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/ragu v1.0.0-rc4
 	github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105
-	github.com/kralicky/totem v1.1.0-rc9
+	github.com/kralicky/totem v1.1.0-rc10
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.25
@@ -77,7 +77,7 @@ require (
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
 	github.com/onsi/ginkgo/v2 v2.8.3
-	github.com/onsi/gomega v1.27.0
+	github.com/onsi/gomega v1.27.1
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/opensearch-project/opensearch-go/v2 v2.0.0-00010101000000-000000000000
 	github.com/opentracing-contrib/go-stdlib v1.0.0
@@ -118,11 +118,10 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/v3 v3.5.6
 	go.etcd.io/etcd/etcdctl/v3 v3.5.6
-	go.opentelemetry.io/collector/pdata v0.66.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.38.0
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.38.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.39.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.38.0
-	go.opentelemetry.io/contrib/propagators/autoprop v0.38.0
+	go.opentelemetry.io/contrib/propagators/autoprop v0.39.0
 	go.opentelemetry.io/otel v1.13.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.13.0
 	go.opentelemetry.io/otel/sdk v1.13.0
@@ -131,7 +130,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.5.0
-	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
+	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
 	golang.org/x/mod v0.8.0
 	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
@@ -186,7 +185,6 @@ require (
 	github.com/a8m/envsubst v1.3.0 // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
-	github.com/alecthomas/kingpin/v2 v2.3.2 // indirect
 	github.com/alecthomas/participle/v2 v2.0.0-beta.5 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
@@ -288,6 +286,7 @@ require (
 	github.com/goccy/go-yaml v1.9.8 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gogo/status v1.1.1 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
@@ -459,7 +458,6 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	github.com/xhit/go-str2duration v1.2.0 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
@@ -472,15 +470,15 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.6 // indirect
 	go.mongodb.org/mongo-driver v1.11.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/contrib/propagators/aws v1.13.0 // indirect
-	go.opentelemetry.io/contrib/propagators/b3 v1.13.0 // indirect
-	go.opentelemetry.io/contrib/propagators/jaeger v1.13.0 // indirect
-	go.opentelemetry.io/contrib/propagators/ot v1.13.0 // indirect
+	go.opentelemetry.io/contrib/propagators/aws v1.14.0 // indirect
+	go.opentelemetry.io/contrib/propagators/b3 v1.14.0 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.14.0 // indirect
+	go.opentelemetry.io/contrib/propagators/ot v1.14.0 // indirect
 	go.opentelemetry.io/otel/bridge/opentracing v1.11.1-0.20221013154440-84e28fd3bdb1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.12.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.12.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.12.0 // indirect
-	go.opentelemetry.io/otel/metric v0.35.0 // indirect
+	go.opentelemetry.io/otel/metric v0.36.0 // indirect
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

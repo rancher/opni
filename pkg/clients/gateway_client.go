@@ -146,24 +146,24 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
 	}
+	ctx = stream.Context()
 
-	{
-		authorizedId := cluster.StreamAuthorizedID(stream.Context())
-		attrs := session.StreamAuthorizedAttributes(stream.Context())
-		lg := gc.logger.With(
-			"id", authorizedId,
-		)
-		if len(attrs) > 0 {
-			var attrNames []string
-			for _, attr := range attrs {
-				attrNames = append(attrNames, attr.Name())
-			}
-			lg = lg.With("attributes", attrNames)
+	authorizedId := cluster.StreamAuthorizedID(ctx)
+	attrs := session.StreamAuthorizedAttributes(ctx)
+	var attrNames []string
+	lg := gc.logger.With(
+		"id", authorizedId,
+	)
+	if len(attrs) > 0 {
+		for _, attr := range attrs {
+			attrNames = append(attrNames, attr.Name())
 		}
-		lg.Debug("authenticated")
+		lg = lg.With("attributes", attrNames)
 	}
+	lg.Debug("authenticated")
 
 	ts, err := totem.NewServer(stream, totem.WithName("gateway-client"))
+
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}
@@ -172,6 +172,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
 	}
+
 	for _, sc := range gc.spliced {
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		splicedStream, err := streamClient.Connect(ctx)

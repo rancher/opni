@@ -66,7 +66,7 @@ func (a *ServerChallenge) InterceptContext(ctx context.Context) context.Context 
 
 func (a *ServerChallenge) DoChallenge(ss streams.Stream) (context.Context, error) {
 	challengeRequests := corev1.ChallengeRequestList{}
-	var reqAttributes []Attribute
+	var reqAttributes []SecretAttribute
 
 	id := cluster.StreamAuthorizedID(ss.Context())
 	sharedKeys := cluster.StreamAuthorizedKeys(ss.Context())
@@ -227,12 +227,13 @@ func (a *ClientChallenge) DoChallenge(cs streams.Stream) (context.Context, error
 	}
 
 	ctx := context.WithValue(cs.Context(), AttributesKey, a.attributes)
+
 	return ctx, nil
 }
 
 type attrLoader struct {
-	attributes       []Attribute
-	attributesByName map[string]Attribute
+	attributes       []SecretAttribute
+	attributesByName map[string]SecretAttribute
 }
 
 func (a *attrLoader) Attributes() []string {
@@ -249,14 +250,14 @@ func (a *attrLoader) HasAttributes(_ context.Context) (bool, error) {
 }
 
 func loadAttributes(kr keyring.Keyring) (_ attrLoader, err error) {
-	var attrs []Attribute
+	var attrs []SecretAttribute
 	kr.Try(func(ek *keyring.EphemeralKey) {
 		if err != nil {
 			return
 		}
 		if v, ok := ek.Labels[AttributeLabelKey]; ok {
-			var attr Attribute
-			attr, err = NewAttribute(v, ek.Secret)
+			var attr SecretAttribute
+			attr, err = NewSecretAttribute(v, ek.Secret)
 			if err != nil {
 				return
 			}
@@ -267,7 +268,7 @@ func loadAttributes(kr keyring.Keyring) (_ attrLoader, err error) {
 		return
 	}
 
-	attributesByName := map[string]Attribute{}
+	attributesByName := map[string]SecretAttribute{}
 	for _, attr := range attrs {
 		attributesByName[attr.Name()] = attr
 	}

@@ -78,6 +78,7 @@ type GatewayStatus struct {
 	LoadBalancer    *corev1.LoadBalancerIngress `json:"loadBalancer,omitempty"`
 	Endpoints       []corev1.EndpointAddress    `json:"endpoints,omitempty"`
 	Ready           bool                        `json:"ready,omitempty"`
+	StorageType     cfgv1beta1.StorageType      `json:"storageType,omitempty"`
 }
 
 // +kubebuilder:object:root=true

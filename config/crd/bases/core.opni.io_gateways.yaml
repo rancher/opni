@@ -2250,6 +2250,8 @@ spec:
                 type: boolean
               serviceName:
                 type: string
+              storageType:
+                type: string
             type: object
         type: object
     served: true

@@ -179,7 +179,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to configure authentication")
 	}
 
-	v1Challenge := authv1.NewServerChallenge("/stream.Stream/Connect", v1Verifier, lg.Named("authv1"))
+	v1Challenge := authv1.NewServerChallenge(streamv1.Stream_Connect_FullMethodName, v1Verifier, lg.Named("authv1"))
 	v2Challenge := authv2.NewServerChallenge(v2Verifier, lg.Named("authv2"))
 
 	clusterAuth := cluster.StreamServerInterceptor(challenges.Chained(

@@ -13,6 +13,9 @@ spec:
   {{- end}}
   hostname: {{ .Values.gateway.hostname }}
   serviceType: {{ .Values.gateway.serviceType }}
+  {{- if .Values.gateway.storageType }}
+  storageType: {{ .Values.gateway.storageType }}
+  {{- end }}
   natsCluster:
     name: opni
   {{- with .Values.gateway.serviceAnnotations }}

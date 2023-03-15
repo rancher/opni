@@ -4,20 +4,26 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"path/filepath"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"emperror.dev/errors"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -79,6 +85,22 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 	}
 	gatewayConf.Spec.SetDefaults()
 
+	if r.gw.Status.StorageType != "" && r.gw.Status.StorageType != r.gw.Spec.StorageType {
+		return nil, "", fmt.Errorf("storage type cannot be changed once set")
+	} else if r.gw.Status.StorageType == "" {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
+			if err != nil {
+				return err
+			}
+			r.gw.Status.StorageType = r.gw.Spec.StorageType
+			return r.client.Status().Update(r.ctx, r.gw)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
 	switch r.gw.Spec.StorageType {
 	case cfgv1beta1.StorageTypeEtcd:
 		gatewayConf.Spec.Storage.Etcd = &cfgv1beta1.EtcdStorageSpec{
@@ -89,6 +111,18 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 				ClientCert: "/run/etcd/certs/client/tls.crt",
 				ClientKey:  "/run/etcd/certs/client/tls.key",
 			},
+		}
+	case cfgv1beta1.StorageTypeJetStream:
+		nats := &opnicorev1beta1.NatsCluster{}
+		if err := r.client.Get(r.ctx, types.NamespacedName{
+			Namespace: r.gw.Namespace,
+			Name:      r.gw.Spec.NatsRef.Name,
+		}, nats); err != nil {
+			return nil, "", fmt.Errorf("failed to look up nats cluster, cannot configure jetstream storage: %w", err)
+		}
+		gatewayConf.Spec.Storage.JetStream = &cfgv1beta1.JetStreamStorageSpec{
+			Endpoint:     natsutil.BuildK8sServiceUrl(nats.Name, nats.Namespace),
+			NkeySeedPath: filepath.Join(natsutil.NkeyDir, natsutil.NkeySeedFilename),
 		}
 	case cfgv1beta1.StorageTypeCRDs:
 		gatewayConf.Spec.Storage.CustomResources = &cfgv1beta1.CustomResourcesStorageSpec{

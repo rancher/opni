@@ -97,7 +97,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Error("failed to configure storage backend")
+		).Panic("failed to configure storage backend")
 	}
 
 	// configure the server-side installer template with the external hostname

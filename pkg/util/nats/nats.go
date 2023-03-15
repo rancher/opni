@@ -23,7 +23,15 @@ const (
 	DefaultClusterPort         = 6222
 	DefaultHTTPPort            = 8222
 	NkeyDir                    = "/etc/nkey"
+	NkeySeedFilename           = "seed"
 )
+
+func BuildK8sServiceUrl(name string, namespace string, port ...int32) string {
+	if len(port) == 0 {
+		port = append(port, DefaultClientPort)
+	}
+	return fmt.Sprintf("nats://%s-nats-client.%s.svc:%d", name, namespace, port[0])
+}
 
 func ExternalNatsObjects(
 	ctx context.Context,

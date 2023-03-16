@@ -23,7 +23,7 @@ func convertToMatrix(filepath string) []*alertingv1.ActiveWindow {
 
 }
 
-var _ = Describe("Alerting cortex suite", func() {
+var _ = Describe("Alerting cortex suite", Label("unit"), func() {
 	When("Reducing alert matrix results", func() {
 		It("should reduce deduplicate incoming metric samples", func() {
 			windows := convertToMatrix("alerting/matrix/matrix.json")

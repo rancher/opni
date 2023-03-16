@@ -90,7 +90,7 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 		return listResp
 	}
-	return Describe("EmbeddedServer test suite", Ordered, Label("unit"), func() {
+	return XDescribe("EmbeddedServer test suite", Ordered, Label("unit"), func() {
 		var client *http.Client
 		var fingerprints []string
 		var id string

@@ -39,7 +39,7 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 
 	for _, alert := range wMsg.Alerts {
 		msgMeta := parseAlertToOpniMd(alert)
-		if msgMeta.uuid == "" {
+		if msgMeta.Uuid == "" {
 			// we assume a non-opni "indexed" source is pushing messages to us
 			// we do not persist these as their format is not known
 			e.logger.Debug("received message from non-opni source, ignoring")
@@ -47,7 +47,7 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 			continue
 		}
 
-		if msgMeta.isAlarm {
+		if msgMeta.IsAlarm {
 			if err := e.cacheAlarm(msgMeta, alert); err != nil {
 				wr.WriteHeader(http.StatusPreconditionFailed)
 				return
@@ -192,17 +192,17 @@ func isAlarmMessage(annotations map[string]string) bool {
 	return ok
 }
 
-func parseAlertToOpniMd(alert config.Alert) messageMetadata {
-	return messageMetadata{
-		isAlarm:        isAlarmMessage(alert.Annotations),
-		uuid:           lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyOpniUuid, ""),
-		groupDedupeKey: lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyDedupeKey, ""),
-		severity: lo.ValueOr(alertingv1.OpniSeverity_value,
+func parseAlertToOpniMd(alert config.Alert) MessageMetadata {
+	return MessageMetadata{
+		IsAlarm:        isAlarmMessage(alert.Annotations),
+		Uuid:           lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyOpniUuid, ""),
+		GroupDedupeKey: lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyDedupeKey, ""),
+		Severity: lo.ValueOr(alertingv1.OpniSeverity_value,
 			lo.ValueOr(alert.Labels, alertingv1.NotificationPropertySeverity, defaultSeverity),
 			0,
 		),
-		fingerprint:       lo.ValueOr(alert.Annotations, alertingv1.NotificationPropertyFingerprint, ""),
-		sourceFingerprint: alert.Fingerprint,
+		Fingerprint:       lo.ValueOr(alert.Annotations, alertingv1.NotificationPropertyFingerprint, ""),
+		SourceFingerprint: alert.Fingerprint,
 	}
 }
 

@@ -42,7 +42,7 @@ type messageCache[L comparable, T any] interface {
 	Set(layer L, key string, msg config.Alert)
 	// returns all keys ordered by (severity, heuristic(frequency, recency) )
 	PartitionedKeys() map[L][]string
-	Key(msg messageMetadata) string
+	Key(msg MessageMetadata) string
 }
 
 type lfuMessageCache map[alertingv1.OpniSeverity]*lru.TwoQueueCache
@@ -149,17 +149,17 @@ func toMessageInstance(alert config.Alert) *alertingv1.MessageInstance {
 	return msg
 }
 
-func (l lfuMessageCache) Key(msgMeta messageMetadata) string {
-	if msgMeta.isAlarm {
-		if msgMeta.fingerprint != "" {
-			return fmt.Sprintf("%s-%s", msgMeta.uuid, msgMeta.fingerprint)
+func (l lfuMessageCache) Key(msgMeta MessageMetadata) string {
+	if msgMeta.IsAlarm {
+		if msgMeta.Fingerprint != "" {
+			return fmt.Sprintf("%s-%s", msgMeta.Uuid, msgMeta.Fingerprint)
 		}
-		return msgMeta.uuid
+		return msgMeta.Uuid
 	}
-	if msgMeta.groupDedupeKey != "" {
-		return msgMeta.groupDedupeKey
+	if msgMeta.GroupDedupeKey != "" {
+		return msgMeta.GroupDedupeKey
 	}
-	return msgMeta.uuid
+	return msgMeta.Uuid
 }
 
 func (l lfuMessageCache) PartitionedKeys() map[alertingv1.OpniSeverity][]string {
@@ -180,12 +180,12 @@ func (l lfuMessageCache) PartitionedKeys() map[alertingv1.OpniSeverity][]string 
 	return returnKeys
 }
 
-func (e *EmbeddedServer) cacheAlarm(msgMeta messageMetadata, alert config.Alert) error {
-	e.alarmCache.Set(alertingv1.OpniSeverity(msgMeta.severity), e.alarmCache.Key(msgMeta), alert)
+func (e *EmbeddedServer) cacheAlarm(msgMeta MessageMetadata, alert config.Alert) error {
+	e.alarmCache.Set(alertingv1.OpniSeverity(msgMeta.Severity), e.alarmCache.Key(msgMeta), alert)
 	return nil
 }
 
-func (e *EmbeddedServer) cacheNotification(msgMeta messageMetadata, alert config.Alert) error {
-	e.notificationCache.Set(alertingv1.OpniSeverity(msgMeta.severity), e.notificationCache.Key(msgMeta), alert)
+func (e *EmbeddedServer) cacheNotification(msgMeta MessageMetadata, alert config.Alert) error {
+	e.notificationCache.Set(alertingv1.OpniSeverity(msgMeta.Severity), e.notificationCache.Key(msgMeta), alert)
 	return nil
 }

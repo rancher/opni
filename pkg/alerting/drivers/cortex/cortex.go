@@ -67,7 +67,7 @@ func NewPrometheusAlertingRule(
 		Record: yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Value: ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
-		}, //ConstructRecordingRuleName(info.GoldenSignal(), info.AlertType()),
+		},
 		Expr: yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Value: alertingRule.Expr.Value,

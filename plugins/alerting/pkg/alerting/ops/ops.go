@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -178,10 +177,9 @@ func (a *AlertingOpsNode) GetAvailableCacheEndpoint(ctx context.Context, options
 	} else {
 		availableEndpoint = options.GetWorkerEndpoint()
 	}
-	_, addr, _ := strings.Cut(availableEndpoint, "http://")
-	host, _, err := net.SplitHostPort(addr)
+	host, _, err := net.SplitHostPort(availableEndpoint)
 	if err != nil {
-		return "", err
+		return fmt.Sprintf("%s:%d", availableEndpoint, options.OpniPort), nil
 	}
 	return fmt.Sprintf("%s:%d", host, options.OpniPort), nil
 }

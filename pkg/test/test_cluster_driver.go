@@ -273,7 +273,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 		}
 	}
 	if len(l.managedInstances) > 1 {
-		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "localhost"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
 		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
@@ -334,7 +334,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	l.ResourceLimits.Cpu = "500m"
 	l.ResourceLimits.Memory = "200Mi"
 	l.ResourceLimits.Storage = "500Mi"
-	l.AlertingClusterOptions.ControllerNodeService = "http://localhost"
+	l.AlertingClusterOptions.ControllerNodeService = "localhost"
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
@@ -433,7 +433,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 			alertmanagerArgs = append(alertmanagerArgs,
 				fmt.Sprintf("--cluster.peer=localhost:%d", replica.ClusterPort))
 		}
-		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "localhost"
 		l.AlertingClusterOptions.WorkerNodePort = webPort
 	}
 

@@ -1,6 +1,7 @@
 package noauth
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"net/http"
@@ -117,9 +118,15 @@ func newClient(conf *ServerConfig) NoauthClient {
 }
 
 func newOAuthProvider(conf *ServerConfig, key *rsa.PrivateKey) fosite.OAuth2Provider {
+	var secret = make([]byte, 32)
+	_, err := rand.Read(secret)
+	if err != nil {
+		panic(err)
+	}
 	config := &fosite.Config{
 		EnforcePKCE:                false,
 		SendDebugMessagesToClients: conf.Debug,
+		GlobalSecret:               secret,
 	}
 	store := storage.NewMemoryStore()
 	store.Clients[conf.ClientID] = newClient(conf)

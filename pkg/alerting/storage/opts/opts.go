@@ -1,6 +1,7 @@
 package opts
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
@@ -26,8 +27,9 @@ func (o *RequestOptions) Apply(opts ...RequestOption) {
 }
 
 type SyncOptions struct {
-	Router  routing.OpniRouting
-	Timeout time.Duration
+	Router          routing.OpniRouting
+	DefaultEndpoint *url.URL
+	Timeout         time.Duration
 }
 
 type SyncOption func(*SyncOptions)
@@ -44,6 +46,12 @@ func WithInitialRouter(router routing.OpniRouting) SyncOption {
 	}
 }
 
+func WithDefaultReceiverAddreess(endpoint *url.URL) SyncOption {
+	return func(o *SyncOptions) {
+		o.DefaultEndpoint = endpoint
+	}
+}
+
 func (o *SyncOptions) Apply(opts ...SyncOption) {
 	for _, opt := range opts {
 		opt(o)
@@ -53,7 +61,7 @@ func (o *SyncOptions) Apply(opts ...SyncOption) {
 func NewSyncOptions() *SyncOptions {
 	return &SyncOptions{
 		Timeout: 2 * time.Minute,
-		Router:  routing.NewDefaultOpniRouting(),
+		Router:  nil,
 	}
 }
 

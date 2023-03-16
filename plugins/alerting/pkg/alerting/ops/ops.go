@@ -2,6 +2,9 @@ package ops
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -162,4 +165,23 @@ func (a *AlertingOpsNode) GetAvailableEndpoint(ctx context.Context, options *sha
 		availableEndpoint = options.GetWorkerEndpoint()
 	}
 	return availableEndpoint, nil
+}
+
+func (a *AlertingOpsNode) GetAvailableCacheEndpoint(ctx context.Context, options *shared.AlertingClusterOptions) (string, error) {
+	var availableEndpoint string
+	status, err := a.GetClusterConfiguration(ctx, &emptypb.Empty{})
+	if err != nil {
+		return "", err
+	}
+	if status.NumReplicas == 1 { // exactly one that is the controller
+		availableEndpoint = options.GetControllerEndpoint()
+	} else {
+		availableEndpoint = options.GetWorkerEndpoint()
+	}
+	_, addr, _ := strings.Cut(availableEndpoint, "http://")
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%d", host, options.OpniPort), nil
 }

@@ -2,15 +2,40 @@ package alerting
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"math"
+	"net/http"
+	"time"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// groups notifications by the duration "context" that is sending them
+// resolveContext's value will depend on the values the notification routing tree holds
+var resolveContext time.Duration
+
+func init() {
+	notificationSubtree := routing.NotificationSubTreeValues()
+	maxDur := time.Duration(0)
+	for _, node := range notificationSubtree {
+		dur := node.B.InitialDelay + node.B.ThrottlingDuration
+		if dur > maxDur {
+			maxDur = dur
+		}
+	}
+	resolveContext = time.Microsecond * time.Duration((math.Round(float64(maxDur.Microseconds()) * 1.2)))
+}
 
 // --- Trigger ---
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
@@ -39,8 +64,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[shared.BackendConditionIdLabel]; !ok {
-		req.Labels[shared.BackendConditionIdLabel] = req.ConditionId.Id
+	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
@@ -85,8 +110,8 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[shared.BackendConditionIdLabel]; !ok {
-		req.Labels[shared.BackendConditionIdLabel] = req.ConditionId.Id
+	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
@@ -108,7 +133,7 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 }
 
 func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
-	// lg := p.Logger.With("Handler", "PushNotification")
+	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -126,20 +151,115 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	if err != nil {
 		return nil, err
 	}
-
+	routingLabels := req.GetRoutingLabels()
 	apiNode := backend.NewAlertManagerPostAlertClient(
 		ctx,
 		availableEndpoint,
 		backend.WithLogger(p.Logger),
 		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithPostAlertBody(
-			"notification-"+req.Properties[alertingv1.NotificationPropertyDedupeKey],
-			req.GetRoutingLabels(),
+		backend.WithPostNotificationBody(
+			routingLabels[alertingv1.NotificationPropertyOpniUuid],
+			routingLabels,
 			req.GetRoutingAnnotations(),
+			resolveContext,
 		),
-		backend.WithDefaultRetrier(),
 	)
 	return &emptypb.Empty{}, apiNode.DoRequest()
+}
+
+func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
+	req.Sanitize()
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// FIXME: the messages returned by this endpoint will not always be consistent
+	// within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
+	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &alertingv1.ListMessageResponse{}
+	apiNode := backend.NewListNotificationMessagesClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(func(incoming *http.Response) error {
+			defer incoming.Body.Close()
+			if incoming.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
+			}
+			return json.NewDecoder(incoming.Body).Decode(resp)
+		}),
+		backend.WithPostProto(req),
+		backend.WithDefaultRetrier(),
+	)
+
+	if err := apiNode.DoRequest(); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
+		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	})
+	return resp, nil
+}
+
+func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+	req.Sanitize()
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// FIXME: the messages returned by this endpoint will not always be consistent
+	// within the HA vanilla AlertManager,
+	// move this logic to cortex AlertManager member set when applicable
+	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	if err != nil {
+		return nil, err
+	}
+
+	cond, err := p.GetAlertCondition(ctx, &corev1.Reference{
+		Id: req.ConditionId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	consistencyInterval := durationpb.New(time.Second * 30)
+	if cond.AttachedEndpoints != nil {
+		consistencyInterval = cond.AttachedEndpoints.InitialDelay
+	}
+	req.End = timestamppb.New(req.End.AsTime().Add(consistencyInterval.AsDuration()))
+
+	resp := &alertingv1.ListMessageResponse{}
+	apiNode := backend.NewListAlarmMessagesClient(
+		ctx,
+		availableEndpoint,
+		backend.WithLogger(p.Logger),
+		backend.WithExpectClosure(func(incoming *http.Response) error {
+			defer incoming.Body.Close()
+			if incoming.StatusCode != http.StatusOK {
+				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
+			}
+			return json.NewDecoder(incoming.Body).Decode(resp)
+		}),
+		backend.WithPostProto(req),
+		backend.WithDefaultRetrier(),
+	)
+	if err := apiNode.DoRequest(); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
+		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	})
+	return resp, nil
 }
 
 func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {

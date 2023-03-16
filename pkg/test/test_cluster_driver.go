@@ -219,7 +219,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 		Logger: lg,
 	}
 	options.Apply(opts...)
-	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
+	rTree := routing.NewRoutingTree("http://localhost:6000")
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -275,6 +275,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 	if len(l.managedInstances) > 1 {
 		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
+		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
 	l.ClusterConfiguration = configuration
 
@@ -337,6 +338,18 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
+	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
+
+	rTree := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTreeBytes, err := yaml.Marshal(rTree)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	for _, subscriber := range l.Subscribers {
 		subscriber <- shared.AlertingClusterNotification{
 			A: true,
@@ -378,6 +391,7 @@ func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Refer
 type AlertingServerUnit struct {
 	AlertManagerPort int
 	ClusterPort      int
+	OpniPort         int
 	Ctx              context.Context
 	CancelFunc       context.CancelFunc
 }
@@ -426,7 +440,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctxCa, cancelFunc := context.WithCancel(ctx)
 	alertmanagerCmd := exec.CommandContext(ctxCa, opniBin, alertmanagerArgs...)
 	plugins.ConfigureSysProcAttr(alertmanagerCmd)
-	l.Logger.With("port", webPort).Info("Starting AlertManager")
+	l.Logger.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(alertmanagerCmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
@@ -474,6 +488,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	return AlertingServerUnit{
 		AlertManagerPort: webPort,
 		ClusterPort:      clusterPort,
+		OpniPort:         opniPort,
 		Ctx:              ctxCa,
 		CancelFunc:       cancelFunc,
 	}

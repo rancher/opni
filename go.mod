@@ -10,6 +10,7 @@ require (
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/alecthomas/kingpin/v2 v2.3.2
+	github.com/alitto/pond v1.8.3
 	github.com/andybalholm/brotli v1.0.4
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/aws/aws-sdk-go v1.44.194
@@ -46,6 +47,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-plugin v1.4.8
+	github.com/hashicorp/golang-lru v0.6.0
 	github.com/hashicorp/memberlist v0.5.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/imdario/mergo v0.3.13
@@ -103,7 +105,7 @@ require (
 	github.com/qmuntal/stateless v1.6.2
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
-	github.com/samber/lo v1.37.0
+	github.com/samber/lo v1.36.1-0.20230220015530-adcf8499eb6a
 	github.com/spf13/afero v1.9.3
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
@@ -319,7 +321,6 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/hashicorp/golang-lru v0.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect

@@ -1,11 +1,16 @@
 package v1
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -13,18 +18,54 @@ import (
 const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
 const EndpointTagNotifications = "notifications"
 
+// Note these properties have to conform to the AlertManager label naming convention
+// https://prometheus.io/docs/alerting/latest/configuration/#labelname
 const (
-	// Any messages already in the queue with the same dedupe key will not be processed
-	NotificationPropertyDedupeKey = "opni.io/dedupeKey"
+	// maps to a wellknown.Capability
+	RoutingPropertyDatasource = "opni_datasource"
+)
+
+var (
+	OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  RoutingPropertyDatasource,
+		Value: "",
+	}
+
+	OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  RoutingPropertyDatasource,
+		Value: wellknown.CapabilityMetrics,
+	}
+
+	OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchNotEqual,
+		Name:  NotificationPropertySeverity,
+		Value: "",
+	}
+)
+
+// Note these properties have to conform to the AlertManager label naming convention
+// https://prometheus.io/docs/alerting/latest/configuration/#labelname
+const (
+	// Property that specifies the unique identifier for the notification
+	// Corresponds to condition id for `AlertCondition` and an opaque identifier for
+	// an each ephemeral `Notification` instance
+	NotificationPropertyOpniUuid = "opni_uuid"
+	// Any messages already in the notification queue with the same dedupe key will not be processed
+	// immediately, but will be deduplicated.
+	NotificationPropertyDedupeKey = "opni_dedupe_key"
 	// Any messages with the same group key will be sent together
-	NotificationPropertyGroupKey = "opni.io/groupKey"
+	NotificationPropertyGroupKey = "opni_group_key"
 	// Opaque identifier for the cluster that generated the notification
-	NotificationPropertyClusterId = "opni.io/clusterId"
+	NotificationPropertyClusterId = "opni_clusterId"
 	// Property that specifies how to classify the notification according to golden signal
-	NotificationPropertyGoldenSignal = "opni.io/goldenSignal"
+	NotificationPropertyGoldenSignal = "opni_goldenSignal"
 	// Property that specifies the severity of the notification. Severity impacts how quickly the
 	// notification is dispatched & repeated, as well as how long to persist it.
-	NotificationPropertySeverity = "opni.io/severity"
+	NotificationPropertySeverity = "opni_severity"
+	// Property that is used to correlate messages to particular incidents
+	NotificationPropertyFingerprint = "opni_fingerprint"
 )
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
@@ -62,11 +103,20 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 
 func (n *Notification) GetRoutingLabels() map[string]string {
 	res := map[string]string{
-		shared.OpniSeverityLabel:       n.GetProperties()[NotificationPropertySeverity],
-		shared.BackendConditionIdLabel: n.GetProperties()[NotificationPropertyDedupeKey],
+		NotificationPropertySeverity: n.GetProperties()[NotificationPropertySeverity],
+		NotificationPropertyOpniUuid: n.GetProperties()[NotificationPropertyOpniUuid],
 	}
+	if v, ok := n.GetProperties()[NotificationPropertyDedupeKey]; ok {
+		res[NotificationPropertyDedupeKey] = v
+	} else {
+		res[NotificationPropertyDedupeKey] = n.GetProperties()[NotificationPropertyOpniUuid]
+	}
+
 	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
-		res[shared.BroadcastIdLabel] = v
+		res[NotificationPropertyGroupKey] = v
+	} else {
+		// we have no knowledge of how to group messages by context
+		res[NotificationPropertyGroupKey] = uuid.New().String()
 	}
 	return res
 }
@@ -92,12 +142,40 @@ func (n *Notification) GetRoutingGoldenSignal() string {
 	return GoldenSignal_Custom.String()
 }
 
+func (n *Notification) Namespace() string {
+	return NotificationPropertySeverity
+}
+
+func (a *AlertCondition) Sanitize() {}
+
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
-	return map[string]string{
-		shared.OpniSeverityLabel:       a.GetSeverity().String(),
-		shared.BackendConditionIdLabel: a.GetId(),
-		a.Namespace():                  a.GetId(),
+	res := map[string]string{
+		NotificationPropertySeverity: a.GetSeverity().String(),
+		NotificationPropertyOpniUuid: a.GetId(),
+		a.Namespace():                a.GetId(),
 	}
+	return res
+}
+
+func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
+	res := map[string]string{
+		shared.OpniHeaderAnnotations:      a.header(),
+		shared.OpniBodyAnnotations:        a.body(),
+		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
+		shared.OpniAlarmNameAnnotation:    a.GetName(),
+		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
+	}
+	if IsMetricsCondition(a) {
+		res[NotificationPropertyFingerprint] = fmt.Sprintf(
+			`{{ "ALERTS_FOR_STATE{opni_uuid=\"%s\"} OR vector(0)" | query | first | value `,
+			a.Id,
+		) + `| printf "%.0f" }}`
+	}
+	return res
+}
+
+func (a *AlertCondition) GetRoutingGoldenSignal() string {
+	return a.GetGoldenSignal().String()
 }
 
 func (a *AlertCondition) header() string {
@@ -161,20 +239,6 @@ func (a *AlertTypeDetails) body() string {
 		return "Filesystem"
 	}
 	return ""
-}
-
-func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
-	return map[string]string{
-		shared.OpniHeaderAnnotations:      a.header(),
-		shared.OpniBodyAnnotations:        a.body(),
-		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
-		shared.OpniAlarmNameAnnotation:    a.GetName(),
-		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
-	}
-}
-
-func (a *AlertCondition) GetRoutingGoldenSignal() string {
-	return a.GetGoldenSignal().String()
 }
 
 // stop-gap solution, until we move to the new versin of the API
@@ -316,30 +380,30 @@ func (r *RateLimitingConfig) Default() *RateLimitingConfig {
 
 func (a *AlertCondition) Namespace() string {
 	if a.GetAlertType().GetSystem() != nil {
-		return "disconnect"
+		return "opni_disconnect"
 	}
 	if a.GetAlertType().GetDownstreamCapability() != nil {
-		return "capability"
+		return "opni_capability"
 	}
 	if a.GetAlertType().GetCpu() != nil {
-		return "cpu"
+		return "opni_cpu"
 	}
 	if a.GetAlertType().GetMemory() != nil {
-		return "memory"
+		return "opni_memory"
 	}
 	if a.GetAlertType().GetFs() != nil {
-		return "fs"
+		return "opni_fs"
 	}
 	if a.GetAlertType().GetKubeState() != nil {
-		return "kube-state"
+		return "opni_kube_state"
 	}
 	if a.GetAlertType().GetPrometheusQuery() != nil {
-		return "promql"
+		return "opni_promql"
 	}
 	if a.GetAlertType().GetMonitoringBackend() != nil {
-		return "monitoring-backend"
+		return "opni_monitoring_backend"
 	}
-	return "default"
+	return "opni_default"
 }
 
 func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
@@ -354,4 +418,39 @@ func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId stri
 		}
 	}
 	return involvedConditions
+}
+func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool {
+	return func(item *AlertCondition, _ int) bool {
+		if len(l.Clusters) != 0 {
+			if !slices.Contains(l.Clusters, item.GetClusterId().Id) {
+				return false
+			}
+		}
+		itemLabelMap := lo.Associate(item.Labels, func(label string) (string, struct{}) { return label, struct{}{} })
+		if len(l.Labels) != 0 {
+			for _, label := range l.Labels {
+				if _, ok := itemLabelMap[label]; !ok {
+					return false
+				}
+			}
+		}
+		if len(l.Severities) != 0 {
+			if !slices.Contains(l.Severities, item.Severity) {
+				return false
+			}
+		}
+		if len(l.AlertTypes) != 0 {
+			matches := false
+			for _, typ := range l.GetAlertTypes() {
+				if item.IsType(typ) {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				return false
+			}
+		}
+		return true
+	}
 }

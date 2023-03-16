@@ -21,6 +21,8 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -156,6 +158,33 @@ func WithPostAlertBody(conditionId string, labels, annotations map[string]string
 	}
 }
 
+func WithPostNotificationBody(conditionId string, labels, annotations map[string]string, resolveAfter time.Duration) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		var alertsArr []*PostableAlert
+		alert := &PostableAlert{}
+		alert.WithCondition(conditionId)
+		for labelName, labelValue := range labels {
+			alert.WithLabels(labelName, labelValue)
+		}
+		for annotationName, annotationValue := range annotations {
+			alert.WithAnnotations(annotationName, annotationValue)
+		}
+		cur := time.Now()
+		alertsArr = append(alertsArr, alert)
+		for _, alert := range alertsArr {
+			alert.EndsAt = lo.ToPtr(cur.Add(resolveAfter))
+			if err := alert.Must(); err != nil {
+				panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+			}
+		}
+		b, err := json.Marshal(alertsArr)
+		if err != nil {
+			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
+		}
+		o.body = b
+	}
+}
+
 func WithPostResolveAlertBody(conditionId string, labels, annotations map[string]string) AlertManagerApiOption {
 	return func(o *AlertManagerApiOptions) {
 		var alertsArr []*PostableAlert
@@ -180,6 +209,15 @@ func WithPostResolveAlertBody(conditionId string, labels, annotations map[string
 			panic(fmt.Errorf("invalid alert req in post alert body %s", err))
 		}
 		o.body = b
+	}
+}
+
+func WithPostProto(req proto.Message) AlertManagerApiOption {
+	return func(o *AlertManagerApiOptions) {
+		bytes, err := protojson.Marshal(req)
+		if err == nil {
+			o.body = bytes
+		}
 	}
 }
 
@@ -320,6 +358,30 @@ func NewAlertManagerOpniConfigClient(ctx context.Context, endpoint string, opts 
 		Endpoint:               endpoint,
 		Verb:                   GET,
 		Route:                  "/config",
+		ctx:                    ctx,
+	}
+}
+
+func NewListNotificationMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return &AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Verb:                   POST,
+		Route:                  "/notifications/list",
+		ctx:                    ctx,
+	}
+}
+
+func NewListAlarmMessagesClient(ctx context.Context, endpoint string, opts ...AlertManagerApiOption) *AlertManagerAPI {
+	options := NewDefaultAlertManagerOptions()
+	options.apply(opts...)
+	return &AlertManagerAPI{
+		AlertManagerApiOptions: options,
+		Endpoint:               endpoint,
+		Verb:                   POST,
+		Route:                  "/alarms/list",
 		ctx:                    ctx,
 	}
 }

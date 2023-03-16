@@ -22,71 +22,44 @@ func abs(x int) int {
 	return x
 }
 
-// DefaultRouteValues (receiver name, rate limiting config)
-type DefaultRouteValues lo.Tuple2[string, rateLimitingConfig]
+// RouteValues (receiver name, rate limiting config)
+type RouteValues lo.Tuple2[string, rateLimitingConfig]
 
-func DefaultSubTreeLabel() string {
-	return shared.OpniSeverityLabel
+func NotificationSubTreeLabel() string {
+	return alertingv1.NotificationPropertySeverity
 }
 
 // ! values must be returned sorted in a deterministic order
 //
 // these are used by the router to catch eveyrthing that is not an explicit alarm
 // that is also part of opni, i.e. plain text notifications
-func DefaultSubTreeValues() []DefaultRouteValues {
+func NotificationSubTreeValues() []RouteValues {
 	// sorted by ascending severity
 	severityKey := lo.Keys(alertingv1.OpniSeverity_name)
 	slices.SortFunc(severityKey, func(a, b int32) bool {
 		return a < b
 	})
-	res := []DefaultRouteValues{}
+	res := []RouteValues{}
 	n := len(alertingv1.OpniSeverity_name)
 	for i, sev := range severityKey {
-		r := time.Duration(3*abs(i-n)) - 2 // r = formula for throttling factor
-		res = append(res, DefaultRouteValues{
+		i := time.Duration((abs(i - n)) * 10) // i = forula for rate limiting
+		res = append(res, RouteValues{
 			A: alertingv1.OpniSeverity_name[sev],
 			B: rateLimitingConfig{
-				InitialDelay:       time.Second * 10,
+				InitialDelay:       i * time.Second,
+				ThrottlingDuration: i * time.Second, // additive with initial delay on repeats
 				RepeatInterval:     time.Hour * 5,
-				ThrottlingDuration: r * time.Minute,
 			},
 		})
 	}
 	return res
 }
 
-func NewOpniAlarmLabels(conditionId string) (map[string]string, error) {
-	treeLabels, err := shared.AlertManagerLabelsToAnnotations(shared.OpniSubRoutingTreeMatcher)
-	if err != nil {
-		return nil, err
-	}
-	return lo.Assign(map[string]string{
-		shared.BackendConditionIdLabel: conditionId,
-	},
-		treeLabels,
-	), nil
-}
-
-func NewOpniSeverityLabels(title, body, severity string) (map[string]string, error) {
-	treeLabels, err := shared.AlertManagerLabelsToAnnotations(shared.OpniSeverityTreeMatcher)
-	if err != nil {
-		return nil, err
-	}
-	return lo.Assign(
-		map[string]string{
-			shared.OpniSeverityLabel: severity,
-			shared.OpniTitleLabel:    title,
-			shared.OpniBodyLabel:     body,
-		},
-		treeLabels,
-	), nil
-}
-
 var OpniSubRoutingTreeId config.Matchers = []*labels.Matcher{
-	shared.OpniSubRoutingTreeMatcher,
+	alertingv1.OpniSubRoutingTreeMatcher,
 }
 
-func DefaultOpniReceiver(embeddedServerHook string) *config.Receiver {
+func FinalizerReceiver(embeddedServerHook string) *config.Receiver {
 	return &config.Receiver{
 		Name: shared.AlertingHookReceiverName,
 		WebhookConfigs: []*config.WebhookConfig{
@@ -99,8 +72,8 @@ func DefaultOpniReceiver(embeddedServerHook string) *config.Receiver {
 	}
 }
 
-func NewDefaultRoutingTree(embeddedServerHook string) *config.Config {
-	root := NewDefaultRoutingTreeRoot(embeddedServerHook)
+func NewRoutingTree(embeddedServerHook string) *config.Config {
+	root := NewRootNode(embeddedServerHook)
 	subtree, recvs := NewOpniSubRoutingTree()
 	metricsSubtree := NewOpniMetricsSubtree()
 	root.Route.Routes = append(root.Route.Routes, subtree)
@@ -115,21 +88,21 @@ func NewDefaultRoutingTree(embeddedServerHook string) *config.Config {
 
 // This needs to expand all labels, due to assumptions we make about external backends like
 // AiOps pushing messages to the severity tree
-func NewDefaultRoutingTreeRoot(embeddedServerHook string) *config.Config {
+func NewRootNode(embeddedServerHook string) *config.Config {
 	return &config.Config{
 		Global: lo.ToPtr(config.DefaultGlobalConfig()),
 		Route: &config.Route{
 			Receiver: shared.AlertingHookReceiverName,
 			// special character that expands all groups, need to expand labels so they can
 			// be subgrouped to opni-specific subrouting trees and user-synced subrouting trees
-			GroupBy:   []model.LabelName{"..."},
-			Routes:    []*config.Route{},
-			GroupWait: lo.ToPtr(model.Duration(60 * time.Second)),
+			GroupByStr: []string{"..."},
+			Routes:     []*config.Route{},
+			GroupWait:  lo.ToPtr(model.Duration(60 * time.Second)),
 			//GroupInterval:  lo.ToPtr(model.Duration(1 * time.Minute)),
 			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
 		},
 		Receivers: []*config.Receiver{
-			DefaultOpniReceiver(embeddedServerHook),
+			FinalizerReceiver(embeddedServerHook),
 		},
 		MuteTimeIntervals: []config.MuteTimeInterval{},
 		InhibitRules:      []*config.InhibitRule{},
@@ -141,23 +114,26 @@ func NewDefaultRoutingTreeRoot(embeddedServerHook string) *config.Config {
 // contains the setup for broadcasting and conditions
 func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	opniRoute := &config.Route{
-		GroupBy: shared.OpniGroupByClause,
+		GroupByStr: []string{alertingv1.NotificationPropertyOpniUuid},
 
 		Matchers: OpniSubRoutingTreeId,
 		Routes:   []*config.Route{},
 		Continue: true, // we want to expand the sub trees
 	}
 	allRecvs := []*config.Receiver{}
-	// default namespace is based on the grpc enum status
-	defaultNamespaceRoute, recvs := NewOpniNamespacedSubTree(DefaultSubTreeLabel(), DefaultSubTreeValues()...)
+	// notification namespace is based on the grpc enum status
+	notificationRouting, recvs := NewNamespaceTree(NotificationSubTreeLabel(), NotificationSubTreeValues()...)
 
 	// rate limits messages pushed from an opni source that itself should decide how to group messages
-	defaultNamespaceRoute.GroupBy = append(defaultNamespaceRoute.GroupBy, shared.OpniUnbufferedKey)
-	opniRoute.Routes = append(opniRoute.Routes, defaultNamespaceRoute)
+	opniRoute.Routes = append(opniRoute.Routes, notificationRouting)
 	allRecvs = append(allRecvs, recvs...)
 
 	// must be last to prevent any opni alerts from leaking into the user's production routing tree
-	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil))
+	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil, rateLimitingConfig{
+		InitialDelay:       time.Second * 10,
+		ThrottlingDuration: time.Minute * 1,
+		RepeatInterval:     time.Hour * 5,
+	}))
 	return opniRoute, allRecvs
 }
 
@@ -169,7 +145,7 @@ func newNamespaceParentMatcher(namespace string) *labels.Matcher {
 	}
 }
 
-func newFinalizer(optionalNamespace *string) *config.Route {
+func newFinalizer(optionalNamespace *string, rc rateLimitingConfig) *config.Route {
 	matchers := func() []*labels.Matcher {
 		if optionalNamespace == nil {
 			return []*labels.Matcher{}
@@ -186,6 +162,7 @@ func newFinalizer(optionalNamespace *string) *config.Route {
 		// the user's synced production config
 		Continue: false,
 	}
+	setRateLimiting(finalizerRoute, rc)
 	return finalizerRoute
 }
 
@@ -228,9 +205,10 @@ func setDefaultRateLimitingFromProto(route *config.Route) {
 	}
 }
 
-func NewOpniNamespacedSubTree(namespace string, defaultValues ...DefaultRouteValues) (*config.Route, []*config.Receiver) {
+func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.Route, []*config.Receiver) {
 	parentRoute := &config.Route{
-		GroupBy: []model.LabelName{"..."},
+		// re-expand all label values to be able to do custom routing within each namespace
+		GroupByStr: []string{"..."},
 		Matchers: config.Matchers{
 			newNamespaceParentMatcher(namespace),
 		},
@@ -244,19 +222,24 @@ func NewOpniNamespacedSubTree(namespace string, defaultValues ...DefaultRouteVal
 	receivers := []*config.Receiver{}
 	subRoutes := []*config.Route{}
 	for _, val := range defaultValues {
-		subRoute, recv := NewOpniSubRoutingTreeWithDefaultValue(namespace, val)
+		subRoute, recv := NewNotificationLeaf(namespace, val)
 		subRoutes = append(subRoutes, subRoute)
 		receivers = append(receivers, recv)
 	}
 	// always terminate the namespace with a finalizer
-	finalizer := newFinalizer(lo.ToPtr(namespace))
+	finalizer := newFinalizer(lo.ToPtr(namespace), rateLimitingConfig{
+		InitialDelay:       time.Second * 30,
+		ThrottlingDuration: time.Minute * 5,
+		RepeatInterval:     time.Minute * 10,
+	})
 	subRoutes = append(subRoutes, finalizer) // finalizer must always be last
 	parentRoute.Routes = subRoutes
 	return parentRoute, receivers
 }
 
-func NewOpniSubRoutingTreeWithDefaultValue(namespace string, value DefaultRouteValues) (*config.Route, *config.Receiver) {
+func NewNotificationLeaf(namespace string, value RouteValues) (*config.Route, *config.Receiver) {
 	valueRoute := &config.Route{
+		GroupByStr: []string{alertingv1.NotificationPropertyGroupKey},
 		Matchers: config.Matchers{
 			newNamespaceMatcher(namespace, value.A),
 		},
@@ -277,7 +260,12 @@ func NewOpniSubRoutingTreeWithDefaultValue(namespace string, value DefaultRouteV
 }
 
 // new namespace matcher
-func NewOpniSubRoutingTreeWithValue(rl rateLimitingConfig, opniConfigs []config.OpniReceiver, matchers []*labels.Matcher, receiverId string) (*config.Route, *config.Receiver) {
+func NewNamespaceLeaf(
+	rl rateLimitingConfig,
+	opniConfigs []config.OpniReceiver,
+	matchers []*labels.Matcher,
+	receiverId string,
+) (*config.Route, *config.Receiver) {
 	valueRoute := &config.Route{
 		Matchers: matchers,
 		// even though in the current implementation, each namespace value should be unique,

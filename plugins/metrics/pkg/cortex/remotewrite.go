@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
+	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/metrics/impersonation"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
@@ -25,6 +27,7 @@ import (
 type RemoteWriteForwarder struct {
 	remotewrite.UnsafeRemoteWriteServer
 	RemoteWriteForwarderConfig
+	interceptors map[string]RequestInterceptor
 
 	util.Initializer
 }
@@ -43,35 +46,40 @@ func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
 			panic(err)
 		}
 		f.RemoteWriteForwarderConfig = conf
+
+		f.interceptors = map[string]RequestInterceptor{
+			"local": NewFederatingInterceptor(InterceptorConfig{
+				IdLabelName: impersonation.LabelImpersonateAs,
+				DropIdLabel: true,
+			}),
+		}
 	})
 }
 
-func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
+var passthrough = passthroughInterceptor{}
+
+func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.WriteRequest) (_ *cortexpb.WriteResponse, pushErr error) {
 	if !f.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
 
 	clusterId := cluster.StreamAuthorizedID(ctx)
 
-	// example: detecting the local cluster via session attributes
-	//
-	// attributes := session.StreamAuthorizedAttributes(ctx)
-	// attrNames := make([]string, 0, len(attributes))
-	// for _, attr := range attributes {
-	// 	attrNames = append(attrNames, attr.Name())
-	// }
-	// for _, attr := range attributes {
-	// 	if attr.Name() == "local" {
-	// 		f.Logger.Debug("detected local cluster")
-	// 	}
-	// }
+	var interceptor RequestInterceptor = passthrough
+	attributes := session.StreamAuthorizedAttributes(ctx)
+	for _, attr := range attributes {
+		if i, ok := f.interceptors[attr.Name()]; ok {
+			interceptor = i
+			break
+		}
+	}
 
 	defer func() {
 		code := status.Code(pushErr)
 		mRemoteWriteRequests.WithLabelValues(clusterId, fmt.Sprint(code), code.String()).Inc()
 	}()
 
-	payloadSize := float64(len(payload.Contents))
+	payloadSize := float64(writeReq.Size())
 	mIngestBytesTotal.Add(payloadSize)
 	mIngestBytesByID.WithLabelValues(clusterId).Add(payloadSize)
 
@@ -91,29 +99,14 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 			lg.Error("error pushing metrics to cortex")
 		}
 	}()
-	url := fmt.Sprintf("https://%s/api/v1/push", f.Config.Cortex.Distributor.HTTPAddress)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
-		bytes.NewReader(payload.Contents))
+
+	var err error
+	ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, clusterId))
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if err := user.InjectOrgIDIntoHTTPRequest(user.InjectOrgID(ctx, clusterId), req); err != nil {
-		return nil, err
-	}
-	for k, v := range payload.Headers {
-		req.Header.Add(k, v)
-	}
-	resp, err := f.CortexClientSet.HTTP().Do(req)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error pushing metrics to cortex: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		msg, _ := io.ReadAll(resp.Body)
-		return nil, status.New(codes.Code(resp.StatusCode), string(msg)).Err() // match cortex logic
-	}
-	return &emptypb.Empty{}, nil
+	return interceptor.Intercept(ctx, writeReq, f.CortexClientSet.Distributor().Push)
 }
 
 func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {

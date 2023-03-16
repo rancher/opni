@@ -973,14 +973,16 @@ func (e *Environment) startRealtimeServer() {
 }
 
 type PrometheusJob struct {
-	JobName    string
-	ScrapePort int
+	JobName     string
+	ScrapePort  int
+	MetricsPath string
 }
 
 type prometheusTemplateOptions struct {
-	ListenPort    int
-	RTMetricsPort int
-	OpniAgentPort int
+	ListenPort         int
+	RTMetricsPort      int
+	OpniAgentPort      int
+	GatewayMetricsPort int
 	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
 	Jobs []PrometheusJob
 }
@@ -1018,7 +1020,10 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	if err != nil {
 		panic(err)
 	}
-	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
+	promDir := path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))
+	os.MkdirAll(promDir, 0755)
+
+	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -1035,8 +1040,8 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{
-		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
-		fmt.Sprintf("--storage.agent.path=%s", path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))),
+		fmt.Sprintf("--config.file=%s", path.Join(promDir, "config.yaml")),
+		fmt.Sprintf("--storage.agent.path=%s", promDir),
 		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", port),
 		"--log.level=error",
 		"--web.enable-lifecycle",
@@ -1570,6 +1575,8 @@ func (e *Environment) startGateway() {
 		management.WithLifecycler(lifecycler),
 	)
 
+	g.MustRegisterCollector(m)
+
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Infof("loaded %d plugins", numLoaded)
 	}))
@@ -1917,7 +1924,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	randSrc := rand.New(rand.NewSource(0))
 	var iPort int
 	var kPort int
-	var localAgent sync.Once
+	var localAgentOnce sync.Once
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1946,9 +1953,13 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 			startOpts := slices.Clone(options.defaultAgentOpts)
-			localAgent.Do(func() {
-				startOpts = append(startOpts, WithLocalAgent())
+			var isLocalAgent bool
+			localAgentOnce.Do(func() {
+				isLocalAgent = true
 			})
+			if isLocalAgent {
+				startOpts = append(startOpts, WithLocalAgent())
+			}
 			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
 				append(startOpts, WithAgentVersion(body.Version))...)
 			if err := <-errC; err != nil {
@@ -1964,7 +1975,14 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 						ScrapePort: environment.ports.NodeExporterPort,
 					})
 				}
-				return NewOverridePrometheusConfig("alerting/prometheus/config.yaml",
+				if options.enableGateway && isLocalAgent {
+					optional = append(optional, PrometheusJob{
+						JobName:     "opni-gateway",
+						ScrapePort:  environment.ports.GatewayMetrics,
+						MetricsPath: "/metrics",
+					})
+				}
+				return NewOverridePrometheusConfig("prometheus/config.yaml",
 					append([]PrometheusJob{
 						{
 							JobName:    "payment_service",

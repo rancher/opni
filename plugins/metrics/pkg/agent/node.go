@@ -3,14 +3,15 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
-	"github.com/samber/lo"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/samber/lo"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"

@@ -8,6 +8,7 @@ package remotewrite
 
 import (
 	context "context"
+	cortexpb "github.com/cortexproject/cortex/pkg/cortexpb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -28,7 +29,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteWriteClient interface {
-	Push(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Push(ctx context.Context, in *cortexpb.WriteRequest, opts ...grpc.CallOption) (*cortexpb.WriteResponse, error)
+	// rpc SyncRules(rules.RuleDesc) returns (google.protobuf.Empty);
 	SyncRules(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -40,8 +42,8 @@ func NewRemoteWriteClient(cc grpc.ClientConnInterface) RemoteWriteClient {
 	return &remoteWriteClient{cc}
 }
 
-func (c *remoteWriteClient) Push(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *remoteWriteClient) Push(ctx context.Context, in *cortexpb.WriteRequest, opts ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
+	out := new(cortexpb.WriteResponse)
 	err := c.cc.Invoke(ctx, RemoteWrite_Push_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,8 @@ func (c *remoteWriteClient) SyncRules(ctx context.Context, in *Payload, opts ...
 // All implementations must embed UnimplementedRemoteWriteServer
 // for forward compatibility
 type RemoteWriteServer interface {
-	Push(context.Context, *Payload) (*emptypb.Empty, error)
+	Push(context.Context, *cortexpb.WriteRequest) (*cortexpb.WriteResponse, error)
+	// rpc SyncRules(rules.RuleDesc) returns (google.protobuf.Empty);
 	SyncRules(context.Context, *Payload) (*emptypb.Empty, error)
 	mustEmbedUnimplementedRemoteWriteServer()
 }
@@ -71,7 +74,7 @@ type RemoteWriteServer interface {
 type UnimplementedRemoteWriteServer struct {
 }
 
-func (UnimplementedRemoteWriteServer) Push(context.Context, *Payload) (*emptypb.Empty, error) {
+func (UnimplementedRemoteWriteServer) Push(context.Context, *cortexpb.WriteRequest) (*cortexpb.WriteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
 }
 func (UnimplementedRemoteWriteServer) SyncRules(context.Context, *Payload) (*emptypb.Empty, error) {
@@ -91,7 +94,7 @@ func RegisterRemoteWriteServer(s grpc.ServiceRegistrar, srv RemoteWriteServer) {
 }
 
 func _RemoteWrite_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Payload)
+	in := new(cortexpb.WriteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -103,7 +106,7 @@ func _RemoteWrite_Push_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: RemoteWrite_Push_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteWriteServer).Push(ctx, req.(*Payload))
+		return srv.(RemoteWriteServer).Push(ctx, req.(*cortexpb.WriteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

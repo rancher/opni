@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/kralicky/ragu/compat"
 	"github.com/kralicky/totem"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -268,6 +269,9 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 var _ apiextensions.StreamAPIExtensionServer = (*streamExtensionServerImpl)(nil)
 
 func init() {
+	compat.LoadGogoFileDescriptor("cortex.proto")
+	desc.RegisterImportPath("cortex.proto", "github.com/cortexproject/cortex/pkg/cortexpb/cortex.proto")
+
 	plugins.GatewayScheme.Add(StreamAPIExtensionPluginID, NewPlugin(nil))
 	plugins.AgentScheme.Add(StreamAPIExtensionPluginID, NewPlugin(nil))
 }

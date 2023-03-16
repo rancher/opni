@@ -10,9 +10,12 @@ from betterproto.lib.google.protobuf import Empty
 default_query_interval = "1m"
 OPNI_HOST = "localhost" # opni-internal
 
+
+
 async def get_all_users(service: CortexAdminStub) -> List[str]:
   response = await service.all_user_stats(Empty())
   return [r.user_id for r in response.items]
+  
 
 async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str]:
   response = await service.extract_raw_series(MatcherRequest(tenant=cluster_id, match_expr=".+"))
@@ -48,6 +51,7 @@ async def main():
   q2 = await metric_queryrange(service, user_id, m_name)
 
   channel.close()
+
 
 
 if __name__ == "__main__":

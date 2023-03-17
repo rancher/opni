@@ -34,6 +34,9 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training parameters: %v", err)
 	}
+	parametersBytes := []byte(jsonParameters)
+	p.modelTrainingKv.Get().Put("modelTrainingParameters", parametersBytes)
+
 	msg, err := p.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
@@ -116,31 +119,16 @@ func (p *AIOpsPlugin) GetModelStatus(_ context.Context, _ *emptypb.Empty) (*mode
 }
 
 func (p *AIOpsPlugin) GetModelTrainingParameters(_ context.Context, _ *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
-	b := []byte("model_training_parameters")
-	msg, err := p.natsConnection.Get().Request("workload_parameters", b, time.Minute)
+	result, err := p.modelTrainingKv.Get().Get("modelTrainingParameters")
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters. %v", err)
+		return nil, status.Errorf(codes.NotFound, "Failed to get model training parameters from Jetstream: %v", err)
 	}
-	var parametersArray []*modeltraining.ModelTrainingParameters
-	var resultsStorage = map[string]map[string][]string{}
-	if err := json.Unmarshal(msg.Data, &resultsStorage); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JSON: %v", err)
+	jsonRes := result.Value()
+	var resultsStorage = modeltraining.ModelTrainingParametersList{}
+	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training parameters from Jetstream: %v", err)
 	}
-	for clusterName, namespaces := range resultsStorage {
-		for namespaceName, deployments := range namespaces {
-			for deploymentIdx := range deployments {
-				deploymentData := modeltraining.ModelTrainingParameters{
-					ClusterId:  clusterName,
-					Namespace:  namespaceName,
-					Deployment: deployments[deploymentIdx],
-				}
-				parametersArray = append(parametersArray, &deploymentData)
-			}
-		}
-	}
-	return &modeltraining.ModelTrainingParametersList{
-		Items: parametersArray,
-	}, nil
+	return &resultsStorage, nil
 }
 
 func (p *AIOpsPlugin) GPUInfo(ctx context.Context, _ *emptypb.Empty) (*modeltraining.GPUInfoList, error) {

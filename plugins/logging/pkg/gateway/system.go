@@ -2,8 +2,12 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"io"
 	"os"
 
@@ -96,54 +100,56 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 				continue
 			}
 
-			docId := event.Cluster.Id
+			clusterId := event.Cluster.Id
 
-			name, hasName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel]
-			if !hasName {
-				name = event.Cluster.Id
-			}
+			hasLogging := slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
+				return c.Name == wellknown.CapabilityLogs
+			})
 
-			if p.opensearchManager.Client == nil {
-				p.logger.Warnf("plugin has nil opensearch client, doing nothing")
+			if !hasLogging {
+				p.logger.With(
+					"cluster", clusterId,
+				).Debug("cluster does not have logging, ignoring cluster event")
 				continue
 			}
 
-			// todo: handle a cluster rejoining (does it come in as Created or as Updated?)
-			switch event.Type {
-			case managementv1.WatchEventType_Created:
-				p.logger.Infof("received cluster create event for '%s'", event.Cluster)
-				resp, err := p.opensearchManager.Indices.AddDocument(p.ctx, "opni-cluster-metadata", docId, opensearchutil.NewJSONReader(map[string]string{
-					"id":   event.Cluster.Id,
-					"name": name,
-				}))
-				if err != nil {
-					p.logger.Errorf("failed to add cluster to opensearch cluster name index: %s", err)
-					continue
-				}
-				if resp.IsError() {
-					p.logger.Errorf("failed to add cluster to opensearch cluster name index")
-				}
-				resp.Body.Close()
-			case managementv1.WatchEventType_Updated:
-				p.logger.With().Infof("received cluster update event for '%s' (%s)", name, event.Cluster.Metadata.Labels[opnicorev1.NameLabel])
+			// todo: we probably want to add a diff or the old cluster value to avoid updating opensearch each time a logging cluster is updated
+			// this is not necessarily a new name since we only know the current name, so we must always treat it as new
+			newName, hasName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel]
+			if !hasName {
+				newName = event.Cluster.Id
+			}
 
-				// cluster does not have a name and could not have been renamed
+			if p.opensearchManager.Client == nil {
+				p.logger.With(
+					"cluster", clusterId,
+				).Warnf("plugin has nil opensearch client, doing nothing")
+				continue
+			}
+
+			switch event.Type {
+			case managementv1.WatchEventType_Updated:
+				p.logger.With().Infof("received cluster update event for '%s' (%s)", newName, event.Cluster.Metadata.Labels[opnicorev1.NameLabel])
+
+				// cluster does not have a newName and could not have been renamed
 				if !hasName {
 					continue
 				}
 
 				p.logger.Debugf("cluster was renamed")
-				resp, err := p.opensearchManager.Indices.UpdateDocument(p.ctx, "opni-cluster-metadata", docId, opensearchutil.NewJSONReader(
+				resp, err := p.opensearchManager.Indices.UpdateDocument(p.ctx, "opni-cluster-metadata", clusterId, opensearchutil.NewJSONReader(
 					types.MetadataUpdate{
 						Document: types.ClusterMetadataUpdate{
-							Name: name,
+							Name: newName,
 						},
 					},
 				))
+
 				if err != nil {
 					p.logger.Errorf("failed to update cluster in metadata index: %s", err)
 					continue
 				}
+
 				if resp.IsError() {
 					errMsg, err := io.ReadAll(resp.Body)
 
@@ -151,12 +157,13 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 						p.logger.Errorf("failed to read response body: %s", err)
 					}
 
-					p.logger.Errorf("failed to add cluster to opensearch cluster name index: %s", string(errMsg))
+					p.logger.With(
+						"cluster", clusterId,
+						"newName", newName,
+						zap.Error(errors.New(string(errMsg))),
+					).Errorf("failed to update cluster to opensearch cluster newName index")
 				}
 				resp.Body.Close()
-			case managementv1.WatchEventType_Deleted:
-				p.logger.Infof("recevied cluster delete event for '%s'", event.Cluster.Id)
-				// todo: we might want to mark clusters as inactive
 			}
 		}
 	}

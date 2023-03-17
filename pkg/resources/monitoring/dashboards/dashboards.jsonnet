@@ -7,7 +7,7 @@ local patchDashboard(d) = {
       if x.name == 'cluster'
       then x {
         query: 'query_result(opni_cluster_info)',
-        regex: '/cluster_id="(?<value>[^"]+)|friendly_name="(?<text>[^"]+)/g',
+        regex: '/__tenant_id__="(?<value>[^"]+)|friendly_name="(?<text>[^"]+)/g',
       }
       else x
       for x in d.templating.list

@@ -9,6 +9,7 @@ import (
 	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type WriteHandlerFunc = func(context.Context, *cortexpb.WriteRequest, ...grpc.CallOption) (*cortexpb.WriteResponse, error)
@@ -109,7 +110,25 @@ TIMESERIES:
 
 	cortexpb.ReuseSlice(allTimeseries)
 
-	return &cortexpb.WriteResponse{}, errors.Join(errs...)
+	if len(errs) > 0 {
+		// if there was one error, return it
+		if len(errs) == 1 {
+			return nil, errs[0]
+		}
+		// it is likely that all errors are the same, and we can only return one
+		// error, so return the error with the largest code. The only actual
+		// scenario we want to catch here is if one of the errors is an http
+		// status code, in which case it will always be the chosen error.
+		//
+		toReturn := status.Convert(errs[0])
+		for _, err := range errs[1:] {
+			if statErr := status.Convert(err); statErr.Code() > toReturn.Code() {
+				toReturn = statErr
+			}
+		}
+		return nil, toReturn.Err()
+	}
+	return &cortexpb.WriteResponse{}, nil
 }
 
 type passthroughInterceptor struct{}

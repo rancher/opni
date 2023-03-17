@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -89,14 +90,29 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.Writ
 
 	defer func() {
 		if pushErr != nil {
-			lg := f.Logger.With(
-				"err", pushErr,
-				"clusterId", clusterId,
-			)
 			if s, ok := status.FromError(pushErr); ok {
-				lg = lg.With("code", int32(s.Code()))
+				code := s.Code()
+				if code == 400 {
+					// As a special case, status code 400 may indicate a success.
+					// Cortex handles a variety of cases where prometheus would normally
+					// return an error, such as duplicate or out of order samples. Cortex
+					// will return code 400 to prometheus, which prometheus will treat as
+					// a non-retriable error. In this case, the remote write status condition
+					// will be cleared as if the request succeeded.
+					if code == http.StatusBadRequest {
+						message := s.Message()
+						if strings.Contains(message, "out of bounds") ||
+							strings.Contains(message, "out of order sample") ||
+							strings.Contains(message, "duplicate sample for timestamp") ||
+							strings.Contains(message, "exemplars not ingested because series not already present") {
+							{
+								// clear the soft error
+								pushErr = nil
+							}
+						}
+					}
+				}
 			}
-			lg.Error("error pushing metrics to cortex")
 		}
 	}()
 

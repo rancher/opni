@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -36,6 +37,7 @@ type LoggingBackendConfig struct {
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
+	OpensearchManager   *opensearchdata.Manager        `validate:"required"`
 }
 
 var _ node.NodeLoggingCapabilityServer = (*LoggingBackend)(nil)

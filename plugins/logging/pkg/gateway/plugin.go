@@ -207,6 +207,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
 				ClusterDriver:       p.clusterDriver,
+				OpensearchManager:   p.opensearchManager,
 			})
 
 			p.globalWatchers = &alerting.SimpleInternalConditionWatcher{

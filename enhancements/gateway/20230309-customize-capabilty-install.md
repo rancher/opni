@@ -1,7 +1,7 @@
 # Title: Customize Capability Install
 
 ## Summary:
-When installing capabilities to agent's, Opni should allow for users to configure some capability options such as specifying node drivers and enabling / disabling capability features. This would make Opni agent's more adaptable to environments which might break some functionality or require fine-tuning for Opni to work as expected.
+When installing capabilities to agents, Opni should allow for users to configure some capability options such as specifying node drivers and enabling / disabling capability features. This would make Opni agent's more adaptable to environments which might break some functionality or require fine-tuning for Opni to work as expected.
 
 ## Use case:
 When installing the Metrics plugin on a cluster which has an existing [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) deployment, the current `externalPromDriver` will break the existing infrastructure. To resolve this, the user should be able to specify a different node driver to use while the existing infrastructure is still in use.
@@ -22,9 +22,10 @@ For example, to enable the user to choose from several node drivers when install
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread";
 
+import "github.com/rancher/opni/plugins/metrics/pkg/apis/node.proto";
 import "google/protobuf/empty.proto";
 
-service ConfigureMetrics {
+service NodeConfiguration {
   rpc Configure(MetricsOptions) returns (google.protobuf.Empty);
 }
 
@@ -36,6 +37,7 @@ enum NodeDriver {
 
 message MetricsOptions {
   NodeDriver nodeDriver = 1;
+  node.MetricsCapabilitySpec spec = 2;
 }
 ```
 

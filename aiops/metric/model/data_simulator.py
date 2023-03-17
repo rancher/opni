@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy.random as random
 from sklearn.preprocessing import minmax_scale
-from model import MpcDataset
+from model.cnn_model import MpcDataset
 
 n = 60
 min_shift_n = 5
@@ -225,6 +225,7 @@ class DataSimulator:
         ts_data = np.random.normal(mu, multiplier_sigma * sigma, n)
         return ts_data
 
+
 def plt_plot(ts_data):
 
     # Plot the time series data
@@ -233,7 +234,6 @@ def plt_plot(ts_data):
     plt.xlabel("Time")
     plt.ylabel("Value")
     plt.show()
-  
 
 def normalize_format(ts_data):
     return minmax_scale(ts_data)

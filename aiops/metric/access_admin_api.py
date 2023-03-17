@@ -8,14 +8,10 @@ from cortexadmin_pb import CortexAdminStub, SeriesRequest, QueryRangeRequest, Qu
 from betterproto.lib.google.protobuf import Empty
 
 default_query_interval = "1m"
-OPNI_HOST = "localhost" # opni-internal
-
-
 
 async def get_all_users(service: CortexAdminStub) -> List[str]:
   response = await service.all_user_stats(Empty())
   return [r.user_id for r in response.items]
-  
 
 async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str]:
   response = await service.extract_raw_series(MatcherRequest(tenant=cluster_id, match_expr=".+"))
@@ -32,7 +28,8 @@ async def metric_query(service: CortexAdminStub, cluster_id: str, metric_name: s
   return response
 
 async def metric_queryrange(service: CortexAdminStub, cluster_id: str, metric_name: str, namespace="opni", end_time : datetime = None, time_delta : timedelta= timedelta(minutes=60), step_minute : int = 1):
-  query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{default_query_interval}])) by (pod)'
+  query_interval = "2m"# f"{step_minute}m"
+  query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{query_interval}])) by (pod)'
   if end_time is None:
     end_time = datetime.now()
   start_time = end_time - time_delta

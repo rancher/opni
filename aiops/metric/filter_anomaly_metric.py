@@ -54,6 +54,7 @@ async def pull_metrics_data(end_time, service, user_id:str, metrics, ns="opni"):
 def filter_metrics(d, q1 ,m_name, is_debug = False):
     count = 0
     total = 0
+    res = []
     for r in q1["result"]:
         if "pod" not in r["metric"]:
             # print(r)
@@ -73,12 +74,13 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
                 rule2 = max(test_window) > max(history) or min(test_window) < min(history)
                 rule3 = np.mean(test_window) > mean + std_multiplier * std_dev or np.mean(test_window) < mean - std_multiplier * std_dev
                 _, rule4 = ks_anomaly_detection(values0, cut=150)
-                if rule1 and rule3: # rule1 and rule2
+                if rule1 and rule3:#and rule3: # rule1 and rule2
                     # z_s = zscore_anomaly_detection(values0)
                     # z_s_binary = True if len(z_s) > 0 else False
                     # if z_s_binary:
                     count += 1
-                    d[pod].append(m_name)
+                    d[pod  + "-" + m_name] = history
+                    res.append((pod, m_name, evaluate_window))
                     if is_debug:
                     # if True:
                         print(m_name)
@@ -88,7 +90,7 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
         except Exception as e:
             pass
     s2 = time.time()
-    return count, total
+    return res
 
 
 async def get_abnormal_metrics(service, user_id, requested_ts: datetime= None, ns:str="default"):
@@ -97,13 +99,9 @@ async def get_abnormal_metrics(service, user_id, requested_ts: datetime= None, n
     metrics = await list_all_metric(service, user_id)
     qs = await pull_metrics_data(requested_ts, service, user_id, metrics, ns=ns)
     d = defaultdict(list)
-    total_count = 0
-    total = 0
+
+    res = []
     for i,q in enumerate(qs):
-        c, t = filter_metrics(d,q, metrics[i])
-        total_count += c
-        total += t
-    print(total_count)
-    print(total)
-    print(d)
-    return (total_count, total)
+        r = filter_metrics(d,q, metrics[i])
+        res.extend(r)
+    return res

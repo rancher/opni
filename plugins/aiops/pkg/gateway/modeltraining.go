@@ -35,9 +35,15 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training parameters: %v", err)
 	}
 	parametersBytes := []byte(jsonParameters)
-	p.modelTrainingKv.Get().Put("modelTrainingParameters", parametersBytes)
-
-	msg, err := p.natsConnection.Get().Request("train_model", jsonParameters, time.Minute)
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+	modelTrainingKv, err := p.modelTrainingKv.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
+	}
+	modelTrainingKv.Put("modelTrainingParameters", parametersBytes)
+	natsConnection, err := p.natsConnection.GetContext(ctxca)
+	msg, err := natsConnection.Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
@@ -50,19 +56,30 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	}, nil
 }
 
-func (p *AIOpsPlugin) PutModelTrainingStatus(_ context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
+func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
 	jsonParameters, err := protojson.Marshal(in)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
 	}
 	bytesAggregation := []byte(jsonParameters)
-	p.statisticsKv.Get().Put("modelTrainingStatus", bytesAggregation)
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+	statisticsKv, err := p.statisticsKv.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get model training statistics: %v", err)
+	}
+	statisticsKv.Put("modelTrainingStatus", bytesAggregation)
 	return nil, nil
-
 }
 
-func (p *AIOpsPlugin) ClusterWorkloadAggregation(_ context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
-	result, err := p.aggregationKv.Get().Get("aggregation")
+func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1.Reference) (*modeltraining.WorkloadAggregationList, error) {
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+	aggregationKv, err := p.aggregationKv.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get workload aggregation from Jetstream: %v", err)
+	}
+	result, err := aggregationKv.Get("aggregation")
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %v", err)
 	}
@@ -92,13 +109,20 @@ func (p *AIOpsPlugin) ClusterWorkloadAggregation(_ context.Context, in *corev1.R
 	}, nil
 }
 
-func (p *AIOpsPlugin) GetModelStatus(_ context.Context, _ *emptypb.Empty) (*modeltraining.ModelStatus, error) {
+func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*modeltraining.ModelStatus, error) {
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
 	b := []byte("model_status")
-	msg, err := p.natsConnection.Get().Request("model_status", b, time.Minute)
+	natsConnection, err := p.natsConnection.GetContext(ctxca)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
-	result, err := p.statisticsKv.Get().Get("modelTrainingStatus")
+	msg, err := natsConnection.Request("model_status", b, time.Minute)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Failed to get model status.")
+	}
+	statisticsKv, err := p.statisticsKv.GetContext(ctxca)
+	result, err := statisticsKv.Get("modelTrainingStatus")
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{
@@ -118,9 +142,18 @@ func (p *AIOpsPlugin) GetModelStatus(_ context.Context, _ *emptypb.Empty) (*mode
 	}, nil
 }
 
-func (p *AIOpsPlugin) GetModelTrainingParameters(_ context.Context, _ *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
-	result, err := p.modelTrainingKv.Get().Get("modelTrainingParameters")
+func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, _ *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {
+	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+	modelTrainingKv, err := p.modelTrainingKv.GetContext(ctxca)
 	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get context for model training parameters from Jetstream: %v", err)
+	}
+	result, err := modelTrainingKv.Get("modelTrainingParameters")
+	if err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			return &modeltraining.ModelTrainingParametersList{}, nil
+		}
 		return nil, status.Errorf(codes.NotFound, "Failed to get model training parameters from Jetstream: %v", err)
 	}
 	jsonRes := result.Value()

@@ -143,7 +143,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 		lg.Fatal(err)
 	}
 
-	p.aggregationKv.Set(modelParametersKeyValue)
+	p.modelTrainingKv.Set(modelParametersKeyValue)
 
 	modelStatisticsKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      "model-training-statistics",

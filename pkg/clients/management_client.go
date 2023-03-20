@@ -9,6 +9,7 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -53,8 +54,7 @@ func NewManagementClient(ctx waitctx.PermissiveContext, opts ...ManagementClient
 		return nil, err
 	}
 	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
-		cc.Close()
+		cc.WaitForStateChange(ctx, connectivity.Shutdown)
 	})
 	return managementv1.NewManagementClient(cc), nil
 }

@@ -57,7 +57,7 @@ require (
 	github.com/jhump/protoreflect v1.14.1
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/karlseguin/ccache v2.0.3+incompatible
-	github.com/klauspost/compress v1.15.15
+	github.com/klauspost/compress v1.16.3
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.11.3
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c

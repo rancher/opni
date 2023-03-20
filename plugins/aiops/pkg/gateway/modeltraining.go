@@ -43,6 +43,9 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	}
 	modelTrainingKv.Put("modelTrainingParameters", parametersBytes)
 	natsConnection, err := p.natsConnection.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
+	}
 	msg, err := natsConnection.Request("train_model", jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
@@ -122,6 +125,9 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*mo
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
 	statisticsKv, err := p.statisticsKv.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get model training status from Jetstream: %v", err)
+	}
 	result, err := statisticsKv.Get("modelTrainingStatus")
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {

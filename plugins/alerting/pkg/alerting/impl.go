@@ -92,27 +92,6 @@ func deleteClusterEvent(event *managementv1.WatchEvent) bool {
 	return event.Type == managementv1.WatchEventType_Deleted
 }
 
-var _ InternalConditionWatcher = &SimpleInternalConditionWatcher{}
-
-type SimpleInternalConditionWatcher struct {
-	Closures []func()
-}
-
-func NewSimpleInternalConditionWatcher(cl ...func()) *SimpleInternalConditionWatcher {
-	return &SimpleInternalConditionWatcher{
-		Closures: cl,
-	}
-}
-
-func (s *SimpleInternalConditionWatcher) WatchEvents() {
-	for _, f := range s.Closures {
-		f := f
-		go func() {
-			f()
-		}()
-	}
-}
-
 type internalConditionMetadata struct {
 	lg                 *zap.SugaredLogger
 	conditionName      string

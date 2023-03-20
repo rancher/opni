@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"github.com/rancher/opni/pkg/gateway"
 	"os"
 
 	"github.com/dbason/featureflags"
@@ -67,7 +67,7 @@ type Plugin struct {
 	clusterDriver       drivers.ClusterDriver
 
 	// todo: we might want to move these watcher types into opni/pkg
-	globalWatchers *alerting.SimpleInternalConditionWatcher
+	globalWatchers *gateway.SimpleInternalConditionWatcher
 }
 
 type PluginOptions struct {
@@ -210,13 +210,9 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				OpensearchManager:   p.opensearchManager,
 			})
 
-			p.globalWatchers = &alerting.SimpleInternalConditionWatcher{
-				Closures: []func(){
-					func() {
-						p.watchGlobalCluster(mgmtClient)
-					},
-				},
-			}
+			p.globalWatchers = gateway.NewSimpleInternalConditionWatcher(func() {
+				p.watchGlobalCluster(mgmtClient)
+			})
 			p.globalWatchers.WatchEvents()
 		},
 	)

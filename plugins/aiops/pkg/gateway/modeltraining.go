@@ -18,6 +18,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	modelTrainingParametersKey = "modelTrainingParameters"
+	modelTrainingStatusKey     = "modelTrainingStatus"
+	logAggregationCountKey     = "aggregation"
+)
+
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
 	for _, item := range in.Items {
@@ -41,7 +47,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
 	}
-	modelTrainingKv.Put("modelTrainingParameters", parametersBytes)
+	modelTrainingKv.Put(modelTrainingParametersKey, parametersBytes)
 	natsConnection, err := p.natsConnection.GetContext(ctxca)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
@@ -71,7 +77,7 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training statistics: %v", err)
 	}
-	statisticsKv.Put("modelTrainingStatus", bytesAggregation)
+	statisticsKv.Put(modelTrainingStatusKey, bytesAggregation)
 	return nil, nil
 }
 
@@ -82,7 +88,7 @@ func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get workload aggregation from Jetstream: %v", err)
 	}
-	result, err := aggregationKv.Get("aggregation")
+	result, err := aggregationKv.Get(logAggregationCountKey)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Failed to get workload aggregation from Jetstream: %v", err)
 	}
@@ -128,7 +134,7 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*mo
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training status from Jetstream: %v", err)
 	}
-	result, err := statisticsKv.Get("modelTrainingStatus")
+	result, err := statisticsKv.Get(modelTrainingStatusKey)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelStatus{
@@ -155,7 +161,7 @@ func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, _ *emptypb
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get context for model training parameters from Jetstream: %v", err)
 	}
-	result, err := modelTrainingKv.Get("modelTrainingParameters")
+	result, err := modelTrainingKv.Get(modelTrainingParametersKey)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return &modeltraining.ModelTrainingParametersList{}, nil

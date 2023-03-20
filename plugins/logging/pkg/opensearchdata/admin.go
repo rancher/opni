@@ -134,8 +134,8 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 	}
 
 	if !idExists {
-		m.logger.Debug("no opensearch cluster created, not creating admin user")
-		return false
+		m.logger.Debug("user creation not started, will install")
+		return true
 	}
 
 	adminState, err := m.kv.Client.Get(initialAdminKey)

@@ -1238,7 +1238,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1358,7 +1359,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1422,8 +1424,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
+            "fillOpacity": 40,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1433,7 +1435,7 @@
             "lineStyle": {
               "fill": "solid"
             },
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -1453,7 +1455,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1494,7 +1497,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(user) (cortex_bucket_blocks_count) * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
+          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"__tenant_id__\", \"$1\", \"user\", \"(.*)\")  * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{friendly_name}}",

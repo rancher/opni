@@ -237,9 +237,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux,
 		strings.TrimPrefix(m.config.GRPCListenAddress, "tcp://"),
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
-		lg.With(
-			zap.Error(err),
-		).Panic("failed to register management handler")
+		return fmt.Errorf("failed to register management handler: %w", err)
 	}
 	m.configureHttpApiExtensions(gwmux)
 	mux.Handle("/", gwmux)

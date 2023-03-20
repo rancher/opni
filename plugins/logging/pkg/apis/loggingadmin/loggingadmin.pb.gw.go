@@ -687,7 +687,7 @@ func RegisterLoggingAdminV2HandlerServer(ctx context.Context, mux *runtime.Serve
 // RegisterLoggingAdminHandlerFromEndpoint is same as RegisterLoggingAdminHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterLoggingAdminHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}
@@ -914,7 +914,7 @@ var (
 // RegisterLoggingAdminV2HandlerFromEndpoint is same as RegisterLoggingAdminV2Handler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterLoggingAdminV2HandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	v1_0 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -68,7 +68,7 @@ func local_request_SLO_CreateSLO_0(ctx context.Context, marshaler runtime.Marsha
 }
 
 func request_SLO_GetSLO_0(ctx context.Context, marshaler runtime.Marshaler, client SLOClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -94,7 +94,7 @@ func request_SLO_GetSLO_0(ctx context.Context, marshaler runtime.Marshaler, clie
 }
 
 func local_request_SLO_GetSLO_0(ctx context.Context, marshaler runtime.Marshaler, server SLOServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -206,7 +206,7 @@ func local_request_SLO_UpdateSLO_0(ctx context.Context, marshaler runtime.Marsha
 }
 
 func request_SLO_DeleteSLO_0(ctx context.Context, marshaler runtime.Marshaler, client SLOClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -232,7 +232,7 @@ func request_SLO_DeleteSLO_0(ctx context.Context, marshaler runtime.Marshaler, c
 }
 
 func local_request_SLO_DeleteSLO_0(ctx context.Context, marshaler runtime.Marshaler, server SLOServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -258,7 +258,7 @@ func local_request_SLO_DeleteSLO_0(ctx context.Context, marshaler runtime.Marsha
 }
 
 func request_SLO_CloneSLO_0(ctx context.Context, marshaler runtime.Marshaler, client SLOClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -284,7 +284,7 @@ func request_SLO_CloneSLO_0(ctx context.Context, marshaler runtime.Marshaler, cl
 }
 
 func local_request_SLO_CloneSLO_0(ctx context.Context, marshaler runtime.Marshaler, server SLOServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -482,7 +482,7 @@ func local_request_SLO_ListEvents_0(ctx context.Context, marshaler runtime.Marsh
 }
 
 func request_SLO_Status_0(ctx context.Context, marshaler runtime.Marshaler, client SLOClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -508,7 +508,7 @@ func request_SLO_Status_0(ctx context.Context, marshaler runtime.Marshaler, clie
 }
 
 func local_request_SLO_Status_0(ctx context.Context, marshaler runtime.Marshaler, server SLOServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -879,7 +879,7 @@ func RegisterSLOHandlerServer(ctx context.Context, mux *runtime.ServeMux, server
 // RegisterSLOHandlerFromEndpoint is same as RegisterSLOHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterSLOHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}

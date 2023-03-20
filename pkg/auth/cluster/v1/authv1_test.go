@@ -42,7 +42,7 @@ var _ = Describe("Cluster Auth V1 Compatibility", Ordered, Label("unit"), func()
 	BeforeAll(func() {
 		broker = test.NewTestKeyringStoreBroker(ctrl)
 		verifier := challenges.NewKeyringVerifier(broker, "", test.Log)
-		serverMw = authv1.NewServerChallenge("/testgrpc.stream.StreamService/Stream", verifier, test.Log)
+		serverMw = authv1.NewServerChallenge(testgrpc.StreamService_Stream_FullMethodName, verifier, test.Log)
 		server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(cluster.StreamServerInterceptor(serverMw)))
 		testgrpc.RegisterStreamServiceServer(server, testServer)
 		listener = bufconn.Listen(1024 * 1024)

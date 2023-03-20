@@ -96,47 +96,47 @@ func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
 		default:
 			event, err := clusterClient.Recv()
 			if err != nil {
-				p.logger.Errorf("failed to receive cluster event: %s", err)
-				continue
-			}
-
-			clusterId := event.Cluster.Id
-
-			hasLogging := slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
-				return c.Name == wellknown.CapabilityLogs
-			})
-
-			if !hasLogging {
-				p.logger.With(
-					"cluster", clusterId,
-				).Debug("cluster does not have logging, ignoring cluster event")
-				continue
-			}
-
-			// todo: we probably want to add a diff or the old cluster value to avoid updating opensearch each time a logging cluster is updated
-			// this is not necessarily a new name since we only know the current name, so we must always treat it as new
-			newName, hasName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel]
-			if !hasName {
-				newName = event.Cluster.Id
-			}
-
-			if p.opensearchManager.Client == nil {
-				p.logger.With(
-					"cluster", clusterId,
-				).Warnf("plugin has nil opensearch client, doing nothing")
+				p.logger.With(zap.Error(err)).Errorf("failed to receive cluster event")
 				continue
 			}
 
 			switch event.Type {
 			case managementv1.WatchEventType_Updated:
-				p.logger.With().Infof("received cluster update event for '%s' (%s)", newName, event.Cluster.Metadata.Labels[opnicorev1.NameLabel])
+				clusterId := event.Cluster.Id
+				p.logger.With("cluster", clusterId).Debug("received cluster update event")
 
-				// cluster does not have a newName and could not have been renamed
-				if !hasName {
+				hasLogging := slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
+					return c.Name == wellknown.CapabilityLogs
+				})
+
+				if !hasLogging {
+					p.logger.With(
+						"cluster", clusterId,
+					).Debug("cluster does not have logging, ignoring cluster event")
 					continue
 				}
 
-				p.logger.Debugf("cluster was renamed")
+				newName, oldName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel], event.PreviousCluster.Metadata.Labels[opnicorev1.NameLabel]
+				if newName == oldName {
+					p.logger.With(
+						"oldName", oldName,
+						"newName", newName,
+					).Debug("cluster was not renamed")
+					continue
+				}
+
+				p.logger.With(
+					"oldName", oldName,
+					"newName", newName,
+				).Debug("cluster was renamed")
+
+				if p.opensearchManager.Client == nil {
+					p.logger.With(
+						"cluster", clusterId,
+					).Warnf("plugin has nil opensearch client, doing nothing")
+					continue
+				}
+
 				resp, err := p.opensearchManager.Indices.UpdateDocument(p.ctx, "opni-cluster-metadata", clusterId, opensearchutil.NewJSONReader(
 					types.MetadataUpdate{
 						Document: types.ClusterMetadataUpdate{

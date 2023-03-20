@@ -235,6 +235,7 @@ enum WatchEventType {
 message WatchEvent {
   core.Cluster cluster = 1;
   WatchEventType type = 2;
+  core.Cluster previousCluster = 3;
 }
 
 message APIExtensionInfoList {

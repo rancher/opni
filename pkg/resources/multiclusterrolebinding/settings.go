@@ -7,7 +7,7 @@ import (
 
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	"k8s.io/utils/pointer"
+	"github.com/samber/lo"
 )
 
 const (
@@ -174,7 +174,7 @@ var (
 				RolloverAlias:    spanIndexAlias,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
-				DateDetection: pointer.BoolPtr(false),
+				DateDetection: lo.ToPtr(false),
 				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"resource_attributes_map": opensearchtypes.DynamicTemplateSpec{
@@ -284,7 +284,7 @@ var (
 				NumberOfReplicas: 1,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
-				DateDetection: pointer.BoolPtr(false),
+				DateDetection: lo.ToPtr(false),
 				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"strings_as_keyword": {

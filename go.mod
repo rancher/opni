@@ -134,7 +134,6 @@ require (
 	golang.org/x/crypto v0.7.0
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0
 	golang.org/x/mod v0.9.0
-	golang.org/x/net v0.8.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/tools v0.7.0
 	gonum.org/v1/gonum v0.12.0
@@ -152,7 +151,6 @@ require (
 	k8s.io/client-go v0.26.3
 	k8s.io/component-base v0.26.3
 	k8s.io/kubectl v0.26.3
-	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/controller-tools v0.11.3
@@ -495,6 +493,7 @@ require (
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/arch v0.1.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
@@ -516,6 +515,7 @@ require (
 	k8s.io/apiserver v0.26.3 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230228151317-19cbebb19cb7 // indirect
+	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	oras.land/oras-go v1.2.0 // indirect
 	sigs.k8s.io/gateway-api v0.6.0 // indirect

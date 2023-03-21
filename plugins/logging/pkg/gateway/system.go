@@ -2,13 +2,6 @@ package gateway
 
 import (
 	"context"
-	"errors"
-	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
-	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
-	"io"
 	"os"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -77,94 +70,4 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 	p.uninstallController.Set(ctrl)
 	<-p.ctx.Done()
-}
-
-func (p *Plugin) watchGlobalCluster(client managementv1.ManagementClient) {
-	clusterClient, err := client.WatchClusters(p.ctx, &managementv1.WatchClustersRequest{})
-	if err != nil {
-		p.logger.Errorf("failed to watch clusters, exiting")
-		os.Exit(1)
-	}
-
-	p.logger.Infof("watching cluster events")
-
-	for {
-		select {
-		case <-p.ctx.Done():
-			p.logger.Infof("context cancelled, stopping cluster event watcher")
-			return
-		default:
-			event, err := clusterClient.Recv()
-			if err != nil {
-				p.logger.With(zap.Error(err)).Errorf("failed to receive cluster event")
-				continue
-			}
-
-			switch event.Type {
-			case managementv1.WatchEventType_Updated:
-				clusterId := event.Cluster.Id
-				p.logger.With("cluster", clusterId).Debug("received cluster update event")
-
-				hasLogging := slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
-					return c.Name == wellknown.CapabilityLogs
-				})
-
-				if !hasLogging {
-					p.logger.With(
-						"cluster", clusterId,
-					).Debug("cluster does not have logging, ignoring cluster event")
-					continue
-				}
-
-				newName, oldName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel], event.PreviousCluster.Metadata.Labels[opnicorev1.NameLabel]
-				if newName == oldName {
-					p.logger.With(
-						"oldName", oldName,
-						"newName", newName,
-					).Debug("cluster was not renamed")
-					continue
-				}
-
-				p.logger.With(
-					"oldName", oldName,
-					"newName", newName,
-				).Debug("cluster was renamed")
-
-				if p.opensearchManager.Client == nil {
-					p.logger.With(
-						"cluster", clusterId,
-					).Warnf("plugin has nil opensearch client, doing nothing")
-					continue
-				}
-
-				resp, err := p.opensearchManager.Indices.UpdateDocument(p.ctx, "opni-cluster-metadata", clusterId, opensearchutil.NewJSONReader(
-					types.MetadataUpdate{
-						Document: types.ClusterMetadataUpdate{
-							Name: newName,
-						},
-					},
-				))
-
-				if err != nil {
-					p.logger.Errorf("failed to update cluster in metadata index: %s", err)
-					continue
-				}
-
-				if resp.IsError() {
-					errMsg, err := io.ReadAll(resp.Body)
-
-					if err != nil {
-						p.logger.Errorf("failed to read response body: %s", err)
-					}
-
-					p.logger.With(
-						"cluster", clusterId,
-						"newName", newName,
-						zap.Error(errors.New(string(errMsg))),
-					).Errorf("failed to update cluster to opensearch cluster newName index")
-				}
-				resp.Body.Close()
-			}
-		}
-	}
 }

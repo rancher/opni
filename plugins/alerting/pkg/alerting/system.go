@@ -95,7 +95,7 @@ func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
 		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 
-	p.globalWatchers = gateway.NewSimpleInternalConditionWatcher(
+	p.globalWatchers = gateway.NewConditionWatcher(
 		clusterCrud,
 		clusterHealthStatus,
 		cortexBackendStatus,

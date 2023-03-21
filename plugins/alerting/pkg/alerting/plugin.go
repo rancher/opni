@@ -56,7 +56,7 @@ type Plugin struct {
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
 	natsConn        future.Future[*nats.Conn]
 	js              future.Future[nats.JetStreamContext]
-	globalWatchers  gateway.InternalConditionWatcher
+	globalWatchers  gateway.ConditionWatcher
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

@@ -108,9 +108,9 @@ func (m *Server) WatchClusters(
 			o = event.Previous
 		}
 		if err := stream.Send(&managementv1.WatchEvent{
-			Cluster: c,
-			Type:    eventType,
-			Old:     o,
+			Cluster:         c,
+			Type:            eventType,
+			PreviousCluster: o,
 		}); err != nil {
 			return err
 		}

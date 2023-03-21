@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/rancher/opni/pkg/gateway"
 	"sync"
 	"time"
 
@@ -15,46 +16,17 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ WatcherHooks[proto.Message] = &ManagementWatcherHooks[proto.Message]{}
-
-type ManagementWatcherHooks[T proto.Message] struct {
-	parentCtx context.Context
-	cases     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]
-}
-
-func (c *ManagementWatcherHooks[T]) RegisterEvent(eventFilter func(T) bool, hook ...func(context.Context, T) error) {
-	c.cases = append(c.cases, lo.Tuple2[func(T) bool, []func(context.Context, T) error]{A: eventFilter, B: hook})
-}
-
-func (c *ManagementWatcherHooks[T]) HandleEvent(event T) {
-	for _, cs := range c.cases {
-		if cs.A(event) {
-			for _, hook := range cs.B {
-				_ = hook(c.parentCtx, event)
-			}
-		}
-	}
-}
-
-func NewDefaultClusterWatcherHooks[T proto.Message](parentCtx context.Context) *ManagementWatcherHooks[T] {
-	return &ManagementWatcherHooks[T]{
-		parentCtx: parentCtx,
-		cases:     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]{},
-	}
-}
-
-func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *ManagementWatcherHooks[*managementv1.WatchEvent] {
+func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *gateway.ManagementWatcherHooks[*managementv1.WatchEvent] {
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
 	if err != nil {
 		panic(err)
 	}
-	cw := NewDefaultClusterWatcherHooks[*managementv1.WatchEvent](ctx)
-	cw.RegisterEvent(
+	cw := gateway.NewManagementWatcherHooks[*managementv1.WatchEvent](ctx)
+	cw.RegisterHook(
 		createClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			err := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, NewAgentDurableReplayConsumer(event.Cluster.Id))
@@ -63,7 +35,6 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 				panic(err)
 			}
 			return nil
-
 		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			return p.createDefaultDisconnect(ctx, event.Cluster.Id)
@@ -72,7 +43,7 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 			return p.createDefaultCapabilityHealth(ctx, event.Cluster.Id)
 		},
 	)
-	cw.RegisterEvent(
+	cw.RegisterHook(
 		deleteClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			return p.onDeleteClusterAgentDisconnectHook(ctx, event.Cluster.Id)

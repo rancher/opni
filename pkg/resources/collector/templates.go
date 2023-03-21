@@ -165,10 +165,9 @@ processors:
       - "k8s.node.name"
       - "container.image.name"
       - "container.image.tag"
-    labels:
-    - tag_name: tier
-      key: tier
-      from: pod
+      labels:
+      - key: tier
+      - key: component
 service:
   pipelines:
   {{- if .Logs.Enabled }}

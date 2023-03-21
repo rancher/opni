@@ -1,11 +1,16 @@
 package gateway
 
 import (
+	"context"
+
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/metrics/impersonation"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc"
 )
 
@@ -31,4 +36,11 @@ func (p *Plugin) StreamServers() []streamext.Server {
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.delegate.Set(streamext.NewDelegate(cc, remoteread.NewRemoteReadAgentClient))
+}
+
+func (p *Plugin) labelsForStreamMetrics(ctx context.Context) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.Key(impersonation.LabelImpersonateAs).String(cluster.StreamAuthorizedID(ctx)),
+		attribute.Key("handler").String("plugin_metrics"),
+	}
 }

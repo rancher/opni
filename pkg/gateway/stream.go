@@ -6,6 +6,9 @@ import (
 	"sync"
 
 	"github.com/kralicky/totem"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/attribute"
+	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -15,6 +18,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/metrics/impersonation"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
@@ -28,6 +32,7 @@ type remote struct {
 
 type StreamServer struct {
 	streamv1.UnimplementedStreamServer
+	StreamServerOptions
 	logger       *zap.SugaredLogger
 	handler      ConnectionHandler
 	clusterStore storage.ClusterStore
@@ -36,15 +41,37 @@ type StreamServer struct {
 	remotes      []remote
 }
 
+type StreamServerOptions struct {
+	metricsRegisterer prometheus.Registerer
+}
+
+type StreamServerOption func(*StreamServerOptions)
+
+func (o *StreamServerOptions) apply(opts ...StreamServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithMetricsRegisterer(metricsRegisterer prometheus.Registerer) StreamServerOption {
+	return func(o *StreamServerOptions) {
+		o.metricsRegisterer = prometheus.WrapRegistererWithPrefix("opni_gateway_", metricsRegisterer)
+	}
+}
+
 func NewStreamServer(
 	handler ConnectionHandler,
 	clusterStore storage.ClusterStore,
 	lg *zap.SugaredLogger,
+	opts ...StreamServerOption,
 ) *StreamServer {
+	options := StreamServerOptions{}
+	options.apply(opts...)
 	return &StreamServer{
-		logger:       lg.Named("grpc"),
-		handler:      handler,
-		clusterStore: clusterStore,
+		StreamServerOptions: options,
+		logger:              lg.Named("grpc"),
+		handler:             handler,
+		clusterStore:        clusterStore,
 	}
 }
 
@@ -53,7 +80,23 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	ctx := stream.Context()
 	id := cluster.StreamAuthorizedID(ctx)
 
-	ts, err := totem.NewServer(stream, totem.WithName("gateway-server"))
+	opts := []totem.ServerOption{
+		totem.WithName("gateway-server"),
+	}
+	if s.metricsRegisterer != nil {
+		otelPromExporter, err := otelprometheus.New(
+			otelprometheus.WithRegisterer(s.metricsRegisterer),
+			otelprometheus.WithoutScopeInfo(),
+			otelprometheus.WithoutTargetInfo(),
+		)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, totem.WithMetrics(otelPromExporter,
+			attribute.Key(impersonation.LabelImpersonateAs).String(id),
+		))
+	}
+	ts, err := totem.NewServer(stream, opts...)
 	if err != nil {
 		return err
 	}

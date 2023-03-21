@@ -113,6 +113,7 @@ func NewHTTPServer(
 	}
 
 	srv.metricsRegisterer.MustRegister(apiCollectors...)
+
 	pl.Hook(hooks.OnLoad(func(p types.MetricsPlugin) {
 		srv.metricsRegisterer.MustRegister(p)
 	}))

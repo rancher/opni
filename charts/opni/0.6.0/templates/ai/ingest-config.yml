@@ -1,0 +1,14 @@
+{{- if .Values.ai.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opni-preprocessing-config
+  namespace: {{ include "opni.namespace" . }}
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+data:
+  settings.yml: |-
+    nats:
+      endpoint: nats://opni-nats-client.{{ include "opni.namespace" . }}.svc:4222
+      seed_file: /etc/nkey/seed
+{{- end }}

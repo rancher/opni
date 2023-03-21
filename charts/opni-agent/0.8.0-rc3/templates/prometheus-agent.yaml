@@ -1,0 +1,75 @@
+{{- if eq .Values.agent.version "v1" }}
+{{- if (and .Values.metrics.prometheusAgent.enabled .Values.metrics.enabled) }}
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: opni-prometheus-agent
+  namespace: {{ include "opni-agent.namespace" . }}
+spec:
+  image: quay.io/prometheus/prometheus:latest
+  containers:
+    - name: prometheus
+      args:
+        - "--config.file=/etc/prometheus/config_out/prometheus.env.yaml"
+        - "--web.enable-lifecycle"
+        - "--storage.agent.path=/prometheus"
+        - "--enable-feature=agent"
+  remoteWrite:
+    - url: "http://opni-agent.{{ .Release.Namespace }}.svc/api/agent/push"
+  replicas: 1
+  podMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
+  probeNamespaceSelector: {}
+  probeSelector: {}
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector: {}
+  serviceAccountName: opni-prometheus-agent
+---
+{{- if .Values.metrics.prometheusAgent.rbac }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opni-prometheus-agent
+  namespace: {{ include "opni-agent.namespace" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-prometheus-agent-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opni-prometheus-agent-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opni-prometheus-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: opni-prometheus-agent
+    namespace: {{ include "opni-agent.namespace" . }}
+{{- end }}
+{{- end }}
+{{- end }}
+

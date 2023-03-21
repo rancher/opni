@@ -1,0 +1,42 @@
+{{- if eq .Values.agent.version "v1" }}
+{{- if or (and .Values.token .Values.metrics.enabled) (.Values.bootstrapInCluster.enabled) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-config
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+stringData:
+  config.yaml: |-
+    apiVersion: v1beta1
+    kind: AgentConfig
+    spec:
+      gatewayAddress: {{ .Values.address }}
+      identityProvider: kubernetes
+      listenAddress: :8080
+      {{- if .Values.bootstrapInCluster.enabled }}
+      trustStrategy: pkp
+      {{- else }}
+      trustStrategy: {{ .Values.metrics.insecure | ternary "insecure" "pkp" }}
+      {{- end }}
+      rules:
+        discovery:
+          prometheusRules: {}
+      storage:
+        type: customResources
+      bootstrap:
+        {{- if .Values.bootstrapInCluster.enabled }}
+        inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}
+        {{- else }}
+        token: {{ .Values.token }}
+        pins: [{{ .Values.pin }}]
+        {{- end }}
+      {{- if .Values.logLevel }}
+      logLevel: {{ .Values.logLevel }}
+      {{- end }}
+      {{- if .Values.profiling }}
+      profiling: {{ .Values.profiling }}
+      {{- end }}
+{{- end }}
+{{- end }}

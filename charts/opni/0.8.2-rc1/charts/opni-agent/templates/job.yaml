@@ -1,0 +1,51 @@
+{{- if eq .Values.agent.version "v1" }}
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+{{- if (and .Values.logging.enabled (not .Values.logging.disableBootstrap)) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opni-logging-bootstrap
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.logging.jobTTL }}
+  ttlSecondsAfterFinished: {{ .Values.logging.jobTTL }}
+  {{- end }}
+  template:
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: opni-agent
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: bootstrap
+        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - bootstrap
+        - logging
+        - {{ .Release.Name }}
+        - --in-cluster
+        - --provider={{ .Values.logging.provider }}
+        - --token={{ .Values.token }}
+        - --pin={{ .Values.pin }}
+        - --gateway-url={{ .Values.address }}
+        - --namespace={{ include "opni-agent.namespace" . }}
+        {{- if .Values.logging.insecure }}
+        - --trust-strategy=insecure
+        - --confirm-insecure
+        {{- end }}
+        {{- if .Values.logging.disableOpensearchTLSVerify }}
+        - --opensearch-insecure
+        {{- end }}
+        {{- if .Values.logging.tracing }}
+        - --tracing
+        {{- end }}
+      restartPolicy: Never
+  backoffLimit: 3
+{{- end }}
+{{- end }}

@@ -1,0 +1,71 @@
+questions:
+  - variable: gateway.hostname
+    description: "Hostname where the public gateway service will be accessible"
+    group: "Gateway"
+    required: true
+    type: hostname
+    min_length: 1
+    label: "Hostname"
+  - variable: gateway.serviceType
+    show_if: "gateway.enabled=true"
+    description: "Public gateway service type"
+    group: "Gateway"
+    type: enum
+    default: "LoadBalancer"
+    label: "Service Type"
+    options:
+      - LoadBalancer
+      - ClusterIP
+  - variable: gateway.auth.provider
+    show_if: "gateway.enabled=true"
+    description: "Gateway authentication provider"
+    group: "Auth Settings"
+    type: enum
+    default: "noauth"
+    label: "Auth Provider"
+    options:
+      - noauth
+      - openid
+    subquestions:
+      - variable: gateway.auth.openid.discovery.issuer
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "OpenID Issuer URL"
+        required: true
+        label: "Issuer URL"
+        valid_chars: 'https:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+      - variable: gateway.auth.openid.identifyingClaim
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: "sub"
+        type: string
+        description: 'Claim used to uniquely identify users (e.g. "sub", "email", etc)'
+        required: true
+        label: "Identifying Claim"
+      - variable: gateway.auth.openid.clientID
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "Client ID"
+        required: true
+        label: "Client ID"
+      - variable: gateway.auth.openid.clientSecret
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "Client Secret"
+        required: true
+        label: "Client Secret"
+      - variable: gateway.auth.openid.roleAttributePath
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/generic-oauth/#role-mapping"
+        required: true
+        label: "Grafana Role Attribute Path"
+    

@@ -1,0 +1,78 @@
+replicaCount: 1
+
+image:
+  repository: rancher/opni
+  pullPolicy: Always
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+volumes: []
+volumeMounts: []
+
+gateway:
+  enabled: true
+  # Service type for the external gateway APIs
+  serviceType: LoadBalancer
+  # Gateway hostname (required if gateway.enabled is true)
+  hostname: ""
+  # Auth provider config (required if gateway.enabled is true)
+  auth:
+    # Noauth provider:
+    provider: noauth
+
+    # Openid provider:
+    # provider: openid
+    # openid:
+    #   {} # see docs
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraVolumeMounts: []
+  serviceAnnotations: {}
+
+  # Alerting
+  alerting:
+    enabled: false
+
+ai:
+  enabled: false
+  s3:
+    internal: {}
+
+opni-prometheus-crd:
+  enabled: false # set to false if `opni-agent.kube-prometheus-stack.enabled` is true
+
+opni-agent:
+  enabled: true
+  address: opni
+  fullnameOverride: opni-agent
+  bootstrapInCluster:
+    enabled: true
+    managementAddress: opni-internal:11090
+  agent:
+    version: v2
+  kube-prometheus-stack:
+    enabled: true
+
+global:
+  cattle:
+    systemDefaultRegistry: ""
+
+kube-prometheus-stack:
+  grafana:
+    enabled: false # disable the default Grafana deployment
+  prometheus:
+    enabled: false # disable the default Prometheus deployment
+  alertmanager:
+    enabled: false # disable the default Alertmanager deployment

@@ -95,7 +95,7 @@ require (
 	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.8.3-0.20230301215441-f90ef47c2033
 	github.com/prometheus/procfs v0.9.0
-	github.com/prometheus/prometheus v0.41.0
+	github.com/prometheus/prometheus v0.42.0
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.32.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.2
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
@@ -110,7 +110,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/steveteuber/kubectl-graph v0.6.0
-	github.com/thanos-io/thanos v0.29.1-0.20230131102841-a3b6b10afb00
+	github.com/thanos-io/thanos v0.31.0-rc.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
@@ -166,13 +166,12 @@ require (
 	cloud.google.com/go/iam v0.12.0 // indirect
 	cloud.google.com/go/storage v1.28.1 // indirect
 	github.com/AlekSi/pointer v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.1.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.1.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.22 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v0.5.1 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v0.7.0 // indirect
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -250,6 +249,7 @@ require (
 	github.com/ecordell/optgen v0.0.6 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/efficientgo/core v1.0.0-rc.2 // indirect
+	github.com/efficientgo/tools/extkingpin v0.0.0-20220817170617-6c25e3b627dd // indirect
 	github.com/elliotchance/orderedmap v1.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/emicklei/proto v1.6.15 // indirect
@@ -270,7 +270,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.4.0 // indirect
 	github.com/go-git/go-git/v5 v5.6.0 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
-	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
@@ -294,8 +294,7 @@ require (
 	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gogo/status v1.1.1 // indirect
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang-migrate/migrate/v4 v4.15.2 // indirect
 	github.com/golang/glog v1.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -429,7 +428,7 @@ require (
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/rubenv/sql-migrate v1.1.2 // indirect
-	github.com/rueian/rueidis v0.0.90 // indirect
+	github.com/rueian/rueidis v0.0.93 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.0.0 // indirect
@@ -450,8 +449,8 @@ require (
 	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
-	github.com/thanos-community/promql-engine v0.0.0-20230124070417-9e293186b7e4 // indirect
-	github.com/thanos-io/objstore v0.0.0-20221205132204-5aafc0079f06 // indirect
+	github.com/thanos-community/promql-engine v0.0.0-20230224075812-ae04bbea7613 // indirect
+	github.com/thanos-io/objstore v0.0.0-20230201072718-11ffbc490204 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -484,7 +483,7 @@ require (
 	go.opentelemetry.io/contrib/propagators/b3 v1.15.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.15.0 // indirect
 	go.opentelemetry.io/contrib/propagators/ot v1.15.0 // indirect
-	go.opentelemetry.io/otel/bridge/opentracing v1.11.1-0.20221013154440-84e28fd3bdb1 // indirect
+	go.opentelemetry.io/otel/bridge/opentracing v1.12.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.12.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.12.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.12.0 // indirect
@@ -492,6 +491,8 @@ require (
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
+	go4.org/intern v0.0.0-20220617035311-6925f38cc365 // indirect
+	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/arch v0.1.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect

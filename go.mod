@@ -155,7 +155,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/controller-tools v0.11.3
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
-	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
+	sigs.k8s.io/node-feature-discovery-operator v0.5.0
 	sigs.k8s.io/yaml v1.3.0
 )
 

@@ -170,7 +170,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 		return
 	}
 	bytesAggregation := []byte(aggregatedResults)
-	p.kv.Get().Put("aggregation", bytesAggregation)
+	p.aggregationKv.Get().Put("aggregation", bytesAggregation)
 	p.Logger.Info("Updated aggregation of deployments to Jetstream.")
 }
 

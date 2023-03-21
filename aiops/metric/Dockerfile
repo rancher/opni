@@ -1,11 +1,9 @@
-FROM python:3.8-slim
+FROM rancher/opni-python-base:3.8-torch
 
 COPY ./ /app/
 WORKDIR /app
-RUN apt update
-RUN apt install vim -y
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN chmod a+rwx -R /app
 
-CMD ["sleep", "50000000000"]
+CMD ["uvicorn", "backend:app", "--port", "10010"]

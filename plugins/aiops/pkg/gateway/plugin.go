@@ -47,6 +47,12 @@ type PluginOptions struct {
 
 type PluginOption func(*PluginOptions)
 
+const (
+	workloadAggregationCountBucket = "os-workload-aggregation"
+	modelTrainingParametersBucket  = "model-training-parameters"
+	modelTrainingStatisticsBucket  = "model-training-statistics"
+)
+
 func (o *PluginOptions) apply(opts ...PluginOption) {
 	for _, op := range opts {
 		op(o)
@@ -126,7 +132,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 		lg.Fatal(err)
 	}
 	aggregationKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "os-workload-aggregation",
+		Bucket:      workloadAggregationCountBucket,
 		Description: "Storing aggregation of workload logs from Opensearch.",
 	})
 	if err != nil {
@@ -136,7 +142,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	p.aggregationKv.Set(aggregationKeyValue)
 
 	modelParametersKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "model-training-parameters",
+		Bucket:      modelTrainingParametersBucket,
 		Description: "Storing the workloads specified for model training.",
 	})
 	if err != nil {
@@ -146,7 +152,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	p.modelTrainingKv.Set(modelParametersKeyValue)
 
 	modelStatisticsKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "model-training-statistics",
+		Bucket:      modelTrainingStatisticsBucket,
 		Description: "Storing the statistics for the training of the model.",
 	})
 	if err != nil {

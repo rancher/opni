@@ -19,9 +19,9 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "ghcr.io/dbason"
-	collectorImage     = "otelcol-custom"
-	collectorVersion   = "0.71.0"
+	collectorImageRepo = "ghcr.io/rancher-sandbox"
+	collectorImage     = "opni-otel-collector"
+	collectorVersion   = "v0.1.0-0.71.0"
 	otlpGRPCPort       = int32(4317)
 	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
 	machineID          = "/etc/machine-id"

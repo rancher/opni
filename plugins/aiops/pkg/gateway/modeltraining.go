@@ -22,6 +22,8 @@ const (
 	modelTrainingParametersKey = "modelTrainingParameters"
 	modelTrainingStatusKey     = "modelTrainingStatus"
 	logAggregationCountKey     = "aggregation"
+	modelTrainingNatsSubject   = "train_model"
+	modelStatusNatsSubject     = "model_status"
 )
 
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
@@ -52,7 +54,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
 	}
-	msg, err := natsConnection.Request("train_model", jsonParameters, time.Minute)
+	msg, err := natsConnection.Request(modelTrainingNatsSubject, jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
@@ -126,7 +128,7 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*mo
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}
-	msg, err := natsConnection.Request("model_status", b, time.Minute)
+	msg, err := natsConnection.Request(modelStatusNatsSubject, b, time.Minute)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to get model status.")
 	}

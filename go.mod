@@ -54,7 +54,7 @@ require (
 	github.com/jarcoal/httpmock v1.3.0
 	github.com/jaypipes/ghw v0.10.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
-	github.com/jhump/protoreflect v1.14.1
+	github.com/jhump/protoreflect v1.15.1
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/karlseguin/ccache v2.0.3+incompatible
 	github.com/klauspost/compress v1.16.3
@@ -213,6 +213,7 @@ require (
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // indirect
 	github.com/briandowns/spinner v1.12.0 // indirect
+	github.com/bufbuild/protocompile v0.4.0 // indirect
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect

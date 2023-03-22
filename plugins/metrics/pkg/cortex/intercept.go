@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const lowerOrgIDHeaderName = "x-scope-orgid"
+
 type WriteHandlerFunc = func(context.Context, *cortexpb.WriteRequest, ...grpc.CallOption) (*cortexpb.WriteResponse, error)
 
 type RequestInterceptor interface {
@@ -61,7 +63,7 @@ func (t federatingInterceptor) Intercept(
 		errs = append(errs, t.mdTracker.replicate(req.Metadata, func(tenantId string, metricMetadata []*cortexpb.MetricMetadata) error {
 			req.Metadata = metricMetadata
 			md, _, _ := metadata.FromOutgoingContextRaw(outgoingCtx)
-			md["x-scope-orgid"] = []string{tenantId}
+			md[lowerOrgIDHeaderName] = []string{tenantId}
 			if _, err := handler(outgoingCtx, req); err != nil {
 				return err
 			}
@@ -80,13 +82,24 @@ func (t federatingInterceptor) Intercept(
 	}
 TIMESERIES:
 	for _, ts := range req.Timeseries {
+		nameLabelIndex := -1
+		for i, l := range ts.Labels {
+			// in practice, this appears to always be index 0
+			if l.Name == "__name__" {
+				nameLabelIndex = i
+				break
+			}
+		}
+		if nameLabelIndex == -1 {
+			continue
+		}
 		for i, l := range ts.Labels {
 			if l.Name == t.conf.IdLabelName {
 				if t.conf.DropIdLabel {
 					ts.Labels = append(ts.Labels[:i], ts.Labels[i+1:]...)
 				}
 				buckets[l.Value] = append(buckets[l.Value], ts)
-				t.mdTracker.track(ts.Labels[0].Value, l.Value)
+				t.mdTracker.track(ts.Labels[nameLabelIndex].Value, l.Value)
 				continue TIMESERIES
 			}
 		}
@@ -102,7 +115,7 @@ TIMESERIES:
 	for tenantId, series := range buckets {
 		req.Timeseries = series // reuse the same request
 		md, _, _ := metadata.FromOutgoingContextRaw(outgoingCtx)
-		md["x-scope-orgid"] = []string{tenantId}
+		md[lowerOrgIDHeaderName] = []string{tenantId}
 		if _, err := handler(outgoingCtx, req); err != nil {
 			errs = append(errs, err)
 		}

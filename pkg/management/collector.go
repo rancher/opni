@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/metrics/impersonation"
+	"github.com/rancher/opni/pkg/metrics"
 	"github.com/samber/lo"
 )
 
@@ -16,25 +16,25 @@ var (
 	clusterInfo = prometheus.NewDesc(
 		"opni_cluster_info",
 		"Cluster information",
-		[]string{impersonation.LabelImpersonateAs, "friendly_name"},
+		[]string{metrics.LabelImpersonateAs, "friendly_name"},
 		prometheus.Labels{},
 	)
 	agentUp = prometheus.NewDesc(
 		"opni_agent_up",
 		"Agent connection status",
-		[]string{impersonation.LabelImpersonateAs},
+		[]string{metrics.LabelImpersonateAs},
 		prometheus.Labels{},
 	)
 	agentReady = prometheus.NewDesc(
 		"opni_agent_ready",
 		"Agent readiness status",
-		[]string{impersonation.LabelImpersonateAs, "conditions"},
+		[]string{metrics.LabelImpersonateAs, "conditions"},
 		prometheus.Labels{},
 	)
 	agentSummary = prometheus.NewDesc(
 		"opni_agent_status_summary",
 		"Agent status summary",
-		[]string{impersonation.LabelImpersonateAs, "summary"},
+		[]string{metrics.LabelImpersonateAs, "summary"},
 		prometheus.Labels{},
 	)
 )

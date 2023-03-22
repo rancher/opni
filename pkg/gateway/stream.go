@@ -7,6 +7,7 @@ import (
 
 	"github.com/kralicky/totem"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.uber.org/zap"
@@ -18,7 +19,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/metrics/impersonation"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
@@ -93,7 +93,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 			return err
 		}
 		opts = append(opts, totem.WithMetrics(otelPromExporter,
-			attribute.Key(impersonation.LabelImpersonateAs).String(id),
+			attribute.Key(metrics.LabelImpersonateAs).String(id),
 		))
 	}
 	ts, err := totem.NewServer(stream, opts...)

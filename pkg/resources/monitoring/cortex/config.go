@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-
+	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 
@@ -50,6 +50,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/relabel"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
@@ -395,6 +396,9 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			MaxLocalMetadataPerMetric:          math.MaxInt32,
 			MaxGlobalSeriesPerUser:             math.MaxInt32,
 			MaxGlobalSeriesPerMetric:           math.MaxInt32,
+			MetricRelabelConfigs: []*relabel.Config{
+				metrics.OpniInternalLabelFilter(),
+			},
 		},
 	}
 

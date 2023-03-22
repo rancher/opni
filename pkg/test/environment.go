@@ -539,6 +539,10 @@ func (e *Environment) GenerateNewTempDirectory(prefix string) string {
 	return path.Join(e.tempDir, fmt.Sprintf("%s-%s", prefix, uuid.New().String()))
 }
 
+func (e *Environment) GetTempDirectory() string {
+	return e.tempDir
+}
+
 func (e *Environment) Context() context.Context {
 	return e.ctx
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/metrics/impersonation"
+	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
@@ -50,7 +50,7 @@ func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
 
 		f.interceptors = map[string]RequestInterceptor{
 			"local": NewFederatingInterceptor(InterceptorConfig{
-				IdLabelName: impersonation.LabelImpersonateAs,
+				IdLabelName: metrics.LabelImpersonateAs,
 				DropIdLabel: true,
 			}),
 		}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/metrics/impersonation"
+	"github.com/rancher/opni/pkg/metrics"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -40,7 +40,7 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 
 func (p *Plugin) labelsForStreamMetrics(ctx context.Context) []attribute.KeyValue {
 	return []attribute.KeyValue{
-		attribute.Key(impersonation.LabelImpersonateAs).String(cluster.StreamAuthorizedID(ctx)),
+		attribute.Key(metrics.LabelImpersonateAs).String(cluster.StreamAuthorizedID(ctx)),
 		attribute.Key("handler").String("plugin_metrics"),
 	}
 }

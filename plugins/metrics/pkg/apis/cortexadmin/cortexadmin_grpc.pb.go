@@ -25,6 +25,7 @@ const (
 	CortexAdmin_Query_FullMethodName              = "/cortexadmin.CortexAdmin/Query"
 	CortexAdmin_QueryRange_FullMethodName         = "/cortexadmin.CortexAdmin/QueryRange"
 	CortexAdmin_GetRule_FullMethodName            = "/cortexadmin.CortexAdmin/GetRule"
+	CortexAdmin_GetMetricMetadata_FullMethodName  = "/cortexadmin.CortexAdmin/GetMetricMetadata"
 	CortexAdmin_ListRules_FullMethodName          = "/cortexadmin.CortexAdmin/ListRules"
 	CortexAdmin_LoadRules_FullMethodName          = "/cortexadmin.CortexAdmin/LoadRules"
 	CortexAdmin_DeleteRule_FullMethodName         = "/cortexadmin.CortexAdmin/DeleteRule"
@@ -45,6 +46,7 @@ type CortexAdminClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	GetRule(ctx context.Context, in *GetRuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	GetMetricMetadata(ctx context.Context, in *MetricMetadataRequest, opts ...grpc.CallOption) (*MetricMetadata, error)
 	// Heavy-handed API for diagnostics.
 	ListRules(ctx context.Context, in *ListRulesRequest, opts ...grpc.CallOption) (*ListRulesResponse, error)
 	LoadRules(ctx context.Context, in *LoadRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -105,6 +107,15 @@ func (c *cortexAdminClient) QueryRange(ctx context.Context, in *QueryRangeReques
 func (c *cortexAdminClient) GetRule(ctx context.Context, in *GetRuleRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
 	err := c.cc.Invoke(ctx, CortexAdmin_GetRule_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) GetMetricMetadata(ctx context.Context, in *MetricMetadataRequest, opts ...grpc.CallOption) (*MetricMetadata, error) {
+	out := new(MetricMetadata)
+	err := c.cc.Invoke(ctx, CortexAdmin_GetMetricMetadata_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,6 +212,7 @@ type CortexAdminServer interface {
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error)
 	GetRule(context.Context, *GetRuleRequest) (*QueryResponse, error)
+	GetMetricMetadata(context.Context, *MetricMetadataRequest) (*MetricMetadata, error)
 	// Heavy-handed API for diagnostics.
 	ListRules(context.Context, *ListRulesRequest) (*ListRulesResponse, error)
 	LoadRules(context.Context, *LoadRuleRequest) (*emptypb.Empty, error)
@@ -233,6 +245,9 @@ func (UnimplementedCortexAdminServer) QueryRange(context.Context, *QueryRangeReq
 }
 func (UnimplementedCortexAdminServer) GetRule(context.Context, *GetRuleRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRule not implemented")
+}
+func (UnimplementedCortexAdminServer) GetMetricMetadata(context.Context, *MetricMetadataRequest) (*MetricMetadata, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetricMetadata not implemented")
 }
 func (UnimplementedCortexAdminServer) ListRules(context.Context, *ListRulesRequest) (*ListRulesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRules not implemented")
@@ -360,6 +375,24 @@ func _CortexAdmin_GetRule_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CortexAdminServer).GetRule(ctx, req.(*GetRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_GetMetricMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MetricMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetMetricMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexAdmin_GetMetricMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetMetricMetadata(ctx, req.(*MetricMetadataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -552,6 +585,10 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRule",
 			Handler:    _CortexAdmin_GetRule_Handler,
+		},
+		{
+			MethodName: "GetMetricMetadata",
+			Handler:    _CortexAdmin_GetMetricMetadata_Handler,
 		},
 		{
 			MethodName: "ListRules",

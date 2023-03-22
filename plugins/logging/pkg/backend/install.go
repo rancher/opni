@@ -2,10 +2,6 @@ package backend
 
 import (
 	"context"
-	"errors"
-	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	"go.uber.org/zap"
-	"io"
 	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -81,81 +77,16 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	}
 
 	addCtx, _ := context.WithTimeout(ctx, time.Minute*5)
-	b.addClusterMetadata(addCtx, req.Cluster)
+	if err := b.addClusterMetadata(addCtx, req.Cluster); err != nil {
+		return &capabilityv1.InstallResponse{
+			Status:  capabilityv1.InstallResponseStatus_Error,
+			Message: err.Error(),
+		}, nil
+	}
 
 	return &capabilityv1.InstallResponse{
 		Status: capabilityv1.InstallResponseStatus_Success,
 	}, nil
-}
-
-func (b *LoggingBackend) addClusterMetadata(ctx context.Context, ref *opnicorev1.Reference) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		if b.OpensearchManager.Client == nil {
-			b.Logger.Errorf("oopensearch client not set, retrying")
-			time.Sleep(time.Second * 10)
-			continue
-		}
-
-		cluster, err := b.MgmtClient.GetCluster(ctx, ref)
-		if err != nil {
-			b.Logger.With(
-				"cluster", ref.Id,
-				zap.Error(err),
-			).Errorf("could not get cluster")
-			break
-		}
-
-		clusterName, found := cluster.Metadata.Labels[opnicorev1.NameLabel]
-		if !found {
-			clusterName = cluster.Id
-		}
-
-		resp, err := b.OpensearchManager.Indices.AddDocument(ctx, "opni-cluster-metadata", cluster.Id, opensearchutil.NewJSONReader(map[string]string{
-			"id":   cluster.Id,
-			"name": clusterName,
-		}))
-
-		if err != nil {
-			b.Logger.With(
-				"cluster", ref.Id,
-				zap.Error(err),
-			).Errorf("could not add cluster to cluster metadata index retrying")
-			time.Sleep(time.Second * 10)
-			continue
-		}
-
-		if resp.IsError() {
-			errMsg, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
-
-			if err != nil {
-				b.Logger.With(
-					"cluster", cluster.Id,
-					zap.Error(err),
-				).Errorf("failed to add cluster to opensearch cluster name index and could not read response")
-				break
-			}
-
-			b.Logger.With(
-				"cluster", cluster.Id,
-				zap.Error(errors.New(string(errMsg))),
-			).Errorf("failed to add cluster to opensearch cluster name index")
-			break
-		}
-
-		resp.Body.Close()
-
-		b.Logger.With(
-			"cluster", ref.Id,
-		).Infof("added cluster to metadata index")
-		break
-	}
 }
 
 func (b *LoggingBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {

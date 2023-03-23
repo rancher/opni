@@ -13,48 +13,67 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"io"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 )
 
-func (b *LoggingBackend) reconcileClusterMetadata(ctx context.Context) error {
-	for {
+func (b *LoggingBackend) waitForOpensearchClient(ctx context.Context) error {
+	var retErr error
+	stopChan := make(chan struct{})
+
+	wait.Until(func() {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context cancelled before metadata could be reconciled")
+			retErr = fmt.Errorf("context cancelled before client was set")
+			close(stopChan)
 		default:
 		}
+		if b.OpensearchManager.Client != nil {
+			close(stopChan)
+		} else {
+			b.Logger.Errorf("opensearch client not set, waiting")
+		}
+	}, time.Second, stopChan)
 
-		if b.OpensearchManager.Client == nil {
-			b.Logger.Errorf("opensearch client not set, retrying")
-			time.Sleep(time.Second * 10)
+	return retErr
+}
+
+func (b *LoggingBackend) reconcileClusterMetadata(ctx context.Context) error {
+	clusters, err := b.MgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return fmt.Errorf("could get cluster list: %w", err)
+	}
+
+	wg := sync.WaitGroup{}
+
+	for _, cluster := range clusters.Items {
+		hasLogging := slices.ContainsFunc(cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
+			return c.Name == wellknown.CapabilityLogs
+		})
+
+		if !hasLogging {
 			continue
 		}
 
-		clusters, err := b.MgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
-		if err != nil {
-			return fmt.Errorf("could get cluster list: %w", err)
-		}
+		wg.Add(1)
 
-		wg := sync.WaitGroup{}
-
-		for _, cluster := range clusters.Items {
-			hasLogging := slices.ContainsFunc(cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
-				return c.Name == wellknown.CapabilityLogs
-			})
-
-			if !hasLogging {
-				continue
+		cluster := cluster
+		go func() {
+			resp, err := b.OpensearchManager.Indices.GetDocument(ctx, multiclusterrolebinding.ClusterMetadataIndexName, cluster.Id)
+			if err != nil {
+				b.Logger.With(
+					"cluster", cluster.Id,
+					zap.Error(err),
+				).Errorf("could not get metadata document for cluster")
+				return
 			}
 
-			wg.Add(1)
-
-			cluster := cluster
-			go func() {
-				resp, err := b.OpensearchManager.Indices.GetDocument(ctx, multiclusterrolebinding.ClusterMetadataIndexName, cluster.Id)
-				if err != nil {
+			// todo: update cluster is name has changed
+			if resp.IsError() {
+				if resp.StatusCode != http.StatusNotFound {
 					b.Logger.With(
 						"cluster", cluster.Id,
 						zap.Error(err),
@@ -62,91 +81,65 @@ func (b *LoggingBackend) reconcileClusterMetadata(ctx context.Context) error {
 					return
 				}
 
-				if resp.IsError() {
-					if resp.StatusCode != http.StatusNotFound {
-						b.Logger.With(
-							"cluster", cluster.Id,
-							zap.Error(err),
-						).Errorf("could not get metadata document for cluster")
-						return
-					}
+				b.Logger.With(
+					"cluster", cluster.Id,
+				).Debug("no metadata found for cluster")
 
+				if err := b.addClusterMetadata(ctx, cluster.Reference()); err != nil {
 					b.Logger.With(
 						"cluster", cluster.Id,
-					).Debug("no metadata found for cluster")
-
-					if err := b.addClusterMetadata(ctx, cluster.Reference()); err != nil {
-						b.Logger.With(
-							"cluster", cluster.Id,
-							zap.Error(err),
-						).Errorf("")
-					}
+						zap.Error(err),
+					).Errorf("")
 				}
+			}
 
-				wg.Done()
-			}()
-		}
-
-		wg.Wait()
-
-		b.Logger.Infof("reconciled logging cluster metadata")
-		break
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
+
+	b.Logger.Infof("reconciled logging cluster metadata")
 
 	return nil
 }
 
 func (b *LoggingBackend) addClusterMetadata(ctx context.Context, ref *opnicorev1.Reference) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("context cancelled, not adding cluster to metadata index")
-		default:
-		}
+	cluster, err := b.MgmtClient.GetCluster(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("could not get data for cluster '%s': %w", ref.Id, err)
+	}
 
-		if b.OpensearchManager.Client == nil {
-			b.Logger.Errorf("opensearch client not set, retrying")
-			time.Sleep(time.Second * 10)
-			continue
-		}
+	clusterName, found := cluster.Metadata.Labels[opnicorev1.NameLabel]
+	if !found {
+		clusterName = cluster.Id
+	}
 
-		cluster, err := b.MgmtClient.GetCluster(ctx, ref)
-		if err != nil {
-			return fmt.Errorf("could not get data for cluster '%s': %w", ref.Id, err)
-		}
+	resp, err := b.OpensearchManager.Indices.AddDocument(ctx, multiclusterrolebinding.ClusterMetadataIndexName, cluster.Id, opensearchutil.NewJSONReader(map[string]string{
+		"id":   cluster.Id,
+		"name": clusterName,
+	}))
 
-		clusterName, found := cluster.Metadata.Labels[opnicorev1.NameLabel]
-		if !found {
-			clusterName = cluster.Id
-		}
+	if err != nil {
+		return fmt.Errorf("could not add cluster '%s' to metadata index: %w", clusterName, err)
+	}
 
-		resp, err := b.OpensearchManager.Indices.AddDocument(ctx, multiclusterrolebinding.ClusterMetadataIndexName, cluster.Id, opensearchutil.NewJSONReader(map[string]string{
-			"id":   cluster.Id,
-			"name": clusterName,
-		}))
+	if resp.IsError() {
+		errMsg, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if err != nil {
 			return fmt.Errorf("could not add cluster '%s' to metadata index: %w", clusterName, err)
 		}
 
-		if resp.IsError() {
-			errMsg, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
-
-			if err != nil {
-				return fmt.Errorf("could not add cluster '%s' to metadata index: %w", clusterName, err)
-			}
-
-			return fmt.Errorf("could not add cluster '%s' to metadata index: %s", clusterName, errMsg)
-		}
-
-		resp.Body.Close()
-
-		b.Logger.With(
-			"cluster", ref.Id,
-		).Infof("added cluster to metadata index")
-		break
+		return fmt.Errorf("could not add cluster '%s' to metadata index: %s", clusterName, errMsg)
 	}
+
+	resp.Body.Close()
+
+	b.Logger.With(
+		"cluster", ref.Id,
+	).Infof("added cluster to metadata index")
 
 	return nil
 }
@@ -208,11 +201,6 @@ func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *manag
 }
 
 func (b *LoggingBackend) watchClusterEvents(ctx context.Context) {
-	if err := b.reconcileClusterMetadata(ctx); err != nil {
-		b.Logger.With(zap.Error(err)).Error("could not reconcile opni agents with metadata index, some agents may be missing")
-		return
-	}
-
 	clusterClient, err := b.MgmtClient.WatchClusters(ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
 		b.Logger.With(zap.Error(err)).Errorf("failed to watch clusters, existing")

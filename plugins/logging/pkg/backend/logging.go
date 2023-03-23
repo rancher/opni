@@ -61,7 +61,16 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 		}, b.updateClusterMetadata)
 
 		go func() {
-			// todo: we probably want to block until the OpensearchManager.Client is set so we can avoid doing that in the other index methods
+			if err := b.waitForOpensearchClient(context.Background()); err != nil {
+				b.Logger.With(zap.Error(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
+				return
+			}
+
+			if err := b.reconcileClusterMetadata(context.Background()); err != nil {
+				b.Logger.With(zap.Error(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
+				return
+			}
+
 			b.watchClusterEvents(context.Background())
 		}()
 	})

@@ -77,6 +77,13 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	}
 
 	addCtx, _ := context.WithTimeout(ctx, time.Minute*5)
+	if err := b.waitForOpensearchClient(addCtx); err != nil {
+		return &capabilityv1.InstallResponse{
+			Status:  capabilityv1.InstallResponseStatus_Error,
+			Message: err.Error(),
+		}, nil
+	}
+
 	if err := b.addClusterMetadata(addCtx, req.Cluster); err != nil {
 		return &capabilityv1.InstallResponse{
 			Status:  capabilityv1.InstallResponseStatus_Error,

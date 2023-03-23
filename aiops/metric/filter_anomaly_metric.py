@@ -74,7 +74,7 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
                 rule2 = max(test_window) > max(history) or min(test_window) < min(history)
                 rule3 = np.mean(test_window) > mean + std_multiplier * std_dev or np.mean(test_window) < mean - std_multiplier * std_dev
                 _, rule4 = ks_anomaly_detection(values0, cut=150)
-                if rule1 and rule3:#and rule3: # rule1 and rule2
+                if rule1:#and rule3: # rule1 and rule2
                     # z_s = zscore_anomaly_detection(values0)
                     # z_s_binary = True if len(z_s) > 0 else False
                     # if z_s_binary:

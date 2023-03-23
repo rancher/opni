@@ -54,11 +54,21 @@ async def get_metrics(user_id):
     return res
 
 
-@app.get("/list_requests")
-async def list_requests():
+@app.get("/list_tasks")
+async def list_tasks():
     kv = await nw.get_bucket(BUCKET_NAME)
     keys = await kv.kv.keys()
     return [k for k in keys]
+
+@app.post("/delete_task/{task_id}")
+async def delete_task(task_id):
+    kv = await nw.get_bucket(BUCKET_NAME)
+    keys = await kv.kv.keys()
+    if task_id not in keys:
+        return {"status" : "failed", "details" : f"task {task_id} doesn't exist."}
+    else:
+        await kv.delete(task_id)
+        return {"status" : "success", "details" : "delete success"}
 
 
 @app.post("/create_task/{user_id}/{namespace}")
@@ -79,7 +89,9 @@ async def get_task_res(task_id):
         return json.loads(task_res.decode())
     else:
         return {"The requested task does not exist!"}
-    
+
+
+
 
 # res = await nw.get_bucket("model-training-parameters")
 # bucket_payload = await res.get("modelTrainingParameters")

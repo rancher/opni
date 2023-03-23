@@ -93,7 +93,7 @@ require (
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.41.0
 	github.com/prometheus/common/sigv4 v0.1.0
-	github.com/prometheus/exporter-toolkit v0.8.3-0.20230301215441-f90ef47c2033
+	github.com/prometheus/exporter-toolkit v0.9.1
 	github.com/prometheus/procfs v0.9.0
 	github.com/prometheus/prometheus v0.41.0
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.32.0
@@ -494,7 +494,7 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/arch v0.1.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/oauth2 v0.5.0 // indirect
+	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect

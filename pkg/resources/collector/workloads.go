@@ -19,7 +19,7 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "ghcr.io/dbason"
+	collectorImageRepo = "ghcr.io/rancher-sandbox"
 	collectorImage     = "opni-otel-collector"
 	collectorVersion   = "v0.1.1-0.74.0"
 	otlpGRPCPort       = int32(4317)

@@ -383,7 +383,7 @@ func (x *WatchEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WatchEvents.ProtoReflect.Descriptor instead.
+// Deprecated: Use WatchEvent.ProtoReflect.Descriptor instead.
 func (*WatchEvent) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_apis_management_v1_management_proto_rawDescGZIP(), []int{5}
 }
@@ -1791,7 +1791,7 @@ var file_github_com_rancher_opni_pkg_apis_management_v1_management_proto_goTypes
 	(*ListClustersRequest)(nil),                 // 3: management.ListClustersRequest
 	(*EditClusterRequest)(nil),                  // 4: management.EditClusterRequest
 	(*WatchClustersRequest)(nil),                // 5: management.WatchClustersRequest
-	(*WatchEvent)(nil),                          // 6: management.WatchEvents
+	(*WatchEvent)(nil),                          // 6: management.WatchEvent
 	(*APIExtensionInfoList)(nil),                // 7: management.APIExtensionInfoList
 	(*APIExtensionInfo)(nil),                    // 8: management.APIExtensionInfo
 	(*HTTPRuleDescriptor)(nil),                  // 9: management.HTTPRuleDescriptor
@@ -1851,9 +1851,9 @@ var file_github_com_rancher_opni_pkg_apis_management_v1_management_proto_depIdxs
 	33, // 6: management.EditClusterRequest.cluster:type_name -> core.Reference
 	25, // 7: management.EditClusterRequest.labels:type_name -> management.EditClusterRequest.LabelsEntry
 	34, // 8: management.WatchClustersRequest.knownClusters:type_name -> core.ReferenceList
-	35, // 9: management.WatchEvents.cluster:type_name -> core.Cluster
-	0,  // 10: management.WatchEvents.type:type_name -> management.WatchEventType
-	35, // 11: management.WatchEvents.previousCluster:type_name -> core.Cluster
+	35, // 9: management.WatchEvent.cluster:type_name -> core.Cluster
+	0,  // 10: management.WatchEvent.type:type_name -> management.WatchEventType
+	35, // 11: management.WatchEvent.previousCluster:type_name -> core.Cluster
 	8,  // 12: management.APIExtensionInfoList.items:type_name -> management.APIExtensionInfo
 	36, // 13: management.APIExtensionInfo.serviceDesc:type_name -> google.protobuf.ServiceDescriptorProto
 	9,  // 14: management.APIExtensionInfo.rules:type_name -> management.HTTPRuleDescriptor
@@ -1908,7 +1908,7 @@ var file_github_com_rancher_opni_pkg_apis_management_v1_management_proto_depIdxs
 	47, // 63: management.Management.ListBootstrapTokens:output_type -> core.BootstrapTokenList
 	46, // 64: management.Management.GetBootstrapToken:output_type -> core.BootstrapToken
 	48, // 65: management.Management.ListClusters:output_type -> core.ClusterList
-	6,  // 66: management.Management.WatchClusters:output_type -> management.WatchEvents
+	6,  // 66: management.Management.WatchClusters:output_type -> management.WatchEvent
 	42, // 67: management.Management.DeleteCluster:output_type -> google.protobuf.Empty
 	2,  // 68: management.Management.CertsInfo:output_type -> management.CertsInfoResponse
 	35, // 69: management.Management.GetCluster:output_type -> core.Cluster

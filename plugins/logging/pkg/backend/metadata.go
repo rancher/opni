@@ -250,11 +250,12 @@ func (b *LoggingBackend) watchClusterEvents(ctx context.Context) {
 
 	b.Logger.Infof("watching cluster events")
 
+outer:
 	for {
 		select {
 		case <-ctx.Done():
 			b.Logger.Infof("context cancelled, stoping cluster event watcher")
-			break
+			break outer
 		default:
 			event, err := clusterClient.Recv()
 			if err != nil {

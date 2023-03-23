@@ -57,7 +57,7 @@ filelog/k8s:
     # Extract metadata from file path
   - type: regex_parser
     id: extract_metadata_from_filepath
-    regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_(?P<uid>[a-f0-9\-]+)\/(?P<container_name>[^\._]+)\/(?P<restart_count>\d+)\.log$'
+    regex: '^.*\/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_((?P<confighash>[a-f0-9]{32})|(?P<uid>[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}))\/(?P<container_name>[^\._]+)\/(?P<restart_count>\d+)\.log$'
     parse_from: attributes["log.file.path"]
   - type: remove
     field: attributes["log.file.path"]
@@ -77,6 +77,9 @@ filelog/k8s:
   - type: move
     from: attributes.uid
     to: resource["k8s.pod.uid"]
+  - type: move
+    from: attributes.confighash
+    to: resource["k8s.pod.confighash"]
 `
 	templateLogAgentRKE = `
 filelog/rke:
@@ -153,6 +156,9 @@ processors:
     - sources:
       - from: resource_attribute
         name: k8s.pod.uid
+    - sources:
+      - from: resource_attribute
+        name: k8s.pod.confighash
     - sources:
       - from: connection
     extract:

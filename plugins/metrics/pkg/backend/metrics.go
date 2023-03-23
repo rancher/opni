@@ -3,10 +3,12 @@ package backend
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -16,8 +18,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -69,7 +69,6 @@ type MetricsBackendConfig struct {
 	UninstallController *task.Controller                                           `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
 	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
-	RemoteWriteClient   *cortex.RemoteWriteForwarder                               `validate:"required"`
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -304,10 +303,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	m.WaitForInit()
 	// todo: validate
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
+	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
 	cluster, err := m.StorageBackend.GetCluster(ctx, &corev1.Reference{

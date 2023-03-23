@@ -1110,6 +1110,7 @@
         "additional_bindings": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/apiHttpRule"
           }
         }
@@ -1195,6 +1196,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreBootstrapToken"
           }
         }
@@ -1224,6 +1226,7 @@
         "capabilities": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreTokenCapability"
           }
         },
@@ -1247,12 +1250,14 @@
         "deps": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreModule"
           }
         },
         "settings": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreBuildSetting"
           }
         }
@@ -1336,6 +1341,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreCluster"
           }
         }
@@ -1353,6 +1359,7 @@
         "capabilities": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreClusterCapability"
           }
         },
@@ -1417,6 +1424,7 @@
         "matchExpressions": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreLabelSelectorRequirement"
           }
         }
@@ -1530,6 +1538,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreReference"
           }
         }
@@ -1581,6 +1590,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreRoleBinding"
           }
         }
@@ -1592,6 +1602,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreRole"
           }
         }
@@ -1619,6 +1630,12 @@
         },
         "connected": {
           "type": "boolean"
+        },
+        "sessionAttributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -1649,12 +1666,14 @@
         "logs": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreLogEntry"
           }
         },
         "transitions": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreStateTransition"
           }
         }
@@ -1684,6 +1703,7 @@
         "details": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
         }
@@ -1698,6 +1718,7 @@
         "rules": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/managementHTTPRuleDescriptor"
           }
         }
@@ -1709,6 +1730,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/managementAPIExtensionInfo"
           }
         }
@@ -1740,6 +1762,7 @@
         "items": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/managementCapabilityInfo"
           }
         }
@@ -1751,6 +1774,7 @@
         "chain": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreCertInfo"
           }
         }
@@ -1797,6 +1821,7 @@
         "capabilities": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/coreTokenCapability"
           }
         }
@@ -1839,6 +1864,7 @@
         "documents": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/managementConfigDocumentWithSchema"
           }
         }
@@ -1861,6 +1887,7 @@
         "documents": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/managementConfigDocument"
           }
         }
@@ -1941,6 +1968,7 @@
         "uninterpreted_option": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufUninterpretedOption"
           }
         }
@@ -1962,6 +1990,7 @@
         "method": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufMethodDescriptorProto"
           }
         },
@@ -1979,6 +2008,7 @@
         "uninterpreted_option": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufUninterpretedOption"
           }
         }
@@ -1990,6 +2020,7 @@
         "name": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/UninterpretedOptionNamePart"
           }
         },

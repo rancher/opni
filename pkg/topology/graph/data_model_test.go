@@ -11,7 +11,7 @@ import (
 	kgraph "github.com/steveteuber/kubectl-graph/pkg/graph"
 )
 
-var _ = Describe("Graph data model tests", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Graph data model tests", Ordered, Label("unit", "slow"), func() {
 	When("we manipulate gonum kubernetes graphs", func() {
 		It("should construct & serialize the graph", func() {
 			b := test.TestData("topology/graph.json")

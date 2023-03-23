@@ -320,7 +320,7 @@ func RegisterAIAdminHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 // RegisterAIAdminHandlerFromEndpoint is same as RegisterAIAdminHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterAIAdminHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}

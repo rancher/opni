@@ -31,7 +31,7 @@ type AlertingClientSet interface {
 
 // HashRing Hash ring uniquely maps groups of objects to a (key, hash) pairs
 type HashRing interface {
-	CalculateHash(ctx context.Context, key string) error
+	CalculateHash(ctx context.Context, key string, syncOptions *opts.SyncOptions) error
 	GetHash(ctx context.Context, key string) string
 	// Sync reads from the client set and updates the router storage in the appropriate way
 	// It returns the router keys that have changed.
@@ -65,8 +65,8 @@ type StateStorage = AlertingStateCache[*alertingv1.CachedState]
 
 type AlertingIncidentTracker[T interfaces.AlertingSecret] interface {
 	AlertingStorage[T]
-	OpenInterval(ctx context.Context, conditionId string, start *timestamppb.Timestamp) error
-	CloseInterval(ctx context.Context, conditionId string, end *timestamppb.Timestamp) error
+	OpenInterval(ctx context.Context, conditionId, fingerprint string, start *timestamppb.Timestamp) error
+	CloseInterval(ctx context.Context, conditionId, fingerprint string, end *timestamppb.Timestamp) error
 	GetActiveWindowsFromIncidentTracker(
 		ctx context.Context,
 		conditionId string,

@@ -21,7 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/spf13/afero"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,7 +32,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func() {
 	var srv *patch.FilesystemPluginSyncServer
 	fsys := afero.Afero{Fs: test.NewModeAwareMemFs()}
 	tmpDir := "/tmp/test"
@@ -329,7 +329,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label(test.Unit, test.Slow),
 			s := grpc.NewServer(
 				grpc.ChainStreamInterceptor(
 					func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-						sc := &util.ServerStreamWithContext{
+						sc := &streams.ServerStreamWithContext{
 							Ctx:    context.WithValue(ss.Context(), cluster.ClusterIDKey, "cluster-1"),
 							Stream: ss,
 						}

@@ -10,8 +10,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -106,27 +106,27 @@ func BuildHttpTransportCaching(
 		}
 
 		BeforeAll(func() {
-			port, err := freeport.GetFreePort()
-			Expect(err).To(Succeed())
-			serverPort = port
+			serverPort = freeport.GetFreePort()
 
 			cachingHttpServer := testgrpc.NewCachingHttpServer(
 				serverPort,
 			)
-
+			shutdownchan := make(chan error, 1)
 			go func() {
 				err := cachingHttpServer.ListenAndServe()
 				if !errors.Is(err, http.ErrServerClosed) {
-					panic(err)
+					shutdownchan <- err
 				}
+				shutdownchan <- nil
 			}()
 
 			DeferCleanup(func() {
 				cachingHttpServer.Shutdown(context.TODO())
+				Expect(shutdownchan).Should(Receive(BeNil()))
 			})
 			defaultClient = http.DefaultClient
 			client := http.DefaultClient
-			err = t.Use(client)
+			err := t.Use(client)
 			Expect(err).To(Succeed())
 			Expect(client.Transport).NotTo(BeNil())
 			Expect(serverPort).NotTo(BeZero())

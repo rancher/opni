@@ -5,16 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/test/freeport"
 
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +50,7 @@ func ExpectWindowsAreOk(v []*alertingv1.ActiveWindow, neverBefore time.Time) {
 			By("expecting the window ends after it starts")
 			Expect(cur.Start.AsTime().Before(cur.End.AsTime())).To(BeTrue())
 		}
+		Expect(cur.Fingerprints).NotTo(BeEmpty())
 	}
 }
 
@@ -76,7 +78,7 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 	storageConstructor func() TestAlertStorage[T],
 	testcases map[string]T,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var st TestAlertStorage[T]
 		BeforeAll(func() {
@@ -161,7 +163,7 @@ func BuildAlertingStateCacheTestSuite(
 	name string,
 	stateCacheConstructor func() storage.AlertingStateCache[*alertingv1.CachedState],
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var cache storage.AlertingStateCache[*alertingv1.CachedState]
 		BeforeAll(func() {
@@ -296,7 +298,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 	name string,
 	incidentTrackerConstructor func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var tracker storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
 		BeforeAll(func() {
@@ -322,13 +324,15 @@ func BuildAlertingIncidentTrackerTestSuite(
 				ts := timestamppb.Now()
 				Expect(tracker).NotTo(BeNil())
 				key = shared.NewAlertingRefId()
+				fingerprint := shared.NewAlertingRefId()
 				generateOption := func() {
+
 					r := rand.Intn(2)
 					if r == 0 {
-						err := tracker.OpenInterval(ctx, key, timestamppb.Now())
+						err := tracker.OpenInterval(ctx, key, fingerprint, timestamppb.Now())
 						Expect(err).To(Succeed())
 					} else {
-						err := tracker.CloseInterval(ctx, key, timestamppb.Now())
+						err := tracker.CloseInterval(ctx, key, fingerprint, timestamppb.Now())
 						Expect(err).To(Succeed())
 					}
 				}
@@ -351,6 +355,7 @@ func BuildAlertingIncidentTrackerTestSuite(
 
 			It("should evict data that has expired from the cache", func() {
 				oldKey := shared.NewAlertingRefId()
+				oldFingerprint := shared.NewAlertingRefId()
 				startTs := time.Now().Add(-2 * testTTL)
 				endTs := time.Now()
 				delta := int((endTs.Add(-time.Duration(startTs.Unix()) * time.Second)).Unix())
@@ -359,10 +364,10 @@ func BuildAlertingIncidentTrackerTestSuite(
 					By("checking the incident tracker can open and close intervals")
 					newDelta := delta * (i + 1) * n
 					start := int(startTs.Unix()) + newDelta
-					err := tracker.OpenInterval(ctx, oldKey, timestamppb.New(time.Unix(int64(start), 0)))
+					err := tracker.OpenInterval(ctx, oldKey, oldFingerprint, timestamppb.New(time.Unix(int64(start), 0)))
 					Expect(err).To(Succeed())
 					end := int(endTs.Unix()) + newDelta*(3/2) // halfway to the next delta offset
-					err = tracker.CloseInterval(ctx, oldKey, timestamppb.New(time.Unix(int64(end), 0)))
+					err = tracker.CloseInterval(ctx, oldKey, oldFingerprint, timestamppb.New(time.Unix(int64(end), 0)))
 					Expect(err).To(Succeed())
 				}
 				By("checking the incident tracker is only reporting incident windows")
@@ -381,7 +386,7 @@ func BuildAlertRouterStorageTestSuite(
 	routerStoreConstructor func() storage.RouterStorage,
 	defaultRouter routing.OpniRouting,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		var routerStore storage.RouterStorage
 		BeforeAll(func() {
@@ -448,7 +453,7 @@ func BuildStorageClientSetSuite(
 	name string,
 	brokerConstructor func() storage.AlertingStoreBroker,
 ) bool {
-	return Describe(name, Ordered, Label(test.Unit), func() {
+	return Describe(name, Ordered, Label("integration"), func() {
 		var s storage.AlertingClientSet
 		var ctx context.Context
 		BeforeAll(func() {
@@ -465,11 +470,12 @@ func BuildStorageClientSetSuite(
 		})
 
 		When("initializing the hash ring", func() {
+			syncOpts := opts.NewSyncOptions()
 			Specify("the hash should be empty unless it is explicitly requested to calculate it", func() {
 				hash := s.GetHash(ctx, shared.SingleConfigId)
 				Expect(hash).To(BeEmpty())
 
-				err := s.CalculateHash(ctx, shared.SingleConfigId)
+				err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 				Expect(err).To(Succeed())
 			})
 
@@ -530,7 +536,18 @@ func BuildStorageClientSetSuite(
 				for _, f := range mutateState {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					f()
-					err := s.CalculateHash(ctx, shared.SingleConfigId)
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
+					Expect(err).To(Succeed())
+					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					Expect(newHash).NotTo(Equal(oldHash))
+				}
+			})
+
+			Specify("the default caching endpoint changing should trigger a hash change", func() {
+				for i := 0; i < 10; i++ {
+					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					syncOpts.DefaultEndpoint = util.Must(url.Parse(fmt.Sprintf("http://localhost/%s", uuid.New().String()[0:4])))
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					Expect(newHash).NotTo(Equal(oldHash))
@@ -540,12 +557,11 @@ func BuildStorageClientSetSuite(
 			Specify("the hash should not change when no meaningul configuration change occurs", func() {
 				for i := 0; i < 10; i++ {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					err := s.CalculateHash(ctx, shared.SingleConfigId)
+					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
 					Expect(newHash).To(Equal(oldHash))
 				}
-
 			})
 		})
 
@@ -598,7 +614,7 @@ func BuildStorageClientSetSuite(
 					"default-after-force-sync.yaml",
 					ctx,
 					cfg,
-					util.Must(freeport.GetFreePort()),
+					freeport.GetFreePort(),
 				)
 			})
 		})
@@ -664,7 +680,7 @@ func BuildStorageClientSetSuite(
 					"user-configs-force-sync.yaml",
 					ctx,
 					cfg,
-					util.Must(freeport.GetFreePort()),
+					freeport.GetFreePort(),
 				)
 			})
 		})

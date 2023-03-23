@@ -8,16 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rancher/opni/pkg/util"
+	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
@@ -63,13 +64,19 @@ func (c *CompositeAlertingClientSet) GetHash(_ context.Context, key string) stri
 	return c.hashes[key]
 }
 
-func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string) error {
+func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string, syncOptions *storage_opts.SyncOptions) error {
 	aggregate := ""
+	if syncOptions.DefaultEndpoint != nil {
+		aggregate += syncOptions.DefaultEndpoint.String()
+	}
 	if key == shared.SingleConfigId {
 		conds, err := c.Conditions().List(ctx)
 		if err != nil {
 			return err
 		}
+		slices.SortFunc(conds, func(a, b *alertingv1.AlertCondition) bool {
+			return a.Id < b.Id
+		})
 		aggregate += strings.Join(
 			lo.Map(conds, func(a *alertingv1.AlertCondition, _ int) string {
 				return a.Id + a.LastUpdated.String()
@@ -78,6 +85,9 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 		if err != nil {
 			return err
 		}
+		slices.SortFunc(endps, func(a, b *alertingv1.AlertEndpoint) bool {
+			return a.Id < b.Id
+		})
 		aggregate += strings.Join(
 			lo.Map(endps, func(a *alertingv1.AlertEndpoint, _ int) string {
 				return a.Id + a.LastUpdated.String()
@@ -94,17 +104,14 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 	return nil
 }
 
-func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, incomingOpts ...storage_opts.SyncOption) ([]string, error) {
-	syncOpts := storage_opts.NewSyncOptions()
-	syncOpts.Apply(incomingOpts...)
+func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncOpts *storage_opts.SyncOptions) ([]string, error) {
 	key := shared.SingleConfigId
-
 	// List all conditions & map their endpoints
 	conds, err := c.Conditions().List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	endps, err := c.Endpoints().List(ctx, opts.WithUnredacted())
+	endps, err := c.Endpoints().List(ctx, storage_opts.WithUnredacted())
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +120,9 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, incom
 		return a.Id, a
 	})
 
+	if syncOpts.Router == nil {
+		syncOpts.Router = routing.NewDefaultOpniRouting()
+	}
 	// create router specs for conditions
 	for _, cond := range conds {
 		if cond.Id == "" {
@@ -172,6 +182,9 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, incom
 	}
 
 	// when we implement attaching endpoints to the default namespace. do this here
+	if syncOpts.DefaultEndpoint != nil {
+		syncOpts.Router.SetDefaultReceiver(*syncOpts.DefaultEndpoint)
+	}
 	if err := c.Routers().Put(ctx, key, syncOpts.Router); err != nil {
 		return nil, err
 	}
@@ -180,26 +193,30 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, incom
 
 // Based on the other storage, calculate what the virtual config should be,
 // then overwrite the virtual config storage
-func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, opts ...storage_opts.SyncOption) error {
-	if err := c.CalculateHash(ctx, shared.SingleConfigId); err != nil {
+func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, incomingOpts ...storage_opts.SyncOption) error {
+	syncOpts := storage_opts.NewSyncOptions()
+	syncOpts.Apply(incomingOpts...)
+	if err := c.CalculateHash(ctx, shared.SingleConfigId, syncOpts); err != nil {
 		return err
 	}
 	c.Logger.With("hash", c.GetHash(ctx, shared.SingleConfigId)).Debug("starting force sync")
 
-	_, err := c.calculateRouters(ctx, opts...)
+	_, err := c.calculateRouters(ctx, syncOpts)
 	c.Logger.Debug("finished force sync")
 	return err
 }
 
-func (c *CompositeAlertingClientSet) Sync(ctx context.Context, opts ...storage_opts.SyncOption) ([]string, error) {
+func (c *CompositeAlertingClientSet) Sync(ctx context.Context, incomingOpts ...storage_opts.SyncOption) ([]string, error) {
+	syncOpts := storage_opts.NewSyncOptions()
+	syncOpts.Apply(incomingOpts...)
 	key := shared.SingleConfigId
 	curHash := strings.Clone(c.GetHash(ctx, key))
-	c.CalculateHash(ctx, key)
+	c.CalculateHash(ctx, key, syncOpts)
 	newHash := c.GetHash(ctx, key)
 	if curHash == newHash {
 		return []string{}, nil
 	}
-	keys, err := c.calculateRouters(ctx, opts...)
+	keys, err := c.calculateRouters(ctx, syncOpts)
 	if err != nil {
 		return nil, err
 	}

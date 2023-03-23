@@ -150,6 +150,7 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 
 	e.logger.Debug("stream connected")
 	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))
+
 	if err != nil {
 		e.logger.With(
 			zap.Error(err),

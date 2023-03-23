@@ -2,18 +2,18 @@ package _import
 
 import (
 	"fmt"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"time"
 )
 
 func newRespondingReader() *mockRemoteReader {
@@ -47,7 +47,7 @@ func newRespondingReader() *mockRemoteReader {
 	}
 }
 
-var _ = Describe("Target Runner", Ordered, Label(test.Unit), func() {
+var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	var (
 		failingReader = &mockRemoteReader{
 			Error: fmt.Errorf("failed"),

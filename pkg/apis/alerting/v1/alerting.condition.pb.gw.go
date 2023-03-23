@@ -15,7 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	v1_0 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -67,7 +67,7 @@ func local_request_AlertConditions_CreateAlertCondition_0(ctx context.Context, m
 }
 
 func request_AlertConditions_GetAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -101,7 +101,7 @@ func request_AlertConditions_GetAlertCondition_0(ctx context.Context, marshaler 
 }
 
 func local_request_AlertConditions_GetAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -245,7 +245,7 @@ var (
 )
 
 func request_AlertConditions_DeleteAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -261,7 +261,7 @@ func request_AlertConditions_DeleteAlertCondition_0(ctx context.Context, marshal
 }
 
 func local_request_AlertConditions_DeleteAlertCondition_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -277,7 +277,7 @@ func local_request_AlertConditions_DeleteAlertCondition_0(ctx context.Context, m
 }
 
 func request_AlertConditions_AlertConditionStatus_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -303,7 +303,7 @@ func request_AlertConditions_AlertConditionStatus_0(ctx context.Context, marshal
 }
 
 func local_request_AlertConditions_AlertConditionStatus_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -437,7 +437,7 @@ var (
 )
 
 func request_AlertConditions_DeactivateSilence_0(ctx context.Context, marshaler runtime.Marshaler, client AlertConditionsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -453,7 +453,7 @@ func request_AlertConditions_DeactivateSilence_0(ctx context.Context, marshaler 
 }
 
 func local_request_AlertConditions_DeactivateSilence_0(ctx context.Context, marshaler runtime.Marshaler, server AlertConditionsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -816,7 +816,7 @@ func RegisterAlertConditionsHandlerServer(ctx context.Context, mux *runtime.Serv
 // RegisterAlertConditionsHandlerFromEndpoint is same as RegisterAlertConditionsHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterAlertConditionsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.Dial(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}

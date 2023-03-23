@@ -98,10 +98,14 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 				return
 			}
 			m.mu.Lock()
-			m.lg.With(
+			updateLog := m.lg.With(
 				"id", update.ID,
 				"connected", update.Status.Connected,
-			).Info("received status update")
+			)
+			if len(update.Status.SessionAttributes) > 0 {
+				updateLog = updateLog.With("attributes", update.Status.SessionAttributes)
+			}
+			updateLog.Info("received status update")
 			m.currentStatus[update.ID] = update.Status
 			for _, ch := range m.statusListeners {
 				ch <- &corev1.ClusterStatus{

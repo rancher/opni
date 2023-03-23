@@ -60,6 +60,9 @@ spec:
               mountPath: /etc/opni
             - name: plugins
               mountPath: /var/lib/opni-agent/plugins
+          {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -130,10 +133,6 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.volumeMounts }}
-          volumeMounts:
-            {{- toYaml .Values.volumeMounts | nindent 12 }}
-          {{- end }}
         - name: kube-rbac-proxy
           image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
           args:
@@ -170,6 +169,9 @@ spec:
             path: {{ default "/var/lib/opni/plugins" .Values.persistence.hostDirectoryPath }}
             type: DirectoryOrCreate
         {{- end }}
+      {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+      {{- end }}
   {{- if eq .Values.persistence.mode "pvc" }}
   volumeClaimTemplates:
     - metadata:

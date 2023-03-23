@@ -32,9 +32,51 @@ service AlertNotifications {
       body : "*"
     };
   }
+  
+  // In the cache we evict the keys with the highest (priority,severity) 
+  // according to the given filter 
+  // but return the filtered messages sorted by timestamp.
+  rpc ListNotifications(ListNotificationRequest) 
+    returns (ListMessageResponse) {
+    option (google.api.http) = {
+      post : "/notifications/list"
+      body : "*"
+    };
+  }
+
+  // best-effort listing of alarm messages for a given window
+  // messages with low frequency and severity are dropped frequently
+  // so may not show up with their associated incident
+  rpc ListAlarmMessages(ListAlarmMessageRequest) 
+    returns (ListMessageResponse) {
+    option (google.api.http) = {
+      post : "/alarms/list"
+      body : "*"
+    };
+  }
 
   rpc ListRoutingRelationships(google.protobuf.Empty) 
     returns (ListRoutingRelationshipsResponse) {}
+}
+
+message ListAlarmMessageRequest {
+  // defaults to 100 most severe (frequency + severity heuristic)
+  string conditionId = 1;
+  repeated string fingerprints = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+}
+
+message ListNotificationRequest{
+  // defaults to 100 most severe (frequency + severity heuristic)
+  optional int32 limit = 1;
+
+  repeated alerting.OpniSeverity severityFilters = 2;
+  repeated alerting.GoldenSignal goldenSignalFilters = 3;
+}
+
+message ListMessageResponse{
+  repeated MessageInstance items = 1;
 }
 
 
@@ -49,6 +91,13 @@ message Notification{
   map<string,string> properties = 3;
 }
 
+message MessageInstance {
+  google.protobuf.Timestamp receivedAt = 1;
+  google.protobuf.Timestamp lastUpdatedAt = 2;
+  Notification notification = 3;
+  map<string,string> startDetails = 4;
+  map<string,string> lastDetails = 5;
+}
 // opni-alerting internal use
 message TriggerAlertsRequest {
   core.Reference conditionId = 1;

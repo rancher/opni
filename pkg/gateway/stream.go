@@ -15,6 +15,8 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -48,18 +50,16 @@ func NewStreamServer(
 
 func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
-	ts, err := totem.NewServer(stream,
-		totem.WithName("gateway-server"),
-	)
+	ctx := stream.Context()
+	id := cluster.StreamAuthorizedID(ctx)
+
+	ts, err := totem.NewServer(stream, totem.WithName("gateway-server"))
 	if err != nil {
 		return err
 	}
 	for _, service := range s.services {
 		ts.RegisterService(service.Unpack())
 	}
-
-	ctx := stream.Context()
-	id := cluster.StreamAuthorizedID(ctx)
 
 	c, err := s.clusterStore.GetCluster(ctx, &corev1.Reference{
 		Id: id,
@@ -79,7 +79,6 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 
 	for _, r := range s.remotes {
 		streamClient := streamv1.NewStreamClient(r.cc)
-		ctx := cluster.AuthorizedOutgoingContext(ctx)
 		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
 			s.logger.With(
@@ -140,15 +139,14 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.services = append(s.services, util.PackService(desc, impl))
 }
 
-func (s *StreamServer) AddRemote(cc *grpc.ClientConn, name string) error {
+func (s *StreamServer) OnPluginLoad(_ types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 	s.remotesMu.Lock()
 	defer s.remotesMu.Unlock()
 	s.logger.With(
 		zap.String("address", cc.Target()),
 	).Debug("adding remote connection")
 	s.remotes = append(s.remotes, remote{
-		name: name,
+		name: md.Filename(),
 		cc:   cc,
 	})
-	return nil
 }

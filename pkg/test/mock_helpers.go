@@ -12,6 +12,7 @@ import (
 	"github.com/kralicky/gpkg/sync/atomic"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/auth/challenges"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/ident"
@@ -25,6 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
@@ -448,6 +450,13 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 	return mockKeyringStoreBroker
 }
 
+type errContextKey string
+
+var (
+	errContextValue                 errContextKey = "error"
+	ErrContext_TestKeyringStore_Get               = context.WithValue(context.Background(), errContextValue, "error")
+)
+
 func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *corev1.Reference) storage.KeyringStore {
 	mockKeyringStore := mock_storage.NewMockKeyringStore(ctrl)
 	mu := sync.Mutex{}
@@ -463,7 +472,10 @@ func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *corev1.Ref
 		AnyTimes()
 	mockKeyringStore.EXPECT().
 		Get(gomock.Any()).
-		DoAndReturn(func(_ context.Context) (keyring.Keyring, error) {
+		DoAndReturn(func(ctx context.Context) (keyring.Keyring, error) {
+			if ctx == ErrContext_TestKeyringStore_Get {
+				return nil, errors.New("expected error")
+			}
 			mu.Lock()
 			defer mu.Unlock()
 			keyring, ok := keyrings[prefix+ref.Id]
@@ -473,6 +485,7 @@ func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *corev1.Ref
 			return keyring, nil
 		}).
 		AnyTimes()
+
 	mockKeyringStore.EXPECT().
 		Delete(gomock.Any()).
 		DoAndReturn(func(_ context.Context) error {
@@ -814,4 +827,26 @@ func (hb *HealthStore) GetHealth(context.Context, *emptypb.Empty, ...grpc.CallOp
 
 func ContextWithAuthorizedID(ctx context.Context, clusterID string) context.Context {
 	return context.WithValue(ctx, cluster.ClusterIDKey, clusterID)
+}
+
+type TestChallengeHandler struct {
+	clientChallenge challenges.HandlerFunc
+	md              []string
+}
+
+var _ challenges.ChallengeHandler = &TestChallengeHandler{}
+
+func (t *TestChallengeHandler) DoChallenge(ss streams.Stream) (context.Context, error) {
+	return t.clientChallenge(ss)
+}
+
+func (t *TestChallengeHandler) InterceptContext(ctx context.Context) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, t.md...)
+}
+
+func NewTestChallengeHandler(fn challenges.HandlerFunc, kvs ...string) *TestChallengeHandler {
+	return &TestChallengeHandler{
+		clientChallenge: fn,
+		md:              kvs,
+	}
 }

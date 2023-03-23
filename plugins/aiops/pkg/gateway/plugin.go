@@ -28,12 +28,14 @@ type AIOpsPlugin struct {
 	modeltraining.UnsafeModelTrainingServer
 	admin.UnsafeAIAdminServer
 	system.UnimplementedSystemPluginClient
-	ctx            context.Context
-	Logger         *zap.SugaredLogger
-	k8sClient      client.Client
-	osClient       future.Future[*opensearch.Client]
-	natsConnection future.Future[*nats.Conn]
-	kv             future.Future[nats.KeyValue]
+	ctx             context.Context
+	Logger          *zap.SugaredLogger
+	k8sClient       client.Client
+	osClient        future.Future[*opensearch.Client]
+	natsConnection  future.Future[*nats.Conn]
+	aggregationKv   future.Future[nats.KeyValue]
+	modelTrainingKv future.Future[nats.KeyValue]
+	statisticsKv    future.Future[nats.KeyValue]
 }
 
 type PluginOptions struct {
@@ -44,6 +46,12 @@ type PluginOptions struct {
 }
 
 type PluginOption func(*PluginOptions)
+
+const (
+	workloadAggregationCountBucket = "os-workload-aggregation"
+	modelTrainingParametersBucket  = "model-training-parameters"
+	modelTrainingStatisticsBucket  = "model-training-statistics"
+)
 
 func (o *PluginOptions) apply(opts ...PluginOption) {
 	for _, op := range opts {
@@ -82,7 +90,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.8.3",
+		version: "v0.9.0",
 	}
 	options.apply(opts...)
 
@@ -101,13 +109,15 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 	}
 
 	return &AIOpsPlugin{
-		PluginOptions:  options,
-		Logger:         logger.NewPluginLogger().Named("modeltraining"),
-		ctx:            ctx,
-		natsConnection: future.New[*nats.Conn](),
-		kv:             future.New[nats.KeyValue](),
-		osClient:       future.New[*opensearch.Client](),
-		k8sClient:      cli,
+		PluginOptions:   options,
+		Logger:          logger.NewPluginLogger().Named("modeltraining"),
+		ctx:             ctx,
+		natsConnection:  future.New[*nats.Conn](),
+		aggregationKv:   future.New[nats.KeyValue](),
+		modelTrainingKv: future.New[nats.KeyValue](),
+		statisticsKv:    future.New[nats.KeyValue](),
+		osClient:        future.New[*opensearch.Client](),
+		k8sClient:       cli,
 	}
 }
 
@@ -121,16 +131,36 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	if err != nil {
 		lg.Fatal(err)
 	}
-	keyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "os-workload-aggregation",
+	aggregationKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      workloadAggregationCountBucket,
 		Description: "Storing aggregation of workload logs from Opensearch.",
 	})
 	if err != nil {
 		lg.Fatal(err)
 	}
 
+	p.aggregationKv.Set(aggregationKeyValue)
+
+	modelParametersKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      modelTrainingParametersBucket,
+		Description: "Storing the workloads specified for model training.",
+	})
+	if err != nil {
+		lg.Fatal(err)
+	}
+
+	p.modelTrainingKv.Set(modelParametersKeyValue)
+
+	modelStatisticsKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      modelTrainingStatisticsBucket,
+		Description: "Storing the statistics for the training of the model.",
+	})
+	if err != nil {
+		lg.Fatal(err)
+	}
+
+	p.statisticsKv.Set(modelStatisticsKeyValue)
 	p.natsConnection.Set(nc)
-	p.kv.Set(keyValue)
 
 	go p.runAggregation()
 	<-p.ctx.Done()

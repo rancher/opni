@@ -10,6 +10,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/prometheus/prometheus/promql/parser"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -32,7 +33,7 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	req := (s.req).(*sloapi.CreateSLORequest)
 	slo := CreateSLORequestToStruct(req)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
-	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
 	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, req.GetSlo().GetClusterId(), &ruleId, toApply)
 	if err != nil {
@@ -45,7 +46,7 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	incomingSLO := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
 	newSlo := SLODataToStruct(incomingSLO)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
-	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
 
 	// successfully applied rules to another cluster
@@ -66,28 +67,28 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	errArr := []error{}
 	slo := SLODataToStruct(existing)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
-	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	for _, ruleName := range toApply {
 		for _, rule := range ruleName.Rules {
-			if rule.Alert != "" {
+			if rule.Alert.Value != "" {
 				err := deleteCortexSLORules(
 					s.ctx,
 					s.p,
 					s.p.logger,
 					clusterId,
-					rule.Alert,
+					rule.Alert.Value,
 				)
 				if err != nil {
 					errArr = append(errArr, err)
 				}
 			}
-			if rule.Record != "" {
+			if rule.Record.Value != "" {
 				err := deleteCortexSLORules(
 					s.ctx,
 					s.p,
 					s.p.logger,
 					clusterId,
-					rule.Record,
+					rule.Record.Value,
 				)
 				if err != nil {
 					errArr = append(errArr, err)
@@ -110,7 +111,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	slo.SetId(uuid.New().String())
 	slo.SetName(sloData.GetName() + "-clone")
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
-	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
 	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, sloData.GetClusterId(), &ruleId, toApply)
 	clonedData.SLO.Name = sloData.Name + "-clone"
@@ -145,7 +146,7 @@ func (s SLOMonitoring) MultiClusterClone(
 		slo.SetId(uuid.New().String())
 		slo.SetName(fmt.Sprintf("%s-clone-%d", sloData.GetName(), idx))
 		rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
-		toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+		toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 		// capture in closure
 		idx := idx
 		clusterId := clusterId
@@ -227,7 +228,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	sliDataVector, err := QuerySLOComponentByRecordName(
 		s.ctx,
 		s.p.adminClient.Get(),
-		sliErrorName,
+		sliErrorName.Value,
 		existing.GetSLO().GetClusterId(),
 	)
 	if err != nil {
@@ -257,7 +258,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	//// ======================= alert =======================
 
 	alertBudgetRules := slo.ConstructAlertingRuleGroup(nil)
-	short, long := alertBudgetRules.Rules[0].Expr, alertBudgetRules.Rules[1].Expr
+	short, long := alertBudgetRules.Rules[0].Expr.Value, alertBudgetRules.Rules[1].Expr.Value
 	alertDataVector1, err := QuerySLOComponentByRawQuery(s.ctx, s.p.adminClient.Get(), short, existing.GetSLO().GetClusterId())
 	if err != nil {
 		return nil, err
@@ -297,7 +298,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	step := time.Duration(endTs.Sub(startTs).Seconds()/float64(numSteps)) * time.Second
 
 	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
-	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
+	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr.Value
 	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(NaN))" // handles the empty case and still differentiates between 0 and empty
 	_, err = parser.ParseExpr(sli)
 	if err != nil {
@@ -326,7 +327,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	alertTimeStep := time.Minute * 20
 
 	alertWindowSevereMatrix, err := QuerySLOComponentByRawQueryRange(s.ctx, s.p.adminClient.Get(),
-		alertSevereRawQuery, req.GetSlo().GetClusterId(),
+		alertSevereRawQuery.Value, req.GetSlo().GetClusterId(),
 		startTs, endTs, alertTimeStep,
 	)
 	if err != nil {
@@ -339,7 +340,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	preview.PlotVector.Windows = append(preview.PlotVector.Windows, severeWindows...)
 
 	alertWindowCriticalMatrix, err := QuerySLOComponentByRawQueryRange(s.ctx, s.p.adminClient.Get(),
-		alertCriticalRawQuery, req.GetSlo().GetClusterId(),
+		alertCriticalRawQuery.Value, req.GetSlo().GetClusterId(),
 		startTs, endTs, step,
 	)
 	if err != nil {

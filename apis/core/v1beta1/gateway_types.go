@@ -51,7 +51,9 @@ type GatewaySpec struct {
 	ServiceType        corev1.ServiceType        `json:"serviceType,omitempty"`
 	ServiceAnnotations map[string]string         `json:"serviceAnnotations,omitempty"`
 	Management         cfgv1beta1.ManagementSpec `json:"management,omitempty"`
-	//+kubebuilder:default=etcd
+	//+kubebuilder:default=jetstream
+	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	StorageType cfgv1beta1.StorageType `json:"storageType,omitempty"`
 
 	NodeSelector      map[string]string           `json:"nodeSelector,omitempty"`
@@ -76,6 +78,7 @@ type GatewayStatus struct {
 	LoadBalancer    *corev1.LoadBalancerIngress `json:"loadBalancer,omitempty"`
 	Endpoints       []corev1.EndpointAddress    `json:"endpoints,omitempty"`
 	Ready           bool                        `json:"ready,omitempty"`
+	StorageType     cfgv1beta1.StorageType      `json:"storageType,omitempty"`
 }
 
 // +kubebuilder:object:root=true

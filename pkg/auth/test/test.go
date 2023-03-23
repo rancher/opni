@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/rbac"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/streams"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,7 +51,7 @@ func (m *TestAuthMiddleware) StreamServerInterceptor() grpc.StreamServerIntercep
 			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
 		}
 		userId := authHeader[0]
-		ss = &util.ServerStreamWithContext{
+		ss = &streams.ServerStreamWithContext{
 			Stream: ss,
 			Ctx:    metadata.NewIncomingContext(ss.Context(), metadata.New(map[string]string{auth.AuthorizationKey: userId})),
 		}

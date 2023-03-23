@@ -16,15 +16,8 @@ message LoggingCapabilityConfig {
   // If enabled is false, conditions may contain a list of relevant status
   // messages describing why the capability is disabled.
   repeated string conditions = 2;
-  OpensearchConfig opensearchConfig = 3;
 }
 
-message OpensearchConfig {
-  string username = 1;
-  string password = 2;
-  string url = 3;
-  bool tracingEnabled = 4;
-}
 message SyncRequest {
   LoggingCapabilityConfig currentConfig = 1;
 }

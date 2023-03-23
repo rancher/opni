@@ -77,6 +77,7 @@ func (r *Reconciler) alertmanagerControllerArgs() []string {
 		fmt.Sprintf("--cluster.gossip-interval=%s", r.gw.Spec.Alerting.ClusterGossipInterval),
 		// Time to wait between peers to send notifications
 		"--cluster.peer-timeout=2s",
+		fmt.Sprintf("--opni.listen-address=:%d", 3000),
 	}
 }
 
@@ -91,6 +92,7 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 			shared.OperatorAlertingControllerServiceName,
 			r.gw.Spec.Alerting.ClusterPort,
 		),
+		fmt.Sprintf("--opni.listen-address=:%d", 3000),
 	}
 }
 

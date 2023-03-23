@@ -5,17 +5,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
+	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -26,6 +30,7 @@ func BuildKeyringsCmd() *cobra.Command {
 		Aliases: []string{"keyring"},
 	}
 	cmd.AddCommand(BuildKeyringsGetCmd())
+	cmd.AddCommand(BuildKeyringsGenKeyCmd())
 	ConfigureManagementCommand(cmd)
 	return cmd
 }
@@ -120,6 +125,82 @@ func BuildKeyringsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&indent, "indent", true, "Indent JSON output")
 	cmd.Flags().StringVar(&encoding, "encoding", "url", "Base64 encoding. One of: std|url")
 	cmd.Flags().BoolVar(&padding, "padding", false, "Print base64 data with padding characters")
+	return cmd
+}
+
+func BuildKeyringsGenKeyCmd() *cobra.Command {
+	supportedKeyTypes := []string{"ephemeral"}
+	var usage ephemeral.KeyUsageType
+	var output string
+	var labels []string
+	cmd := &cobra.Command{
+		Use:   "gen-key <type> [flags]",
+		Short: "generate a new ephemeral key",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if !slices.Contains([]ephemeral.KeyUsageType{
+				ephemeral.Authentication,
+			}, usage) {
+				return fmt.Errorf("invalid key usage: %s", usage)
+			}
+			keyType := args[0]
+			if !slices.Contains(supportedKeyTypes, keyType) {
+				return fmt.Errorf("unsupported key type: %s", keyType)
+			}
+			return nil
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return supportedKeyTypes, cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "ephemeral":
+				labels, err := cliutil.ParseKeyValuePairs(labels)
+				if err != nil {
+					return err
+				}
+				ek := ephemeral.NewKey(usage, labels)
+				keyData, err := json.Marshal(ek)
+				if err != nil {
+					panic(err)
+				}
+				var file *os.File
+				if output == "-" {
+					file = os.Stdout
+				} else {
+					file, err = os.OpenFile(output, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+				}
+
+				_, err = file.Write(keyData)
+				if err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported key type: %s", args[0])
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar((*string)(&usage), "usage", "", "Key usage")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "Output filename")
+	cmd.Flags().StringSliceVar(&labels, "labels", []string{}, "Labels to apply to the key (key=value format)")
+
+	cmd.MarkFlagRequired("output")
+	cmd.MarkFlagRequired("labels")
+	cmd.MarkFlagRequired("usage")
+
+	cmd.RegisterFlagCompletionFunc("usage", cobra.FixedCompletions([]string{
+		string(ephemeral.Authentication),
+	}, cobra.ShellCompDirectiveNoFileComp))
+
+	cmd.RegisterFlagCompletionFunc("labels", cobra.NoFileCompletions)
 	return cmd
 }
 

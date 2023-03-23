@@ -85,14 +85,15 @@ func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.H
 			if err != nil {
 				switch status.Code(err) {
 				case codes.Unavailable:
-					clientConditions[i] = []string{"%s is unavailable", name}
+					clientConditions[i] = []string{fmt.Sprintf("%s is unavailable", name)}
 				case codes.ResourceExhausted:
-					clientConditions[i] = []string{"%s is overloaded", name}
+					clientConditions[i] = []string{fmt.Sprintf("%s is overloaded", name)}
 				case codes.DeadlineExceeded, codes.Canceled:
-					clientConditions[i] = []string{"%s timed out", name}
+					clientConditions[i] = []string{fmt.Sprintf("%s timed out", name)}
 				default:
 					clientConditions[i] = []string{fmt.Sprintf("%s: %s", name, err.Error())}
 				}
+				clientTimestamps[i] = time.Now()
 				return
 			}
 			clientTimestamps[i] = health.Timestamp.AsTime()
@@ -112,9 +113,10 @@ func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.H
 	}
 	allConditions := lo.Flatten(clientConditions)
 	sort.Strings(allConditions)
+
 	return &corev1.Health{
-		Timestamp: timestamppb.New(lo.MaxBy(clientTimestamps, func(t1, t2 time.Time) bool {
-			return t1.Before(t2)
+		Timestamp: timestamppb.New(lo.MaxBy(clientTimestamps, func(item, max time.Time) bool {
+			return item.After(max)
 		})),
 		Ready:       allClientsReady,
 		Conditions:  allConditions,

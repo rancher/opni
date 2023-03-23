@@ -12,7 +12,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = Describe("Redacting opni alerting secrets", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Redacting opni alerting secrets", Ordered, Label("unit", "slow"), func() {
 	When("we use protobuf messages for opni alerting", func() {
 		It("should redact/undredact secrets when appropriate", func() {
 			originalPg := &alertingv1.AlertEndpoint{

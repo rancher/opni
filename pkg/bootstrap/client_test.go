@@ -1,6 +1,7 @@
 package bootstrap_test
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/tls"
@@ -249,12 +250,12 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 					allKeys = append(allKeys, key)
 				})
 				Expect(allKeys).To(HaveLen(2))
-				if allKeys[0].ClientKey.Equal(sk1.ClientKey) && allKeys[0].ServerKey.Equal(sk1.ServerKey) {
-					Expect(allKeys[1].ClientKey.Equal(sk2.ClientKey)).To(BeTrue())
-					Expect(allKeys[1].ServerKey.Equal(sk2.ServerKey)).To(BeTrue())
-				} else if allKeys[0].ClientKey.Equal(sk2.ClientKey) && allKeys[0].ServerKey.Equal(sk2.ServerKey) {
-					Expect(allKeys[1].ClientKey.Equal(sk1.ClientKey)).To(BeTrue())
-					Expect(allKeys[1].ServerKey.Equal(sk1.ServerKey)).To(BeTrue())
+				if bytes.Equal(allKeys[0].ClientKey, sk1.ClientKey) && bytes.Equal(allKeys[0].ServerKey, sk1.ServerKey) {
+					Expect(bytes.Equal(allKeys[1].ClientKey, sk2.ClientKey)).To(BeTrue())
+					Expect(bytes.Equal(allKeys[1].ServerKey, sk2.ServerKey)).To(BeTrue())
+				} else if bytes.Equal(allKeys[0].ClientKey, sk2.ClientKey) && bytes.Equal(allKeys[0].ServerKey, sk2.ServerKey) {
+					Expect(bytes.Equal(allKeys[1].ClientKey, sk1.ClientKey)).To(BeTrue())
+					Expect(bytes.Equal(allKeys[1].ServerKey, sk1.ServerKey)).To(BeTrue())
 				} else {
 					Fail("keyrings do not match")
 				}
@@ -293,8 +294,8 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 					for _, clientSharedKey := range clientSharedKeys {
 						found := false
 						for _, serverSharedKey := range serverSharedKeys {
-							if clientSharedKey.ClientKey.Equal(serverSharedKey.ClientKey) &&
-								clientSharedKey.ServerKey.Equal(serverSharedKey.ServerKey) {
+							if bytes.Equal(clientSharedKey.ClientKey, serverSharedKey.ClientKey) &&
+								bytes.Equal(clientSharedKey.ServerKey, serverSharedKey.ServerKey) {
 								found = true
 								break
 							}

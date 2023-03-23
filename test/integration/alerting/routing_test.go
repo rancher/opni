@@ -13,12 +13,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -27,19 +27,21 @@ import (
 var defaultHook *test.MockIntegrationWebhookServer
 
 func init() {
-	var _ = BuildRoutingLogicTest(
-		func() routing.OpniRouting {
-			defaultHooks := env.NewWebhookMemoryServer(env.Context(), "webhook")
-			defaultHook = defaultHooks
-			return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
-		},
-	)
+	test.IfIntegration(func() {
+		BuildRoutingLogicTest(
+			func() routing.OpniRouting {
+				defaultHooks := env.NewWebhookMemoryServer(env.Context(), "webhook")
+				defaultHook = defaultHooks
+				return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
+			},
+		)
+	})
 }
 
 func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
-	return Describe("Alerting routing logic translation to physical dispatching", Ordered, func() {
+	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		When("setting namespace specs on the routing tree", func() {
 			var step string = "initial"
 			var router routing.OpniRouting
@@ -53,8 +55,7 @@ func BuildRoutingLogicTest(
 				currentCfg, err := router.BuildConfig()
 				Expect(err).To(Succeed())
 				By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
-				fp, err := freeport.GetFreePort()
-				Expect(err).To(Succeed())
+				fp := freeport.GetFreePort()
 
 				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})

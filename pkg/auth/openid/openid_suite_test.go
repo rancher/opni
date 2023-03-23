@@ -15,8 +15,8 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/auth/openid"
+	"github.com/rancher/opni/pkg/test/freeport"
 )
 
 func TestOpenid(t *testing.T) {
@@ -52,8 +52,7 @@ type testDiscoveryServer struct {
 
 func newTestDiscoveryServer(ctx context.Context, portOverride ...int) *testDiscoveryServer {
 	key := newRandomRS256Key()
-	port, err := freeport.GetFreePort()
-	Expect(err).NotTo(HaveOccurred())
+	port := freeport.GetFreePort()
 	if len(portOverride) == 1 {
 		port = portOverride[0]
 	}

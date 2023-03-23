@@ -125,10 +125,11 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 
 	ekp := ecdh.NewEphemeralKeyPair()
-	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
-		PublicKey: authReq.ClientPubKey,
-		PeerType:  ecdh.PeerTypeClient,
-	})
+	clientPubKey, err := ecdh.ClientPubKey(authReq)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, clientPubKey)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -166,6 +167,6 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 
 	return &bootstrapv2.BootstrapAuthResponse{
-		ServerPubKey: ekp.PublicKey,
+		ServerPubKey: ekp.PublicKey.Bytes(),
 	}, nil
 }

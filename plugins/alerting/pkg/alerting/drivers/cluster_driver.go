@@ -270,5 +270,6 @@ func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
 		ControllerNodeService: shared.OperatorAlertingControllerServiceName,
 		ControllerNodePort:    9093,
 		ControllerClusterPort: 9094,
+		OpniPort:              3000,
 	}
 }

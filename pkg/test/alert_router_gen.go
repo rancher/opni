@@ -16,16 +16,20 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v2"
 )
 
@@ -90,10 +94,7 @@ func (e *Environment) CreateWebhookServer(parentCtx context.Context, num int) []
 }
 
 func (e *Environment) NewWebhookMemoryServer(parentCtx context.Context, webHookRoute string) *MockIntegrationWebhookServer {
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	port := freeport.GetFreePort()
 	buf := []*config.WebhookMessage{}
 	mu := &sync.RWMutex{}
 	mux := http.NewServeMux()
@@ -404,10 +405,9 @@ func (e *Environment) RunAlertManager(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	freePort, err := freeport.GetFreePort()
-	Expect(err).To(Succeed())
-	apiPort, ctxCa := e.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(freePort))
-	defer ctxCa()
+	freePort := freeport.GetFreePort()
+	ctxCa, caF := context.WithCancel(ctx)
+	apiPort := e.StartEmbeddedAlertManager(ctxCa, tmpPath, lo.ToPtr(freePort))
 	apiNode := backend.NewAlertManagerReadyClient(
 		ctx,
 		fmt.Sprintf("http://localhost:%d", apiPort),
@@ -416,7 +416,7 @@ func (e *Environment) RunAlertManager(
 	)
 	err = apiNode.DoRequest()
 	Expect(err).To(Succeed())
-	return apiPort, ctxCa
+	return apiPort, caF
 }
 
 func ExpectAlertManagerConfigToBeValid(
@@ -452,8 +452,7 @@ func ExpectAlertManagerConfigToBeValid(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	apiPort, ctxCa := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
-	defer ctxCa()
+	apiPort := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
 	apiNode := backend.NewAlertManagerReadyClient(
 		ctx,
 		fmt.Sprintf("http://localhost:%d", apiPort),
@@ -524,4 +523,89 @@ func ExpectConfigNotEqual(c1, c2 *config.Config, name ...string) {
 		}
 	}
 	Expect(util.Must(yaml.Marshal(c1))).NotTo(MatchYAML(util.Must(yaml.Marshal(c2))))
+}
+
+// list request to expect length of notifications
+type NotificationPair = lo.Tuple2[*alertingv1.ListNotificationRequest, int]
+
+type AlarmPair = lo.Tuple2[*alertingv1.ListAlarmMessageRequest, int]
+
+type RoutableDataset struct {
+	Routables             []interfaces.Routable
+	ExpectedNotifications []NotificationPair
+	ExpectedAlarms        []AlarmPair
+}
+
+func NewRoutableDataset() *RoutableDataset {
+	r := []interfaces.Routable{}
+	i := 0
+	for _, name := range alertingv1.OpniSeverity_name {
+		notif := &alertingv1.Notification{
+			Title: fmt.Sprintf("test %d", i),
+			Body:  "test",
+			Properties: map[string]string{
+				alertingv1.NotificationPropertySeverity: name,
+				alertingv1.NotificationPropertyOpniUuid: uuid.New().String(),
+			},
+		}
+		notif.Sanitize()
+		err := notif.Validate()
+		if err != nil {
+			panic(err)
+		}
+		r = append(r, notif)
+		i++
+	}
+	condId1 := uuid.New().String()
+	condId2 := uuid.New().String()
+	for i := 0; i < 5; i++ {
+		r = append(r, &alertingv1.AlertCondition{
+			Name:        "test header 1",
+			Description: "test header 2",
+			Id:          condId1,
+			Severity:    alertingv1.OpniSeverity_Error,
+			AlertType: &alertingv1.AlertTypeDetails{
+				Type: &alertingv1.AlertTypeDetails_System{
+					System: &alertingv1.AlertConditionSystem{
+						ClusterId: &corev1.Reference{Id: uuid.New().String()},
+						Timeout:   durationpb.New(10 * time.Minute),
+					},
+				},
+			},
+		})
+	}
+	r = append(r, &alertingv1.AlertCondition{
+		Name:        "test header 2",
+		Description: "body 2",
+		Id:          condId2,
+		Severity:    alertingv1.OpniSeverity_Error,
+		AlertType: &alertingv1.AlertTypeDetails{
+			Type: &alertingv1.AlertTypeDetails_System{
+				System: &alertingv1.AlertConditionSystem{
+					ClusterId: &corev1.Reference{Id: uuid.New().String()},
+					Timeout:   durationpb.New(10 * time.Minute),
+				},
+			},
+		},
+	})
+	return &RoutableDataset{
+		Routables: r,
+		ExpectedNotifications: []NotificationPair{
+			{A: &alertingv1.ListNotificationRequest{}, B: 4},
+		},
+		ExpectedAlarms: []AlarmPair{
+			{A: &alertingv1.ListAlarmMessageRequest{
+				ConditionId:  condId1,
+				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
+				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
+				Fingerprints: []string{"fingerprint"},
+			}, B: 1},
+			{A: &alertingv1.ListAlarmMessageRequest{
+				ConditionId:  condId2,
+				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
+				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
+				Fingerprints: []string{"fingerprint"},
+			}, B: 1},
+		},
+	}
 }

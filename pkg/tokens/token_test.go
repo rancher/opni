@@ -61,7 +61,7 @@ var _ = Describe("Token", Label("unit"), func() {
 		Expect(err).To(HaveOccurred())
 
 		Expect(func() {
-			tokens.NewToken(io.LimitReader(rand.Reader, 50))
+			tokens.NewToken(io.LimitReader(rand.Reader, 20))
 		}).To(Panic())
 
 		t, err = tokens.ParseHex("abcdef012345.0123456789abcdef0123456789abcdef0123456789zzzzzz0123")

@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -111,7 +112,7 @@ func (c *systemPluginClientImpl) UseKeyValueStore(_ context.Context, in *BrokerI
 
 func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *DialAddress) (*emptypb.Empty, error) {
 	cc, err := grpc.DialContext(ctx, addr.Value,
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 		grpc.WithContextDialer(util.DialProtocol),
 		grpc.WithConnectParams(grpc.ConnectParams{

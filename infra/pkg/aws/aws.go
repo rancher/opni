@@ -201,7 +201,7 @@ func (p *provisioner) buildS3Resources(ctx *Context, conf resources.MainClusterC
 		Bucket:       p.clusterName,
 		ForceDestroy: Bool(true),
 		Tags:         ToStringMap(conf.Tags),
-	})
+	}, IgnoreChanges([]string{"serverSideEncryptionConfiguration"}))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

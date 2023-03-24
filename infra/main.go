@@ -109,14 +109,19 @@ func run(ctx *Context) (runErr error) {
 			return StringOutput{}, errors.WithStack(err)
 		}
 
-		opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
-			Chart:          String(opniPrometheusCrdChart),
-			RepositoryOpts: chartRepoOpts,
-			Namespace:      String("opni"),
-			Timeout:        Int(60),
-		}, Provider(k), RetainOnDelete(true))
-		if err != nil {
-			return StringOutput{}, errors.WithStack(err)
+		var opniChartExtraDeps []Resource
+
+		if conf.PrometheusCrdChartMode == "separate" {
+			opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
+				Chart:          String(opniPrometheusCrdChart),
+				RepositoryOpts: chartRepoOpts,
+				Namespace:      String("opni"),
+				Timeout:        Int(60),
+			}, Provider(k), RetainOnDelete(true))
+			if err != nil {
+				return StringOutput{}, errors.WithStack(err)
+			}
+			opniChartExtraDeps = append(opniChartExtraDeps, opniPrometheusCrd)
 		}
 
 		opni, err := helm.NewRelease(ctx, "opni", &helm.ReleaseArgs{
@@ -132,7 +137,7 @@ func run(ctx *Context) (runErr error) {
 					"tag":        String(conf.ImageTag),
 				},
 				"opni-prometheus-crd": Map{
-					"enabled": Bool(false),
+					"enabled": Bool(conf.PrometheusCrdChartMode == "embedded"),
 				},
 				"gateway": Map{
 					"enabled": Bool(true),
@@ -172,56 +177,17 @@ func run(ctx *Context) (runErr error) {
 					"persistence": Map{
 						"mode": String("pvc"),
 					},
-					//FIXME change to a config value
 					"kube-prometheus-stack": Map{
-						"enabled": Bool(true),
+						"enabled": Bool(!conf.DisableKubePrometheusStack),
 					},
 				},
 			},
 			Timeout:     Int(300),
 			WaitForJobs: Bool(true),
-		}, Provider(k), DependsOn([]Resource{opniCrd, opniPrometheusCrd}), RetainOnDelete(true))
+		}, Provider(k), DependsOn(append([]Resource{opniCrd}, opniChartExtraDeps...)), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
-		//FIXME: add agent v1 back when its more stable
-		// _, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
-		// 	Chart:           String(opniAgentChart),
-		// 	Version:         StringPtr(conf.ChartVersion),
-		// 	RepositoryOpts:  chartRepoOpts,
-		// 	Namespace:       String("opni"),
-		// 	CreateNamespace: Bool(true),
-		// 	Values: Map{
-		// 		"address": String("opni.opni.svc:9090"),
-		// 		"image": Map{
-		// 			"repository": String(conf.ImageRepo),
-		// 			"tag":        String(conf.ImageTag),
-		// 		},
-		// 		"metrics": Map{
-		// 			"enabled": Bool(true),
-		// 		},
-		// 		"bootstrapInCluster": Map{
-		// 			"enabled":           Bool(true),
-		// 			"managementAddress": String("opni-internal.opni.svc:11090"),
-		// 		},
-		// 		"kube-prometheus-stack": Map{
-		// 			"enabled": Bool(true),
-		// 		},
-		// 		"rules": Map{
-		// 			"discovery": Map{
-		// 				"prometheusRules": Map{},
-		// 			},
-		// 		},
-		// 		"logLevel":  String("debug"),
-		// 		"profiling": Bool(false), // change to true to enable profiling
-		// 	},
-		// 	Atomic:      Bool(true),
-		// 	ForceUpdate: Bool(true),
-		// 	Timeout:     Int(300),
-		// }, Provider(k), DependsOn([]Resource{opniCrd, opni}), RetainOnDelete(true))
-		// if err != nil {
-		// 	return StringOutput{}, errors.WithStack(err)
-		// }
 
 		opniServiceLB := All(opni.Status.Namespace(), opni.Status.Name()).
 			ApplyT(func(args []any) (StringOutput, error) {

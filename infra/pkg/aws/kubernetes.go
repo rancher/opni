@@ -58,7 +58,7 @@ func (p *provisioner) buildNginx(ctx *Context, provider ProviderResource) (loadB
 			"controller": Map{
 				"service": Map{
 					"httpsPort": Map{
-						"targetPort": String("http"),
+						"targetPort": Int(80),
 					},
 					"annotations": Map{
 						"service.beta.kubernetes.io/aws-load-balancer-backend-protocol": String("http"),

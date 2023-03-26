@@ -8,6 +8,7 @@ import (
 
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -204,7 +205,6 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 					},
 				},
 				Spec: corev1.PodSpec{
-
 					Containers: []corev1.Container{
 						{
 							Name: "otel-collector",
@@ -218,6 +218,7 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 								SELinuxOptions: &corev1.SELinuxOptions{
 									Type: "rke_logreader_t",
 								},
+								RunAsUser: lo.ToPtr[int64](0),
 							},
 							Env: []corev1.EnvVar{
 								{

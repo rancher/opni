@@ -66,6 +66,7 @@ func (r *Reconciler) hostLoggingVolumes() (
 	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 		Name:      "varlogpods",
 		MountPath: "/var/log/pods",
+		ReadOnly:  true,
 	})
 	retVolumes = append(retVolumes, corev1.Volume{
 		Name: "varlogpods",
@@ -79,6 +80,7 @@ func (r *Reconciler) hostLoggingVolumes() (
 	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 		Name:      "varlibdockercontainers",
 		MountPath: "/var/lib/docker/containers",
+		ReadOnly:  true,
 	})
 	retVolumes = append(retVolumes, corev1.Volume{
 		Name: "varlibdockercontainers",
@@ -93,6 +95,7 @@ func (r *Reconciler) hostLoggingVolumes() (
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "rancher",
 			MountPath: "/var/lib/rancher/rke/log",
+			ReadOnly:  true,
 		})
 		retVolumes = append(retVolumes, corev1.Volume{
 			Name: "rancher",
@@ -110,6 +113,7 @@ func (r *Reconciler) hostLoggingVolumes() (
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "journald",
 			MountPath: journaldDir,
+			ReadOnly:  true,
 		})
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "machineid",
@@ -141,6 +145,7 @@ func (r *Reconciler) hostLoggingVolumes() (
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "journald",
 			MountPath: journaldDir,
+			ReadOnly:  true,
 		})
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
 			Name:      "indir",

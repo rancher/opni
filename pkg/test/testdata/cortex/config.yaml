@@ -7,7 +7,7 @@ tenant_federation:
   enabled: true
 
 server:
-  log_level: warn
+  log_level: debug
   http_listen_port: {{ .HttpListenPort }}
   grpc_listen_port: {{ .GrpcListenPort }}
   http_tls_config: &tls_server_config
@@ -102,6 +102,6 @@ ruler_storage:
 
 limits:
   metric_relabel_configs:
-  - source_labels: [_opni_impersonate_as]
+  - source_labels: [zz_opni_impersonate_as]
     regex: '.+'
     action: drop

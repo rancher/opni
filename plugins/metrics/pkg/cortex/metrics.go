@@ -23,6 +23,19 @@ var (
 		Name:      "remote_write_requests_total",
 		Help:      "Total number of remote write requests forwarded to Cortex",
 	}, []string{"cluster_id", "code", "code_text"})
+	mRemoteWriteProcessingLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "opni",
+		Subsystem: "gateway",
+		Name:      "remote_write_processing_latency_ns",
+		Help:      "Latency of remote write processing in nanoseconds per timeseries",
+		Buckets:   prometheus.ExponentialBuckets(1, 2, 10),
+	})
+	mRemoteWriteTotalProcessedSeries = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "opni",
+		Subsystem: "gateway",
+		Name:      "remote_write_total_processed_series",
+		Help:      "Total number of series processed by remote write",
+	})
 )
 
 func Collectors() []prometheus.Collector {
@@ -30,5 +43,7 @@ func Collectors() []prometheus.Collector {
 		mIngestBytesTotal,
 		mIngestBytesByID,
 		mRemoteWriteRequests,
+		mRemoteWriteProcessingLatency,
+		mRemoteWriteTotalProcessedSeries,
 	}
 }

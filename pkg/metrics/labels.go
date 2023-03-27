@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	LabelImpersonateAs = "_opni_impersonate_as"
+	LabelImpersonateAs = "zz_opni_impersonate_as"
 )
 
 var matchNonEmptyRegex = relabel.MustNewRegexp(".+")

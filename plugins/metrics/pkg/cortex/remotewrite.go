@@ -51,13 +51,12 @@ func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
 		f.interceptors = map[string]RequestInterceptor{
 			"local": NewFederatingInterceptor(InterceptorConfig{
 				IdLabelName: metrics.LabelImpersonateAs,
-				DropIdLabel: true,
 			}),
 		}
 	})
 }
 
-var passthrough = passthroughInterceptor{}
+var passthrough = &passthroughInterceptor{}
 
 func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.WriteRequest) (_ *cortexpb.WriteResponse, pushErr error) {
 	if !f.Initialized() {
@@ -122,7 +121,11 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.Writ
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return interceptor.Intercept(ctx, writeReq, f.CortexClientSet.Distributor().Push)
+	wr, err := interceptor.Intercept(ctx, writeReq, f.CortexClientSet.Distributor().Push)
+
+	cortexpb.ReuseSlice(writeReq.Timeseries)
+
+	return wr, err
 }
 
 func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {

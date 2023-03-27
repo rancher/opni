@@ -18,6 +18,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/metrics"
 	metrics_unmarshal "github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -142,16 +143,16 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 								{
 									Labels: []prompb.Label{
 										{Name: "__name__", Value: "opni_test_metric_1"},
-										{Name: "_opni_impersonate_as", Value: "agent1"},
 										{Name: "example", Value: "a"},
+										{Name: metrics.LabelImpersonateAs, Value: "agent1"},
 									},
 									Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 								},
 								{
 									Labels: []prompb.Label{
 										{Name: "__name__", Value: "opni_test_metric_2"},
-										// {Name: "_opni_impersonate_as", Value: "agent1"}, // no impersonation label
 										{Name: "example", Value: "b"},
+										// {Name: metrics.LabelImpersonateAs, Value: "agent1"}, // no impersonation label
 									},
 									Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 								},
@@ -159,16 +160,16 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 								{
 									Labels: []prompb.Label{
 										{Name: "__name__", Value: "opni_test_metric_1"},
-										{Name: "_opni_impersonate_as", Value: "agent2"},
 										{Name: "example", Value: "b"},
+										{Name: metrics.LabelImpersonateAs, Value: "agent2"},
 									},
 									Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 								},
 								{
 									Labels: []prompb.Label{
 										{Name: "__name__", Value: "opni_test_metric_2"},
-										{Name: "_opni_impersonate_as", Value: "agent2"},
 										{Name: "example", Value: "b"},
+										{Name: metrics.LabelImpersonateAs, Value: "agent2"},
 									},
 									Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 								},
@@ -176,8 +177,8 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 								{
 									Labels: []prompb.Label{
 										{Name: "__name__", Value: "opni_test_metric_1"},
-										{Name: "_opni_impersonate_as", Value: "agent3"}, // note: agent3 does not exist (this is ok)
 										{Name: "example", Value: "c"},
+										{Name: metrics.LabelImpersonateAs, Value: "agent3"}, // note: agent3 does not exist (this is ok)
 									},
 									Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 								},
@@ -330,8 +331,8 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 							{
 								Labels: []prompb.Label{
 									{Name: "__name__", Value: "opni_test_metric_4"},
-									{Name: "_opni_impersonate_as", Value: "agent1"},
 									{Name: "example", Value: "a"},
+									{Name: metrics.LabelImpersonateAs, Value: "agent1"},
 								},
 								Samples: []prompb.Sample{{Value: 1, Timestamp: now}},
 							},

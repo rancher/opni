@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -345,7 +345,7 @@ func BuildStorageInfoCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			queryResp, err := unmarshal.UnmarshalPrometheusResponse(resp.GetData())
+			queryResp, err := compat.UnmarshalPrometheusResponse(resp.GetData())
 			if err != nil {
 				return err
 			}

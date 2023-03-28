@@ -11,12 +11,14 @@ import (
 	"io/fs"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,7 +52,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -62,8 +64,10 @@ import (
 	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/clients"
@@ -78,7 +82,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
-	"github.com/rancher/opni/pkg/realtime"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
@@ -96,24 +99,56 @@ import (
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 var collectorWriteSync sync.Mutex
-var agentList map[string]context.CancelFunc = make(map[string]context.CancelFunc)
+var agentList = make(map[string]context.CancelFunc)
 var agentListMu sync.Mutex
 
 type servicePorts struct {
-	Etcd             int
-	Jetstream        int
-	GatewayGRPC      int
-	GatewayHTTP      int
-	GatewayMetrics   int
-	ManagementGRPC   int
-	ManagementHTTP   int
-	ManagementWeb    int
-	CortexGRPC       int
-	CortexHTTP       int
-	TestEnvironment  int
-	RTMetrics        int
-	DisconnectPort   int
-	NodeExporterPort int
+	Etcd             int `env:"ETCD_PORT"`
+	Jetstream        int `env:"JETSTREAM_PORT"`
+	GatewayGRPC      int `env:"OPNI_GATEWAY_GRPC_PORT"`
+	GatewayHTTP      int `env:"OPNI_GATEWAY_HTTP_PORT"`
+	GatewayMetrics   int `env:"OPNI_GATEWAY_METRICS_PORT"`
+	ManagementGRPC   int `env:"OPNI_MANAGEMENT_GRPC_PORT"`
+	ManagementHTTP   int `env:"OPNI_MANAGEMENT_HTTP_PORT"`
+	ManagementWeb    int `env:"OPNI_MANAGEMENT_WEB_PORT"`
+	CortexGRPC       int `env:"CORTEX_GRPC_PORT"`
+	CortexHTTP       int `env:"CORTEX_HTTP_PORT"`
+	TestEnvironment  int `env:"TEST_ENV_API_PORT"`
+	DisconnectPort   int `env:"AGENT_DISCONNECT_PORT"`
+	NodeExporterPort int `env:"NODE_EXPORTER_PORT"`
+}
+
+func newServicePorts() (servicePorts, error) {
+	// use environment variables if available, then fallback to random ports
+	var p servicePorts
+	setRandomPorts := []func(int){}
+	v := reflect.ValueOf(&p).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		if field.CanSet() {
+			envName := v.Type().Field(i).Tag.Get("env")
+			if envName == "" {
+				panic("missing env tag for " + v.Type().Field(i).Name)
+			}
+			if portStr, ok := os.LookupEnv(envName); ok {
+				port, err := strconv.Atoi(portStr)
+				if err != nil {
+					return servicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
+				}
+				field.SetInt(int64(port))
+			}
+			setRandomPorts = append(setRandomPorts, func(i int) {
+				field.SetInt(int64(i))
+			})
+		}
+	}
+	if len(setRandomPorts) > 0 {
+		randomPorts := freeport.GetFreePorts(len(setRandomPorts))
+		for i, port := range randomPorts {
+			setRandomPorts[i](port)
+		}
+	}
+	return p, nil
 }
 
 type RunningAgent struct {
@@ -149,6 +184,7 @@ type Environment struct {
 	Processes struct {
 		Etcd      future.Future[*os.Process]
 		APIServer future.Future[*os.Process]
+		Grafana   future.Future[*os.Process]
 	}
 }
 
@@ -157,7 +193,6 @@ type EnvironmentOptions struct {
 	enableJetstream             bool
 	enableGateway               bool
 	enableCortex                bool
-	enableRealtimeServer        bool
 	enableCortexClusterDriver   bool
 	enableAlertingClusterDriver bool
 	delayStartEtcd              chan struct{}
@@ -205,12 +240,6 @@ func WithEnableGateway(enable bool) EnvironmentOption {
 func WithEnableCortex(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableCortex = enable
-	}
-}
-
-func WithEnableRealtimeServer(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableRealtimeServer = enable
 	}
 }
 
@@ -284,7 +313,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableGateway:          true,
 		enableCortex:           true,
 		enableDisconnectServer: true,
-		enableRealtimeServer:   false,
 		agentIdSeed:            time.Now().UnixNano(),
 		defaultAgentVersion:    defaultAgentVersion(),
 		storageBackend:         defaultStorageBackend(),
@@ -295,6 +323,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 
 	e.EnvironmentOptions = options
 	e.Processes.Etcd = future.New[*os.Process]()
+	e.Processes.Grafana = future.New[*os.Process]()
 
 	lg := e.Logger
 	lg.Info("Starting test environment")
@@ -308,102 +337,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports := freeport.GetFreePorts(14)
-
-	e.ports = servicePorts{
-		Etcd:             ports[0],
-		GatewayGRPC:      ports[1],
-		GatewayHTTP:      ports[2],
-		GatewayMetrics:   ports[3],
-		ManagementGRPC:   ports[4],
-		ManagementHTTP:   ports[5],
-		ManagementWeb:    ports[6],
-		CortexGRPC:       ports[7],
-		CortexHTTP:       ports[8],
-		TestEnvironment:  ports[9],
-		RTMetrics:        ports[10],
-		Jetstream:        ports[11],
-		DisconnectPort:   ports[12],
-		NodeExporterPort: ports[13],
-	}
 	var err error
-	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
-		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse management GRPC port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_HTTP_PORT"); ok {
-		e.ports.ManagementHTTP, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse management HTTP port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_WEB_PORT"); ok {
-		e.ports.ManagementWeb, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse management web port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_GRPC_PORT"); ok {
-		e.ports.GatewayGRPC, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse gateway grpc port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_HTTP_PORT"); ok {
-		e.ports.GatewayHTTP, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse gateway http port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_METRICS_PORT"); ok {
-		e.ports.GatewayMetrics, err = strconv.Atoi(portNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse gateway metrics port: %w", err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
-		e.ports.TestEnvironment, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("ETCD_PORT"); ok {
-		e.ports.Etcd, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("CORTEX_HTTP_PORT"); ok {
-		e.ports.CortexHTTP, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("CORTEX_GRPC_PORT"); ok {
-		e.ports.CortexGRPC, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("AGENT_DISCONNECT_PORT"); ok {
-		e.ports.DisconnectPort, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("NODE_EXPORTER_PORT"); ok {
-		e.ports.NodeExporterPort, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if portNum, ok := os.LookupEnv("JETSTREAM_PORT"); ok {
-		e.ports.Jetstream, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
+	e.ports, err = newServicePorts()
+	if err != nil {
+		return err
 	}
 
 	e.tempDir, err = os.MkdirTemp("", "opni-test-*")
@@ -426,6 +363,9 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if options.enableCortex {
 		cortexTempDir := path.Join(e.tempDir, "cortex")
 		if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(cortexTempDir, "data"), 0700); err != nil {
 			return err
 		}
 
@@ -507,9 +447,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if options.enableGateway {
 		e.startGateway()
 	}
-	if options.enableRealtimeServer {
-		e.startRealtimeServer()
-	}
 	return nil
 }
 
@@ -529,6 +466,10 @@ func (e *Environment) PutTestData(inputPath string, data []byte) string {
 
 func (e *Environment) GenerateNewTempDirectory(prefix string) string {
 	return path.Join(e.tempDir, fmt.Sprintf("%s-%s", prefix, uuid.New().String()))
+}
+
+func (e *Environment) GetTempDirectory() string {
+	return e.tempDir
 }
 
 func (e *Environment) Context() context.Context {
@@ -551,7 +492,7 @@ func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 	return nats.Connect(sUrl)
 }
 
-func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
+func (e *Environment) StartK8s() (*rest.Config, *k8sruntime.Scheme, error) {
 	e.initCtx()
 	e.Processes.APIServer = future.New[*os.Process]()
 
@@ -955,32 +896,16 @@ func (e *Environment) StartCortex(ctx context.Context) {
 	})
 }
 
-func (e *Environment) startRealtimeServer() {
-	if !e.enableRealtimeServer {
-		e.Logger.Panic("realtime disabled")
-	}
-
-	srv, err := realtime.NewServer(&v1beta1.RealtimeServerSpec{
-		MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.RTMetrics),
-		ManagementClient: v1beta1.ManagementClientSpec{
-			Address: fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC),
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-	go srv.Start(e.ctx)
-}
-
 type PrometheusJob struct {
-	JobName    string
-	ScrapePort int
+	JobName     string
+	ScrapePort  int
+	MetricsPath string
 }
 
 type prometheusTemplateOptions struct {
-	ListenPort    int
-	RTMetricsPort int
-	OpniAgentPort int
+	ListenPort         int
+	OpniAgentPort      int
+	GatewayMetricsPort int
 	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
 	Jobs []PrometheusJob
 }
@@ -1018,7 +943,10 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	if err != nil {
 		panic(err)
 	}
-	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
+	promDir := path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))
+	os.MkdirAll(promDir, 0755)
+
+	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -1026,7 +954,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	if err := t.Execute(configFile, prometheusTemplateOptions{
 		ListenPort:    port,
 		OpniAgentPort: opniAgentPort,
-		RTMetricsPort: e.ports.RTMetrics,
 		Jobs:          jobs,
 	}); err != nil {
 		panic(err)
@@ -1035,8 +962,8 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{
-		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
-		fmt.Sprintf("--storage.agent.path=%s", path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))),
+		fmt.Sprintf("--config.file=%s", path.Join(promDir, "config.yaml")),
+		fmt.Sprintf("--storage.agent.path=%s", promDir),
 		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", port),
 		"--log.level=error",
 		"--web.enable-lifecycle",
@@ -1570,6 +1497,8 @@ func (e *Environment) startGateway() {
 		management.WithLifecycler(lifecycler),
 	)
 
+	g.MustRegisterCollector(m)
+
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Infof("loaded %d plugins", numLoaded)
 	}))
@@ -1898,6 +1827,93 @@ func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
 	}
 }
 
+type grafanaConfigTemplateData struct {
+	DatasourceUrl string
+}
+
+func (e *Environment) WriteGrafanaConfig() {
+	os.MkdirAll(path.Join(e.tempDir, "grafana", "provisioning", "datasources"), 0777)
+	os.MkdirAll(path.Join(e.tempDir, "grafana", "provisioning", "dashboards"), 0777)
+	os.MkdirAll(path.Join(e.tempDir, "grafana", "dashboards"), 0777)
+
+	tmplData := grafanaConfigTemplateData{
+		DatasourceUrl: fmt.Sprintf("https://localhost:%d", e.ports.GatewayHTTP),
+	}
+
+	datasourceTemplate := TestData("grafana/datasource.yaml")
+	t := util.Must(template.New("datasource").Parse(string(datasourceTemplate)))
+	datasourceFile, err := os.Create(path.Join(e.tempDir, "grafana", "provisioning", "datasources", "datasource.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	defer datasourceFile.Close()
+	err = t.Execute(datasourceFile, tmplData)
+	if err != nil {
+		panic(err)
+	}
+
+	dashboardTemplate := TestData("grafana/dashboards.yaml")
+	t = util.Must(template.New("dashboard").Parse(string(dashboardTemplate)))
+	dashboardFile, err := os.Create(path.Join(e.tempDir, "grafana", "provisioning", "dashboards", "dashboards.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	defer dashboardFile.Close()
+	err = t.Execute(dashboardFile, tmplData)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (e *Environment) StartGrafana(extraDockerArgs ...string) {
+	baseDir := path.Join(e.tempDir, "grafana")
+
+	args := append(
+		append(
+			[]string{
+				"run",
+				"-q",
+				"--rm",
+				"-v", fmt.Sprintf("%s/provisioning:/etc/grafana/provisioning", baseDir),
+				"-v", fmt.Sprintf("%s/dashboards:/dashboards", baseDir),
+				"-p", "3000:3000",
+				"--net=host",
+				"-e", "GF_INSTALL_PLUGINS=grafana-polystat-panel,marcusolsson-treemap-panel,michaeldmoore-multistat-panel",
+				"-e", "GF_ALERTING_ENABLED=false",
+				"-e", "GF_AUTH_DISABLE_LOGIN_FORM=true",
+				"-e", "GF_AUTH_DISABLE_SIGNOUT_MENU=true",
+				"-e", "GF_AUTH_ANONYMOUS_ENABLED=true",
+				"-e", "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin",
+				"-e", "GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.",
+				"-e", "GF_FEATURE_TOGGLES_ENABLE=accessTokenExpirationCheck panelTitleSearch increaseInMemDatabaseQueryCache newPanelChromeUI",
+				"-e", "GF_SERVER_DOMAIN=localhost",
+				"-e", "GF_SERVER_ROOT_URL=http://localhost",
+			},
+			extraDockerArgs...,
+		),
+		"grafana/grafana:latest",
+	)
+
+	cmd := exec.CommandContext(e.ctx, "docker", args...)
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGINT)
+	}
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	e.Processes.Grafana.Set(cmd.Process)
+
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
+}
+
 func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	options := &EnvironmentOptions{
 		enableGateway:      true,
@@ -1905,6 +1921,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		enableCortex:       true,
 		enableNodeExporter: true,
 		defaultAgentOpts:   []StartAgentOption{},
+		agentIdSeed:        rand.Int63(),
 	}
 	options.apply(opts...)
 
@@ -1914,19 +1931,18 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	environment := &Environment{
 		TestBin: "testbin/bin",
 	}
-	randSrc := rand.New(rand.NewSource(0))
+	randSrc := rand.New(rand.NewSource(options.agentIdSeed))
 	var iPort int
 	var kPort int
-	var localAgent sync.Once
+	var localAgentOnce sync.Once
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
 		case http.MethodPost:
 			body := struct {
-				Token   string   `json:"token"`
-				Pins    []string `json:"pins"`
-				ID      string   `json:"id"`
-				Version string   `json:"version"`
+				Token string   `json:"token"`
+				Pins  []string `json:"pins"`
+				ID    string   `json:"id"`
 			}{}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
@@ -1936,9 +1952,6 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			if body.ID == "" {
 				body.ID = util.Must(uuid.NewRandomFromReader(randSrc)).String()
 			}
-			if body.Version == "" {
-				body.Version = "v1"
-			}
 			token, err := tokens.ParseHex(body.Token)
 			if err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
@@ -1946,11 +1959,15 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 			startOpts := slices.Clone(options.defaultAgentOpts)
-			localAgent.Do(func() {
-				startOpts = append(startOpts, WithLocalAgent())
+			var isLocalAgent bool
+			localAgentOnce.Do(func() {
+				isLocalAgent = true
 			})
+			if isLocalAgent {
+				startOpts = append(startOpts, WithLocalAgent())
+			}
 			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
-				append(startOpts, WithAgentVersion(body.Version))...)
+				append(startOpts, WithAgentVersion("v2"))...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
@@ -1964,7 +1981,14 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 						ScrapePort: environment.ports.NodeExporterPort,
 					})
 				}
-				return NewOverridePrometheusConfig("alerting/prometheus/config.yaml",
+				if options.enableGateway && isLocalAgent {
+					optional = append(optional, PrometheusJob{
+						JobName:     "opni-gateway",
+						ScrapePort:  environment.ports.GatewayMetrics,
+						MetricsPath: "/metrics",
+					})
+				}
+				return NewOverridePrometheusConfig("prometheus/config.yaml",
 					append([]PrometheusJob{
 						{
 							JobName:    "payment_service",
@@ -2002,7 +2026,6 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		environment.simulateKubeObject(kPort)
 	}
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
-	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient
 	if options.enableGateway {
 		client = environment.NewManagementClient()
@@ -2021,7 +2044,67 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		)
 	}
 
+	showHelp := func() {
+		Log.Infof(chalk.Green.Color("Kubernetes metric server listening on %d"), kPort)
+		Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
+		if options.enableGateway {
+			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		}
+		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
+			Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+			Log.Info(chalk.Blue.Color("Press (M) to configure the metrics backend"))
+			Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
+			Log.Info(chalk.Blue.Color("Press (m) to install the metrics capability on all agents"))
+			Log.Info(chalk.Blue.Color("Press (u) to uninstall the metrics capability on all agents"))
+			Log.Info(chalk.Blue.Color("Press (g) to run a Grafana container"))
+			Log.Info(chalk.Blue.Color("Press (r) to configure sample rbac rules"))
+			Log.Info(chalk.Blue.Color("Press (p)(i) to open the pprof index page"))
+			Log.Info(chalk.Blue.Color("Press (p)(h) to open a pprof heap profile"))
+			Log.Info(chalk.Blue.Color("Press (p)(a) to open a pprof allocs profile"))
+			Log.Info(chalk.Blue.Color("Press (p)(p) to run and open a pprof profile"))
+			Log.Info(chalk.Blue.Color("Press (i) to show runtime information"))
+			Log.Info(chalk.Blue.Color("Press (h) to show this help message"))
+		}
+	}
+
+	var capabilityMu sync.Mutex
+	var startedGrafana bool
+
+	var pPressed bool
 	handleKey := func(rn rune) {
+		if pPressed {
+			pPressed = false
+			var path string
+			switch rn {
+			case 'i':
+				go browser.OpenURL(fmt.Sprintf("http://localhost:%d/debug/pprof/", environment.ports.TestEnvironment))
+				return
+			case 'h':
+				path = "heap"
+			case 'a':
+				path = "allocs"
+			case 'p':
+				path = "profile"
+			default:
+				Log.Error("Invalid pprof command: %c", rn)
+				return
+			}
+			url := fmt.Sprintf("http://localhost:%d/debug/pprof/%s", environment.ports.TestEnvironment, path)
+			port := freeport.GetFreePort()
+			cmd := exec.CommandContext(environment.Context(), "go", "tool", "pprof", "-http", fmt.Sprintf("localhost:%d", port), url)
+			session, err := testutil.StartCmd(cmd)
+			if err != nil {
+				Log.Error(err)
+			} else {
+				waitctx.Go(environment.Context(), func() {
+					<-environment.Context().Done()
+					session.Wait()
+				})
+			}
+			Log.Infof("Starting pprof server on %s", url)
+			return
+		}
+
 		switch rn {
 		case ' ':
 			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
@@ -2049,16 +2132,10 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 					Log.Error(err)
 					return
 				}
-				var version string
-				switch rn {
-				case 'a':
-					version = "v1"
-				case 'A':
-					version = "v2"
-				}
+
 				resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
-					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"], "version": "%s"}`,
-						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint, version)))
+					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
+						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
 				if err != nil {
 					Log.Error(err)
 					return
@@ -2068,21 +2145,151 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 					return
 				}
 			}()
+		case 'M':
+			capabilityMu.Lock()
+			go func() {
+				defer capabilityMu.Unlock()
+				defer func() {
+					Log.Info(chalk.Green.Color("Metrics backend configured"))
+				}()
+				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
+				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{
+					Mode: cortexops.DeploymentMode_AllInOne,
+					Storage: &storagev1.StorageSpec{
+						Backend: "filesystem",
+						Filesystem: &storagev1.FilesystemStorageSpec{
+							Directory: path.Join(environment.tempDir, "cortex", "data"),
+						},
+					},
+					Grafana: &cortexops.GrafanaConfig{
+						Enabled: lo.ToPtr(false),
+					},
+				})
+				if err != nil {
+					Log.Error(err)
+				}
+			}()
+		case 'U':
+			capabilityMu.Lock()
+			go func() {
+				defer capabilityMu.Unlock()
+				defer func() {
+					Log.Info(chalk.Green.Color("Metrics backend uninstalled"))
+				}()
+				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
+				_, err := opsClient.UninstallCluster(environment.Context(), &emptypb.Empty{})
+				if err != nil {
+					Log.Error(err)
+				}
+			}()
+		case 'm':
+			capabilityMu.Lock()
+			go func() {
+				defer capabilityMu.Unlock()
+				clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				for _, cluster := range clusters.Items {
+					_, err := client.InstallCapability(environment.Context(), &managementv1.CapabilityInstallRequest{
+						Name: "metrics",
+						Target: &v1.InstallRequest{
+							Cluster:        cluster.Reference(),
+							IgnoreWarnings: true,
+						},
+					})
+					if err != nil {
+						Log.Error(err)
+					}
+				}
+			}()
+		case 'u':
+			capabilityMu.Lock()
+			go func() {
+				defer capabilityMu.Unlock()
+				clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				for _, cluster := range clusters.Items {
+					_, err := client.UninstallCapability(environment.Context(), &managementv1.CapabilityUninstallRequest{
+						Name: "metrics",
+						Target: &v1.UninstallRequest{
+							Cluster: cluster.Reference(),
+						},
+					})
+					if err != nil {
+						Log.Error(err)
+					}
+				}
+			}()
+		case 'i':
+			Log.Infof("Temp directory: %s", environment.tempDir)
+			Log.Infof("Ports: %s", environment.tempDir)
+			ports := environment.ports
+			// print the field name and int value for each field (all ints)
+			v := reflect.ValueOf(ports)
+			for i := 0; i < v.NumField(); i++ {
+				name := v.Type().Field(i).Name
+				value := v.Field(i).Interface().(int)
+				envVarName := v.Type().Field(i).Tag.Get("env")
+				Log.Infof("  %s: %d (env: %s)", name, value, envVarName)
+			}
+		case 'p':
+			pPressed = true
+			Log.Info("'p' pressed, waiting for next key...")
+		case 'g':
+			if !startedGrafana {
+				environment.WriteGrafanaConfig()
+				environment.StartGrafana()
+				startedGrafana = true
+				Log.Info(chalk.Green.Color("Grafana started"))
+			} else {
+				Log.Error("Grafana already started")
+			}
+		case 'r':
+			clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
+			if err != nil {
+				Log.Error(err)
+				return
+			}
+			if _, err := client.CreateRole(environment.Context(), &corev1.Role{
+				Id: "testenv-role",
+				MatchLabels: &corev1.LabelSelector{
+					MatchLabels: map[string]string{
+						"visible": "true",
+					},
+				},
+			}); err != nil {
+				Log.Error(err)
+			}
+			if _, err := client.CreateRoleBinding(environment.Context(), &corev1.RoleBinding{
+				Id:       "testenv-rb",
+				RoleId:   "testenv-role",
+				Subjects: []string{"testenv"},
+			}); err != nil {
+				Log.Error(err)
+			}
+			for _, cluster := range clusters.Items {
+				cluster.Metadata.Labels["visible"] = "true"
+				if _, err := client.EditCluster(environment.Context(), &managementv1.EditClusterRequest{
+					Cluster: cluster.Reference(),
+					Labels:  cluster.GetLabels(),
+				}); err != nil {
+					Log.Error(err)
+				}
+			}
+		case 'h':
+			showHelp()
 		}
 	}
 
-	Log.Infof(chalk.Green.Color("Kubernetes metric server listening on %d"), kPort)
-	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
 	if err == nil {
-		if options.enableGateway {
-			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
-		}
-		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
-			Log.Info(chalk.Blue.Color("Press (a) to launch a new v1 agent"))
-			Log.Info(chalk.Blue.Color("Press (A) to launch a new v2 agent"))
-		}
+		showHelp()
 		go func() {
 			for {
 				rn, err := t.ReadRune()

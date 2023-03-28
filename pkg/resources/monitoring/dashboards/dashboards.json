@@ -1498,7 +1498,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -3203,7 +3203,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 0,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -4216,7 +4216,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -6513,7 +6513,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "ceil(sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval])))",
+                        "expr": "ceil(sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval])))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "{{namespace}}",
@@ -6592,7 +6592,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "{{namespace}}",
@@ -6811,7 +6811,7 @@
                   ],
                   "targets": [
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6820,7 +6820,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6829,7 +6829,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6838,7 +6838,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6847,7 +6847,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6856,7 +6856,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
+                        "expr": "sum by(namespace) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace!=\"\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -6947,7 +6947,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -10163,7 +10163,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "ceil(sum by(pod) (rate(container_fs_reads_total{container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_total{container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval])))",
+                        "expr": "ceil(sum by(pod) (rate(container_fs_reads_total{container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_total{container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval])))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "{{pod}}",
@@ -10242,7 +10242,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{container!=\"\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{container!=\"\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "{{pod}}",
@@ -10461,7 +10461,7 @@
                   ],
                   "targets": [
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10470,7 +10470,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10479,7 +10479,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10488,7 +10488,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10497,7 +10497,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10506,7 +10506,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -10597,7 +10597,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -11482,7 +11482,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -13012,7 +13012,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "ceil(sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])))",
+                        "expr": "ceil(sum by(pod) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "Reads",
@@ -13020,7 +13020,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "ceil(sum by(pod) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\",namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])))",
+                        "expr": "ceil(sum by(pod) (rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\",namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "Writes",
@@ -13099,7 +13099,7 @@
                   "steppedLine": false,
                   "targets": [
                      {
-                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "Reads",
@@ -13107,7 +13107,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(pod) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(pod) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))",
                         "format": "time_series",
                         "intervalFactor": 2,
                         "legendFormat": "Writes",
@@ -13497,7 +13497,7 @@
                   ],
                   "targets": [
                      {
-                        "expr": "sum by(container) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13506,7 +13506,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(container) (rate(container_fs_writes_total{job=\"kubelet\",device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_writes_total{job=\"kubelet\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13515,7 +13515,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(container) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_reads_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]) + rate(container_fs_writes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13524,7 +13524,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(container) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13533,7 +13533,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(container) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13542,7 +13542,7 @@
                         "step": 10
                      },
                      {
-                        "expr": "sum by(container) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
+                        "expr": "sum by(container) (rate(container_fs_reads_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]) + rate(container_fs_writes_bytes_total{job=\"kubelet\", device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\", container!=\"\", __tenant_id__=\"$cluster\", namespace=\"$namespace\", pod=\"$pod\"}[$__rate_interval]))",
                         "format": "table",
                         "instant": true,
                         "intervalFactor": 2,
@@ -13633,7 +13633,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -15371,7 +15371,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -17303,7 +17303,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -19313,7 +19313,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -20536,7 +20536,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 0,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -22055,7 +22055,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 0,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -22651,7 +22651,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -23660,7 +23660,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 0,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -24874,7 +24874,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -25841,7 +25841,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 1,
                "tagValuesQuery": "",
                "tags": [ ],
@@ -26988,7 +26988,7 @@
                "options": [ ],
                "query": "query_result(opni_cluster_info)",
                "refresh": 2,
-               "regex": "/cluster_id=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
+               "regex": "/__tenant_id__=\"(?<value>[^\"]+)|friendly_name=\"(?<text>[^\"]+)/g",
                "sort": 0,
                "tagValuesQuery": "",
                "tags": [ ],

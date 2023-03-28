@@ -46,6 +46,11 @@ service CortexAdmin {
       get: "/rules/{namespace}/{groupName}"
     };
   }
+  rpc GetMetricMetadata(MetricMetadataRequest) returns (MetricMetadata) {
+    option (google.api.http) = {
+      get: "/metadata"
+    };
+  }
 
   // Heavy-handed API for diagnostics.
   rpc ListRules(ListRulesRequest) returns (ListRulesResponse) {
@@ -88,7 +93,7 @@ service CortexAdmin {
       get: "/status"
     };
   }
-  
+
   rpc GetCortexConfig(ConfigRequest) returns (ConfigResponse) {
     option (google.api.http) = {
       get: "/config"
@@ -161,6 +166,11 @@ message WriteRequest {
   string clusterID = 1;
   repeated TimeSeries timeseries = 2;
   repeated MetricMetadata metadata = 3;
+}
+
+message MetricMetadataRequest {
+  repeated string tenants = 1;
+  string metricName = 2;
 }
 
 message WriteResponse {}
@@ -238,7 +248,7 @@ message LoadRuleRequest{
 
 message DeleteRuleRequest{
   string clusterId = 1;
-  string namespace = 2; 
+  string namespace = 2;
   string groupName = 3;
 }
 

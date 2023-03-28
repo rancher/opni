@@ -12,6 +12,9 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/attribute"
+	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -56,6 +59,7 @@ type richServer struct {
 
 type streamApiExtensionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
+	StreamApiExtensionPluginOptions
 
 	extensionSrv *streamExtensionServerImpl
 }
@@ -84,7 +88,37 @@ func (p *streamApiExtensionPlugin) GRPCClient(
 	return apiextensions.NewStreamAPIExtensionClient(c), nil
 }
 
-func NewPlugin(p StreamAPIExtension) plugin.Plugin {
+type StreamApiExtensionPluginOptions struct {
+	metricsConfig StreamMetricsConfig
+}
+
+type StreamApiExtensionPluginOption func(*StreamApiExtensionPluginOptions)
+
+func (o *StreamApiExtensionPluginOptions) apply(opts ...StreamApiExtensionPluginOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+type StreamMetricsConfig struct {
+	// Prometheus registerer
+	Registerer prometheus.Registerer
+
+	// A function called on each stream's Connect that returns a list of static
+	// labels to attach to all metrics collected for that stream.
+	LabelsForStream func(context.Context) []attribute.KeyValue
+}
+
+func WithMetrics(conf StreamMetricsConfig) StreamApiExtensionPluginOption {
+	return func(o *StreamApiExtensionPluginOptions) {
+		o.metricsConfig = conf
+	}
+}
+
+func NewPlugin(p StreamAPIExtension, opts ...StreamApiExtensionPluginOption) plugin.Plugin {
+	options := StreamApiExtensionPluginOptions{}
+	options.apply(opts...)
+
 	pc, _, _, ok := runtime.Caller(1)
 	fn := runtime.FuncForPC(pc)
 	name := "unknown"
@@ -97,7 +131,7 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 		name:             name,
 		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
 		streamClientCond: sync.NewCond(&sync.Mutex{}),
-		// connectSem:       make(chan struct{}, 1),
+		metricsConfig:    options.metricsConfig,
 	}
 	if p != nil {
 		servers := p.StreamServers()
@@ -132,24 +166,40 @@ type streamExtensionServerImpl struct {
 	clientHandler           StreamClientHandler
 	clientDisconnectHandler StreamClientDisconnectHandler
 	logger                  *zap.SugaredLogger
+	metricsConfig           StreamMetricsConfig
 
 	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
-
-	// connectSem chan struct{}
 }
 
 // Implements streamv1.StreamServer
 func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
-	// select {
-	// case e.connectSem <- struct{}{}:
-	// 	defer func() { <-e.connectSem }()
-	// default:
-	// 	return status.Error(codes.FailedPrecondition, "another connection is already active")
-	// }
-
 	e.logger.Debug("stream connected")
-	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))
+
+	opts := []totem.ServerOption{
+		totem.WithName("plugin_" + e.name),
+	}
+	if e.metricsConfig.Registerer != nil {
+		otelPromExporter, err := otelprometheus.New(
+			otelprometheus.WithRegisterer(e.metricsConfig.Registerer),
+			otelprometheus.WithoutScopeInfo(),
+			otelprometheus.WithoutTargetInfo(),
+		)
+		if err != nil {
+			e.logger.With(
+				zap.Error(err),
+			).Error("failed to create otel prometheus exporter")
+			return err
+		}
+
+		var labels []attribute.KeyValue
+		if e.metricsConfig.LabelsForStream != nil {
+			labels = e.metricsConfig.LabelsForStream(stream.Context())
+		}
+
+		opts = append(opts, totem.WithMetrics(otelPromExporter, labels...))
+	}
+	ts, err := totem.NewServer(stream, opts...)
 
 	if err != nil {
 		e.logger.With(

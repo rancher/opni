@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/prometheus/client_golang/prometheus"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -151,7 +152,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(&p.cortexHttp))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p,
+		streamext.WithMetrics(streamext.StreamMetricsConfig{
+			Registerer:      prometheus.WrapRegistererWithPrefix("opni_gateway_", p),
+			LabelsForStream: p.labelsForStreamMetrics,
+		})),
+	)
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, &p.cortexAdmin),
 		util.PackService(&cortexops.CortexOps_ServiceDesc, &p.metrics),

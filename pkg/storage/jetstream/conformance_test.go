@@ -31,7 +31,6 @@ var _ = BeforeSuite(func() {
 			test.WithEnableEtcd(false),
 			test.WithEnableJetstream(true),
 			test.WithEnableDisconnectServer(false),
-			test.WithEnableRealtimeServer(false),
 		)
 
 		s, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())

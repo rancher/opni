@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/cortexproject/cortex/pkg/util/push"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	gsync "github.com/kralicky/gpkg/sync"
@@ -31,7 +32,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -235,58 +235,26 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		).Warn("shutting down gateway client")
 	}()
 
-	router.POST("/api/agent/push", agent.handlePushRequest)
+	router.POST("/api/agent/push", gin.WrapH(push.Handler(100<<20, nil, agent.pushFunc)))
 
 	return agent, nil
 }
 
-func (a *Agent) handlePushRequest(c *gin.Context) {
-	var code int
+func (a *Agent) pushFunc(ctx context.Context, writeReq *cortexpb.WriteRequest) (writeResp *cortexpb.WriteResponse, writeErr error) {
 	ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
 			a.setCondition(condRemoteWrite, statusPending, "gateway not connected")
-			code = http.StatusServiceUnavailable
+			writeErr = util.StatusError(codes.Unavailable)
 			return
 		}
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.Error(err)
-			code = http.StatusBadRequest
-			return
-		}
-		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
-			Contents: body,
-		})
-		if err != nil {
-			stat := status.Convert(err)
-			// check if statusCode is a valid HTTP status code
-			if stat.Code() >= 100 && stat.Code() <= 599 {
-				code = int(stat.Code())
-			} else {
-				code = http.StatusServiceUnavailable
-			}
-			// As a special case, status code 400 may indicate a success.
-			// Cortex handles a variety of cases where prometheus would normally
-			// return an error, such as duplicate or out of order samples. Cortex
-			// will return code 400 to prometheus, which prometheus will treat as
-			// a non-retriable error. In this case, the remote write status condition
-			// will be cleared as if the request succeeded.
-			if code == http.StatusBadRequest {
-				a.clearCondition(condRemoteWrite)
-				c.Error(errors.New("soft error: this request likely succeeded"))
-			} else {
-				a.setCondition(condRemoteWrite, statusFailure, stat.Message())
-			}
-			c.Error(err)
-			return
-		}
-		a.clearCondition(condRemoteWrite)
-		code = http.StatusOK
+
+		writeResp, writeErr = rwc.Push(ctx, writeReq)
 	})
 	if !ok {
-		code = http.StatusServiceUnavailable
+		a.setCondition(condRemoteWrite, statusPending, "gateway not connected")
+		writeErr = util.StatusError(codes.Unavailable)
 	}
-	c.Status(code)
+	return
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {

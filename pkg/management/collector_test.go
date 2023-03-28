@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/plugins"
 )
 
@@ -66,25 +67,25 @@ var _ = Describe("Collector", Ordered, Label("slow"), func() {
 					"opni_cluster_info",
 					"Cluster information",
 					[]string{},
-					[]string{"cluster_id", "friendly_name"},
+					[]string{metrics.LabelImpersonateAs, "friendly_name"},
 				),
 				descriptorString(
 					"opni_agent_up",
 					"Agent connection status",
 					[]string{},
-					[]string{"cluster_id"},
+					[]string{metrics.LabelImpersonateAs},
 				),
 				descriptorString(
 					"opni_agent_ready",
 					"Agent readiness status",
 					[]string{},
-					[]string{"cluster_id", "conditions"},
+					[]string{metrics.LabelImpersonateAs, "conditions"},
 				),
 				descriptorString(
 					"opni_agent_status_summary",
 					"Agent status summary",
 					[]string{},
-					[]string{"cluster_id", "summary"},
+					[]string{metrics.LabelImpersonateAs, "summary"},
 				),
 			))
 

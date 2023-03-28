@@ -9,16 +9,27 @@ global:
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
   - job_name: "prometheus"
-
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
     static_configs:
       - targets:
           - "localhost:{{ .ListenPort }}"
-          - "localhost:{{ .RTMetricsPort }}"
+
+  {{range .Jobs}}
+  - job_name: "{{ .JobName }}"
+    {{- if .MetricsPath }}
+    metrics_path: "{{ .MetricsPath }}"
+    {{- end }}
+    static_configs:
+      - targets:
+          - "localhost:{{ .ScrapePort }}"
+  {{end}}
 
 # When running prometheus in Agent mode, remote-write is required.
 remote_write:
   # Agent is able to run with a invalid remote-write URL, but, of course, will fail to push timeseries.
   - url: "http://localhost:{{ .OpniAgentPort }}/api/agent/push"
+    metadata_config:
+      send: true
+      send_interval: 10s

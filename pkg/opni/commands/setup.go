@@ -2,6 +2,7 @@ package commands
 
 import (
 	"strings"
+	"sync"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -15,6 +16,7 @@ import (
 
 var mgmtClient managementv1.ManagementClient
 var managementListenAddress string
+var initManagementOnce sync.Once
 var lg = logger.New()
 
 func ConfigureManagementCommand(cmd *cobra.Command) {
@@ -30,28 +32,24 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 	}
 }
 
-func managementPreRunE(cmd *cobra.Command, _ []string) error {
-	tracing.Configure("cli")
-	address := cmd.Flag("address").Value.String()
-	if address == "" {
-		path, err := config.FindConfig()
-		if err == nil {
-			objects := cliutil.LoadConfigObjectsOrDie(path, lg)
-			objects.Visit(func(obj *v1beta1.GatewayConfig) {
-				address = strings.TrimPrefix(obj.Spec.Management.GRPCListenAddress, "tcp://")
-			})
+func managementPreRunE(cmd *cobra.Command, _ []string) (err error) {
+	initManagementOnce.Do(func() {
+		tracing.Configure("cli")
+		address := cmd.Flag("address").Value.String()
+		if address == "" {
+			path, err := config.FindConfig()
+			if err == nil {
+				objects := cliutil.LoadConfigObjectsOrDie(path, lg)
+				objects.Visit(func(obj *v1beta1.GatewayConfig) {
+					address = strings.TrimPrefix(obj.Spec.Management.GRPCListenAddress, "tcp://")
+				})
+			}
 		}
-	}
-	if address == "" {
-		address = managementv1.DefaultManagementSocket()
-	}
-	managementListenAddress = address
-
-	c, err := clients.NewManagementClient(cmd.Context(),
-		clients.WithAddress(address))
-	if err != nil {
-		return err
-	}
-	mgmtClient = c
-	return nil
+		if address == "" {
+			address = managementv1.DefaultManagementSocket()
+		}
+		managementListenAddress = address
+		mgmtClient, err = clients.NewManagementClient(cmd.Context(), clients.WithAddress(address))
+	})
+	return err
 }

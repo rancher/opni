@@ -166,7 +166,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "cluster_id"
+              "options": "Cluster ID"
             },
             "properties": [
               {
@@ -388,7 +388,7 @@
           }
         ]
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -397,7 +397,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "group without (instance, pod) (label_replace(opni_cluster_info, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\"))",
+          "expr": "opni_cluster_info @ end()",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -411,7 +411,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(opni_agent_up, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "opni_agent_up",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -426,7 +426,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(opni_agent_ready, \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "opni_agent_ready",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -541,7 +541,7 @@
               "Value #A": true,
               "Value #Cluster ID": true,
               "__name__": true,
-              "__tenant_id__": true,
+              "__tenant_id__": false,
               "cluster_id": false,
               "cluster_id 2": true,
               "cluster_id 3": true,
@@ -575,6 +575,7 @@
               "Value #Total Cores": "CPU Capacity",
               "Value #Total Memory": "Mem Capacity",
               "Value #Up": "Status",
+              "__tenant_id__": "Cluster ID",
               "cluster_id": "Cluster ID",
               "cluster_id 1": "Cluster ID",
               "friendly_name": "Cluster Name"
@@ -597,11 +598,11 @@
           "links": [
             {
               "title": "CPU Usage Details",
-              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}&viewPanel=5"
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.__tenant_id__}&var-namespace=${__data.fields.namespace}&viewPanel=5"
             },
             {
               "title": "Namespace Details",
-              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}"
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.__tenant_id__}&var-namespace=${__data.fields.namespace}"
             }
           ],
           "mappings": [],
@@ -641,7 +642,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate), \"cluster_id\", \"$1\", \"__tenant_id__\", \"(.*)\") * on(cluster_id) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
+          "expr": "sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -704,6 +705,7 @@
             }
           ],
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -713,7 +715,6 @@
               }
             ]
           },
-          "min": 0,
           "unit": "percentunit"
         },
         "overrides": []
@@ -750,7 +751,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -863,7 +864,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
           "interval": "1m",
           "legendFormat": "[Rx] {{friendly_name}}",
           "range": true,
@@ -875,7 +876,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
           "hide": false,
           "interval": "1m",
           "legendFormat": "[Tx] {{friendly_name}}",
@@ -901,12 +902,12 @@
             {
               "targetBlank": false,
               "title": "Memory Usage Details",
-              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}&viewPanel=7"
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.__tenant_id__}&var-namespace=${__data.fields.namespace}&viewPanel=7"
             },
             {
               "targetBlank": false,
               "title": "Namespace Details",
-              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.cluster_id}&var-namespace=${__data.fields.namespace}"
+              "url": "/d/85a562078cdf77779eaa1add43ccec1e/kubernetes-compute-resources-namespace-pods?var-cluster=${__data.fields.__tenant_id__}&var-namespace=${__data.fields.namespace}"
             }
           ],
           "mappings": [],
@@ -946,7 +947,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_memory_rss), \"cluster_id\", \"$1\", \"__tenant_id__\", \"(.*)\") * on(cluster_id) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
+          "expr": "sum by(namespace, __tenant_id__) (node_namespace_pod_container:container_memory_rss) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1009,6 +1010,7 @@
             }
           ],
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1018,7 +1020,6 @@
               }
             ]
           },
-          "min": 0,
           "unit": "percentunit"
         },
         "overrides": []
@@ -1049,7 +1050,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -1158,7 +1159,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kubelet_runtime_operations_errors_total{job=\"kubelet\",}[$__rate_interval])) by (__tenant_id__, operation_type, node) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum(rate(kubelet_runtime_operations_errors_total{job=\"kubelet\",}[$__rate_interval])) by (__tenant_id__, operation_type, node) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
           "format": "time_series",
           "intervalFactor": 4,
           "legendFormat": "{{friendly_name}} / {{node}}",
@@ -1276,7 +1277,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "opni_agent_status_summary * on(cluster_id, instance) group_right(summary) (group without(pod) (opni_cluster_info @ end()))",
+          "expr": "opni_agent_status_summary * on(__tenant_id__, instance) group_right(summary) group without(pod) (opni_cluster_info @ end())",
           "format": "table",
           "instant": false,
           "legendFormat": "__auto",
@@ -1393,7 +1394,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) label_replace(group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end()), \"__tenant_id__\", \"$1\", \"cluster_id\", \"(.*)\")",
+          "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -1423,8 +1424,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
+            "fillOpacity": 40,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1434,7 +1435,7 @@
             "lineStyle": {
               "fill": "solid"
             },
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -1496,7 +1497,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"cluster_id\", \"$1\", \"user\", \"(.*)\") * on(cluster_id) group_left(friendly_name) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
+          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"__tenant_id__\", \"$1\", \"user\", \"(.*)\")  * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{friendly_name}}",
@@ -1547,6 +1548,6 @@
   "timezone": "",
   "title": "Infrastructure Overview",
   "uid": "1e83e204be502391f69d3a826675d3df",
-  "version": 8,
+  "version": 9,
   "weekStart": ""
 }

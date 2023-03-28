@@ -290,6 +290,32 @@ func (p *CortexAdminServer) QueryRange(
 	}, nil
 }
 
+func (p *CortexAdminServer) GetMetricMetadata(ctx context.Context, req *cortexadmin.MetricMetadataRequest) (*cortexadmin.MetricMetadata, error) {
+	tenant := orgIDCodec.Encode(req.Tenants)
+	m := &cortexadmin.MetricMetadata{
+		MetricFamilyName: req.MetricName,
+	}
+	resp, err := p.fetchCortexMetricMetadata(ctx, tenant, req.MetricName)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := p.parseCortexSeriesMetadata(resp, req.MetricName)
+	if err != nil {
+		return nil, err
+	}
+
+	if metricHelp, ok := metadata["help"]; ok {
+		m.Help = metricHelp.String()
+	}
+	if metricType, ok := metadata["type"]; ok {
+		m.Type = cortexadmin.MetricMetadata_MetricType(cortexadmin.MetricMetadata_MetricType_value[strings.ToUpper(metricType.String())])
+	}
+	if metricUnit, ok := metadata["unit"]; ok {
+		m.Unit = metricUnit.String()
+	}
+	return m, nil
+}
+
 func (p *CortexAdminServer) GetRule(ctx context.Context,
 	in *cortexadmin.GetRuleRequest,
 ) (*cortexadmin.QueryResponse, error) {
@@ -497,7 +523,7 @@ func (p *CortexAdminServer) GetSeriesMetrics(ctx context.Context, request *corte
 	for uniqueMetricName := range set {
 		// fetch metadata & handle empty
 		m := &cortexadmin.SeriesMetadata{}
-		resp, err := p.fetchCortexSeriesMetadata(ctx, request, uniqueMetricName)
+		resp, err := p.fetchCortexMetricMetadata(ctx, request.Tenant, uniqueMetricName)
 		if err == nil { // parse response, otherwise skip and return empty metadata
 			mapVal, err := p.parseCortexSeriesMetadata(resp, uniqueMetricName)
 			if err == nil {
@@ -862,14 +888,14 @@ func (p *CortexAdminServer) parseCortexLabelsOnSeriesJob(
 	return labelSets, nil
 }
 
-func (p *CortexAdminServer) fetchCortexSeriesMetadata(ctx context.Context, request *cortexadmin.SeriesRequest, metricName string) (*http.Response, error) {
+func (p *CortexAdminServer) fetchCortexMetricMetadata(ctx context.Context, tenant string, metricName string) (*http.Response, error) {
 	values := url.Values{}
 	values.Add("metric", metricName)
 	reqUrl := fmt.Sprintf(
 		"https://%s/prometheus/api/v1/metadata?",
 		p.Config.Cortex.QueryFrontend.HTTPAddress,
 	)
-	resp, err := p.proxyCortexToPrometheus(ctx, request.Tenant, "GET", reqUrl, values, nil)
+	resp, err := p.proxyCortexToPrometheus(ctx, tenant, "GET", reqUrl, values, nil)
 	return resp, err
 }
 
@@ -881,7 +907,7 @@ func (p *CortexAdminServer) parseCortexSeriesMetadata(resp *http.Response, metri
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
 	}
-	result := gjson.Get(string(b), fmt.Sprintf("data.%s)", metricName))
+	result := gjson.Get(string(b), fmt.Sprintf("data.%s", metricName))
 	if !result.Exists() {
 		return nil, fmt.Errorf("no metadata in cortex response")
 	}

@@ -8,13 +8,13 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
 )
 
 func convertToMatrix(filepath string) []*alertingv1.ActiveWindow {
 	mat := test.TestData(filepath)
-	qr, err := unmarshal.UnmarshalPrometheusResponse(mat)
+	qr, err := compat.UnmarshalPrometheusResponse(mat)
 	Expect(err).To(Succeed())
 	Expect(qr).ToNot(BeNil())
 	matrix, err := qr.GetMatrix()

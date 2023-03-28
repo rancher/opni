@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/snappy"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/prometheus/prometheus/prompb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -18,9 +20,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"sync"
-	"time"
 )
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
@@ -217,37 +216,14 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			uncompressed, err := proto.Marshal(&writeRequest)
-			if err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to uncompress data from target endpoint: %s", err))
-				return fmt.Errorf("failed to uncompress data from target endpoint: %w", err)
-			}
-
-			compressed := snappy.Encode(nil, uncompressed)
-
-			payload := &remotewrite.Payload{
-				Contents: compressed,
-			}
-
 			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
-				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
-					// As a special case, status code 400 may indicate a success.
-					// Cortex handles a variety of cases where prometheus would normally
-					// return an error, such as duplicate or out of order samples. Cortex
-					// will return code 400 to prometheus, which prometheus will treat as
-					// a non-retriable error. In this case, the remote write status condition
-					// will be cleared as if the request succeeded.
-					if message := err.Error(); !strings.Contains(message, "out of bounds") &&
-						strings.Contains(message, "out of order sample") &&
-						strings.Contains(message, "duplicate sample for timestamp") &&
-						strings.Contains(message, "exemplars not ingested becaues series not already present") {
-
-						activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
-						return
-					}
+				promClient := remotewrite.AsPrometheusRemoteWriteClient(remoteWriteClient)
+				if _, err := promClient.Push(context.Background(), &writeRequest); err != nil {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
+					return
 				}
 
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
+				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", writeRequest.Size()))
 			})
 
 			progress.Current = uint64(nextEnd - progressDelta)

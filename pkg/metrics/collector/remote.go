@@ -74,7 +74,7 @@ func (rm *remoteMetric) Write(m *dto.Metric) error {
 
 type CollectorServer interface {
 	RemoteCollectorServer
-	MustRegister(collectors ...prometheus.Collector)
+	prometheus.Registerer
 }
 
 type remoteCollectorServer struct {
@@ -107,6 +107,33 @@ func (s *remoteCollectorServer) MustRegister(collectors ...prometheus.Collector)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.collectors = append(s.collectors, collectors...)
+}
+
+func (s *remoteCollectorServer) Register(collector prometheus.Collector) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _, c := range s.collectors {
+		if c == collector {
+			return prometheus.AlreadyRegisteredError{
+				ExistingCollector: c,
+				NewCollector:      collector,
+			}
+		}
+	}
+	s.collectors = append(s.collectors, collector)
+	return nil
+}
+
+func (s *remoteCollectorServer) Unregister(collector prometheus.Collector) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for i, c := range s.collectors {
+		if c == collector {
+			s.collectors = append(s.collectors[:i], s.collectors[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 func (s *remoteCollectorServer) Describe(_ context.Context, _ *emptypb.Empty) (*DescriptorList, error) {

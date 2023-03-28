@@ -33,7 +33,6 @@ var _ = BeforeSuite(func() {
 			test.WithEnableEtcd(true),
 			test.WithEnableJetstream(false),
 			test.WithEnableDisconnectServer(false),
-			test.WithEnableRealtimeServer(false),
 		)
 
 		store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),

@@ -4,18 +4,18 @@ option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrit
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "github.com/cortexproject/cortex/pkg/cortexpb/cortex.proto";
 
 package remotewrite;
 
-// The RemoteWrite service is used by metrics nodes to post Prometheus metrics 
+// The RemoteWrite service is used by metrics nodes to post Prometheus metrics
 // and rules to Cortex.
 service RemoteWrite {
-  rpc Push(Payload) returns (google.protobuf.Empty);
+  rpc Push(cortexpb.WriteRequest) returns (cortexpb.WriteResponse);
   rpc SyncRules(Payload) returns (google.protobuf.Empty);
 }
 
 message Payload {
-  // string AuthorizedClusterID = 1;
   map<string, string> Headers = 3;
   bytes Contents = 4;
 }

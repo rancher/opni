@@ -1,4 +1,4 @@
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, ttest_ind
 from collections import defaultdict
 from model.data_simulator import plt_plot
 from access_admin_api import metric_queryrange, list_all_metric
@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 
-threshold = 0.01
+threshold = 0.05
 
 def moving_average(data, window_size=2):
     data = np.array(data)
@@ -16,10 +16,18 @@ def moving_average(data, window_size=2):
     moving_avg = np.convolve(data, weights, 'valid')
     return moving_avg
 
-def ks_anomaly_detection(metric_values: List[float], cut : int = 50):
+def ks_anomaly_detection(l1: List[float], l2: List[float]):
     # metric_values = moving_average(metric_values)
-    l1, l2 = metric_values[:cut], metric_values[cut:]
     ks_stat, p_value = ks_2samp(l1, l2)
+    if p_value < threshold:
+        return True, p_value
+    else:
+        return False, p_value
+    
+
+def ttest_anomaly_detection(l1:List[float], l2: List[float]):
+    # metric_values = moving_average(metric_values)
+    stat, p_value = ttest_ind(l1, l2)
     if p_value < threshold:
         return True, p_value
     else:
@@ -62,9 +70,10 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
         pod = r["metric"]["pod"]
         list0 = r["values"]
         values0 = [float(l[1]) for l in list0]
-        history, evaluate_window, test_window = values0[:240], values0[-60:], values0[-10:]
+        history, evaluate_window, test_window = values0[:240], values0[-60:-10], values0[-10:]
+        data_window = values0[-60:]
         try:
-            is_anomaly, p_value = ks_anomaly_detection(evaluate_window)
+            is_anomaly, p_value = ttest_anomaly_detection(evaluate_window, test_window)
             total += 1
             if is_anomaly:
                 mean = np.mean(history)
@@ -73,14 +82,11 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
                 rule1 = max(test_window) > mean + std_multiplier * std_dev or min(test_window) < mean - std_multiplier * std_dev
                 rule2 = max(test_window) > max(history) or min(test_window) < min(history)
                 rule3 = np.mean(test_window) > mean + std_multiplier * std_dev or np.mean(test_window) < mean - std_multiplier * std_dev
-                _, rule4 = ks_anomaly_detection(values0, cut=150)
-                if rule1:#and rule3: # rule1 and rule2
-                    # z_s = zscore_anomaly_detection(values0)
-                    # z_s_binary = True if len(z_s) > 0 else False
-                    # if z_s_binary:
+                # _, rule4 = ks_anomaly_detection(values0, cut=150)
+                if rule1 and rule3:
                     count += 1
                     d[pod  + "-" + m_name] = history
-                    res.append((pod, m_name, evaluate_window))
+                    res.append((pod, m_name, data_window))
                     if is_debug:
                     # if True:
                         print(m_name)

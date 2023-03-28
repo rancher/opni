@@ -12,7 +12,6 @@ package remotewrite;
 // and rules to Cortex.
 service RemoteWrite {
   rpc Push(cortexpb.WriteRequest) returns (cortexpb.WriteResponse);
-  // rpc SyncRules(rules.RuleDesc) returns (google.protobuf.Empty);
   rpc SyncRules(Payload) returns (google.protobuf.Empty);
 }
 

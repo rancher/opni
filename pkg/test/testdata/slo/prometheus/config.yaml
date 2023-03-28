@@ -15,8 +15,7 @@ scrape_configs:
     static_configs:
       - targets:
           - "localhost:{{ .ListenPort }}"
-          - "localhost:{{ .RTMetricsPort }}"
-  
+
   {{range .Jobs}}
   - job_name: "{{ .JobName }}"
   # metrics_path defaults to '/metrics'

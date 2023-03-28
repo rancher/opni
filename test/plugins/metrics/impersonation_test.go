@@ -19,7 +19,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/metrics"
-	metrics_unmarshal "github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -50,7 +50,7 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 		if err != nil {
 			return nil, err
 		}
-		response, err := metrics_unmarshal.UnmarshalPrometheusResponse(resp.Data)
+		response, err := compat.UnmarshalPrometheusResponse(resp.Data)
 		if err != nil {
 			return nil, err
 		}

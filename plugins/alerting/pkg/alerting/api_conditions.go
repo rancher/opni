@@ -15,7 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -730,7 +730,7 @@ func (p *Plugin) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) 
 						lg.Errorf("failed to query active windows from cortex : %s", err)
 						return
 					}
-					qr, err := unmarshal.UnmarshalPrometheusResponse(res.Data)
+					qr, err := compat.UnmarshalPrometheusResponse(res.Data)
 					if err != nil {
 						lg.Errorf("failed to unmarshal prometheus response : %s", err)
 						return

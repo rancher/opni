@@ -16,7 +16,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -619,7 +619,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(respGood.Data).NotTo(BeEmpty())
-			qres, err := unmarshal.UnmarshalPrometheusResponse(respGood.Data)
+			qres, err := compat.UnmarshalPrometheusResponse(respGood.Data)
 			Expect(err).NotTo(HaveOccurred())
 			goodVector, err := qres.GetVector()
 			Expect(err).NotTo(HaveOccurred())
@@ -636,7 +636,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(respTotal.Data).NotTo(BeEmpty())
-			qresTotal, err := unmarshal.UnmarshalPrometheusResponse(respTotal.Data)
+			qresTotal, err := compat.UnmarshalPrometheusResponse(respTotal.Data)
 			Expect(err).NotTo(HaveOccurred())
 			totalVector, err := qresTotal.GetVector()
 			Expect(err).NotTo(HaveOccurred())
@@ -654,7 +654,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(respSli.Data).NotTo(BeEmpty())
-			qresSli, err := unmarshal.UnmarshalPrometheusResponse(respSli.Data)
+			qresSli, err := compat.UnmarshalPrometheusResponse(respSli.Data)
 			Expect(err).NotTo(HaveOccurred())
 			sliErrorRatioVector, err := qresSli.GetVector()
 			Expect(err).NotTo(HaveOccurred())
@@ -678,7 +678,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 				})
 				Expect(err).NotTo(HaveOccurred())
 				rawBytes := resp.Data
-				qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+				qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(qres).NotTo(BeNil())
 				recordingVector, err := qres.GetVector()

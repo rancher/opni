@@ -1,4 +1,4 @@
-package unmarshal
+package compat
 
 import (
 	"encoding/json"

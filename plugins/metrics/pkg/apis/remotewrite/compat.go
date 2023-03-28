@@ -1,14 +1,12 @@
 package remotewrite
 
 import (
-	context "context"
-	"sort"
+	"context"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
-	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/prompb"
-	grpc "google.golang.org/grpc"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type PrometheusRemoteWriteClient interface {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -156,7 +156,7 @@ func QuerySLOComponentByRecordName(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func QuerySLOComponentByRawQuery(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func QuerySLOComponentByRawQueryRange(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}

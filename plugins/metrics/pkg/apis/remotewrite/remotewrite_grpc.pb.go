@@ -30,7 +30,6 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteWriteClient interface {
 	Push(ctx context.Context, in *cortexpb.WriteRequest, opts ...grpc.CallOption) (*cortexpb.WriteResponse, error)
-	// rpc SyncRules(rules.RuleDesc) returns (google.protobuf.Empty);
 	SyncRules(ctx context.Context, in *Payload, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -65,7 +64,6 @@ func (c *remoteWriteClient) SyncRules(ctx context.Context, in *Payload, opts ...
 // for forward compatibility
 type RemoteWriteServer interface {
 	Push(context.Context, *cortexpb.WriteRequest) (*cortexpb.WriteResponse, error)
-	// rpc SyncRules(rules.RuleDesc) returns (google.protobuf.Empty);
 	SyncRules(context.Context, *Payload) (*emptypb.Empty, error)
 	mustEmbedUnimplementedRemoteWriteServer()
 }

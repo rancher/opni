@@ -14,7 +14,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -60,7 +60,7 @@ func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.Cor
 	if err != nil {
 		return false
 	}
-	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	qr, err := compat.UnmarshalPrometheusResponse(q.Data)
 	if err != nil {
 		return false
 	}
@@ -82,7 +82,7 @@ func clusterHasNodeExporterMetrics(ctx context.Context, adminClient cortexadmin.
 	if err != nil {
 		return false
 	}
-	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	qr, err := compat.UnmarshalPrometheusResponse(q.Data)
 	if err != nil {
 		return false
 	}

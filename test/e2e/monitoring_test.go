@@ -23,7 +23,7 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -242,7 +242,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 			Query:   "count(bench_test1)",
 		})
 		Expect(err).NotTo(HaveOccurred())
-		result, err := unmarshal.UnmarshalPrometheusResponse(resp.Data)
+		result, err := compat.UnmarshalPrometheusResponse(resp.Data)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Type).To(Equal(model.ValVector))
 		Expect(int(result.V.(model.Vector)[0].Value)).To(Equal(2500))

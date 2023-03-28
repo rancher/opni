@@ -84,14 +84,13 @@ func (t *federatingInterceptor) Intercept(
 		panic(err)
 	}
 
+	record := true
 	startTime := time.Now()
 
-	// save the original slice so we can return it to the pool, along with all
-	// the original timeseries entries
+	// save the original slice (header) over the whole timeseries array,
+	// so that we can restore it after modifying req.Timeseries later on.
 	allTimeseries := req.Timeseries
 	var errs []error
-
-	record := true
 
 	// partition the timeseries into buckets by tenant ID. The first partition is
 	// the default tenant ID, which is used for timeseries without the configured
@@ -139,6 +138,10 @@ func (t *federatingInterceptor) Intercept(
 			}
 		},
 	)
+
+	// restore the complete slice to be reused by the caller
+	req.Timeseries = allTimeseries
+
 	if len(errs) > 0 {
 		// if there was one error, return it
 		if len(errs) == 1 {
@@ -158,7 +161,6 @@ func (t *federatingInterceptor) Intercept(
 		return nil, toReturn.Err()
 	}
 
-	req.Timeseries = allTimeseries
 	return emptyResponse, nil
 }
 

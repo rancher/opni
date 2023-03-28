@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	modeltraining "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,8 +28,14 @@ const (
 	modelStatusNatsSubject     = "model_status"
 )
 
+type ModelTrainingParameters struct {
+	UUID      string                         `json:"uuid,omitempty"`
+	Workloads map[string]map[string][]string `json:"workloads,omitempty"`
+}
+
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
 	var modelTrainingParameters = map[string]map[string][]string{}
+	p.LaunchAIServices(ctx)
 	for _, item := range in.Items {
 		clusterId := item.ClusterId
 		namespaceName := item.Namespace
@@ -38,7 +46,9 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 		}
 		modelTrainingParameters[clusterId][namespaceName] = append(modelTrainingParameters[clusterId][namespaceName], deploymentName)
 	}
-	jsonParameters, err := json.Marshal(modelTrainingParameters)
+	uuidGenerated := uuid.New().String()
+	modelRes := ModelTrainingParameters{UUID: uuidGenerated, Workloads: modelTrainingParameters}
+	jsonParameters, err := json.Marshal(modelRes)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training parameters: %v", err)
 	}
@@ -58,13 +68,29 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
-	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{})
+	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{Stage: "fetching data"})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
 	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
 	}, nil
+}
+
+func (p *AIOpsPlugin) LaunchAIServices(ctx context.Context) (*emptypb.Empty, error) {
+	aiSettings, err := p.GetAISettings(ctx, &emptypb.Empty{})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			aiSettings = &admin.AISettings{GpuSettings: &admin.GPUSettings{}}
+		} else {
+			return nil, status.Errorf(codes.Internal, "Failed to get AI settings: %v", err)
+		}
+	}
+	if aiSettings.GpuSettings == nil {
+		aiSettings.GpuSettings = &admin.GPUSettings{}
+	}
+	p.PutAISettings(ctx, aiSettings)
+	return nil, nil
 }
 
 func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {

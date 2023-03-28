@@ -28,7 +28,7 @@ var (
 		Subsystem: "gateway",
 		Name:      "remote_write_processing_latency_ns",
 		Help:      "Latency of remote write processing in nanoseconds per timeseries",
-		Buckets:   prometheus.ExponentialBuckets(1, 2, 10),
+		Buckets:   []float64{30, 35, 37.5, 40, 42.5, 45, 50, 55, 60, 75, 100},
 	})
 	mRemoteWriteTotalProcessedSeries = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "opni",

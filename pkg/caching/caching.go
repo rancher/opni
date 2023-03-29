@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/karlseguin/ccache"
 	"github.com/rancher/opni/pkg/storage"
@@ -47,16 +46,10 @@ func (i InMemoryHttpTtlCache) Delete(key string) {
 var _ storage.HttpTtlCache = (*InMemoryHttpTtlCache)(nil)
 
 func NewInMemoryHttpTtlCache(
-	memoryLimit string,
+	memoryLimitBytes int64,
 	maxAge time.Duration,
 ) *InMemoryHttpTtlCache {
-	q, err := resource.ParseQuantity(memoryLimit)
-	if err != nil {
-		panic(err)
-	}
-	memoryLimitInt := q.Value()
-
-	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitInt).ItemsToPrune(15))
+	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitBytes).ItemsToPrune(15))
 	return &InMemoryHttpTtlCache{
 		cache:  ttlCache,
 		maxAge: maxAge,
@@ -96,16 +89,11 @@ func (i InMemoryGrpcTtlCache) Delete(key string) {
 var _ storage.GrpcTtlCache = (*InMemoryGrpcTtlCache)(nil)
 
 func NewInMemoryGrpcTtlCache(
-	memoryLimit string,
+	memoryLimitBytes int64,
 	maxAge time.Duration,
 ) *InMemoryGrpcTtlCache {
-	q, err := resource.ParseQuantity(memoryLimit)
-	if err != nil {
-		panic(err)
-	}
-	memoryLimitInt := q.Value()
 
-	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitInt).ItemsToPrune(15))
+	ttlCache := ccache.New(ccache.Configure().MaxSize(memoryLimitBytes).ItemsToPrune(15))
 	return &InMemoryGrpcTtlCache{
 		cache:  ttlCache,
 		maxAge: maxAge,

@@ -77,7 +77,7 @@ func NewCachingHttpServer(serverPort int) *CachingHttpServer {
 		w.WriteHeader(http.StatusOK)
 		encoder := json.NewEncoder(w)
 		encoder.Encode(ValueResponse{Value: int(c.value.Load())})
-		util.WithHttpMaxAgeCachingHeader(w.Header(), time.Second*5)
+		caching.WithHttpMaxAgeCachingHeader(w.Header(), time.Second*5)
 	})
 
 	c.Server = &http.Server{
@@ -165,7 +165,7 @@ func (c *SimpleServer) GetValue(ctx context.Context, _ *emptypb.Empty) (*Value, 
 func (c *SimpleServer) GetValueWithForcedClientCaching(ctx context.Context, _ *emptypb.Empty) (*Value, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	util.ForceClientCaching(ctx, c.cacheMaxAge)
+	caching.ForceClientCaching(ctx, c.cacheMaxAge)
 	return &Value{
 		Value: c.value,
 	}, nil

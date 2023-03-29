@@ -1,4 +1,4 @@
-package util_test
+package caching_test
 
 import (
 	"context"
@@ -29,13 +29,13 @@ var (
 	defaultEvictionInterval = time.Second * 1
 )
 
-type cacheInterceptorConstructor func() util.GrpcCachingInterceptor
+type cacheInterceptorConstructor func() caching.GrpcCachingInterceptor
 
 var _ = BuildCachingInterceptorSuite(
 	"default grpc middleware",
-	func() util.GrpcCachingInterceptor {
-		return util.NewClientGrpcTtlCacher(
-			caching.NewInMemoryGrpcTtlCache("50Mi", defaultEvictionInterval),
+	func() caching.GrpcCachingInterceptor {
+		return caching.NewClientGrpcTtlCacher(
+			caching.NewInMemoryGrpcTtlCache(5*1024*1024, defaultEvictionInterval),
 		)
 	},
 	func(buildCache cacheInterceptorConstructor) (
@@ -186,11 +186,11 @@ func BuildCachingInterceptorSuite(
 					Value: 1,
 				})
 				Expect(err).To(Succeed())
-				ctxMetadata := util.WithGrpcClientCaching(ctx, 5*time.Second)
+				ctxMetadata := caching.WithGrpcClientCaching(ctx, 5*time.Second)
 
 				md, ok := metadata.FromOutgoingContext(ctxMetadata)
 				Expect(ok).To(BeTrue())
-				Expect(md.Get(util.GrpcCacheControlHeader(util.CacheTypeClient))).NotTo(HaveLen(0))
+				Expect(md.Get(caching.GrpcCacheControlHeader(caching.CacheTypeClient))).NotTo(HaveLen(0))
 
 				value, err := testSimpleClient.GetValue(
 					ctxMetadata,
@@ -227,7 +227,7 @@ func BuildCachingInterceptorSuite(
 
 				By("verifying we can tell the client to bypass any caching")
 				value, err = testSimpleClient.GetValue(
-					util.WithBypassCache(ctx),
+					caching.WithBypassCache(ctx),
 					&emptypb.Empty{},
 				)
 				Expect(err).To(Succeed())
@@ -295,7 +295,7 @@ func BuildCachingInterceptorSuite(
 
 				By("veryfing the client can still bypass the cache")
 				value, err = testSimpleClient.GetValueWithForcedClientCaching(
-					util.WithBypassCache(ctx),
+					caching.WithBypassCache(ctx),
 					&emptypb.Empty{},
 				)
 				Expect(err).To(Succeed())
@@ -328,7 +328,7 @@ func BuildCachingInterceptorSuite(
 
 				By("sanity checking ObjectReference's use of cache key")
 				value, err := testObjectClient.GetObjectValue(
-					util.WithGrpcClientCaching(ctx, 5*time.Second),
+					caching.WithGrpcClientCaching(ctx, 5*time.Second),
 					&testgrpc.ObjectReference{
 						Id: id1,
 					})
@@ -345,7 +345,7 @@ func BuildCachingInterceptorSuite(
 
 				// no cache requested for object
 				value, err = testObjectClient.GetObjectValue(
-					util.WithGrpcClientCaching(ctx, 5*time.Second),
+					caching.WithGrpcClientCaching(ctx, 5*time.Second),
 					&testgrpc.ObjectReference{
 						Id: id2,
 					})
@@ -353,7 +353,7 @@ func BuildCachingInterceptorSuite(
 				Expect(value.Value).To(Equal(int64(2)))
 
 				By("verifying that the client can opt out of server's cache keys")
-				ctxMetadata := util.WithGrpcClientCaching(util.WithIgnoreServerCacheKeys(ctx), 5*time.Second)
+				ctxMetadata := caching.WithGrpcClientCaching(caching.WithIgnoreServerCacheKeys(ctx), 5*time.Second)
 				_, err = testObjectClient.IncrementObject(
 					ctxMetadata,
 					&testgrpc.IncrementObjectRequest{
@@ -365,7 +365,7 @@ func BuildCachingInterceptorSuite(
 				)
 				Expect(err).To(Succeed())
 				// client-side requests this object without server-set cache keys
-				value, err = testObjectClient.GetObjectValue(util.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
+				value, err = testObjectClient.GetObjectValue(caching.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
 					Id: id1,
 				})
 				Expect(err).To(Succeed())
@@ -394,7 +394,7 @@ func BuildCachingInterceptorSuite(
 				Expect(err).To(Succeed())
 				aggregate++
 
-				val, err = testAggregatorClient.GetAll(util.WithGrpcClientCaching(ctx, defaultTtl), &emptypb.Empty{})
+				val, err = testAggregatorClient.GetAll(caching.WithGrpcClientCaching(ctx, defaultTtl), &emptypb.Empty{})
 				Expect(err).To(Succeed())
 				Expect(val.Value).To(Equal(int64(30)))
 
@@ -586,11 +586,11 @@ func BuildCachingInterceptorSuite(
 							Value: 1,
 						})
 						Expect(err).To(Succeed())
-						ctxMetadata := util.WithGrpcClientCaching(ctx, 5*time.Second)
+						ctxMetadata := caching.WithGrpcClientCaching(ctx, 5*time.Second)
 
 						md, ok := metadata.FromOutgoingContext(ctxMetadata)
 						Expect(ok).To(BeTrue())
-						Expect(md.Get(util.GrpcCacheControlHeader(util.CacheTypeClient))).NotTo(HaveLen(0))
+						Expect(md.Get(caching.GrpcCacheControlHeader(caching.CacheTypeClient))).NotTo(HaveLen(0))
 
 						value, err := simpleClientUser.GetValue(
 							ctxMetadata,

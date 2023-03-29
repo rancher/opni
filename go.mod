@@ -76,7 +76,7 @@ require (
 	github.com/muesli/termenv v0.15.1
 	github.com/nats-io/nats-server/v2 v2.8.4
 	github.com/nats-io/nats.go v1.23.0
-	github.com/nats-io/nkeys v0.3.0
+	github.com/nats-io/nkeys v0.4.4
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4

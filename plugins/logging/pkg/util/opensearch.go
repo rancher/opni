@@ -1,7 +1,9 @@
 package util
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 )
@@ -13,6 +15,8 @@ type AsyncOpensearchClient struct {
 	initialized bool
 	rw          sync.RWMutex
 }
+
+type setterFunc func(context.Context) *opensearch.Client
 
 func NewAsyncOpensearchClient() *AsyncOpensearchClient {
 	return &AsyncOpensearchClient{
@@ -28,7 +32,27 @@ func (c *AsyncOpensearchClient) WaitForInit() {
 	c.initCond.L.Unlock()
 }
 
-func (c *AsyncOpensearchClient) SetClient(setter func() *opensearch.Client) {
+func (c *AsyncOpensearchClient) WaitForInitWithTimeout(timeout time.Duration) bool {
+	c.initCond.L.Lock()
+	defer c.initCond.L.Unlock()
+
+	notifier := make(chan struct{})
+	go func() {
+		defer close(notifier)
+		for !c.initialized {
+			c.initCond.Wait()
+		}
+	}()
+
+	select {
+	case <-notifier:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+func (c *AsyncOpensearchClient) SetClient(setter setterFunc) {
 	c.rw.Lock()
 	defer c.rw.Unlock()
 
@@ -38,7 +62,7 @@ func (c *AsyncOpensearchClient) SetClient(setter func() *opensearch.Client) {
 	if c.initialized {
 		return
 	}
-	c.Client = setter()
+	c.Client = setter(context.TODO())
 	c.initialized = true
 	c.initCond.Broadcast()
 }

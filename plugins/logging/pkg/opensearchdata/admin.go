@@ -21,6 +21,11 @@ func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 
+	//Check if it's been created already for idempotence
+	if !m.shouldCreateInitialAdmin() {
+		return
+	}
+
 	m.adminInitStateRW.Lock()
 	_, err := m.kv.Client.PutString(initialAdminKey, initialAdminPending)
 	if err != nil {
@@ -120,7 +125,7 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 	return nil
 }
 
-func (m *Manager) ShouldCreateInitialAdmin() bool {
+func (m *Manager) shouldCreateInitialAdmin() bool {
 	m.kv.BackgroundInitClient(m.setJetStream)
 	m.kv.WaitForInit()
 

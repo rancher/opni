@@ -2,13 +2,18 @@ package opensearchdata
 
 import (
 	"context"
+	"time"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/tidwall/gjson"
 )
 
 func (m *Manager) GetClusterStatus() ClusterStatus {
-	m.WaitForInit()
+	success := m.WaitForInitWithTimeout(30 * time.Second)
+	if !success {
+		m.logger.Error("timed out waiting for opensearch client")
+		return ClusterStatusError
+	}
 	m.Lock()
 	defer m.Unlock()
 

@@ -2,6 +2,8 @@ package backend
 
 import (
 	"context"
+	"sync"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -12,13 +14,12 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
-	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"sync"
 )
 
 type LoggingBackend struct {
@@ -39,8 +40,8 @@ type LoggingBackendConfig struct {
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
 	OpensearchManager   *opensearchdata.Manager        `validate:"required"`
+	ClusterDriver       driver.ClusterDriver           `validate:"required"`
 }
 
 var _ node.NodeLoggingCapabilityServer = (*LoggingBackend)(nil)
@@ -88,6 +89,6 @@ func (b *LoggingBackend) Info(context.Context, *emptypb.Empty) (*capabilityv1.De
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityLogs,
 		Source:  "plugin_logging",
-		Drivers: drivers.ListClusterDrivers(),
+		Drivers: driver.ListClusterDrivers(),
 	}, nil
 }

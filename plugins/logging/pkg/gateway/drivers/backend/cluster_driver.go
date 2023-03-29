@@ -1,4 +1,4 @@
-package drivers
+package backend
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
 )
 
@@ -22,9 +21,6 @@ const (
 
 type ClusterDriver interface {
 	Name() string
-	CreateCredentials(context.Context, *corev1.Reference) error
-	GetCredentials(context.Context, string) (username string, password string)
-	GetExternalURL(context.Context) string
 	GetInstallStatus(context.Context) InstallState
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)

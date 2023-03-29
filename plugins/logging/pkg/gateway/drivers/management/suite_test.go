@@ -1,4 +1,4 @@
-package gateway_test
+package management_test
 
 import (
 	"testing"
@@ -28,11 +28,11 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	env := test.Environment{
-		TestBin: "../../../../testbin/bin",
+		TestBin: "../../../../../../testbin/bin",
 		CRDDirectoryPaths: []string{
-			"../../../../config/crd/bases",
-			"../../../../config/crd/opensearch",
-			"../../../../test/resources",
+			"../../../../../../config/crd/bases",
+			"../../../../../../config/crd/opensearch",
+			"../../../../../../test/resources",
 		},
 	}
 

@@ -1,4 +1,4 @@
-package gateway_test
+package management_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
-	. "github.com/rancher/opni/plugins/logging/pkg/gateway"
+	. "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,6 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	giBytes = 1073741824
 )
 
 func createRequest() *loggingadmin.OpensearchClusterV2 {
@@ -42,7 +46,7 @@ func createRequest() *loggingadmin.OpensearchClusterV2 {
 var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 	var (
 		namespace         string
-		manager           *LoggingManagerV2
+		manager           *KubernetesManagerDriver
 		dashboards        opsterv1.DashboardsConfig
 		security          *opsterv1.Security
 		version           string
@@ -50,6 +54,10 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 
 		timeout  = 30 * time.Second
 		interval = time.Second
+
+		nats = &corev1.LocalObjectReference{
+			Name: "opni",
+		}
 	)
 
 	BeforeEach(func() {
@@ -111,25 +119,22 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 			Name:      "opni",
 			Namespace: namespace,
 		}
-		plugin := NewPlugin(
-			context.Background(),
-			WithNamespace(namespace),
+		var err error
+		manager, err = NewKubernetesManagerDriver(
 			WithRestConfig(restConfig),
-			WithVersion(version),
 			WithOpensearchCluster(opniCluster),
-			WithNatsConnection(nc),
 		)
-		manager = plugin.NewLoggingManagerForPlugin()
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	When("opniopensearch object does not exist", func() {
 		Specify("get should succeed and return nothing", func() {
-			object, err := manager.GetOpensearchCluster(context.Background(), nil)
+			object, err := manager.GetCluster(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(object).To(Equal(&loggingadmin.OpensearchClusterV2{}))
 		})
 		Specify("delete should error", func() {
-			_, err := manager.DeleteOpensearchCluster(context.Background(), nil)
+			err := manager.DeleteCluster(context.Background())
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -139,7 +144,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					request := createRequest()
 					object := &loggingv1beta1.OpniOpensearch{}
 					Specify("put should succeed", func() {
-						_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
 					It("should create a single node pool", func() {
@@ -186,12 +191,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-						Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "opni-user-password",
-								Namespace: namespace,
-							},
-						})).To(Succeed())
 					})
 				})
 				Context("anti affinity is enabled", func() {
@@ -199,7 +198,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					request := createRequest()
 					request.DataNodes.EnableAntiAffinity = lo.ToPtr(true)
 					Specify("put should succeed", func() {
-						_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
 					It("should create a single node pool with anti affinity", func() {
@@ -264,12 +263,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-						Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "opni-user-password",
-								Namespace: namespace,
-							},
-						})).To(Succeed())
 					})
 				})
 				Context("data persistence is disabled", func() {
@@ -279,7 +272,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					}
 					object := &loggingv1beta1.OpniOpensearch{}
 					Specify("put should succeed", func() {
-						_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
 					It("should create a single node pool", func() {
@@ -331,12 +324,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-						Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "opni-user-password",
-								Namespace: namespace,
-							},
-						})).To(Succeed())
 					})
 				})
 				Context("data persistence is explicitly specified", func() {
@@ -347,7 +334,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					}
 					object := &loggingv1beta1.OpniOpensearch{}
 					Specify("put should succeed", func() {
-						_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
 					It("should create a single node pool", func() {
@@ -403,12 +390,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-						Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "opni-user-password",
-								Namespace: namespace,
-							},
-						})).To(Succeed())
 					})
 				})
 				Context("cpu resources are specified", func() {
@@ -419,7 +400,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					}
 					object := &loggingv1beta1.OpniOpensearch{}
 					Specify("put should succeed", func() {
-						_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
 					It("should create a single node pool", func() {
@@ -468,12 +449,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-						Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "opni-user-password",
-								Namespace: namespace,
-							},
-						})).To(Succeed())
 					})
 				})
 			})
@@ -482,7 +457,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				request.DataNodes.Replicas = lo.ToPtr(int32(2))
 				object := &loggingv1beta1.OpniOpensearch{}
 				Specify("put should succeed", func() {
-					_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+					err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create a data and quorum node pool", func() {
@@ -560,12 +535,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				})
 				Specify("cleanup", func() {
 					Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "opni-user-password",
-							Namespace: namespace,
-						},
-					})).To(Succeed())
 				})
 			})
 			When("it has a number of nodes > 5", func() {
@@ -573,7 +542,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				request.DataNodes.Replicas = lo.ToPtr(int32(7))
 				object := &loggingv1beta1.OpniOpensearch{}
 				Specify("put should succeed", func() {
-					_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+					err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create a data pool for the excess nodes", func() {
@@ -647,12 +616,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				})
 				Specify("cleanup", func() {
 					Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "opni-user-password",
-							Namespace: namespace,
-						},
-					})).To(Succeed())
 				})
 			})
 			When("it has separate ingest nodes", func() {
@@ -663,7 +626,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				}
 				object := &loggingv1beta1.OpniOpensearch{}
 				Specify("put should succeed", func() {
-					_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+					err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create a data and ingest node pool", func() {
@@ -740,12 +703,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				})
 				Specify("cleanup", func() {
 					Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "opni-user-password",
-							Namespace: namespace,
-						},
-					})).To(Succeed())
 				})
 			})
 			When("it has separate controlplane nodes", func() {
@@ -755,7 +712,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				}
 				object := &loggingv1beta1.OpniOpensearch{}
 				Specify("put should succeed", func() {
-					_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+					err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create a data and controlplane", func() {
@@ -850,12 +807,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				})
 				Specify("cleanup", func() {
 					Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "opni-user-password",
-							Namespace: namespace,
-						},
-					})).To(Succeed())
 				})
 			})
 			When("it has separate controlplane nodes with persistence", func() {
@@ -869,7 +820,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				}
 				object := &loggingv1beta1.OpniOpensearch{}
 				Specify("put should succeed", func() {
-					_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+					err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create a data and controlplane", func() {
@@ -974,12 +925,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				})
 				Specify("cleanup", func() {
 					Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
-					Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "opni-user-password",
-							Namespace: namespace,
-						},
-					})).To(Succeed())
 				})
 			})
 		})
@@ -992,7 +937,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 		}
 		object := &loggingv1beta1.OpniOpensearch{}
 		Specify("put should succeed", func() {
-			_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), request)
+			err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should create a single node pool", func() {
@@ -1048,13 +993,13 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 			Expect(len(object.Spec.NodePools)).To(Equal(1))
 		})
 		Specify("get should return the object", func() {
-			object, err := manager.GetOpensearchCluster(context.Background(), nil)
+			object, err := manager.GetCluster(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(object).To(Equal(request))
 		})
 		When("updating the cluster", func() {
 			BeforeEach(func() {
-				version = "0.9.2-rc1"
+				version = "12.0.0"
 			})
 			newRequest := createRequest()
 			newRequest.DataNodes.Persistence = &loggingadmin.DataPersistence{
@@ -1069,7 +1014,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 				},
 			}
 			It("should succeed and update the cluster, excluding the version", func() {
-				_, err := manager.CreateOrUpdateOpensearchCluster(context.Background(), newRequest)
+				err := manager.CreateOrUpdateCluster(context.Background(), newRequest, version, nats)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() bool {
 					err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -1158,12 +1103,12 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 					Expect(k8sClient.Status().Update(context.Background(), object)).To(Succeed())
 				})
 				Specify("check upgrade available should return true", func() {
-					response, err := manager.UpgradeAvailable(context.Background(), nil)
+					response, err := manager.UpgradeAvailable(context.Background(), version)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(response.UpgradePending).To(BeTrue())
+					Expect(response).To(BeTrue())
 				})
 				Specify("do upgrade should upgrade the version", func() {
-					_, err := manager.DoUpgrade(context.Background(), nil)
+					err := manager.DoUpgrade(context.Background(), version)
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -1173,29 +1118,19 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 						if err != nil {
 							return false
 						}
-						return object.Spec.Version == "0.9.2-rc1"
+						return object.Spec.Version == "12.0.0"
 					}, timeout, interval).Should(BeTrue())
 				})
 			})
 		})
 		Specify("delete should succeed", func() {
-			_, err := manager.DeleteOpensearchCluster(context.Background(), nil)
+			err := manager.DeleteCluster(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      "opni",
 					Namespace: namespace,
 				}, object)
-				if err != nil {
-					return k8serrors.IsNotFound(err)
-				}
-				return false
-			}, timeout, interval).Should(BeTrue())
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      "opni-user-password",
-					Namespace: namespace,
-				}, &corev1.Secret{})
 				if err != nil {
 					return k8serrors.IsNotFound(err)
 				}

@@ -35,7 +35,8 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
-	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
+	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -63,7 +64,8 @@ type Plugin struct {
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *otel.OTELForwarder
-	clusterDriver       drivers.ClusterDriver
+	backendDriver       backenddriver.ClusterDriver
+	managementDriver    managementdriver.ClusterDriver
 }
 
 type PluginOptions struct {
@@ -71,7 +73,6 @@ type PluginOptions struct {
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	restconfig        *rest.Config
 	featureOverride   featureflags.FeatureFlag
-	version           string
 	natsRef           *corev1.LocalObjectReference
 	nc                *nats.Conn
 }
@@ -105,12 +106,6 @@ func WithRestConfig(restconfig *rest.Config) PluginOption {
 func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
 	return func(o *PluginOptions) {
 		o.featureOverride = flagOverride
-	}
-}
-
-func WithVersion(version string) PluginOption {
-	return func(o *PluginOptions) {
-		o.version = version
 	}
 }
 
@@ -157,11 +152,18 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		os.Exit(1)
 	}
 
-	clusterDriver, _ := drivers.NewKubernetesManagerDriver(
-		drivers.WithK8sClient(cli),
-		drivers.WithLogger(lg.Named("cluster-driver")),
-		drivers.WithOpensearchCluster(options.opensearchCluster),
+	backendDriver, _ := backenddriver.NewKubernetesManagerDriver(
+		backenddriver.WithK8sClient(cli),
+		backenddriver.WithLogger(lg.Named("cluster-driver")),
+		backenddriver.WithOpensearchCluster(options.opensearchCluster),
 	)
+	managementDriver, err := managementdriver.NewKubernetesManagerDriver(
+		managementdriver.WithOpensearchCluster(options.opensearchCluster),
+		managementdriver.WithRestConfig(restconfig),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	p := &Plugin{
 		PluginOptions:       options,
@@ -185,7 +187,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			)),
 			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
-		clusterDriver: clusterDriver,
+		backendDriver:    backendDriver,
+		managementDriver: managementDriver,
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -202,8 +205,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				OpensearchCluster:   p.opensearchCluster,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
-				ClusterDriver:       p.clusterDriver,
 				OpensearchManager:   p.opensearchManager,
+				ClusterDriver:       p.backendDriver,
 			})
 		},
 	)
@@ -211,7 +214,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	return p
 }
 
-var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
 var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 
@@ -249,13 +251,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	if state := p.clusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
-		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
-		if p.opensearchManager.ShouldCreateInitialAdmin() {
-			err = loggingManager.createInitialAdmin()
-			if err != nil {
-				p.logger.Warnf("failed to create initial admin: %v", err)
-			}
+	if state := p.backendDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
+		go p.opensearchManager.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
+		err = loggingManager.createInitialAdmin()
+		if err != nil {
+			p.logger.Warnf("failed to create initial admin: %v", err)
 		}
 		p.otelForwarder.BackgroundInitClient()
 	}
@@ -268,7 +268,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 		scheme.Add(
 			managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(
-				util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p),
 				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
 			),
 		)
@@ -279,13 +278,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 	return &LoggingManagerV2{
-		k8sClient:         p.k8sClient,
+		managementDriver:  p.managementDriver,
+		backendDriver:     p.backendDriver,
 		logger:            p.logger.Named("opensearch-manager"),
-		opensearchCluster: p.opensearchCluster,
 		opensearchManager: p.opensearchManager,
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,
-		versionOverride:   p.version,
 		otelForwarder:     p.otelForwarder,
 	}
 }

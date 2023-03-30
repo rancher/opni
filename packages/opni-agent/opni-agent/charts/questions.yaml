@@ -1,4 +1,7 @@
 questions:
+- variable: friendlyName
+  label: Cluster Name
+  type: string
 - variable: token
   label: Bootstrap Token
   type: string

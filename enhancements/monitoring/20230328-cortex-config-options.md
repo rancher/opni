@@ -36,7 +36,7 @@ N/A
 - Incorrect configuration could break Cortex or cause data loss, so we should do our best to validate any user-configurable options.
 
 ## Level of Effort:
-2 days to implement backend+CLI, 3 days for tests (1 week total)
+2 days to implement backend+CLI, 3 days for tests (1 week total), 1 day for UI
 
 ## Resources:
 N/A

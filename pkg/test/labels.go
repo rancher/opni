@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/test/testruntime"
 )
 
 // const (
@@ -17,7 +17,7 @@ import (
 // )
 
 func EnableIfCI[T any](decorator T) any {
-	return testutil.IfCI[any](decorator).Else(ginkgo.Labels{})
+	return testruntime.IfCI[any](decorator).Else(ginkgo.Labels{})
 }
 
 func IfLabelFilterMatches(labels ginkgo.Labels, f func()) {

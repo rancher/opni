@@ -15,7 +15,8 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 	"github.com/onsi/ginkgo/v2/types"
-	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/test/cover"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"golang.org/x/exp/slices"
 )
 
@@ -42,7 +43,7 @@ func SysInfo() {
 	}
 	fmt.Printf(" %v\n", topologyInfo)
 	fmt.Printf(" %v\n", memInfo)
-	fmt.Printf("CI Environment: %s\n", testutil.IfCI("yes").Else("no"))
+	fmt.Printf("CI Environment: %s\n", testruntime.IfCI("yes").Else("no"))
 }
 
 var actions []string
@@ -243,8 +244,8 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 			return err
 		}
 		defer f.Close()
-		if err := testutil.MergeCoverProfiles(coverProfiles, f,
-			testutil.WithExcludePatterns(rt.spec.Coverage.ExcludePatterns...),
+		if err := cover.MergeCoverProfiles(coverProfiles, f,
+			cover.WithExcludePatterns(rt.spec.Coverage.ExcludePatterns...),
 		); err != nil {
 			return err
 		}

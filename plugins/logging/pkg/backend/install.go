@@ -50,6 +50,16 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
+	if err := b.ClusterDriver.StoreCluster(ctx, req.GetCluster()); err != nil {
+		if !req.IgnoreWarnings {
+			return &capabilityv1.InstallResponse{
+				Status:  capabilityv1.InstallResponseStatus_Error,
+				Message: err.Error(),
+			}, nil
+		}
+		warningErr = err
+	}
+
 	_, err := b.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)),
 	)

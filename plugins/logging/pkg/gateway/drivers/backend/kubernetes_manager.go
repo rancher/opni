@@ -10,6 +10,7 @@ import (
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -20,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -106,7 +108,57 @@ func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) InstallS
 		}
 		return Error
 	}
+
+	cluster := &opsterv1.OpenSearchCluster{}
+	if err := d.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.opensearchCluster.Name,
+		Namespace: d.opensearchCluster.Namespace,
+	}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return Pending
+		}
+		return Error
+	}
+	if !cluster.Status.Initialized {
+		return Pending
+	}
+
 	return Installed
+}
+
+func (d KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference) error {
+	labels := map[string]string{
+		resources.OpniClusterID: req.GetId(),
+	}
+	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
+	if err := d.k8sClient.List(
+		ctx,
+		loggingClusterList,
+		client.InNamespace(d.namespace),
+		client.MatchingLabels{resources.OpniClusterID: req.GetId()},
+	); err != nil {
+		return errors.ErrListingClustersFaled(err)
+	}
+
+	if len(loggingClusterList.Items) > 0 {
+		return errors.ErrCreateFailedAlreadyExists(req.GetId())
+	}
+
+	loggingCluster := &opnicorev1beta1.LoggingCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "logging-",
+			Namespace:    d.namespace,
+			Labels:       labels,
+		},
+		Spec: opnicorev1beta1.LoggingClusterSpec{
+			OpensearchClusterRef: d.opensearchCluster,
+		},
+	}
+
+	if err := d.k8sClient.Create(ctx, loggingCluster); err != nil {
+		errors.ErrStoreClusterFailed(err)
+	}
+	return nil
 }
 
 func (d *KubernetesManagerDriver) SetClusterStatus(ctx context.Context, id string, enabled bool) error {

@@ -19,7 +19,6 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -131,7 +130,6 @@ func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id string) error {
 	var (
 		loggingCluster *opnicorev1beta1.LoggingCluster
-		secret         *corev1.Secret
 	)
 
 	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
@@ -150,28 +148,11 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 		loggingCluster = &loggingClusterList.Items[0]
 	}
 
-	secretList := &corev1.SecretList{}
-	if err := a.k8sClient.List(
-		ctx,
-		secretList,
-		client.InNamespace(a.storageNamespace),
-		client.MatchingLabels{resources.OpniClusterID: id},
-	); err != nil {
-		loggingerrors.ErrListingClustersFaled(err)
-	}
-
-	if len(secretList.Items) > 1 {
-		return loggingerrors.ErrDeleteClusterInvalidList(id)
-	}
-	if len(secretList.Items) == 1 {
-		secret = &secretList.Items[0]
-	}
-
 	if loggingCluster != nil {
 		if err := a.k8sClient.Delete(ctx, loggingCluster); err != nil {
 			return err
 		}
 	}
 
-	return a.k8sClient.Delete(ctx, secret)
+	return nil
 }

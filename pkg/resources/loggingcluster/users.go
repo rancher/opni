@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/meta"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,28 +41,11 @@ var (
 )
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
-	indexUser.Attributes = map[string]string{
-		"cluster": r.loggingCluster.Labels[corev1beta1.IDLabel],
-	}
-
 	clusterReadRole.RoleName = r.loggingCluster.Name
 	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(
 		`{"term":{"cluster_id": "%s"}}`,
 		r.loggingCluster.Labels[resources.OpniClusterID],
 	)
-
-	secret := &corev1.Secret{}
-
-	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name),
-		Namespace: r.loggingCluster.Namespace,
-	}, secret)
-	if retErr != nil {
-		return
-	}
-
-	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
-	indexUser.Password = string(secret.Data["password"])
 
 	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
@@ -88,13 +68,6 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	if retErr != nil {
 		return
 	}
-
-	retErr = reconciler.MaybeCreateUser(indexUser)
-	if retErr != nil {
-		return
-	}
-
-	retErr = reconciler.MaybeUpdateRolesMapping("cluster_index", indexUser.UserName)
 
 	return
 }
@@ -120,11 +93,6 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		}
 
 		err = osReconciler.MaybeDeleteRole(cluster.Name)
-		if err != nil {
-			return err
-		}
-
-		err = osReconciler.MaybeDeleteUser(r.loggingCluster.Spec.IndexUserSecret.Name)
 		if err != nil {
 			return err
 		}

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
 )
 
@@ -22,6 +23,7 @@ const (
 type ClusterDriver interface {
 	Name() string
 	GetInstallStatus(context.Context) InstallState
+	StoreCluster(context.Context, *corev1.Reference) error
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)
 	SetSyncTime()

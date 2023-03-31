@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
     
 )
-var serverUrl = "http://metric-ai-service:10010"
+const serverUrl = "http://metric-ai-service:10010"
 
 func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIJobList, error) {
     // Implement the logic to list jobs here
@@ -91,13 +91,16 @@ func (p *AIOpsPlugin) GetJobResult(ctx context.Context, jobId *metricai.MetricAI
     if err := json.Unmarshal(jobRes.Value(),&res); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JobResults from Jetstream for metricAI: %v", err)
 	}
-	resResult, _ := json.Marshal(res["result"].(map[string]interface{}))
+	resResult, err := json.Marshal(res["result"].(map[string]interface{}))
+    if err != nil {
+        return nil, status.Errorf(codes.Internal, "Failed to marshal JobResults from Jetstream for metricAI: %v", err)
+    }
 
     var jobStat = metricai.MetricAIJobStatus{
-        JobSubmittedTime: float32(res["submitted_time"].(float64)),
-        JobId:     res["task_id"].(string),
-        JobStatus:     res["status"].(string),
-        JobResult:     string(resResult),
+        JobSubmittedTime:   float32(res["submitted_time"].(float64)),
+        JobId:              res["task_id"].(string),
+        JobStatus:          res["status"].(string),
+        JobResult:          string(resResult),
     }  
 	return &metricai.MetricAIGetJobResult{
 		Status: "Success",

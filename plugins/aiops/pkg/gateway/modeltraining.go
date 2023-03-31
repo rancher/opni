@@ -197,11 +197,12 @@ func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, _ *emptypb
 		return nil, status.Errorf(codes.NotFound, "Failed to get model training parameters from Jetstream: %v", err)
 	}
 	var parametersArray []*modeltraining.ModelTrainingParameters
-	var resultsStorage = map[string]map[string][]string{}
+	var kvContent ModelTrainingParameters
 	jsonRes := result.Value()
-	if err := json.Unmarshal(jsonRes, &resultsStorage); err != nil {
+	if err := json.Unmarshal(jsonRes, &kvContent); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training parameters from Jetstream: %v", err)
 	}
+	resultsStorage := kvContent.Workloads
 	for clusterName, namespaces := range resultsStorage {
 		for namespaceName, deployments := range namespaces {
 			for deploymentIdx := range deployments {

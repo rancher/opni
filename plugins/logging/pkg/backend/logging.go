@@ -6,7 +6,7 @@ import (
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/gateway"
+	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -29,7 +29,7 @@ type LoggingBackend struct {
 
 	nodeStatusMu      sync.RWMutex
 	desiredNodeSpecMu sync.RWMutex
-	watcher           *gateway.ManagementWatcherHooks[*managementv1.WatchEvent]
+	watcher           *management.ManagementWatcherHooks[*managementv1.WatchEvent]
 }
 
 type LoggingBackendConfig struct {
@@ -53,7 +53,7 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 		}
 		b.LoggingBackendConfig = conf
 
-		b.watcher = gateway.NewManagementWatcherHooks[*managementv1.WatchEvent](context.TODO())
+		b.watcher = management.NewManagementWatcherHooks[*managementv1.WatchEvent](context.TODO())
 		b.watcher.RegisterHook(func(event *managementv1.WatchEvent) bool {
 			return event.Type == managementv1.WatchEventType_Updated && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
 				return c.Name == wellknown.CapabilityLogs

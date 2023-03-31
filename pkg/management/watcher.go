@@ -1,4 +1,4 @@
-package gateway
+package management
 
 import (
 	"context"
@@ -22,9 +22,9 @@ func NewConditionWatcher(cl ...func()) ConditionWatcher {
 
 func (w *internalWatcher) WatchEvents() {
 	for _, cl := range w.closures {
-		f := cl
+		cl := cl
 		go func() {
-			f()
+			cl()
 		}()
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/rancher/opni/pkg/gateway"
+	"github.com/rancher/opni/pkg/management"
 	"strconv"
 	"sync"
 	"time"
@@ -21,12 +21,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *gateway.ManagementWatcherHooks[*managementv1.WatchEvent] {
+func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *management.ManagementWatcherHooks[*managementv1.WatchEvent] {
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
 	if err != nil {
 		panic(err)
 	}
-	cw := gateway.NewManagementWatcherHooks[*managementv1.WatchEvent](ctx)
+	cw := management.NewManagementWatcherHooks[*managementv1.WatchEvent](ctx)
 	cw.RegisterHook(
 		createClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {

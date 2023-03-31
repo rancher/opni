@@ -2,7 +2,7 @@ package alerting
 
 import (
 	"context"
-	"github.com/rancher/opni/pkg/gateway"
+	"github.com/rancher/opni/pkg/management"
 	"os"
 	"time"
 
@@ -95,7 +95,7 @@ func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
 		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 
-	p.globalWatchers = gateway.NewConditionWatcher(
+	p.globalWatchers = management.NewConditionWatcher(
 		clusterCrud,
 		clusterHealthStatus,
 		cortexBackendStatus,

@@ -3,7 +3,7 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"github.com/rancher/opni/pkg/gateway"
+	"github.com/rancher/opni/pkg/management"
 	"os"
 	"sync"
 	"time"
@@ -175,7 +175,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 // blocking
 func (p *Plugin) watchGlobalCluster(
 	client managementv1.ManagementClient,
-	watcher *gateway.ManagementWatcherHooks[*managementv1.WatchEvent],
+	watcher *management.ManagementWatcherHooks[*managementv1.WatchEvent],
 ) {
 	clusterClient, err := client.WatchClusters(p.Ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {

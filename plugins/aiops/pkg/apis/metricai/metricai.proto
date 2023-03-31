@@ -1,0 +1,69 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/aiops/pkg/apis/metricai";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+
+package metricai;
+
+service MetricAI {
+    rpc ListJobs(google.protobuf.Empty) returns(MetricAIJobList) {
+        option (google.api.http) = {
+            get: "/metricai/listjobs"
+        };
+    }
+    rpc SubmitJob(MetricAIJobRequest) returns(MetricAIJobSubmitStatus) {
+        option (google.api.http) = {
+            post: "/metricai/submitjob/{clusterId}/{namespace}"
+        };
+    }
+    rpc DeleteJobs(MetricAIJobId) returns(MetricAIJobDeleteStatus) {
+        option (google.api.http) = {
+            delete: "/metricai/deletejob/{jobId}"
+        };
+    }
+    rpc GetJobResult(MetricAIJobId) returns(MetricAIGetJobResult) {
+        option (google.api.http) = {
+            get: "/metricai/getjobresult/{jobId}"
+        };
+    }
+}
+
+message MetricAIJobStatus {
+    string jobId = 1;
+    float jobSubmittedTime = 2;
+    string jobStatus = 3;
+    optional MetricAIJobRequest jobRequest = 4;
+    string jobResult = 5;
+}
+
+message MetricAIJobList {
+    repeated MetricAIJobId items = 1;
+}
+
+message MetricAIJobRequest {
+    string clusterId = 1;
+    string namespace = 2;
+}
+
+message MetricAIJobId {
+    string jobId = 1;
+}
+
+message MetricAIJobDeleteStatus {
+    string status = 1;
+    string description = 2;
+}
+message MetricAIJobSubmitStatus {
+    string status = 1;
+    string jobSubmittedTime = 2;
+    string jobId = 3;
+}
+
+message MetricAIGetJobResult {
+    string status = 1;
+    string description = 2;
+    optional MetricAIJobStatus jobStatus = 3;
+}

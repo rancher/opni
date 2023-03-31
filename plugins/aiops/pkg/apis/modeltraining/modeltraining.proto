@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 
 package modeltraining;
 
+
 service ModelTraining {
   rpc TrainModel(ModelTrainingParametersList) returns (ModelTrainingResponse) {
     option (google.api.http) = {

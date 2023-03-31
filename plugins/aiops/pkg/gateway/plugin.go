@@ -17,6 +17,7 @@ import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,6 +28,7 @@ type AIOpsPlugin struct {
 	PluginOptions
 	modeltraining.UnsafeModelTrainingServer
 	admin.UnsafeAIAdminServer
+	metricai.UnsafeMetricAIServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
 	Logger          *zap.SugaredLogger
@@ -36,6 +38,7 @@ type AIOpsPlugin struct {
 	aggregationKv   future.Future[nats.KeyValue]
 	modelTrainingKv future.Future[nats.KeyValue]
 	statisticsKv    future.Future[nats.KeyValue]
+	metricAIKv      future.Future[nats.KeyValue]
 }
 
 type PluginOptions struct {
@@ -51,6 +54,7 @@ const (
 	workloadAggregationCountBucket = "os-workload-aggregation"
 	modelTrainingParametersBucket  = "model-training-parameters"
 	modelTrainingStatisticsBucket  = "model-training-statistics"
+	metricAIBucket                 = "metric_results"
 )
 
 func (o *PluginOptions) apply(opts ...PluginOption) {
@@ -116,6 +120,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		aggregationKv:   future.New[nats.KeyValue](),
 		modelTrainingKv: future.New[nats.KeyValue](),
 		statisticsKv:    future.New[nats.KeyValue](),
+		metricAIKv:      future.New[nats.KeyValue](),
 		osClient:        future.New[*opensearch.Client](),
 		k8sClient:       cli,
 	}
@@ -160,6 +165,20 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	}
 
 	p.statisticsKv.Set(modelStatisticsKeyValue)
+
+	metricAIKeyValue, err := mgr.KeyValue(metricAIBucket)
+	if err != nil {
+		lg.Warn(err)
+		metricAIKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:      metricAIBucket,
+			Description: "Storing the submitted jobs and results for metric AI service.",
+		})
+		if err != nil {
+			lg.Fatal(err)
+		}
+	}
+	p.metricAIKv.Set(metricAIKeyValue)
+
 	p.natsConnection.Set(nc)
 
 	go p.runAggregation()
@@ -168,6 +187,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 
 var _ modeltraining.ModelTrainingServer = (*AIOpsPlugin)(nil)
 var _ admin.AIAdminServer = (*AIOpsPlugin)(nil)
+var _ metricai.MetricAIServer = (*AIOpsPlugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -182,6 +202,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
 		util.PackService(&admin.AIAdmin_ServiceDesc, p),
+		util.PackService(&metricai.MetricAI_ServiceDesc, p),
 	))
 	return scheme
 }

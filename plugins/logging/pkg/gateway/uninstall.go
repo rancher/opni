@@ -6,27 +6,24 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
-	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
-	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util/future"
-	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
+	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 	storageNamespace  string
 	opensearchManager *opensearchdata.Manager
-	k8sClient         client.Client
+	backendDriver     backenddriver.ClusterDriver
 	storageBackend    future.Future[storage.Backend]
 	logger            *zap.SugaredLogger
 }
@@ -85,7 +82,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 	}
 
 	ti.AddLogEntry(zapcore.InfoLevel, "Deleting Kubernetes data")
-	err := a.deleteKubernetesObjects(ctx, ti.TaskId())
+	err := a.backendDriver.DeleteCluster(ctx, ti.TaskId())
 	if err != nil {
 		ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
 		return err
@@ -125,34 +122,4 @@ func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 	if err != nil {
 		ti.AddLogEntry(zapcore.WarnLevel, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
 	}
-}
-
-func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id string) error {
-	var (
-		loggingCluster *opnicorev1beta1.LoggingCluster
-	)
-
-	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
-	if err := a.k8sClient.List(
-		ctx,
-		loggingClusterList,
-		client.InNamespace(a.storageNamespace),
-		client.MatchingLabels{resources.OpniClusterID: id},
-	); err != nil {
-		loggingerrors.ErrListingClustersFaled(err)
-	}
-	if len(loggingClusterList.Items) > 1 {
-		return loggingerrors.ErrDeleteClusterInvalidList(id)
-	}
-	if len(loggingClusterList.Items) == 1 {
-		loggingCluster = &loggingClusterList.Items[0]
-	}
-
-	if loggingCluster != nil {
-		if err := a.k8sClient.Delete(ctx, loggingCluster); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -39,6 +38,7 @@ import (
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -55,7 +55,6 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 	loggingadmin.UnsafeLoggingAdminServer
 	ctx                 context.Context
-	k8sClient           client.Client
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]
 	mgmtApi             future.Future[managementv1.ManagementClient]
@@ -135,40 +134,9 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 	lg := logger.NewPluginLogger().Named("logging")
 
-	scheme := apis.NewScheme()
-
-	var restconfig *rest.Config
-	if options.restconfig != nil {
-		restconfig = options.restconfig
-	} else {
-		restconfig = ctrl.GetConfigOrDie()
-	}
-
-	cli, err := client.New(restconfig, client.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("failed to create k8s client: %v", err))
-		os.Exit(1)
-	}
-
-	backendDriver, _ := backenddriver.NewKubernetesManagerDriver(
-		backenddriver.WithK8sClient(cli),
-		backenddriver.WithLogger(lg.Named("cluster-driver")),
-		backenddriver.WithOpensearchCluster(options.opensearchCluster),
-	)
-	managementDriver, err := managementdriver.NewKubernetesManagerDriver(
-		managementdriver.WithOpensearchCluster(options.opensearchCluster),
-		managementdriver.WithRestConfig(restconfig),
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
-		k8sClient:           cli,
 		logger:              lg,
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
@@ -187,8 +155,35 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			)),
 			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
-		backendDriver:    backendDriver,
-		managementDriver: managementDriver,
+	}
+
+	switch restconfig, err := rest.InClusterConfig(); {
+	case options.restconfig != nil:
+		backendDriver, managementDriver, err := createKubernetesDrivers(
+			options.restconfig,
+			options.opensearchCluster,
+			lg.Named("cluster-driver"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		p.backendDriver = backendDriver
+		p.managementDriver = managementDriver
+	case err == nil:
+		backendDriver, managementDriver, err := createKubernetesDrivers(
+			restconfig,
+			options.opensearchCluster,
+			lg.Named("cluster-driver"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		p.backendDriver = backendDriver
+		p.managementDriver = managementDriver
+	default:
+		stateStore := &loggingutil.MockInstallState{}
+		p.backendDriver = backenddriver.NewMockDriver(stateStore)
+		p.managementDriver = managementdriver.NewMockDriver(stateStore)
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -286,4 +281,36 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		natsRef:           p.natsRef,
 		otelForwarder:     p.otelForwarder,
 	}
+}
+
+func createKubernetesDrivers(
+	restconfig *rest.Config,
+	opensearchCluster *opnimeta.OpensearchClusterRef,
+	lg *zap.SugaredLogger,
+) (backenddriver.ClusterDriver, managementdriver.ClusterDriver, error) {
+	cli, err := client.New(restconfig, client.Options{
+		Scheme: apis.NewScheme(),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	backendDriver, err := backenddriver.NewKubernetesManagerDriver(
+		backenddriver.WithK8sClient(cli),
+		backenddriver.WithLogger(lg),
+		backenddriver.WithOpensearchCluster(opensearchCluster),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	managementDriver, err := managementdriver.NewKubernetesManagerDriver(
+		managementdriver.WithOpensearchCluster(opensearchCluster),
+		managementdriver.WithRestConfig(restconfig),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return backendDriver, managementDriver, nil
 }

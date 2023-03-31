@@ -5,6 +5,7 @@ import (
 	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,6 +41,18 @@ func (d *MockDriver) GetInstallStatus(_ context.Context) InstallState {
 	default:
 		return Absent
 	}
+}
+
+func (d *MockDriver) StoreCluster(_ context.Context, req *corev1.Reference) error {
+	d.clusters[req.GetId()] = clusterStatus{
+		enabled: true,
+	}
+	return nil
+}
+
+func (d *MockDriver) DeleteCluster(_ context.Context, id string) error {
+	delete(d.clusters, id)
+	return nil
 }
 
 func (d *MockDriver) SetClusterStatus(_ context.Context, id string, enabled bool) error {

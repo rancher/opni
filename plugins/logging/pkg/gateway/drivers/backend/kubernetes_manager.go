@@ -126,7 +126,7 @@ func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) InstallS
 	return Installed
 }
 
-func (d KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference) error {
+func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference) error {
 	labels := map[string]string{
 		resources.OpniClusterID: req.GetId(),
 	}
@@ -159,6 +159,28 @@ func (d KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.R
 		errors.ErrStoreClusterFailed(err)
 	}
 	return nil
+}
+
+func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context, id string) error {
+	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
+	if err := d.k8sClient.List(
+		ctx,
+		loggingClusterList,
+		client.InNamespace(d.opensearchCluster.Namespace),
+		client.MatchingLabels{resources.OpniClusterID: id},
+	); err != nil {
+		errors.ErrListingClustersFaled(err)
+	}
+
+	switch {
+	case len(loggingClusterList.Items) > 1:
+		return errors.ErrDeleteClusterInvalidList(id)
+	case len(loggingClusterList.Items) == 1:
+		loggingCluster := &loggingClusterList.Items[0]
+		return d.k8sClient.Delete(ctx, loggingCluster)
+	default:
+		return nil
+	}
 }
 
 func (d *KubernetesManagerDriver) SetClusterStatus(ctx context.Context, id string, enabled bool) error {

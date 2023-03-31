@@ -90,8 +90,7 @@ func (m *Server) WatchClusters(
 	}
 
 	for event := range eventC {
-		var c *corev1.Cluster
-		var o *corev1.Cluster
+		var c, o *corev1.Cluster
 		var eventType managementv1.WatchEventType
 		switch event.EventType {
 		case storage.WatchEventCreate:

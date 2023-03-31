@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -150,7 +150,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		logLevel:    DefaultLogLevel.Level(),
 		timeEncoder: zapcore.RFC3339TimeEncoder,
 	}
-	if testutil.IsTesting {
+	if testruntime.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
 	}
 	options.apply(opts...)
@@ -262,7 +262,7 @@ func NewForPlugin() hclog.Logger {
 		JSONFormat:  true,
 		DisableTime: true,
 	}
-	if testutil.IsTesting {
+	if testruntime.IsTesting {
 		opts.Output = ginkgo.GinkgoWriter
 	}
 	return hclog.New(opts)

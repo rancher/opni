@@ -42,7 +42,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			port, _ := environment.StartAgent("agent1", token, []string{fingerprint})
+			environment.StartAgent("agent1", token, []string{fingerprint})
 
 			Eventually(func() error {
 				hs, err := client.GetClusterHealthStatus(context.Background(), &v1.Reference{
@@ -61,7 +61,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 				return fmt.Errorf("waiting for remote write pending condition")
 			}, 2*time.Minute, 500*time.Millisecond).Should(Succeed())
 
-			environment.StartPrometheus(port)
+			environment.StartPrometheus("agent1")
 
 			Eventually(func() error {
 				hs, err := client.GetClusterHealthStatus(context.Background(), &v1.Reference{

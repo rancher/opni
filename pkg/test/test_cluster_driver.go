@@ -27,7 +27,10 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -186,6 +189,59 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 	}()
 
 	return &emptypb.Empty{}, nil
+}
+
+type TestEnvMetricsNodeDriver struct {
+	env *Environment
+
+	overridesMu      sync.Mutex
+	overridesForNode map[string]*overridePrometheusConfig
+
+	prometheusMu     sync.Mutex
+	prometheusCtx    context.Context
+	prometheusCancel context.CancelFunc
+}
+
+func (d *TestEnvMetricsNodeDriver) SetOverridesForNode(nodeName string, overrides *overridePrometheusConfig) {
+	d.overridesMu.Lock()
+	defer d.overridesMu.Unlock()
+	d.overridesForNode[nodeName] = overrides
+}
+
+var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvMetricsNodeDriver)(nil)
+
+// ConfigureNode implements drivers.MetricsNodeDriver
+func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
+	lg := d.env.Logger.With("node", nodeId)
+	lg.Debug("configuring node")
+
+	d.prometheusMu.Lock()
+	defer d.prometheusMu.Unlock()
+
+	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "testEnvironment"
+
+	if exists && !shouldExist {
+		lg.Info("stopping prometheus")
+		d.prometheusCancel()
+		d.prometheusCancel = nil
+		d.prometheusCtx = nil
+	} else if !exists && shouldExist {
+		lg.Info("starting prometheus")
+		ctx, ca := context.WithCancel(d.env.Context())
+		d.env.StartPrometheusContext(ctx, nodeId, d.overridesForNode[nodeId])
+		d.prometheusCtx = ctx
+		d.prometheusCancel = ca
+	} else if exists && shouldExist {
+		lg.Debug("nothing to do (already running)")
+	} else {
+		lg.Debug("nothing to do (already stopped)")
+	}
+}
+
+// DiscoverPrometheuses implements drivers.MetricsNodeDriver
+func (*TestEnvMetricsNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
+	return nil, nil
 }
 
 type TestEnvAlertingClusterDriver struct {

@@ -53,11 +53,11 @@ type MetricsNode struct {
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
 
-	listeners  []chan<- *node.MetricsCapabilityConfig
+	listeners  []chan<- drivers.ConfigureNodeArgs
 	conditions health.ConditionTracker
 
 	nodeDriverMu sync.RWMutex
-	nodeDriver   drivers.MetricsNodeDriver
+	nodeDrivers  []drivers.MetricsNodeDriver
 }
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
@@ -93,7 +93,7 @@ func (m *MetricsNode) sendHealthUpdate() {
 	}
 }
 
-func (m *MetricsNode) AddConfigListener(ch chan<- *node.MetricsCapabilityConfig) {
+func (m *MetricsNode) AddConfigListener(ch chan<- drivers.ConfigureNodeArgs) {
 	m.listeners = append(m.listeners, ch)
 }
 
@@ -127,11 +127,11 @@ func (m *MetricsNode) SetRemoteWriter(client clients.Locker[remotewrite.RemoteWr
 	m.targetRunner.SetRemoteWriteClient(client)
 }
 
-func (m *MetricsNode) SetNodeDriver(driver drivers.MetricsNodeDriver) {
+func (m *MetricsNode) AddNodeDriver(driver drivers.MetricsNodeDriver) {
 	m.nodeDriverMu.Lock()
 	defer m.nodeDriverMu.Unlock()
 
-	m.nodeDriver = driver
+	m.nodeDrivers = append(m.nodeDrivers, driver)
 }
 
 func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
@@ -218,7 +218,7 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 	m.nodeDriverMu.RLock()
 	defer m.nodeDriverMu.RUnlock()
 
-	if m.nodeDriver == nil {
+	if len(m.nodeDrivers) == 0 {
 		m.logger.Warnf("no node driver available for discvoery")
 
 		return &remoteread.DiscoveryResponse{
@@ -226,15 +226,19 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 		}, nil
 	}
 
-	namespace := lo.FromPtrOr[string](request.Namespace, "")
+	namespace := lo.FromPtrOr(request.Namespace, "")
 
-	entries, err := m.nodeDriver.DiscoverPrometheuses(ctx, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
+	var allEntries []*remoteread.DiscoveryEntry
+	for _, driver := range m.nodeDrivers {
+		entries, err := driver.DiscoverPrometheuses(ctx, namespace)
+		if err != nil {
+			return nil, fmt.Errorf("could not discover Prometheus instances: %w", err)
+		}
+		allEntries = append(allEntries, entries...)
 	}
 
 	return &remoteread.DiscoveryResponse{
-		Entries: entries,
+		Entries: allEntries,
 	}, nil
 }
 
@@ -272,24 +276,34 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 }
 
 func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
+	m.identityClientMu.Lock()
+	id, err := m.identityClient.Whoami(context.Background(), &emptypb.Empty{})
+	m.identityClientMu.Unlock()
+	if err != nil {
+		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
+		return
+	}
+
 	m.configMu.Lock()
-	defer m.configMu.Unlock()
-
 	m.config = config
-
 	if !m.config.Enabled && len(m.config.Conditions) > 0 {
 		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
 	} else {
 		m.conditions.Clear(health.CondBackend)
 	}
+	m.configMu.Unlock()
 
 	for _, ch := range m.listeners {
 		clone := util.ProtoClone(config)
+		args := drivers.ConfigureNodeArgs{
+			NodeId: id.GetId(),
+			Config: clone,
+		}
 		select {
-		case ch <- clone:
+		case ch <- args:
 		default:
 			m.logger.Warn("slow config update listener detected")
-			ch <- clone
+			ch <- args
 		}
 	}
 }

@@ -92,6 +92,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
@@ -181,6 +182,8 @@ type Environment struct {
 	k8sEnv        *envtest.Environment
 
 	embeddedJS *natsserver.Server
+
+	metricsNodeDriver *TestEnvMetricsNodeDriver
 
 	Processes struct {
 		Etcd      future.Future[*os.Process]
@@ -433,6 +436,13 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 				e.StartCortex(e.ctx)
 			}()
 		} else if options.enableCortexClusterDriver {
+			e.metricsNodeDriver = &TestEnvMetricsNodeDriver{
+				env:              e,
+				overridesForNode: make(map[string]*overridePrometheusConfig),
+			}
+			metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
+				return e.metricsNodeDriver, nil
+			})
 			metrics_drivers.RegisterPersistentClusterDriver(func() metrics_drivers.ClusterDriver {
 				return NewTestEnvMetricsClusterDriver(e)
 			})
@@ -905,7 +915,7 @@ type PrometheusJob struct {
 
 type prometheusTemplateOptions struct {
 	ListenPort         int
-	OpniAgentPort      int
+	OpniAgentAddress   string
 	GatewayMetricsPort int
 	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
 	Jobs []PrometheusJob
@@ -923,9 +933,13 @@ func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overr
 	}
 }
 
+func (e *Environment) StartPrometheus(opniAgentId string, override ...*overridePrometheusConfig) int {
+	return e.StartPrometheusContext(e.ctx, opniAgentId, override...)
+}
+
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePrometheusConfig) int {
+func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*overridePrometheusConfig) int {
 	lg := e.Logger
 	port := freeport.GetFreePort()
 
@@ -944,7 +958,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	if err != nil {
 		panic(err)
 	}
-	promDir := path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))
+	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
 	os.MkdirAll(promDir, 0755)
 
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
@@ -952,10 +966,15 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 		panic(err)
 	}
 
+	agent := e.GetAgent(opniAgentId)
+	if agent.Agent == nil {
+		panic("test bug: agent not found: " + opniAgentId)
+	}
+
 	if err := t.Execute(configFile, prometheusTemplateOptions{
-		ListenPort:    port,
-		OpniAgentPort: opniAgentPort,
-		Jobs:          jobs,
+		ListenPort:       port,
+		OpniAgentAddress: agent.Agent.ListenAddress(),
+		Jobs:             jobs,
 	}); err != nil {
 		panic(err)
 	}
@@ -970,16 +989,16 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 		"--web.enable-lifecycle",
 		"--enable-feature=agent",
 	}
-	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
+	cmd := exec.CommandContext(ctx, prometheusBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
-		if !errors.Is(e.ctx.Err(), context.Canceled) {
+		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
 		}
 	}
 	lg.Info("Waiting for prometheus to start...")
-	for e.ctx.Err() == nil {
+	for ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
 		if err == nil {
 			defer resp.Body.Close()
@@ -990,8 +1009,8 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 		time.Sleep(time.Second)
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	waitctx.Permissive.Go(ctx, func() {
+		<-ctx.Done()
 		session.Wait()
 	})
 	return port
@@ -1974,7 +1993,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			scraper := func() *overridePrometheusConfig {
+
+			environment.metricsNodeDriver.SetOverridesForNode(body.ID, func() *overridePrometheusConfig {
 				optional := []PrometheusJob{}
 				if options.enableNodeExporter {
 					optional = append(optional, PrometheusJob{
@@ -2000,8 +2020,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 							ScrapePort: kPort,
 						},
 					}, optional...))
-			}()
-			environment.StartPrometheus(port, scraper)
+			}())
 
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))

@@ -2,86 +2,69 @@ package drivers
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"sync"
+
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/samber/lo"
 )
 
+type MetricsNodeDriverBuilder = func() (MetricsNodeDriver, error)
+
 type MetricsNodeDriver interface {
-	Name() string
-	ConfigureNode(*node.MetricsCapabilityConfig)
+	ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig)
 	DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error)
 }
 
 var (
-	lock              = &sync.Mutex{}
-	nodeDrivers       map[string]MetricsNodeDriver
-	failedNodeDrivers map[string]string
+	lock               = &sync.Mutex{}
+	nodeDriverBuilders = make(map[string]MetricsNodeDriverBuilder)
 )
 
-func init() {
-	ResetNodeDrivers()
-}
-
-func RegisterNodeDriver(driver MetricsNodeDriver) {
+func RegisterNodeDriverBuilder(name string, fn MetricsNodeDriverBuilder) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, ok := nodeDrivers[driver.Name()]; ok {
-		panic("driver already exists: " + driver.Name())
-	}
-	nodeDrivers[driver.Name()] = driver
+	nodeDriverBuilders[name] = fn
 }
 
-func LogNodeDriverFailure(name string, err error) {
+func UnregisterNodeDriverBuilder(name string) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	failedNodeDrivers[name] = err.Error()
+	delete(nodeDriverBuilders, name)
 }
 
-func GetNodeDriver(name string) (MetricsNodeDriver, error) {
+func GetNodeDriverBuilder(name string) (MetricsNodeDriverBuilder, bool) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	driver, ok := nodeDrivers[name]
-	if !ok {
-		if failureMsg, ok := failedNodeDrivers[name]; ok {
-			return nil, errors.New(failureMsg)
-		}
-		return nil, fmt.Errorf("driver not found")
-	}
-	return driver, nil
+	driver, ok := nodeDriverBuilders[name]
+	return driver, ok
 }
 
 func ListNodeDrivers() []string {
 	lock.Lock()
 	defer lock.Unlock()
 
-	return lo.Keys(nodeDrivers)
+	return lo.Keys(nodeDriverBuilders)
 }
 
-func ResetNodeDrivers() {
-	lock.Lock()
-	defer lock.Unlock()
-
-	nodeDrivers = make(map[string]MetricsNodeDriver)
-	failedNodeDrivers = make(map[string]string)
+type ConfigureNodeArgs struct {
+	NodeId string
+	Config *node.MetricsCapabilityConfig
 }
 
-func NewListenerFunc(ctx context.Context, fn func(cfg *node.MetricsCapabilityConfig)) chan<- *node.MetricsCapabilityConfig {
-	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
+func NewListenerFunc(ctx context.Context, fn func(nodeId string, cfg *node.MetricsCapabilityConfig)) chan<- ConfigureNodeArgs {
+	listenerC := make(chan ConfigureNodeArgs, 1)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case cfg := <-listenerC:
-				fn(cfg)
+			case args := <-listenerC:
+				fn(args.NodeId, args.Config)
 			}
 		}
 	}()

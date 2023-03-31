@@ -148,11 +148,11 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 
 		fp := certs.Chain[len(certs.Chain)-1].Fingerprint
 
-		port, errC := testEnv.StartAgent(agentId, token, []string{fp}, test.WithAgentVersion("v2"))
+		_, errC := testEnv.StartAgent(agentId, token, []string{fp}, test.WithAgentVersion("v2"))
 		Eventually(errC).Should(Receive(BeNil()))
 
 		By("starting a new prometheus")
-		testEnv.StartPrometheus(port)
+		testEnv.StartPrometheus(agentId)
 
 		By("starting a new metrics writer")
 		benchRunner, err := testEnv.NewBenchRunner(agentId, bench.WorkloadDesc{

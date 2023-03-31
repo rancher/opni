@@ -44,8 +44,8 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			Ttl: durationpb.New(1 * time.Hour),
 		})
 
-		port, errC := environment.StartAgent(agentId, token, []string{fingerprint})
-		environment.StartPrometheus(port)
+		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
+		environment.StartPrometheus(agentId)
 		Expect(errC).To(Receive(BeNil()))
 
 		opsClient := environment.NewCortexOpsClient()

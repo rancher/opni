@@ -2,6 +2,7 @@ package opniopensearch
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"text/template"
 
@@ -207,6 +208,9 @@ func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
 }
 
 func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
+	if r.instance.Spec.NatsRef == nil {
+		return "", false, errors.New("missing nats reference")
+	}
 	nats := &opnicorev1beta1.NatsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Spec.NatsRef.Name,

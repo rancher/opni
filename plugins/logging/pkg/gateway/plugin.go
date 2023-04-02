@@ -7,11 +7,11 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
-	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,7 +40,6 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -57,6 +56,7 @@ type Plugin struct {
 	ctx                 context.Context
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]
+	kv                  future.Future[system.KeyValueStoreClient]
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
@@ -73,7 +73,6 @@ type PluginOptions struct {
 	restconfig        *rest.Config
 	featureOverride   featureflags.FeatureFlag
 	natsRef           *corev1.LocalObjectReference
-	nc                *nats.Conn
 }
 
 type PluginOption func(*PluginOptions)
@@ -114,12 +113,6 @@ func WithNatsRef(ref *corev1.LocalObjectReference) PluginOption {
 	}
 }
 
-func WithNatsConnection(nc *nats.Conn) PluginOption {
-	return func(o *PluginOptions) {
-		o.nc = nc
-	}
-}
-
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{
 		storageNamespace: os.Getenv("POD_NAMESPACE"),
@@ -134,6 +127,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 	lg := logger.NewPluginLogger().Named("logging")
 
+	kv := future.New[system.KeyValueStoreClient]()
+
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
@@ -141,9 +136,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
+		kv:                  kv,
 		opensearchManager: opensearchdata.NewManager(
 			lg.Named("opensearch-manager"),
-			opensearchdata.WithNatsConnection(options.nc),
+			kv,
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
 		otelForwarder: otel.NewOTELForwarder(

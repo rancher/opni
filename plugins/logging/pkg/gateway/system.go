@@ -45,7 +45,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.storageBackend.Set(backend)
 	})
-
 	<-p.ctx.Done()
 }
 

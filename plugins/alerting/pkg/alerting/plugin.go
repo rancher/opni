@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/management"
 	"sync"
 	"sync/atomic"
 
@@ -55,7 +56,7 @@ type Plugin struct {
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
 	natsConn        future.Future[*nats.Conn]
 	js              future.Future[nats.JetStreamContext]
-	globalWatchers  InternalConditionWatcher
+	globalWatchers  management.ConditionWatcher
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

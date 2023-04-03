@@ -107,6 +107,7 @@ func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
 		o.featureOverride = flagOverride
 	}
 }
+
 func WithVersion(version string) PluginOption {
 	return func(o *PluginOptions) {
 		o.version = version
@@ -202,6 +203,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
 				ClusterDriver:       p.clusterDriver,
+				OpensearchManager:   p.opensearchManager,
 			})
 		},
 	)

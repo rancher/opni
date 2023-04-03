@@ -7,7 +7,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 )
 
-var _ = Describe("ManagementWatcherHooks", Label("unit"), func() {
+var _ = Describe("ManagementWatcherHooks", Ordered, Label("unit"), func() {
 	var hooks *ManagementWatcherHooks[*managementv1.WatchEvent]
 	var count int
 

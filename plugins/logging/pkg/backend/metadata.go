@@ -36,7 +36,7 @@ func (b *LoggingBackend) waitForOpensearchClient(ctx context.Context) error {
 }
 
 func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *managementv1.WatchEvent) error {
-	newName, oldName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel], event.PreviousCluster.Metadata.Labels[opnicorev1.NameLabel]
+	newName, oldName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel], event.Previous.Metadata.Labels[opnicorev1.NameLabel]
 	if newName == oldName {
 		b.Logger.With(
 			"oldName", oldName,

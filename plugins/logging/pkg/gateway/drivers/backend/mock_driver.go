@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -19,6 +20,7 @@ type MockDriver struct {
 	status   *util.MockInstallState
 	clusters map[string]clusterStatus
 	syncTime time.Time
+	syncM    sync.RWMutex
 }
 
 func NewMockDriver(stateTracker *util.MockInstallState) *MockDriver {
@@ -66,6 +68,8 @@ func (d *MockDriver) SetClusterStatus(_ context.Context, id string, enabled bool
 func (d *MockDriver) GetClusterStatus(_ context.Context, id string) (*capabilityv1.NodeCapabilityStatus, error) {
 	cluster, ok := d.clusters[id]
 	if !ok {
+		d.syncM.RLock()
+		defer d.syncM.RUnlock()
 		return &capabilityv1.NodeCapabilityStatus{
 			Enabled:  false,
 			LastSync: timestamppb.New(d.syncTime),
@@ -79,5 +83,7 @@ func (d *MockDriver) GetClusterStatus(_ context.Context, id string) (*capability
 }
 
 func (d *MockDriver) SetSyncTime() {
+	d.syncM.Lock()
+	defer d.syncM.Unlock()
 	d.syncTime = time.Now()
 }

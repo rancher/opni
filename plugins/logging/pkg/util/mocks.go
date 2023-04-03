@@ -6,10 +6,15 @@ import (
 	"sync"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/rancher/opni/pkg/opensearch/certs"
 )
 
 const (
 	OpensearchURL = "https://mock-opensearch.example.com"
+)
+
+var (
+	mockCertReader certs.OpensearchCertReader
 )
 
 type MockInstallState struct {
@@ -63,4 +68,12 @@ func OpensearchMockTransport() http.RoundTripper {
 	)
 
 	return transport
+}
+
+func GetMockCertReader() certs.OpensearchCertReader {
+	return mockCertReader
+}
+
+func SetMockCertReader(r certs.OpensearchCertReader) {
+	mockCertReader = r
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,6 @@ func (d *MockDriver) AdminPassword(_ context.Context) ([]byte, error) {
 
 func (d *MockDriver) NewOpensearchClientForCluster(context.Context) *opensearch.Client {
 	transport := util.OpensearchMockTransport()
-	certMgr := &test.TestCertManager{}
 
 	client, err := opensearch.NewClient(
 		opensearch.ClientConfig{
@@ -42,7 +40,7 @@ func (d *MockDriver) NewOpensearchClientForCluster(context.Context) *opensearch.
 				fmt.Sprintf(util.OpensearchURL),
 			},
 			Username:   "test",
-			CertReader: certMgr,
+			CertReader: util.GetMockCertReader(),
 		},
 		opensearch.WithTransport(transport),
 	)

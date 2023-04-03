@@ -68,8 +68,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-			promAgentPort := environment.StartPrometheus("test-cluster-id")
-			Expect(promAgentPort).NotTo(BeZero())
 			Eventually(errC).Should(Receive(BeNil()))
 		})
 

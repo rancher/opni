@@ -97,27 +97,27 @@ func (m *MetricsNode) AddConfigListener(ch chan<- drivers.ConfigureNodeArgs) {
 	m.listeners = append(m.listeners, ch)
 }
 
-func (m *MetricsNode) SetNodeClient(client node.NodeMetricsCapabilityClient) {
+func (m *MetricsNode) SetClients(
+	nodeClient node.NodeMetricsCapabilityClient,
+	identityClient controlv1.IdentityClient,
+	healthListenerClient controlv1.HealthListenerClient,
+) {
 	m.nodeClientMu.Lock()
-	defer m.nodeClientMu.Unlock()
+	m.nodeClient = nodeClient
+	m.nodeClientMu.Unlock()
 
-	m.nodeClient = client
-
-	go m.doSync(context.Background())
-}
-
-func (m *MetricsNode) SetIdentityClient(client controlv1.IdentityClient) {
 	m.identityClientMu.Lock()
-	defer m.identityClientMu.Unlock()
+	m.identityClient = identityClient
+	m.identityClientMu.Unlock()
 
-	m.identityClient = client
-}
-
-func (m *MetricsNode) SetHealthListenerClient(client controlv1.HealthListenerClient) {
 	m.healthListenerClientMu.Lock()
-	m.healthListenerClient = client
+	m.healthListenerClient = healthListenerClient
 	m.healthListenerClientMu.Unlock()
-	m.sendHealthUpdate()
+
+	go func() {
+		m.doSync(context.Background())
+		m.sendHealthUpdate()
+	}()
 }
 
 func (m *MetricsNode) SetRemoteWriter(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -246,8 +246,15 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	m.logger.Debug("syncing metrics node")
 	m.nodeClientMu.RLock()
 	defer m.nodeClientMu.RUnlock()
+	m.identityClientMu.RLock()
+	defer m.identityClientMu.RUnlock()
 
 	if m.nodeClient == nil {
+		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
+		return
+	}
+
+	if m.identityClient == nil {
 		m.conditions.Set(health.CondConfigSync, health.StatusPending, "no client, skipping sync")
 		return
 	}
@@ -275,10 +282,9 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	m.conditions.Clear(health.CondConfigSync)
 }
 
+// requires identityClientMu to be held (either R or W)
 func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
-	m.identityClientMu.Lock()
 	id, err := m.identityClient.Whoami(context.Background(), &emptypb.Empty{})
-	m.identityClientMu.Unlock()
 	if err != nil {
 		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
 		return

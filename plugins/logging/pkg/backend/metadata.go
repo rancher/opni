@@ -3,11 +3,11 @@ package backend
 import (
 	"context"
 	"fmt"
+	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"time"
 )
@@ -15,24 +15,28 @@ import (
 func (b *LoggingBackend) waitForOpensearchClient(ctx context.Context) error {
 	b.WaitForInit()
 
-	var retErr error
-	stopChan := make(chan struct{})
+	expBackoff := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(5*time.Second),
+		backoff.WithMaxInterval(1*time.Minute),
+		backoff.WithMultiplier(1.1),
+	).Start(ctx)
 
-	wait.Until(func() {
+CHECK:
+	for {
 		select {
-		case <-ctx.Done():
-			retErr = fmt.Errorf("context cancelled before client was set")
-			close(stopChan)
-		default:
+		case <-expBackoff.Done():
+			return fmt.Errorf("context cancelled before client was set")
+		case <-expBackoff.Next():
+			if b.OpensearchManager.Client != nil {
+				break CHECK
+			} else {
+				b.Logger.Errorf("opensearch client not set, waiting")
+			}
 		}
-		if b.OpensearchManager.Client != nil {
-			close(stopChan)
-		} else {
-			b.Logger.Errorf("opensearch client not set, waiting")
-		}
-	}, time.Second, stopChan)
+	}
 
-	return retErr
+	return nil
 }
 
 func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *managementv1.WatchEvent) error {

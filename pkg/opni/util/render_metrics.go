@@ -4,8 +4,11 @@ package cliutil
 
 import (
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"strings"
+
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -251,4 +254,55 @@ func RenderDiscoveryEntries(entries []*remoteread.DiscoveryEntry) string {
 	}
 
 	return writer.Render()
+}
+
+type MetricsNodeConfigInfo struct {
+	Id            string
+	HasCapability bool
+	Spec          *node.MetricsCapabilitySpec
+	IsDefault     bool
+}
+
+func RenderMetricsNodeConfigs(nodes []MetricsNodeConfigInfo, defaultConfig *node.MetricsCapabilitySpec) string {
+	writer := table.NewWriter()
+	writer.SetStyle(table.StyleColoredDark)
+	writer.AppendHeader(table.Row{"ID", "HAS CAPABILITY", "CONFIG"})
+	writer.Style().Format = table.FormatOptions{
+		Footer: text.FormatDefault,
+		Header: text.FormatDefault,
+		Row:    text.FormatDefault,
+	}
+	marshal := prototext.MarshalOptions{
+		Multiline: true,
+		Indent:    "  ",
+		EmitASCII: true,
+	}
+
+	for _, node := range nodes {
+		var spec string
+		if node.IsDefault {
+			spec = "(default)"
+		} else if node.Spec != nil {
+			spec = marshal.Format(node.Spec)
+		} else {
+			spec = "(nil)"
+		}
+		row := table.Row{node.Id, node.HasCapability, spec}
+		writer.AppendRow(row)
+	}
+
+	if defaultConfig != nil {
+		writer.AppendFooter(table.Row{"(default)", "", marshal.Format(defaultConfig)})
+	}
+
+	return writer.Render()
+}
+
+func RenderDefaultNodeConfig(defaultConfig *node.MetricsCapabilitySpec) string {
+	marshal := prototext.MarshalOptions{
+		Multiline: true,
+		Indent:    "  ",
+		EmitASCII: true,
+	}
+	return marshal.Format(defaultConfig)
 }

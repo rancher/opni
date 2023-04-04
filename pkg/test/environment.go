@@ -136,10 +136,11 @@ func newServicePorts() (servicePorts, error) {
 					return servicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
 				}
 				field.SetInt(int64(port))
+			} else {
+				setRandomPorts = append(setRandomPorts, func(i int) {
+					field.SetInt(int64(i))
+				})
 			}
-			setRandomPorts = append(setRandomPorts, func(i int) {
-				field.SetInt(int64(i))
-			})
 		}
 	}
 	if len(setRandomPorts) > 0 {

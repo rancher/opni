@@ -70,9 +70,9 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			Expect(fingerprint).NotTo(BeEmpty())
 
 			_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
+			Eventually(errC).Should(Receive(BeNil()))
 			promAgentPort := environment.StartPrometheus("test-cluster-id")
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 
 			//http request to the gateway endpoint including auth header
 			_, err = client.CreateRole(context.Background(), &corev1.Role{

@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -133,11 +134,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 					clusterName := "test-cluster-id-" + uuid.New().String()
 
 					_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-					select {
-					case err := <-errC:
-						Expect(err).NotTo(HaveOccurred())
-					case <-time.After(time.Second * 2):
-					}
+					Eventually(errC).Should(Receive(BeNil()))
 
 					cluster, err := client.GetCluster(context.Background(), &corev1.Reference{
 						Id: clusterName,
@@ -219,7 +216,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			}, 10*time.Second, 50*time.Millisecond).Should(HaveOccurred())
 
 			_, errC := environment.StartAgent("multiple-token-cluster-3", exToken, []string{fingerprint})
-			Eventually(errC, 5*time.Second).Should(Receive())
+			Eventually(errC).Should(Receive(MatchError(bootstrap.ErrNoValidSignature)))
 		})
 	})
 

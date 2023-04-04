@@ -950,7 +950,7 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 	if len(override) > 1 {
 		panic("Too many overrides, only one is allowed")
 	}
-	if len(override) == 1 {
+	if len(override) == 1 && override[0] != nil {
 		configTemplate = override[0].configContents
 		jobs = override[0].jobs
 	}

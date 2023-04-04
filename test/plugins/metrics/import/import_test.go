@@ -95,7 +95,8 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		certInfo, err := managementClient.CertsInfo(ctx, &emptypb.Empty{})
 		Expect(err).ToNot(HaveOccurred())
 
-		env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
+		_, errC := env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
 
 		By("adding prometheus resources to k8s")
 		config, _, err := env.StartK8s()

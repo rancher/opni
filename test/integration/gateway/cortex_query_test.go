@@ -45,8 +45,8 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		})
 
 		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
 		environment.StartPrometheus(agentId)
-		Expect(errC).To(Receive(BeNil()))
 
 		opsClient := environment.NewCortexOpsClient()
 		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{

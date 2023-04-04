@@ -151,7 +151,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		DeferCleanup(func() {
 			done <- struct{}{}
 		})
-		env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
 		pPort = env.StartPrometheus("agent", test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
@@ -162,7 +163,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}),
 		)
 
-		env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
 		pPort2 = env.StartPrometheus("agent2")
 
 		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
@@ -612,12 +614,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			for i := 0; i < 10; i++ {
 				id := fmt.Sprintf("agent-%d", i)
 				ctxCa, cancelFunc := context.WithCancel(ctx)
-				env.StartAgent(
+				_, errC := env.StartAgent(
 					id,
 					token,
 					[]string{info.Chain[len(info.Chain)-1].Fingerprint},
 					test.WithContext(ctxCa),
 				)
+				Eventually(errC).Should(Receive(BeNil()))
 				env.StartPrometheus(id, test.NewOverridePrometheusConfig(
 					"slo/prometheus/config.yaml",
 					[]test.PrometheusJob{

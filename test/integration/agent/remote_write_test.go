@@ -42,7 +42,8 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			environment.StartAgent("agent1", token, []string{fingerprint})
+			_, errC := environment.StartAgent("agent1", token, []string{fingerprint})
+			Eventually(errC).Should(Receive(BeNil()))
 
 			Eventually(func() error {
 				hs, err := client.GetClusterHealthStatus(context.Background(), &v1.Reference{

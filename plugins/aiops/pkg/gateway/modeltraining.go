@@ -64,13 +64,18 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
 	}
-	msg, err := natsConnection.Request(modelTrainingNatsSubject, jsonParameters, time.Minute)
-	if err != nil {
-		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
-	}
 	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{Stage: "fetching data"})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
+	}
+	msg, err := natsConnection.Request(modelTrainingNatsSubject, jsonParameters, time.Minute)
+	var errorUpdate error
+	if err != nil {
+		_, errorUpdate = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{})
+		if errorUpdate != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", errorUpdate)
+		}
+		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
 	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),

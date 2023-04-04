@@ -39,7 +39,7 @@ type LoggingCluster struct {
 
 type LoggingClusterSpec struct {
 	OpensearchClusterRef *opnimeta.OpensearchClusterRef `json:"opensearchCluster,omitempty"`
-	// Deprecated field
+	// Deprecated: individual auth users are no longer requried
 	IndexUserSecret *corev1.LocalObjectReference `json:"indexUser,omitempty"`
 	FriendlyName    string                       `json:"friendlyName,omitempty"`
 	LastSync        metav1.Time                  `json:"lastSync,omitempty"`

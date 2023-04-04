@@ -260,7 +260,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchClusterV2,
 	opniVersion string,
-	natsRef *corev1.LocalObjectReference,
+	natName string,
 ) error {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	exists := true
@@ -309,7 +309,9 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 				OpensearchVersion: opensearchVersion,
 				Version:           opniVersion,
 				ImageRepo:         "docker.io/rancher",
-				NatsRef:           natsRef,
+				NatsRef: &corev1.LocalObjectReference{
+					Name: natName,
+				},
 			},
 		}
 

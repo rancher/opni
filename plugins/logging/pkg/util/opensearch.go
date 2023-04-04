@@ -33,11 +33,10 @@ func (c *AsyncOpensearchClient) WaitForInit() {
 }
 
 func (c *AsyncOpensearchClient) WaitForInitWithTimeout(timeout time.Duration) bool {
-	c.initCond.L.Lock()
-	defer c.initCond.L.Unlock()
-
 	notifier := make(chan struct{})
 	go func() {
+		c.initCond.L.Lock()
+		defer c.initCond.L.Unlock()
 		defer close(notifier)
 		for !c.initialized {
 			c.initCond.Wait()

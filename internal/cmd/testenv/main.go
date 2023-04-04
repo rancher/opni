@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tracing"
-	logging_util "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 )
@@ -56,8 +55,4 @@ func main() {
 		test.WithEnableCortexClusterDriver(enableCortexClusterDriver),
 		test.WithEnableAlertingClusterDriver(enableAlertingClusterDriver),
 	)
-}
-
-func init() {
-	logging_util.SetMockCertReader(&test.TestCertManager{})
 }

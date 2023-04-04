@@ -55,9 +55,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
 		timeout  = 30 * time.Second
 		interval = time.Second
 
-		nats = &corev1.LocalObjectReference{
-			Name: "opni",
-		}
+		nats = "opni"
 	)
 
 	BeforeEach(func() {

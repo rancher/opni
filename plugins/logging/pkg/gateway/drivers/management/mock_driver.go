@@ -7,7 +7,6 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type MockDriver struct {
@@ -68,7 +67,7 @@ func (d *MockDriver) CreateOrUpdateCluster(
 	_ context.Context,
 	cluster *loggingadmin.OpensearchClusterV2,
 	_ string,
-	_ *corev1.LocalObjectReference,
+	_ string,
 ) error {
 	d.clusterDetails = cluster
 	return nil

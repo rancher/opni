@@ -106,7 +106,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 		version = defaultOpniVersion
 	}
 
-	err := m.managementDriver.CreateOrUpdateCluster(ctx, cluster, version, m.natsRef)
+	err := m.managementDriver.CreateOrUpdateCluster(ctx, cluster, version, m.natsRef.Name)
 	if err != nil {
 		return nil, err
 	}

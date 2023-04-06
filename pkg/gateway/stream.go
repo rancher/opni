@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,20 +28,32 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-type remote struct {
+type streamPlugin struct {
 	name string
 	cc   *grpc.ClientConn
 }
 
+type internalRegistrar[T interface {
+	registerInternalService(desc *grpc.ServiceDesc, impl any)
+}] struct {
+	source T
+}
+
+func (ir *internalRegistrar[T]) RegisterService(s *grpc.ServiceDesc, impl any) {
+	ir.source.registerInternalService(s, impl)
+}
+
 type StreamServer struct {
 	streamv1.UnimplementedStreamServer
-	logger            *zap.SugaredLogger
-	handler           ConnectionHandler
-	clusterStore      storage.ClusterStore
-	services          []util.ServicePack[any]
-	remotesMu         sync.Mutex
-	remotes           []remote
-	metricsRegisterer prometheus.Registerer
+	logger                   *zap.SugaredLogger
+	handler                  ConnectionHandler
+	clusterStore             storage.ClusterStore
+	services                 []util.ServicePack[any]
+	internalServices         []util.ServicePack[any]
+	internalServiceRegistrar internalRegistrar[*StreamServer]
+	streamPluginsMu          sync.Mutex
+	streamPlugins            []streamPlugin
+	metricsRegisterer        prometheus.Registerer
 
 	providersMu  sync.Mutex
 	providerById map[string]*metric.MeterProvider
@@ -52,14 +65,15 @@ func NewStreamServer(
 	metricsRegisterer prometheus.Registerer,
 	lg *zap.SugaredLogger,
 ) *StreamServer {
-
-	return &StreamServer{
+	srv := &StreamServer{
 		logger:            lg.Named("grpc"),
 		handler:           handler,
 		clusterStore:      clusterStore,
 		metricsRegisterer: metricsRegisterer,
 		providerById:      make(map[string]*metric.MeterProvider),
 	}
+	srv.internalServiceRegistrar.source = srv
+	return srv
 }
 
 func (s *StreamServer) getProviderForId(agentId string) *metric.MeterProvider {
@@ -120,7 +134,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	}
 	ctx = storage.NewWatchContext(ctx, eventC)
 
-	for _, r := range s.remotes {
+	for _, r := range s.streamPlugins {
 		streamClient := streamv1.NewStreamClient(r.cc)
 		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
@@ -182,14 +196,79 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.services = append(s.services, util.PackService(desc, impl))
 }
 
-func (s *StreamServer) OnPluginLoad(_ types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-	s.remotesMu.Lock()
-	defer s.remotesMu.Unlock()
+func (s *StreamServer) registerInternalService(desc *grpc.ServiceDesc, impl any) {
 	s.logger.With(
-		zap.String("address", cc.Target()),
-	).Debug("adding remote connection")
-	s.remotes = append(s.remotes, remote{
+		zap.String("service", desc.ServiceName),
+	).Debug("registering internal service")
+	if len(desc.Streams) > 0 {
+		s.logger.With(
+			zap.String("service", desc.ServiceName),
+		).Panic("failed to register internal service: nested streams are currently not supported")
+	}
+	s.internalServices = append(s.internalServices, util.PackService(desc, impl))
+}
+
+func (s *StreamServer) OnPluginLoad(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+	lg := s.logger.With(
+		zap.String("plugin", md.Filename()),
+	)
+	s.streamPluginsMu.Lock()
+	defer s.streamPluginsMu.Unlock()
+	lg.Debug("connecting to gateway plugin")
+	s.streamPlugins = append(s.streamPlugins, streamPlugin{
 		name: md.Filename(),
 		cc:   cc,
 	})
+
+	internalStream, err := ext.ConnectInternal(context.Background())
+	if err != nil {
+		lg.With(zap.Error(err)).Error("failed to connect to internal plugin stream")
+		return
+	}
+	headerMd, err := internalStream.Header()
+	if err != nil {
+		lg.With(zap.Error(err)).Error("failed to connect to internal plugin stream")
+		return
+	}
+	var accepted bool
+	if md := headerMd.Get("accept-internal-stream"); len(md) == 1 && md[0] == "true" {
+		accepted = true
+	}
+	if !accepted {
+		lg.Debug("plugin rejected internal stream connection")
+		return
+	}
+	go func() {
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("failed to connect to internal plugin stream")
+			return
+		}
+
+		ts, err := totem.NewServer(internalStream)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("failed to create internal plugin stream server")
+			return
+		}
+
+		for _, service := range s.internalServices {
+			ts.RegisterService(service.Unpack())
+		}
+
+		_, errC := ts.Serve()
+
+		err = <-errC
+		if err != nil {
+			s.logger.With(
+				zap.Error(err),
+			).Warn("internal plugin stream disconnected")
+		}
+	}()
+}
+
+func (s *StreamServer) InternalServiceRegistrar() grpc.ServiceRegistrar {
+	return &s.internalServiceRegistrar
 }

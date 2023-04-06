@@ -219,7 +219,7 @@ func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.Metri
 	defer d.prometheusMu.Unlock()
 
 	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "testEnvironment"
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "test-environment"
 
 	if exists && !shouldExist {
 		lg.Info("stopping prometheus")

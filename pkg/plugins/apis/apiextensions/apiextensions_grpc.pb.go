@@ -8,6 +8,7 @@ package apiextensions
 
 import (
 	context "context"
+	totem "github.com/kralicky/totem"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -202,15 +203,14 @@ var HTTPAPIExtension_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	StreamAPIExtension_Todo_FullMethodName = "/apiextensions.StreamAPIExtension/Todo"
+	StreamAPIExtension_ConnectInternal_FullMethodName = "/apiextensions.StreamAPIExtension/ConnectInternal"
 )
 
 // StreamAPIExtensionClient is the client API for StreamAPIExtension service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamAPIExtensionClient interface {
-	// rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
-	Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ConnectInternal(ctx context.Context, opts ...grpc.CallOption) (StreamAPIExtension_ConnectInternalClient, error)
 }
 
 type streamAPIExtensionClient struct {
@@ -221,21 +221,42 @@ func NewStreamAPIExtensionClient(cc grpc.ClientConnInterface) StreamAPIExtension
 	return &streamAPIExtensionClient{cc}
 }
 
-func (c *streamAPIExtensionClient) Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, StreamAPIExtension_Todo_FullMethodName, in, out, opts...)
+func (c *streamAPIExtensionClient) ConnectInternal(ctx context.Context, opts ...grpc.CallOption) (StreamAPIExtension_ConnectInternalClient, error) {
+	stream, err := c.cc.NewStream(ctx, &StreamAPIExtension_ServiceDesc.Streams[0], StreamAPIExtension_ConnectInternal_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &streamAPIExtensionConnectInternalClient{stream}
+	return x, nil
+}
+
+type StreamAPIExtension_ConnectInternalClient interface {
+	Send(*totem.RPC) error
+	Recv() (*totem.RPC, error)
+	grpc.ClientStream
+}
+
+type streamAPIExtensionConnectInternalClient struct {
+	grpc.ClientStream
+}
+
+func (x *streamAPIExtensionConnectInternalClient) Send(m *totem.RPC) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *streamAPIExtensionConnectInternalClient) Recv() (*totem.RPC, error) {
+	m := new(totem.RPC)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // StreamAPIExtensionServer is the server API for StreamAPIExtension service.
 // All implementations must embed UnimplementedStreamAPIExtensionServer
 // for forward compatibility
 type StreamAPIExtensionServer interface {
-	// rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
-	Todo(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ConnectInternal(StreamAPIExtension_ConnectInternalServer) error
 	mustEmbedUnimplementedStreamAPIExtensionServer()
 }
 
@@ -243,8 +264,8 @@ type StreamAPIExtensionServer interface {
 type UnimplementedStreamAPIExtensionServer struct {
 }
 
-func (UnimplementedStreamAPIExtensionServer) Todo(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Todo not implemented")
+func (UnimplementedStreamAPIExtensionServer) ConnectInternal(StreamAPIExtension_ConnectInternalServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectInternal not implemented")
 }
 func (UnimplementedStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {}
 
@@ -259,22 +280,30 @@ func RegisterStreamAPIExtensionServer(s grpc.ServiceRegistrar, srv StreamAPIExte
 	s.RegisterService(&StreamAPIExtension_ServiceDesc, srv)
 }
 
-func _StreamAPIExtension_Todo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
+func _StreamAPIExtension_ConnectInternal_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(StreamAPIExtensionServer).ConnectInternal(&streamAPIExtensionConnectInternalServer{stream})
+}
+
+type StreamAPIExtension_ConnectInternalServer interface {
+	Send(*totem.RPC) error
+	Recv() (*totem.RPC, error)
+	grpc.ServerStream
+}
+
+type streamAPIExtensionConnectInternalServer struct {
+	grpc.ServerStream
+}
+
+func (x *streamAPIExtensionConnectInternalServer) Send(m *totem.RPC) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *streamAPIExtensionConnectInternalServer) Recv() (*totem.RPC, error) {
+	m := new(totem.RPC)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(StreamAPIExtensionServer).Todo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: StreamAPIExtension_Todo_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamAPIExtensionServer).Todo(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 // StreamAPIExtension_ServiceDesc is the grpc.ServiceDesc for StreamAPIExtension service.
@@ -283,13 +312,15 @@ func _StreamAPIExtension_Todo_Handler(srv interface{}, ctx context.Context, dec 
 var StreamAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "apiextensions.StreamAPIExtension",
 	HandlerType: (*StreamAPIExtensionServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Todo",
-			Handler:    _StreamAPIExtension_Todo_Handler,
+			StreamName:    "ConnectInternal",
+			Handler:       _StreamAPIExtension_ConnectInternal_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
 

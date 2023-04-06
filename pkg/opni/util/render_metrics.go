@@ -272,6 +272,20 @@ func RenderMetricsNodeConfigs(nodes []MetricsNodeConfigInfo, defaultConfig *node
 		Header: text.FormatDefault,
 		Row:    text.FormatDefault,
 	}
+	writer.SetColumnConfigs([]table.ColumnConfig{
+		{
+			Number:      1,
+			Align:       text.AlignLeft,
+			AlignFooter: text.AlignLeft,
+			AlignHeader: text.AlignLeft,
+		},
+		{
+			Number:      3,
+			Align:       text.AlignLeft,
+			AlignFooter: text.AlignLeft,
+			AlignHeader: text.AlignLeft,
+		},
+	})
 	marshal := prototext.MarshalOptions{
 		Multiline: true,
 		Indent:    "  ",

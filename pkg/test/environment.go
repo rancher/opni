@@ -95,6 +95,7 @@ import (
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
@@ -1563,6 +1564,22 @@ func (e *Environment) startGateway() {
 		}
 	}
 	lg.Info("Gateway started")
+
+	if e.enableCortexClusterDriver {
+		nodeConfigClient := node.NewNodeConfigurationClient(e.ManagementClientConn())
+		for {
+			_, err := nodeConfigClient.SetDefaultConfiguration(e.ctx, &node.MetricsCapabilitySpec{
+				Prometheus: &node.PrometheusSpec{
+					DeploymentStrategy: "test-environment",
+				},
+			})
+			if err != nil {
+				lg.With(zap.Error(err)).Error("failed to set default node configuration, retrying in 1 second")
+			}
+			lg.Debug("default node configuration set")
+			break
+		}
+	}
 }
 
 type StartAgentOptions struct {

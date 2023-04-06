@@ -13,18 +13,18 @@ package capability;
 service Backend {
   // Returns info about the backend, including capability name
   rpc Info(google.protobuf.Empty) returns (Details);
-  
+
   // Returns an error if installing the capability would fail.
   rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option deprecated = true;
   }
 
-  // Installs the capability on a cluster. 
+  // Installs the capability on a cluster.
   rpc Install(InstallRequest) returns (InstallResponse);
 
-  // Returns common runtime config info for this capability from a specific 
+  // Returns common runtime config info for this capability from a specific
   // cluster (node).
-  rpc Status(StatusRequest) returns (NodeCapabilityStatus);
+  rpc Status(core.Reference) returns (NodeCapabilityStatus);
 
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
@@ -97,10 +97,6 @@ message UninstallRequest {
 
 message InstallerTemplateResponse {
   string template = 1;
-}
-
-message StatusRequest {
-  core.Reference cluster = 1;
 }
 
 message NodeCapabilityStatus {

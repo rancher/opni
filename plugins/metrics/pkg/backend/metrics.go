@@ -152,6 +152,10 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.LastSync = timestamppb.Now()
+	m.Logger.With(
+		"id", id,
+		"time", status.LastSync.AsTime(),
+	).Debugf("synced node")
 
 	nodeSpec, err := m.getNodeSpecOrDefault(ctx, id)
 	if err != nil {

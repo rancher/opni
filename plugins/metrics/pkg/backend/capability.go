@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rancher/opni/pkg/apis/capability/v1"
-	v12 "github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
@@ -73,7 +73,7 @@ func (m *MetricsBackend) Install(ctx context.Context, req *v1.InstallRequest) (*
 	}
 
 	_, err = m.StorageBackend.UpdateCluster(ctx, req.Cluster,
-		storage.NewAddCapabilityMutator[*v12.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
+		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
 	)
 	if err != nil {
 		return nil, err
@@ -92,13 +92,13 @@ func (m *MetricsBackend) Install(ctx context.Context, req *v1.InstallRequest) (*
 	}, nil
 }
 
-func (m *MetricsBackend) Status(_ context.Context, req *v1.StatusRequest) (*v1.NodeCapabilityStatus, error) {
+func (m *MetricsBackend) Status(_ context.Context, req *corev1.Reference) (*v1.NodeCapabilityStatus, error) {
 	m.WaitForInit()
 
 	m.nodeStatusMu.RLock()
 	defer m.nodeStatusMu.RUnlock()
 
-	if status, ok := m.nodeStatus[req.Cluster.Id]; ok {
+	if status, ok := m.nodeStatus[req.Id]; ok {
 		return status, nil
 	}
 
@@ -154,7 +154,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 	}
 
 	now := timestamppb.Now()
-	_, err = m.StorageBackend.UpdateCluster(ctx, cluster.Reference(), func(c *v12.Cluster) {
+	_, err = m.StorageBackend.UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
 		for _, cap := range c.Metadata.Capabilities {
 			if cap.Name == wellknown.CapabilityMetrics {
 				cap.DeletionTimestamp = now
@@ -179,13 +179,13 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) UninstallStatus(_ context.Context, cluster *v12.Reference) (*v12.TaskStatus, error) {
+func (m *MetricsBackend) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
 	m.WaitForInit()
 
 	return m.UninstallController.TaskStatus(cluster.Id)
 }
 
-func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *v12.Reference) (*emptypb.Empty, error) {
+func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
 	m.UninstallController.CancelTask(cluster.Id)

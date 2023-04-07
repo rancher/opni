@@ -78,6 +78,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
@@ -1775,6 +1777,45 @@ func WithListenPort(port int) StartAgentOption {
 	return func(o *StartAgentOptions) {
 		o.listenPort = port
 	}
+}
+
+func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) error {
+	cc := e.ManagementClientConn()
+	defer cc.Close()
+
+	client := managementv1.NewManagementClient(cc)
+	token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+		Ttl: durationpb.New(time.Hour),
+	})
+	if err != nil {
+		return err
+	}
+
+	certs, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+	fp := certs.Chain[len(certs.Chain)-1].Fingerprint
+
+	_, errC := e.StartAgent(id, token, []string{fp}, opts...)
+	select {
+	case err := <-errC:
+		return err
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *Environment) DeleteAgent(id string) error {
+	cc := e.ManagementClientConn()
+	defer cc.Close()
+
+	client := managementv1.NewManagementClient(cc)
+	_, err := client.DeleteCluster(context.Background(), &corev1.Reference{
+		Id: id,
+	})
+
+	return err
 }
 
 func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {

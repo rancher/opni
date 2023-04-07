@@ -1,5 +1,5 @@
 from fastapi import FastAPI, BackgroundTasks
-from access_admin_api import get_all_users, list_all_metric
+from access_admin_api import get_all_users, list_all_metric, list_namespace, list_ns_pod, list_ns_service
 from grpclib.client import Channel
 from cortexadmin_pb import CortexAdminStub
 import time
@@ -10,10 +10,14 @@ from uuid import uuid4
 import os
 from opni_nats import NatsWrapper
 import json
+from dataclasses import dataclass, asdict
+from typing import List
 
 OPNI_HOST = os.getenv("OPNI_HOST", "localhost") # opni-internal
 OPNI_PORT = 11090
-BUCKET_NAME = "metric_results"
+BUCKET_NAME = "metric_ai_jobs"
+BUCKET_NAME_RUNS = "metric_ai_job_runs"
+JOB_RUN_DELIMITER = "="
 
 nw = NatsWrapper()
 app = FastAPI()
@@ -30,7 +34,7 @@ async def startup_event():
     startup even: connect to nats, create bucket if not exists
     """
     await nw.connect()
-    for b in [BUCKET_NAME]:
+    for b in [BUCKET_NAME, BUCKET_NAME_RUNS]:
         bucket_exists = await nw.get_bucket(b)
         if bucket_exists is None:
             await nw.create_bucket(b)
@@ -45,57 +49,98 @@ async def get_users():
     return res
 
 
-@app.get("/get_metrics/{user_id}")
-async def get_metrics(user_id):
+@app.get("/get_metrics/{cluster_id}")
+async def get_metrics(cluster_id):
     channel = Channel(host=OPNI_HOST, port=11090) # url of opni-internal. can port-forward to localhost:11090
     service = CortexAdminStub(channel)
-    res = await list_all_metric(service, user_id)
+    res = await list_all_metric(service, cluster_id)
     channel.close()
     return res
 
+@app.get("/list_namespace/{cluster_id}")
+async def list_cluster_namespace(cluster_id):
+    channel = Channel(host=OPNI_HOST, port=11090)
+    service = CortexAdminStub(channel)
+    res = await list_namespace(service, cluster_id)
+    channel.close()
+    return res
 
-@app.get("/list_tasks")
-async def list_tasks():
+@app.get("/list_ns_service/{cluster_id}/{namespace}")
+async def list_cluster_ns_service(cluster_id, namespace):
+    channel = Channel(host=OPNI_HOST, port=11090)
+    service = CortexAdminStub(channel)
+    res = await list_ns_service(service, cluster_id,namespace)
+    channel.close()
+    return res
+
+@app.get("/list_jobs")
+async def list_jobs():
     kv = await nw.get_bucket(BUCKET_NAME)
     keys = await kv.kv.keys()
     return [k for k in keys]
 
-@app.post("/delete_task/{task_id}")
-async def delete_task(task_id):
-    kv = await nw.get_bucket(BUCKET_NAME)
+@app.get("/list_job_runs/{job_id}")
+async def list_job_runs(job_id):
+    kv = await nw.get_bucket(BUCKET_NAME_RUNS)
     keys = await kv.kv.keys()
-    if task_id not in keys:
-        return {"status" : "failed", "details" : f"task {task_id} doesn't exist."}
-    else:
-        await kv.delete(task_id)
-        return {"status" : "success", "details" : "delete success"}
+    return [k for k in keys if k.startswith(job_id+JOB_RUN_DELIMITER)]
 
+@app.get("/get_job/{job_id}")
+async def get_job(job_id: str):
+    kv = await nw.get_bucket(BUCKET_NAME)
+    res = await kv.get(job_id)
+    return json.loads(res.decode())
 
-@app.post("/create_task/{user_id}/{namespace}")
-async def create_task(user_id, namespace, background_tasks: BackgroundTasks):
+@app.get("/get_job_run/{job_run_id}")
+async def get_job(job_run_id: str):
+    kv = await nw.get_bucket(BUCKET_NAME_RUNS)
+    res = await kv.get(job_run_id)
+    return json.loads(res.decode())
+
+# TODO: replace these dataclass with the auto-generated dataclass from proto in the aiops gateway plugin
+
+@dataclass
+class jobRunStatus: 
+    JobId: str
+    JobRunId: str
+    JobRunResult: str
+    JobRunCreateTime: str
+    JobRunBaseTime: str
+    Status: str
+
+@dataclass
+class jobRunResponse:
+    JobRunId: str
+    Status: str
+    SubmittedTime: str
+
+@dataclass
+class jobStatus:
+    JobId :str
+    JobCreateTime : str
+    ClusterId :str
+    Namespaces : List[str]
+    JobDescription :str
+
+@app.get("/run_job/{job_id}/")
+async def run_job(job_id, background_tasks: BackgroundTasks):
     ts = datetime.now()
-    task_id = str(uuid4())
-    background_tasks.add_task(func_get_abnormal_metrics,task_id, user_id, ts, namespace)  
     kv = await nw.get_bucket(BUCKET_NAME)
-    status = {"status" : "task submitted", "task_id": task_id, "submitted_time": ts.timestamp()}
-    await kv.put(key=task_id, value=json.dumps(status).encode())
-    return {"submitted time": ts, "retrive_id" :task_id}
+    d = json.loads((await kv.get(job_id)).decode())
+    d = jobStatus(**d)
+    user_id = d.ClusterId
+    namespaces = d.Namespaces
+    task_id = job_id + JOB_RUN_DELIMITER+ ts.strftime("T%Y%m%d%H%M%S") # use ts as unique suffix
+    background_tasks.add_task(func_get_abnormal_metrics,task_id, user_id, ts, namespaces)  
+    kv_run = await nw.get_bucket(BUCKET_NAME_RUNS)
+    str_ts = str(ts.timestamp())
+    status = jobRunStatus(JobId=job_id, JobRunId=task_id, JobRunBaseTime=str_ts, JobRunCreateTime=str_ts, Status="Job Run Submitted", JobRunResult="")
+    status = asdict(status)
+    await kv_run.put(key=task_id, value=json.dumps(status).encode())
+    response = jobRunResponse(JobRunId= task_id, Status="Success", SubmittedTime=str_ts)
+    response = asdict(response)
+    return response
 
-@app.get("/get_task_res/{task_id}")
-async def get_task_res(task_id):
-    kv = await nw.get_bucket(BUCKET_NAME)
-    task_res=await kv.get(key=task_id)
-    if  task_res is not None:
-        return json.loads(task_res.decode())
-    else:
-        return {"The requested task does not exist!"}
-
-
-
-
-# res = await nw.get_bucket("model-training-parameters")
-# bucket_payload = await res.get("modelTrainingParameters")
-# workload_parameters_dict = json.loads(bucket_payload.decode())
 
 async def func_get_metrics(user_id):
     channel = Channel(host=OPNI_HOST, port=11090) # url of opni-internal. can port-forward to localhost:11090
@@ -105,20 +150,22 @@ async def func_get_metrics(user_id):
     channel.close()
     return res
 
-async def func_get_abnormal_metrics(task_id, user_id, requested_ts= None, ns="default"):
+async def func_get_abnormal_metrics(task_id, user_id, requested_ts= None, nss=[]):
     channel = Channel(host=OPNI_HOST, port=11090) # url of opni-internal. can port-forward to localhost:11090
     service = CortexAdminStub(channel)
-    anomaly_metrics = await get_abnormal_metrics(service, user_id, requested_ts, ns)
-    anomaly_metrics_value = [v for p,m,v in anomaly_metrics]
-    preds = predict(anomaly_metrics_value)
-    channel.close()
     res = {}
-    for i, (p,m,v) in enumerate(anomaly_metrics):
-        res[p+"-"+m] = preds[i]
-    
-    kv = await nw.get_bucket(BUCKET_NAME)
+    for ns in nss:
+        anomaly_metrics = await get_abnormal_metrics(service, user_id, requested_ts, ns)
+        anomaly_metrics_value = [v for p,m,v in anomaly_metrics]
+        preds = predict(anomaly_metrics_value)       
+        for i, (p,m,v) in enumerate(anomaly_metrics):
+            res[p+ JOB_RUN_DELIMITER +m] = preds[i]
+    channel.close()
+    kv = await nw.get_bucket(BUCKET_NAME_RUNS)
     current_status = json.loads((await kv.get(task_id)).decode())
-    current_status["result"] = res
-    current_status["status"] = "task completed"
+    current_status = jobRunStatus(**current_status)
+    current_status.JobRunResult = json.dumps(res)
+    current_status.Status = "Job Run Completed"
+    current_status = asdict(current_status)
     await kv.put(key=task_id, value=json.dumps(current_status).encode())
     return res

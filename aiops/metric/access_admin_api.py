@@ -13,6 +13,27 @@ async def get_all_users(service: CortexAdminStub) -> List[str]:
   response = await service.all_user_stats(Empty())
   return [r.user_id for r in response.items]
 
+async def list_namespace(service: CortexAdminStub, cluster_id: str):
+    query = "kube_namespace_labels"
+    response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
+    response = json.loads(response.data.decode())["data"]
+    res = [i["metric"]['namespace'] for i in response["result"]]
+    return res
+
+async def list_ns_pod(service: CortexAdminStub,cluster_id:str, namespace:str):
+    query = f'kube_pod_labels{{namespace="{namespace}"}}'
+    response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
+    response = json.loads(response.data.decode())["data"]
+    res = [i["metric"]['pod'] for i in response["result"]]
+    return res
+
+async def list_ns_service(service: CortexAdminStub,cluster_id:str, namespace:str):
+    query = f'kube_service_labels{{namespace="{namespace}"}}'
+    response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
+    response = json.loads(response.data.decode())["data"]
+    res = [i["metric"]['service'] for i in response["result"]]
+    return res
+
 async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str]:
   response = await service.extract_raw_series(MatcherRequest(tenant=cluster_id, match_expr=".+"))
   res = (json.loads(response.data.decode())["data"])

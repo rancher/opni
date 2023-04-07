@@ -5,5 +5,6 @@ WORKDIR /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN chmod a+rwx -R /app
+EXPOSE 8090
 
-CMD ["uvicorn", "backend:app", "--port", "10010"]
+CMD ["uvicorn", "backend:app","--host", "0.0.0.0", "--port", "8090"]

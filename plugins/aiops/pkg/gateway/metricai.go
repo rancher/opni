@@ -17,7 +17,7 @@ import (
 )
 
 const serverUrl = "http://metric-ai-service:8090"
-const jobRunDelimiter = "~"
+const jobRunDelimiter = "="
 
 type RequestError struct {
 	StatusCode int
@@ -161,7 +161,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
     return &metricai.MetricAIAPIResponse{ SubmittedTime: time.Now().String(), Status: "Success"}, nil
 }
 
-func (p *AIOpsPlugin) DeleteJobs(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
     metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)

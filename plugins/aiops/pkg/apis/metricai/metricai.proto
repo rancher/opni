@@ -42,9 +42,9 @@ service MetricAI {
         };
     }
 
-    rpc DeleteJobs(MetricAIId) returns(MetricAIAPIResponse) {
+    rpc DeleteJob(MetricAIId) returns(MetricAIAPIResponse) {
         option (google.api.http) = {
-            delete: "/metricai/deletejob"
+            delete: "/metricai/deletejob/{id}"
         };
     }
     rpc GetJobRunResult(MetricAIId) returns(MetricAIJobRunResult) {

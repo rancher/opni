@@ -38,7 +38,8 @@ type AIOpsPlugin struct {
 	aggregationKv   future.Future[nats.KeyValue]
 	modelTrainingKv future.Future[nats.KeyValue]
 	statisticsKv    future.Future[nats.KeyValue]
-	metricAIKv      future.Future[nats.KeyValue]
+	metricAIJobKv      future.Future[nats.KeyValue]
+	metricAIRunKv      future.Future[nats.KeyValue]
 }
 
 type PluginOptions struct {
@@ -54,7 +55,8 @@ const (
 	workloadAggregationCountBucket = "os-workload-aggregation"
 	modelTrainingParametersBucket  = "model-training-parameters"
 	modelTrainingStatisticsBucket  = "model-training-statistics"
-	metricAIBucket                 = "metric_results"
+	metricAIJobBucket                 = "metric_ai_jobs"
+	metricAIRunBucket				 = "metric_ai_job_runs"
 )
 
 func (o *PluginOptions) apply(opts ...PluginOption) {
@@ -114,17 +116,19 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 
 	return &AIOpsPlugin{
 		PluginOptions:   options,
-		Logger:          logger.NewPluginLogger().Named("modeltraining"),
+		Logger:          logger.NewPluginLogger().Named("AIOps"),
 		ctx:             ctx,
 		natsConnection:  future.New[*nats.Conn](),
 		aggregationKv:   future.New[nats.KeyValue](),
 		modelTrainingKv: future.New[nats.KeyValue](),
 		statisticsKv:    future.New[nats.KeyValue](),
-		metricAIKv:      future.New[nats.KeyValue](),
+		metricAIJobKv:      future.New[nats.KeyValue](),
+		metricAIRunKv:      future.New[nats.KeyValue](),
 		osClient:        future.New[*opensearch.Client](),
 		k8sClient:       cli,
 	}
 }
+
 
 func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	lg := p.Logger
@@ -166,18 +170,31 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 
 	p.statisticsKv.Set(modelStatisticsKeyValue)
 
-	metricAIKeyValue, err := mgr.KeyValue(metricAIBucket)
+	metricAIJobKeyValue, err := mgr.KeyValue(metricAIJobBucket)
 	if err != nil {
 		lg.Warn(err)
-		metricAIKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
-			Bucket:      metricAIBucket,
-			Description: "Storing the submitted jobs and results for metric AI service.",
+		metricAIJobKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:      metricAIJobBucket,
+			Description: "Storing the submitted jobs for metric AI service.",
 		})
 		if err != nil {
 			lg.Fatal(err)
 		}
 	}
-	p.metricAIKv.Set(metricAIKeyValue)
+	p.metricAIJobKv.Set(metricAIJobKeyValue)
+
+	metricAIRunKeyValue, err := mgr.KeyValue(metricAIRunBucket)
+	if err != nil {
+		lg.Warn(err)
+		metricAIRunKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:      metricAIRunBucket,
+			Description: "Storing the submitted jobs arun results for metric AI service.",
+		})
+		if err != nil {
+			lg.Fatal(err)
+		}
+	}
+	p.metricAIRunKv.Set(metricAIRunKeyValue)
 
 	p.natsConnection.Set(nc)
 

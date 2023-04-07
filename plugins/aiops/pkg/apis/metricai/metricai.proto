@@ -9,61 +9,98 @@ import "google/api/annotations.proto";
 package metricai;
 
 service MetricAI {
-    rpc ListJobs(google.protobuf.Empty) returns(MetricAIJobList) {
+    rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
+        option (google.api.http) = {
+            get: "/metricai/listclusters"
+        };
+    }
+    rpc ListNamespaces(MetricAIId) returns(MetricAIIdList) {
+        option (google.api.http) = {
+            get: "/metricai/listnamespaces/{id}"
+        };
+    }
+    rpc ListJobs(google.protobuf.Empty) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listjobs"
         };
     }
-    rpc SubmitJob(MetricAIJobRequest) returns(MetricAIJobSubmitStatus) {
+    rpc ListJobRuns(MetricAIId) returns(MetricAIIdList) {
         option (google.api.http) = {
-            post: "/metricai/submitjob/{clusterId}/{namespace}"
+            get: "/metricai/listjobruns/{id}"
         };
     }
-    rpc DeleteJobs(MetricAIJobId) returns(MetricAIJobDeleteStatus) {
+    rpc CreateJob(MetricAICreateJobRequest) returns(MetricAIAPIResponse) {
         option (google.api.http) = {
-            delete: "/metricai/deletejob/{jobId}"
+            post: "/metricai/createjob/{clusterId}"
+            body: "*"
         };
     }
-    rpc GetJobResult(MetricAIJobId) returns(MetricAIGetJobResult) {
+
+    rpc RunJob(MetricAIId) returns(MetricAIRunJobResponse) {
         option (google.api.http) = {
-            get: "/metricai/getjobresult/{jobId}"
+            post: "/metricai/runjob/{id}"
+        };
+    }
+
+    rpc DeleteJobs(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletejob"
+        };
+    }
+    rpc GetJobRunResult(MetricAIId) returns(MetricAIJobRunResult) {
+        option (google.api.http) = {
+            get: "/metricai/getjobrunresult/{id}"
+        };
+    }
+    rpc GetJob(MetricAIId) returns(MetricAIJobStatus) {
+        option (google.api.http) = {
+            get: "/metricai/getjob/{id}"
         };
     }
 }
 
 message MetricAIJobStatus {
-    string jobId = 1;
-    float jobSubmittedTime = 2;
-    string jobStatus = 3;
-    optional MetricAIJobRequest jobRequest = 4;
-    string jobResult = 5;
-}
-
-message MetricAIJobList {
-    repeated MetricAIJobId items = 1;
-}
-
-message MetricAIJobRequest {
-    string clusterId = 1;
-    string namespace = 2;
-}
-
-message MetricAIJobId {
-    string jobId = 1;
-}
-
-message MetricAIJobDeleteStatus {
-    string status = 1;
-    string description = 2;
-}
-message MetricAIJobSubmitStatus {
-    string status = 1;
-    string jobSubmittedTime = 2;
+    string clusterId = 1; 
+    string jobCreateTime = 2;
     string jobId = 3;
+    repeated string namespaces = 4;
+    string jobDescription = 5;
 }
 
-message MetricAIGetJobResult {
-    string status = 1;
-    string description = 2;
-    optional MetricAIJobStatus jobStatus = 3;
+message MetricAIJobRunResult {
+    string jobId = 1;
+    string jobRunId = 2;
+    string jobRunResult = 3;
+    string jobRunCreateTime = 4; 
+    string jobRunBaseTime = 5;
+    string status = 6;
 }
+
+message MetricAIIdList {
+    repeated string items = 1;
+}
+
+message MetricAICreateJobRequest {
+    string clusterId = 1;
+    repeated string namespaces = 2;
+    string jobId = 3;
+    string jobDescription = 4;
+}
+
+message MetricAIId {
+    string id = 1;
+}
+
+
+message MetricAIAPIResponse {
+    string status = 1;
+    string submittedTime = 2;
+    string description = 3;
+}
+message MetricAIRunJobResponse {
+    string status = 1;
+    string submittedTime = 2;
+    string description = 3;
+    string jobRunId = 4;
+}
+

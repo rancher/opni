@@ -1549,6 +1549,7 @@ type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
 	remoteKubeconfig     string
+	listenPort           int
 	version              string
 	local                bool
 }
@@ -1591,10 +1592,17 @@ func WithLocalAgent() StartAgentOption {
 	}
 }
 
+func WithListenPort(port int) StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.listenPort = port
+	}
+}
+
 func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	options := &StartAgentOptions{
-		version: e.defaultAgentVersion,
-		ctx:     e.ctx,
+		version:    e.defaultAgentVersion,
+		ctx:        e.ctx,
+		listenPort: freeport.GetFreePort(),
 	}
 	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
@@ -1603,7 +1611,6 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 
 	errC := make(chan error, 2)
-	port := freeport.GetFreePort()
 	if err := ident.RegisterProvider(id, func() ident.Provider {
 		return NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {
@@ -1620,7 +1627,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
 			TrustStrategy:    v1beta1.TrustStrategyPKP,
-			ListenAddress:    fmt.Sprintf("localhost:%d", port),
+			ListenAddress:    fmt.Sprintf("localhost:%d", options.listenPort),
 			GatewayAddress:   gatewayAddress,
 			IdentityProvider: id,
 			Rules: &v1beta1.RulesSpec{
@@ -1738,7 +1745,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		delete(e.runningAgents, id)
 		e.runningAgentsMu.Unlock()
 	})
-	return port, errC
+	return options.listenPort, errC
 }
 
 func (e *Environment) GetAgent(id string) RunningAgent {

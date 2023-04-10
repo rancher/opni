@@ -10,6 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,70 +34,68 @@ type remote struct {
 
 type StreamServer struct {
 	streamv1.UnimplementedStreamServer
-	StreamServerOptions
-	logger       *zap.SugaredLogger
-	handler      ConnectionHandler
-	clusterStore storage.ClusterStore
-	services     []util.ServicePack[any]
-	remotesMu    sync.Mutex
-	remotes      []remote
-}
-
-type StreamServerOptions struct {
+	logger            *zap.SugaredLogger
+	handler           ConnectionHandler
+	clusterStore      storage.ClusterStore
+	services          []util.ServicePack[any]
+	remotesMu         sync.Mutex
+	remotes           []remote
 	metricsRegisterer prometheus.Registerer
-}
 
-type StreamServerOption func(*StreamServerOptions)
-
-func (o *StreamServerOptions) apply(opts ...StreamServerOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithMetricsRegisterer(metricsRegisterer prometheus.Registerer) StreamServerOption {
-	return func(o *StreamServerOptions) {
-		o.metricsRegisterer = prometheus.WrapRegistererWithPrefix("opni_gateway_", metricsRegisterer)
-	}
+	providersMu  sync.Mutex
+	providerById map[string]*metric.MeterProvider
 }
 
 func NewStreamServer(
 	handler ConnectionHandler,
 	clusterStore storage.ClusterStore,
+	metricsRegisterer prometheus.Registerer,
 	lg *zap.SugaredLogger,
-	opts ...StreamServerOption,
 ) *StreamServer {
-	options := StreamServerOptions{}
-	options.apply(opts...)
+
 	return &StreamServer{
-		StreamServerOptions: options,
-		logger:              lg.Named("grpc"),
-		handler:             handler,
-		clusterStore:        clusterStore,
+		logger:            lg.Named("grpc"),
+		handler:           handler,
+		clusterStore:      clusterStore,
+		metricsRegisterer: metricsRegisterer,
+		providerById:      make(map[string]*metric.MeterProvider),
 	}
+}
+
+func (s *StreamServer) getProviderForId(agentId string) *metric.MeterProvider {
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
+	if prev, ok := s.providerById[agentId]; ok {
+		return prev
+	}
+	exporter, err := otelprometheus.New(
+		otelprometheus.WithRegisterer(prometheus.WrapRegistererWithPrefix("opni_gateway_", s.metricsRegisterer)),
+		otelprometheus.WithoutScopeInfo(),
+		otelprometheus.WithoutTargetInfo(),
+	)
+	if err != nil {
+		s.logger.With(zap.Error(err)).Panic("failed to initialize stream metrics exporter")
+	}
+
+	provider := metric.NewMeterProvider(metric.WithReader(exporter),
+		metric.WithResource(resource.NewSchemaless(attribute.Key("agent-id").String(agentId))))
+	s.providerById[agentId] = provider
+	return provider
 }
 
 func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
 	ctx := stream.Context()
+
 	id := cluster.StreamAuthorizedID(ctx)
 
 	opts := []totem.ServerOption{
 		totem.WithName("gateway-server"),
 	}
-	if s.metricsRegisterer != nil {
-		otelPromExporter, err := otelprometheus.New(
-			otelprometheus.WithRegisterer(s.metricsRegisterer),
-			otelprometheus.WithoutScopeInfo(),
-			otelprometheus.WithoutTargetInfo(),
-		)
-		if err != nil {
-			return err
-		}
-		opts = append(opts, totem.WithMetrics(otelPromExporter,
-			attribute.Key(metrics.LabelImpersonateAs).String(id),
-		))
-	}
+	opts = append(opts, totem.WithMetrics(s.getProviderForId(id),
+		attribute.Key(metrics.LabelImpersonateAs).String(id),
+	))
+
 	ts, err := totem.NewServer(stream, opts...)
 	if err != nil {
 		return err

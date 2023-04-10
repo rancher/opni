@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -126,7 +128,6 @@ func NewPlugin(p StreamAPIExtension, opts ...StreamApiExtensionPluginOption) plu
 		fnName := fn.Name()
 		name = fnName[strings.LastIndex(fnName, "plugins/")+len("plugins/") : strings.LastIndex(fnName, ".")]
 	}
-
 	ext := &streamExtensionServerImpl{
 		name:             name,
 		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
@@ -134,6 +135,18 @@ func NewPlugin(p StreamAPIExtension, opts ...StreamApiExtensionPluginOption) plu
 		metricsConfig:    options.metricsConfig,
 	}
 	if p != nil {
+		if options.metricsConfig.Registerer != nil {
+			exporter, err := otelprometheus.New(
+				otelprometheus.WithRegisterer(options.metricsConfig.Registerer),
+				otelprometheus.WithoutScopeInfo(),
+				otelprometheus.WithoutTargetInfo(),
+			)
+			if err != nil {
+				panic("failed to create otel prometheus exporter")
+			}
+			ext.meterProvider = metric.NewMeterProvider(metric.WithReader(exporter),
+				metric.WithResource(resource.NewSchemaless(attribute.Key("plugin").String(name))))
+		}
 		servers := p.StreamServers()
 		for _, srv := range servers {
 			descriptor, err := grpcreflect.LoadServiceDescriptor(srv.Desc)
@@ -167,6 +180,7 @@ type streamExtensionServerImpl struct {
 	clientDisconnectHandler StreamClientDisconnectHandler
 	logger                  *zap.SugaredLogger
 	metricsConfig           StreamMetricsConfig
+	meterProvider           *metric.MeterProvider
 
 	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
@@ -179,25 +193,13 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	opts := []totem.ServerOption{
 		totem.WithName("plugin_" + e.name),
 	}
-	if e.metricsConfig.Registerer != nil {
-		otelPromExporter, err := otelprometheus.New(
-			otelprometheus.WithRegisterer(e.metricsConfig.Registerer),
-			otelprometheus.WithoutScopeInfo(),
-			otelprometheus.WithoutTargetInfo(),
-		)
-		if err != nil {
-			e.logger.With(
-				zap.Error(err),
-			).Error("failed to create otel prometheus exporter")
-			return err
-		}
-
+	if e.meterProvider != nil {
 		var labels []attribute.KeyValue
 		if e.metricsConfig.LabelsForStream != nil {
 			labels = e.metricsConfig.LabelsForStream(stream.Context())
 		}
 
-		opts = append(opts, totem.WithMetrics(otelPromExporter, labels...))
+		opts = append(opts, totem.WithMetrics(e.meterProvider, labels...))
 	}
 	ts, err := totem.NewServer(stream, opts...)
 

@@ -230,7 +230,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	agentHandler := MultiConnectionHandler(listener, sync, delegate)
 
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(agentHandler, storageBackend, lg, WithMetricsRegisterer(httpServer.metricsRegisterer))
+	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 	streamv1.RegisterDelegateServer(streamSvc, delegate)

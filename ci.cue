@@ -213,7 +213,7 @@ dagger.#Plan & {
 						command: {
 							name: "sh"
 							args: ["-c",
-								"curl -sfL -o /etc/profile.d/bash_completion.sh https://raw.githubusercontent.com/scop/bash-completion/master/bash_completion && " +
+								"curl -sfL -o /etc/profile.d/bash_completion.sh https://raw.githubusercontent.com/scop/bash-completion/v2.11.0/bash_completion && " +
 								"/usr/bin/opni completion bash > /etc/profile.d/opni_bash_completion.sh",
 							]
 						}

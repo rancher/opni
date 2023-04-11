@@ -35,9 +35,11 @@ var _ = BeforeSuite(func() {
 			test.WithEnableDisconnectServer(false),
 		)
 
-		store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
+		client, err := etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
 			etcd.WithPrefix("test"),
-		))
+		)
+		Expect(err).NotTo(HaveOccurred())
+		store.Set(client)
 
 		DeferCleanup(env.Stop)
 	})

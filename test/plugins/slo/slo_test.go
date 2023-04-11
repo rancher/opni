@@ -151,8 +151,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		DeferCleanup(func() {
 			done <- struct{}{}
 		})
-		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
+		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
+		pPort = env.StartPrometheus("agent", test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -162,8 +163,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}),
 		)
 
-		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort2 = env.StartPrometheus(p2)
+		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
+		pPort2 = env.StartPrometheus("agent2")
 
 		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
 		sloClient = sloapi.NewSLOClient(env.ManagementClientConn())
@@ -612,13 +614,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			for i := 0; i < 10; i++ {
 				id := fmt.Sprintf("agent-%d", i)
 				ctxCa, cancelFunc := context.WithCancel(ctx)
-				newP, _ := env.StartAgent(
+				_, errC := env.StartAgent(
 					id,
 					token,
 					[]string{info.Chain[len(info.Chain)-1].Fingerprint},
 					test.WithContext(ctxCa),
 				)
-				env.StartPrometheus(newP, test.NewOverridePrometheusConfig(
+				Eventually(errC).Should(Receive(BeNil()))
+				env.StartPrometheus(id, test.NewOverridePrometheusConfig(
 					"slo/prometheus/config.yaml",
 					[]test.PrometheusJob{
 						{

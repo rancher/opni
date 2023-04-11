@@ -70,9 +70,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label("in
 			name := "test-cluster-id-" + uuid.New().String()
 			clusterNameList = append(clusterNameList, name)
 
-			port, errC := environment.StartAgent(name, token, []string{fingerprint})
+			_, errC := environment.StartAgent(name, token, []string{fingerprint})
 			Eventually(errC).Should(Receive(BeNil()))
-			promAgentPort := environment.StartPrometheus(port)
+			promAgentPort := environment.StartPrometheus(name)
 			Expect(promAgentPort).NotTo(BeZero())
 
 			for i := 0; i < 5; i++ {

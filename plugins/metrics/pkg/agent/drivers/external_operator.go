@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"os"
 	"sync"
+
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -92,11 +93,7 @@ func NewExternalPromOperatorDriver(
 
 var _ MetricsNodeDriver = (*ExternalPromOperatorDriver)(nil)
 
-func (*ExternalPromOperatorDriver) Name() string {
-	return "external-operator"
-}
-
-func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) {
+func (d *ExternalPromOperatorDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityConfig) {
 	d.state.Lock()
 	if d.state.running {
 		d.state.backoffCancel()

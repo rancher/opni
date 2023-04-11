@@ -33,7 +33,9 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 	p.node.SetRemoteWriter(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
 
-	p.node.SetNodeClient(nodeClient)
-	p.node.SetHealthListenerClient(healthListenerClient)
-	p.node.SetIdentityClient(identityClient)
+	p.node.SetClients(
+		nodeClient,
+		identityClient,
+		healthListenerClient,
+	)
 }

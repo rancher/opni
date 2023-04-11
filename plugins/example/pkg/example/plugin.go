@@ -105,7 +105,7 @@ func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Em
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) Status(context.Context, *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (s *ExamplePlugin) Status(context.Context, *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 

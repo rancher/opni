@@ -78,25 +78,25 @@ type ValueStoreT[T any] interface {
 	Delete(ctx context.Context) error
 }
 
-type valueStoreImpl[T any] struct {
+type singleValueStoreImpl[T any] struct {
 	base KeyValueStoreT[T]
 	key  string
 }
 
-func (s *valueStoreImpl[T]) Put(ctx context.Context, value T) error {
+func (s *singleValueStoreImpl[T]) Put(ctx context.Context, value T) error {
 	return s.base.Put(ctx, s.key, value)
 }
 
-func (s *valueStoreImpl[T]) Get(ctx context.Context) (T, error) {
+func (s *singleValueStoreImpl[T]) Get(ctx context.Context) (T, error) {
 	return s.base.Get(ctx, s.key)
 }
 
-func (s *valueStoreImpl[T]) Delete(ctx context.Context) error {
+func (s *singleValueStoreImpl[T]) Delete(ctx context.Context) error {
 	return s.base.Delete(ctx, s.key)
 }
 
 func NewValueStore[T any](base KeyValueStoreT[T], key string) ValueStoreT[T] {
-	return &valueStoreImpl[T]{
+	return &singleValueStoreImpl[T]{
 		base: base,
 		key:  key,
 	}

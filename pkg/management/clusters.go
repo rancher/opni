@@ -205,6 +205,30 @@ func (m *Server) UninstallCapability(
 	return &emptypb.Empty{}, nil
 }
 
+func (m *Server) CapabilityStatus(
+	ctx context.Context,
+	req *managementv1.CapabilityStatusRequest,
+) (*capabilityv1.NodeCapabilityStatus, error) {
+	if err := validation.Validate(req); err != nil {
+		return nil, err
+	}
+
+	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(req.Name)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Error(codes.NotFound, "capability not found")
+		}
+		return nil, err
+	}
+
+	return backend.Status(ctx, req.Cluster)
+}
+
 func (m *Server) CapabilityUninstallStatus(
 	ctx context.Context,
 	req *managementv1.CapabilityStatusRequest,

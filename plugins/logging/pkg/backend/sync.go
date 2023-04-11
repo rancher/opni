@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -18,13 +19,13 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (b *LoggingBackend) Status(ctx context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	b.WaitForInit()
 
 	b.nodeStatusMu.RLock()
 	defer b.nodeStatusMu.RUnlock()
 
-	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetCluster().GetId())
+	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, loggingerrors.ErrInvalidList) {
 			return nil, status.Error(codes.NotFound, "unable to list cluster status")

@@ -79,7 +79,7 @@ func (p *provisioner) buildNginx(ctx *Context, provider ProviderResource) (loadB
 			name := args[1].(*string)
 
 			nginxLBSvc, err := corev1.GetService(ctx, "nginx-ingress", ID(
-				fmt.Sprintf("%s/%s-nginx-ingress", *namespace, *name),
+				fmt.Sprintf("%s/%s-nginx-ingress-controller", *namespace, *name),
 			), nil, Provider(provider), Parent(nginxChart))
 			if err != nil {
 				return StringOutput{}, errors.WithStack(err)

@@ -58,11 +58,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		if err != nil {
 			return nil, false, err
 		}
-		var isDefault bool
-		if len(trailer["is-default-config"]) > 0 {
-			isDefault = trailer["is-default-config"][0] == "true"
-		}
-		return spec, isDefault, nil
+		return spec, node.IsDefaultConfig(trailer), nil
 	}
 
 	var verifySync = func(fn func(), capability string, agentIds ...string) {

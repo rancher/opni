@@ -146,6 +146,7 @@ type SyncRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// An empty cluster ID indicates that all clusters should be synced.
 	Cluster *v1.Reference `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	Filter  *Filter       `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
 }

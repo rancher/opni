@@ -45,16 +45,11 @@ func BuildMetricsConfigCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				var isDefault bool
-				if vv := trailer.Get("is-default-config"); len(vv) == 1 && vv[0] == "true" {
-					isDefault = true
-				}
-
 				items[i] = cliutil.MetricsNodeConfigInfo{
 					Id:            agent.Id,
 					HasCapability: capabilities.Has(agent, capabilities.Cluster(wellknown.CapabilityMetrics)),
 					Spec:          spec,
-					IsDefault:     isDefault,
+					IsDefault:     node.IsDefaultConfig(trailer),
 				}
 			}
 
@@ -149,16 +144,11 @@ func BuildMetricsConfigGetCmd() *cobra.Command {
 					return err
 				}
 
-				var isDefault bool
-				if vv := trailer.Get("is-default-config"); len(vv) == 1 && vv[0] == "true" {
-					isDefault = true
-				}
-
 				infos = append(infos, cliutil.MetricsNodeConfigInfo{
 					Id:            clusterID,
 					HasCapability: capabilities.Has(cluster, capabilities.Cluster(wellknown.CapabilityMetrics)),
 					Spec:          spec,
-					IsDefault:     isDefault,
+					IsDefault:     node.IsDefaultConfig(trailer),
 				})
 			}
 			fmt.Println(cliutil.RenderMetricsNodeConfigs(infos, nil))
@@ -179,14 +169,7 @@ func BuildMetricsConfigResetCmd() *cobra.Command {
 				var trailer metadata.MD
 				client := node.NewNodeConfigurationClient(managementv1.UnderlyingConn(mgmtClient))
 				_, err := client.GetNodeConfiguration(cmd.Context(), c.Reference(), grpc.Trailer(&trailer))
-				if err == nil {
-					if len(trailer.Get("is-default-config")) == 0 {
-						return true
-					}
-					return false
-				}
-				// on error, show it anyway
-				return true
+				return err == nil && node.IsDefaultConfig(trailer)
 			})
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

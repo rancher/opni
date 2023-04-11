@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -190,12 +189,8 @@ func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsC
 		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
 	}
-	grpc.SetTrailer(ctx, defaultNodeSpecMetadata())
+	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
 	return nodeSpec, nil
-}
-
-func defaultNodeSpecMetadata() metadata.MD {
-	return metadata.Pairs("is-default-config", "true")
 }
 
 func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.MetricsCapabilitySpec, error) {

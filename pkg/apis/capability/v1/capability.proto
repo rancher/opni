@@ -65,6 +65,7 @@ message Details {
 }
 
 message SyncRequest {
+  // An empty cluster ID indicates that all clusters should be synced.
   core.Reference cluster = 1;
   Filter filter = 2;
 }

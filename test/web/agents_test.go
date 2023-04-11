@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,8 +18,8 @@ var _ = Describe("Agents", Ordered, Label("web"), func() {
 	})
 	When("starting up for the first time", func() {
 		It("should show an empty agents list", func() {
-			b.Navigate(url)
-			Eventually(".no-rows > td:nth-child(1) > span:nth-child(1)").Should(b.HaveInnerText("There are no rows to show."))
+			b.Navigate(webUrl + "/agents")
+			Eventually(Table()).Should(HaveNoRows())
 		})
 	})
 	var agent1Ctx, agent2Ctx context.Context
@@ -31,19 +32,32 @@ var _ = Describe("Agents", Ordered, Label("web"), func() {
 			Expect(env.BootstrapNewAgent("agent1", test.WithContext(agent1Ctx), test.WithLocalAgent())).To(Succeed())
 			Expect(env.BootstrapNewAgent("agent2", test.WithContext(agent2Ctx))).To(Succeed())
 
-			b.Navigate(url)
+			b.Navigate(webUrl + "/agents")
 
-			Eventually("tr.main-row:nth-child(1) > td:nth-child(2) > div:nth-child(1) > span:nth-child(1)").Should(And(b.HaveClass("bg-success"), b.HaveInnerText("Ready")))
-			Eventually("tr.main-row:nth-child(2) > td:nth-child(2) > div:nth-child(1) > span:nth-child(1)").Should(And(b.HaveClass("bg-success"), b.HaveInnerText("Ready")))
+			Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveReadyBadge(), b.HaveInnerText("agent1"), b.HaveInnerText("agent1"), HaveCheckmark()))
+			Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), HaveReadyBadge(), b.HaveInnerText("agent2"), b.HaveInnerText("agent2"), Not(HaveCheckmark())))
+		})
+	})
 
-			Eventually("tr.main-row:nth-child(1) > td:nth-child(3) > span:nth-child(1)").Should(b.HaveInnerText("agent1"))
-			Eventually("tr.main-row:nth-child(2) > td:nth-child(3) > span:nth-child(1)").Should(b.HaveInnerText("agent2"))
+	When("assigning friendly names to the agents", func() {
+		It("should display the friendly names in the table", func() {
+			for i, id := range []string{"agent1", "agent2"} {
+				By("assigning a friendly name to " + id)
+				cluster, err := mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: id})
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Metadata.Labels[corev1.NameLabel] = fmt.Sprintf("test-%d", i+1)
+				_, err = mgmtClient.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+					Cluster: cluster.Reference(),
+					Labels:  cluster.Metadata.Labels,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
 
-			Eventually("tr.main-row:nth-child(1) > td:nth-child(4) > span:nth-child(1)").Should(b.HaveInnerText("agent1"))
-			Eventually("tr.main-row:nth-child(2) > td:nth-child(4) > span:nth-child(1)").Should(b.HaveInnerText("agent2"))
+			By("refreshing the page")
+			b.Navigate(webUrl + "/agents")
 
-			Eventually("tr.main-row:nth-child(1) > td:nth-child(5) > span:nth-child(1) > i").Should(b.HaveClass("icon-checkmark"))
-			Eventually("tr.main-row:nth-child(2) > td:nth-child(5) > span:nth-child(1) > i").ShouldNot(b.Exist())
+			Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveReadyBadge(), b.HaveInnerText("test-1"), b.HaveInnerText("agent1"), HaveCheckmark()))
+			Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), HaveReadyBadge(), b.HaveInnerText("test-2"), b.HaveInnerText("agent2"), Not(HaveCheckmark())))
 		})
 	})
 
@@ -52,23 +66,23 @@ var _ = Describe("Agents", Ordered, Label("web"), func() {
 			agent1Cancel()
 			agent2Cancel()
 
-			b.Navigate(url)
+			b.Navigate(webUrl + "/agents")
 
-			Eventually("tr.main-row:nth-child(1) > td:nth-child(2) > div:nth-child(1) > span:nth-child(1)").Should(And(b.HaveClass("bg-error"), b.HaveInnerText("Disconnected")))
-			Eventually("tr.main-row:nth-child(2) > td:nth-child(2) > div:nth-child(1) > span:nth-child(1)").Should(And(b.HaveClass("bg-error"), b.HaveInnerText("Disconnected")))
+			Eventually(Table().Row(1).Col(2)).Should(HaveDisconnectedBadge())
+			Eventually(Table().Row(2).Col(2)).Should(HaveDisconnectedBadge())
 		})
 	})
 
 	When("deleting agents", func() {
 		It("should remove the agents from the list", func() {
 			_, err := mgmtClient.DeleteCluster(context.Background(), &corev1.Reference{Id: "agent1"})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			_, err = mgmtClient.DeleteCluster(context.Background(), &corev1.Reference{Id: "agent2"})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
-			b.Navigate(url)
+			b.Navigate(webUrl + "/agents")
 
-			Eventually(".no-rows > td:nth-child(1) > span:nth-child(1)").Should(b.HaveInnerText("There are no rows to show."))
+			Eventually(Table()).Should(HaveNoRows())
 		})
 	})
 })

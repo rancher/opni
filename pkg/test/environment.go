@@ -760,7 +760,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 				"status", resp.Status,
 			).Info("Waiting for cortex to start...")
 		}
-		time.Sleep(time.Second)
+		time.Sleep(50 * time.Millisecond)
 	}
 	lg.With(
 		"httpAddress", fmt.Sprintf("https://localhost:%d", e.ports.CortexHTTP),

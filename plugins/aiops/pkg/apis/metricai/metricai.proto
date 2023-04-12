@@ -9,16 +9,21 @@ import "google/api/annotations.proto";
 package metricai;
 
 service MetricAI {
+    // list cluster_ids from Opni, return IDs of each downstream cluster
     rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listclusters"
         };
     }
+
+    // list namespaces of a cluster given cluster_id
     rpc ListNamespaces(MetricAIId) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listnamespaces/{id}"
         };
     }
+
+    
     rpc ListJobs(google.protobuf.Empty) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listjobs"
@@ -47,6 +52,11 @@ service MetricAI {
             delete: "/metricai/deletejob/{id}"
         };
     }
+    rpc DeleteJobRun(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletejobrun/{id}"
+        };
+    }
     rpc GetJobRunResult(MetricAIId) returns(MetricAIJobRunResult) {
         option (google.api.http) = {
             get: "/metricai/getjobrunresult/{id}"
@@ -72,8 +82,9 @@ message MetricAIJobRunResult {
     string jobRunId = 2;
     string jobRunResult = 3;
     string jobRunCreateTime = 4; 
-    string jobRunBaseTime = 5;
+    string jobRunBaseTime = 5; // the actual timestamp to run metric anomaly detection. For now it's the same as CreeateTime
     string status = 6;
+    string jobRunResultDetails = 7;
 }
 
 message MetricAIIdList {

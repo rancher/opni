@@ -26,7 +26,8 @@ const (
 	MetricAI_ListJobRuns_FullMethodName     = "/metricai.MetricAI/ListJobRuns"
 	MetricAI_CreateJob_FullMethodName       = "/metricai.MetricAI/CreateJob"
 	MetricAI_RunJob_FullMethodName          = "/metricai.MetricAI/RunJob"
-	MetricAI_DeleteJobs_FullMethodName      = "/metricai.MetricAI/DeleteJobs"
+	MetricAI_DeleteJob_FullMethodName       = "/metricai.MetricAI/DeleteJob"
+	MetricAI_DeleteJobRun_FullMethodName    = "/metricai.MetricAI/DeleteJobRun"
 	MetricAI_GetJobRunResult_FullMethodName = "/metricai.MetricAI/GetJobRunResult"
 	MetricAI_GetJob_FullMethodName          = "/metricai.MetricAI/GetJob"
 )
@@ -35,13 +36,16 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MetricAIClient interface {
+	// list cluster_ids from Opni, return IDs of each downstream cluster
 	ListClusters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricAIIdList, error)
+	// list namespaces of a cluster given cluster_id
 	ListNamespaces(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIIdList, error)
 	ListJobs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricAIIdList, error)
 	ListJobRuns(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIIdList, error)
 	CreateJob(ctx context.Context, in *MetricAICreateJobRequest, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
 	RunJob(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIRunJobResponse, error)
-	DeleteJobs(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
+	DeleteJob(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
+	DeleteJobRun(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
 	GetJobRunResult(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIJobRunResult, error)
 	GetJob(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIJobStatus, error)
 }
@@ -108,9 +112,18 @@ func (c *metricAIClient) RunJob(ctx context.Context, in *MetricAIId, opts ...grp
 	return out, nil
 }
 
-func (c *metricAIClient) DeleteJobs(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error) {
+func (c *metricAIClient) DeleteJob(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error) {
 	out := new(MetricAIAPIResponse)
-	err := c.cc.Invoke(ctx, MetricAI_DeleteJobs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, MetricAI_DeleteJob_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *metricAIClient) DeleteJobRun(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error) {
+	out := new(MetricAIAPIResponse)
+	err := c.cc.Invoke(ctx, MetricAI_DeleteJobRun_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +152,16 @@ func (c *metricAIClient) GetJob(ctx context.Context, in *MetricAIId, opts ...grp
 // All implementations must embed UnimplementedMetricAIServer
 // for forward compatibility
 type MetricAIServer interface {
+	// list cluster_ids from Opni, return IDs of each downstream cluster
 	ListClusters(context.Context, *emptypb.Empty) (*MetricAIIdList, error)
+	// list namespaces of a cluster given cluster_id
 	ListNamespaces(context.Context, *MetricAIId) (*MetricAIIdList, error)
 	ListJobs(context.Context, *emptypb.Empty) (*MetricAIIdList, error)
 	ListJobRuns(context.Context, *MetricAIId) (*MetricAIIdList, error)
 	CreateJob(context.Context, *MetricAICreateJobRequest) (*MetricAIAPIResponse, error)
 	RunJob(context.Context, *MetricAIId) (*MetricAIRunJobResponse, error)
-	DeleteJobs(context.Context, *MetricAIId) (*MetricAIAPIResponse, error)
+	DeleteJob(context.Context, *MetricAIId) (*MetricAIAPIResponse, error)
+	DeleteJobRun(context.Context, *MetricAIId) (*MetricAIAPIResponse, error)
 	GetJobRunResult(context.Context, *MetricAIId) (*MetricAIJobRunResult, error)
 	GetJob(context.Context, *MetricAIId) (*MetricAIJobStatus, error)
 	mustEmbedUnimplementedMetricAIServer()
@@ -173,8 +189,11 @@ func (UnimplementedMetricAIServer) CreateJob(context.Context, *MetricAICreateJob
 func (UnimplementedMetricAIServer) RunJob(context.Context, *MetricAIId) (*MetricAIRunJobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunJob not implemented")
 }
-func (UnimplementedMetricAIServer) DeleteJobs(context.Context, *MetricAIId) (*MetricAIAPIResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteJobs not implemented")
+func (UnimplementedMetricAIServer) DeleteJob(context.Context, *MetricAIId) (*MetricAIAPIResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteJob not implemented")
+}
+func (UnimplementedMetricAIServer) DeleteJobRun(context.Context, *MetricAIId) (*MetricAIAPIResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteJobRun not implemented")
 }
 func (UnimplementedMetricAIServer) GetJobRunResult(context.Context, *MetricAIId) (*MetricAIJobRunResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobRunResult not implemented")
@@ -303,20 +322,38 @@ func _MetricAI_RunJob_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MetricAI_DeleteJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MetricAI_DeleteJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricAIId)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetricAIServer).DeleteJobs(ctx, in)
+		return srv.(MetricAIServer).DeleteJob(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: MetricAI_DeleteJobs_FullMethodName,
+		FullMethod: MetricAI_DeleteJob_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetricAIServer).DeleteJobs(ctx, req.(*MetricAIId))
+		return srv.(MetricAIServer).DeleteJob(ctx, req.(*MetricAIId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MetricAI_DeleteJobRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MetricAIId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetricAIServer).DeleteJobRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetricAI_DeleteJobRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetricAIServer).DeleteJobRun(ctx, req.(*MetricAIId))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -389,8 +426,12 @@ var MetricAI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MetricAI_RunJob_Handler,
 		},
 		{
-			MethodName: "DeleteJobs",
-			Handler:    _MetricAI_DeleteJobs_Handler,
+			MethodName: "DeleteJob",
+			Handler:    _MetricAI_DeleteJob_Handler,
+		},
+		{
+			MethodName: "DeleteJobRun",
+			Handler:    _MetricAI_DeleteJobRun_Handler,
 		},
 		{
 			MethodName: "GetJobRunResult",

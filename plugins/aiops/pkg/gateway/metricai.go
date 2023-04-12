@@ -176,10 +176,31 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
                 Err:        errors.New("The jobId to delete doesn't exist"),
             }
         }
-		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobs for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %v", err)
 	}
     metricAIKeyValue.Delete(jid)
-    return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The key :" + jid +" is deleted"}, nil
+    return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobId key :" + jid +" is deleted"}, nil
+}
+
+func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+	defer ca()
+    metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
+    if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
+	}
+    jid := jobRunId.Id
+    if _, err := metricAIKeyValue.Get(jid); err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			return nil, &RequestError{
+                StatusCode: 503,
+                Err:        errors.New("The jobRunId to delete doesn't exist"),
+            }
+        }
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
+	}
+    metricAIKeyValue.Delete(jid)
+    return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobRunId key :" + jid +" is deleted"}, nil
 }
 
 func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIJobRunResult, error) {

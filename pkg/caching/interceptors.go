@@ -225,10 +225,8 @@ func key(method string, req protoreflect.ProtoMessage) string {
 	if keyFunc, ok := knownCacheableTypes[protoId((req))]; ok {
 		return fmt.Sprintf("%s/%s", method, keyFunc(req))
 	}
-	val := reflect.Indirect(reflect.ValueOf(req))
-	typ := val.Type() // get the type of the underlying value
-	if reflect.PtrTo(typ).Implements(reflect.TypeOf((*CacheKeyer)(nil)).Elem()) {
-		return fmt.Sprintf("%s/%s", method, req.(CacheKeyer).CacheKey())
+	if keyProvider, ok := req.(CacheKeyer); ok {
+		return fmt.Sprintf("%s/%s", method, keyProvider.CacheKey())
 	}
 	return ""
 }

@@ -1,7 +1,11 @@
 package v1
 
 import (
+	"fmt"
+	"sort"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 func (gc *GatewayConfig) YAMLDocuments() [][]byte {
@@ -29,12 +33,14 @@ func (m *ListClustersRequest) CacheKey() string {
 		m.MatchOptions == 0 {
 		return "all"
 	}
-	key := m.MatchOptions.String()
+	key := fmt.Sprintf("%d", m.MatchOptions)
 	for _, l := range m.MatchLabels.GetMatchExpressions() {
-		key += l.Key + l.Operator + strings.Join(l.Values, ",")
+		key += l.Key + l.Operator + strings.Join(l.Values, "")
 	}
-	for k, v := range m.MatchLabels.GetMatchLabels() {
-		key += k + v
+	matchLabelKeys := lo.Keys(m.MatchLabels.GetMatchLabels())
+	sort.Strings(matchLabelKeys)
+	for _, mKey := range matchLabelKeys {
+		key += mKey + m.MatchLabels.MatchLabels[mKey]
 	}
 	return key
 }

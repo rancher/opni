@@ -61,8 +61,8 @@ async def pull_metrics_data(end_time, service, user_id:str, metrics, ns="opni"):
 
 def filter_metrics(d, q1 ,m_name, is_debug = False):
     count = 0
-    total = 0
-    res = []
+    total = []
+    abnormal = []
     for r in q1["result"]:
         if "pod" not in r["metric"]:
             # print(r)
@@ -74,7 +74,7 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
         data_window = values0[-60:]
         try:
             is_anomaly, p_value = ttest_anomaly_detection(evaluate_window, test_window)
-            total += 1
+            total.append((pod, m_name))
             if is_anomaly:
                 mean = np.mean(history)
                 std_dev = np.std(history)
@@ -86,7 +86,7 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
                 if rule1 and rule3:
                     count += 1
                     d[pod  + "-" + m_name] = history
-                    res.append((pod, m_name, data_window))
+                    abnormal.append((pod, m_name, data_window))
                     if is_debug:
                     # if True:
                         print(m_name)
@@ -95,8 +95,7 @@ def filter_metrics(d, q1 ,m_name, is_debug = False):
                         print("=====================")
         except Exception as e:
             pass
-    s2 = time.time()
-    return res
+    return abnormal, total
 
 
 async def get_abnormal_metrics(service, user_id, requested_ts: datetime= None, ns:str="default"):
@@ -106,8 +105,10 @@ async def get_abnormal_metrics(service, user_id, requested_ts: datetime= None, n
     qs = await pull_metrics_data(requested_ts, service, user_id, metrics, ns=ns)
     d = defaultdict(list)
 
-    res = []
+    abnormals = []
+    totals = []
     for i,q in enumerate(qs):
-        r = filter_metrics(d,q, metrics[i])
-        res.extend(r)
-    return res
+        a, t = filter_metrics(d,q, metrics[i])
+        abnormals.extend(a)
+        totals.extend(t)
+    return abnormals, totals

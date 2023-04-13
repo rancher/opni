@@ -92,7 +92,7 @@ async def get_job(job_id: str):
     return json.loads(res.decode())
 
 @app.get("/get_job_run/{job_run_id}")
-async def get_job(job_run_id: str):
+async def get_job_run(job_run_id: str):
     kv = await nw.get_bucket(BUCKET_NAME_RUNS)
     res = await kv.get(job_run_id)
     return json.loads(res.decode())
@@ -107,6 +107,7 @@ class jobRunStatus:
     JobRunCreateTime: str
     JobRunBaseTime: str
     Status: str
+    JobRunResultDetails: str
 
 @dataclass
 class jobRunResponse:
@@ -130,11 +131,11 @@ async def run_job(job_id, background_tasks: BackgroundTasks):
     d = jobStatus(**d)
     user_id = d.ClusterId
     namespaces = d.Namespaces
-    task_id = job_id + JOB_RUN_DELIMITER+ ts.strftime("T%Y%m%d%H%M%S") # use ts as unique suffix
+    task_id = job_id + JOB_RUN_DELIMITER+ ts.strftime("T%Y%m%d%H%M%S%f") # use ts as unique suffix
     background_tasks.add_task(func_get_abnormal_metrics,task_id, user_id, ts, namespaces)  
     kv_run = await nw.get_bucket(BUCKET_NAME_RUNS)
     str_ts = str(ts.timestamp())
-    status = jobRunStatus(JobId=job_id, JobRunId=task_id, JobRunBaseTime=str_ts, JobRunCreateTime=str_ts, Status="Job Run Submitted", JobRunResult="")
+    status = jobRunStatus(JobId=job_id, JobRunId=task_id, JobRunBaseTime=str_ts, JobRunCreateTime=str_ts, Status="Job Run Submitted", JobRunResult="", JobRunResultDetails="")
     status = asdict(status)
     await kv_run.put(key=task_id, value=json.dumps(status).encode())
     response = jobRunResponse(JobRunId= task_id, Status="Success", SubmittedTime=str_ts)
@@ -154,17 +155,21 @@ async def func_get_abnormal_metrics(task_id, user_id, requested_ts= None, nss=[]
     channel = Channel(host=OPNI_HOST, port=11090) # url of opni-internal. can port-forward to localhost:11090
     service = CortexAdminStub(channel)
     res = {}
+    anomaly_count , total_count = 0, 0
     for ns in nss:
-        anomaly_metrics = await get_abnormal_metrics(service, user_id, requested_ts, ns)
-        anomaly_metrics_value = [v for p,m,v in anomaly_metrics]
+        anomaly_metric_list, all_metric_list = await get_abnormal_metrics(service, user_id, requested_ts, ns)
+        anomaly_count += len(anomaly_metric_list)
+        total_count += len(all_metric_list)
+        anomaly_metrics_value = [v for p,m,v in anomaly_metric_list]
         preds = predict(anomaly_metrics_value)       
-        for i, (p,m,v) in enumerate(anomaly_metrics):
+        for i, (p,m,v) in enumerate(anomaly_metric_list):
             res[p+ JOB_RUN_DELIMITER +m] = preds[i]
     channel.close()
     kv = await nw.get_bucket(BUCKET_NAME_RUNS)
     current_status = json.loads((await kv.get(task_id)).decode())
     current_status = jobRunStatus(**current_status)
-    current_status.JobRunResult = json.dumps(res)
+    current_status.JobRunResult = f"Scanned {total_count} metrics, Anomalous metrics: {anomaly_count}"
+    current_status.JobRunResultDetails = json.dumps(res)
     current_status.Status = "Job Run Completed"
     current_status = asdict(current_status)
     await kv.put(key=task_id, value=json.dumps(current_status).encode())

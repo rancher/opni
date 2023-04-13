@@ -33,6 +33,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/auth/session"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 
 	"github.com/golang/mock/gomock"
@@ -1376,13 +1377,48 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	}
 }
 
-func (e *Environment) NewManagementClient() managementv1.ManagementClient {
+type EnvClientOptions struct {
+	dialOptions []grpc.DialOption
+}
+
+type EnvClientOption func(o *EnvClientOptions)
+
+func (e *EnvClientOptions) apply(opts ...EnvClientOption) {
+	for _, opt := range opts {
+		opt(e)
+	}
+}
+
+func WithClientCaching(memoryLimitBytes int64, maxAge time.Duration) EnvClientOption {
+	return func(o *EnvClientOptions) {
+		entityCacher := caching.NewInMemoryGrpcTtlCache(memoryLimitBytes, time.Minute)
+		interceptor := caching.NewClientGrpcTtlCacher(
+			entityCacher,
+		)
+		o.dialOptions = append(o.dialOptions, grpc.WithChainUnaryInterceptor(
+			interceptor.UnaryClientInterceptor(),
+		))
+	}
+}
+
+func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.ManagementClient {
+	options := EnvClientOptions{
+		dialOptions: []grpc.DialOption{},
+	}
+	options.apply(opts...)
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
+
+	dialOpts := append([]grpc.DialOption{
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+	}, options.dialOptions...)
+
 	c, err := clients.NewManagementClient(e.ctx,
 		clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
-		clients.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+		clients.WithDialOptions(
+			dialOpts...,
+		),
 	)
 	if err != nil {
 		panic(err)

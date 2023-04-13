@@ -1,4 +1,4 @@
-package util_test
+package caching_test
 
 import (
 	"context"
@@ -24,7 +24,7 @@ var _ = BuildHttpTransportCaching(
 func BuildHttpTransportCaching(
 	t caching.HttpCachingTransport,
 ) bool {
-	return Describe("Http util test suites", Ordered, Label("unit"), func() {
+	return Describe("Http util test suites", Ordered, Label("integration"), func() {
 		var serverPort int
 		var cachingClient *http.Client
 		var defaultClient *http.Client

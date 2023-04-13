@@ -16,8 +16,8 @@ import (
     
 )
 
-const serverUrl = "http://metric-ai-service:8090"
-const jobRunDelimiter = "="
+const serverUrl = "http://metric-ai-service:8090" // URL of the python metric-ai service
+const jobRunDelimiter = "=" // delimiter that splits jobid and suffix, in order to save in natsKV
 
 type RequestError struct {
 	StatusCode int
@@ -26,6 +26,7 @@ type RequestError struct {
 func (r *RequestError) Error() string {
 	return r.Err.Error()
 }
+
 
 func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
     var httpClient = &http.Client{Timeout: 10 * time.Second}
@@ -57,7 +58,7 @@ func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.Me
     return &metricai.MetricAIIdList{Items: result,}, nil
 }
 
-
+// list keys in the natsKV Job bucket
 func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
@@ -75,6 +76,7 @@ func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai
     return &metricai.MetricAIIdList{Items: jobs,}, nil
 }
 
+// list keys in the natsKV JobRun bucket
 func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
@@ -114,6 +116,7 @@ func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAII
     return &metricai.MetricAIRunJobResponse{JobRunId: res["JobRunId"].(string), SubmittedTime: time.Now().String(), Status: res["Status"].(string)}, nil
 }
 
+
 func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
@@ -130,14 +133,14 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
         }
     }
 
-    if strings.Contains(jid, jobRunDelimiter) { // no char | for id
+    if strings.Contains(jid, jobRunDelimiter) { // no char `|` for id
         return nil, &RequestError{
             StatusCode: 503,
             Err:        errors.New("jobId can't contain special char "+jobRunDelimiter),
         }
     }
     
-    if _, err := metricAIKeyValue.Get(jid); err == nil { // check duplicate id
+    if _, err := metricAIKeyValue.Get(jid); err == nil { // check if this id exists
         return nil, &RequestError{
             StatusCode: 503,
             Err:        errors.New("The jobId to add already exist"),
@@ -161,6 +164,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
     return &metricai.MetricAIAPIResponse{ SubmittedTime: time.Now().String(), Status: "Success"}, nil
 }
 
+// delete job_id from the natsKV bucket. This won't delete the job_run attached to this job_id
 func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
@@ -182,6 +186,7 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
     return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobId key :" + jid +" is deleted"}, nil
 }
 
+// delete a job_run of a job. Won't delete the job itself.
 func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
@@ -202,6 +207,7 @@ func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.Metri
     metricAIKeyValue.Delete(jid)
     return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobRunId key :" + jid +" is deleted"}, nil
 }
+
 
 func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIJobRunResult, error) {
     ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
@@ -225,11 +231,6 @@ func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.Me
     if err := json.Unmarshal(jobRes.Value(), &res); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal GetJobRunResult from Jetstream for metricAI: %v", err)
 	}
-	// resResult, err := json.Marshal(res["result"].(map[string]interface{}))
-    // if err != nil {
-    //     return nil, status.Errorf(codes.Internal, "Failed to marshal GetJobRunResult from Jetstream for metricAI: %v", err)
-    // }
-
 	return &res, nil
 
 }

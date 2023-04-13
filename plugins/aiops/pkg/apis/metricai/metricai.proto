@@ -23,17 +23,21 @@ service MetricAI {
         };
     }
 
-    
+    // list jobs created by user
     rpc ListJobs(google.protobuf.Empty) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listjobs"
         };
     }
+
+    // list job runs of a given job_id
     rpc ListJobRuns(MetricAIId) returns(MetricAIIdList) {
         option (google.api.http) = {
             get: "/metricai/listjobruns/{id}"
         };
     }
+
+    // create a new job
     rpc CreateJob(MetricAICreateJobRequest) returns(MetricAIAPIResponse) {
         option (google.api.http) = {
             post: "/metricai/createjob/{clusterId}"
@@ -41,27 +45,35 @@ service MetricAI {
         };
     }
 
+    // run an existing job
     rpc RunJob(MetricAIId) returns(MetricAIRunJobResponse) {
         option (google.api.http) = {
             post: "/metricai/runjob/{id}"
         };
     }
 
+    // delete a job
     rpc DeleteJob(MetricAIId) returns(MetricAIAPIResponse) {
         option (google.api.http) = {
             delete: "/metricai/deletejob/{id}"
         };
     }
+
+    // delete a job run
     rpc DeleteJobRun(MetricAIId) returns(MetricAIAPIResponse) {
         option (google.api.http) = {
             delete: "/metricai/deletejobrun/{id}"
         };
     }
+
+    // get the output of a job run
     rpc GetJobRunResult(MetricAIId) returns(MetricAIJobRunResult) {
         option (google.api.http) = {
             get: "/metricai/getjobrunresult/{id}"
         };
     }
+
+    // get the metadata/info of a job
     rpc GetJob(MetricAIId) returns(MetricAIJobStatus) {
         option (google.api.http) = {
             get: "/metricai/getjob/{id}"

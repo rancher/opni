@@ -1,28 +1,31 @@
 {
     "name" : "opni",
-    "image" : "alex7285/opni-dev:main",
-    "customizations": {
-        "vscode" : {
-            "settings" : {
-                "go.lintTool" : "golangci-lint"
-            },
-            "extensions": [
-                "golang.go",
-                "redhat.vscode-yaml",
-                "peterj.proto"
-            ]
-        }
+    // "image" : "docker.io/alex7285/opni-dev:main",
+    "build" : {
+        "dockerfile" : "Dockerfile"
     },
-    "runArgs": [
-        "--init",
-        // Limit container memory usage.
-        "--memory=12g",
-        "--memory-swap=12g",
-        "--net=host"
-    ],
-    "overrideCommand": false,
-    "remoteUser": "code",
-    "mounts": [
-        "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
-    ]
+    // "customizations": {
+    //     "vscode" : {
+    //         "settings" : {
+    //             "go.lintTool" : "golangci-lint"
+    //         },
+    //         "extensions": [
+    //             "golang.go",
+    //             "redhat.vscode-yaml",
+    //             "peterj.proto"
+    //         ]
+    //     }
+    // },
+    // "runArgs": [
+    //     "--init",
+    //     // Limit container memory usage.
+    //     "--memory=12g",
+    //     "--memory-swap=12g",
+    //     "--net=host"
+    // ],
+    // "overrideCommand": false,
+    // "remoteUser": "code",
+    // "mounts": [
+    //     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
+    // ]
 }

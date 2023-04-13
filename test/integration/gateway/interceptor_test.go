@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -22,7 +23,7 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 			TestBin: "../../../testbin/bin",
 		}
 		Expect(env.Start()).To(Succeed())
-		client = env.NewManagementClient(test.WithClientCaching("10Mi", time.Minute))
+		client = env.NewManagementClient(test.WithClientCaching(10*1024, time.Minute))
 		ctx = env.Context()
 	})
 
@@ -30,7 +31,7 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 		It("should allow clients to opt-in to caching", func() {
 			By("making a request with caching")
 			clusterList, err := client.ListClusters(
-				util.WithGrpcClientCaching(ctx, 15*time.Second),
+				caching.WithGrpcClientCaching(ctx, 15*time.Second),
 				&managementv1.ListClustersRequest{},
 			)
 			Expect(err).To(Succeed())
@@ -52,7 +53,7 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 			Eventually(func() int {
 				clusterList, err = client.ListClusters(
 					// ctx,
-					util.WithBypassCache(ctx),
+					caching.WithBypassCache(ctx),
 					&managementv1.ListClustersRequest{},
 				)
 				if err != nil {

@@ -16,7 +16,7 @@ import (
 // something like https://github.com/hashicorp/go-cleanhttp
 type HttpCachingTransport interface {
 	http.RoundTripper
-	storage.HttpTtlCache
+	storage.HttpTtlCache[[]byte]
 
 	Use(*http.Client) error
 }
@@ -25,10 +25,10 @@ type HttpCachingTransport interface {
 // Should be used for internal caching only, not for LB, proxying, etc.
 type InternalHttpCachingTransport struct {
 	*httpcache.Transport
-	storage.HttpTtlCache
+	storage.HttpTtlCache[[]byte]
 }
 
-func NewInternalHttpCacheTransport(cache storage.HttpTtlCache) *InternalHttpCachingTransport {
+func NewInternalHttpCacheTransport(cache storage.HttpTtlCache[[]byte]) *InternalHttpCachingTransport {
 	return &InternalHttpCachingTransport{
 		Transport:    httpcache.NewTransport(cache),
 		HttpTtlCache: cache,

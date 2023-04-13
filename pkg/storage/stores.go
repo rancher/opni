@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 )
@@ -96,22 +94,22 @@ type WatchEvent[T any] struct {
 	Previous  T
 }
 
-type HttpTtlCache interface {
+type HttpTtlCache[T any] interface {
 	// getter for default cache's configuration
 	MaxAge() time.Duration
 
-	Get(key string) (resp []byte, ok bool)
+	Get(key string) (resp T, ok bool)
 	// If 0 is passed as ttl, the default cache's configuration will be used
-	Set(key string, resp []byte)
+	Set(key string, resp T)
 	Delete(key string)
 }
 
-type GrpcTtlCache interface {
+type GrpcTtlCache[T any] interface {
 	// getter for default cache's configuration
 	MaxAge() time.Duration
 
-	Get(key string) (resp proto.Message, ok bool)
+	Get(key string) (resp T, ok bool)
 	// If 0 is passed as ttl, the default cache's configuration will be used
-	Set(key string, resp proto.Message, ttl time.Duration)
+	Set(key string, resp T, ttl time.Duration)
 	Delete(key string)
 }

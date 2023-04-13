@@ -351,41 +351,16 @@ func BuildCachingInterceptorSuite(
 					})
 				Expect(err).To(Succeed())
 				Expect(value.Value).To(Equal(int64(2)))
-
-				By("verifying that the client can opt out of server's cache keys")
-				ctxMetadata := caching.WithGrpcClientCaching(caching.WithIgnoreServerCacheKeys(ctx), 5*time.Second)
-				_, err = testObjectClient.IncrementObject(
-					ctxMetadata,
-					&testgrpc.IncrementObjectRequest{
-						Id: &testgrpc.ObjectReference{
-							Id: id1,
-						},
-						Value: 2,
-					},
-				)
-				Expect(err).To(Succeed())
-				// client-side requests this object without server-set cache keys
-				value, err = testObjectClient.GetObjectValue(caching.WithIgnoreServerCacheKeys(ctx), &testgrpc.ObjectReference{
-					Id: id1,
-				})
-				Expect(err).To(Succeed())
-				Expect(value.Value).To(Equal(int64(3)))
-
-				value, err = testObjectClient.GetObjectValue(ctx, &testgrpc.ObjectReference{
-					Id: id1,
-				})
-				Expect(err).To(Succeed())
-				Expect(value.Value).To(Equal(int64(1)))
 			})
 
 			Specify("cache control headers set by client should not leak to nested RPC calls", func() {
 				val, err := testAggregatorServer.GetAll(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(val.Value).To(Equal(int64(27)))
+				Expect(val.Value).To(Equal(int64(25)))
 
 				val, err = testAggregatorClient.GetAll(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(val.Value).To(Equal(int64(27)))
+				Expect(val.Value).To(Equal(int64(25)))
 
 				_, err = testAggregatorClient.IncrementAll(
 					ctx, &testgrpc.IncrementRequest{
@@ -396,7 +371,7 @@ func BuildCachingInterceptorSuite(
 
 				val, err = testAggregatorClient.GetAll(caching.WithGrpcClientCaching(ctx, defaultTtl), &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(val.Value).To(Equal(int64(30)))
+				Expect(val.Value).To(Equal(int64(28)))
 
 				_, err = testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 					Value: 2,
@@ -410,19 +385,19 @@ func BuildCachingInterceptorSuite(
 
 				val, err = testAggregatorClient.GetAll(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(val.Value).To(Equal(int64(30)))
+				Expect(val.Value).To(Equal(int64(28)))
 
 				By("verifying the value in the cache will eventually expire")
 				Eventually(func() int64 {
 					return util.Must(testAggregatorClient.GetAll(ctx, &emptypb.Empty{})).Value
-				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(32)))
+				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(30)))
 			})
 
 			Specify("cache control headers set by the server should not leak to encapsulating RPC calls", func() {
 				By("veryfing force-cached apis don't force any apis calling them to also cache")
 				value, err := testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(value.Value).To(Equal(int64(32)))
+				Expect(value.Value).To(Equal(int64(30)))
 
 				_, err = testSimpleClient.Increment(ctx, &testgrpc.IncrementRequest{
 					Value: 1,
@@ -446,12 +421,12 @@ func BuildCachingInterceptorSuite(
 
 				value, err = testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})
 				Expect(err).To(Succeed())
-				Expect(value.Value).To(Equal(int64(34)))
+				Expect(value.Value).To(Equal(int64(32)))
 
 				By("verifying that the internal call's cache will eventually expire")
 				Eventually(func() int64 {
 					return util.Must(testAggregatorClient.GetAllWithNestedCaching(ctx, &emptypb.Empty{})).Value
-				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(35)))
+				}, defaultTtl*2, defaultEvictionInterval).Should(Equal(int64(33)))
 			})
 		})
 

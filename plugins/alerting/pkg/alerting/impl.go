@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/rancher/opni/pkg/management"
 	"strconv"
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/rancher/opni/pkg/management"
 
-	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -38,10 +38,10 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 			return nil
 		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
-			return p.createDefaultDisconnect(ctx, event.Cluster.Id)
+			return p.createDefaultDisconnect(event.Cluster.Id)
 		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
-			return p.createDefaultCapabilityHealth(ctx, event.Cluster.Id)
+			return p.createDefaultCapabilityHealth(event.Cluster.Id)
 		},
 	)
 	cw.RegisterHook(
@@ -158,8 +158,10 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	for {
 		select {
 		case <-c.parentCtx.Done():
+			c.lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
+			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case msg := <-c.msgCh:
 			var status T
@@ -187,8 +189,10 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 	for {
 		select {
 		case <-c.parentCtx.Done():
+			c.lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
+			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case <-ticker.C:
 			lastKnownState, err := c.storageClientSet.States().Get(c.evaluationCtx, c.conditionId)

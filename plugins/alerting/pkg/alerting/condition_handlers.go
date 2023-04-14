@@ -431,6 +431,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -515,6 +516,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -704,6 +706,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{

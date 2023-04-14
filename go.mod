@@ -56,7 +56,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/jhump/protoreflect v1.14.1
 	github.com/jwalton/go-supportscolor v1.1.0
-	github.com/karlseguin/ccache v2.0.3+incompatible
+	github.com/karlseguin/ccache/v3 v3.0.3
 	github.com/klauspost/compress v1.16.3
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.15.2
@@ -345,7 +345,6 @@ require (
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
-	github.com/karlseguin/expect v1.0.8 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect

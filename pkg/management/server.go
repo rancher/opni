@@ -26,6 +26,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -143,7 +144,10 @@ func NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
-		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.ChainUnaryInterceptor(
+			// caching is done client-side, so it is safe to pass nil as a cache implementation here
+			caching.NewClientGrpcTtlCacher(nil).UnaryServerInterceptor(),
+			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
 	if m.capabilitiesDataSource != nil {

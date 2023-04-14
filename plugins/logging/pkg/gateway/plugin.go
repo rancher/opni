@@ -262,7 +262,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 
 	if restconfig != nil {
 		scheme.Add(

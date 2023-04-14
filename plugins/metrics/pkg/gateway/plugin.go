@@ -157,8 +157,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(&p.cortexHttp))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p,
-		streamext.WithMetrics(streamext.StreamMetricsConfig{
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p,
+		streamext.WithMetrics(streamext.GatewayStreamMetricsConfig{
 			Registerer:      prometheus.WrapRegistererWithPrefix("opni_gateway_", p),
 			LabelsForStream: p.labelsForStreamMetrics,
 		})),

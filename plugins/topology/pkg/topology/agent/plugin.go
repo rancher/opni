@@ -94,6 +94,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
 	return scheme
 }

@@ -60,6 +60,19 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
 	}
 	modelTrainingKv.Put(modelTrainingParametersKey, parametersBytes)
+	if len(modelTrainingParameters) > 0 {
+		initialStatus := modeltraining.ModelStatus{Status: "training", Statistics: &modeltraining.ModelTrainingStatistics{Stage: "fetching data"}}
+		_, err = p.PutModelTrainingStatus(ctx, &initialStatus)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
+		}
+	} else {
+		initialStatus := modeltraining.ModelStatus{Status: "no model trained"}
+		_, err = p.PutModelTrainingStatus(ctx, &initialStatus)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
+		}
+	}
 	natsConnection, err := p.natsConnection.GetContext(ctxca)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
@@ -67,13 +80,6 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	msg, err := natsConnection.Request(modelTrainingNatsSubject, jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
-	}
-	if len(modelTrainingParameters) > 0 {
-		initialStatus := modeltraining.ModelStatus{Status: "Training", Statistics: &modeltraining.ModelTrainingStatistics{Stage: "fetching data"}}
-		_, err = p.PutModelTrainingStatus(ctx, &initialStatus)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
-		}
 	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),

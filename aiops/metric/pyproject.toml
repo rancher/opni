@@ -33,5 +33,5 @@ exclude = '''
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "opni_inference_service"
+  ".", "metric_analysis"
 ]

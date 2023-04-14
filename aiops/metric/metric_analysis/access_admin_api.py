@@ -1,3 +1,6 @@
+"""
+This script implement helper functions that collect useful metrics by querying Cortex API exposed by Opni Gateway.
+"""
 import asyncio
 import json
 from typing import List
@@ -6,14 +9,21 @@ from datetime import datetime, timedelta
 from grpclib.client import Channel
 from cortexadmin_pb import CortexAdminStub, SeriesRequest, QueryRangeRequest, QueryRequest, MatcherRequest
 from betterproto.lib.google.protobuf import Empty
+from envvars import OPNI_HOST, OPNI_PORT
 
 default_query_interval = "1m"
 
 async def get_all_users(service: CortexAdminStub) -> List[str]:
+  '''
+  list cluster_ids, although in the API they are known as `user_id`
+  '''
   response = await service.all_user_stats(Empty())
   return [r.user_id for r in response.items]
 
 async def list_namespace(service: CortexAdminStub, cluster_id: str):
+    '''
+    list namespaces of a given cluster_id
+    '''
     query = "kube_namespace_labels"
     response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
     response = json.loads(response.data.decode())["data"]
@@ -21,6 +31,9 @@ async def list_namespace(service: CortexAdminStub, cluster_id: str):
     return res
 
 async def list_ns_pod(service: CortexAdminStub,cluster_id:str, namespace:str):
+    '''
+    list pods in a given namespace of a given cluster_id
+    '''
     query = f'kube_pod_labels{{namespace="{namespace}"}}'
     response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
     response = json.loads(response.data.decode())["data"]
@@ -28,6 +41,9 @@ async def list_ns_pod(service: CortexAdminStub,cluster_id:str, namespace:str):
     return res
 
 async def list_ns_service(service: CortexAdminStub,cluster_id:str, namespace:str):
+    '''
+    list services in a given namespace of a given cluster_id
+    '''
     query = f'kube_service_labels{{namespace="{namespace}"}}'
     response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
     response = json.loads(response.data.decode())["data"]
@@ -35,6 +51,9 @@ async def list_ns_service(service: CortexAdminStub,cluster_id:str, namespace:str
     return res
 
 async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str]:
+  '''
+  helper function that list all metrics of a given cluster_id
+  '''
   response = await service.extract_raw_series(MatcherRequest(tenant=cluster_id, match_expr=".+"))
   res = (json.loads(response.data.decode())["data"])
   s = set()
@@ -43,12 +62,22 @@ async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str
   return list(s)
 
 async def metric_query(service: CortexAdminStub, cluster_id: str, metric_name: str, namespace="opni"):
+  '''
+  query
+  '''
   query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{default_query_interval}])) by (pod)'
   response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
   response = json.loads(response.data.decode())["data"]
   return response
 
 async def metric_queryrange(service: CortexAdminStub, cluster_id: str, metric_name: str, namespace="opni", end_time : datetime = None, time_delta : timedelta= timedelta(minutes=60), step_minute : int = 1):
+  '''
+  query_range. As first iteration, collects pod-level metrics.
+  param:
+    @time_delta: defines how far it looks back, default value is timedelta(minutes=60) which means last 60 mins
+    @step_minute: defines step in the unit `minute`, default value is 1, indicate it will collect data points every 1 min
+    @end_time: the timestamp to trace back.
+  '''
   query_interval = "2m"# f"{step_minute}m"
   query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{query_interval}])) by (pod)'
   if end_time is None:
@@ -59,7 +88,7 @@ async def metric_queryrange(service: CortexAdminStub, cluster_id: str, metric_na
   return response
 
 async def main():
-  channel = Channel(host=OPNI_HOST, port=11090) # url of opni-internal. can port-forward to localhost:11090
+  channel = Channel(host=OPNI_HOST, port=OPNI_PORT) # url of opni-internal. can port-forward to localhost:11090
   service = CortexAdminStub(channel)
   # response = await service.get_cortex_status(Empty())
   user_id = (await get_all_users(service))[0]
@@ -73,5 +102,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    # test()
     asyncio.new_event_loop().run_until_complete(main())

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy.random as random
 from sklearn.preprocessing import minmax_scale
 from model.cnn_model import MpcDataset
+from model.utils import normalize_timeseries
 
 n = 60
 min_shift_n = 5
@@ -226,17 +227,7 @@ class DataSimulator:
         return ts_data
 
 
-def plt_plot(ts_data):
 
-    # Plot the time series data
-    plt.plot(ts_data)
-    plt.title("Simulated Time Series Data")
-    plt.xlabel("Time")
-    plt.ylabel("Value")
-    plt.show()
-
-def normalize_format(ts_data):
-    return minmax_scale(ts_data)
 
 def simulate_data(n):
   pattern_class_map = DataSimulator.get_class_map()
@@ -246,7 +237,7 @@ def simulate_data(n):
   for c in pattern_class_map:
     f = pattern_class_map[c]
     for i in range(n):
-      normalized_data = [normalize_format(f())]
+      normalized_data = [normalize_timeseries(f())]
       normalize_data = torch.tensor(np.array(normalized_data), dtype=torch.float32)
       data.append(normalized_data)
       label.append(c)

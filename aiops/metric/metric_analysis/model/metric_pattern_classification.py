@@ -1,9 +1,9 @@
 from model.cnn_model import MpcModel
-from model.data_simulator import simulate_data, normalize_format
+from model.data_simulator import simulate_data 
+from model.utils import normalize_timeseries
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adam, SGD
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
@@ -64,6 +64,9 @@ def train_model():
     return model
 
 def eval_model(test_data = None):
+    '''
+    evaluate trained model. Should only be invoked after model training
+    '''
     if not test_data:
         test_data = simulate_data(100)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False)
@@ -92,7 +95,13 @@ def eval_model(test_data = None):
     print(num_total)
 
 def predict(pred_data):
-    pred_data = [torch.tensor(np.array([normalize_format(p)]), dtype=torch.float32) for p in pred_data]
+    '''
+    model prediction.
+    '''
+    # shape the data as model requires -- (n , 1 , 60)
+    pred_data = [torch.tensor(np.array([normalize_timeseries(p)]), dtype=torch.float32) for p in pred_data] 
+
+    # predict
     test_loader = DataLoader(pred_data, batch_size=1, shuffle=False)
     model = MpcModel()
     model = model.to(device)

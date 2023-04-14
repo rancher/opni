@@ -1,3 +1,6 @@
+"""
+Definition of 1D-CNN model and Dataset
+"""
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -13,9 +16,12 @@ class MpcDataset(Dataset):
     return self.x[idx], self.y[idx]
   
 
-# the model
 class MpcModel(nn.Module):
-    
+    '''
+    1D-CNN model.
+    Input shape: (n, 1, ts_len)
+    Explain: n time-series, each of them is a 1d array, each array contains ts_len(default value 60) values.
+    '''
     def __init__(self,n_class = 13):     
         self.n_class = n_class
         ts_len = 60

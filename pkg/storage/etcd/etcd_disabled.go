@@ -12,6 +12,6 @@ func WithPrefix(prefix string) any {
 	return nil
 }
 
-func NewEtcdStore(context.Context, *v1beta1.EtcdStorageSpec, ...any) storage.Backend {
+func NewEtcdStore(context.Context, *v1beta1.EtcdStorageSpec, ...any) (storage.Backend, error) {
 	panic("etcd support was disabled at build time")
 }

@@ -13,7 +13,6 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	keyring "github.com/rancher/opni/pkg/keyring"
 	storage "github.com/rancher/opni/pkg/storage"
-	proto "google.golang.org/protobuf/proto"
 )
 
 // MockBackend is a mock of Backend interface.
@@ -1022,57 +1021,57 @@ func (mr *MockSubjectAccessCapableStoreMockRecorder) ListRoleBindings(ctx interf
 }
 
 // MockHttpTtlCache is a mock of HttpTtlCache interface.
-type MockHttpTtlCache struct {
+type MockHttpTtlCache[T any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockHttpTtlCacheMockRecorder
+	recorder *MockHttpTtlCacheMockRecorder[T]
 }
 
 // MockHttpTtlCacheMockRecorder is the mock recorder for MockHttpTtlCache.
-type MockHttpTtlCacheMockRecorder struct {
-	mock *MockHttpTtlCache
+type MockHttpTtlCacheMockRecorder[T any] struct {
+	mock *MockHttpTtlCache[T]
 }
 
 // NewMockHttpTtlCache creates a new mock instance.
-func NewMockHttpTtlCache(ctrl *gomock.Controller) *MockHttpTtlCache {
-	mock := &MockHttpTtlCache{ctrl: ctrl}
-	mock.recorder = &MockHttpTtlCacheMockRecorder{mock}
+func NewMockHttpTtlCache[T any](ctrl *gomock.Controller) *MockHttpTtlCache[T] {
+	mock := &MockHttpTtlCache[T]{ctrl: ctrl}
+	mock.recorder = &MockHttpTtlCacheMockRecorder[T]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockHttpTtlCache) EXPECT() *MockHttpTtlCacheMockRecorder {
+func (m *MockHttpTtlCache[T]) EXPECT() *MockHttpTtlCacheMockRecorder[T] {
 	return m.recorder
 }
 
 // Delete mocks base method.
-func (m *MockHttpTtlCache) Delete(key string) {
+func (m *MockHttpTtlCache[T]) Delete(key string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Delete", key)
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockHttpTtlCacheMockRecorder) Delete(key interface{}) *gomock.Call {
+func (mr *MockHttpTtlCacheMockRecorder[T]) Delete(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockHttpTtlCache)(nil).Delete), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockHttpTtlCache[T])(nil).Delete), key)
 }
 
 // Get mocks base method.
-func (m *MockHttpTtlCache) Get(key string) ([]byte, bool) {
+func (m *MockHttpTtlCache[T]) Get(key string) (T, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", key)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(T)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockHttpTtlCacheMockRecorder) Get(key interface{}) *gomock.Call {
+func (mr *MockHttpTtlCacheMockRecorder[T]) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockHttpTtlCache)(nil).Get), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockHttpTtlCache[T])(nil).Get), key)
 }
 
 // MaxAge mocks base method.
-func (m *MockHttpTtlCache) MaxAge() time.Duration {
+func (m *MockHttpTtlCache[T]) MaxAge() time.Duration {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaxAge")
 	ret0, _ := ret[0].(time.Duration)
@@ -1080,75 +1079,75 @@ func (m *MockHttpTtlCache) MaxAge() time.Duration {
 }
 
 // MaxAge indicates an expected call of MaxAge.
-func (mr *MockHttpTtlCacheMockRecorder) MaxAge() *gomock.Call {
+func (mr *MockHttpTtlCacheMockRecorder[T]) MaxAge() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxAge", reflect.TypeOf((*MockHttpTtlCache)(nil).MaxAge))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxAge", reflect.TypeOf((*MockHttpTtlCache[T])(nil).MaxAge))
 }
 
 // Set mocks base method.
-func (m *MockHttpTtlCache) Set(key string, resp []byte) {
+func (m *MockHttpTtlCache[T]) Set(key string, resp T) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Set", key, resp)
 }
 
 // Set indicates an expected call of Set.
-func (mr *MockHttpTtlCacheMockRecorder) Set(key, resp interface{}) *gomock.Call {
+func (mr *MockHttpTtlCacheMockRecorder[T]) Set(key, resp interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockHttpTtlCache)(nil).Set), key, resp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockHttpTtlCache[T])(nil).Set), key, resp)
 }
 
 // MockGrpcTtlCache is a mock of GrpcTtlCache interface.
-type MockGrpcTtlCache struct {
+type MockGrpcTtlCache[T any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockGrpcTtlCacheMockRecorder
+	recorder *MockGrpcTtlCacheMockRecorder[T]
 }
 
 // MockGrpcTtlCacheMockRecorder is the mock recorder for MockGrpcTtlCache.
-type MockGrpcTtlCacheMockRecorder struct {
-	mock *MockGrpcTtlCache
+type MockGrpcTtlCacheMockRecorder[T any] struct {
+	mock *MockGrpcTtlCache[T]
 }
 
 // NewMockGrpcTtlCache creates a new mock instance.
-func NewMockGrpcTtlCache(ctrl *gomock.Controller) *MockGrpcTtlCache {
-	mock := &MockGrpcTtlCache{ctrl: ctrl}
-	mock.recorder = &MockGrpcTtlCacheMockRecorder{mock}
+func NewMockGrpcTtlCache[T any](ctrl *gomock.Controller) *MockGrpcTtlCache[T] {
+	mock := &MockGrpcTtlCache[T]{ctrl: ctrl}
+	mock.recorder = &MockGrpcTtlCacheMockRecorder[T]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockGrpcTtlCache) EXPECT() *MockGrpcTtlCacheMockRecorder {
+func (m *MockGrpcTtlCache[T]) EXPECT() *MockGrpcTtlCacheMockRecorder[T] {
 	return m.recorder
 }
 
 // Delete mocks base method.
-func (m *MockGrpcTtlCache) Delete(key string) {
+func (m *MockGrpcTtlCache[T]) Delete(key string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Delete", key)
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockGrpcTtlCacheMockRecorder) Delete(key interface{}) *gomock.Call {
+func (mr *MockGrpcTtlCacheMockRecorder[T]) Delete(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockGrpcTtlCache)(nil).Delete), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockGrpcTtlCache[T])(nil).Delete), key)
 }
 
 // Get mocks base method.
-func (m *MockGrpcTtlCache) Get(key string) (proto.Message, bool) {
+func (m *MockGrpcTtlCache[T]) Get(key string) (T, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", key)
-	ret0, _ := ret[0].(proto.Message)
+	ret0, _ := ret[0].(T)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockGrpcTtlCacheMockRecorder) Get(key interface{}) *gomock.Call {
+func (mr *MockGrpcTtlCacheMockRecorder[T]) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockGrpcTtlCache)(nil).Get), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockGrpcTtlCache[T])(nil).Get), key)
 }
 
 // MaxAge mocks base method.
-func (m *MockGrpcTtlCache) MaxAge() time.Duration {
+func (m *MockGrpcTtlCache[T]) MaxAge() time.Duration {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaxAge")
 	ret0, _ := ret[0].(time.Duration)
@@ -1156,19 +1155,19 @@ func (m *MockGrpcTtlCache) MaxAge() time.Duration {
 }
 
 // MaxAge indicates an expected call of MaxAge.
-func (mr *MockGrpcTtlCacheMockRecorder) MaxAge() *gomock.Call {
+func (mr *MockGrpcTtlCacheMockRecorder[T]) MaxAge() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxAge", reflect.TypeOf((*MockGrpcTtlCache)(nil).MaxAge))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxAge", reflect.TypeOf((*MockGrpcTtlCache[T])(nil).MaxAge))
 }
 
 // Set mocks base method.
-func (m *MockGrpcTtlCache) Set(key string, resp proto.Message, ttl time.Duration) {
+func (m *MockGrpcTtlCache[T]) Set(key string, resp T, ttl time.Duration) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Set", key, resp, ttl)
 }
 
 // Set indicates an expected call of Set.
-func (mr *MockGrpcTtlCacheMockRecorder) Set(key, resp, ttl interface{}) *gomock.Call {
+func (mr *MockGrpcTtlCacheMockRecorder[T]) Set(key, resp, ttl interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockGrpcTtlCache)(nil).Set), key, resp, ttl)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockGrpcTtlCache[T])(nil).Set), key, resp, ttl)
 }

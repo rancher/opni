@@ -1,12 +1,15 @@
 package gateway_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testk8s"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,15 +32,16 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	env := test.Environment{
 		TestBin: "../../../../testbin/bin",
-		CRDDirectoryPaths: []string{
-			"../../../../config/crd/bases",
-			"../../../../config/crd/opensearch",
-			"../../../../test/resources",
-		},
 	}
 
+	ctx, ca := context.WithCancel(waitctx.Background())
 	var err error
-	restConfig, scheme, err = env.StartK8s()
+
+	restConfig, scheme, err = testk8s.StartK8s(ctx, "../../../../testbin/bin", []string{
+		"../../../../config/crd/bases",
+		"../../../../config/crd/opensearch",
+		"../../../../test/resources",
+	})
 	Expect(err).NotTo(HaveOccurred())
 
 	nc, err = env.StartEmbeddedJetstream()
@@ -48,14 +52,15 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sManager = env.StartManager(
-		restConfig,
-	)
+	k8sManager = testk8s.StartManager(ctx, restConfig)
 
 	DeferCleanup(func() {
 		By("tearing down the test environment")
 		nc.Close()
 		err := env.Stop()
 		Expect(err).NotTo(HaveOccurred())
+
+		ca()
+		waitctx.Wait(ctx)
 	})
 })

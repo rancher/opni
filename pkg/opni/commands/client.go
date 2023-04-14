@@ -14,9 +14,8 @@ import (
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tracing"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/versions"
@@ -25,7 +24,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
@@ -54,10 +52,12 @@ func BuildClientCmd() *cobra.Command {
 			disableUsage = true
 		}
 
-		ctrl.SetLogger(zap.New(
-			zap.Level(util.Must(zapcore.ParseLevel(logLevel))),
-			zap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
-		))
+		level, err := zapcore.ParseLevel(logLevel)
+		if err != nil {
+			return err
+		}
+
+		ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 			Scheme:                 scheme,

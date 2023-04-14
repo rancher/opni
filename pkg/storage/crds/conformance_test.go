@@ -1,15 +1,18 @@
 package crds_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testk8s"
+	"github.com/rancher/opni/pkg/test/testruntime"
 
 	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/crds"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 func TestCrds(t *testing.T) {
@@ -20,19 +23,17 @@ func TestCrds(t *testing.T) {
 var store = future.New[*crds.CRDStore]()
 
 var _ = BeforeSuite(func() {
-	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
-		env := test.Environment{
-			TestBin: "../../../testbin/bin",
-			CRDDirectoryPaths: []string{
-				"../../../config/crd/bases",
-			},
-		}
-		config, _, err := env.StartK8s()
+	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
+		ctx, ca := context.WithCancel(waitctx.Background())
+		config, _, err := testk8s.StartK8s(ctx, "../../../testbin/bin", []string{"../../../config/crd/bases"})
 		Expect(err).NotTo(HaveOccurred())
 
 		store.Set(crds.NewCRDStore(crds.WithRestConfig(config)))
 
-		DeferCleanup(env.Stop)
+		DeferCleanup(func() {
+			ca()
+			waitctx.Wait(ctx)
+		})
 	})
 })
 

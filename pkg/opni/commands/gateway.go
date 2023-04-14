@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/logger"
@@ -27,6 +28,9 @@ import (
 	"k8s.io/client-go/rest"
 
 	_ "github.com/rancher/opni/pkg/plugins/apis"
+	_ "github.com/rancher/opni/pkg/storage/crds"
+	_ "github.com/rancher/opni/pkg/storage/etcd"
+	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
 
 func BuildGatewayCmd() *cobra.Command {
@@ -107,6 +111,14 @@ func BuildGatewayCmd() *cobra.Command {
 
 		g.MustRegisterCollector(m)
 
+		// start web server
+		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("failed to initialize web dashboard")
+		}
+
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 			lg.Infof("loaded %d plugins", numLoaded)
 		}))
@@ -118,6 +130,16 @@ func BuildGatewayCmd() *cobra.Command {
 				lg.With(
 					zap.Error(err),
 				).Warn("management server exited with error")
+			}
+		}))
+
+		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+			waitctx.AddOne(ctx)
+			defer waitctx.Done(ctx)
+			if err := d.ListenAndServe(ctx); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Warn("dashboard server exited with error")
 			}
 		}))
 

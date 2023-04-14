@@ -1,14 +1,16 @@
 package drivers
 
 import (
-	"errors"
-	"fmt"
+	"context"
 	"sync"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/samber/lo"
 )
+
+type ClusterDriverBuilder = func(ctx context.Context, args ...any) (ClusterDriver, error)
 
 type ClusterDriver interface {
 	alertops.AlertingAdminServer
@@ -22,62 +24,37 @@ type ClusterDriver interface {
 }
 
 var (
-	lock                 = &sync.Mutex{}
-	clusterDrivers       map[string]ClusterDriver
-	persistentDrivers    []func() ClusterDriver
-	failedClusterDrivers map[string]string
+	lock                  = &sync.Mutex{}
+	clusterDriverBuilders = make(map[string]ClusterDriverBuilder)
 )
 
-func init() {
-	ResetClusterDrivers()
-}
-
-func RegisterClusterDriver(driver ClusterDriver) {
+func RegisterClusterDriverBuilder(name string, fn ClusterDriverBuilder) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, ok := clusterDrivers[driver.Name()]; ok {
-		panic("driver already exists: " + driver.Name())
-	}
-	clusterDrivers[driver.Name()] = driver
+	clusterDriverBuilders[name] = fn
 }
 
-func RegisterPersistentClusterDriver(driverFunc func() ClusterDriver) {
+func UnregisterClusterDriverBuilder(name string) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	persistentDrivers = append(persistentDrivers, driverFunc)
+	delete(clusterDriverBuilders, name)
 }
 
-func LogClusterDriverFailure(name string, err error) {
+func GetClusterDriverBuilder(name string) (ClusterDriverBuilder, bool) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	failedClusterDrivers[name] = err.Error()
+	driver, ok := clusterDriverBuilders[name]
+	return driver, ok
 }
 
-func GetClusterDriver(name string) (ClusterDriver, error) {
+func ListClusterDrivers() []string {
 	lock.Lock()
 	defer lock.Unlock()
 
-	driver, ok := clusterDrivers[name]
-	if !ok {
-		if failureMsg, ok := failedClusterDrivers[name]; ok {
-			return nil, errors.New(failureMsg)
-		}
-		return nil, fmt.Errorf("driver not found")
-	}
-	return driver, nil
-}
-
-func ResetClusterDrivers() {
-	lock.Lock()
-	clusterDrivers = make(map[string]ClusterDriver)
-	failedClusterDrivers = make(map[string]string)
-	lock.Unlock()
-	for _, driverFunc := range persistentDrivers {
-		RegisterClusterDriver(driverFunc())
-	}
+	return lo.Keys(clusterDriverBuilders)
 }
 
 type NoopClusterDriver struct {
@@ -97,4 +74,8 @@ func (d *NoopClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
 	return shared.AlertingClusterOptions{}
 }
 
-var _ ClusterDriver = &NoopClusterDriver{}
+func init() {
+	RegisterClusterDriverBuilder("noop", func(context.Context, ...any) (ClusterDriver, error) {
+		return &NoopClusterDriver{}, nil
+	})
+}

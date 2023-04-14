@@ -37,6 +37,9 @@ func StatusError(code codes.Code) error {
 
 // Like status.Code(), but supports wrapped errors.
 func StatusCode(err error) codes.Code {
+	if err == nil {
+		return codes.OK
+	}
 	var grpcStatus interface{ GRPCStatus() *status.Status }
 	code := codes.Unknown
 	if errors.As(err, &grpcStatus) {

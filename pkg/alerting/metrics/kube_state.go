@@ -3,29 +3,11 @@ package metrics
 import (
 	"bytes"
 	"fmt"
-	"regexp"
-	"text/template"
 
 	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/rancher/opni/pkg/alerting/shared"
 )
-
-// KubeObjMetricNameMatcher
-//
-// PromQl Matcher for kube state metrics
-const KubeObjMetricNameMatcher = "kube_.*_status_phase"
-
-// KubeObjTypeExtractor
-//
-// Group 1 extracts the object type
-var KubeObjTypeExtractor = regexp.MustCompile("kube_(.*)_status_phase")
-var KubeObjMetricCreator = template.Must(template.New("KubeObject").Parse("kube_{{.ObjType}}_status_phase"))
-
-const KubePodStatusMetricName = "kube_pod_status_phase"
-const KubeMetricsIsDefinedMetricName = "kube_namespace_created"
-
-var KubeStateAlertIdLabels = []string{}
-var KubeStateAnnotations = map[string]string{}
 
 func NewKubeStateRule(
 	objType string,
@@ -42,7 +24,7 @@ func NewKubeStateRule(
 		return nil, fmt.Errorf("kubernetes objects cannot have an empty name")
 	}
 	var kubeMetricNameBuffer bytes.Buffer
-	err := KubeObjMetricCreator.Execute(&kubeMetricNameBuffer, map[string]string{
+	err := naming.KubeObjMetricCreator.Execute(&kubeMetricNameBuffer, map[string]string{
 		"ObjType": objType,
 	})
 	if err != nil {

@@ -9,8 +9,10 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -19,14 +21,14 @@ import (
 var sharedEndpointSet map[string]*alertingv1.FullAttachedEndpoint
 
 func init() {
-	test.IfIntegration(func() {
+	testruntime.IfIntegration(func() {
 		sharedEndpointSet = make(map[string]*alertingv1.FullAttachedEndpoint)
-		sharedEndpointSet = test.CreateRandomSetOfEndpoints()
+		sharedEndpointSet = alerting.CreateRandomSetOfEndpoints()
 		var _ = BuildRoutingTreeSuiteTest(
 			routing.NewDefaultOpniRouting(),
-			test.CreateRandomNamespacedTestCases(45, sharedEndpointSet),
-			test.CreateRandomDefaultNamespacedTestcases(sharedEndpointSet),
-			test.CreateRandomIndividualEndpointTestcases(sharedEndpointSet),
+			alerting.CreateRandomNamespacedTestCases(45, sharedEndpointSet),
+			alerting.CreateRandomDefaultNamespacedTestcases(sharedEndpointSet),
+			alerting.CreateRandomIndividualEndpointTestcases(sharedEndpointSet),
 		)
 	})
 }
@@ -42,7 +44,7 @@ var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func
 			fp := freeport.GetFreePort()
 			cfg := routing.NewRootNode(fmt.Sprintf("http://localhost:%d", fp))
 			Expect(cfg).ToNot(BeNil())
-			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTreeRoot.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTreeRoot.yaml", env.Context(), cfg, fp)
 		})
 
 		Specify("the opni subtree should be in a valid alertmanager format", func() {
@@ -51,22 +53,22 @@ var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func
 			subtree, recvs := routing.NewOpniSubRoutingTree()
 			cfg.Route.Routes = append(cfg.Route.Routes, subtree)
 			cfg.Receivers = append(cfg.Receivers, recvs...)
-			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingSubtree.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingSubtree.yaml", env.Context(), cfg, fp)
 		})
 
 		Specify("the default routing tree of opni routing should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
 			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
-			test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTree.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTree.yaml", env.Context(), cfg, fp)
 		})
 	})
 })
 
 func BuildRoutingTreeSuiteTest(
 	router routing.OpniRouting,
-	conditionSubtreeTestcases []test.NamespaceSubTreeTestcase,
-	broadcastSubtreeTestcases []test.DefaultNamespaceSubTreeTestcase,
-	individualEndpointTestcases []test.IndividualEndpointTestcase,
+	conditionSubtreeTestcases []alerting.NamespaceSubTreeTestcase,
+	broadcastSubtreeTestcases []alerting.DefaultNamespaceSubTreeTestcase,
+	individualEndpointTestcases []alerting.IndividualEndpointTestcase,
 ) bool {
 	return Describe("Alerting Routing tree building tests", Ordered, Label("integration", "slow"), func() {
 		var currentCfg *config.Config
@@ -75,14 +77,14 @@ func BuildRoutingTreeSuiteTest(
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
 				fp := freeport.GetFreePort()
-				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})
 
 			It("should be able to set configurations for routing to endpoints (s)", func() {
 				step = "add"
 				for _, tc := range conditionSubtreeTestcases {
 					strRepr, _ := protojson.Marshal(tc.Endpoints)
-					if tc.Op == test.OpCreate {
+					if tc.Op == alerting.OpCreate {
 						if len(tc.Endpoints.GetItems()) == 0 {
 							Fail("no endpoints to set to a condition")
 						}
@@ -104,7 +106,7 @@ func BuildRoutingTreeSuiteTest(
 			It("should be able to update configurations for routing to endpoints", func() {
 				step = "update"
 				for _, tc := range conditionSubtreeTestcases {
-					if tc.Op == test.OpUpdate {
+					if tc.Op == alerting.OpUpdate {
 						if len(tc.Endpoints.GetItems()) == 0 {
 							Fail("no endpoints to set to a condition")
 						}
@@ -126,7 +128,7 @@ func BuildRoutingTreeSuiteTest(
 			It("should be able to delete configurations for routing to endpoints", func() {
 				step = "delete"
 				for _, tc := range conditionSubtreeTestcases {
-					if tc.Op == test.OpDelete {
+					if tc.Op == alerting.OpDelete {
 						err := router.SetNamespaceSpec(tc.Namespace, tc.ConditionId, &alertingv1.FullAttachedEndpoints{})
 						if tc.Code == nil {
 							Expect(err).To(Succeed())
@@ -147,7 +149,7 @@ func BuildRoutingTreeSuiteTest(
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
 				fp := freeport.GetFreePort()
-				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})
 
 			It("should be able to add endpoints to the default subtree", func() {
@@ -174,7 +176,7 @@ func BuildRoutingTreeSuiteTest(
 			step = "update-individual"
 			It("should be able to update individual endpoints in opni routing", func() {
 				for _, tc := range individualEndpointTestcases {
-					if tc.Op == test.OpUpdate || tc.Op == test.OpCreate {
+					if tc.Op == alerting.OpUpdate || tc.Op == alerting.OpCreate {
 						err := router.UpdateEndpoint(tc.EndpointId, tc.UpdateEndpoint)
 						if tc.Code != nil {
 							Expect(err).To(HaveOccurred())
@@ -194,7 +196,7 @@ func BuildRoutingTreeSuiteTest(
 			It("should be able to delete individual endpoints in opni routing", func() {
 				step = "delete-individual"
 				for _, tc := range individualEndpointTestcases {
-					if tc.Op == test.OpDelete {
+					if tc.Op == alerting.OpDelete {
 						err := router.DeleteEndpoint(tc.EndpointId)
 						if tc.Code != nil {
 							Expect(err).To(HaveOccurred())
@@ -213,7 +215,7 @@ func BuildRoutingTreeSuiteTest(
 
 			Specify("it should recover exact configs after being persisted", func() {
 				step = "recover-config"
-				test.ExpectToRecoverConfig(router, "no-sync")
+				alerting.ExpectToRecoverConfig(router, "no-sync")
 			})
 		})
 
@@ -228,7 +230,7 @@ func BuildRoutingTreeSuiteTest(
 				for _, file := range testcaseFilenames {
 					file := file
 					By("reading production configs from testdata")
-					bytes := test.TestData(file)
+					bytes := testdata.TestData(file)
 					By(fmt.Sprintf("expecting the sync operation to succeed for %s", file))
 					err := router.SyncExternalConfig(bytes)
 					Expect(err).To(Succeed())
@@ -236,7 +238,7 @@ func BuildRoutingTreeSuiteTest(
 					calculatedConfig, err := router.BuildConfig()
 					Expect(err).To(Succeed())
 					currentCfg = calculatedConfig
-					test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+"-"+path.Base(file), env.Context(), currentCfg, freeport.GetFreePort())
+					alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+"-"+path.Base(file), env.Context(), currentCfg, freeport.GetFreePort())
 				}
 			})
 
@@ -260,7 +262,7 @@ func BuildRoutingTreeSuiteTest(
 				Expect(st.Code()).To(Equal(codes.Unimplemented))
 			})
 			Specify("it should recover exact configs after being persisted", func() {
-				test.ExpectToRecoverConfig(router)
+				alerting.ExpectToRecoverConfig(router)
 			})
 		})
 	})

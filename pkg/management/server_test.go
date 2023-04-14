@@ -11,7 +11,8 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/capability"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,7 +37,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {
-		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
+		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, testlog.Log)
 
 		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(testCapabilityDataSource{
 			store: capBackendStore,
@@ -75,12 +76,12 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(list.Items).To(BeEmpty())
 
-		backend1 := test.NewTestCapabilityBackend(tv.ctrl, &test.CapabilityInfo{
+		backend1 := mock_v1.NewTestCapabilityBackend(tv.ctrl, &mock_v1.CapabilityInfo{
 			Name:              "capability1",
 			CanInstall:        true,
 			InstallerTemplate: "foo",
 		})
-		backend2 := test.NewTestCapabilityBackend(tv.ctrl, &test.CapabilityInfo{
+		backend2 := mock_v1.NewTestCapabilityBackend(tv.ctrl, &mock_v1.CapabilityInfo{
 			Name:              "capability2",
 			CanInstall:        true,
 			InstallerTemplate: "bar",

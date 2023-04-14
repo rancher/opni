@@ -13,6 +13,8 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/alerting"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -30,7 +32,7 @@ const (
 )
 
 func init() {
-	test.IfIntegration(func() {
+	testruntime.IfIntegration(func() {
 		BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
 			{
 				NumReplicas: 1,
@@ -57,7 +59,7 @@ func init() {
 			// },
 		},
 			func() alertops.AlertingAdminClient {
-				return env.NewAlertOpsClient()
+				return alertops.NewAlertingAdminClient(env.ManagementClientConn())
 			},
 			func() alertingv1.AlertConditionsClient {
 				return env.NewAlertConditionsClient()
@@ -101,9 +103,9 @@ func BuildAlertingClusterIntegrationTests(
 		// contains agent id and other useful metadata and functions
 		var agents []*agentWithContext
 		// physical servers that receive opni alerting notifications
-		var servers []*test.MockIntegrationWebhookServer
+		var servers []*alerting.MockIntegrationWebhookServer
 		// physical servers that receive all opni alerting notifications
-		var notificationServers []*test.MockIntegrationWebhookServer
+		var notificationServers []*alerting.MockIntegrationWebhookServer
 		// expected ways the conditions dispatch to endpoints
 		expectedRouting := map[string][]string{}
 		// maps condition ids where agents are disconnect to their webhook ids
@@ -163,7 +165,7 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should be able to create some endpoints", func() {
-					servers = env.CreateWebhookServer(env.Context(), numServers)
+					servers = alerting.CreateWebhookServer(env, numServers)
 
 					for _, server := range servers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
@@ -296,7 +298,7 @@ func BuildAlertingClusterIntegrationTests(
 					}
 
 					By("creating some default webhook servers as endpoints")
-					notificationServers = env.CreateWebhookServer(env.Context(), numNotificationServers)
+					notificationServers = alerting.CreateWebhookServer(env, numNotificationServers)
 					for _, server := range notificationServers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
 						Expect(err).To(Succeed())

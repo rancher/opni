@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/tokens"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -31,7 +32,7 @@ import (
 )
 
 func buildExamplePlugin(destDir string) error {
-	test.Log.Debug("building new example plugin...")
+	testlog.Log.Debug("building new example plugin...")
 	cmd := exec.Command("go", "build", "-o", path.Join(destDir, "/plugin_example"),
 		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/util.BuildTime=\"%d\"", time.Now().UnixNano()),
 		"./plugins/example",
@@ -43,7 +44,7 @@ func buildExamplePlugin(destDir string) error {
 }
 
 func buildMinimalAgent() (string, error) {
-	test.Log.Info("building minimal agent...")
+	testlog.Log.Info("building minimal agent...")
 	return gexec.BuildWithEnvironment("github.com/rancher/opni/cmd/opni", []string{"CGO_ENABLED=0"},
 		"-tags=noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noscheme_thirdparty,noalertmanager,nomsgpack",
 	)
@@ -62,7 +63,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 
 	waitForGatewayReady := func(timeout time.Duration) {
 		// ping /healthz until it returns 200
-		test.Log.Debug("waiting for gateway to be ready")
+		testlog.Log.Debug("waiting for gateway to be ready")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		for ctx.Err() == nil {
@@ -70,9 +71,9 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 			if err == nil && resp.StatusCode == 200 {
 				return
 			} else if err == nil {
-				test.Log.Debug(fmt.Sprintf("gateway not ready yet: %s", resp.Status))
+				testlog.Log.Debug(fmt.Sprintf("gateway not ready yet: %s", resp.Status))
 			} else {
-				test.Log.Debug(fmt.Sprintf("gateway not ready yet: %s", err.Error()))
+				testlog.Log.Debug(fmt.Sprintf("gateway not ready yet: %s", err.Error()))
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
@@ -81,7 +82,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 
 	waitForAgentReady := func(timeout time.Duration) {
 		// ping /healthz until it returns 200
-		test.Log.Debug("waiting for agent to be ready")
+		testlog.Log.Debug("waiting for agent to be ready")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		for ctx.Err() == nil {
@@ -90,7 +91,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 				return
 			} else if err == nil {
 				status, _ := io.ReadAll(resp.Body)
-				test.Log.Debug(fmt.Sprintf("agent not ready yet: %s", string(status)))
+				testlog.Log.Debug(fmt.Sprintf("agent not ready yet: %s", string(status)))
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
@@ -98,7 +99,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 	}
 
 	waitForAgentUnready := func(timeout time.Duration) {
-		test.Log.Debug("waiting for agent to become unready")
+		testlog.Log.Debug("waiting for agent to become unready")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		for ctx.Err() == nil {
@@ -106,7 +107,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 			if err != nil || resp.StatusCode != 200 {
 				return
 			}
-			test.Log.Debug("agent still ready...")
+			testlog.Log.Debug("agent still ready...")
 			time.Sleep(200 * time.Millisecond)
 		}
 		Fail("timed out waiting for agent to become unready")
@@ -252,7 +253,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 			Expect(err).NotTo(HaveOccurred())
 
 			rssKB := status.RSS * os.Getpagesize() / 1024
-			test.Log.Info("agent rss", " rssKB ", rssKB)
+			testlog.Log.Info("agent rss", " rssKB ", rssKB)
 			exp.RecordValue("rss", float64(rssKB), gmeasure.Units("KB"))
 			rssValues = append(rssValues, rssKB)
 
@@ -265,14 +266,14 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 
 		// check that the memory usage is not monotonically increasing
 		var changeOverTime []int
-		test.Log.Debugf("rss 0: %d", rssValues[0])
+		testlog.Log.Debugf("rss 0: %d", rssValues[0])
 		for i := 1; i < len(rssValues); i++ {
 			diff := rssValues[i] - rssValues[i-1]
 			changeOverTime = append(changeOverTime, diff)
 			if diff >= 0 {
-				test.Log.Debugf("rss %d: %d (+%d)", i, rssValues[i], diff)
+				testlog.Log.Debugf("rss %d: %d (+%d)", i, rssValues[i], diff)
 			} else {
-				test.Log.Debugf("rss %d: %d (%d)", i, rssValues[i], diff)
+				testlog.Log.Debugf("rss %d: %d (%d)", i, rssValues[i], diff)
 			}
 		}
 		Expect(changeOverTime).To(ContainElement(BeNumerically("<=", 0)), "memory usage should not be monotonically increasing")

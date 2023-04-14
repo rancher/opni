@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,7 +37,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
@@ -137,7 +139,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	When("a cluster has installed capabilities", func() {
 		It("should prevent the cluster from being deleted", func() {
-			client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+			_, err := client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
 				Name: "metrics",
 				Target: &v1.InstallRequest{
 					Cluster: &corev1.Reference{
@@ -146,6 +148,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 					IgnoreWarnings: true,
 				},
 			})
+			Expect(err).NotTo(HaveOccurred())
 			_, errG1 := client.GetCluster(context.Background(), &corev1.Reference{
 				Id: "test-cluster-id",
 			})
@@ -158,7 +161,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		})
 		It("should allow uninstalling capabilities", func() {
 			// wait until data has been stored in cortex for the cluster
-			adminClient := environment.NewCortexAdminClient()
+			adminClient := cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 			Eventually(func() error {
 				stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
 				if err != nil {

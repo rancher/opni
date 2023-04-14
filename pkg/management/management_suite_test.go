@@ -17,8 +17,10 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/grpc"
 )
@@ -62,13 +64,13 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 			tv.ctrl = gomock.NewController(GinkgoT())
 		}
 		ctx, ca := context.WithCancel(waitctx.Background())
-		tv.storageBackend = test.NewTestStorageBackend(ctx, tv.ctrl)
+		tv.storageBackend = mock_storage.NewTestStorageBackend(ctx, tv.ctrl)
 		ports := freeport.GetFreePorts(2)
 		conf := &v1beta1.ManagementSpec{
 			GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", ports[0]),
 			HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", ports[1]),
 		}
-		cert, err := tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key"))
+		cert, err := tls.X509KeyPair(testdata.TestData("localhost.crt"), testdata.TestData("localhost.key"))
 		Expect(err).NotTo(HaveOccurred())
 		cds := &testCoreDataSource{
 			storageBackend: tv.storageBackend,
@@ -82,7 +84,7 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 		pl.Hook(hooks.OnLoadingCompleted(func(int) {
 			defer GinkgoRecover()
 			if err := server.ListenAndServe(ctx); err != nil {
-				test.Log.Error(err)
+				testlog.Log.Error(err)
 			}
 		}))
 		tv.client, err = management.NewClient(ctx,

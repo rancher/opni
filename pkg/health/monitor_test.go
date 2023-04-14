@@ -6,10 +6,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/mock/auth"
+	"github.com/rancher/opni/pkg/test/mock/health"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("Monitor", func() {
@@ -23,7 +24,7 @@ var _ = Describe("Monitor", func() {
 		})
 	})
 	It("should listen to a health status updater", func() {
-		agent1 := &test.HealthStore{}
+		agent1 := &mock_health.HealthStore{}
 		agent1.SetHealth(&corev1.Health{Ready: false, Conditions: []string{"foo"}})
 		listener := newFastListener()
 		defer listener.Close()
@@ -31,7 +32,7 @@ var _ = Describe("Monitor", func() {
 		agentCtx, agentCa := context.WithCancel(context.Background())
 		monitorCtx, monitorCa := context.WithCancel(context.Background())
 		defer monitorCa()
-		go listener.HandleConnection(test.ContextWithAuthorizedID(agentCtx, "agent1"), agent1)
+		go listener.HandleConnection(mock_auth.ContextWithAuthorizedID(agentCtx, "agent1"), agent1)
 		monitor := health.NewMonitor()
 		go monitor.Run(monitorCtx, listener)
 

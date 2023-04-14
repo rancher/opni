@@ -1,6 +1,7 @@
 package crds
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/rancher/opni/apis"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -90,4 +92,21 @@ func (e *CRDStore) KeyringStore(prefix string, ref *corev1.Reference) storage.Ke
 		ref:             ref,
 		prefix:          prefix,
 	}
+}
+
+func init() {
+	storage.RegisterStoreBuilder(v1beta1.StorageTypeCRDs, func(args ...any) (any, error) {
+		var opts []CRDStoreOption
+		for _, arg := range args {
+			switch arg := arg.(type) {
+			case string:
+				opts = append(opts, WithNamespace(arg))
+			case *rest.Config:
+				opts = append(opts, WithRestConfig(arg))
+			default:
+				return nil, fmt.Errorf("unexpected argument %v", arg)
+			}
+		}
+		return NewCRDStore(opts...), nil
+	})
 }

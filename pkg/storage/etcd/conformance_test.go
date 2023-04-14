@@ -1,5 +1,3 @@
-//go:build !noetcd
-
 package etcd_test
 
 import (
@@ -8,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testruntime"
 
 	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/etcd"
@@ -23,16 +22,14 @@ func TestEtcd(t *testing.T) {
 var store = future.New[*etcd.EtcdStore]()
 
 var _ = BeforeSuite(func() {
-	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
+	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
 		env := test.Environment{
 			TestBin: "../../../testbin/bin",
 		}
 		env.Start(
-			test.WithEnableCortex(false),
 			test.WithEnableGateway(false),
 			test.WithEnableEtcd(true),
 			test.WithEnableJetstream(false),
-			test.WithEnableDisconnectServer(false),
 		)
 
 		client, err := etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),

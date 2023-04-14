@@ -13,6 +13,10 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/mock/capability"
+	"github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +30,6 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 )
 
@@ -43,16 +46,16 @@ var _ = Describe("Server", Label("slow"), func() {
 	var mockTokenStore storage.TokenStore
 	var mockClusterStore storage.ClusterStore
 	var mockKeyringStoreBroker storage.KeyringStoreBroker
-	var testCapBackends []*test.CapabilityInfo
+	var testCapBackends []*mock_v1.CapabilityInfo
 
 	BeforeEach(func() {
 		ctx, ca := context.WithCancel(context.Background())
 		DeferCleanup(ca)
-		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
-		mockClusterStore = test.NewTestClusterStore(ctrl)
-		mockKeyringStoreBroker = test.NewTestKeyringStoreBroker(ctrl)
+		mockTokenStore = mock_storage.NewTestTokenStore(ctx, ctrl)
+		mockClusterStore = mock_storage.NewTestClusterStore(ctrl)
+		mockKeyringStoreBroker = mock_storage.NewTestKeyringStoreBroker(ctrl)
 
-		testCapBackends = append(testCapBackends, &test.CapabilityInfo{
+		testCapBackends = append(testCapBackends, &mock_v1.CapabilityInfo{
 			Name:       "test",
 			CanInstall: true,
 			Storage:    mockClusterStore,
@@ -63,20 +66,20 @@ var _ = Describe("Server", Label("slow"), func() {
 		token2, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour)
 	})
 	AfterEach(func() {
-		testCapBackends = []*test.CapabilityInfo{}
+		testCapBackends = []*mock_v1.CapabilityInfo{}
 	})
 	JustBeforeEach(func() {
 		var err error
-		crt, err := tls.X509KeyPair(test.TestData("self_signed_leaf.crt"), test.TestData("self_signed_leaf.key"))
+		crt, err := tls.X509KeyPair(testdata.TestData("self_signed_leaf.crt"), testdata.TestData("self_signed_leaf.key"))
 		Expect(err).NotTo(HaveOccurred())
 		crt.Leaf, err = x509.ParseCertificate(crt.Certificate[0])
 		Expect(err).NotTo(HaveOccurred())
 		cert = &crt
 
-		lg := test.Log
+		lg := testlog.Log
 		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, lg)
 		for _, backend := range testCapBackends {
-			capBackendStore.Add(backend.Name, test.NewTestCapabilityBackend(ctrl, backend))
+			capBackendStore.Add(backend.Name, mock_v1.NewTestCapabilityBackend(ctrl, backend))
 		}
 
 		srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
@@ -283,12 +286,12 @@ var _ = Describe("Server", Label("slow"), func() {
 				When("the requested capability does not yet exist", func() {
 					BeforeEach(func() {
 						testCapBackends = append(testCapBackends,
-							&test.CapabilityInfo{
+							&mock_v1.CapabilityInfo{
 								Name:       "test2",
 								CanInstall: true,
 								Storage:    mockClusterStore,
 							},
-							&test.CapabilityInfo{
+							&mock_v1.CapabilityInfo{
 								Name:       "test3",
 								CanInstall: false,
 								Storage:    mockClusterStore,

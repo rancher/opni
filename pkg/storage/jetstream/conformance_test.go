@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testruntime"
 
 	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/jetstream"
@@ -21,16 +22,14 @@ func TestJetStream(t *testing.T) {
 var store = future.New[*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
-	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
+	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
 		env := test.Environment{
 			TestBin: "../../../testbin/bin",
 		}
 		env.Start(
-			test.WithEnableCortex(false),
 			test.WithEnableGateway(false),
 			test.WithEnableEtcd(false),
 			test.WithEnableJetstream(true),
-			test.WithEnableDisconnectServer(false),
 		)
 
 		s, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())

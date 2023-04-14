@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	_ "embed"
-
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/user"

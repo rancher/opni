@@ -21,10 +21,10 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -33,7 +33,7 @@ import (
 
 func BuildEmbeddedServerNotificationTests(
 	routerConstructor func(int) routing.OpniRouting,
-	dataset *test.RoutableDataset,
+	dataset *alerting.RoutableDataset,
 ) bool {
 	var webPort int
 	var opniPort int
@@ -406,4 +406,4 @@ var _ = BuildEmbeddedServerNotificationTests(func(dynamicPort int) routing.OpniR
 		dynamicPort,
 		shared.AlertingDefaultHookName,
 	))
-}, test.NewRoutableDataset())
+}, alerting.NewRoutableDataset())

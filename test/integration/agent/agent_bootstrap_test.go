@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -35,7 +37,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.EnableIfCI[FlakeAttempts](5), Label("integration", "slow", "temporal"), func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testruntime.EnableIfCI[FlakeAttempts](5), Label("integration", "slow", "temporal"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -45,7 +47,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

@@ -9,7 +9,8 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/memfs"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/afero"
 )
@@ -267,7 +268,7 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 		mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 			Dir:    filepath.Join(tmpDir, "plugins"),
 			Fs:     fsys,
-			Logger: test.Log,
+			Logger: testlog.Log,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -291,7 +292,7 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 				Dir:    tmpDir,
 				Fs:     af,
-				Logger: test.Log,
+				Logger: testlog.Log,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -302,7 +303,7 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 	When("a plugin cannot be opened for reading", func() {
 		It("should log an error and skip it", func() {
 			af := afero.Afero{
-				Fs: test.NewModeAwareMemFs(),
+				Fs: memfs.NewModeAwareMemFs(),
 			}
 			af.MkdirAll(tmpDir, 0755)
 
@@ -312,7 +313,7 @@ var _ = Describe("Filesystem Discovery", Ordered, func() {
 			mv1, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 				Dir:    tmpDir,
 				Fs:     af,
-				Logger: test.Log,
+				Logger: testlog.Log,
 			})
 
 			Expect(err).NotTo(HaveOccurred())

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 
@@ -14,14 +15,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"github.com/rancher/opni/plugins/example/pkg/example"
-	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
-	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
-	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	topology_agent "github.com/rancher/opni/plugins/topology/pkg/topology/agent"
-	topology_gateway "github.com/rancher/opni/plugins/topology/pkg/topology/gateway"
 	"google.golang.org/grpc"
 )
 
@@ -63,9 +58,9 @@ func NewApiExtensionTestPlugin(
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, p)
 
 	cert, caPool, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
-		CACertData:      TestData("root_ca.crt"),
-		ServingCertData: TestData("localhost.crt"),
-		ServingKeyData:  TestData("localhost.key"),
+		CACertData:      testdata.TestData("root_ca.crt"),
+		ServingCertData: testdata.TestData("localhost.crt"),
+		ServingKeyData:  testdata.TestData("localhost.key"),
 	})
 	if err != nil {
 		panic(err)
@@ -100,74 +95,15 @@ func NewApiExtensionTestPlugin(
 }
 
 type testPlugin struct {
-	Scheme   meta.Scheme
-	Metadata meta.PluginMeta
+	SchemeFunc func(context.Context) meta.Scheme
+	Metadata   meta.PluginMeta
 }
 
-func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
-	var metricsPluginScheme meta.Scheme
-	var topologyPluginScheme meta.Scheme
-	var scheme meta.Scheme
-	switch mode {
-	case meta.ModeGateway:
-		scheme = plugins.GatewayScheme
-		metricsPluginScheme = metrics_gateway.Scheme(context.Background())
-		topologyPluginScheme = topology_gateway.Scheme(context.Background())
-	case meta.ModeAgent:
-		scheme = plugins.AgentScheme
-		metricsPluginScheme = metrics_agent.Scheme(context.Background())
-		topologyPluginScheme = topology_agent.Scheme(context.Background())
-	default:
-		panic("unknown plugin mode: " + mode)
-	}
-
-	testPlugins := []testPlugin{
-		{
-			Scheme: metricsPluginScheme,
-			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_metrics",
-				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/metrics",
-			},
-		},
-		{
-			Scheme: example.Scheme(context.Background()),
-			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_example",
-				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/example",
-			},
-		},
-		{
-			Scheme: slo.Scheme(context.Background()),
-			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_slo",
-				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/slo",
-			},
-		},
-		{
-			Scheme: alerting.Scheme(context.Background()),
-			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_alerting",
-				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/alerting",
-			},
-		},
-		{
-			Scheme: topologyPluginScheme,
-			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_topology",
-				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/topology",
-			},
-		},
-	}
-
+func LoadPlugins(ctx context.Context, loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	cert, caPool, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
-		CACertData:      TestData("root_ca.crt"),
-		ServingCertData: TestData("localhost.crt"),
-		ServingKeyData:  TestData("localhost.key"),
+		CACertData:      testdata.TestData("root_ca.crt"),
+		ServingCertData: testdata.TestData("localhost.crt"),
+		ServingKeyData:  testdata.TestData("localhost.key"),
 	})
 	if err != nil {
 		panic(err)
@@ -179,9 +115,10 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	}
 
 	wg := &sync.WaitGroup{}
-	for _, p := range testPlugins {
+	for _, p := range testPlugins[mode] {
 		p := p
-		sc := plugins.ServeConfig(p.Scheme)
+		scheme := p.SchemeFunc(ctx)
+		sc := plugins.ServeConfig(scheme)
 		ch := make(chan *plugin.ReattachConfig, 1)
 		sc.Test = &plugin.ServeTestConfig{
 			ReattachConfigCh: ch,
@@ -195,10 +132,53 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			loader.LoadOne(context.Background(), p.Metadata, cc)
+			loader.LoadOne(ctx, p.Metadata, cc)
 		}()
 	}
 	wg.Wait()
 	loader.Complete()
 	return len(testPlugins)
+}
+
+var testPlugins = map[meta.PluginMode][]testPlugin{}
+
+// Adds the calling plugin to the list of plugins that will be loaded
+// in the test environment. The plugin metadata is inferred from the
+// caller's package. This will apply to all test environments in a suite.
+//
+// Must be called from init() in a package of the form
+// github.com/rancher/opni/plugins/<name>/test
+func EnablePlugin(mode meta.PluginMode, schemeFunc func(context.Context) meta.Scheme) {
+	// Get the top-level plugin package name, e.g. "github.com/rancher/opni/plugins/example"
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		panic("failed to get caller")
+	}
+
+	fn := runtime.FuncForPC(pc)
+	name := fn.Name() // "github.com/rancher/opni/plugins/<name>/test.init.x"
+
+	regex := regexp.MustCompile(`^github.com/rancher/opni/plugins/(\w+)/test.init.\d+$`)
+
+	matches := regex.FindStringSubmatch(name)
+	if len(matches) != 2 {
+		panic("EnablePlugin must be called from init (caller: " + name + ")")
+	}
+
+	pkgName := "github.com/rancher/opni/plugins/" + matches[1]
+	pluginName := "plugin_" + matches[1]
+
+	for _, m := range testPlugins[mode] {
+		if m.Metadata.BinaryPath == pluginName {
+			panic("bug: duplicate plugin name: " + pluginName)
+		}
+	}
+	testPlugins[mode] = append(testPlugins[mode], testPlugin{
+		SchemeFunc: schemeFunc,
+		Metadata: meta.PluginMeta{
+			BinaryPath: pluginName,
+			GoVersion:  runtime.Version(),
+			Module:     pkgName,
+		},
+	})
 }

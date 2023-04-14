@@ -296,12 +296,6 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		lg.Warn("this agent has already been bootstrapped but may have been interrupted - will use existing keyring")
 	}
 
-	lg.Info("running post-bootstrap finalization steps")
-	if err := a.bootstrapper.Finalize(ctx); err != nil {
-		lg.With(zap.Error(err)).Warn("error in post-bootstrap finalization")
-	} else {
-		lg.Info("bootstrap completed successfully")
-	}
 	return a.loadKeyring(ctx)
 }
 

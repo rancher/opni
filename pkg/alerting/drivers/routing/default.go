@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -56,8 +57,28 @@ func NotificationSubTreeValues() []RouteValues {
 }
 
 var OpniSubRoutingTreeId config.Matchers = []*labels.Matcher{
-	alertingv1.OpniSubRoutingTreeMatcher,
+	OpniSubRoutingTreeMatcher,
 }
+
+var (
+	OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  alertingv1.RoutingPropertyDatasource,
+		Value: "",
+	}
+
+	OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchEqual,
+		Name:  alertingv1.RoutingPropertyDatasource,
+		Value: wellknown.CapabilityMetrics,
+	}
+
+	OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
+		Type:  labels.MatchNotEqual,
+		Name:  alertingv1.NotificationPropertySeverity,
+		Value: "",
+	}
+)
 
 func FinalizerReceiver(embeddedServerHook string) *config.Receiver {
 	return &config.Receiver{

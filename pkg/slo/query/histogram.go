@@ -8,7 +8,6 @@ import (
 	"text/template"
 
 	"github.com/prometheus/client_golang/prometheus"
-	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type HistogramQuery struct {
@@ -59,11 +58,11 @@ func (hq HistogramQuery) IsHistogram() bool {
 	return true
 }
 
-func (hq HistogramQuery) Construct(serv *api.ServiceInfo) (string, error) {
+func (hq HistogramQuery) Construct(serv ServiceInfo) (string, error) {
 	return hq.FillQueryTemplate(templateExecutor{
-		MetricIdGood:  serv.MetricIdGood,
-		MetricIdTotal: serv.MetricIdTotal,
-		JobId:         serv.JobId,
+		MetricIdGood:  serv.GetMetricIdGood(),
+		MetricIdTotal: serv.GetMetricIdTotal(),
+		JobId:         serv.GetJobId(),
 	})
 }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -25,7 +25,7 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {
-		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
+		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, testlog.Log)
 
 		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(testCapabilityDataSource{
 			store: capBackendStore,

@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -20,7 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-//#region Test Setup
+// #region Test Setup
 type fingerprintsData struct {
 	TestData []fingerprintsTestData `json:"testData"`
 }
@@ -40,7 +41,7 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 	})
 
 	AfterAll(func() {

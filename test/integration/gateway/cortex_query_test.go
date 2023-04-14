@@ -15,6 +15,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -31,9 +32,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
 		}
-		Expect(environment.Start(test.WithEnableCortexClusterDriver(true))).To(Succeed())
+		Expect(environment.Start()).To(Succeed())
 		client := environment.NewManagementClient()
-		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
@@ -48,7 +49,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Eventually(errC).Should(Receive(BeNil()))
 		environment.StartPrometheus(agentId)
 
-		opsClient := environment.NewCortexOpsClient()
+		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_AllInOne,
 			Storage: &storagev1.StorageSpec{
@@ -69,7 +70,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success))
 
-		adminClient = environment.NewCortexAdminClient()
+		adminClient = cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 
 		_, err = client.CreateRole(context.Background(), &corev1.Role{
 			Id:         "role-1",

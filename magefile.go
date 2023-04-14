@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io/ioutil"

@@ -7,27 +7,30 @@ import (
 )
 
 func (p *Plugin) configureCortexManagement() {
-	// load default cluster drivers
-	drivers.ResetClusterDrivers()
-	if kcd, err := drivers.NewOpniManagerClusterDriver(); err == nil {
-		drivers.RegisterClusterDriver(kcd)
-	} else {
-		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
-	}
-
 	driverName := p.config.Get().Spec.Cortex.Management.ClusterDriver
 	if driverName == "" {
 		p.logger.Warn("no cluster driver configured")
 	}
 
-	driver, err := drivers.GetClusterDriver(driverName)
+	builder, ok := drivers.GetClusterDriverBuilder(driverName)
+	if !ok {
+		p.logger.With(
+			"driver", driverName,
+		).Error("unknown cluster driver, using fallback noop driver")
+
+		builder, ok = drivers.GetClusterDriverBuilder("noop")
+		if !ok {
+			panic("bug: noop cluster driver not found")
+		}
+	}
+
+	driver, err := builder(p.ctx)
 	if err != nil {
 		p.logger.With(
 			"driver", driverName,
 			zap.Error(err),
-		).Error("failed to load cluster driver, using fallback no-op driver")
-
-		driver = &drivers.NoopClusterDriver{}
+		).Error("failed to initialize cluster driver")
+		return
 	}
 
 	p.clusterDriver.Set(driver)

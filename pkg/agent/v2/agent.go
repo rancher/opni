@@ -194,9 +194,13 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("error getting unique identifier: %w", err)
 	}
 
-	broker, err := machinery.BuildKeyringStoreBroker(initCtx, conf.Spec.Storage)
+	sb, err := machinery.ConfigureStorageBackend(initCtx, &conf.Spec.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring keyring store broker: %w", err)
+	}
+	broker, ok := sb.(storage.KeyringStoreBroker)
+	if !ok {
+		return nil, fmt.Errorf("selected storage backend does not implement storage.KeyringStoreBroker")
 	}
 	ks := broker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
@@ -245,14 +249,6 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			}
 		}
 		lg.Info("bootstrap completed successfully")
-	}
-
-	// Run post-bootstrap finalization. If this has previously succeeded,
-	// it will likely do nothing.
-	if err := options.bootstrapper.Finalize(initCtx); err != nil {
-		lg.With(
-			zap.Error(err),
-		).Warn("error in post-bootstrap finalization")
 	}
 
 	trust, err := machinery.BuildTrustStrategy(conf.Spec.TrustStrategy, kr)

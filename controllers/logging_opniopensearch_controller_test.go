@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -200,12 +200,12 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 			}
 			security.Tls.Transport.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
 				CaSecret: corev1.LocalObjectReference{
-					Name: test.MockCAName,
+					Name: testk8s.MockCAName,
 				},
 			}
 			security.Tls.Http.TlsCertificateConfig = opsterv1.TlsCertificateConfig{
 				CaSecret: corev1.LocalObjectReference{
-					Name: test.MockCAName,
+					Name: testk8s.MockCAName,
 				},
 			}
 			Expect(cluster.Spec.Security).To(Equal(security))

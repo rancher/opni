@@ -103,3 +103,15 @@ type HttpTtlCache interface {
 	Set(key string, resp []byte)
 	Delete(key string)
 }
+
+var (
+	storeBuilderCache = map[string]func(...any) (any, error){}
+)
+
+func RegisterStoreBuilder[T ~string](name T, builder func(...any) (any, error)) {
+	storeBuilderCache[string(name)] = builder
+}
+
+func GetStoreBuilder[T ~string](name T) func(...any) (any, error) {
+	return storeBuilderCache[string(name)]
+}

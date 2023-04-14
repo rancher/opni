@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testlog"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	openidauth "github.com/rancher/opni/pkg/auth/openid"
@@ -58,7 +59,7 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 			RedirectURI:           fmt.Sprintf("http://localhost:%d", ports[1]),
 			ManagementAPIEndpoint: addr,
 			Port:                  ports[0],
-			Logger:                test.Log,
+			Logger:                testlog.Log,
 		})
 		ctx, ca := context.WithCancel(waitctx.Background())
 		go srv.ListenAndServe(ctx)

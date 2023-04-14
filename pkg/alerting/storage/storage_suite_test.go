@@ -3,13 +3,16 @@ package storage_test
 import (
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testruntime"
 )
 
 func TestAlertstorage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Alertstorage Suite")
 }
@@ -22,7 +25,7 @@ var testObj nats.ObjectStore
 var env *test.Environment
 
 var _ = BeforeSuite(func() {
-	test.IfIntegration(func() {
+	testruntime.IfIntegration(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
 		}

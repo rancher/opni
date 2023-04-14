@@ -15,8 +15,9 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"golang.org/x/crypto/blake2b"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,9 +41,9 @@ var _ = Describe("Cluster Auth V1 Compatibility", Ordered, Label("unit"), func()
 	var listener *bufconn.Listener
 	var serverMw challenges.ChallengeHandler
 	BeforeAll(func() {
-		broker = test.NewTestKeyringStoreBroker(ctrl)
-		verifier := challenges.NewKeyringVerifier(broker, "", test.Log)
-		serverMw = authv1.NewServerChallenge(testgrpc.StreamService_Stream_FullMethodName, verifier, test.Log)
+		broker = mock_storage.NewTestKeyringStoreBroker(ctrl)
+		verifier := challenges.NewKeyringVerifier(broker, "", testlog.Log)
+		serverMw = authv1.NewServerChallenge(testgrpc.StreamService_Stream_FullMethodName, verifier, testlog.Log)
 		server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(cluster.StreamServerInterceptor(serverMw)))
 		testgrpc.RegisterStreamServiceServer(server, testServer)
 		listener = bufconn.Listen(1024 * 1024)

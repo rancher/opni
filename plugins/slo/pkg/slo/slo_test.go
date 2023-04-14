@@ -84,7 +84,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		env = &test.Environment{
 			TestBin: "../../../../testbin/bin",
 		}
-		Expect(env.Start(test.WithEnableCortex(true))).To(Succeed())
+		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 
 		client := env.NewManagementClient()

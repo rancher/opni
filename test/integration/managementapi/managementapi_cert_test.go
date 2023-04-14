@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -23,7 +24,7 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, Label("i
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 	})
 
 	AfterAll(func() {

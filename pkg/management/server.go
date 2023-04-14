@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	_ "embed"
 	"errors"
 	"fmt"
 	"net"
@@ -160,6 +159,7 @@ func NewServer(
 			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
 				lg.With(
 					zap.String("plugin", md.Module),
+					zap.Error(err),
 				).Error("failed to serve plugin API extensions")
 			}
 		}()

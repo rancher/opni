@@ -24,7 +24,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/pkp"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
@@ -38,7 +37,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	ctrlzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -293,11 +291,6 @@ func runMonitoringAgent(ctx context.Context, agentlg logger.ExtendedSugaredLogge
 }
 
 func runLoggingControllers(ctx context.Context) error {
-	ctrl.SetLogger(ctrlzap.New(
-		ctrlzap.Level(util.Must(zapcore.ParseLevel(agentLogLevel))),
-		ctrlzap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
-	))
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     "0",

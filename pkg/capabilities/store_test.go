@@ -12,10 +12,12 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/capability"
+	"github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testlog"
 )
 
-var lg = test.Log
+var lg = testlog.Log
 
 var _ = Describe("Store", Ordered, Label("unit"), func() {
 	var store capabilities.BackendStore
@@ -30,7 +32,7 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 		store = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
 			Address: "localhost",
 		}, lg)
-		mockClusterStore = test.NewTestClusterStore(ctrl)
+		mockClusterStore = mock_storage.NewTestClusterStore(ctrl)
 	})
 
 	When("creating a new store", func() {
@@ -40,12 +42,12 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 	})
 	When("adding items to the store", func() {
 		It("should be able to list and get items", func() {
-			backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 				Name:              "capability1",
 				CanInstall:        true,
 				InstallerTemplate: "foo",
 			})
-			backend2 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			backend2 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 				Name:              "capability2",
 				CanInstall:        true,
 				InstallerTemplate: "bar",
@@ -59,7 +61,7 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 			Expect(store.Get("capability2")).To(Equal(backend2))
 		})
 		It("should return an error if the item already exists", func() {
-			backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 				Name:              "capability1",
 				CanInstall:        true,
 				InstallerTemplate: "foo",
@@ -76,12 +78,12 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 	})
 	When("rendering install commands", func() {
 		It("should allow rendering installer templates for each backend", func() {
-			backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 				Name:              "capability1",
 				CanInstall:        true,
 				InstallerTemplate: "foo {{ .Token }} {{ .Pin }} [{{ .Address }}]",
 			})
-			backend2 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			backend2 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 				Name:              "capability2",
 				CanInstall:        true,
 				InstallerTemplate: "{{ .Address }} {{ .Token | quote }} {{ .Pin | title }}",
@@ -106,7 +108,7 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 
 		DescribeTable("custom arg rendering",
 			func(template string, expected string) {
-				Expect(store.Add("capability", test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+				Expect(store.Add("capability", mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 					Name:              "capability1",
 					CanInstall:        true,
 					InstallerTemplate: template,
@@ -137,11 +139,11 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 		})
 	})
 	It("should check if backends can be installed", func() {
-		backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+		backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 			Name:       "capability1",
 			CanInstall: true,
 		})
-		backend2 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+		backend2 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 			Name:       "capability2",
 			CanInstall: false,
 		})
@@ -166,12 +168,12 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 			Id: "cluster1",
 		}
 		mockClusterStore.CreateCluster(context.Background(), cluster)
-		backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+		backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 			Name:       "capability1",
 			CanInstall: true,
 			Storage:    mockClusterStore,
 		})
-		backend2 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+		backend2 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 			Name:       "capability2",
 			CanInstall: false,
 			Storage:    mockClusterStore,
@@ -197,7 +199,7 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 			Id: "cluster1",
 		}
 		mockClusterStore.CreateCluster(context.Background(), cluster)
-		backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+		backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
 			Name:       "capability1",
 			CanInstall: true,
 			Storage:    mockClusterStore,

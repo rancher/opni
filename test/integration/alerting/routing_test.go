@@ -17,20 +17,21 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-var defaultHook *test.MockIntegrationWebhookServer
+var defaultHook *alerting.MockIntegrationWebhookServer
 
 func init() {
-	test.IfIntegration(func() {
+	testruntime.IfIntegration(func() {
 		BuildRoutingLogicTest(
 			func() routing.OpniRouting {
-				defaultHooks := env.NewWebhookMemoryServer(env.Context(), "webhook")
+				defaultHooks := alerting.NewWebhookMemoryServer(env, "webhook")
 				defaultHook = defaultHooks
 				return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
 			},
@@ -57,7 +58,7 @@ func BuildRoutingLogicTest(
 				By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
 				fp := freeport.GetFreePort()
 
-				test.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
 			})
 
 			It("should be able to dynamically update alert routing", func() {
@@ -67,7 +68,7 @@ func BuildRoutingLogicTest(
 				Expect(err).To(Succeed())
 				By("Creating some test webhook servers")
 
-				servers := env.CreateWebhookServer(env.Context(), 3)
+				servers := alerting.CreateWebhookServer(env, 3)
 				server1, server2, server3 := servers[0], servers[1], servers[2]
 
 				condId1, condId2, condId3 := uuid.New().String(), uuid.New().String(), uuid.New().String()
@@ -92,19 +93,19 @@ func BuildRoutingLogicTest(
 						{
 							namespace: ns,
 							id:        condId1,
-							servers:   []*test.MockIntegrationWebhookServer{server1},
+							servers:   []*alerting.MockIntegrationWebhookServer{server1},
 							details:   details1,
 						},
 						{
 							namespace: ns,
 							id:        condId2,
-							servers:   []*test.MockIntegrationWebhookServer{server1, server2},
+							servers:   []*alerting.MockIntegrationWebhookServer{server1, server2},
 							details:   details2,
 						},
 						{
 							namespace: ns,
 							id:        condId3,
-							servers:   []*test.MockIntegrationWebhookServer{server1, server2, server3},
+							servers:   []*alerting.MockIntegrationWebhookServer{server1, server2, server3},
 							details:   details3,
 						},
 					},
@@ -113,7 +114,7 @@ func BuildRoutingLogicTest(
 				for _, spec := range suiteSpec.specs {
 					endpoints := lo.Map(
 						spec.servers,
-						func(server *test.MockIntegrationWebhookServer, _ int) *alertingv1.FullAttachedEndpoint {
+						func(server *alerting.MockIntegrationWebhookServer, _ int) *alertingv1.FullAttachedEndpoint {
 							return &alertingv1.FullAttachedEndpoint{
 								AlertEndpoint: server.Endpoint(),
 								EndpointId:    server.Endpoint().Id,
@@ -134,7 +135,7 @@ func BuildRoutingLogicTest(
 				}
 
 				By("running alertmanager with this config")
-				amPort, ca := env.RunAlertManager(env.Context(), router, tmpConfigDir, step+".yaml")
+				amPort, ca := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
 				defer ca()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
@@ -165,7 +166,7 @@ func BuildRoutingLogicTest(
 					spec.servers = spec.servers[1:]
 				}
 
-				amPort2, ca2 := env.RunAlertManager(env.Context(), router, tmpConfigDir, step+".yaml")
+				amPort2, ca2 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
 				defer ca2()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
@@ -200,7 +201,7 @@ func BuildRoutingLogicTest(
 				}
 
 				By("send an an alert to each specs")
-				amPort3, ca3 := env.RunAlertManager(env.Context(), router, tmpConfigDir, step+".yaml")
+				amPort3, ca3 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
 				defer ca3()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
@@ -226,13 +227,13 @@ func BuildRoutingLogicTest(
 type testSpecSuite struct {
 	name          string
 	specs         []*testSpec
-	defaultServer *test.MockIntegrationWebhookServer
+	defaultServer *alerting.MockIntegrationWebhookServer
 }
 
 type testSpec struct {
 	namespace string
 	id        string
-	servers   []*test.MockIntegrationWebhookServer
+	servers   []*alerting.MockIntegrationWebhookServer
 	details   *alertingv1.EndpointImplementation
 }
 
@@ -290,13 +291,13 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 		Expect(found).To(BeTrue())
 	}
 	// Addr is unique for each server
-	uniqServers := map[string]lo.Tuple2[*test.MockIntegrationWebhookServer, string]{}
+	uniqServers := map[string]lo.Tuple2[*alerting.MockIntegrationWebhookServer, string]{}
 	// Addr
 	expectedIds := map[string][]string{}
 	for _, spec := range t.specs {
 		for _, server := range spec.servers {
 			if _, ok := uniqServers[server.Addr]; !ok {
-				uniqServers[server.Addr] = lo.Tuple2[*test.MockIntegrationWebhookServer, string]{A: server, B: spec.namespace}
+				uniqServers[server.Addr] = lo.Tuple2[*alerting.MockIntegrationWebhookServer, string]{A: server, B: spec.namespace}
 			}
 			if _, ok := expectedIds[server.Addr]; !ok {
 				expectedIds[server.Addr] = []string{}

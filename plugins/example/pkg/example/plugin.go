@@ -2,12 +2,11 @@ package example
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/hashicorp/go-hclog"
+	"go.uber.org/zap"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -29,7 +28,8 @@ type ExamplePlugin struct {
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
-	Logger hclog.Logger
+	ctx    context.Context
+	logger *zap.SugaredLogger
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
@@ -45,14 +45,16 @@ func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, e
 }
 
 func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
-	lg := s.Logger
-	lg.Info("querying management API...")
+	s.logger.Debug("querying management API...")
 	var list *managementv1.APIExtensionInfoList
 	for {
 		var err error
 		list, err = api.APIExtensions(context.Background(), &emptypb.Empty{})
 		if err != nil {
-			log.Panic(err)
+			s.logger.With(
+				zap.Error(err),
+			).Error("error querying management API")
+			return
 		}
 		if len(list.Items) == 0 {
 			time.Sleep(500 * time.Millisecond)
@@ -61,33 +63,34 @@ func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 		break
 	}
 	for _, ext := range list.Items {
-		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
+		s.logger.Debugw("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
+	<-s.ctx.Done()
 }
 
 func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	kv := system.NewKVStoreClient[*EchoRequest](client)
-	lg := s.Logger
 	err := kv.Put(context.Background(), "foo", &EchoRequest{
 		Message: "hello",
 	})
 	if err != nil {
-		lg.Error("kv store error", "error", err)
+		s.logger.Errorw("kv store error", "error", err)
 	}
 
 	value, err := kv.Get(context.Background(), "foo")
 	if err != nil {
-		lg.Error("kv store error", "error", err)
+		s.logger.Errorw("kv store error", "error", err)
 	}
 	if value == nil {
-		lg.Error("kv store error", "error", "value is nil")
+		s.logger.Errorw("kv store error", "error", "value is nil")
 	}
-	lg.Info("successfully retrieved stored value", "message", value.Message)
+	s.logger.Infow("successfully retrieved stored value", "message", value.Message)
+	<-s.ctx.Done()
 }
 
 func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
 	app.GET("/example", func(c *gin.Context) {
-		s.Logger.Debug("handling /example")
+		s.logger.Debug("handling /example")
 		c.JSON(http.StatusOK, map[string]string{
 			"message": "hello world",
 		})
@@ -133,10 +136,11 @@ func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 	}, nil
 }
 
-func Scheme(_ context.Context) meta.Scheme {
+func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
-		Logger: logger.NewForPlugin(),
+		ctx:    ctx,
+		logger: logger.NewPluginLogger().Named("example"),
 	}
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(util.PackService(&ExampleAPIExtension_ServiceDesc, p)))

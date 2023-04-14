@@ -8,23 +8,23 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/tidwall/gjson"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	apis "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
+func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
 	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &apis.GetRuleRequest{
+		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
 			Namespace: "test",
 			GroupName: groupName,
@@ -39,9 +39,9 @@ func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Cont
 	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
 }
 
-func expectRuleGroupToNotExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+func expectRuleGroupToNotExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &apis.GetRuleRequest{
+		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
 			Namespace: "test",
 			GroupName: groupName,
@@ -94,7 +94,7 @@ func setMockKubernetesPodState(kubePort int, pod *mockPod) {
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
 	var env *test.Environment
-	var adminClient apis.CortexAdminClient
+	var adminClient cortexadmin.CortexAdminClient
 	var kubernetesTempMetricServerPort int
 	var kubernetesJobName string
 	ruleTestDataDir := "../../../pkg/test/testdata/slo/cortexrule"
@@ -112,9 +112,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		adminClient = apis.NewCortexAdminClient(env.ManagementClientConn())
+		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		// wait until data has been stored in cortex for the cluster
-		adminClient := env.NewCortexAdminClient()
 		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
 		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
 		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
@@ -174,9 +173,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				uid:       "test-uid",
 			})
 			Eventually(func() error {
-				resp, err := adminClient.ExtractRawSeries(ctx, &apis.MatcherRequest{
+				resp, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
 					Tenant:    "agent",
-					MatchExpr: metrics.KubeObjMetricNameMatcher,
+					MatchExpr: naming.KubeObjMetricNameMatcher,
 				},
 				)
 				if err != nil {
@@ -199,12 +198,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// expected outputs are a subset of the actual outputs
 			inputs := []TestSeriesMetrics{
 				{
-					input: &apis.SeriesRequest{
+					input: &cortexadmin.SeriesRequest{
 						Tenant: "agent",
 						JobId:  "prometheus",
 					},
-					output: &apis.SeriesInfoList{
-						Items: []*apis.SeriesInfo{
+					output: &cortexadmin.SeriesInfoList{
+						Items: []*cortexadmin.SeriesInfo{
 							{
 								SeriesName: "up",
 							},
@@ -215,12 +214,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					},
 				},
 				{
-					input: &apis.SeriesRequest{
+					input: &cortexadmin.SeriesRequest{
 						Tenant: "agent2",
 						JobId:  "prometheus",
 					},
-					output: &apis.SeriesInfoList{
-						Items: []*apis.SeriesInfo{
+					output: &cortexadmin.SeriesInfoList{
+						Items: []*cortexadmin.SeriesInfo{
 							{
 								SeriesName: "up",
 							},
@@ -252,13 +251,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// expected outputs are a subset of the actual outputs
 			inputs := []TestMetricLabelSet{
 				{
-					input: &apis.LabelRequest{
+					input: &cortexadmin.LabelRequest{
 						Tenant:     "agent",
 						JobId:      "prometheus",
 						MetricName: "prometheus_http_requests_total",
 					},
-					output: &apis.MetricLabels{
-						Items: []*apis.LabelSet{
+					output: &cortexadmin.MetricLabels{
+						Items: []*cortexadmin.LabelSet{
 							{
 								Name: "code",
 								Items: []string{
@@ -276,13 +275,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					},
 				},
 				{
-					input: &apis.LabelRequest{
+					input: &cortexadmin.LabelRequest{
 						Tenant:     "agent2",
 						JobId:      "prometheus",
 						MetricName: "prometheus_http_requests_total",
 					},
-					output: &apis.MetricLabels{
-						Items: []*apis.LabelSet{
+					output: &cortexadmin.MetricLabels{
+						Items: []*cortexadmin.LabelSet{
 							{
 								Name: "code",
 								Items: []string{
@@ -331,7 +330,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.LoadRuleRequest{
+				&cortexadmin.LoadRuleRequest{
 					ClusterId:   "agent",
 					Namespace:   "test",
 					YamlContent: sampleRuleYamlString,
@@ -344,7 +343,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			slothGeneratedGroupYamlString, err := ioutil.ReadFile(slothGeneratedGroup)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.LoadRuleRequest{
+				&cortexadmin.LoadRuleRequest{
 					ClusterId:   "agent",
 					Namespace:   "test",
 					YamlContent: slothGeneratedGroupYamlString,
@@ -365,7 +364,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlUpdateString, err := ioutil.ReadFile(sampleRuleUpdate)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.LoadRuleRequest{
+				&cortexadmin.LoadRuleRequest{
 					ClusterId:   "agent",
 					Namespace:   "test",
 					YamlContent: sampleRuleYamlUpdateString,
@@ -381,7 +380,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 		It("Should be able to delete existing rule groups", func() {
 			deleteGroupName := "opni-test-slo-rule"
-			_, err := adminClient.DeleteRule(ctx, &apis.DeleteRuleRequest{
+			_, err := adminClient.DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 				ClusterId: "agent",
 				Namespace: "test",
 				GroupName: deleteGroupName,
@@ -402,14 +401,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.LoadRuleRequest{
+				&cortexadmin.LoadRuleRequest{
 					ClusterId:   "agent",
 					Namespace:   "test",
 					YamlContent: sampleRuleYamlString,
 				})
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.LoadRuleRequest{
+				&cortexadmin.LoadRuleRequest{
 					Namespace:   "test",
 					ClusterId:   "agent2",
 					YamlContent: sampleRuleYamlString,
@@ -430,7 +429,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}).Should(Succeed())
 
 			deleteGroupName := "opni-test-slo-rule"
-			_, err = adminClient.DeleteRule(ctx, &apis.DeleteRuleRequest{
+			_, err = adminClient.DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 				ClusterId: "agent",
 				Namespace: "test",
 				GroupName: deleteGroupName,

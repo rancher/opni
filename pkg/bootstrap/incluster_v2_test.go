@@ -11,6 +11,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/test"
+	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -42,7 +43,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 		Expect(tokens.Items).To(HaveLen(0))
 
 		By("bootstrapping")
-		_, err = bootstrapper.Bootstrap(context.Background(), test.NewTestIdentProvider(ctrl, "foo"))
+		_, err = bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("checking tokens after bootstrap")
@@ -76,7 +77,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 				bootstrapper := &bootstrap.InClusterBootstrapperV2{
 					ManagementEndpoint: managementEndpoint,
 				}
-				_, err := bootstrapper.Bootstrap(context.Background(), test.NewTestIdentProvider(ctrl, "foo"))
+				_, err := bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -85,14 +86,14 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
 				bootstrapper := &bootstrap.InClusterBootstrapperV2{
 					GatewayEndpoint: gatewayEndpoint,
 				}
-				_, err := bootstrapper.Bootstrap(context.Background(), test.NewTestIdentProvider(ctrl, "foo"))
+				_, err := bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		When("finalizing after an error occurs", func() {
 			It("should be a no-op", func() {
 				bootstrapper := &bootstrap.InClusterBootstrapperV2{}
-				_, err := bootstrapper.Bootstrap(context.Background(), test.NewTestIdentProvider(ctrl, "foo"))
+				_, err := bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))
 				Expect(err).To(HaveOccurred())
 				err = bootstrapper.Finalize(context.Background())
 				Expect(err).NotTo(HaveOccurred())

@@ -2,14 +2,13 @@ package pkp_test
 
 import (
 	"crypto/x509"
-	_ "embed"
 	"encoding/json"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/pkp"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -29,10 +28,10 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+	Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 	Expect(testFingerprints.TestData).To(HaveLen(5))
 	var err error
-	fullChain, err = util.ParsePEMEncodedCertChain(test.TestData("full_chain.crt"))
+	fullChain, err = util.ParsePEMEncodedCertChain(testdata.TestData("full_chain.crt"))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(fullChain).To(HaveLen(5))
 })

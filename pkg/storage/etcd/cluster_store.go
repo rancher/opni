@@ -1,5 +1,3 @@
-//go:build !noetcd
-
 package etcd
 
 import (
@@ -13,8 +11,8 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"k8s.io/client-go/util/retry"
 
+	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 )
@@ -110,7 +108,8 @@ func (e *EtcdStore) UpdateCluster(
 	mutator storage.MutatorFunc[*corev1.Cluster],
 ) (*corev1.Cluster, error) {
 	var retCluster *corev1.Cluster
-	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
+
+	retryFunc := func() error {
 		txn := e.Client.Txn(ctx)
 		key := path.Join(e.Prefix, clusterKey, ref.Id)
 		cluster, err := e.GetCluster(ctx, ref)
@@ -142,7 +141,16 @@ func (e *EtcdStore) UpdateCluster(
 		cluster.SetResourceVersion(fmt.Sprint(txnResp.Header.Revision))
 		retCluster = cluster
 		return nil
-	})
+	}
+	c := defaultBackoff.Start(ctx)
+	var err error
+	for backoff.Continue(c) {
+		err = retryFunc()
+		if isRetryErr(err) {
+			continue
+		}
+		break
+	}
 	if err != nil {
 		return nil, err
 	}

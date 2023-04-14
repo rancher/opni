@@ -14,6 +14,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testk8s"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -78,9 +80,6 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		env = &test.Environment{
 			EnvironmentOptions: test.EnvironmentOptions{},
 			TestBin:            "../../../../testbin/bin",
-			CRDDirectoryPaths: []string{
-				"../../../../config/crd/prometheus",
-			},
 		}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
@@ -99,8 +98,15 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		Eventually(errC).Should(Receive(BeNil()))
 
 		By("adding prometheus resources to k8s")
-		config, _, err := env.StartK8s()
+		k8sctx, ca := context.WithCancel(waitctx.Background())
+		config, _, err := testk8s.StartK8s(k8sctx, "../../../../testbin/bin", []string{
+			"../../../../config/crd/prometheus",
+		})
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			ca()
+			waitctx.Wait(k8sctx)
+		})
 
 		kubeClient, err := kubernetes.NewForConfig(config)
 		Expect(err).NotTo(HaveOccurred())

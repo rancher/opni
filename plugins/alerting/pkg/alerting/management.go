@@ -3,10 +3,11 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"github.com/rancher/opni/pkg/management"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/rancher/opni/pkg/management"
 
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -78,35 +79,30 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(_ context.Context, opts ...drivers.AlertingManagerDriverOption) {
-	// load default cluster drivers
-	var (
-		driver drivers.ClusterDriver
-		err    error
-	)
-	drivers.ResetClusterDrivers()
-	if kcd, err := drivers.NewAlertingManagerDriver(opts...); err == nil {
-		drivers.RegisterClusterDriver(kcd)
-	} else {
-		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
-	}
-	name := "alerting-manager"
-	driver, err = drivers.GetClusterDriver(name)
-	if err != nil {
-		p.Logger.With(
-			"driver", name,
-			zap.Error(err),
-		).Error("failed to load kubernetes driver, checking other drivers...")
-		localName := "local-alerting"
-		driver, err = drivers.GetClusterDriver(localName)
-		if err != nil {
-			p.Logger.With(
-				"driver", localName,
-				zap.Error(err),
-			).Error("failed to load cluster driver, using fallback no-op driver")
-			driver = &drivers.NoopClusterDriver{}
+func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...any) {
+	priorityOrder := []string{"alerting-manager", "local-alerting", "test-environment", "noop"}
+	p.Logger.With(
+		"priorityOrder", priorityOrder,
+	).Warn("failed to load cluster driver, checking other drivers...")
+	var builder drivers.ClusterDriverBuilder
+	for _, name := range priorityOrder {
+		var ok bool
+		builder, ok = drivers.GetClusterDriverBuilder(name)
+		if ok {
+			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")
+			break
 		}
 	}
+
+	driver, err := builder(ctx, opts...)
+	if err != nil {
+		p.Logger.With(
+			"driver", driver.Name(),
+			zap.Error(err),
+		).Error("failed to initialize cluster driver")
+		return
+	}
+
 	p.opsNode.ClusterDriver.Set(driver)
 }
 

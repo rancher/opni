@@ -39,7 +39,7 @@ func deleteEvent(old *corev1.Cluster) storage.WatchEvent[*corev1.Cluster] {
 	}
 }
 
-var _ = Describe("Capability Context", func() {
+var _ = Describe("Capability Context", Label("unit"), func() {
 	When("no specific capabilities are given", func() {
 		var eventC chan storage.WatchEvent[*corev1.Cluster]
 		var ctx context.Context

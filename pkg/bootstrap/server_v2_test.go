@@ -34,7 +34,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 )
 
-var _ = Describe("Server V2", func() {
+var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 	var token *corev1.BootstrapToken
 	var token2 *corev1.BootstrapToken
 	var cert *tls.Certificate

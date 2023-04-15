@@ -9,12 +9,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -123,14 +127,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var env *test.Environment
 	var sloClient sloapi.SLOClient
 	var adminClient cortexadmin.CortexAdminClient
+	var client managementv1.ManagementClient
 	// downstream server ports
-	var pPort int
-	var pPort2 int
 	var instrumentationPort int
 	var done chan struct{}
 	var token *corev1.BootstrapToken
 	var info *managementv1.CertsInfoResponse
-	var createdSlos []*corev1.Reference
 
 	BeforeAll(func() {
 		env = &test.Environment{
@@ -139,8 +141,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 
-		client := env.NewManagementClient()
-		var err error
+		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
+		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
+			Mode: cortexops.DeploymentMode_AllInOne,
+			Storage: &storagev1.StorageSpec{
+				Backend: storagev1.Filesystem,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		client = env.NewManagementClient()
 		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Hour),
 		})
@@ -153,7 +163,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
-		pPort = env.StartPrometheus("agent", test.NewOverridePrometheusConfig(
+		env.SetPrometheusNodeConfigOverride("agent", test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -165,12 +175,18 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
-		pPort2 = env.StartPrometheus("agent2")
 
-		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
+		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+			Name:   wellknown.CapabilityMetrics,
+			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent"}},
+		})
+		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+			Name:   wellknown.CapabilityMetrics,
+			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent2"}},
+		})
+
 		sloClient = sloapi.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
-		fmt.Println("Before all done")
 		Eventually(func() error {
 			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
 			if err != nil {
@@ -199,7 +215,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
-		fmt.Println(createdSlos)
 		time.Sleep(time.Second * 10)
 	})
 
@@ -417,9 +432,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			updateData := resp.Items[1]
 			updateData.SLO.Name = "test-slo-updated"
 			updateData.SLO.ClusterId = "agent2"
-			item, err := sloClient.UpdateSLO(ctx, updateData)
+			_, err = sloClient.UpdateSLO(ctx, updateData)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(item)
 			respAfter, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(respAfter.Items).To(HaveLen(2))
@@ -455,7 +469,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
 				Expect(err).NotTo(HaveOccurred())
 				return resp.State
-			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Ok, sloapi.SLOStatusState_PartialDataOk))
+			}, time.Minute*3, time.Second*1).Should(BeElementOf(sloapi.SLOStatusState_Ok, sloapi.SLOStatusState_PartialDataOk))
 		})
 
 		It("Should preview SLOs in a raw data format", func() {
@@ -601,7 +615,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: failingSloId.Id})
 				Expect(err).NotTo(HaveOccurred())
 				return resp.State
-			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Warning, sloapi.SLOStatusState_Breaching))
+			}, time.Minute*3, time.Second*1).Should(BeElementOf(sloapi.SLOStatusState_Warning, sloapi.SLOStatusState_Breaching))
 		})
 
 		Specify("Multi Cluster Clone should clone to valid targets", func() {
@@ -620,8 +634,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					[]string{info.Chain[len(info.Chain)-1].Fingerprint},
 					test.WithContext(ctxCa),
 				)
-				Eventually(errC).Should(Receive(BeNil()))
-				env.StartPrometheus(id, test.NewOverridePrometheusConfig(
+				env.SetPrometheusNodeConfigOverride(id, test.NewOverridePrometheusConfig(
 					"slo/prometheus/config.yaml",
 					[]test.PrometheusJob{
 						{
@@ -630,6 +643,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 						},
 					}),
 				)
+				Eventually(errC).Should(Receive(BeNil()))
+
+				_, err := client.InstallCapability(ctx, &managementv1.CapabilityInstallRequest{
+					Name:   wellknown.CapabilityMetrics,
+					Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: id}},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
 				agentsCancel = append(agentsCancel, cancelFunc)
 				agentClusterIds = append(agentClusterIds, &corev1.Reference{Id: id})
 			}

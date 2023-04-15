@@ -223,6 +223,7 @@ func main() {
 			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management)
 			if err != nil {
 				testlog.Log.Error(err)
+				return
 			}
 			go func() {
 				dashboardSrv.ListenAndServe(environment.Context())

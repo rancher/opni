@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test/mock/capability"
+	mock_capability "github.com/rancher/opni/pkg/test/mock/capability"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -33,7 +33,7 @@ func (t testCapabilityDataSource) NodeManagerServer() capabilityv1.NodeManagerSe
 	return capabilityv1.UnimplementedNodeManagerServer{}
 }
 
-var _ = Describe("Server", Ordered, Label("slow"), func() {
+var _ = Describe("Server", Ordered, Label("unit"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {
@@ -76,12 +76,12 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(list.Items).To(BeEmpty())
 
-		backend1 := mock_v1.NewTestCapabilityBackend(tv.ctrl, &mock_v1.CapabilityInfo{
+		backend1 := mock_capability.NewTestCapabilityBackend(tv.ctrl, &mock_capability.CapabilityInfo{
 			Name:              "capability1",
 			CanInstall:        true,
 			InstallerTemplate: "foo",
 		})
-		backend2 := mock_v1.NewTestCapabilityBackend(tv.ctrl, &mock_v1.CapabilityInfo{
+		backend2 := mock_capability.NewTestCapabilityBackend(tv.ctrl, &mock_capability.CapabilityInfo{
 			Name:              "capability2",
 			CanInstall:        true,
 			InstallerTemplate: "bar",

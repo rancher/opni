@@ -99,7 +99,7 @@ func (l *ListRulesRequest) Validate() error {
 			}
 			if hf != v1.RuleHealthGood && hf != v1.RuleHealthBad && hf != v1.RuleHealthUnknown {
 				return validation.Errorf(
-					"unsupported healthFilter, should be one of : %s", hf, v1.RuleHealthGood, v1.RuleHealthBad, v1.RuleHealthUnknown,
+					"unsupported healthFilter %s, should be one of %s, %s, %s", hf, v1.RuleHealthGood, v1.RuleHealthBad, v1.RuleHealthUnknown,
 				)
 			}
 		}

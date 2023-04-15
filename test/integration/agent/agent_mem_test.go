@@ -123,7 +123,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
 		}
-		Expect(environment.Start(test.WithEnableGateway(false))).To(Succeed())
+		Expect(environment.Start(test.WithEnableGateway(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 
 		DeferCleanup(environment.Stop)
 		tempDir, err := os.MkdirTemp("", "opni-test")

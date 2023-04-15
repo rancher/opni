@@ -6,14 +6,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test/mock/auth"
-	"github.com/rancher/opni/pkg/test/mock/health"
+	mock_auth "github.com/rancher/opni/pkg/test/mock/auth"
+	mock_health "github.com/rancher/opni/pkg/test/mock/health"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
 )
 
-var _ = Describe("Monitor", func() {
+var _ = Describe("Monitor", Label("unit"), func() {
 	When("creating a new monitor", func() {
 		It("should have no current health status", func() {
 			monitor := health.NewMonitor()

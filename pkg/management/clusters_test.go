@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var _ = Describe("Clusters", Ordered, Label("slow"), func() {
+var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {

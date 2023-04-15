@@ -17,10 +17,14 @@ import (
 		FailOnPending:         bool | *false
 		FailFast:              bool | *false
 		FlakeAttempts:         int | *0
-		EmitSpecProgress:      bool | *false
 		DryRun:                bool | *false
+		PollProgressAfter:     time.#Duration | *(time.#Second * 30)
+		PollProgressInterval:  time.#Duration | *(time.#Second * 10)
 		Timeout:               time.#Duration | *(time.#Minute * 30)
+		EmitSpecProgress:      bool | *false
 		OutputInterceptorMode: string | *""
+		SourceRoots:           [...string] | *[]
+		GracePeriod:           time.#Duration | *(time.#Second * 30)
 		ParallelProcess:       int | *0
 		ParallelTotal:         int | *0
 		ParallelHost:          string | *""
@@ -80,16 +84,15 @@ import (
 		WatchRegExp:               string | *""
 	}
 	Reporter: {
-		NoColor:                bool | *false
-		SlowSpecThreshold:      time.#Duration | *(time.#Second * 15)
-		Succinct:               bool | *false
-		Verbose:                bool | *false
-		VeryVerbose:            bool | *false
-		FullTrace:              bool | *true
-		AlwaysEmitGinkgoWriter: bool | *false
-		JSONReport:             string | *""
-		JUnitReport:            string | *""
-		TeamcityReport:         string | *""
+		NoColor:        bool | *false
+		Succinct:       bool | *false
+		Verbose:        bool | *false
+		VeryVerbose:    bool | *false
+		FullTrace:      bool | *true
+		ShowNodeEvents: bool | *false
+		JSONReport:     string | *""
+		JUnitReport:    string | *""
+		TeamcityReport: string | *""
 	}
 }
 

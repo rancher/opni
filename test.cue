@@ -30,7 +30,7 @@ pkgTests: {
 }
 
 tests: ginkgo.#TestPlan & {
-	Parallel: false
+	Parallel: true
 	Actions: {
 		pkg: ginkgo.#Run & {
 			Packages: strings.Join(pkgTests.nonTemporal, ",")

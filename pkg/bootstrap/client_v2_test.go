@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var _ = Describe("Client V2", Ordered, Label("slow"), func() {
+var _ = Describe("Client V2", Ordered, Label("unit"), func() {
 	var fooIdent ident.Provider
 	var cert *tls.Certificate
 	var store storage.Backend

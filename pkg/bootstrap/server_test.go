@@ -13,8 +13,8 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test/mock/capability"
-	"github.com/rancher/opni/pkg/test/mock/storage"
+	mock_v1 "github.com/rancher/opni/pkg/test/mock/capability"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
@@ -38,7 +38,7 @@ type testCapBackend struct {
 	CanInstall bool
 }
 
-var _ = Describe("Server", Label("slow"), func() {
+var _ = Describe("Server", Label("unit"), func() {
 	var token *corev1.BootstrapToken
 	var token2 *corev1.BootstrapToken
 	var cert *tls.Certificate

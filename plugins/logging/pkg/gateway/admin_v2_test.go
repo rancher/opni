@@ -39,7 +39,7 @@ func createRequest() *loggingadmin.OpensearchClusterV2 {
 	}
 }
 
-var _ = Describe("Opensearch Admin V2", Ordered, Label("unit"), func() {
+var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 	var (
 		namespace         string
 		manager           *LoggingManagerV2

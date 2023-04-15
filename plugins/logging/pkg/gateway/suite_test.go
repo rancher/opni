@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sManager = testk8s.StartManager(ctx, restConfig)
+	k8sManager = testk8s.StartManager(ctx, restConfig, scheme)
 
 	DeferCleanup(func() {
 		By("tearing down the test environment")

@@ -8,8 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/mock/ident"
+	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -31,7 +32,7 @@ var _ = Describe("In-Cluster Bootstrap", Ordered, Label("integration"), func() {
 	})
 	It("should bootstrap using the management endpoint", func() {
 		bootstrapper := &bootstrap.InClusterBootstrapper{
-			Capability:         "test",
+			Capability:         wellknown.CapabilityExample,
 			GatewayEndpoint:    gatewayEndpoint,
 			ManagementEndpoint: managementEndpoint,
 		}
@@ -63,7 +64,7 @@ var _ = Describe("In-Cluster Bootstrap", Ordered, Label("integration"), func() {
 		When("the gateway endpoint is missing", func() {
 			It("should error", func() {
 				bootstrapper := &bootstrap.InClusterBootstrapper{
-					Capability:         "test",
+					Capability:         wellknown.CapabilityExample,
 					ManagementEndpoint: managementEndpoint,
 				}
 				_, err := bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))
@@ -73,7 +74,7 @@ var _ = Describe("In-Cluster Bootstrap", Ordered, Label("integration"), func() {
 		When("the management endpoint is missing", func() {
 			It("should error", func() {
 				bootstrapper := &bootstrap.InClusterBootstrapper{
-					Capability:      "test",
+					Capability:      wellknown.CapabilityExample,
 					GatewayEndpoint: gatewayEndpoint,
 				}
 				_, err := bootstrapper.Bootstrap(context.Background(), mock_ident.NewTestIdentProvider(ctrl, "foo"))

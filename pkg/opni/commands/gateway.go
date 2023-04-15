@@ -117,6 +117,16 @@ func BuildGatewayCmd() *cobra.Command {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to initialize web dashboard")
+		} else {
+			pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+				waitctx.AddOne(ctx)
+				defer waitctx.Done(ctx)
+				if err := d.ListenAndServe(ctx); err != nil {
+					lg.With(
+						zap.Error(err),
+					).Warn("dashboard server exited with error")
+				}
+			}))
 		}
 
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
@@ -130,16 +140,6 @@ func BuildGatewayCmd() *cobra.Command {
 				lg.With(
 					zap.Error(err),
 				).Warn("management server exited with error")
-			}
-		}))
-
-		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-			waitctx.AddOne(ctx)
-			defer waitctx.Done(ctx)
-			if err := d.ListenAndServe(ctx); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("dashboard server exited with error")
 			}
 		}))
 

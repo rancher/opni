@@ -9,18 +9,16 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test/testdata"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -63,7 +61,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	//#region Happy Path Tests
 
-	XIt("can get information about a specific cluster", func() {
+	It("can get information about a specific cluster", func() {
 		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
@@ -140,7 +138,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 	When("a cluster has installed capabilities", func() {
 		It("should prevent the cluster from being deleted", func() {
 			_, err := client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-				Name: "metrics",
+				Name: wellknown.CapabilityExample,
 				Target: &v1.InstallRequest{
 					Cluster: &corev1.Reference{
 						Id: "test-cluster-id",
@@ -160,38 +158,18 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 			Expect(util.StatusCode(errD)).To(Equal(codes.FailedPrecondition))
 		})
 		It("should allow uninstalling capabilities", func() {
-			// wait until data has been stored in cortex for the cluster
-			adminClient := cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
-			Eventually(func() error {
-				stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
-				if err != nil {
-					return err
-				}
-				for _, item := range stats.Items {
-					if item.UserID == "test-cluster-id" {
-						if item.NumSeries > 0 {
-							return nil
-						}
-					}
-				}
-				return fmt.Errorf("waiting for metric data to be stored in cortex")
-			}, 30*time.Second, 1*time.Second).Should(Succeed())
-
 			_, err := client.UninstallCapability(context.Background(), &managementv1.CapabilityUninstallRequest{
-				Name: wellknown.CapabilityMetrics,
+				Name: wellknown.CapabilityExample,
 				Target: &v1.UninstallRequest{
 					Cluster: &corev1.Reference{
 						Id: "test-cluster-id",
 					},
-					Options: capabilityv1.DefaultUninstallOptions{
-						DeleteStoredData: true,
-					}.ToStruct(),
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				status, err := client.CapabilityUninstallStatus(context.Background(), &managementv1.CapabilityStatusRequest{
-					Name: wellknown.CapabilityMetrics,
+					Name: wellknown.CapabilityExample,
 					Cluster: &corev1.Reference{
 						Id: "test-cluster-id",
 					},
@@ -206,7 +184,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 			}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
 			status, err := client.CapabilityUninstallStatus(context.Background(), &managementv1.CapabilityStatusRequest{
-				Name: wellknown.CapabilityMetrics,
+				Name: wellknown.CapabilityExample,
 				Cluster: &corev1.Reference{
 					Id: "test-cluster-id",
 				},

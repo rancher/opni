@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"google.golang.org/grpc/codes"
@@ -45,7 +46,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
 		}
-		Expect(environment.Start()).To(Succeed())
+		Expect(environment.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 

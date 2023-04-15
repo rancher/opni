@@ -653,6 +653,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
 		}
+		return
 	}
 	lg.Info("Waiting for cortex to start...")
 	for ctx.Err() == nil {

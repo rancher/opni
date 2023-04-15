@@ -33,7 +33,7 @@ func init() {
 	})
 }
 
-var _ = Describe("Alerting Router defaults", Ordered, Label("integration"), func() {
+var _ = Describe("Alerting Router defaults", Ordered, Serial, Label("integration"), func() {
 
 	BeforeAll(func() {
 		Expect(sharedEndpointSet).ToNot(BeNil())
@@ -70,7 +70,7 @@ func BuildRoutingTreeSuiteTest(
 	broadcastSubtreeTestcases []alerting.DefaultNamespaceSubTreeTestcase,
 	individualEndpointTestcases []alerting.IndividualEndpointTestcase,
 ) bool {
-	return Describe("Alerting Routing tree building tests", Ordered, Label("integration", "slow"), func() {
+	return Describe("Alerting Routing tree building tests", Ordered, Serial, Label("integration", "slow"), func() {
 		var currentCfg *config.Config
 		var step string
 		When("manipulating the opni condition routing tree", func() {

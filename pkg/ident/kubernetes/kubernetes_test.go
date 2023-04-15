@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Kubernetes", Ordered, Label("unit", "slow"), func() {
+var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 	var restConfig *rest.Config
 	BeforeAll(func() {
 		var err error

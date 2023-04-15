@@ -113,7 +113,7 @@ func newFs(mkdirs ...string) afero.Afero {
 	return afero.Afero{Fs: fsys}
 }
 
-var _ = Describe("Client", func() {
+var _ = Describe("Client", Label("unit"), func() {
 	When("creating a new patch client", func() {
 		It("should create the default plugin directory if it does not exist yet", func() {
 			fsys := newFs("/plugins")

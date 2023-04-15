@@ -3,6 +3,7 @@ package machinery
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/storage"
@@ -11,6 +12,9 @@ import (
 func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (storage.Backend, error) {
 	storageBackend := storage.CompositeBackend{}
 	builder := storage.GetStoreBuilder(cfg.Type)
+	if builder == nil {
+		return nil, fmt.Errorf("unknown storage backend %s", cfg.Type)
+	}
 	var store any
 	var err error
 	switch cfg.Type {

@@ -6,11 +6,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	. "github.com/rancher/opni/plugins/aiops/pkg/gateway"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
+var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 	var (
 		namespace, version string
 		plugin             *AIOpsPlugin
@@ -57,10 +57,7 @@ var _ = Describe("AI Admin", Ordered, Label("unit"), func() {
 	When("opnicluster does not exist", func() {
 		Specify("get should return 404", func() {
 			_, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
-			Expect(err).To(HaveOccurred())
-			s, ok := status.FromError(err)
-			Expect(ok).To(BeTrue())
-			Expect(s.Code()).To(Equal(codes.NotFound))
+			Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 		})
 		Specify("delete should error", func() {
 			_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})

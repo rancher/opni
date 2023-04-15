@@ -12,11 +12,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -44,6 +46,15 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label("in
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+
+		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
+		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
+			Mode: cortexops.DeploymentMode_AllInOne,
+			Storage: &storagev1.StorageSpec{
+				Backend: storagev1.Filesystem,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterAll(func() {

@@ -62,7 +62,6 @@ func init() {
 		env := test.EnvFromContext(ctx)
 		return NewTestEnvMetricsNodeDriver(env), nil
 	})
-
 }
 
 type TestEnvMetricsClusterDriver struct {
@@ -78,6 +77,14 @@ type TestEnvMetricsClusterDriver struct {
 }
 
 func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
+	go func() {
+		client := node.NewNodeConfigurationClient(env.ManagementClientConn())
+		client.SetDefaultConfiguration(context.Background(), &node.MetricsCapabilitySpec{
+			Prometheus: &node.PrometheusSpec{
+				DeploymentStrategy: "testEnvironment",
+			},
+		})
+	}()
 	return &TestEnvMetricsClusterDriver{
 		Env:           env,
 		Configuration: &cortexops.ClusterConfiguration{},
@@ -206,7 +213,7 @@ type TestEnvMetricsNodeDriver struct {
 }
 
 func (d *TestEnvMetricsNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
-	if config.GetDiscovery().Filesystem != nil {
+	if config.GetDiscovery().GetFilesystem() != nil {
 		return rules.NewFilesystemRuleFinder(config.Discovery.Filesystem)
 	}
 	return nil

@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 )
 
-var _ = Describe("Opensearch", Label("unit"), func() {
+var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 	var (
 		reconciler *Reconciler
 		transport  *httpmock.MockTransport

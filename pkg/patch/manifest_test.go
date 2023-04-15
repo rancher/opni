@@ -25,7 +25,7 @@ type testLeftJoinData struct {
 	expected    *controlv1.PatchList
 }
 
-var _ = Describe("Patch Manifest Operations", func() {
+var _ = Describe("Patch Manifest Operations", Label("unit"), func() {
 	When("Receiving two sets of manifests", func() {
 		hash1, hash2, hash3, hash4 := NewDigest4()
 

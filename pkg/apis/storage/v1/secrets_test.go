@@ -7,7 +7,7 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 )
 
-var _ = Describe("Secrets Redaction", func() {
+var _ = Describe("Secrets Redaction", Label("unit"), func() {
 	It("should redact secrets", func() {
 		cfg := &storagev1.StorageSpec{
 			S3: &storagev1.S3StorageSpec{

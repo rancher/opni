@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("In-Cluster Bootstrap V2", Ordered, func() {
+var _ = Describe("In-Cluster Bootstrap V2", Ordered, Label("integration"), func() {
 	var gatewayEndpoint, managementEndpoint string
 	var managementClient managementv1.ManagementClient
 	BeforeAll(func() {

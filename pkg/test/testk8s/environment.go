@@ -3,7 +3,6 @@ package testk8s
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -18,11 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func StartManager(ctx waitctx.PermissiveContext, restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {
+func StartManager(ctx waitctx.PermissiveContext, restConfig *rest.Config, scheme *k8sruntime.Scheme, reconcilers ...Reconciler) ctrl.Manager {
 	ports := freeport.GetFreePorts(2)
 
 	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                 apis.NewScheme(),
+		Scheme:                 scheme,
 		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
 		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
 	}))
@@ -42,18 +41,12 @@ func StartK8s(ctx waitctx.PermissiveContext, testbin string, crdDirs []string) (
 
 	scheme := apis.NewScheme()
 
-	for _, path := range crdDirs {
-		_, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			panic(fmt.Errorf("k8s CRDS : %v", err))
-		}
-	}
-
 	k8sEnv := &envtest.Environment{
 		BinaryAssetsDirectory: testbin,
-		CRDDirectoryPaths:     crdDirs,
 		Scheme:                scheme,
+		CRDDirectoryPaths:     crdDirs,
 		CRDs:                  GetCertManagerCRDs(scheme),
+		ErrorIfCRDPathMissing: true,
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				SecureServing: envtest.SecureServing{

@@ -186,6 +186,7 @@ func (p *Plugin) watchGlobalCluster(
 			event, err := clusterClient.Recv()
 			if err != nil {
 				p.Logger.Errorf("failed to receive cluster event : %s", err)
+				continue
 			}
 			watcher.HandleEvent(event)
 		}

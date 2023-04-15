@@ -34,7 +34,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModelTrainingClient interface {
 	TrainModel(ctx context.Context, in *ModelTrainingParametersList, opts ...grpc.CallOption) (*ModelTrainingResponse, error)
-	PutModelTrainingStatus(ctx context.Context, in *ModelTrainingStatistics, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PutModelTrainingStatus(ctx context.Context, in *ModelStatus, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ClusterWorkloadAggregation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadAggregationList, error)
 	GetModelStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelStatus, error)
 	GetModelTrainingParameters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ModelTrainingParametersList, error)
@@ -58,7 +58,7 @@ func (c *modelTrainingClient) TrainModel(ctx context.Context, in *ModelTrainingP
 	return out, nil
 }
 
-func (c *modelTrainingClient) PutModelTrainingStatus(ctx context.Context, in *ModelTrainingStatistics, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *modelTrainingClient) PutModelTrainingStatus(ctx context.Context, in *ModelStatus, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ModelTraining_PutModelTrainingStatus_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *modelTrainingClient) GPUInfo(ctx context.Context, in *emptypb.Empty, op
 // for forward compatibility
 type ModelTrainingServer interface {
 	TrainModel(context.Context, *ModelTrainingParametersList) (*ModelTrainingResponse, error)
-	PutModelTrainingStatus(context.Context, *ModelTrainingStatistics) (*emptypb.Empty, error)
+	PutModelTrainingStatus(context.Context, *ModelStatus) (*emptypb.Empty, error)
 	ClusterWorkloadAggregation(context.Context, *v1.Reference) (*WorkloadAggregationList, error)
 	GetModelStatus(context.Context, *emptypb.Empty) (*ModelStatus, error)
 	GetModelTrainingParameters(context.Context, *emptypb.Empty) (*ModelTrainingParametersList, error)
@@ -123,7 +123,7 @@ type UnimplementedModelTrainingServer struct {
 func (UnimplementedModelTrainingServer) TrainModel(context.Context, *ModelTrainingParametersList) (*ModelTrainingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TrainModel not implemented")
 }
-func (UnimplementedModelTrainingServer) PutModelTrainingStatus(context.Context, *ModelTrainingStatistics) (*emptypb.Empty, error) {
+func (UnimplementedModelTrainingServer) PutModelTrainingStatus(context.Context, *ModelStatus) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PutModelTrainingStatus not implemented")
 }
 func (UnimplementedModelTrainingServer) ClusterWorkloadAggregation(context.Context, *v1.Reference) (*WorkloadAggregationList, error) {
@@ -170,7 +170,7 @@ func _ModelTraining_TrainModel_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _ModelTraining_PutModelTrainingStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ModelTrainingStatistics)
+	in := new(ModelStatus)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func _ModelTraining_PutModelTrainingStatus_Handler(srv interface{}, ctx context.
 		FullMethod: ModelTraining_PutModelTrainingStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ModelTrainingServer).PutModelTrainingStatus(ctx, req.(*ModelTrainingStatistics))
+		return srv.(ModelTrainingServer).PutModelTrainingStatus(ctx, req.(*ModelStatus))
 	}
 	return interceptor(ctx, in, info, handler)
 }

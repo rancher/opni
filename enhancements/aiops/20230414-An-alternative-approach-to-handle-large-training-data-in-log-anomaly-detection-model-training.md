@@ -11,6 +11,7 @@ When Opni's user launches a workload log anomaly detection training job with hug
 * Compare to streaming-dataloader:
 	* more stable model quality than using streaming-dataloader.
 	* only need to process data once when training with more than 1 epochs.
+	* easier to build vocab file.
 * No longer loads the whole training dataset into memory, this resolves the memory pressure issue in the scenario that training data size is large.
 * Reduce data download/preprocessing time by parallelization.
 

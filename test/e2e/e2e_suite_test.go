@@ -61,9 +61,7 @@ type StackOutputs struct {
 }
 
 var _ = BeforeSuite(func() {
-	testEnv = &test.Environment{
-		TestBin: "../../testbin/bin",
-	}
+	testEnv = &test.Environment{}
 
 	if value, ok := os.LookupEnv("STACK_OUTPUTS"); ok {
 		Expect(json.Unmarshal([]byte(value), &outputs)).To(Succeed())

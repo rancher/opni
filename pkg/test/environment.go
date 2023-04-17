@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -239,6 +240,46 @@ func defaultStorageBackend() v1beta1.StorageType {
 	return "jetstream"
 }
 
+func FindTestBin() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+WALK:
+	for {
+		if wd == "/" {
+			return "", errors.New("could not find go.mod for github.com/rancher/opni")
+		}
+		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
+			// check to make sure it's the right one
+			f, err := os.Open(filepath.Join(wd, "go.mod"))
+			if err != nil {
+				return "", err
+			}
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.HasPrefix(line, "module") {
+					if line == "module github.com/rancher/opni" {
+						f.Close()
+						break WALK
+					}
+					// not the right one (probably a sub-module)
+					break
+				}
+			}
+			f.Close()
+		}
+		wd = filepath.Dir(wd)
+	}
+	testbin := filepath.Join(wd, "testbin", "bin")
+	if _, err := os.Stat(testbin); err != nil {
+		return "", fmt.Errorf("testbin directory not found at its expected location: %s", testbin)
+	}
+
+	return testbin, nil
+}
+
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:             false,
@@ -250,6 +291,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		storageBackend:         defaultStorageBackend(),
 	}
 	options.apply(opts...)
+
+	if e.TestBin == "" {
+		var err error
+		e.TestBin, err = FindTestBin()
+		if err != nil {
+			return err
+		}
+	}
 
 	if options.storageBackend == "etcd" && !options.enableEtcd {
 		options.enableEtcd = true

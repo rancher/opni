@@ -1,4 +1,4 @@
-package integration_test
+package metrics_test
 
 import (
 	"context"
@@ -20,9 +20,7 @@ var _ = Describe("Impersonated Metrics", Ordered, Label("integration"), func() {
 	var agent1Cancel context.CancelFunc
 	var metricsUrl string
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 

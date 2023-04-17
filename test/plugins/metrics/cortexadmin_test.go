@@ -1,4 +1,4 @@
-package plugins_test
+package metrics_test
 
 import (
 	"context"
@@ -9,18 +9,33 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/tidwall/gjson"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+type TestSeriesMetrics struct {
+	input  *cortexadmin.SeriesRequest
+	output *cortexadmin.SeriesInfoList
+}
+
+type TestMetricLabelSet struct {
+	input  *cortexadmin.LabelRequest
+	output *cortexadmin.MetricLabels
+}
 
 func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
 	for i := 0; i < 10; i++ {
@@ -97,13 +112,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var adminClient cortexadmin.CortexAdminClient
 	var kubernetesTempMetricServerPort int
 	var kubernetesJobName string
-	ruleTestDataDir := "../../../pkg/test/testdata/slo/cortexrule"
+	ruleTestDataDir := "../../../pkg/test/testdata/testdata/slo/cortexrule"
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
+
+		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
+		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
+			Mode: cortexops.DeploymentMode_AllInOne,
+			Storage: &storagev1.StorageSpec{
+				Backend: storagev1.Filesystem,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
 
 		client := env.NewManagementClient()
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -119,7 +141,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc).Should(Receive(BeNil()))
 		kubernetesJobName = "kubernetes"
-		env.StartPrometheus("agent", test.NewOverridePrometheusConfig(
+		env.SetPrometheusNodeConfigOverride("agent", test.NewOverridePrometheusConfig(
 			"alerting/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -130,7 +152,22 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		)
 		_, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc2).Should(Receive(BeNil()))
-		env.StartPrometheus("agent2")
+
+		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+			Name: wellknown.CapabilityMetrics,
+			Target: &capabilityv1.InstallRequest{
+				Cluster: &corev1.Reference{Id: "agent"},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+			Name: wellknown.CapabilityMetrics,
+			Target: &capabilityv1.InstallRequest{
+				Cluster: &corev1.Reference{Id: "agent2"},
+			},
+		})
+
 		Eventually(func() error {
 			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
 			if err != nil {

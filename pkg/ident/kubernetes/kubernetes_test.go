@@ -20,7 +20,7 @@ var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 	BeforeAll(func() {
 		var err error
 		ctx, ca := context.WithCancel(waitctx.Background())
-		restConfig, _, err = testk8s.StartK8s(ctx, "../../../testbin/bin", nil)
+		restConfig, _, err = testk8s.StartK8s(ctx, nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		DeferCleanup(func() {

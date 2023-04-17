@@ -1,4 +1,4 @@
-package _import
+package metrics_test
 
 import (
 	"context"
@@ -77,10 +77,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		Expect(os.Setenv("POD_NAMESPACE", "default")).ToNot(HaveOccurred())
 
 		By("starting test environment")
-		env = &test.Environment{
-			EnvironmentOptions: test.EnvironmentOptions{},
-			TestBin:            "../../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 
@@ -99,8 +96,8 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())
-		config, _, err := testk8s.StartK8s(k8sctx, "../../../../testbin/bin", []string{
-			"../../../../config/crd/prometheus",
+		config, _, err := testk8s.StartK8s(k8sctx, []string{
+			"../../../config/crd/prometheus",
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {

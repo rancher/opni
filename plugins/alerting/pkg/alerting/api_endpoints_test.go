@@ -20,9 +20,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var endpointClient alertingv1.AlertEndpointsClient
 
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 		endpointClient = alertingv1.NewAlertEndpointsClient(env.ManagementClientConn())

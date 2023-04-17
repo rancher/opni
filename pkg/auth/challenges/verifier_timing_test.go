@@ -63,7 +63,7 @@ func (ks *keyringStore) Delete(ctx context.Context) error {
 	return nil
 }
 
-var _ = Describe("Keyring Verifier Timing", Ordered, FlakeAttempts(2), Label("unit", "temporal"), func() {
+var _ = Describe("Keyring Verifier Timing", Ordered, Serial, FlakeAttempts(2), Label("unit", "temporal"), func() {
 	BeforeAll(func() {
 		if testing.CoverMode() != "" {
 			Skip("skipping test when coverage mode is enabled")

@@ -30,14 +30,25 @@ import (
 		ParallelHost:          string | *""
 	}
 	Build: {
-		Race:                 bool | *true
-		Cover:                bool | *true
-		CoverMode:            string | *"atomic"
-		CoverPkg:             string | *""
+		Race:         bool | *true
+		Cover:        bool | *true
+		CoverMode:    string
+		CoverPkg:     string
+		CoverProfile: string
+		*{
+			Cover:        true
+			CoverMode:    string | *"atomic"
+			CoverPkg:     string | *""
+			CoverProfile: string | *"cover-\(Name).out"
+		} | {
+			Cover:        false
+			CoverMode:    ""
+			CoverPkg:     ""
+			CoverProfile: ""
+		}
 		Vet:                  string | *""
 		BlockProfile:         string | *""
 		BlockProfileRate:     int | *0
-		CoverProfile:         string | *"cover-\(Name).out"
 		CPUProfile:           string | *""
 		MemProfile:           string | *""
 		MemProfileRate:       int | *0
@@ -68,7 +79,7 @@ import (
 	Run: {
 		Recurse:                   bool | *false
 		SkipPackage:               string | *""
-		RequireSuite:              bool | *false
+		RequireSuite:              bool | *true
 		NumCompilers:              int | *0
 		Procs:                     int | *0
 		Parallel:                  bool | *false

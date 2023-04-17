@@ -22,9 +22,7 @@ var tmpConfigDir string
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
-		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start(test.WithEnableNodeExporter(true))).To(Succeed())
 		DeferCleanup(env.Stop)

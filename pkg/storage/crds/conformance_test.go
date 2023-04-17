@@ -25,7 +25,7 @@ var store = future.New[*crds.CRDStore]()
 var _ = BeforeSuite(func() {
 	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
 		ctx, ca := context.WithCancel(waitctx.Background())
-		config, _, err := testk8s.StartK8s(ctx, "../../../testbin/bin", []string{"../../../config/crd/bases"})
+		config, _, err := testk8s.StartK8s(ctx, []string{"../../../config/crd/bases"})
 		Expect(err).NotTo(HaveOccurred())
 
 		store.Set(crds.NewCRDStore(crds.WithRestConfig(config)))

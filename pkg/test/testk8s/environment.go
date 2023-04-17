@@ -8,6 +8,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -36,10 +37,15 @@ func StartManager(ctx waitctx.PermissiveContext, restConfig *rest.Config, scheme
 	return manager
 }
 
-func StartK8s(ctx waitctx.PermissiveContext, testbin string, crdDirs []string) (*rest.Config, *k8sruntime.Scheme, error) {
+func StartK8s(ctx waitctx.PermissiveContext, crdDirs []string) (*rest.Config, *k8sruntime.Scheme, error) {
 	port := freeport.GetFreePort()
 
 	scheme := apis.NewScheme()
+
+	testbin, err := test.FindTestBin()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	k8sEnv := &envtest.Environment{
 		BinaryAssetsDirectory: testbin,

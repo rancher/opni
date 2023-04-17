@@ -21,7 +21,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	BeforeAll(func() {
 		var err error
 		ctx, ca := context.WithCancel(waitctx.Background())
-		restConfig, _, err = testk8s.StartK8s(ctx, "../../../testbin/bin", nil)
+		restConfig, _, err = testk8s.StartK8s(ctx, nil)
 		Expect(err).NotTo(HaveOccurred())
 		tempFile, err := os.CreateTemp("", "test-kubeconfig")
 		Expect(err).NotTo(HaveOccurred())

@@ -198,6 +198,9 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 
 		if rt.spec.Parallel {
 			run.Run.NumCompilers = runtime.NumCPU() / len(rt.spec.Actions)
+		} else if run.Run.Parallel {
+			run.Run.NumCompilers = runtime.NumCPU() / 2
+			run.Run.Procs = runtime.NumCPU() / 2
 		}
 		name, args, err := run.CommandLine()
 		if err != nil {

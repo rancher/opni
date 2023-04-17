@@ -30,14 +30,12 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	env := test.Environment{
-		TestBin: "../../../../testbin/bin",
-	}
+	env := test.Environment{}
 
 	ctx, ca := context.WithCancel(waitctx.Background())
 	var err error
 
-	restConfig, scheme, err = testk8s.StartK8s(ctx, "../../../../testbin/bin", []string{
+	restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
 		"../../../../config/crd/bases",
 		"../../../../config/crd/opensearch",
 		"../../../../test/resources",

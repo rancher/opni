@@ -18,9 +18,7 @@ var _ = Describe("In-Cluster Bootstrap", Ordered, Label("integration"), func() {
 	var gatewayEndpoint, managementEndpoint string
 	var managementClient managementv1.ManagementClient
 	BeforeAll(func() {
-		env := test.Environment{
-			TestBin: "../../testbin/bin",
-		}
+		env := test.Environment{}
 		Expect(env.Start()).To(Succeed())
 
 		conf := env.GatewayConfig()

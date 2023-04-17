@@ -19,9 +19,7 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 	var client managementv1.ManagementClient
 	var ctx context.Context
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		client = env.NewManagementClient(test.WithClientCaching(10*1024, time.Minute))
 		ctx = env.Context()

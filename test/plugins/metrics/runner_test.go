@@ -1,4 +1,4 @@
-package _import
+package metrics_test
 
 import (
 	"fmt"
@@ -157,7 +157,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
-				Message: "",
+				Message: "completed",
 				State:   remoteread.TargetState_Completed,
 			}
 
@@ -189,7 +189,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
 					},
 				},
-				Message: "",
+				Message: "completed",
 				State:   remoteread.TargetState_Completed,
 			}
 

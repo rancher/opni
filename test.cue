@@ -30,34 +30,38 @@ pkgTests: {
 }
 
 tests: ginkgo.#TestPlan & {
-	Parallel: true
+	Parallel: false
 	Actions: {
 		pkg: ginkgo.#Run & {
 			Packages: strings.Join(pkgTests.nonTemporal, ",")
 		}
 		pkg_temporal: ginkgo.#Run & {
 			Packages: strings.Join(pkgTests.temporal, ",")
+			Suite: LabelFilter: "temporal"
 			Build: {
-				Race: false
+				Race:  false
+				Cover: false
 			}
 		}
 		controller: ginkgo.#Run & {
 			Packages: "./controllers"
-			Build: CoverPkg: "github.com/rancher/opni/controllers,github.com/rancher/opni/pkg/resources/.../..."
-			Suite: {
-				LabelFilter: "!deprecated"
-			}
+			Build: CoverPkg:    "github.com/rancher/opni/controllers,github.com/rancher/opni/pkg/resources/.../..."
+			Suite: LabelFilter: "!deprecated"
 		}
 		logging: ginkgo.#Run & {
 			Packages: "./plugins/logging/pkg/gateway"
 			Build: CoverPkg: "github.com/rancher/opni/plugins/logging/pkg/gateway"
 		}
+		plugins: ginkgo.#Run & {
+			Packages: "./test/plugins/..."
+			Build: CoverPkg: "github.com/rancher/opni/plugins/..."
+			Run: Parallel:   true
+		}
 		integration: ginkgo.#Run & {
-			Packages: "./test/functional/...,./test/integration/..."
-			Build: CoverPkg: "github.com/rancher/opni/pkg/agent,github.com/rancher/opni/pkg/gateway"
-			Suite: {
-				LabelFilter: "!aberrant"
-			}
+			Packages: "./test/integration/..."
+			Build: CoverPkg:    "github.com/rancher/opni/pkg/agent/v2,github.com/rancher/opni/pkg/gateway"
+			Suite: LabelFilter: "!aberrant"
+			Run: Parallel:      true
 		}
 		e2e: ginkgo.#Run & {
 			Packages: "./test/e2e/..."
@@ -73,9 +77,7 @@ tests: ginkgo.#TestPlan & {
 				Race:  false
 				Cover: false
 			}
-			Suite: {
-				LabelFilter: "aberrant"
-			}
+			Suite: LabelFilter: "aberrant"
 		}
 	}
 	Coverage: {

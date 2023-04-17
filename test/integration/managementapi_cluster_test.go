@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/test/testdata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -30,12 +28,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),

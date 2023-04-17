@@ -26,9 +26,7 @@ import (
 var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 	ports := freeport.GetFreePorts(2)
 	BeforeAll(func() {
-		env := test.Environment{
-			TestBin: "../../testbin/bin",
-		}
+		env := test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 

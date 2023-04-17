@@ -32,7 +32,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	var err error
 	ctx, ca := context.WithCancel(waitctx.Background())
-	restConfig, scheme, err = testk8s.StartK8s(ctx, "../../../../testbin/bin", []string{
+	restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
 		"../../../../config/crd/bases",
 		"../../../../config/crd/opensearch",
 		"../../../../test/resources",

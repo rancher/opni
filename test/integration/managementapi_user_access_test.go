@@ -2,13 +2,11 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test/testdata"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -24,12 +22,9 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),

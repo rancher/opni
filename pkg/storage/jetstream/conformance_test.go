@@ -23,9 +23,7 @@ var store = future.New[*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
-		env := test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		env := test.Environment{}
 		env.Start(
 			test.WithEnableGateway(false),
 			test.WithEnableEtcd(false),

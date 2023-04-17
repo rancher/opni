@@ -1,8 +1,7 @@
-package integration_test
+package metrics_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testdata"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -22,13 +20,10 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

@@ -92,7 +92,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow
 	BeforeAll(func() {
 		ctx, ca := context.WithCancel(waitctx.Background())
 
-		restConfig, _, err := testk8s.StartK8s(ctx, "../../../testbin/bin", []string{"testdata/crds"})
+		restConfig, _, err := testk8s.StartK8s(ctx, []string{"testdata/crds"})
 		Expect(err).NotTo(HaveOccurred())
 
 		k8sClient, err = client.New(restConfig, client.Options{

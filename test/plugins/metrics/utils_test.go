@@ -1,10 +1,11 @@
-package _import
+package metrics_test
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -14,17 +15,18 @@ import (
 )
 
 func AssertTargetProgress(expected *remoteread.TargetProgress, actual *remoteread.TargetProgress) {
+	GinkgoHelper()
 	if expected == nil {
 		Expect(actual).To(BeNil())
 		return
 	}
-
 	Expect(actual.StartTimestamp.String()).To(Equal(expected.StartTimestamp.String()))
 	Expect(actual.LastReadTimestamp.String()).To(Equal(expected.LastReadTimestamp.String()))
 	Expect(actual.EndTimestamp.String()).To(Equal(expected.EndTimestamp.String()))
 }
 
 func AssertTargetStatus(expected *remoteread.TargetStatus, actual *remoteread.TargetStatus) {
+	GinkgoHelper()
 	// check message first so ginkgo will show us the error message
 	Expect(actual.Message).To(Equal(expected.Message))
 	Expect(actual.State).To(Equal(expected.State))

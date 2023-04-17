@@ -46,12 +46,12 @@ func buildExamplePlugin(destDir string) error {
 func buildMinimalAgent() (string, error) {
 	testlog.Log.Info("building minimal agent...")
 	return gexec.BuildWithEnvironment("github.com/rancher/opni/cmd/opni", []string{"CGO_ENABLED=0"},
-		"-tags=noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noscheme_thirdparty,noalertmanager,nomsgpack",
+		"-tags=noagentv1,noplugins,nohooks,nomanager,nocortex,nodebug,noevents,nogateway,noscheme_thirdparty,noalertmanager,nomsgpack",
 	)
 }
 
 // this test takes approx. 2 minutes
-var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), func() {
+var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temporal"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -120,9 +120,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Label("aberrant", "temporal"), f
 			gexec.CleanupBuildArtifacts()
 		})
 
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start(test.WithEnableGateway(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 
 		DeferCleanup(environment.Stop)

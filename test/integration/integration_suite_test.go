@@ -7,11 +7,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	_ "github.com/rancher/opni/plugins/metrics/test"
+	_ "github.com/rancher/opni/plugins/example/test"
 )
 
-func TestGateway(t *testing.T) {
+func TestIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Functional Test Suite")
+	RunSpecs(t, "Integration Suite")
 }

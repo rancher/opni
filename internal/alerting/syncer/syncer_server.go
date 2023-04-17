@@ -1,4 +1,4 @@
-package extensions
+package syncer
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 
 	"google.golang.org/grpc"
-	status "google.golang.org/grpc/status"
+	"google.golang.org/grpc/status"
 
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"

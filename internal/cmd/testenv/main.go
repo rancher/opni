@@ -89,9 +89,7 @@ func main() {
 	}
 
 	randSrc := rand.New(rand.NewSource(agentIdSeed))
-	environment := &test.Environment{
-		TestBin: "testbin/bin",
-	}
+	environment := &test.Environment{}
 	var iPort int
 	var kPort int
 	var localAgentOnce sync.Once

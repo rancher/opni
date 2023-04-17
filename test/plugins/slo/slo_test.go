@@ -135,9 +135,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 	var info *managementv1.CertsInfoResponse
 
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 

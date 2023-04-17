@@ -474,7 +474,7 @@ func Protobuf() {
 func Minimal() error {
 	if err := goBuild(
 		"-tags",
-		"noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty,noalertmanager,nomsgpack",
+		"noagentv1,noplugins,nohooks,nomanager,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty,noalertmanager,nomsgpack",
 		"./cmd/opni",
 	); err != nil {
 		return err

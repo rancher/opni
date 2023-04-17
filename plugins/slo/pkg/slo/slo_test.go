@@ -81,9 +81,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 	var adminClient cortexadmin.CortexAdminClient
 
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
-		}
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 

@@ -99,9 +99,7 @@ func BuildEmbeddedServerNotificationTests(
 		var tmpConfigDir string
 		BeforeAll(func() {
 
-			env = &test.Environment{
-				TestBin: "../../../testbin/bin",
-			}
+			env = &test.Environment{}
 			Expect(env).NotTo(BeNil())
 			Expect(env.Start()).To(Succeed())
 			DeferCleanup(env.Stop)

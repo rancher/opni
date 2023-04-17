@@ -1,8 +1,7 @@
-package integration_test
+package metrics_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -29,12 +27,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	agentId := "agent-1"
 	userId := "user-1"
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		client := environment.NewManagementClient()
-		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

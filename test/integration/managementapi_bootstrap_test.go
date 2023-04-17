@@ -2,13 +2,11 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test/testdata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -16,32 +14,19 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
 
 // #region Test Setup
-type fingerprintsData struct {
-	TestData []fingerprintsTestData `json:"testData"`
-}
 
-type fingerprintsTestData struct {
-	Cert         string             `json:"cert"`
-	Fingerprints map[pkp.Alg]string `json:"fingerprints"`
-}
-
-var testFingerprints fingerprintsData
 var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	BeforeAll(func() {
-		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
-		Expect(json.Unmarshal(testdata.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 	})
 
 	AfterAll(func() {

@@ -35,7 +35,7 @@ func init() {
 	})
 }
 
-var _ = Describe("Filesystem Cache", Ordered, Label("unit"), func() {
+var _ = Describe("Filesystem Cache", Label("unit"), func() {
 	Context("error handling", func() {
 		When("creating a new filesystem cache", func() {
 			It("should return an error if it cannot create the cache directory", func() {

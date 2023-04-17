@@ -21,26 +21,40 @@ This would be accomplished by the steps
 ```
 zypper refresh
 ```
-
-and 
+followed by 
 ```
 zypper install wget
 ```
+afterwards, the Nats CLI library would be fetched and installed using the following commands.
 
-Then for the GPU controller service, when it is time to persist a newly trained Deep Learning model, it will use the os.system call to make a request to the Nats CLI to add the newly trained model to the Nats object storage. First it would need to create the bucket 
+```
+wget <https://github.com/nats-io/natscli/releases/download/v0.0.30/nats-0.0.30-amd64.rpm>
+
+sudo rpm -i nats-0.0.30-amd64.rpm
+```
+
+
+Then for the GPU controller service, when it is time to persist a newly trained Deep Learning model, it will use the os.system call to make a request to the Nats CLI to add the newly trained model to the Nats object storage. First it would need to create the bucket and it would achieve this by making system calls using the os library in Python.
 ```
 nats object add opnilogmodelbucket
+```
+
+It would then place the model file and corresponding vocab.txt file within the Nats object bucket. 
+
+For both the pre-trained and workload DRAIN service, a bucket would be created for the DRAIN model binary files.
+```
+nats object add drainmodelbucket
 ```
 
 
 
 
 ## Acceptance criteria: 
-* The GPU services should only be enabled when user updates a watchlist of workloads for the first time overall or after disabling GPU services.
+* The AI services should no longer be using Seaweed to store any of the model files. Instead, the model files will be stored through Nats object store.
 
 ## Supporting documents: 
 User Story:
-As a user of Opni, I would like to receive workload insights through the GPU setup on my Kubernetes cluster.
+As a user of Opni, I would like to receive log anomaly insights.
 
 
 ## Dependencies: 
@@ -50,8 +64,8 @@ Besides the requirement of having Nats running with Jetstream on the cluster, no
 N/A
 
 ## Level of Effort: 
-* Code implementation: <= 2 days
+* Code implementation: <= 23 days
 * Testing and debugging: <= 2 days
 
 ## Resources: 
-* EC2 instance for building plugin image
+N/A

@@ -5,6 +5,8 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+import "google/protobuf/duration.proto";
+
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
@@ -76,7 +78,14 @@ message PrometheusSpec {
 
 message OTELSpec {
   repeated ScrapeConfig additionalScrapeConfigs = 1;
-  bool hostMetrics = 2;
+  WALConfig wal = 2;
+  bool hostMetrics = 3;
+}
+
+message WALConfig {
+  bool enabled = 1;
+  int64 bufferSize = 2;
+  google.protobuf.Duration truncateFrequency = 3;
 }
 
 message SyncRequest {

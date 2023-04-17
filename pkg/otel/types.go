@@ -40,6 +40,7 @@ type MetricsConfig struct {
 	Enabled             bool
 	ListenPort          int
 	RemoteWriteEndpoint string
+	WALDir              string
 	Spec                *node.OTELSpec
 }
 

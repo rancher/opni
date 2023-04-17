@@ -44,6 +44,23 @@ spec:
                     type: array
                   hostMetrics:
                     type: boolean
+                  wal:
+                    properties:
+                      bufferSize:
+                        format: int64
+                        type: integer
+                      enabled:
+                        type: boolean
+                      truncateFrequency:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
                 type: object
               prometheusDiscovery:
                 type: object

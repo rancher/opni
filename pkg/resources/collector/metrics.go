@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -14,6 +15,7 @@ const (
 	metricsDaemonReceiver = `
 {{ template "metrics-node-receivers" .}}
 `
+	walDir = "/var/lib/prometheus/wal"
 )
 
 func (r *Reconciler) metricsNodeReceiverConfig(
@@ -38,6 +40,7 @@ func (r *Reconciler) getMetricsConfig() (config otel.MetricsConfig) {
 		Enabled:             false,
 		ListenPort:          8888,
 		RemoteWriteEndpoint: "",
+		WALDir:              walDir,
 	}
 	if r.collector.Spec.MetricsConfig != nil {
 		var metricsConfig monitoringv1beta1.CollectorConfig
@@ -76,5 +79,27 @@ func (r *Reconciler) hostMetricsVolumes() (
 		MountPropagation: lo.ToPtr(corev1.MountPropagationHostToContainer),
 	})
 
+	return
+}
+
+func (r *Reconciler) aggregatorMetricVolumes() (retVolumeMounts []corev1.VolumeMount, retVolumes []corev1.Volume) {
+	retVolumeMounts = append(retVolumeMounts,
+		corev1.VolumeMount{
+			Name:      "prom-rw",
+			MountPath: walDir,
+		},
+	)
+
+	retVolumes = append(retVolumes,
+		corev1.Volume{
+			Name: "prom-rw",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					// 120Mb
+					SizeLimit: resource.NewQuantity(120*1024*1024, resource.DecimalSI),
+				},
+			},
+		},
+	)
 	return
 }

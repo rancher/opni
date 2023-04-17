@@ -313,6 +313,31 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 }
 
 func (r *Reconciler) deployment(configHash string) resources.Resource {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "collector-config",
+			MountPath: "/etc/otel",
+		},
+	}
+	volumes := []corev1.Volume{
+		{
+			Name: "collector-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.aggregatorConfigMapName(),
+					},
+				},
+			},
+		},
+	}
+
+	if r.collector.Spec.MetricsConfig != nil {
+		retVolumeMounts, retVolumes := r.aggregatorMetricVolumes()
+		volumeMounts = append(volumeMounts, retVolumeMounts...)
+		volumes = append(volumes, retVolumes...)
+	}
+
 	imageSpec := r.imageSpec()
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -371,12 +396,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 									},
 								},
 							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "collector-config",
-									MountPath: "/etc/otel",
-								},
-							},
+							VolumeMounts: volumeMounts,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "otlp-grpc",
@@ -385,19 +405,8 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 							},
 						},
 					},
-					ImagePullSecrets: imageSpec.ImagePullSecrets,
-					Volumes: []corev1.Volume{
-						{
-							Name: "collector-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.aggregatorConfigMapName(),
-									},
-								},
-							},
-						},
-					},
+					ImagePullSecrets:   imageSpec.ImagePullSecrets,
+					Volumes:            volumes,
 					ServiceAccountName: "opni-agent",
 				},
 			},

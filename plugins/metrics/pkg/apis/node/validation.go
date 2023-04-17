@@ -37,6 +37,23 @@ func (o *OTELSpec) Validate() error {
 			}
 		}
 	}
+	if o.Wal != nil {
+		if err := o.Wal.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *WALConfig) Validate() error {
+	if w.Enabled {
+		if w.BufferSize <= 0 {
+			return validation.Error("WAL BufferSize must be greater than 0")
+		}
+		if w.TruncateFrequency == nil {
+			return validation.Error("WALConfig TruncateFrequency must be set")
+		}
+	}
 	return nil
 }
 

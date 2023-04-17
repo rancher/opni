@@ -118,7 +118,7 @@ kubeletstats:
     endpoint: "{{ .Metrics.RemoteWriteEndpoint }}"
     {{ if and .Metrics.Spec.Wal .Metrics.Spec.Wal.Enabled -}}
     wal :
-      directory: ./prom_rw
+      directory: {{ .Metrics.WALDir }}
       buffer_size: {{ .Metrics.Spec.Wal.BufferSize }}
       truncate_frequency : {{ protoDurToString .Metrics.Spec.Wal.TruncateFrequency }}
     {{- end }}

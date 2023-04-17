@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/otel"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +22,10 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	httpServer   *HttpServer
-	ruleStreamer *RuleStreamer
-	node         *MetricsNode
+	otelForwarder *otel.OTELForwarder
+	httpServer    *HttpServer
+	ruleStreamer  *RuleStreamer
+	node          *MetricsNode
 
 	stopRuleStreamer context.CancelFunc
 }
@@ -34,11 +36,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
-		ctx:          ctx,
-		logger:       lg,
-		httpServer:   NewHttpServer(ct, lg),
-		ruleStreamer: NewRuleStreamer(ct, lg),
-		node:         NewMetricsNode(ct, lg),
+		ctx:           ctx,
+		logger:        lg,
+		httpServer:    NewHttpServer(ct, lg),
+		ruleStreamer:  NewRuleStreamer(ct, lg),
+		node:          NewMetricsNode(ct, lg),
+		otelForwarder: otel.NewOTELForwarder(ctx),
 	}
 
 	for _, name := range drivers.NodeDrivers.List() {
@@ -114,5 +117,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpServer))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.otelForwarder))
 	return scheme
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
@@ -187,9 +188,9 @@ func (f *OTELForwarder) handleLogsPost(c *gin.Context) {
 	}
 
 	switch c.ContentType() {
-	case pbContentType:
+	case otel.PbContentType:
 		f.renderProto(c)
-	case jsonContentType:
+	case otel.JsonContentType:
 		f.renderProtoJSON(c)
 	default:
 		c.String(http.StatusUnsupportedMediaType, "unsupported media type, supported: [%s,%s]", jsonContentType, pbContentType)

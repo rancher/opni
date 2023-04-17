@@ -10,10 +10,12 @@ import (
 )
 
 const (
-	CollectorName             = "opni"
-	MetricsCrdName            = "opni-monitoring"
-	MetricsFeatureFlag        = "otel-metrics"
-	MetricsServiceAccountName = "opni-otel-prometheus-agent"
+	CollectorName      = "opni"
+	MetricsCrdName     = "opni-monitoring"
+	MetricsFeatureFlag = "otel-metrics"
+
+	PbContentType   = "application/x-protobuf"
+	JsonContentType = "application/json"
 )
 
 func AgentEndpoint(serviceName string) string {

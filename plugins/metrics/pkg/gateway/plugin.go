@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -29,7 +30,10 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/otel"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Plugin struct {
@@ -45,6 +49,8 @@ type Plugin struct {
 	cortexRemoteWrite cortex.RemoteWriteForwarder
 	metrics           backend.MetricsBackend
 	uninstallRunner   cortex.UninstallTaskRunner
+
+	otelForwarder *otel.OTELForwarder
 
 	config              future.Future[*v1beta1.GatewayConfig]
 	authMw              future.Future[map[string]auth.Middleware]
@@ -78,6 +84,17 @@ func NewPlugin(ctx context.Context) *Plugin {
 		clusterDriver:       future.New[drivers.ClusterDriver](),
 		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
 		backendKvClients:    future.New[*backend.KVClients](),
+		// TODO : need to also add remote write apis to gateway
+		otelForwarder: otel.NewOTELForwarder(
+			ctx,
+			// TODO : resolve this to gateway otel collector address ... therefore in a cluster driver :)
+			otel.WithRemoteAddress(fmt.Sprintf(
+				"%s:%d",
+				"gateway:otel-service",
+				3000,
+			)),
+			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		),
 	}
 
 	future.Wait2(p.cortexClientSet, p.config,

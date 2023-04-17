@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.opentelemetry.io/otel/attribute"
+	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	"google.golang.org/grpc"
 )
 
@@ -29,6 +30,11 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		{
 			Desc:              &node.NodeMetricsCapability_ServiceDesc,
 			Impl:              &p.metrics,
+			RequireCapability: wellknown.CapabilityMetrics,
+		},
+		{
+			Desc:              &colmetricspb.MetricsService_ServiceDesc,
+			Impl:              &p.otelForwarder,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 	}

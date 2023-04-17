@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	"google.golang.org/grpc"
 )
 
@@ -29,6 +30,7 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
 
+	p.otelForwarder.SetClient(colmetricspb.NewMetricsServiceClient(cc))
 	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 	p.node.SetRemoteWriter(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))

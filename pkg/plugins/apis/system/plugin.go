@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -15,12 +16,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type SystemPluginClient interface {
 	UseManagementAPI(managementv1.ManagementClient)
 	UseNodeManagerClient(capabilityv1.NodeManagerClient)
+	UseCachingProvider(caching.CachingProvider[proto.Message])
 	UseKeyValueStore(KeyValueStoreClient)
 	UseAPIExtensions(ExtensionClientInterface)
 	mustEmbedUnimplementedSystemPluginClient()
@@ -29,17 +32,19 @@ type SystemPluginClient interface {
 // UnimplementedSystemPluginClient must be embedded to have forward compatible implementations.
 type UnimplementedSystemPluginClient struct{}
 
-func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient)      {}
-func (UnimplementedSystemPluginClient) UseNodeManagerClient(capabilityv1.NodeManagerClient) {}
-func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)                {}
-func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)           {}
-func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()           {}
+func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient)            {}
+func (UnimplementedSystemPluginClient) UseNodeManagerClient(capabilityv1.NodeManagerClient)       {}
+func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)                      {}
+func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)                 {}
+func (UnimplementedSystemPluginClient) UseCachingProvider(caching.CachingProvider[proto.Message]) {}
+func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()                 {}
 
 type SystemPluginServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
 	ServeNodeManagerServer(capabilityv1.NodeManagerServer)
 	ServeKeyValueStore(storage.KeyValueStore)
 	ServeAPIExtensions(dialAddress string) error
+	ServeCachingProvider()
 }
 
 const (
@@ -54,6 +59,8 @@ type systemPlugin struct {
 	client SystemPluginClient
 }
 
+var _ plugin.Plugin = (*systemPlugin)(nil)
+
 func NewPlugin(client SystemPluginClient) plugin.Plugin {
 	return &systemPlugin{
 		client: client,
@@ -67,6 +74,7 @@ func (p *systemPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) err
 		broker: broker,
 		server: s,
 		client: p.client,
+		cache:  caching.NewClientGrpcTtlCacher(),
 	})
 	return nil
 }
@@ -76,10 +84,16 @@ type systemPluginClientImpl struct {
 	broker *plugin.GRPCBroker
 	server *grpc.Server
 	client SystemPluginClient
+	cache  caching.GrpcCachingInterceptor
 }
 
 func (c *systemPluginClientImpl) UseManagementAPI(_ context.Context, in *BrokerID) (*emptypb.Empty, error) {
-	cc, err := c.broker.Dial(in.Id)
+	cc, err := c.broker.Dial(
+		in.Id,
+		grpc.WithChainUnaryInterceptor(
+			c.cache.UnaryClientInterceptor(),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +125,7 @@ func (c *systemPluginClientImpl) UseKeyValueStore(_ context.Context, in *BrokerI
 }
 
 func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *DialAddress) (*emptypb.Empty, error) {
-	cc, err := grpc.DialContext(ctx, addr.Value,
+	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 		grpc.WithContextDialer(util.DialProtocol),
@@ -123,6 +137,12 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 				MaxDelay:   10 * time.Second,
 			},
 		}),
+		grpc.WithChainUnaryInterceptor(
+			c.cache.UnaryClientInterceptor(),
+		),
+	}
+	cc, err := grpc.DialContext(ctx, addr.Value,
+		dialOpts...,
 	)
 	if err != nil {
 		return nil, err
@@ -130,6 +150,12 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 	c.client.UseAPIExtensions(&apiExtensionInterfaceImpl{
 		managementClientConn: cc,
 	})
+	return &emptypb.Empty{}, nil
+}
+
+func (c *systemPluginClientImpl) UseCachingProvider(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	// no external caching provider served
+	c.client.UseCachingProvider(c.cache)
 	return &emptypb.Empty{}, nil
 }
 
@@ -202,6 +228,10 @@ func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) error {
 		Value: dialAddr,
 	})
 	return err
+}
+
+func (s *systemPluginHandler) ServeCachingProvider() {
+	s.client.UseCachingProvider(s.ctx, &emptypb.Empty{})
 }
 
 func init() {

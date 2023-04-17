@@ -1,0 +1,44 @@
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 5s
+          static_configs:
+            - targets: ['0.0.0.0:{{ .ListenPort }}']
+        {{range .Jobs}}
+        - job_name : "{{ .JobName }}" 
+          scrape_interval : 5s
+          static_configs:
+            - targets:
+              - "localhost:{{ .ScrapePort }}"
+        {{end}}
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 15s
+  memory_limiter:
+    limit_mib: 250
+    spike_limit_mib: 50
+    check_interval: 1s
+  resourcedetection/system:
+    detectors: ["system"]
+    system:
+      hostname_sources: ["lookup"]
+exporters:
+  prometheusremotewrite:
+    endpoint: "http://localhost:{{ .OpniAgentPort }}/api/agent/push"
+    resource_to_telemetry_conversion:
+      enabled: true
+extensions:
+  zpages: {}
+service:
+  extensions: [zpages]
+  telemetry:
+    metrics:
+      address: ":{{ .ListenPort }}"
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      processors: [memory_limiter, resourcedetection/system, batch]
+      exporters: [prometheusremotewrite]

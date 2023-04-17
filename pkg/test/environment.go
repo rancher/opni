@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -175,6 +176,7 @@ type EnvironmentOptions struct {
 	enableDisconnectServer bool
 	enableNodeExporter     bool
 	storageBackend         v1beta1.StorageType
+	remoteWriteEndpoints   []string
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -224,6 +226,12 @@ func WithEnableNodeExporter(enable bool) EnvironmentOption {
 func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.storageBackend = backend
+	}
+}
+
+func WithRemoteWriteEndpoints(endps ...string) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.remoteWriteEndpoints = endps
 	}
 }
 
@@ -905,6 +913,10 @@ func (t TestAggregatorConfig) MetricReceivers() []string {
 	return res
 }
 
+func (e *Environment) GetRemoteWriteEndpoints() []string {
+	return e.remoteWriteEndpoints
+}
+
 func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) {
 	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
 	os.MkdirAll(otelDir, 0755)
@@ -1251,6 +1263,89 @@ func (e *Environment) SimulateKubeObject(kPort int) {
 			e.Logger.Error("got response code %d from mock kube metrics api", resp.StatusCode)
 		}
 	}()
+}
+
+func (e *Environment) StartEmbeddedOTELCollector(parentCtx context.Context, config []byte, configPath string) {
+	otelCollectorBin := path.Join(e.TestBin, "otelcol-custom")
+	dir := e.GenerateNewTempDirectory("otel-config")
+	err := os.MkdirAll(path.Dir(configPath), 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(configPath, config, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defaultArgs := []string{
+		fmt.Sprintf("--config=%s", configPath),
+	}
+	cmd := exec.CommandContext(parentCtx, otelCollectorBin, defaultArgs...)
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGINT)
+	}
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(parentCtx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	go func() {
+		<-parentCtx.Done()
+		os.RemoveAll(dir)
+		session.Wait()
+	}()
+}
+
+type RemoteWriteMutator struct {
+	mu     *sync.Mutex
+	testFn func(input bytes.Buffer)
+}
+
+func NewRemoteWriteMutator(
+	testFn func(bytes.Buffer),
+) *RemoteWriteMutator {
+	return &RemoteWriteMutator{
+		mu:     &sync.Mutex{},
+		testFn: testFn,
+	}
+}
+
+func (mut *RemoteWriteMutator) SetFn(newFn func(bytes.Buffer)) {
+	mut.mu.Lock()
+	defer mut.mu.Unlock()
+	mut.testFn = newFn
+}
+
+func StartRemoteWriteServer(parentCtx context.Context, mut *RemoteWriteMutator) (address string) {
+	mux := http.NewServeMux()
+	remoteWrite := "/prom/remotewrite"
+	mux.HandleFunc(remoteWrite, func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		// read the response body into a variable
+		var buf bytes.Buffer
+		if _, err := buf.ReadFrom(r.Body); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		mut.mu.Lock()
+		mut.testFn(buf)
+		defer mut.mu.Unlock()
+	})
+	addr := fmt.Sprintf(":%d", freeport.GetFreePort())
+	server := &http.Server{Addr: addr, Handler: mux}
+	go func() {
+		go func() {
+			err := server.ListenAndServe()
+			if !errors.Is(err, http.ErrServerClosed) {
+				panic(err)
+			}
+		}()
+		defer server.Shutdown(context.Background())
+		<-parentCtx.Done()
+	}()
+	return "http://localhost" + path.Join(addr, remoteWrite)
 }
 
 func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {

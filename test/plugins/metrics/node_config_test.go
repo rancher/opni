@@ -118,7 +118,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		}
 	}
 
-	var originalDefaultConfig *node.MetricsCapabilitySpec
+	var fallbackDefaultConfig *node.MetricsCapabilitySpec
 	It("should initially have all nodes using the default config", func() {
 		var defaultConfig *node.MetricsCapabilitySpec
 		// wait for the test env to replace the default config
@@ -145,7 +145,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		Expect(spec).To(testutil.ProtoEqual(defaultConfig))
 		Expect(isDefault).To(BeTrue())
 
-		originalDefaultConfig = util.ProtoClone(defaultConfig)
+		fallbackDefaultConfig = util.ProtoClone(backend.FallbackDefaultNodeSpec)
 	})
 
 	When("changing the default config", func() {
@@ -231,7 +231,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	})
 
 	When("resetting the default config", func() {
-		It("should return the original default config for all nodes", func() {
+		It("should return to the fallback default config for all nodes", func() {
 			verifySync(func() {
 				_, err := nodeClient.SetDefaultConfiguration(context.Background(), &node.MetricsCapabilitySpec{})
 				Expect(err).NotTo(HaveOccurred())
@@ -239,12 +239,12 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 			spec, isDefault, err := getConfig("agent1")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(spec).To(testutil.ProtoEqual(originalDefaultConfig))
+			Expect(spec).To(testutil.ProtoEqual(fallbackDefaultConfig))
 			Expect(isDefault).To(BeTrue())
 
 			spec, isDefault, err = getConfig("agent2")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(spec).To(testutil.ProtoEqual(originalDefaultConfig))
+			Expect(spec).To(testutil.ProtoEqual(fallbackDefaultConfig))
 			Expect(isDefault).To(BeTrue())
 		})
 	})

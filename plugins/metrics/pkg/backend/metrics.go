@@ -231,10 +231,6 @@ var (
 	}
 )
 
-func GetFallbackDefaultSpec() *node.MetricsCapabilitySpec {
-	return util.ProtoClone(fallbackDefaultNodeSpec)
-}
-
 func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
 	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
 	if status.Code(err) == codes.NotFound {

@@ -1,0 +1,42 @@
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 1s
+          static_configs:
+            - targets: [':{{ .TelemetryPort }}']
+processors:
+  resourcedetection/system:
+    detectors: ["system"]
+    system:
+      hostname_sources: ["lookup"]
+exporters:
+  {{ if .OTLPExporterEndpoint }}
+  otlp:
+    endpoint: "{{ .OTLPExporterEndpoint }}"
+    tls:
+      insecure: true
+  {{ end }}
+  {{ if .OTLPHttpExporterEndpoint }}
+  otlphttp:
+    endpoint: "{{ .OTLPHttpExporterEndpoint }}"
+    tls:
+      insecure: true
+  {{ end }}
+service:
+  telemetry:
+    metrics:
+      address: ":{{ .TelemetryPort }}"
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      processors: 
+        resourcedetection/system
+      exporters: 
+      {{ if .OTLPExporterEndpoint }}
+        - otlp 
+      {{ end }}
+      {{ if .OTLPHttpExporterEndpoint }}
+        - otlphttp
+      {{ end }}

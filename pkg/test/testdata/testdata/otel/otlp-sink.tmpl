@@ -1,0 +1,18 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ":{{ .SinkPort }}"
+exporters:
+  prometheusremotewrite:
+    endpoint: "{{ .RemoteWriteAddress }}"
+    resource_to_telemetry_conversion:
+      enabled: true
+service:
+  telemetry:
+    metrics:
+      address: ":{{ .TelemetryPort }}"
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheusremotewrite]

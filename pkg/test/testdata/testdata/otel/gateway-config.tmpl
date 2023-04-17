@@ -1,0 +1,28 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "{{ .CollectorAddress }}"
+exporters:
+  prometheusremotewrite/gateway:
+    endpoint: "{{ .CortexAddress }}/api/v1/push"
+    resource_to_telemetry_conversion:
+      enabled: true
+  {{ range .AdditionalRemoteWriteConfigs }}
+  prometheusremotewrite/{{ .Name }}:
+    endpoint : "{{ .Endpoint }}"
+    resource_to_telemetry_conversion:
+      enabled: true
+  {{ end }}
+service:
+  telemetry:
+    metrics:
+      address: "{{ .MetricTelemetryAddress }}"
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: 
+        - prometheusremotewrite/gateway
+      {{ range .AdditionalRemoteWriteConfigs }}
+        - prometheusremotewrite/{{ .Name }}
+      {{ end }}

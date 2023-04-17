@@ -2,15 +2,25 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"html/template"
+	"os"
+	"os/exec"
+	"path"
 	"runtime/debug"
 	"sync"
+	"syscall"
 
+	"github.com/google/uuid"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testutil"
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 
@@ -68,10 +78,15 @@ func init() {
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
 
-	lock         sync.Mutex
-	state        cortexops.InstallState
+	lock  sync.Mutex
+	state cortexops.InstallState
+
 	cortexCtx    context.Context
 	cortexCancel context.CancelFunc
+
+	collectorMu sync.Mutex
+	collCtx     context.Context
+	collCancel  context.CancelFunc
 
 	Env           *test.Environment
 	Configuration *cortexops.ClusterConfiguration
@@ -203,6 +218,88 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 	}()
 
 	return &emptypb.Empty{}, nil
+}
+
+type additionalRemoteWriteConfigs struct {
+	Name     string
+	Endpoint string
+}
+
+type testGatewayCollectorConfig struct {
+	MetricTelemetryAddress       string
+	CollectorAddress             string
+	CortexAddress                string
+	AdditionalRemoteWriteConfigs []additionalRemoteWriteConfigs
+}
+
+func (d *TestEnvMetricsClusterDriver) ConfigureOTELCollector(enable bool) (collectorAddress string, err error) {
+	d.collectorMu.Lock()
+	defer d.collectorMu.Unlock()
+	if !enable {
+		if d.collCtx == nil {
+			return
+		}
+		d.collCancel()
+		d.collCtx = nil
+		return
+	}
+	if d.collCtx != nil { //already enabled
+		return
+	}
+	cll, ca := context.WithCancel(d.Env.Context())
+	d.collCtx = cll
+	d.collCancel = ca
+	configData := testdata.TestData("otel/gateway-config.tmpl")
+	t := template.Must(template.New("otel-gw-config").Parse(string(configData)))
+	gwDir := path.Join(d.Env.GetTempDirectory(), "gw-collector")
+	os.MkdirAll(gwDir, 0755)
+
+	gwFile, err := os.Create(path.Join(gwDir, "config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	collectorAddress = fmt.Sprintf("localhost:%d", freeport.GetFreePort())
+	tgw := testGatewayCollectorConfig{
+		MetricTelemetryAddress: fmt.Sprintf("localhost:%d", freeport.GetFreePort()),
+		CollectorAddress:       collectorAddress,
+		CortexAddress:          fmt.Sprintf("http://localhost:%d", d.Env.GetPorts().CortexHTTP),
+	}
+	if len(d.Env.GetRemoteWriteEndpoints()) > 0 {
+		tgw.AdditionalRemoteWriteConfigs = []additionalRemoteWriteConfigs{}
+		for _, endp := range d.Env.GetRemoteWriteEndpoints() {
+			tgw.AdditionalRemoteWriteConfigs = append(tgw.AdditionalRemoteWriteConfigs,
+				additionalRemoteWriteConfigs{
+					Name:     uuid.New().String(),
+					Endpoint: endp,
+				})
+		}
+	}
+
+	err = t.Execute(gwFile, tgw)
+	if err != nil {
+		panic(err)
+	}
+	args := []string{
+		fmt.Sprintf("--config=%s", gwFile.Name()),
+	}
+	otelColBin := path.Join(d.Env.TestBin, "otelcol-custom")
+	gatewayCmd := exec.CommandContext(d.collCtx, otelColBin, args...)
+	gatewayCmd.Cancel = func() error {
+		return gatewayCmd.Process.Signal(syscall.SIGINT)
+	}
+	gatewaySession, err := testutil.StartCmd(gatewayCmd)
+	if err != nil {
+		if !errors.Is(d.Env.Context().Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	go func() {
+		<-cll.Done()
+		gatewaySession.Wait()
+	}()
+	return
 }
 
 type TestEnvMetricsNodeDriver struct {

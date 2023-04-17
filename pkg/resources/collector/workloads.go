@@ -49,7 +49,7 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 			Enabled:   r.collector.Spec.LoggingConfig != nil,
 			Receivers: loggingReceivers,
 		},
-		Metrics:       r.getMetricsConfig(),
+		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
 	}
 }
@@ -57,7 +57,7 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 func (r *Reconciler) getAggregatorConfig() otel.AggregatorConfig {
 	return otel.AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
-		Metrics:       r.getMetricsConfig(),
+		Metrics:       lo.FromPtr(r.withPrometheusCrdDiscovery(r.getMetricsConfig())),
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 	}
@@ -401,6 +401,10 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 								{
 									Name:          "otlp-grpc",
 									ContainerPort: otlpGRPCPort,
+								},
+								{
+									Name:          "pprof",
+									ContainerPort: 1777,
 								},
 							},
 						},

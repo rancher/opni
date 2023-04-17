@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
+	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
@@ -26,6 +27,7 @@ type Reconciler struct {
 	tmpl      *template.Template
 	ctx       context.Context
 	logger    *zap.SugaredLogger
+	*promdiscover.PrometheusDiscovery
 }
 
 func NewReconciler(
@@ -37,11 +39,12 @@ func NewReconciler(
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		client:    c,
-		collector: instance,
-		tmpl:      otel.OTELTemplates,
-		ctx:       ctx,
-		logger:    logger.NewPluginLogger().Named("collector-controller"),
+		client:              c,
+		collector:           instance,
+		tmpl:                otel.OTELTemplates,
+		ctx:                 ctx,
+		logger:              logger.NewPluginLogger().Named("collector-controller"),
+		PrometheusDiscovery: nil,
 	}
 }
 

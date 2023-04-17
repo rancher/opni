@@ -175,7 +175,6 @@ processors:
       labels:
       - key: tier
       - key: component
-    {{ template "metrics-k8s-processor" . }}
     {{ template "metrics-system-processor" . }}
 service:
   {{ template "metrics-self-telemetry" .}}
@@ -200,6 +199,7 @@ receivers:
       http: {}
   {{ template "metrics-self-receiver" . }}
   {{ template "metrics-prometheus-receiver" . }}
+  {{ template "metrics-prometheus-discoverer" . }}
 {{- if .LogsEnabled }}
   k8s_events:
     auth_type: serviceAccount
@@ -210,7 +210,7 @@ processors:
     send_batch_size: 1000
     timeout: 15s
   memory_limiter:
-    limit_mib: 1000
+    limit_mib: 500
     spike_limit_mib: 250
     check_interval: 1s
   transform:
@@ -218,6 +218,7 @@ processors:
     - context: log
       statements:
       - set(attributes["log_type"], "event") where attributes["k8s.event.uid"] != nil
+  {{ template "metrics-prometheus-processor" .}}
 exporters:
   otlphttp:
     endpoint: "{{ .AgentEndpoint }}"

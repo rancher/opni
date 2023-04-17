@@ -37,6 +37,11 @@ rules:
   verbs:
   - get
 
+# discovery permissions
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+
 # client manager permissions
 - apiGroups:
   - logging.opni.io

@@ -68,13 +68,13 @@ kubeletstats:
 
 {{- define "metrics-node-pipeline" -}}
 {{ if .Metrics.Enabled }}
-   metrics:
-    receivers:
-    {{- range .MetricReceivers }}
-    - {{ . }}
-    {{- end }}
-    processors: [memory_limiter, resourcedetection/system, k8smetrics]
-    exporters: [otlp]
+    metrics:
+      receivers:
+      {{- range .MetricReceivers }}
+      - {{ . }}
+      {{- end }}
+      processors: [memory_limiter, resourcedetection/system]
+      exporters: [otlp]
 {{- end -}}
 {{- end -}}
 
@@ -82,7 +82,7 @@ kubeletstats:
 {{- if .Metrics.Enabled -}}
   telemetry:
     metrics:
-      address : "0.0.0.0:{{ .Metrics.ListenPort }}"
+      address : "127.0.0.1:{{ .Metrics.ListenPort }}"
 {{- end -}}
 {{- end -}}
 
@@ -94,7 +94,7 @@ kubeletstats:
         - job_name: 'otel-collector'
           scrape_interval: 15s
           static_configs:
-            - targets: ['0.0.0.0:{{ .Metrics.ListenPort }}']
+            - targets: ['127.0.0.1:{{ .Metrics.ListenPort }}']
 {{- end -}}
 {{- end -}}
 
@@ -109,6 +109,15 @@ kubeletstats:
           static_configs:
           - targets: {{ .Targets }}
       {{- end }}
+{{- end -}}
+{{- end -}}
+
+{{- define "metrics-prometheus-discoverer" -}}
+{{- if and .Metrics.Enabled .Metrics.DiscoveredScrapeCfg -}}
+  prometheus/discovered:
+    config:
+      scrape_configs:
+{{ indent 8 .Metrics.DiscoveredScrapeCfg }}
 {{- end -}}
 {{- end -}}
 
@@ -130,29 +139,35 @@ kubeletstats:
 {{- end -}}
 
 {{- define "metrics-remotewrite-pipeline" -}}
-{{ if .Metrics.Enabled }}
-    metrics:
+{{- if .Metrics.Enabled }}
+    metrics/internal:
+      receivers:
+        - otlp
+      processors:
+      - memory_limiter
+      - batch
+      exporters: [prometheusremotewrite]
+    metrics/external:
       receivers:
       {{- range .MetricReceivers }}
       - {{ . }}
       {{- end }} 
-      processors: [memory_limiter, batch]
+      processors: 
+      - memory_limiter
+      - batch
+      - filter/metrics
       exporters: [prometheusremotewrite]
 {{- end -}}
 {{- end -}}
 
-{{- define "metrics-k8s-processor" -}}
-{{ if .Metrics.Enabled }}
-  attributes/k8smetrics:
-    include:
-      match_type: {regexp}
-      metric_names : ["^k8s"]
-      attributes:
-        - key: k8s_pod_uid
-          action : delete
-        # ignore any resource detection if present 
-        - key: host_name
-          action : delete
+{{- define "metrics-prometheus-processor" -}}
+{{- if.Metrics.Enabled -}}
+  filter/metrics:
+    metrics:
+      exclude:
+        match_type: regexp
+        metric_names:
+          - "kube.+annotations"
 {{- end -}}
 {{- end -}}
 

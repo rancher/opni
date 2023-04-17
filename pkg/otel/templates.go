@@ -2,6 +2,7 @@ package otel
 
 import (
 	"embed"
+	"strings"
 	"text/template"
 
 	"github.com/prometheus/common/model"
@@ -17,6 +18,8 @@ var (
 
 	otelTemplateFuncs = template.FuncMap{
 		"protoDurToString": ProtoDurToString,
+		"indent":           indent,
+		"nindent":          nindent,
 	}
 )
 
@@ -27,4 +30,13 @@ func init() {
 
 func ProtoDurToString(dur *durationpb.Duration) string {
 	return model.Duration(dur.AsDuration().Nanoseconds()).String()
+}
+
+func indent(spaces int, v string) string {
+	pad := strings.Repeat(" ", spaces)
+	return pad + strings.Replace(v, "\n", "\n"+pad, -1)
+}
+
+func nindent(spaces int, v string) string {
+	return "\n" + indent(spaces, v)
 }

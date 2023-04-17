@@ -5,6 +5,7 @@ import (
 
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
+	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,8 +36,8 @@ func (r *Reconciler) metricsNodeReceiverConfig(
 	return
 }
 
-func (r *Reconciler) getMetricsConfig() (config otel.MetricsConfig) {
-	config = otel.MetricsConfig{
+func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
+	config = &otel.MetricsConfig{
 		Enabled:             false,
 		ListenPort:          8888,
 		RemoteWriteEndpoint: "",
@@ -57,6 +58,34 @@ func (r *Reconciler) getMetricsConfig() (config otel.MetricsConfig) {
 		config.Spec = &metricsConfig.Spec.OtelSpec
 	}
 	return
+}
+
+func (r *Reconciler) withPrometheusCrdDiscovery(config *otel.MetricsConfig) *otel.MetricsConfig {
+	if !config.Enabled {
+		r.PrometheusDiscovery = nil
+		return config
+	}
+	if r.PrometheusDiscovery == nil {
+		r.PrometheusDiscovery = lo.ToPtr(
+			promdiscover.NewPrometheusDiscovery(
+				r.logger.With("component", "prometheus-discovery"),
+				r.client,
+			))
+	}
+	discStr, err := r.discoveredScrapeCfg(config)
+	if err != nil {
+		r.logger.Warn("failed to discover prometheus targets : %s", err)
+	}
+	config.DiscoveredScrapeCfg = discStr
+	return config
+}
+
+func (r *Reconciler) discoveredScrapeCfg(_ *otel.MetricsConfig) (retCfg string, retErr error) {
+	cfgs, err := r.PrometheusDiscovery.YieldScrapeConfigs()
+	if err != nil || len(cfgs) == 0 {
+		return "", err
+	}
+	return otel.PromCfgToString(cfgs), nil
 }
 
 func (r *Reconciler) hostMetricsVolumes() (

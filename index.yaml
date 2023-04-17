@@ -8,6 +8,44 @@ entries:
       catalog.rancher.io/namespace: opni-cluster-system
       catalog.rancher.io/release-name: opni
     apiVersion: v2
+    appVersion: 0.9.2-rc1
+    created: "2023-04-17T21:31:37.609496978Z"
+    dependencies:
+    - condition: opni-agent.kube-prometheus-stack.enabled
+      name: kube-prometheus-stack
+      repository: file://./charts/kube-prometheus-stack
+    - condition: opni-agent.enabled
+      name: opni-agent
+      repository: file://./charts/opni-agent
+    - condition: opni-prometheus-crd.enabled
+      name: opni-prometheus-crd
+      repository: file://./charts/opni-prometheus-crd
+    description: Multi Cluster Observability with AIOps
+    digest: 190d17caf73b58be1f869dde254c408942f67e82579a8bf5fa47f3cbd51a3c5a
+    icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
+    keywords:
+    - opni
+    - monitoring
+    - logging
+    - rancher
+    - observability
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni
+    type: application
+    urls:
+    - assets/opni/opni-0.9.2-rc1.tgz
+    version: 0.9.2-rc1
+  - annotations:
+      catalog.cattle.io/auto-install: opni-crd=match
+      catalog.cattle.io/display-name: Opni
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-cluster-system
+      catalog.rancher.io/release-name: opni
+    apiVersion: v2
     appVersion: 0.9.1
     created: "2023-04-06T18:30:29.132823697Z"
     dependencies:
@@ -1073,6 +1111,26 @@ entries:
       catalog.rancher.io/namespace: opni-system
       catalog.rancher.io/release-name: opni-agent
     apiVersion: v2
+    appVersion: 0.9.2-rc1
+    created: "2023-04-17T21:31:38.334903726Z"
+    dependencies:
+    - condition: kube-prometheus-stack.enabled
+      name: kube-prometheus-stack
+      repository: file://./charts/kube-prometheus-stack
+    description: Opni Agent
+    digest: 6dbeea7635eff179c656215297d3575663e2197b8dd4607ccf653c36c45e4aa5
+    name: opni-agent
+    type: application
+    urls:
+    - assets/opni-agent/opni-agent-0.9.2-rc1.tgz
+    version: 0.9.2-rc1
+  - annotations:
+      catalog.cattle.io/auto-install: opni-agent-crd=match
+      catalog.cattle.io/display-name: Opni Agent
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-system
+      catalog.rancher.io/release-name: opni-agent
+    apiVersion: v2
     appVersion: 0.9.1
     created: "2023-04-06T18:30:29.758201383Z"
     dependencies:
@@ -1612,6 +1670,24 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-agent-crd
     apiVersion: v1
+    created: "2023-04-17T21:31:38.425407304Z"
+    description: Installs the CRDs for Opni.
+    digest: 974e78b325cc56ce1d02fb44c5bb232631ab7a4fd6696770da75d3e27c189b35
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-agent-crd
+    type: application
+    urls:
+    - assets/opni-agent-crd/opni-agent-crd-0.9.2-rc1.tgz
+    version: 0.9.2-rc1
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-system
+      catalog.cattle.io/release-name: opni-agent-crd
+    apiVersion: v1
     created: "2023-04-06T18:30:29.833964985Z"
     description: Installs the CRDs for Opni.
     digest: c1e71463c6ab8b6ccbb9cf8168cb7230bf8899b2742917f827c72010501b1ef4
@@ -2112,6 +2188,24 @@ entries:
     - assets/opni-agent-crd/opni-agent-crd-0.6.0.tgz
     version: 0.6.0
   opni-crd:
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-cluster-system
+      catalog.cattle.io/release-name: opni-crd
+    apiVersion: v1
+    created: "2023-04-17T21:31:38.647156592Z"
+    description: Installs the CRDs for Opni.
+    digest: 1b71100aaa5b2bc3b1324768b2e227400ea6af9d3c4076c60b0bf3dde40edd05
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-crd
+    type: application
+    urls:
+    - assets/opni-crd/opni-crd-0.9.2-rc1.tgz
+    version: 0.9.2-rc1
   - annotations:
       catalog.cattle.io/hidden: "true"
       catalog.cattle.io/namespace: opni-cluster-system

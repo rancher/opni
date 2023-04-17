@@ -3,15 +3,12 @@ package otel
 import (
 	"context"
 	"net/http"
-	"time"
 
-	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/lestrrat-go/backoff/v2"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
-	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/future"
+	httputil "github.com/rancher/opni/pkg/util/http"
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	"go.uber.org/zap"
@@ -29,6 +26,7 @@ type otelInitializerOptions struct {
 	targetDialOptions []grpc.DialOption
 	remoteAddress     string
 	logger            *zap.SugaredLogger
+	privileged        bool
 }
 
 type OTELInitializerOption func(*otelInitializerOptions)
@@ -63,141 +61,82 @@ func WithRemoteAddress(addr string) OTELInitializerOption {
 	}
 }
 
-type otelInitializer struct {
-	util.Initializer
-
-	overrideClientSignal chan colmetricspb.MetricsServiceClient
-	otelInitializerOptions
-	remoteTarget future.Future[colmetricspb.MetricsServiceClient]
-}
-
-func NewOtelInitializer(opts ...OTELInitializerOption) *otelInitializer {
-	options := &otelInitializerOptions{
-		logger: logger.NewPluginLogger().Named("metrics-otel-intializer"),
+func WithPrivileged(privileged bool) OTELInitializerOption {
+	return func(o *otelInitializerOptions) {
+		o.privileged = privileged
 	}
-	options.apply(opts...)
-	o := &otelInitializer{
-		otelInitializerOptions: *options,
-		overrideClientSignal:   make(chan colmetricspb.MetricsServiceClient, 1),
-		remoteTarget:           future.New[colmetricspb.MetricsServiceClient](),
-	}
-	return o
-}
-
-func (o *otelInitializer) SetClient(client colmetricspb.MetricsServiceClient) {
-	defer close(o.overrideClientSignal)
-	o.overrideClientSignal <- client
-}
-
-func (o *otelInitializer) Initialize(ctx context.Context) {
-	o.InitOnce(func() {
-		expBackoff := backoff.Exponential(
-			backoff.WithMaxRetries(0),
-			backoff.WithMinInterval(5*time.Second),
-			backoff.WithMaxInterval(1*time.Minute),
-			backoff.WithMultiplier(1.1),
-		)
-		b := expBackoff.Start(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-b.Next():
-				if o.remoteAddress == "" {
-					continue
-				}
-				conn, err := grpc.Dial(
-					o.remoteAddress,
-					o.targetDialOptions...,
-				)
-				if err != nil {
-					o.logger.Warnf("failed to dial to remote target : %s", err)
-					continue
-				}
-				o.remoteTarget.Set(colmetricspb.NewMetricsServiceClient(conn))
-				return
-			case client := <-o.overrideClientSignal:
-				o.remoteTarget.Set(client)
-				return
-			}
-		}
-	})
 }
 
 type OTELForwarder struct {
 	colmetricspb.UnsafeMetricsServiceServer
 
 	logger *zap.SugaredLogger
+	ClientProvider
+}
 
-	otelInitializer
+func (f *OTELForwarder) IsPrivileged() bool {
+	return f.ClientProvider.privileged
 }
 
 var _ colmetricspb.MetricsServiceServer = (*OTELForwarder)(nil)
 
-// NewOTELForwarder creates a new OTEL forwarder instance.
-// If a remote address is omitted, the inner OTEL initializer will expect
-// the SetClient method to be called on the forwarder instance to
-// acquire the remote target address.
-func NewOTELForwarder(ctx context.Context, opts ...OTELInitializerOption) *OTELForwarder {
-	o := &OTELForwarder{
-		logger:          logger.NewPluginLogger().Named("metrics-otel-forwarder"),
-		otelInitializer: *NewOtelInitializer(opts...),
+func NewOTELForwarder(ctx context.Context, opts ...OTELInitializerOption) OTELForwarder {
+	return OTELForwarder{
+		ClientProvider: NewClientProvider(ctx, opts...),
+		logger:         logger.NewPluginLogger().Named("metrics-otel-forwarder"),
 	}
-	go func() {
-		o.Initialize(ctx)
-	}()
-	return o
 }
 
-func (o *OTELForwarder) Export(
+func (f *OTELForwarder) Routes() []httputil.GinHandler {
+	return []httputil.GinHandler{
+		{
+			ContentType: http.MethodPost,
+			Route:       "/api/agent/otel/v1/metrics",
+			HandlerFunc: f.HandleMetricsPost,
+		},
+	}
+}
+
+func (f *OTELForwarder) Export(
 	ctx context.Context,
 	req *colmetricspb.ExportMetricsServiceRequest,
 ) (*colmetricspb.ExportMetricsServiceResponse, error) {
-	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if err := o.WaitForInitContext(ctxca); err != nil {
-		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
+	if !f.HasRemoteTarget() {
+		return nil, status.Error(codes.Unavailable, "remote OTLP target not available")
 	}
-	// tenantId := cluster.StreamAuthorizedID(ctx)
-
-	// TODO : want to annotate with private __tenant_id__
-
-	// TODO : want to drop data points with certain labels
+	var tenantId string
+	if f.IsPrivileged() {
+		tenantId = cluster.StreamAuthorizedID(ctx)
+	}
 
 	for _, resourceMetrics := range req.GetResourceMetrics() {
 		// undecided whether or not we should include this safeguard
 		if resourceMetrics == nil {
 			continue
 		}
-		// Shared scope attributes for metrics will convert to metric labels as appropriate when exported :
-		// https://github.com/open-telemetry/oteps/blob/main/text/0201-scope-attributes.md#exporting-to-non-otlp
-		for _, scopedMetrics := range resourceMetrics.GetScopeMetrics() {
-			if scopedMetrics == nil {
-				continue
-			}
-			// if !clusterIdExists(scopedMetrics.Scope.Attributes) {
-			// 	scopedMetrics.Scope.Attributes = append(
-			// 		scopedMetrics.Scope.Attributes,
-			// 		&otlpcommonv1.KeyValue{
-			// 			Key: metricsTenantId,
-			// 			Value: &otlpcommonv1.AnyValue{
-			// 				Value: &otlpcommonv1.AnyValue_StringValue{
-			// 					StringValue: tenantId,
-			// 				},
-			// 			},
-			// 		},
-			// 	)
-			// }
+		if tenantId != "" && !clusterIdExists(resourceMetrics.Resource.Attributes) {
+			resourceMetrics.Resource.Attributes = append(
+				resourceMetrics.Resource.Attributes,
+				&otlpcommonv1.KeyValue{
+					Key: metricsTenantId,
+					Value: &otlpcommonv1.AnyValue{
+						Value: &otlpcommonv1.AnyValue_StringValue{
+							StringValue: tenantId,
+						},
+					},
+				},
+			)
 		}
 	}
 
-	return o.forwardMetricsToRemote(ctx, req)
+	return f.forwardMetricsToRemote(ctx, req)
 }
 
-func (o *OTELForwarder) forwardMetricsToRemote(ctx context.Context, req *colmetricspb.ExportMetricsServiceRequest) (*colmetricspb.ExportMetricsServiceResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	remoteTarget, err := o.remoteTarget.GetContext(ctx)
+func (f *OTELForwarder) forwardMetricsToRemote(
+	ctx context.Context,
+	req *colmetricspb.ExportMetricsServiceRequest,
+) (*colmetricspb.ExportMetricsServiceResponse, error) {
+	remoteTarget, err := f.GetRemoteTarget()
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +152,8 @@ func clusterIdExists(attrs []*otlpcommonv1.KeyValue) bool {
 	return false
 }
 
-func standardizeSourceLabels() {
-	//TODO
-}
-
-func (f *OTELForwarder) handleMetricsPost(c *gin.Context) {
-	if !f.Initialized() {
+func (f *OTELForwarder) HandleMetricsPost(c *gin.Context) {
+	if !f.HasRemoteTarget() {
 		c.Status(http.StatusServiceUnavailable)
 		return
 	}
@@ -231,9 +166,4 @@ func (f *OTELForwarder) handleMetricsPost(c *gin.Context) {
 		c.String(http.StatusUnsupportedMediaType, "unsupported media type, supported: [%s,%s]", otel.JsonContentType, otel.PbContentType)
 		return
 	}
-}
-
-func (f *OTELForwarder) ConfigureRoutes(router *gin.Engine) {
-	router.POST("/api/agent/otel/v1/metrics", f.handleMetricsPost)
-	pprof.Register(router, "/debug/plugin_logging/pprof")
 }

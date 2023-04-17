@@ -16,13 +16,15 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/otel"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	otelForwarder *otel.OTELForwarder
+	otelForwarder otel.OTELForwarder
 	httpServer    *HttpServer
 	ruleStreamer  *RuleStreamer
 	node          *MetricsNode
@@ -35,13 +37,21 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
+	otelForwarder := otel.NewOTELForwarder(
+		ctx,
+		otel.WithPrivileged(true),
+		otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+	)
+
 	p := &Plugin{
-		ctx:           ctx,
-		logger:        lg,
-		httpServer:    NewHttpServer(ct, lg),
+		ctx:    ctx,
+		logger: lg,
+		httpServer: NewHttpServer(ct, lg,
+			otelForwarder.Routes(),
+		),
 		ruleStreamer:  NewRuleStreamer(ct, lg),
 		node:          NewMetricsNode(ct, lg),
-		otelForwarder: otel.NewOTELForwarder(ctx),
+		otelForwarder: otelForwarder,
 	}
 
 	for _, name := range drivers.NodeDrivers.List() {
@@ -117,6 +127,5 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpServer))
-	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.otelForwarder))
 	return scheme
 }

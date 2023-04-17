@@ -33,9 +33,8 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 		{
-			Desc:              &colmetricspb.MetricsService_ServiceDesc,
-			Impl:              &p.otelForwarder,
-			RequireCapability: wellknown.CapabilityMetrics,
+			Desc: &colmetricspb.MetricsService_ServiceDesc,
+			Impl: &p.otelForwarder,
 		},
 	}
 }

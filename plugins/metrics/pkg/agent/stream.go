@@ -22,6 +22,10 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			Desc: &remoteread.RemoteReadAgent_ServiceDesc,
 			Impl: p.node,
 		},
+		{
+			Desc: &colmetricspb.MetricsService_ServiceDesc,
+			Impl: &p.otelForwarder,
+		},
 	}
 }
 
@@ -29,12 +33,12 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 	nodeClient := node.NewNodeMetricsCapabilityClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
+	colMetricsClient := colmetricspb.NewMetricsServiceClient(cc)
 
-	p.otelForwarder.SetClient(colmetricspb.NewMetricsServiceClient(cc))
 	p.httpServer.SetRemoteWriteClient(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
 	p.ruleStreamer.SetRemoteWriteClient(remotewrite.NewRemoteWriteClient(cc))
 	p.node.SetRemoteWriter(clients.NewLocker(cc, remotewrite.NewRemoteWriteClient))
-
+	p.otelForwarder.SetClient(colMetricsClient)
 	p.node.SetClients(
 		nodeClient,
 		identityClient,

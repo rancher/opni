@@ -8,6 +8,7 @@ import (
 
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/pkg/otel"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -63,6 +64,7 @@ type MetricsBackendConfig struct {
 	UninstallController *task.Controller                                           `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
 	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
+	OTELForwarder       otel.OTELForwarder                                         `validate:"required"`
 	KV                  *KVClients
 }
 
@@ -106,6 +108,50 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 		"cluster", name,
 		"capability", wellknown.CapabilityMetrics,
 	).Info("node sync requested")
+}
+
+func cfgHasOTELCapablity(currentNodeCfg *node.MetricsCapabilityConfig) bool {
+	// TODO : #1176 should check for otel capability
+	return currentNodeCfg != nil && currentNodeCfg.GetSpec() != nil && currentNodeCfg.GetEnabled()
+}
+
+func clusterHasOtelCapability(md *corev1.ClusterMetadata) bool {
+	if md == nil {
+		return false
+	}
+	for _, cap := range md.Capabilities {
+		if cap.Name == wellknown.CapabilityMetrics {
+			// TODO : #1176 also need to check for otel capability is loaded on the spec
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MetricsBackend) shouldUpdateColletor(ctx context.Context, currentCfg *node.MetricsCapabilityConfig) bool {
+	if cfgHasOTELCapablity(currentCfg) {
+		return true
+	}
+	cls, err := m.MgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return false
+	}
+	for _, cl := range cls.Items {
+		if clusterHasOtelCapability(cl.Metadata) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MetricsBackend) onSyncUpdateClusterResources(ctx context.Context, currentNodeCfg *node.MetricsCapabilityConfig) {
+	toggle := m.shouldUpdateColletor(ctx, currentNodeCfg)
+	m.Logger.Debugf("gateway metrics otel collector should exist : %v", toggle)
+	collectorAddress, err := m.ClusterDriver.ConfigureOTELCollector(toggle)
+	if err != nil {
+		m.Logger.Errorf("failed to apply collector updates: %v", err)
+	}
+	m.OTELForwarder.SetAddress(collectorAddress)
 }
 
 // Implements node.NodeMetricsCapabilityServer
@@ -159,6 +205,11 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	if err != nil {
 		return nil, err
 	}
+
+	go func() {
+		m.onSyncUpdateClusterResources(context.TODO(), req.GetCurrentConfig())
+	}()
+
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
 		Enabled:    enabled,
 		Conditions: conditions,
@@ -179,6 +230,10 @@ var (
 		},
 	}
 )
+
+func GetFallbackDefaultSpec() *node.MetricsCapabilitySpec {
+	return util.ProtoClone(fallbackDefaultNodeSpec)
+}
 
 func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
 	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)

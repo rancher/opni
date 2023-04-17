@@ -65,6 +65,11 @@ func (k *OpniManager) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster 
 	}
 }
 
+func (k *OpniManager) ConfigureOTELCollector(_ bool) (collectorAddress string, err error) {
+	// TODO : noop : until #1176
+	return "", nil
+}
+
 func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
 	mc := k.newMonitoringCluster()
 	err := k.K8sClient.Get(ctx, client.ObjectKeyFromObject(mc), mc)

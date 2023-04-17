@@ -17,13 +17,15 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	httputil "github.com/rancher/opni/pkg/util/http"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 )
 
 type HttpServer struct {
 	apiextensions.UnsafeHTTPAPIExtensionServer
 
-	logger *zap.SugaredLogger
+	handlers []httputil.GinHandler
+	logger   *zap.SugaredLogger
 
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
@@ -33,10 +35,11 @@ type HttpServer struct {
 	enabled atomic.Bool
 }
 
-func NewHttpServer(ct health.ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
+func NewHttpServer(ct health.ConditionTracker, lg *zap.SugaredLogger, handlers []httputil.GinHandler) *HttpServer {
 	return &HttpServer{
 		logger:     lg,
 		conditions: ct,
+		handlers:   handlers,
 	}
 }
 
@@ -57,6 +60,10 @@ func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.Remo
 }
 
 func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
+	httputil.RegisterAdditionalHandlers(
+		router,
+		s.handlers,
+	)
 	router.POST("/api/agent/push", gin.WrapH(push.Handler(100<<20, nil, s.pushFunc)))
 	pprof.Register(router, "/debug/plugin_metrics/pprof")
 }

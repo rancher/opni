@@ -7,8 +7,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"

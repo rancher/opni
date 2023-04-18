@@ -47,8 +47,6 @@ type MetricsBackend struct {
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 
-	otelFeatureFlag bool
-
 	util.Initializer
 }
 

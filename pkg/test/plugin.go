@@ -17,6 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
+	logging_agent "github.com/rancher/opni/plugins/logging/pkg/agent"
+	logging_gateway "github.com/rancher/opni/plugins/logging/pkg/gateway"
 	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
 	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
@@ -106,6 +108,7 @@ type testPlugin struct {
 
 func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	var metricsPluginScheme meta.Scheme
+	var loggingPluginScheme meta.Scheme
 	var topologyPluginScheme meta.Scheme
 	var scheme meta.Scheme
 	switch mode {
@@ -113,10 +116,12 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 		scheme = plugins.GatewayScheme
 		metricsPluginScheme = metrics_gateway.Scheme(context.Background())
 		topologyPluginScheme = topology_gateway.Scheme(context.Background())
+		loggingPluginScheme = logging_gateway.Scheme(context.Background())
 	case meta.ModeAgent:
 		scheme = plugins.AgentScheme
 		metricsPluginScheme = metrics_agent.Scheme(context.Background())
 		topologyPluginScheme = topology_agent.Scheme(context.Background())
+		loggingPluginScheme = logging_agent.Scheme(context.Background())
 	default:
 		panic("unknown plugin mode: " + mode)
 	}
@@ -128,6 +133,14 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 				BinaryPath: "plugin_metrics",
 				GoVersion:  runtime.Version(),
 				Module:     "github.com/rancher/opni/plugins/metrics",
+			},
+		},
+		{
+			Scheme: loggingPluginScheme,
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_logging",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni/plugins/logging",
 			},
 		},
 		{

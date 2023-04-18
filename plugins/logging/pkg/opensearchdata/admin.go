@@ -8,6 +8,7 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
 )
 
 const (
@@ -18,11 +19,17 @@ const (
 
 func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	m.WaitForInit()
-	m.kv.BackgroundInitClient(m.setJetStream)
-	m.kv.WaitForInit()
+
+	//Check if it's been created already for idempotence
+	if !m.shouldCreateInitialAdmin() {
+		return
+	}
 
 	m.adminInitStateRW.Lock()
-	_, err := m.kv.Client.PutString(initialAdminKey, initialAdminPending)
+	_, err := m.systemKV.Get().Put(context.Background(), &system.KeyValue{
+		Key:   fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Value: []byte(initialAdminPending),
+	})
 	if err != nil {
 		m.logger.Warnf("failed to store initial admin state: %v", err)
 	}
@@ -74,7 +81,10 @@ CREATE:
 	}
 
 	m.adminInitStateRW.Lock()
-	_, err = m.kv.Client.PutString(initialAdminKey, initialAdminCreated)
+	_, err = m.systemKV.Get().Put(context.Background(), &system.KeyValue{
+		Key:   fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Value: []byte(initialAdminCreated),
+	})
 	if err != nil {
 		m.logger.Warnf("failed to store initial admin state: %v", err)
 	}
@@ -120,10 +130,7 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 	return nil
 }
 
-func (m *Manager) ShouldCreateInitialAdmin() bool {
-	m.kv.BackgroundInitClient(m.setJetStream)
-	m.kv.WaitForInit()
-
+func (m *Manager) shouldCreateInitialAdmin() bool {
 	m.adminInitStateRW.RLock()
 	defer m.adminInitStateRW.RUnlock()
 
@@ -138,13 +145,15 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 		return true
 	}
 
-	adminState, err := m.kv.Client.Get(initialAdminKey)
+	adminState, err := m.systemKV.Get().Get(context.Background(), &system.Key{
+		Key: fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+	})
 	if err != nil {
 		m.logger.Errorf("failed to check initial admin state: %v", err)
 		return false
 	}
 
-	switch string(adminState.Value()) {
+	switch string(adminState.GetValue()) {
 	case initialAdminPending:
 		m.logger.Debug("admin user creation is pending, restarting")
 		return true
@@ -158,10 +167,11 @@ func (m *Manager) ShouldCreateInitialAdmin() bool {
 }
 
 func (m *Manager) DeleteInitialAdminState() error {
-	m.kv.BackgroundInitClient(m.setJetStream)
-	m.kv.WaitForInit()
 	m.adminInitStateRW.Lock()
 	defer m.adminInitStateRW.Unlock()
 
-	return m.kv.Client.Delete(initialAdminKey)
+	_, err := m.systemKV.Get().Delete(context.Background(), &system.Key{
+		Key: fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+	})
+	return err
 }

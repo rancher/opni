@@ -2,20 +2,18 @@ package opensearchdata
 
 import (
 	"context"
-	"errors"
-	"os"
+	"fmt"
 	"sync"
-	"time"
 
-	"github.com/cenkalti/backoff"
-	backoffv2 "github.com/lestrrat-go/backoff/v2"
-	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/util/future"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"go.uber.org/zap"
 )
 
 const (
-	pendingValue = "job pending"
+	pendingValue  = "job pending"
+	loggingPrefix = "logging_"
 )
 
 type DeleteStatus int
@@ -42,129 +40,34 @@ const (
 )
 
 type Manager struct {
-	OpensearchManagerOptions
 	*loggingutil.AsyncOpensearchClient
 
-	kv     *loggingutil.AsyncClient[nats.KeyValue]
-	logger *zap.SugaredLogger
+	systemKV future.Future[system.KeyValueStoreClient]
+	logger   *zap.SugaredLogger
 
 	adminInitStateRW sync.RWMutex
 }
 
-type OpensearchManagerOptions struct {
-	nc *nats.Conn
-}
-
-type OpensearchManagerOption func(*OpensearchManagerOptions)
-
-func (o *OpensearchManagerOptions) apply(opts ...OpensearchManagerOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithNatsConnection(nc *nats.Conn) OpensearchManagerOption {
-	return func(o *OpensearchManagerOptions) {
-		o.nc = nc
-	}
-}
-
-func NewManager(logger *zap.SugaredLogger, opts ...OpensearchManagerOption) *Manager {
-	options := OpensearchManagerOptions{}
-	options.apply(opts...)
+func NewManager(logger *zap.SugaredLogger, kv future.Future[system.KeyValueStoreClient]) *Manager {
 	return &Manager{
-		OpensearchManagerOptions: options,
-		kv:                       loggingutil.NewAsyncClient[nats.KeyValue](),
-		AsyncOpensearchClient:    loggingutil.NewAsyncOpensearchClient(),
-		logger:                   logger,
+		AsyncOpensearchClient: loggingutil.NewAsyncOpensearchClient(),
+		systemKV:              kv,
+		logger:                logger,
 	}
 }
 
 func (m *Manager) keyExists(keyToCheck string) (bool, error) {
-	keys, err := m.kv.Client.Keys()
+	prefixKey := &system.Key{
+		Key: loggingPrefix,
+	}
+	keys, err := m.systemKV.Get().ListKeys(context.Background(), prefixKey)
 	if err != nil {
-		if errors.Is(err, nats.ErrNoKeysFound) {
-			return false, nil
-		}
 		return false, err
 	}
-	for _, key := range keys {
-		if key == keyToCheck {
+	for _, key := range keys.GetItems() {
+		if key == fmt.Sprintf("%s%s", loggingPrefix, keyToCheck) {
 			return true, nil
 		}
 	}
 	return false, nil
-}
-
-func (m *Manager) newNatsConnection() (*nats.Conn, error) {
-	natsURL := os.Getenv("NATS_SERVER_URL")
-	natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
-
-	opt, err := nats.NkeyOptionFromSeed(natsSeedPath)
-	if err != nil {
-		return nil, err
-	}
-
-	retryBackoff := backoff.NewExponentialBackOff()
-	return nats.Connect(
-		natsURL,
-		opt,
-		nats.MaxReconnects(-1),
-		nats.CustomReconnectDelay(
-			func(i int) time.Duration {
-				if i == 1 {
-					retryBackoff.Reset()
-				}
-				return retryBackoff.NextBackOff()
-			},
-		),
-		nats.DisconnectErrHandler(
-			func(nc *nats.Conn, err error) {
-				m.logger.With(
-					"err", err,
-				).Warn("nats disconnected")
-			},
-		),
-	)
-}
-
-func (m *Manager) setJetStream() nats.KeyValue {
-	var (
-		nc  *nats.Conn
-		err error
-	)
-
-	if m.nc != nil {
-		nc = m.nc
-	} else {
-		retrier := backoffv2.Exponential(
-			backoffv2.WithMaxRetries(0),
-			backoffv2.WithMinInterval(5*time.Second),
-			backoffv2.WithMaxInterval(1*time.Minute),
-			backoffv2.WithMultiplier(1.1),
-		)
-		b := retrier.Start(context.TODO())
-		for backoffv2.Continue(b) {
-			nc, err = m.newNatsConnection()
-			if err == nil {
-				break
-			}
-			m.logger.Error("failed to connect to nats, retrying")
-		}
-	}
-
-	mgr, err := nc.JetStream()
-	if err != nil {
-		panic(err)
-	}
-
-	kv, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      "opensearch-management",
-		Description: "stateful data for opensearch management",
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return kv
 }

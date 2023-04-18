@@ -7,13 +7,12 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
-	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -35,11 +34,12 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
-	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
+	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -54,16 +54,17 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 	loggingadmin.UnsafeLoggingAdminServer
 	ctx                 context.Context
-	k8sClient           client.Client
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]
+	kv                  future.Future[system.KeyValueStoreClient]
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *otel.OTELForwarder
-	clusterDriver       drivers.ClusterDriver
+	backendDriver       backenddriver.ClusterDriver
+	managementDriver    managementdriver.ClusterDriver
 }
 
 type PluginOptions struct {
@@ -71,9 +72,7 @@ type PluginOptions struct {
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	restconfig        *rest.Config
 	featureOverride   featureflags.FeatureFlag
-	version           string
 	natsRef           *corev1.LocalObjectReference
-	nc                *nats.Conn
 }
 
 type PluginOption func(*PluginOptions)
@@ -108,21 +107,9 @@ func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
 	}
 }
 
-func WithVersion(version string) PluginOption {
-	return func(o *PluginOptions) {
-		o.version = version
-	}
-}
-
 func WithNatsRef(ref *corev1.LocalObjectReference) PluginOption {
 	return func(o *PluginOptions) {
 		o.natsRef = ref
-	}
-}
-
-func WithNatsConnection(nc *nats.Conn) PluginOption {
-	return func(o *PluginOptions) {
-		o.nc = nc
 	}
 }
 
@@ -140,40 +127,19 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 	lg := logger.NewPluginLogger().Named("logging")
 
-	scheme := apis.NewScheme()
-
-	var restconfig *rest.Config
-	if options.restconfig != nil {
-		restconfig = options.restconfig
-	} else {
-		restconfig = ctrl.GetConfigOrDie()
-	}
-
-	cli, err := client.New(restconfig, client.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("failed to create k8s client: %v", err))
-		os.Exit(1)
-	}
-
-	clusterDriver, _ := drivers.NewKubernetesManagerDriver(
-		drivers.WithK8sClient(cli),
-		drivers.WithLogger(lg.Named("cluster-driver")),
-		drivers.WithOpensearchCluster(options.opensearchCluster),
-	)
+	kv := future.New[system.KeyValueStoreClient]()
 
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
-		k8sClient:           cli,
 		logger:              lg,
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
+		kv:                  kv,
 		opensearchManager: opensearchdata.NewManager(
 			lg.Named("opensearch-manager"),
-			opensearchdata.WithNatsConnection(options.nc),
+			kv,
 		),
 		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
 		otelForwarder: otel.NewOTELForwarder(
@@ -185,7 +151,35 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			)),
 			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		),
-		clusterDriver: clusterDriver,
+	}
+
+	switch restconfig, err := rest.InClusterConfig(); {
+	case options.restconfig != nil:
+		backendDriver, managementDriver, err := createKubernetesDrivers(
+			options.restconfig,
+			options.opensearchCluster,
+			lg.Named("cluster-driver"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		p.backendDriver = backendDriver
+		p.managementDriver = managementDriver
+	case err == nil:
+		backendDriver, managementDriver, err := createKubernetesDrivers(
+			restconfig,
+			options.opensearchCluster,
+			lg.Named("cluster-driver"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		p.backendDriver = backendDriver
+		p.managementDriver = managementDriver
+	default:
+		stateStore := &loggingutil.MockInstallState{}
+		p.backendDriver = backenddriver.NewMockDriver(stateStore)
+		p.managementDriver = managementdriver.NewMockDriver(stateStore)
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
@@ -202,8 +196,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				OpensearchCluster:   p.opensearchCluster,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
-				ClusterDriver:       p.clusterDriver,
 				OpensearchManager:   p.opensearchManager,
+				ClusterDriver:       p.backendDriver,
 			})
 		},
 	)
@@ -211,7 +205,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	return p
 }
 
-var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
 var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 
@@ -249,13 +242,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	loggingManager := p.NewLoggingManagerForPlugin()
 
-	if state := p.clusterDriver.GetInstallStatus(ctx); state == drivers.Installed {
-		go p.opensearchManager.SetClient(loggingManager.setOpensearchClient)
-		if p.opensearchManager.ShouldCreateInitialAdmin() {
-			err = loggingManager.createInitialAdmin()
-			if err != nil {
-				p.logger.Warnf("failed to create initial admin: %v", err)
-			}
+	if state := p.backendDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
+		go p.opensearchManager.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
+		err = loggingManager.createInitialAdmin()
+		if err != nil {
+			p.logger.Warnf("failed to create initial admin: %v", err)
 		}
 		p.otelForwarder.BackgroundInitClient()
 	}
@@ -268,7 +259,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 		scheme.Add(
 			managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(
-				util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p),
 				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
 			),
 		)
@@ -279,13 +269,44 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 	return &LoggingManagerV2{
-		k8sClient:         p.k8sClient,
+		managementDriver:  p.managementDriver,
+		backendDriver:     p.backendDriver,
 		logger:            p.logger.Named("opensearch-manager"),
-		opensearchCluster: p.opensearchCluster,
 		opensearchManager: p.opensearchManager,
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,
-		versionOverride:   p.version,
 		otelForwarder:     p.otelForwarder,
 	}
+}
+
+func createKubernetesDrivers(
+	restconfig *rest.Config,
+	opensearchCluster *opnimeta.OpensearchClusterRef,
+	lg *zap.SugaredLogger,
+) (backenddriver.ClusterDriver, managementdriver.ClusterDriver, error) {
+	cli, err := client.New(restconfig, client.Options{
+		Scheme: apis.NewScheme(),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	backendDriver, err := backenddriver.NewKubernetesManagerDriver(
+		backenddriver.WithK8sClient(cli),
+		backenddriver.WithLogger(lg),
+		backenddriver.WithOpensearchCluster(opensearchCluster),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	managementDriver, err := managementdriver.NewKubernetesManagerDriver(
+		managementdriver.WithOpensearchCluster(opensearchCluster),
+		managementdriver.WithRestConfig(restconfig),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return backendDriver, managementDriver, nil
 }

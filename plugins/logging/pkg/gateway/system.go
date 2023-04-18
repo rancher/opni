@@ -54,10 +54,11 @@ func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	p.kv.Set(client)
 	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*opnicorev1.TaskStatus](client), &UninstallTaskRunner{
 		storageNamespace:  p.storageNamespace,
 		opensearchManager: p.opensearchManager,
-		k8sClient:         p.k8sClient,
+		backendDriver:     p.backendDriver,
 		storageBackend:    p.storageBackend,
 		logger:            p.logger.Named("uninstaller"),
 	})

@@ -64,7 +64,7 @@ message MetricsCapabilityConfig {
 message MetricsCapabilitySpec {
   config.v1beta1.RulesSpec rules = 1;
   PrometheusSpec prometheus = 2;
-  // TODO: add config options for metrics capability here
+  OTELSpec otel = 3;
 }
 
 message PrometheusSpec {
@@ -74,8 +74,19 @@ message PrometheusSpec {
   string deploymentStrategy = 2;
 }
 
+message OTELSpec {
+  repeated ScrapeConfig additionalScrapeConfigs = 1;
+  bool hostMetrics = 2;
+}
+
 message SyncRequest {
   MetricsCapabilityConfig currentConfig = 1;
+}
+
+message ScrapeConfig {
+  string jobName = 1;
+  repeated string targets = 2;
+  string scrapeInterval = 3;
 }
 
 enum ConfigStatus {

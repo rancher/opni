@@ -29,10 +29,23 @@ rules:
   - pods/log
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/stats
+  verbs:
+  - get
 
 # client manager permissions
 - apiGroups:
   - logging.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - monitoring.opni.io
   resources:
   - "*"
   verbs:

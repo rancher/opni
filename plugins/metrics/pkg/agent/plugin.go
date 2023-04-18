@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
+	oteldriver "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/otel"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 )
@@ -41,6 +42,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	drivers.RegisterNodeDriverBuilder("prometheus-operator", func() (drivers.MetricsNodeDriver, error) {
 		return drivers.NewExternalPromOperatorDriver(lg)
+	})
+
+	drivers.RegisterNodeDriverBuilder("opni-manager-otel", func() (drivers.MetricsNodeDriver, error) {
+		return oteldriver.NewOTELDriver(lg)
 	})
 
 	for _, name := range drivers.ListNodeDrivers() {

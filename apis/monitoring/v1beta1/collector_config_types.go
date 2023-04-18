@@ -1,7 +1,7 @@
 package v1beta1
 
 import (
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/pkg/otel"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,7 +15,7 @@ type PrometheusDiscovery struct {
 type CollectorConfigSpec struct {
 	PrometheusDiscovery PrometheusDiscovery `json:"prometheusDiscovery,omitempty"`
 	RemoteWriteEndpoint string              `json:"remoteWriteEndpoint,omitempty"`
-	OtelSpec            node.OTELSpec       `json:"otelSpec,omitempty"`
+	OtelSpec            otel.OTELSpec       `json:"otelSpec,omitempty"`
 }
 
 type CollectorConfigStatus struct {

@@ -157,12 +157,7 @@ func (o *OTELNodeDriver) buildMonitoringCollectorConfig(
 		Spec: monitoringv1beta1.CollectorConfigSpec{
 			PrometheusDiscovery: monitoringv1beta1.PrometheusDiscovery{},
 			RemoteWriteEndpoint: o.getRemoteWriteEndpoint(),
-			OtelSpec: func() node.OTELSpec {
-				if incomingSpec != nil {
-					return *incomingSpec
-				}
-				return node.OTELSpec{}
-			}(),
+			OtelSpec:            lo.FromPtrOr(node.CompatOTELStruct(incomingSpec), otel.OTELSpec{}),
 		},
 	}
 	o.logger.Debugf("building %s", string(util.Must(json.Marshal(collectorConfig))))

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,7 +45,31 @@ type MetricsConfig struct {
 	WALDir              string
 	// It becomes easier to marshal []promcfg.ScrapeConfig to yaml strings
 	DiscoveredScrapeCfg string
-	Spec                *node.OTELSpec
+	Spec                *OTELSpec
+}
+
+type OTELSpec struct {
+	AdditionalScrapeConfigs []*ScrapeConfig `json:"additionalScrapeConfigs,omitempty"`
+	Wal                     *WALConfig      `json:"wal,omitempty"`
+	HostMetrics             bool            `json:"hostMetrics,omitempty"`
+}
+
+func (o *OTELSpec) DeepCopyInto(out *OTELSpec) {
+	out.HostMetrics = o.HostMetrics
+	out.AdditionalScrapeConfigs = o.AdditionalScrapeConfigs
+	out.Wal = o.Wal
+}
+
+type ScrapeConfig struct {
+	JobName        string   `json:"jobName,omitempty"`
+	Targets        []string `json:"targets,omitempty"`
+	ScrapeInterval string   `json:"scrapeInterval,omitempty"`
+}
+
+type WALConfig struct {
+	Enabled           bool                 `json:"enabled,omitempty"`
+	BufferSize        int64                `json:"bufferSize,omitempty"`
+	TruncateFrequency *durationpb.Duration `json:"truncateFrequency,omitempty"`
 }
 
 func (d NodeConfig) MetricReceivers() []string {

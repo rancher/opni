@@ -5,6 +5,7 @@ import (
 
 	ccache "github.com/karlseguin/ccache/v3"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util/future"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -12,6 +13,62 @@ import (
 // Used to determine if they are unique without hashing
 type CacheKeyer interface {
 	CacheKey() string
+}
+
+type CachingProvider[T any] interface {
+	storage.GrpcTtlCache[T]
+	SetCache(storage.GrpcTtlCache[T])
+	getCache() (storage.GrpcTtlCache[T], bool)
+}
+
+type defaultCachingProvider[T any] struct {
+	cache future.Future[storage.GrpcTtlCache[T]]
+}
+
+var _ CachingProvider[any] = (*defaultCachingProvider[any])(nil)
+
+func NewDefaultCachingProvider[T any]() CachingProvider[T] {
+	return &defaultCachingProvider[T]{
+		cache: future.New[storage.GrpcTtlCache[T]](),
+	}
+}
+
+func (d *defaultCachingProvider[T]) SetCache(cache storage.GrpcTtlCache[T]) {
+	d.cache.Set(cache)
+}
+
+func (d *defaultCachingProvider[T]) getCache() (storage.GrpcTtlCache[T], bool) {
+	if !d.cache.IsSet() {
+		return nil, false
+	}
+	return d.cache.Get(), true
+}
+
+func (d *defaultCachingProvider[T]) MaxAge() time.Duration {
+	if cache, ok := d.getCache(); ok {
+		return cache.MaxAge()
+	}
+	return 0
+}
+
+func (d *defaultCachingProvider[T]) Get(key string) (resp T, ok bool) {
+	var t T
+	if cache, ok := d.getCache(); ok {
+		return cache.Get(key)
+	}
+	return t, false
+}
+
+func (d *defaultCachingProvider[T]) Set(key string, resp T, ttl time.Duration) {
+	if cache, ok := d.getCache(); ok {
+		cache.Set(key, resp, ttl)
+	}
+}
+
+func (d *defaultCachingProvider[T]) Delete(key string) {
+	if cache, ok := d.getCache(); ok {
+		cache.Delete(key)
+	}
 }
 
 type InMemoryHttpTtlCache[T any] struct {

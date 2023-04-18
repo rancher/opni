@@ -148,6 +148,19 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		go p.ServeKeyValueStore(store)
 	}))
 
+	// serve caching provider for plugin RPCs
+	pl.Hook(hooks.OnLoadM(func(p types.SystemPlugin, md meta.PluginMeta) {
+		ns := md.Module
+		if err := module.CheckPath(ns); err != nil {
+			lg.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			return
+		}
+		go p.ServeCachingProvider()
+	}))
+
 	// set up http server
 	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {

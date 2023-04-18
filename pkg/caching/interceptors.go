@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
@@ -234,22 +233,24 @@ func key(method string, req protoreflect.ProtoMessage) string {
 type GrpcCachingInterceptor interface {
 	UnaryServerInterceptor() grpc.UnaryServerInterceptor
 	UnaryClientInterceptor() grpc.UnaryClientInterceptor
-	storage.GrpcTtlCache[protoreflect.ProtoMessage]
+	CachingProvider[proto.Message]
 }
 
 type GrpcClientTtlCacher struct {
-	storage.GrpcTtlCache[protoreflect.ProtoMessage]
+	CachingProvider[proto.Message]
 	cacheType string
 }
 
-var _ GrpcCachingInterceptor = (*GrpcClientTtlCacher)(nil)
+var _ CachingProvider[proto.Message] = (*GrpcClientTtlCacher)(nil)
 
-func NewClientGrpcTtlCacher(cache storage.GrpcTtlCache[proto.Message]) *GrpcClientTtlCacher {
+func NewClientGrpcTtlCacher() *GrpcClientTtlCacher {
 	return &GrpcClientTtlCacher{
-		GrpcTtlCache: cache,
-		cacheType:    CacheTypeClient,
+		CachingProvider: NewDefaultCachingProvider[proto.Message](),
+		cacheType:       CacheTypeClient,
 	}
 }
+
+// -- interceptor specific methods
 
 // if both the server and client agree on a requestId that identifies the RPC,
 // continue with cache control flow log
@@ -274,6 +275,10 @@ func (g *GrpcClientTtlCacher) UnaryClientInterceptor() grpc.UnaryClientIntercept
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		var lookupKey string
 		var storeKey string
+		if _, ok := g.getCache(); !ok {
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+
 		clientMd, ok := metadata.FromOutgoingContext(ctx)
 		// forcibly disable caching if cache-control header is set to no-cache
 		if ok && noCache(clientMd, g.cacheType) {

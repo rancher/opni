@@ -163,12 +163,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	}
 	lg.Debug("authenticated")
 
-	clientCacher := caching.NewClientGrpcTtlCacher(
-		// %Mb
-		caching.NewInMemoryGrpcTtlCache(5*1024*1024, 1*time.Minute),
-	)
-
-	cachingInterceptor := caching.NewClientGrpcTtlCacher(clientCacher)
+	cachingInterceptor := caching.NewClientGrpcTtlCacher()
 
 	ts, err := totem.NewServer(
 		stream,

@@ -12,6 +12,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
@@ -21,6 +22,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -42,6 +44,10 @@ func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, e
 	return &EchoResponse{
 		Message: "Hello World",
 	}, nil
+}
+
+func (s *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider[proto.Message]) {
+	cacheProvider.SetCache(caching.NewInMemoryGrpcTtlCache(50*1024*1024, 1*time.Minute))
 }
 
 func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {

@@ -534,6 +534,8 @@ replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.14.1-opni.0
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20221115225851-0b4fc0307089
+	// https://github.com/hashicorp/go-plugin/pull/251
+	github.com/hashicorp/go-plugin v1.4.9 => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	go.uber.org/zap => github.com/kralicky/zap v1.24.1-0.20230307230025-8f09bb003de5

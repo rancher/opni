@@ -127,10 +127,10 @@ var _ = BuildCachingInterceptorSuite(
 				aggregatorCacher.UnaryServerInterceptor(),
 			),
 		)
+		testgrpc.RegisterAggregatorServiceServer(server2, aggregatorServer)
 		_ = lo.Async(func() error {
 			return server2.Serve(aggregatorListener)
 		})
-		testgrpc.RegisterAggregatorServiceServer(server2, aggregatorServer)
 
 		opts3 := []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),

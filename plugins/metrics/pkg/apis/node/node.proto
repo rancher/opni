@@ -5,6 +5,8 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+import "google/protobuf/duration.proto";
+
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
@@ -64,7 +66,7 @@ message MetricsCapabilityConfig {
 message MetricsCapabilitySpec {
   config.v1beta1.RulesSpec rules = 1;
   PrometheusSpec prometheus = 2;
-  // TODO: add config options for metrics capability here
+  OTELSpec otel = 3;
 }
 
 message PrometheusSpec {
@@ -74,8 +76,26 @@ message PrometheusSpec {
   string deploymentStrategy = 2;
 }
 
+message OTELSpec {
+  repeated ScrapeConfig additionalScrapeConfigs = 1;
+  WALConfig wal = 2;
+  bool hostMetrics = 3;
+}
+
+message WALConfig {
+  bool enabled = 1;
+  int64 bufferSize = 2;
+  google.protobuf.Duration truncateFrequency = 3;
+}
+
 message SyncRequest {
   MetricsCapabilityConfig currentConfig = 1;
+}
+
+message ScrapeConfig {
+  string jobName = 1;
+  repeated string targets = 2;
+  string scrapeInterval = 3;
 }
 
 enum ConfigStatus {

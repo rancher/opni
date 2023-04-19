@@ -3,8 +3,10 @@ package controllers
 import (
 	"context"
 
+	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	opnimonitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/collector"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -70,7 +72,10 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1beta1.Collector{}).
+		Watches(&source.Kind{Type: &opnimonitoringv1beta1.CollectorConfig{}}, requestMapper).
 		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
+		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, requestMapper).
+		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, requestMapper).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).
@@ -81,6 +86,14 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func reconcileRequestsForCollector(collectors []corev1beta1.Collector, name string) (reqs []reconcile.Request) {
 	for _, c := range collectors {
 		if c.Spec.LoggingConfig != nil && c.Spec.LoggingConfig.Name == name {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: c.Namespace,
+					Name:      c.Name,
+				},
+			})
+		}
+		if c.Spec.MetricsConfig != nil && c.Spec.MetricsConfig.Name == name {
 			reqs = append(reqs, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: c.Namespace,

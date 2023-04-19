@@ -41,8 +41,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		node:         NewMetricsNode(ct, lg),
 	}
 
-	for _, name := range drivers.ListNodeDrivers() {
-		builder, ok := drivers.GetNodeDriverBuilder(name)
+	for _, name := range drivers.NodeDrivers.List() {
+		builder, ok := drivers.NodeDrivers.Get(name)
 		if !ok {
 			continue
 		}

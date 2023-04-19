@@ -8,6 +8,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
@@ -53,12 +54,12 @@ func init() {
 		}
 	}
 
-	metrics_drivers.RegisterClusterDriverBuilder("test-environment", func(ctx context.Context, _ ...any) (metrics_drivers.ClusterDriver, error) {
+	metrics_drivers.ClusterDrivers.Register("test-environment", func(ctx context.Context, _ ...driverutil.Option) (metrics_drivers.ClusterDriver, error) {
 		env := test.EnvFromContext(ctx)
 		return NewTestEnvMetricsClusterDriver(env), nil
 	})
 
-	metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment", func(ctx context.Context, _ ...any) (metrics_agent_drivers.MetricsNodeDriver, error) {
+	metrics_agent_drivers.NodeDrivers.Register("test-environment", func(ctx context.Context, _ ...driverutil.Option) (metrics_agent_drivers.MetricsNodeDriver, error) {
 		env := test.EnvFromContext(ctx)
 		return NewTestEnvMetricsNodeDriver(env), nil
 	})

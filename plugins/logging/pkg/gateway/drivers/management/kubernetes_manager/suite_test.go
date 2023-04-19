@@ -1,4 +1,4 @@
-package management_test
+package kubernetes_manager_test
 
 import (
 	"context"
@@ -38,9 +38,9 @@ var _ = BeforeSuite(func() {
 		var err error
 
 		restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
-			"../../../../config/crd/bases",
-			"../../../../config/crd/opensearch",
-			"../../../../test/resources",
+			"../../../../../../../config/crd/bases",
+			"../../../../../../../config/crd/opensearch",
+			"../../../../../../../test/resources",
 		})
 		Expect(err).NotTo(HaveOccurred())
 

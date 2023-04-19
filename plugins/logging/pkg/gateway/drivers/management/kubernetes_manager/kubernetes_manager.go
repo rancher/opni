@@ -1,4 +1,4 @@
-package management
+package kubernetes_manager
 
 import (
 	"context"
@@ -12,10 +12,13 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
+	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
@@ -44,78 +46,35 @@ const (
 
 type KubernetesManagerDriver struct {
 	KubernetesManagerDriverOptions
-	k8sClient client.Client
 }
 
 type KubernetesManagerDriverOptions struct {
-	opensearchCluster *opnimeta.OpensearchClusterRef
-	restconfig        *rest.Config
+	OpensearchCluster *opnimeta.OpensearchClusterRef `option:"opensearchCluster"`
+	K8sClient         client.Client                  `option:"k8sClient"`
 }
 
-type KubernetesManagerDriverOption func(*KubernetesManagerDriverOptions)
-
-func (o *KubernetesManagerDriverOptions) apply(opts ...KubernetesManagerDriverOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithRestConfig(restconfig *rest.Config) KubernetesManagerDriverOption {
-	return func(o *KubernetesManagerDriverOptions) {
-		o.restconfig = restconfig
-	}
-}
-
-func WithOpensearchCluster(opensearchCluster *opnimeta.OpensearchClusterRef) KubernetesManagerDriverOption {
-	return func(o *KubernetesManagerDriverOptions) {
-		o.opensearchCluster = opensearchCluster
-	}
-}
-
-func NewKubernetesManagerDriver(opts ...KubernetesManagerDriverOption) (*KubernetesManagerDriver, error) {
-	options := KubernetesManagerDriverOptions{
-		opensearchCluster: &opnimeta.OpensearchClusterRef{
-			Name:      "opni",
-			Namespace: os.Getenv("POD_NAMESPACE"),
-		},
-	}
-
-	options.apply(opts...)
-
-	var restconfig *rest.Config
-	if options.restconfig == nil {
-		var err error
-		restconfig, err = ctrl.GetConfig()
+func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
+	if options.K8sClient == nil {
+		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
+			Scheme: apis.NewScheme(),
+		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch restconfig: %w", err)
+			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 		}
-	} else {
-		restconfig = options.restconfig
-	}
-
-	cli, err := client.New(restconfig, client.Options{
-		Scheme: apis.NewScheme(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
+		options.K8sClient = c
 	}
 
 	return &KubernetesManagerDriver{
 		KubernetesManagerDriverOptions: options,
-		k8sClient:                      cli,
 	}, nil
-}
-
-func (d *KubernetesManagerDriver) Name() string {
-	return "kubernetes-manager"
 }
 
 func (d *KubernetesManagerDriver) AdminPassword(ctx context.Context) (password []byte, retErr error) {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
-	retErr = d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.opensearchCluster.Namespace,
+	retErr = d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.OpensearchCluster.Name,
+		Namespace: d.OpensearchCluster.Namespace,
 	}, k8sOpensearchCluster)
 	if retErr != nil {
 		return
@@ -125,20 +84,20 @@ func (d *KubernetesManagerDriver) AdminPassword(ctx context.Context) (password [
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-user-password",
-			Namespace: d.opensearchCluster.Namespace,
+			Namespace: d.OpensearchCluster.Namespace,
 		},
 		Data: map[string][]byte{
 			"password": password,
 		},
 	}
 
-	ctrl.SetControllerReference(k8sOpensearchCluster, secret, d.k8sClient.Scheme())
-	retErr = d.k8sClient.Create(ctx, secret)
+	ctrl.SetControllerReference(k8sOpensearchCluster, secret, d.K8sClient.Scheme())
+	retErr = d.K8sClient.Create(ctx, secret)
 	if retErr != nil {
 		if !k8serrors.IsAlreadyExists(retErr) {
 			return
 		}
-		retErr = d.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+		retErr = d.K8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 		if retErr != nil {
 			return
 		}
@@ -165,9 +124,9 @@ FETCH:
 		case <-b.Done():
 			return nil
 		case <-b.Next():
-			err := d.k8sClient.Get(ctx, types.NamespacedName{
-				Name:      d.opensearchCluster.Name,
-				Namespace: d.opensearchCluster.Namespace,
+			err := d.K8sClient.Get(ctx, types.NamespacedName{
+				Name:      d.OpensearchCluster.Name,
+				Namespace: d.OpensearchCluster.Namespace,
 			}, cluster)
 			if err != nil {
 				continue
@@ -176,7 +135,7 @@ FETCH:
 		}
 	}
 
-	username, _, err := helpers.UsernameAndPassword(ctx, d.k8sClient, cluster)
+	username, _, err := helpers.UsernameAndPassword(ctx, d.K8sClient, cluster)
 	if err != nil {
 		panic(err)
 	}
@@ -205,7 +164,7 @@ FETCH:
 
 func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context) error {
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
-	err := d.k8sClient.List(ctx, loggingClusters, client.InNamespace(d.opensearchCluster.Namespace))
+	err := d.K8sClient.List(ctx, loggingClusters, client.InNamespace(d.OpensearchCluster.Namespace))
 	if err != nil {
 		return err
 	}
@@ -216,19 +175,19 @@ func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context) error {
 
 	cluster := &loggingv1beta1.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      d.opensearchCluster.Name,
-			Namespace: d.opensearchCluster.Namespace,
+			Name:      d.OpensearchCluster.Name,
+			Namespace: d.OpensearchCluster.Namespace,
 		},
 	}
 
-	return d.k8sClient.Delete(ctx, cluster)
+	return d.K8sClient.Delete(ctx, cluster)
 }
 
 func (d *KubernetesManagerDriver) GetCluster(ctx context.Context) (*loggingadmin.OpensearchClusterV2, error) {
 	cluster := &loggingv1beta1.OpniOpensearch{}
-	if err := d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.opensearchCluster.Namespace,
+	if err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.OpensearchCluster.Name,
+		Namespace: d.OpensearchCluster.Namespace,
 	}, cluster); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return &loggingadmin.OpensearchClusterV2{}, nil
@@ -264,9 +223,9 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 ) error {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	exists := true
-	err := d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.opensearchCluster.Namespace,
+	err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.OpensearchCluster.Name,
+		Namespace: d.OpensearchCluster.Namespace,
 	}, k8sOpensearchCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -283,8 +242,8 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 	if !exists {
 		k8sOpensearchCluster = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      d.opensearchCluster.Name,
-				Namespace: d.opensearchCluster.Namespace,
+				Name:      d.OpensearchCluster.Name,
+				Namespace: d.OpensearchCluster.Namespace,
 			},
 			Spec: loggingv1beta1.OpniOpensearchSpec{
 				OpensearchSettings: loggingv1beta1.OpensearchSettings{
@@ -315,11 +274,11 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			},
 		}
 
-		return d.k8sClient.Create(ctx, k8sOpensearchCluster)
+		return d.K8sClient.Create(ctx, k8sOpensearchCluster)
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := d.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
+		if err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
 		k8sOpensearchCluster.Spec.OpensearchSettings.NodePools = nodePools
@@ -337,16 +296,16 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			k8sOpensearchCluster.Spec.ClusterConfigSpec = nil
 		}
 
-		return d.k8sClient.Update(ctx, k8sOpensearchCluster)
+		return d.K8sClient.Update(ctx, k8sOpensearchCluster)
 	})
 }
 
 func (d *KubernetesManagerDriver) UpgradeAvailable(ctx context.Context, opniVersion string) (bool, error) {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
-	err := d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.opensearchCluster.Namespace,
+	err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.OpensearchCluster.Name,
+		Namespace: d.OpensearchCluster.Namespace,
 	}, k8sOpensearchCluster)
 	if err != nil {
 		return false, err
@@ -369,13 +328,13 @@ func (d *KubernetesManagerDriver) UpgradeAvailable(ctx context.Context, opniVers
 func (d *KubernetesManagerDriver) DoUpgrade(ctx context.Context, opniVersion string) error {
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      d.opensearchCluster.Name,
-			Namespace: d.opensearchCluster.Namespace,
+			Name:      d.OpensearchCluster.Name,
+			Namespace: d.OpensearchCluster.Namespace,
 		},
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := d.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
+		if err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
 
@@ -392,13 +351,13 @@ func (d *KubernetesManagerDriver) DoUpgrade(ctx context.Context, opniVersion str
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Image = &image
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Version = opensearchVersion
 
-		return d.k8sClient.Update(ctx, k8sOpensearchCluster)
+		return d.K8sClient.Update(ctx, k8sOpensearchCluster)
 	})
 }
 
 func (d *KubernetesManagerDriver) GetStorageClasses(ctx context.Context) ([]string, error) {
 	storageClasses := &storagev1.StorageClassList{}
-	if err := d.k8sClient.List(ctx, storageClasses); err != nil {
+	if err := d.K8sClient.List(ctx, storageClasses); err != nil {
 		return nil, err
 	}
 
@@ -564,7 +523,7 @@ func (d *KubernetesManagerDriver) generateAntiAffinity(opniRole string) *corev1.
 					PodAffinityTerm: corev1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								LabelOpsterCluster: d.opensearchCluster.Name,
+								LabelOpsterCluster: d.OpensearchCluster.Name,
 								LabelOpniNodeGroup: opniRole,
 							},
 						},
@@ -1041,4 +1000,17 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 			return resources
 		}(),
 	}
+}
+
+func init() {
+	management.Drivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (management.ClusterDriver, error) {
+		options := KubernetesManagerDriverOptions{
+			OpensearchCluster: &opnimeta.OpensearchClusterRef{
+				Name:      "opni",
+				Namespace: os.Getenv("POD_NAMESPACE"),
+			},
+		}
+		driverutil.ApplyOptions(&options, opts...)
+		return NewKubernetesManagerDriver(options)
+	})
 }

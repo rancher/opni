@@ -43,6 +43,7 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 
 	_ "github.com/rancher/opni/plugins/alerting/test"
+	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 )
 

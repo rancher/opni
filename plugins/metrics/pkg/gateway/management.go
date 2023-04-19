@@ -12,13 +12,13 @@ func (p *Plugin) configureCortexManagement() {
 		p.logger.Warn("no cluster driver configured")
 	}
 
-	builder, ok := drivers.GetClusterDriverBuilder(driverName)
+	builder, ok := drivers.ClusterDrivers.Get(driverName)
 	if !ok {
 		p.logger.With(
 			"driver", driverName,
 		).Error("unknown cluster driver, using fallback noop driver")
 
-		builder, ok = drivers.GetClusterDriverBuilder("noop")
+		builder, ok = drivers.ClusterDrivers.Get("noop")
 		if !ok {
 			panic("bug: noop cluster driver not found")
 		}

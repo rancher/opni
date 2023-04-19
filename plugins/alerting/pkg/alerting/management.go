@@ -141,6 +141,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 		select {
 		case <-p.Ctx.Done():
 			lg.Debug("closing cortex cluster status watcher...")
+			return
 		case <-ticker.C:
 			ccStatus, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
 			if err != nil {

@@ -1,4 +1,4 @@
-package management_test
+package kubernetes_manager_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
-	. "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
+	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management/kubernetes_manager"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +46,7 @@ func createRequest() *loggingadmin.OpensearchClusterV2 {
 var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 	var (
 		namespace         string
-		manager           *KubernetesManagerDriver
+		manager           *kubernetes_manager.KubernetesManagerDriver
 		dashboards        opsterv1.DashboardsConfig
 		security          *opsterv1.Security
 		version           string
@@ -118,9 +118,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			Namespace: namespace,
 		}
 		var err error
-		manager, err = NewKubernetesManagerDriver(
-			WithRestConfig(restConfig),
-			WithOpensearchCluster(opniCluster),
+		manager, err = kubernetes_manager.NewKubernetesManagerDriver(
+			kubernetes_manager.KubernetesManagerDriverOptions{
+				K8sClient:         k8sClient,
+				OpensearchCluster: opniCluster,
+			},
 		)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -176,7 +178,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								},
 							},
 							Labels: map[string]string{
-								LabelOpniNodeGroup: "data",
+								kubernetes_manager.LabelOpniNodeGroup: "data",
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -230,7 +232,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								},
 							},
 							Labels: map[string]string{
-								LabelOpniNodeGroup: "data",
+								kubernetes_manager.LabelOpniNodeGroup: "data",
 							},
 							Affinity: &corev1.Affinity{
 								PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -240,11 +242,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 											PodAffinityTerm: corev1.PodAffinityTerm{
 												LabelSelector: &metav1.LabelSelector{
 													MatchLabels: map[string]string{
-														LabelOpsterCluster: "opni",
-														LabelOpniNodeGroup: "data",
+														kubernetes_manager.LabelOpsterCluster: "opni",
+														kubernetes_manager.LabelOpniNodeGroup: "data",
 													},
 												},
-												TopologyKey: TopologyKeyK8sHost,
+												TopologyKey: kubernetes_manager.TopologyKeyK8sHost,
 											},
 										},
 									},
@@ -304,7 +306,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								},
 							},
 							Labels: map[string]string{
-								LabelOpniNodeGroup: "data",
+								kubernetes_manager.LabelOpniNodeGroup: "data",
 							},
 							Persistence: &opsterv1.PersistenceConfig{
 								PersistenceSource: opsterv1.PersistenceSource{
@@ -366,7 +368,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								},
 							},
 							Labels: map[string]string{
-								LabelOpniNodeGroup: "data",
+								kubernetes_manager.LabelOpniNodeGroup: "data",
 							},
 							Persistence: &opsterv1.PersistenceConfig{
 								PersistenceSource: opsterv1.PersistenceSource{
@@ -434,7 +436,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								},
 							},
 							Labels: map[string]string{
-								LabelOpniNodeGroup: "data",
+								kubernetes_manager.LabelOpniNodeGroup: "data",
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -489,7 +491,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -516,7 +518,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -574,7 +576,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -601,7 +603,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -657,7 +659,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -683,7 +685,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "ingest",
+							kubernetes_manager.LabelOpniNodeGroup: "ingest",
 						},
 						Persistence: &opsterv1.PersistenceConfig{
 							PersistenceSource: opsterv1.PersistenceSource{
@@ -743,7 +745,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -770,7 +772,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "controlplane",
+							kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 						},
 						Affinity: &corev1.Affinity{
 							PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -780,11 +782,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 										PodAffinityTerm: corev1.PodAffinityTerm{
 											LabelSelector: &metav1.LabelSelector{
 												MatchLabels: map[string]string{
-													LabelOpsterCluster: "opni",
-													LabelOpniNodeGroup: "controlplane",
+													kubernetes_manager.LabelOpsterCluster: "opni",
+													kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 												},
 											},
-											TopologyKey: TopologyKeyK8sHost,
+											TopologyKey: kubernetes_manager.TopologyKeyK8sHost,
 										},
 									},
 								},
@@ -851,7 +853,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "data",
+							kubernetes_manager.LabelOpniNodeGroup: "data",
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -878,7 +880,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "controlplane",
+							kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 						},
 						Affinity: &corev1.Affinity{
 							PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -888,11 +890,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 										PodAffinityTerm: corev1.PodAffinityTerm{
 											LabelSelector: &metav1.LabelSelector{
 												MatchLabels: map[string]string{
-													LabelOpsterCluster: "opni",
-													LabelOpniNodeGroup: "controlplane",
+													kubernetes_manager.LabelOpsterCluster: "opni",
+													kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 												},
 											},
-											TopologyKey: TopologyKeyK8sHost,
+											TopologyKey: kubernetes_manager.TopologyKeyK8sHost,
 										},
 									},
 								},
@@ -969,7 +971,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					},
 				},
 				Labels: map[string]string{
-					LabelOpniNodeGroup: "data",
+					kubernetes_manager.LabelOpniNodeGroup: "data",
 				},
 				Persistence: &opsterv1.PersistenceConfig{
 					PersistenceSource: opsterv1.PersistenceSource{
@@ -1043,7 +1045,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						},
 						Labels: map[string]string{
-							LabelOpniNodeGroup: "controlplane",
+							kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 						},
 						Affinity: &corev1.Affinity{
 							PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -1053,11 +1055,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 										PodAffinityTerm: corev1.PodAffinityTerm{
 											LabelSelector: &metav1.LabelSelector{
 												MatchLabels: map[string]string{
-													LabelOpsterCluster: "opni",
-													LabelOpniNodeGroup: "controlplane",
+													kubernetes_manager.LabelOpsterCluster: "opni",
+													kubernetes_manager.LabelOpniNodeGroup: "controlplane",
 												},
 											},
-											TopologyKey: TopologyKeyK8sHost,
+											TopologyKey: kubernetes_manager.TopologyKeyK8sHost,
 										},
 									},
 								},

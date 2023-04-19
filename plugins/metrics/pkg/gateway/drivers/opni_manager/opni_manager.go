@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
@@ -28,86 +29,43 @@ import (
 )
 
 type OpniManager struct {
-	OpniManagerClusterDriverOptions
 	cortexops.UnsafeCortexOpsServer
+	OpniManagerClusterDriverOptions
 }
 
 type OpniManagerClusterDriverOptions struct {
-	k8sClient         client.Client
-	monitoringCluster types.NamespacedName
-	gatewayRef        types.NamespacedName
+	K8sClient         client.Client        `option:"k8sClient"`
+	MonitoringCluster types.NamespacedName `option:"monitoringCluster"`
+	GatewayRef        types.NamespacedName `option:"gatewayRef"`
 }
 
-type OpniManagerClusterDriverOption func(*OpniManagerClusterDriverOptions)
-
-func (o *OpniManagerClusterDriverOptions) apply(opts ...OpniManagerClusterDriverOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithK8sClient(k8sClient client.Client) OpniManagerClusterDriverOption {
-	return func(o *OpniManagerClusterDriverOptions) {
-		o.k8sClient = k8sClient
-	}
-}
-
-func WithMonitoringCluster(namespacedName types.NamespacedName) OpniManagerClusterDriverOption {
-	return func(o *OpniManagerClusterDriverOptions) {
-		o.monitoringCluster = namespacedName
-	}
-}
-
-func WithGatewayRef(gatewayRef types.NamespacedName) OpniManagerClusterDriverOption {
-	return func(o *OpniManagerClusterDriverOptions) {
-		o.gatewayRef = gatewayRef
-	}
-}
-
-func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniManager, error) {
-	options := OpniManagerClusterDriverOptions{
-		monitoringCluster: types.NamespacedName{
-			Namespace: os.Getenv("POD_NAMESPACE"),
-			Name:      "opni",
-		},
-		gatewayRef: types.NamespacedName{
-			Namespace: os.Getenv("POD_NAMESPACE"),
-			Name:      os.Getenv("GATEWAY_NAME"),
-		},
-	}
-	options.apply(opts...)
-	if options.k8sClient == nil {
+func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*OpniManager, error) {
+	if options.K8sClient == nil {
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: apis.NewScheme(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 		}
-		options.k8sClient = c
+		options.K8sClient = c
 	}
 	return &OpniManager{
 		OpniManagerClusterDriverOptions: options,
 	}, nil
 }
 
-var _ drivers.ClusterDriver = (*OpniManager)(nil)
-
-func (k *OpniManager) Name() string {
-	return "opni-manager"
-}
-
 func (k *OpniManager) newMonitoringCluster() *corev1beta1.MonitoringCluster {
 	return &corev1beta1.MonitoringCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      k.monitoringCluster.Name,
-			Namespace: k.monitoringCluster.Namespace,
+			Name:      k.MonitoringCluster.Name,
+			Namespace: k.MonitoringCluster.Namespace,
 		},
 	}
 }
 
 func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
 	mc := k.newMonitoringCluster()
-	err := k.k8sClient.Get(ctx, client.ObjectKeyFromObject(mc), mc)
+	err := k.K8sClient.Get(ctx, client.ObjectKeyFromObject(mc), mc)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +85,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	cluster := k.newMonitoringCluster()
 
 	objectKey := client.ObjectKeyFromObject(cluster)
-	err := k.k8sClient.Get(ctx, objectKey, cluster)
+	err := k.K8sClient.Get(ctx, objectKey, cluster)
 	exists := true
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -139,7 +97,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 
 	// look up the gateway so we can set it as an owner reference
 	gateway := &corev1beta1.Gateway{}
-	err = k.k8sClient.Get(ctx, k.gatewayRef, gateway)
+	err = k.K8sClient.Get(ctx, k.GatewayRef, gateway)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gateway: %w", err)
 	}
@@ -176,17 +134,17 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
 		cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 		cluster.Spec.Gateway = v1.LocalObjectReference{
-			Name: k.gatewayRef.Name,
+			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
-		controllerutil.SetOwnerReference(gateway, cluster, k.k8sClient.Scheme())
+		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
 		return nil
 	}
 
 	if exists {
 		err := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
 			existing := k.newMonitoringCluster()
-			err := k.k8sClient.Get(ctx, objectKey, existing)
+			err := k.K8sClient.Get(ctx, objectKey, existing)
 			if err != nil {
 				return err
 			}
@@ -205,7 +163,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 				}
 			}
 
-			return k.k8sClient.Update(ctx, clone)
+			return k.K8sClient.Update(ctx, clone)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update monitoring cluster: %w", err)
@@ -214,7 +172,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		if err := mutator(cluster); err != nil {
 			return nil, err
 		}
-		err := k.k8sClient.Create(ctx, cluster)
+		err := k.K8sClient.Create(ctx, cluster)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create monitoring cluster: %w", err)
 		}
@@ -229,7 +187,7 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 	var version string
 
 	cluster := k.newMonitoringCluster()
-	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
+	err := k.K8sClient.Get(ctx, k.MonitoringCluster, cluster)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			state = cortexops.InstallState_NotInstalled
@@ -258,19 +216,19 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 		State:   state,
 		Version: version,
 		Metadata: lo.Assign(metadata, map[string]string{
-			"Driver": k.Name(),
+			"Driver": "opni-manager",
 		}),
 	}, nil
 }
 
 func (k *OpniManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	cluster := k.newMonitoringCluster()
-	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
+	err := k.K8sClient.Get(ctx, k.MonitoringCluster, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to uninstall monitoring cluster: %w", err)
 	}
 
-	err = k.k8sClient.Delete(ctx, cluster)
+	err = k.K8sClient.Delete(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to uninstall monitoring cluster: %w", err)
 	}
@@ -298,16 +256,21 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 }
 
 func init() {
-	drivers.RegisterClusterDriverBuilder("opni-manager", func(_ context.Context, opts ...any) (drivers.ClusterDriver, error) {
-		var options []OpniManagerClusterDriverOption
-		for _, opt := range opts {
-			switch opt := opt.(type) {
-			case OpniManagerClusterDriverOption:
-				options = append(options, opt)
-			default:
-				return nil, fmt.Errorf("unknown option type %T", opt)
-			}
+	drivers.ClusterDrivers.Register("opni-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
+		options := OpniManagerClusterDriverOptions{
+			MonitoringCluster: types.NamespacedName{
+				Namespace: os.Getenv("POD_NAMESPACE"),
+				Name:      "opni",
+			},
+			GatewayRef: types.NamespacedName{
+				Namespace: os.Getenv("POD_NAMESPACE"),
+				Name:      os.Getenv("GATEWAY_NAME"),
+			},
 		}
-		return NewOpniManagerClusterDriver(options...)
+		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
+			return nil, err
+		}
+
+		return NewOpniManagerClusterDriver(options)
 	})
 }

@@ -16,8 +16,8 @@ import (
 func (a *AlertingManager) newOpniGateway() *corev1beta1.Gateway {
 	return &corev1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      a.gatewayRef.Name,
-			Namespace: a.gatewayRef.Namespace,
+			Name:      a.GatewayRef.Name,
+			Namespace: a.GatewayRef.Namespace,
 		},
 	}
 
@@ -27,7 +27,7 @@ func (a *AlertingManager) newOpniControllerSet() (client.Object, error) {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
-			Namespace: a.gatewayRef.Namespace,
+			Namespace: a.GatewayRef.Namespace,
 		},
 	}, nil
 }
@@ -42,7 +42,7 @@ func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*al
 	if err != nil {
 		return nil, err
 	}
-	k8serr := a.k8sClient.Get(context.Background(), client.ObjectKeyFromObject(ss), ss)
+	k8serr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(ss), ss)
 
 	if gw.Spec.Alerting.Enabled {
 		if k8serr != nil {

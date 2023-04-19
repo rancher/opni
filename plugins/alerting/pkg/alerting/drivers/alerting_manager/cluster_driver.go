@@ -11,6 +11,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
@@ -27,10 +28,6 @@ type AlertingManager struct {
 	alertingOptionsMu sync.RWMutex
 	AlertingManagerDriverOptions
 	alertops.UnsafeAlertingAdminServer
-}
-
-func (a *AlertingManager) Name() string {
-	return "alerting-manager"
 }
 
 func (a *AlertingManager) ShouldDisableNode(_ *corev1.Reference) error {
@@ -52,72 +49,24 @@ func appendError(errors *sharedErrors, err error) {
 }
 
 type AlertingManagerDriverOptions struct {
-	Logger             *zap.SugaredLogger
-	k8sClient          client.Client
-	gatewayRef         types.NamespacedName
-	configKey          string
-	internalRoutingKey string
-
-	AlertingOptions *shared.AlertingClusterOptions
-	Subscribers     []chan shared.AlertingClusterNotification
+	Logger             *zap.SugaredLogger                        `option:"logger"`
+	K8sClient          client.Client                             `option:"k8sClient"`
+	GatewayRef         types.NamespacedName                      `option:"gatewayRef"`
+	ConfigKey          string                                    `option:"configKey"`
+	InternalRoutingKey string                                    `option:"internalRoutingKey"`
+	AlertingOptions    *shared.AlertingClusterOptions            `option:"alertingOptions"`
+	Subscribers        []chan shared.AlertingClusterNotification `option:"subscribers"`
 }
 
-type AlertingManagerDriverOption func(*AlertingManagerDriverOptions)
-
-func (a *AlertingManagerDriverOptions) Apply(opts ...AlertingManagerDriverOption) {
-	for _, o := range opts {
-		o(a)
-	}
-}
-
-func WithAlertingRuntimeOptions(opts *shared.AlertingClusterOptions) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.AlertingOptions = opts
-	}
-}
-
-func WithK8sClient(client client.Client) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.k8sClient = client
-	}
-}
-
-func WithGatewayRef(ref types.NamespacedName) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.gatewayRef = ref
-	}
-}
-
-func WithLogger(logger *zap.SugaredLogger) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.Logger = logger
-	}
-}
-
-func WithSubscribers(subscribers ...chan shared.AlertingClusterNotification) AlertingManagerDriverOption {
-	return func(o *AlertingManagerDriverOptions) {
-		o.Subscribers = append(o.Subscribers, subscribers...)
-	}
-}
-
-func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingManager, error) {
-	options := AlertingManagerDriverOptions{
-		gatewayRef: types.NamespacedName{
-			Namespace: os.Getenv("POD_NAMESPACE"),
-			Name:      os.Getenv("GATEWAY_NAME"),
-		},
-		configKey:          shared.AlertManagerConfigKey,
-		internalRoutingKey: shared.InternalRoutingConfigKey,
-	}
-	options.Apply(opts...)
-	if options.k8sClient == nil {
+func NewAlertingManagerDriver(options AlertingManagerDriverOptions) (*AlertingManager, error) {
+	if options.K8sClient == nil {
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: apis.NewScheme(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client : %w", err)
 		}
-		options.k8sClient = c
+		options.K8sClient = c
 	}
 
 	return &AlertingManager{
@@ -128,7 +77,7 @@ func NewAlertingManagerDriver(opts ...AlertingManagerDriverOption) (*AlertingMan
 func (a *AlertingManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	existing := a.newOpniGateway()
 
-	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +104,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	lg.Debugf("%v", conf)
 	existing := a.newOpniGateway()
 
-	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +122,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		lg.Debug("Starting external update reconciler...")
 		existing := a.newOpniGateway()
-		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+		err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
@@ -191,7 +140,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
-		return a.k8sClient.Update(ctx, clone)
+		return a.K8sClient.Update(ctx, clone)
 	})
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)
@@ -214,7 +163,7 @@ func (a *AlertingManager) notify(status *alertops.InstallStatus) {
 
 func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	existing := a.newOpniGateway()
-	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
@@ -229,12 +178,12 @@ func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	existing := a.newOpniGateway()
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+		err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
 		existing.Spec.Alerting.Enabled = true
-		return a.k8sClient.Update(ctx, existing)
+		return a.K8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {
 		return nil, retryErr
@@ -258,12 +207,12 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		existing := a.newOpniGateway()
-		err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+		err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
 		existing.Spec.Alerting.Enabled = false
-		return a.k8sClient.Update(ctx, existing)
+		return a.K8sClient.Update(ctx, existing)
 	})
 	if retryErr != nil {
 		return nil, retryErr
@@ -278,7 +227,7 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.Unin
 
 func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
 	return shared.AlertingClusterOptions{
-		Namespace:             a.gatewayRef.Namespace,
+		Namespace:             a.GatewayRef.Namespace,
 		WorkerNodesService:    shared.OperatorAlertingClusterNodeServiceName,
 		WorkerNodePort:        9093,
 		ControllerNodeService: shared.OperatorAlertingControllerServiceName,
@@ -289,24 +238,16 @@ func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
 }
 
 func init() {
-	drivers.RegisterClusterDriverBuilder("alerting-manager", func(_ context.Context, opts ...any) (drivers.ClusterDriver, error) {
-		var options []AlertingManagerDriverOption
-		for _, opt := range opts {
-			switch opt := opt.(type) {
-			case AlertingManagerDriverOption:
-				options = append(options, opt)
-			case *shared.AlertingClusterOptions:
-				options = append(options, WithAlertingRuntimeOptions(opt))
-			case client.Client:
-				options = append(options, WithK8sClient(opt))
-			case *zap.SugaredLogger:
-				options = append(options, WithLogger(opt))
-			case chan shared.AlertingClusterNotification:
-				options = append(options, WithSubscribers(opt))
-			default:
-				return nil, fmt.Errorf("unknown option type %T", opt)
-			}
+	drivers.Drivers.Register("alerting-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
+		options := AlertingManagerDriverOptions{
+			GatewayRef: types.NamespacedName{
+				Namespace: os.Getenv("POD_NAMESPACE"),
+				Name:      os.Getenv("GATEWAY_NAME"),
+			},
+			ConfigKey:          shared.AlertManagerConfigKey,
+			InternalRoutingKey: shared.InternalRoutingConfigKey,
 		}
-		return NewAlertingManagerDriver(options...)
+		driverutil.ApplyOptions(&options, opts...)
+		return NewAlertingManagerDriver(options)
 	})
 }

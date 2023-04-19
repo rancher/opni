@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
@@ -56,7 +57,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureAlertManagerConfiguration(p.Ctx, opt, p.Logger.Named("alerting-manager"), p.clusterNotifier)
+		p.configureAlertManagerConfiguration(p.Ctx,
+			driverutil.NewOption("alertingOptions", opt),
+			driverutil.NewOption("logger", p.Logger.Named("alerting-manager")),
+			driverutil.NewOption("subscribers", []chan shared.AlertingClusterNotification{p.clusterNotifier}),
+		)
 	})
 	go p.handleDriverNotifications()
 	p.useWatchers(client)

@@ -53,6 +53,7 @@ import (
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
@@ -281,6 +282,7 @@ WALK:
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
+	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
 		enableEtcd:             false,
 		enableJetstream:        true,
@@ -856,6 +858,155 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		session.Wait()
 	})
 	return port
+}
+
+type TestNodeConfig struct {
+	AggregatorAddress string
+	ReceiverFile      string
+	Instance          string
+	Logs              otel.LoggingConfig
+	Metrics           otel.MetricsConfig
+	Containerized     bool
+}
+
+func (t TestNodeConfig) MetricReceivers() []string {
+	res := []string{}
+	if t.Metrics.Enabled {
+		res = append(res, "prometheus/self")
+		if t.Metrics.Spec.HostMetrics {
+			res = append(res, "hostmetrics")
+			if t.Containerized {
+				res = append(res, "kubeletstats")
+			}
+		}
+	}
+	return res
+}
+
+type TestAggregatorConfig struct {
+	AggregatorAddress string
+	AgentEndpoint     string
+	LogsEnabled       bool
+	Metrics           otel.MetricsConfig
+	Containerized     bool
+}
+
+func (t TestAggregatorConfig) MetricReceivers() []string {
+	res := []string{}
+	if t.Metrics.Enabled {
+		res = append(res, "prometheus/self")
+		if len(t.Metrics.Spec.AdditionalScrapeConfigs) > 0 {
+			res = append(res, "prometheus/additional")
+		}
+		if len(t.Metrics.DiscoveredScrapeCfg) > 0 {
+			res = append(res, "prometheus/discovered")
+		}
+	}
+	return res
+}
+
+func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) {
+	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
+	os.MkdirAll(otelDir, 0755)
+
+	receiverFile, err := os.Create(path.Join(otelDir, "receiver.yaml"))
+	if err != nil {
+		panic(err)
+	}
+
+	configFile, err := os.Create(path.Join(otelDir, "config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	aggregatorFile, err := os.Create(path.Join(otelDir, "aggregator.yaml"))
+	if err != nil {
+		panic(err)
+	}
+
+	agent := e.GetAgent(opniAgentId)
+	if agent.Agent == nil {
+		panic("test bug: agent not found")
+	}
+	aggregatorOTLP := fmt.Sprintf("localhost:%d", freeport.GetFreePort())
+
+	aggregatorCfg := TestAggregatorConfig{
+		AggregatorAddress: aggregatorOTLP,
+		AgentEndpoint:     agent.Agent.ListenAddress(),
+		Metrics: otel.MetricsConfig{
+			Enabled:             true,
+			ListenPort:          freeport.GetFreePort(),
+			RemoteWriteEndpoint: fmt.Sprintf("http://%s/api/agent/push", agent.Agent.ListenAddress()),
+			DiscoveredScrapeCfg: "",
+			Spec:                spec,
+		},
+		Containerized: false,
+	}
+	t := util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/base.tmpl"))
+	aggregatorTmpl := util.Must(t.Parse(`{{template "aggregator-config" .}}`))
+	if err := aggregatorTmpl.Execute(aggregatorFile, aggregatorCfg); err != nil {
+		panic(err)
+	}
+	// the pattern we use in production is node -> aggregator -> agent
+	nodeCfg := TestNodeConfig{
+		AggregatorAddress: aggregatorOTLP,
+		Instance:          "opni",
+		ReceiverFile:      fmt.Sprintf("%s/receiver.yaml", otelDir),
+		Metrics: otel.MetricsConfig{
+			Enabled:             true,
+			ListenPort:          freeport.GetFreePort(),
+			RemoteWriteEndpoint: fmt.Sprintf("%s/api/agent/push", agent.Agent.ListenAddress()),
+			DiscoveredScrapeCfg: "",
+			Spec:                spec,
+		},
+		Containerized: false,
+	}
+	receiverTmpl := util.Must(t.Parse(`{{template "node-receivers" .}}`))
+	if err := receiverTmpl.Execute(receiverFile, nodeCfg); err != nil {
+		panic(err)
+	}
+	receiverFile.Close()
+	mainTmpl := util.Must(t.Parse(`{{template "node-config" .}}`))
+	if err := mainTmpl.Execute(configFile, nodeCfg); err != nil {
+		panic(err)
+	}
+	configFile.Close()
+	otelColBin := path.Join(e.TestBin, "otelcol-custom")
+	nodeArgs := []string{
+		fmt.Sprintf("--config=%s", path.Join(otelDir, "config.yaml")),
+	}
+	aggregatorArgs := []string{
+		fmt.Sprintf("--config=%s", path.Join(otelDir, "aggregator.yaml")),
+	}
+	nodeCmd := exec.CommandContext(parentCtx, otelColBin, nodeArgs...)
+	nodeCmd.Cancel = func() error {
+		return nodeCmd.Process.Signal(syscall.SIGINT)
+	}
+	nodeSession, err := testutil.StartCmd(nodeCmd)
+	if err != nil {
+		if !errors.Is(parentCtx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	aggregatorCmd := exec.CommandContext(parentCtx, otelColBin, aggregatorArgs...)
+	aggregatorCmd.Cancel = func() error {
+		return aggregatorCmd.Process.Signal(syscall.SIGINT)
+	}
+	aggregatorSession, err := testutil.StartCmd(aggregatorCmd)
+	if err != nil {
+		if !errors.Is(parentCtx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+
+	go func() {
+		<-parentCtx.Done()
+		aggregatorSession.Wait()
+		nodeSession.Wait()
+	}()
 }
 
 // Starts a server that exposes Prometheus metrics

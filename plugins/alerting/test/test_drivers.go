@@ -21,6 +21,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -33,11 +34,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func init() {
-	alerting_drivers.RegisterClusterDriverBuilder("test-environment", func(ctx context.Context, args ...any) (alerting_drivers.ClusterDriver, error) {
-		env := test.EnvFromContext(ctx)
-		return NewTestEnvAlertingClusterDriver(env, args...), nil
-	})
+type TestEnvAlertingClusterDriverOptions struct {
+	AlertingOptions *shared.AlertingClusterOptions            `option:"alertingOptions"`
+	Subscribers     []chan shared.AlertingClusterNotification `option:"subscribers"`
 }
 
 type TestEnvAlertingClusterDriver struct {
@@ -60,7 +59,7 @@ type TestEnvAlertingClusterDriver struct {
 var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
 var _ alertops.AlertingAdminServer = (*TestEnvAlertingClusterDriver)(nil)
 
-func NewTestEnvAlertingClusterDriver(env *test.Environment, args ...any) *TestEnvAlertingClusterDriver {
+func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlertingClusterDriverOptions) *TestEnvAlertingClusterDriver {
 	dir := env.GenerateNewTempDirectory("alertmanager-config")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -81,32 +80,17 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, args ...any) *TestEn
 	initial := &atomic.Bool{}
 	initial.Store(false)
 
-	var (
-		subscribers    []chan shared.AlertingClusterNotification
-		clusterOptions = &shared.AlertingClusterOptions{}
-	)
-	for _, arg := range args {
-		switch opt := arg.(type) {
-		case chan shared.AlertingClusterNotification:
-			subscribers = append(subscribers, opt)
-		case *shared.AlertingClusterOptions:
-			clusterOptions = opt
-		default:
-			lg.With("option", opt).Warn("unexpected option")
-		}
-	}
-
 	return &TestEnvAlertingClusterDriver{
 		env:                    env,
 		managedInstances:       []AlertingServerUnit{},
 		enabled:                initial,
 		ConfigFile:             configFile,
-		AlertingClusterOptions: clusterOptions,
+		AlertingClusterOptions: options.AlertingOptions,
 		ClusterConfiguration: &alertops.ClusterConfiguration{
 			ResourceLimits: &alertops.ResourceLimitSpec{},
 		},
 		logger:      lg,
-		subscribers: subscribers,
+		subscribers: options.Subscribers,
 		stateMu:     &sync.RWMutex{},
 	}
 }
@@ -359,4 +343,13 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		Ctx:              ctxCa,
 		CancelFunc:       cancelFunc,
 	}
+}
+
+func init() {
+	alerting_drivers.Drivers.Register("test-environment", func(ctx context.Context, opts ...driverutil.Option) (alerting_drivers.ClusterDriver, error) {
+		env := test.EnvFromContext(ctx)
+		options := TestEnvAlertingClusterDriverOptions{}
+		driverutil.ApplyOptions(&options, opts...)
+		return NewTestEnvAlertingClusterDriver(env, options), nil
+	})
 }

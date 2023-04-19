@@ -41,7 +41,7 @@ type OTELNodeDriver struct {
 	state     reconcilerutil.ReconcilerState
 }
 
-func (*OTELNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
+func (*OTELNodeDriver) ConfigureRuleGroupFinder(_ *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
 	return notifier.NewMultiFinder[rules.RuleGroup]() // TODO: implement
 }
 

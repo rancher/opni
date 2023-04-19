@@ -111,10 +111,6 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 // Implements node.NodeMetricsCapabilityServer
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	m.WaitForInit()
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-
 	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed

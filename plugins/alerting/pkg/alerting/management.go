@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -80,31 +81,27 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...any) {
+func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...driverutil.Option) {
 	priorityOrder := []string{"alerting-manager", "local-alerting", "test-environment", "noop"}
 	p.Logger.With(
 		"priorityOrder", priorityOrder,
 	).Warn("failed to load cluster driver, checking other drivers...")
-	var builder drivers.ClusterDriverBuilder
 	for _, name := range priorityOrder {
-		var ok bool
-		builder, ok = drivers.GetClusterDriverBuilder(name)
-		if ok {
+		if builder, ok := drivers.Drivers.Get(name); ok {
 			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")
+			driver, err := builder(ctx, opts...)
+			if err != nil {
+				p.Logger.With(
+					"driver", name,
+					zap.Error(err),
+				).Error("failed to initialize cluster driver")
+				return
+			}
+
+			p.opsNode.ClusterDriver.Set(driver)
 			break
 		}
 	}
-
-	driver, err := builder(ctx, opts...)
-	if err != nil {
-		p.Logger.With(
-			"driver", driver.Name(),
-			zap.Error(err),
-		).Error("failed to initialize cluster driver")
-		return
-	}
-
-	p.opsNode.ClusterDriver.Set(driver)
 }
 
 // blocking

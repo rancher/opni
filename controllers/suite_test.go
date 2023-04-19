@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controllers_test
 
 import (
 	"context"
@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
@@ -127,27 +128,27 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	certMgr = &testk8s.TestCertManager{}
 
 	stopEnv, k8sManager, k8sClient = RunTestEnvironment(testEnv, true, false,
-		&GpuPolicyAdapterReconciler{},
-		&LoggingReconciler{},
-		&CoreGatewayReconciler{},
-		&CoreMonitoringReconciler{},
-		&LoggingDataPrepperReconciler{},
-		&LoggingLogAdapterReconciler{},
-		&AIOpniClusterReconciler{
+		&controllers.GpuPolicyAdapterReconciler{},
+		&controllers.LoggingReconciler{},
+		&controllers.CoreGatewayReconciler{},
+		&controllers.CoreMonitoringReconciler{},
+		&controllers.LoggingDataPrepperReconciler{},
+		&controllers.LoggingLogAdapterReconciler{},
+		&controllers.AIOpniClusterReconciler{
 			Opts: []opnicluster.ReconcilerOption{
 				opnicluster.WithContinueOnIndexError(),
 				opnicluster.WithCertManager(certMgr),
 			},
 		},
-		&LoggingOpniOpensearchReconciler{
+		&controllers.LoggingOpniOpensearchReconciler{
 			Opts: []opniopensearch.ReconcilerOption{
 				opniopensearch.WithCertManager(certMgr),
 			},
 		},
-		&AIPretrainedModelReconciler{},
-		&NatsClusterReonciler{},
-		&CoreCollectorReconciler{},
-		&LoggingPreprocessorReconciler{
+		&controllers.AIPretrainedModelReconciler{},
+		&controllers.NatsClusterReonciler{},
+		&controllers.CoreCollectorReconciler{},
+		&controllers.LoggingPreprocessorReconciler{
 			Opts: []preprocessor.ReconcilerOption{
 				preprocessor.WithCertManager(certMgr),
 			},

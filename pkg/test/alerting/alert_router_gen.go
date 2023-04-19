@@ -422,10 +422,10 @@ func RunAlertManager(
 }
 
 func ExpectAlertManagerConfigToBeValid(
+	ctx context.Context,
 	env *test.Environment,
 	tmpWritePath string,
 	writeFile string,
-	ctx context.Context,
 	cfg *config.Config,
 	port int,
 ) {

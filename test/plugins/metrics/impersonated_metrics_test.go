@@ -34,6 +34,7 @@ var _ = Describe("Impersonated Metrics", Ordered, Label("integration"), func() {
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(1 * time.Hour),
 		})
+		Expect(err).NotTo(HaveOccurred())
 
 		ctx, ca := context.WithCancel(environment.Context())
 		agent1Cancel = ca

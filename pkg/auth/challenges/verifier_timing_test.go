@@ -42,12 +42,12 @@ type keyringStore struct {
 	prefix string
 }
 
-func (ks *keyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
+func (ks *keyringStore) Put(_ context.Context, keyring keyring.Keyring) error {
 	ks.store.Store(path.Join(ks.prefix, "keyrings", ks.ref.Id), keyring)
 	return nil
 }
 
-func (ks *keyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
+func (ks *keyringStore) Get(_ context.Context) (keyring.Keyring, error) {
 	value, ok := ks.store.Load(path.Join(ks.prefix, "keyrings", ks.ref.Id))
 	if !ok {
 		return nil, storage.ErrNotFound
@@ -55,7 +55,7 @@ func (ks *keyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
 	return value, nil
 }
 
-func (ks *keyringStore) Delete(ctx context.Context) error {
+func (ks *keyringStore) Delete(_ context.Context) error {
 	_, ok := ks.store.LoadAndDelete(path.Join(ks.prefix, "keyrings", ks.ref.Id))
 	if !ok {
 		return storage.ErrNotFound

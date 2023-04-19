@@ -60,6 +60,7 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 			},
 			dashboards.WithTransport(transport),
 		)
+		Expect(err).NotTo(HaveOccurred())
 
 		reconciler, err = NewReconciler(
 			context.Background(),

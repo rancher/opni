@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -97,7 +96,6 @@ func main() {
 		testlog.Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
 		case http.MethodPost:
-
 			body := struct {
 				Token string   `json:"token"`
 				Pins  []string `json:"pins"`
@@ -162,6 +160,8 @@ func main() {
 
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
+		default:
+			rw.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	}
 	http.HandleFunc("/agents", addAgent)
@@ -178,8 +178,8 @@ func main() {
 	c := make(chan os.Signal, 2)
 	var closeOnce sync.Once
 	signal.Notify(c, os.Interrupt)
-	iPort, _ = environment.StartInstrumentationServer(context.Background())
-	kPort = environment.StartMockKubernetesMetricServer(context.Background())
+	iPort, _ = environment.StartInstrumentationServer()
+	kPort = environment.StartMockKubernetesMetricServer()
 	for i := 0; i < 100; i++ {
 		environment.SimulateKubeObject(kPort)
 	}

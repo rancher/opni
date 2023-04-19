@@ -39,6 +39,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(1 * time.Hour),
 		})
+		Expect(err).NotTo(HaveOccurred())
 
 		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))

@@ -39,7 +39,7 @@ type mockRemoteReader struct {
 	i         int
 }
 
-func (reader *mockRemoteReader) Read(ctx context.Context, endpoint string, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+func (reader *mockRemoteReader) Read(_ context.Context, _ string, _ *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	if reader.Error != nil {
 		return nil, reader.Error
 	}
@@ -57,11 +57,11 @@ type mockRemoteWriteClient struct {
 	Payloads []*cortexpb.WriteRequest
 }
 
-func (client *mockRemoteWriteClient) Push(ctx context.Context, in *cortexpb.WriteRequest, opts ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
+func (client *mockRemoteWriteClient) Push(_ context.Context, in *cortexpb.WriteRequest, _ ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
 	client.Payloads = append(client.Payloads, in)
 	return &cortexpb.WriteResponse{}, nil
 }
 
-func (client *mockRemoteWriteClient) SyncRules(ctx context.Context, in *remotewrite.Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (client *mockRemoteWriteClient) SyncRules(_ context.Context, _ *remotewrite.Payload, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }

@@ -144,6 +144,7 @@ var _ = Describe("Server", Label("unit"), func() {
 						jsonData, err := json.Marshal(rawToken)
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+						Expect(err).NotTo(HaveOccurred())
 						ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
 
 						_, err = client.Auth(ctx, &bootstrapv1.BootstrapAuthRequest{})

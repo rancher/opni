@@ -37,7 +37,7 @@ type TestMetricLabelSet struct {
 	output *cortexadmin.MetricLabels
 }
 
-func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
+func expectRuleGroupToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string, expectedYaml []byte) error {
 	for i := 0; i < 10; i++ {
 		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
@@ -54,7 +54,7 @@ func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx conte
 	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
 }
 
-func expectRuleGroupToNotExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+func expectRuleGroupToNotExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
@@ -136,7 +136,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		// wait until data has been stored in cortex for the cluster
-		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
+		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer()
 		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
 		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc).Should(Receive(BeNil()))
@@ -167,6 +167,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				Cluster: &corev1.Reference{Id: "agent2"},
 			},
 		})
+		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() error {
 			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
@@ -390,7 +391,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			Eventually(func() error {
 				return expectRuleGroupToExist(
-					adminClient, ctx, "agent",
+					ctx, adminClient, "agent",
 					"opni-test-slo-rule", sampleRuleYamlString)
 			}).Should(Succeed())
 
@@ -410,7 +411,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			Eventually(func() error {
 				return expectRuleGroupToExist(
-					adminClient, ctx, "agent",
+					ctx, adminClient, "agent",
 					"opni-test-slo-rule", sampleRuleYamlUpdateString)
 			}).Should(Succeed())
 		})
@@ -427,7 +428,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// Should find no rule named "opni-test-slo-rule" after deletion
 			Eventually(func() error {
 				return expectRuleGroupToNotExist(
-					adminClient, ctx, "agent",
+					ctx, adminClient, "agent",
 					"opni-test-slo-rule")
 			}).Should(Succeed())
 		})
@@ -454,13 +455,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			Eventually(func() error {
 				return expectRuleGroupToExist(
-					adminClient, ctx,
+					ctx, adminClient,
 					"agent", "opni-test-slo-rule", sampleRuleYamlString)
 			}).Should(Succeed())
 
 			Eventually(func() error {
 				return expectRuleGroupToExist(
-					adminClient, ctx,
+					ctx, adminClient,
 					"agent2", "opni-test-slo-rule", sampleRuleYamlString,
 				)
 			}).Should(Succeed())
@@ -475,13 +476,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			Eventually(func() error {
 				return expectRuleGroupToExist(
-					adminClient, ctx, "agent2",
+					ctx, adminClient, "agent2",
 					"opni-test-slo-rule", sampleRuleYamlString)
 			}).Should(Succeed())
 
 			Eventually(func() error {
 				return expectRuleGroupToNotExist(
-					adminClient, ctx, "agent",
+					ctx, adminClient, "agent",
 					"opni-test-slo-rule")
 			}).Should(Succeed())
 		})

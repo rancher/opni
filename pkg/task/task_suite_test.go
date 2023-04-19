@@ -65,7 +65,7 @@ func (a *SampleTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask
 	return nil
 }
 
-func (a *SampleTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
+func (a *SampleTaskRunner) OnTaskCompleted(_ context.Context, ti task.ActiveTask, state task.State, _ ...any) {
 	switch state {
 	case task.StateCompleted:
 		ti.AddLogEntry(zapcore.InfoLevel, "completed")

@@ -17,24 +17,24 @@ var (
 	StderrWriter    = lo.Ternary[io.Writer](IsTesting, ginkgo.GinkgoWriter, os.Stderr)
 )
 
-type ifExpr[T any] struct {
+type IfExpr[T any] struct {
 	cond  bool
 	value T
 }
 
-func IfCI[T any](t T) ifExpr[T] {
-	return ifExpr[T]{
+func IfCI[T any](t T) IfExpr[T] {
+	return IfExpr[T]{
 		cond:  IsGithubActions || IsDrone,
 		value: t,
 	}
 }
 
-func (e ifExpr[T]) Else(t T) T {
+func (e IfExpr[T]) Else(t T) T {
 	return lo.Ternary(e.cond, e.value, t)
 }
 
-func IfTesting[T any](t T) ifExpr[T] {
-	return ifExpr[T]{
+func IfTesting[T any](t T) IfExpr[T] {
+	return IfExpr[T]{
 		cond:  IsTesting,
 		value: t,
 	}

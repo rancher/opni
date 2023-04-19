@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
 
-	"github.com/rancher/opni/pkg/storage/conformance"
+	conformance "github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"

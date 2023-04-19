@@ -456,7 +456,7 @@ func BuildStorageClientSetSuite(
 		var s storage.AlertingClientSet
 		var ctx context.Context
 		BeforeAll(func() {
-			broker := broker_init.NewDefaultAlertingBroker(embeddedJetstream)
+			broker := brokerConstructor()
 
 			s = broker.NewClientSet()
 			Expect(s).NotTo(BeNil())
@@ -607,14 +607,7 @@ func BuildStorageClientSetSuite(
 				cfg, err := tree.BuildConfig()
 				Expect(err).To(Succeed())
 				newDir := env.GenerateNewTempDirectory("force-sync")
-				alerting.ExpectAlertManagerConfigToBeValid(
-					env,
-					newDir,
-					"default-after-force-sync.yaml",
-					ctx,
-					cfg,
-					freeport.GetFreePort(),
-				)
+				alerting.ExpectAlertManagerConfigToBeValid(ctx, env, newDir, "default-after-force-sync.yaml", cfg, freeport.GetFreePort())
 			})
 		})
 
@@ -673,14 +666,7 @@ func BuildStorageClientSetSuite(
 				cfg, err := tree.BuildConfig()
 				Expect(err).To(Succeed())
 				newDir := env.GenerateNewTempDirectory("force-sync")
-				alerting.ExpectAlertManagerConfigToBeValid(
-					env,
-					newDir,
-					"user-configs-force-sync.yaml",
-					ctx,
-					cfg,
-					freeport.GetFreePort(),
-				)
+				alerting.ExpectAlertManagerConfigToBeValid(ctx, env, newDir, "user-configs-force-sync.yaml", cfg, freeport.GetFreePort())
 			})
 		})
 

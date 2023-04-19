@@ -23,7 +23,7 @@ type ProtoMatcher struct {
 
 func (matcher *ProtoMatcher) Match(actual any) (success bool, err error) {
 	if actual == nil && matcher.Expected == nil {
-		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.")
+		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized")
 	}
 	if _, ok := actual.(proto.Message); !ok {
 		return false, fmt.Errorf("ProtoMatcher expects a proto.Message. Got:\n%s", format.Object(actual, 1))
@@ -74,23 +74,23 @@ func (m *StatusCodeMatcher) code(value any) codes.Code {
 
 func (m *StatusCodeMatcher) Match(actual any) (success bool, err error) {
 	if actual == nil && m.Expected == nil {
-		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.")
+		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized")
 	}
 
 	return m.code(actual) == m.code(m.Expected), nil
 }
 
-func (matcher *StatusCodeMatcher) FailureMessage(actual any) (message string) {
-	actualStatusCode := matcher.code(actual)
-	expectedStatusCode := matcher.code(matcher.Expected)
+func (m *StatusCodeMatcher) FailureMessage(actual any) (message string) {
+	actualStatusCode := m.code(actual)
+	expectedStatusCode := m.code(m.Expected)
 
 	actualMsg := fmt.Sprintf("%s | %s(%d)", format.Object(actual, 1), actualStatusCode.String(), actualStatusCode)
-	expectedMsg := fmt.Sprintf("%s | %s(%d)", format.Object(matcher.Expected, 1), expectedStatusCode.String(), expectedStatusCode)
+	expectedMsg := fmt.Sprintf("%s | %s(%d)", format.Object(m.Expected, 1), expectedStatusCode.String(), expectedStatusCode)
 
 	return fmt.Sprintf("Expected\n%s\nto match the status code of\n%s", actualMsg, expectedMsg)
 }
 
-func (matcher *StatusCodeMatcher) NegatedFailureMessage(actual any) (message string) {
-	msg := matcher.FailureMessage(actual)
+func (m *StatusCodeMatcher) NegatedFailureMessage(actual any) (message string) {
+	msg := m.FailureMessage(actual)
 	return strings.Replace(msg, "to match", "not to match", 1)
 }

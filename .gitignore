@@ -1,6 +1,7 @@
 bin/
 dev/
 testbin/
+internal/linter/*.so
 *.test
 **/__debug_bin
 *.out

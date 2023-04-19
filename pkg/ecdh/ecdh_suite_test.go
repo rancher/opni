@@ -1,4 +1,4 @@
-package ecdh
+package ecdh_test
 
 import (
 	"testing"

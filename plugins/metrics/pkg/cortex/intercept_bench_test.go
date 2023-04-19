@@ -107,9 +107,12 @@ func Test_federatingInterceptor_Intercept(t *testing.T) {
 		panic(err)
 	}
 	ctx, _ := user.InjectIntoGRPCRequest(user.InjectOrgID(context.Background(), "test"))
-	interceptor.Intercept(ctx, &wr, func(ctx context.Context, wr *cortexpb.WriteRequest, co ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
+	_, err = interceptor.Intercept(ctx, &wr, func(ctx context.Context, wr *cortexpb.WriteRequest, co ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
 		return nil, nil
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 type testCase struct {

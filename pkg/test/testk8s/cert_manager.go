@@ -58,7 +58,7 @@ func (m *TestCertManager) GenerateHTTPCA() error {
 	return nil
 }
 
-func (m *TestCertManager) GenerateClientCert(user string) error {
+func (m *TestCertManager) GenerateClientCert(_ string) error {
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (m *TestCertManager) GetHTTPRootCAs() (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func (m *TestCertManager) GetClientCert(user string) (tls.Certificate, error) {
+func (m *TestCertManager) GetClientCert(_ string) (tls.Certificate, error) {
 	return tls.Certificate{}, nil
 }
 

@@ -524,3 +524,12 @@ func ChartsV(version string) error {
 	Charts()
 	return nil
 }
+
+func BuildLinter() {
+	sh.Run(mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+}
+func Lint() {
+	mg.Deps(BuildLinter)
+	sh.RunV("golangci-lint", "cache", "clean")
+	sh.RunV("golangci-lint", "run")
+}

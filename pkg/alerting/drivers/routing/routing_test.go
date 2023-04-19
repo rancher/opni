@@ -44,7 +44,7 @@ var _ = Describe("Alerting Router defaults", Ordered, Serial, Label("integration
 			fp := freeport.GetFreePort()
 			cfg := routing.NewRootNode(fmt.Sprintf("http://localhost:%d", fp))
 			Expect(cfg).ToNot(BeNil())
-			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTreeRoot.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTreeRoot.yaml", cfg, fp)
 		})
 
 		Specify("the opni subtree should be in a valid alertmanager format", func() {
@@ -53,13 +53,13 @@ var _ = Describe("Alerting Router defaults", Ordered, Serial, Label("integration
 			subtree, recvs := routing.NewOpniSubRoutingTree()
 			cfg.Route.Routes = append(cfg.Route.Routes, subtree)
 			cfg.Receivers = append(cfg.Receivers, recvs...)
-			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingSubtree.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingSubtree.yaml", cfg, fp)
 		})
 
 		Specify("the default routing tree of opni routing should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
 			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
-			alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, "routingTree.yaml", env.Context(), cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTree.yaml", cfg, fp)
 		})
 	})
 })
@@ -77,7 +77,7 @@ func BuildRoutingTreeSuiteTest(
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
 				fp := freeport.GetFreePort()
-				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+".yaml", currentCfg, fp)
 			})
 
 			It("should be able to set configurations for routing to endpoints (s)", func() {
@@ -149,7 +149,7 @@ func BuildRoutingTreeSuiteTest(
 			AfterEach(func() {
 				By("expecting that the formed alertmanager config is correct")
 				fp := freeport.GetFreePort()
-				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+".yaml", currentCfg, fp)
 			})
 
 			It("should be able to add endpoints to the default subtree", func() {
@@ -238,7 +238,7 @@ func BuildRoutingTreeSuiteTest(
 					calculatedConfig, err := router.BuildConfig()
 					Expect(err).To(Succeed())
 					currentCfg = calculatedConfig
-					alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+"-"+path.Base(file), env.Context(), currentCfg, freeport.GetFreePort())
+					alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+"-"+path.Base(file), currentCfg, freeport.GetFreePort())
 				}
 			})
 

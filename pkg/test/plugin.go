@@ -28,7 +28,7 @@ type apiextensionTestPlugin struct {
 }
 
 func (p *apiextensionTestPlugin) GRPCServer(
-	broker *plugin.GRPCBroker,
+	_ *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
 	s.RegisterService(p.svcDesc, p.impl)
@@ -37,8 +37,8 @@ func (p *apiextensionTestPlugin) GRPCServer(
 }
 
 func (p *apiextensionTestPlugin) GRPCClient(
-	ctx context.Context,
-	broker *plugin.GRPCBroker,
+	_ context.Context,
+	_ *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
 	return apiextensions.NewManagementAPIExtensionClient(c), nil

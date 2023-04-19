@@ -54,7 +54,7 @@ tests: ginkgo.#TestPlan & {
 		}
 		plugins: ginkgo.#Run & {
 			Packages: "./test/plugins/..."
-			Build: CoverPkg: "github.com/rancher/opni/plugins/..."
+			Build: CoverPkg: "github.com/rancher/opni/plugins/...,github.com/rancher/opni/pkg/plugins/...,github.com/rancher/opni/pkg/gateway"
 			Run: Parallel:   true
 		}
 		integration: ginkgo.#Run & {

@@ -44,7 +44,7 @@ func BuildRoutingLogicTest(
 ) bool {
 	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		When("setting namespace specs on the routing tree", func() {
-			var step string = "initial"
+			step := "initial"
 			var router routing.OpniRouting
 			BeforeAll(func() {
 				Expect(env).NotTo(BeNil())
@@ -58,7 +58,7 @@ func BuildRoutingLogicTest(
 				By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
 				fp := freeport.GetFreePort()
 
-				alerting.ExpectAlertManagerConfigToBeValid(env, tmpConfigDir, step+".yaml", env.Context(), currentCfg, fp)
+				alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+".yaml", currentCfg, fp)
 			})
 
 			It("should be able to dynamically update alert routing", func() {

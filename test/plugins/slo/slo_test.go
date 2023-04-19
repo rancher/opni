@@ -38,7 +38,7 @@ func simulateGoodEvents(metricName string, instrumentationServerPort int, numEve
 			client := &http.Client{
 				Transport: &http.Transport{},
 			}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName), nil)
+			req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName), nil)
 			req.Close = true
 			resp, err := client.Do(req)
 			if err != nil {
@@ -59,7 +59,7 @@ func simulateBadEvents(metricName string, instrumentationServerPort int, numEven
 			client := &http.Client{
 				Transport: &http.Transport{},
 			}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName), nil)
+			req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName), nil)
 			resp, err := client.Do(req)
 			if err != nil {
 				panic(err)
@@ -155,7 +155,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 		Expect(err).NotTo(HaveOccurred())
 		info, err = client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		instrumentationPort, done = env.StartInstrumentationServer(ctx)
+		instrumentationPort, done = env.StartInstrumentationServer()
 		DeferCleanup(func() {
 			done <- struct{}{}
 		})

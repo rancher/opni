@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/testruntime"
 
-	"github.com/rancher/opni/pkg/storage/conformance"
+	conformance "github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/future"
@@ -22,7 +22,7 @@ func TestEtcd(t *testing.T) {
 var store = future.New[*etcd.EtcdStore]()
 
 var _ = BeforeSuite(func() {
-	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
+	testruntime.IfIntegration(func() {
 		env := test.Environment{}
 		env.Start(
 			test.WithEnableGateway(false),

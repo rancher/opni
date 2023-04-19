@@ -82,7 +82,7 @@ var collectorWriteSync sync.Mutex
 var agentList = make(map[string]context.CancelFunc)
 var agentListMu sync.Mutex
 
-type servicePorts struct {
+type ServicePorts struct {
 	Etcd             int `env:"ETCD_PORT"`
 	Jetstream        int `env:"JETSTREAM_PORT"`
 	GatewayGRPC      int `env:"OPNI_GATEWAY_GRPC_PORT"`
@@ -98,9 +98,9 @@ type servicePorts struct {
 	NodeExporterPort int `env:"NODE_EXPORTER_PORT"`
 }
 
-func newServicePorts() (servicePorts, error) {
+func newServicePorts() (ServicePorts, error) {
 	// use environment variables if available, then fallback to random ports
-	var p servicePorts
+	var p ServicePorts
 	setRandomPorts := []func(int){}
 	v := reflect.ValueOf(&p).Elem()
 	for i := 0; i < v.NumField(); i++ {
@@ -113,7 +113,7 @@ func newServicePorts() (servicePorts, error) {
 			if portStr, ok := os.LookupEnv(envName); ok {
 				port, err := strconv.Atoi(portStr)
 				if err != nil {
-					return servicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
+					return ServicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
 				}
 				field.SetInt(int64(port))
 			} else {
@@ -151,7 +151,7 @@ type Environment struct {
 	once   sync.Once
 
 	tempDir        string
-	ports          servicePorts
+	ports          ServicePorts
 	localAgentOnce sync.Once
 
 	runningAgents   map[string]RunningAgent
@@ -402,7 +402,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	return nil
 }
 
-func (e *Environment) GetPorts() servicePorts {
+func (e *Environment) GetPorts() ServicePorts {
 	return e.ports
 }
 
@@ -861,7 +861,7 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
-func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan struct{}) {
+func (e *Environment) StartInstrumentationServer() (int, chan struct{}) {
 	// lg := e.logger
 	port := freeport.GetFreePort()
 
@@ -908,7 +908,7 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 	return port, done
 }
 
-func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port int) {
+func (e *Environment) StartMockKubernetesMetricServer() (port int) {
 	port = freeport.GetFreePort()
 
 	mux := http.NewServeMux()
@@ -1230,7 +1230,7 @@ func (e *EnvClientOptions) apply(opts ...EnvClientOption) {
 	}
 }
 
-func WithClientCaching(memoryLimitBytes int64, maxAge time.Duration) EnvClientOption {
+func WithClientCaching(memoryLimitBytes int64, _ time.Duration) EnvClientOption {
 	return func(o *EnvClientOptions) {
 		entityCacher := caching.NewInMemoryGrpcTtlCache(memoryLimitBytes, time.Minute)
 		interceptor := caching.NewClientGrpcTtlCacher(

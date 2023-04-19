@@ -111,11 +111,11 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, args ...any) *TestEn
 	}
 }
 
-func (l *TestEnvAlertingClusterDriver) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
+func (l *TestEnvAlertingClusterDriver) GetClusterConfiguration(_ context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	return l.ClusterConfiguration, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
+func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
 	l.stateMu.Lock()
 	defer l.stateMu.Unlock()
 	if err := configuration.Validate(); err != nil {
@@ -155,7 +155,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 	return &emptypb.Empty{}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*alertops.InstallStatus, error) {
+func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	if !l.enabled.Load() {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_NotInstalled,
@@ -177,7 +177,7 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, emp
 	}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if l.enabled.Load() {
 		return &emptypb.Empty{}, nil
 	}
@@ -226,7 +226,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	return &emptypb.Empty{}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
+func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	l.stateMu.Lock()
 	defer l.stateMu.Unlock()
 	for _, replica := range l.managedInstances {
@@ -251,7 +251,7 @@ func (l *TestEnvAlertingClusterDriver) Name() string {
 	return "local-alerting"
 }
 
-func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Reference) error {
+func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
 }
 
@@ -326,7 +326,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 			}
 		}
 		time.Sleep(time.Second)
-		retries += 1
+		retries--
 		if retries > 90 {
 			panic("AlertManager failed to start")
 		}

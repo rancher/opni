@@ -35,8 +35,6 @@ import (
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
-	"github.com/rancher/opni/pkg/otel"
-	metrics_node "github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -187,8 +185,7 @@ type Environment struct {
 
 	embeddedJS *natsserver.Server
 
-	metricsPrometheusNodeDriver *MetricsPrometheusNodeDriver
-	metricsOTELNodeDriver       *MetricsOTELNodeDriver
+	metricsNodeDriver *TestEnvMetricsNodeDriver
 
 	Processes struct {
 		Etcd      future.Future[*os.Process]
@@ -198,21 +195,20 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd                        bool
-	enableJetstream                   bool
-	enableGateway                     bool
-	enableCortex                      bool
-	enableCortexClusterDriver         bool
-	enableAlertingClusterDriver       bool
-	enableAgentOpenTelemetryCollector bool
-	delayStartEtcd                    chan struct{}
-	delayStartCortex                  chan struct{}
-	defaultAgentOpts                  []StartAgentOption
-	agentIdSeed                       int64
-	defaultAgentVersion               string
-	enableDisconnectServer            bool
-	enableNodeExporter                bool
-	storageBackend                    v1beta1.StorageType
+	enableEtcd                  bool
+	enableJetstream             bool
+	enableGateway               bool
+	enableCortex                bool
+	enableCortexClusterDriver   bool
+	enableAlertingClusterDriver bool
+	delayStartEtcd              chan struct{}
+	delayStartCortex            chan struct{}
+	defaultAgentOpts            []StartAgentOption
+	agentIdSeed                 int64
+	defaultAgentVersion         string
+	enableDisconnectServer      bool
+	enableNodeExporter          bool
+	storageBackend              v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -250,12 +246,6 @@ func WithEnableGateway(enable bool) EnvironmentOption {
 func WithEnableCortex(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableCortex = enable
-	}
-}
-
-func WithEnableAgentOpenTelemetryCollector(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableAgentOpenTelemetryCollector = enable
 	}
 }
 
@@ -322,18 +312,16 @@ func defaultStorageBackend() v1beta1.StorageType {
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
-	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
-		enableEtcd:                        true,
-		enableJetstream:                   true,
-		enableNodeExporter:                true,
-		enableGateway:                     true,
-		enableCortex:                      true,
-		enableDisconnectServer:            true,
-		enableAgentOpenTelemetryCollector: false,
-		agentIdSeed:                       time.Now().UnixNano(),
-		defaultAgentVersion:               defaultAgentVersion(),
-		storageBackend:                    defaultStorageBackend(),
+		enableEtcd:             true,
+		enableJetstream:        true,
+		enableNodeExporter:     true,
+		enableGateway:          true,
+		enableCortex:           true,
+		enableDisconnectServer: true,
+		agentIdSeed:            time.Now().UnixNano(),
+		defaultAgentVersion:    defaultAgentVersion(),
+		storageBackend:         defaultStorageBackend(),
 	}
 	options.apply(opts...)
 
@@ -450,22 +438,15 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 				e.StartCortex(e.ctx)
 			}()
 		} else if options.enableCortexClusterDriver {
-			e.metricsPrometheusNodeDriver = &MetricsPrometheusNodeDriver{
+			e.metricsNodeDriver = &TestEnvMetricsNodeDriver{
 				env:              e,
 				overridesForNode: make(map[string]*overridePrometheusConfig),
 			}
-			e.metricsOTELNodeDriver = &MetricsOTELNodeDriver{
-				env:              e,
-				overridesForNode: make(map[string]*overridePrometheusConfig),
-			}
-			// metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment-prom", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
-			// 	return e.metricsPrometheusNodeDriver, nil
-			// })
-			metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment-otel", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
-				return e.metricsOTELNodeDriver, nil
+			metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
+				return e.metricsNodeDriver, nil
 			})
 			metrics_drivers.RegisterPersistentClusterDriver(func() metrics_drivers.ClusterDriver {
-				return NewMetricsCortexClusterDriver(e)
+				return NewTestEnvMetricsClusterDriver(e)
 			})
 		} else {
 			e.StartCortex(e.ctx)
@@ -473,7 +454,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	if options.enableAlertingClusterDriver {
 		alerting_drivers.RegisterPersistentClusterDriver(func() alerting_drivers.ClusterDriver {
-			return NewAlertingAlertManagerClusterDriver(e)
+			return NewTestEnvAlertingClusterDriver(e)
 		})
 	}
 	if options.enableGateway {
@@ -1035,155 +1016,6 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		session.Wait()
 	})
 	return port
-}
-
-type TestNodeConfig struct {
-	AggregatorAddress string
-	ReceiverFile      string
-	Instance          string
-	Logs              otel.LoggingConfig
-	Metrics           otel.MetricsConfig
-	Containerized     bool
-}
-
-func (t TestNodeConfig) MetricReceivers() []string {
-	res := []string{}
-	if t.Metrics.Enabled {
-		res = append(res, "prometheus/self")
-		if t.Metrics.Spec.HostMetrics {
-			res = append(res, "hostmetrics")
-			if t.Containerized {
-				res = append(res, "kubeletstats")
-			}
-		}
-	}
-	return res
-}
-
-type TestAggregatorConfig struct {
-	AggregatorAddress string
-	AgentEndpoint     string
-	LogsEnabled       bool
-	Metrics           otel.MetricsConfig
-	Containerized     bool
-}
-
-func (t TestAggregatorConfig) MetricReceivers() []string {
-	res := []string{}
-	if t.Metrics.Enabled {
-		res = append(res, "prometheus/self")
-		if len(t.Metrics.Spec.AdditionalScrapeConfigs) > 0 {
-			res = append(res, "prometheus/additional")
-		}
-		if len(t.Metrics.DiscoveredScrapeCfg) > 0 {
-			res = append(res, "prometheus/discovered")
-		}
-	}
-	return res
-}
-
-func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, cfg *metrics_node.MetricsCapabilitySpec) {
-	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
-	os.MkdirAll(otelDir, 0755)
-
-	receiverFile, err := os.Create(path.Join(otelDir, "receiver.yaml"))
-	if err != nil {
-		panic(err)
-	}
-
-	configFile, err := os.Create(path.Join(otelDir, "config.yaml"))
-	if err != nil {
-		panic(err)
-	}
-	aggregatorFile, err := os.Create(path.Join(otelDir, "aggregator.yaml"))
-	if err != nil {
-		panic(err)
-	}
-
-	agent := e.GetAgent(opniAgentId)
-	if agent.Agent == nil {
-		panic("test bug: agent not found")
-	}
-	aggregatorOTLP := fmt.Sprintf("localhost:%d", freeport.GetFreePort())
-
-	aggregatorCfg := TestAggregatorConfig{
-		AggregatorAddress: aggregatorOTLP,
-		AgentEndpoint:     agent.Agent.ListenAddress(),
-		Metrics: otel.MetricsConfig{
-			Enabled:             true,
-			ListenPort:          freeport.GetFreePort(),
-			RemoteWriteEndpoint: fmt.Sprintf("http://%s/api/agent/push", agent.Agent.ListenAddress()),
-			DiscoveredScrapeCfg: "",
-			Spec:                metrics_node.CompatOTELStruct(cfg.GetOtel()),
-		},
-		Containerized: false,
-	}
-	t := util.Must(otel.OTELTemplates.ParseFS(TestDataFS, "testdata/otel/base.tmpl"))
-	aggregatorTmpl := util.Must(t.Parse(`{{template "aggregator-config" .}}`))
-	if err := aggregatorTmpl.Execute(aggregatorFile, aggregatorCfg); err != nil {
-		panic(err)
-	}
-	// the pattern we use in production is node -> aggregator -> agent
-	nodeCfg := TestNodeConfig{
-		AggregatorAddress: aggregatorOTLP,
-		Instance:          "opni",
-		ReceiverFile:      fmt.Sprintf("%s/receiver.yaml", otelDir),
-		Metrics: otel.MetricsConfig{
-			Enabled:             true,
-			ListenPort:          freeport.GetFreePort(),
-			RemoteWriteEndpoint: fmt.Sprintf("%s/api/agent/push", agent.Agent.ListenAddress()),
-			DiscoveredScrapeCfg: "",
-			Spec:                metrics_node.CompatOTELStruct(cfg.GetOtel()),
-		},
-		Containerized: false,
-	}
-	receiverTmpl := util.Must(t.Parse(`{{template "node-receivers" .}}`))
-	if err := receiverTmpl.Execute(receiverFile, nodeCfg); err != nil {
-		panic(err)
-	}
-	receiverFile.Close()
-	mainTmpl := util.Must(t.Parse(`{{template "node-config" .}}`))
-	if err := mainTmpl.Execute(configFile, nodeCfg); err != nil {
-		panic(err)
-	}
-	configFile.Close()
-	otelColBin := path.Join(e.TestBin, "otelcol-custom")
-	nodeArgs := []string{
-		fmt.Sprintf("--config=%s", path.Join(otelDir, "config.yaml")),
-	}
-	aggregatorArgs := []string{
-		fmt.Sprintf("--config=%s", path.Join(otelDir, "aggregator.yaml")),
-	}
-	nodeCmd := exec.CommandContext(parentCtx, otelColBin, nodeArgs...)
-	nodeCmd.Cancel = func() error {
-		return nodeCmd.Process.Signal(syscall.SIGINT)
-	}
-	nodeSession, err := testutil.StartCmd(nodeCmd)
-	if err != nil {
-		if !errors.Is(parentCtx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
-	}
-	aggregatorCmd := exec.CommandContext(parentCtx, otelColBin, aggregatorArgs...)
-	aggregatorCmd.Cancel = func() error {
-		return aggregatorCmd.Process.Signal(syscall.SIGINT)
-	}
-	aggregatorSession, err := testutil.StartCmd(aggregatorCmd)
-	if err != nil {
-		if !errors.Is(parentCtx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
-	}
-
-	go func() {
-		<-parentCtx.Done()
-		aggregatorSession.Wait()
-		nodeSession.Wait()
-	}()
 }
 
 // Starts a server that exposes Prometheus metrics
@@ -2163,13 +1995,12 @@ func (e *Environment) StartGrafana(extraDockerArgs ...string) {
 
 func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	options := &EnvironmentOptions{
-		enableGateway:                     true,
-		enableEtcd:                        true,
-		enableCortex:                      true,
-		enableNodeExporter:                true,
-		enableAgentOpenTelemetryCollector: false,
-		defaultAgentOpts:                  []StartAgentOption{},
-		agentIdSeed:                       rand.Int63(),
+		enableGateway:      true,
+		enableEtcd:         true,
+		enableCortex:       true,
+		enableNodeExporter: true,
+		defaultAgentOpts:   []StartAgentOption{},
+		agentIdSeed:        rand.Int63(),
 	}
 	options.apply(opts...)
 
@@ -2222,7 +2053,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 
-			environment.metricsPrometheusNodeDriver.SetOverridesForNode(body.ID, func() *overridePrometheusConfig {
+			environment.metricsNodeDriver.SetOverridesForNode(body.ID, func() *overridePrometheusConfig {
 				optional := []PrometheusJob{}
 				if options.enableNodeExporter {
 					optional = append(optional, PrometheusJob{

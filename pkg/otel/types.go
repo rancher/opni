@@ -20,6 +20,7 @@ func AgentEndpoint(serviceName string) string {
 
 type NodeConfig struct {
 	Instance      string
+	ReceiverFile  string
 	Logs          LoggingConfig
 	Metrics       MetricsConfig
 	Containerized bool

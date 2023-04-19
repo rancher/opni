@@ -14,15 +14,13 @@ import (
 
 func main() {
 	gin.SetMode(gin.TestMode)
-	var enableGateway, enableEtcd, enableCortex, enableCortexClusterDriver, enableAlertingClusterDriver, enableAgentOTEL, enableNodeExporter bool
+	var enableGateway, enableEtcd, enableCortex, enableCortexClusterDriver, enableAlertingClusterDriver bool
 	var remoteGatewayAddress, remoteKubeconfig string
 	var agentIdSeed int64
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
 	pflag.BoolVar(&enableCortex, "enable-cortex", true, "enable cortex")
-	pflag.BoolVar(&enableAgentOTEL, "enable-agent-otel", false, "enable agent otel")
-	pflag.BoolVar(&enableNodeExporter, "enable-node-exporter", false, "enable node exporter")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
@@ -56,7 +54,5 @@ func main() {
 		test.WithAgentIdSeed(agentIdSeed),
 		test.WithEnableCortexClusterDriver(enableCortexClusterDriver),
 		test.WithEnableAlertingClusterDriver(enableAlertingClusterDriver),
-		test.WithEnableAgentOpenTelemetryCollector(enableAgentOTEL),
-		test.WithEnableNodeExporter(enableNodeExporter),
 	)
 }

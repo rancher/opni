@@ -1,5 +1,4 @@
 annotations:
-  catalog.cattle.io/auto-install: opni-agent-crd=match
   catalog.cattle.io/display-name: Opni Agent
   catalog.cattle.io/os: linux
   catalog.rancher.io/namespace: opni-system

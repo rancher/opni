@@ -3,7 +3,6 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"sync"
 	"time"
@@ -111,26 +110,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 	if err != nil {
 		panic(err)
 	}
-	// acquire cortex client
-	// var adminClient cortexadmin.CortexAdminClient
-	// for {
-	// 	ctxca, ca := context.WithTimeout(p.Ctx, 5*time.Second)
-	// 	acquiredClient, err := p.adminClient.GetContext(ctxca)
-	// 	ca()
-	// 	if err != nil {
-	// 		lg.Warn("could not acquire cortex admin client within timeout, retrying...")
-	// 	} else {
-	// 		adminClient = acquiredClient
-	// 		break
-	// 	}
-	// }
-	adminClient, err := p.adminClient.GetContext(p.Ctx)
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			lg.With(zap.Error(err)).Error("could not acquire cortex admin client")
-		}
-		return
-	}
+	adminClient := p.adminClient.Get()
 
 	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary
 	defer ticker.Stop()

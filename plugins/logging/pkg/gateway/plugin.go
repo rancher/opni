@@ -263,35 +263,3 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		otelForwarder:     p.otelForwarder,
 	}
 }
-
-// func createKubernetesDrivers(
-// 	restconfig *rest.Config,
-// 	opensearchCluster *opnimeta.OpensearchClusterRef,
-// 	lg *zap.SugaredLogger,
-// ) (backenddriver.ClusterDriver, managementdriver.ClusterDriver, error) {
-// 	cli, err := client.New(restconfig, client.Options{
-// 		Scheme: apis.NewScheme(),
-// 	})
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	backendDriver, err := kubernetes_manager.NewKubernetesManagerDriver(
-// 		kubernetes_manager.WithK8sClient(cli),
-// 		kubernetes_manager.WithLogger(lg),
-// 		kubernetes_manager.WithOpensearchCluster(opensearchCluster),
-// 	)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	managementDriver, err := kubernetes_manager2.NewKubernetesManagerDriver(
-// 		kubernetes_manager2.WithOpensearchCluster(opensearchCluster),
-// 		kubernetes_manager2.WithRestConfig(restconfig),
-// 	)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	return backendDriver, managementDriver, nil
-// }

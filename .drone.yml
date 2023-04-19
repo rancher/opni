@@ -7,26 +7,29 @@ platform:
   arch: amd64
 steps:
   - name: lint
-    image: golangci/golangci-lint:latest
-    commands: 
-      - golangci-lint run
-  - name: build-and-package
     image: docker
     environment: &dagger_env
       DAGGER_LOG_FORMAT: "plain"
       BUILD_VERSION: ${DRONE_TAG}
-      # DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
-      # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
       - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.36 sh
       - bin/dagger version
-      - bin/dagger do build
+      - bin/dagger do lint
     volumes: &volumes
       - name: docker
         path: /var/run/docker.sock
       - name: docker-config
         path: /root/.docker
+  - name: build-and-package
+    image: docker
+    environment:
+      <<: *dagger_env
+      # DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
+      # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
+    commands:
+      - bin/dagger do build
+    volumes: *volumes
   - name: test
     image: docker
     environment:

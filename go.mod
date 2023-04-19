@@ -153,7 +153,7 @@ require (
 	k8s.io/component-base v0.26.3
 	k8s.io/kubectl v0.26.3
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/controller-runtime v0.14.5
+	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/controller-tools v0.11.3
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745

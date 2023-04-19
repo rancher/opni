@@ -1,4 +1,4 @@
-package drivers
+package backend
 
 import (
 	"context"
@@ -22,10 +22,9 @@ const (
 
 type ClusterDriver interface {
 	Name() string
-	CreateCredentials(context.Context, *corev1.Reference) error
-	GetCredentials(context.Context, string) (username string, password string)
-	GetExternalURL(context.Context) string
 	GetInstallStatus(context.Context) InstallState
+	StoreCluster(context.Context, *corev1.Reference) error
+	DeleteCluster(context.Context, string) error
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)
 	SetSyncTime()

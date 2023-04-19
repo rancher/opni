@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,11 +25,11 @@ func (b *LoggingBackend) CanInstall(ctx context.Context, _ *emptypb.Empty) (*emp
 func (b *LoggingBackend) canInstall(ctx context.Context) error {
 	installState := b.ClusterDriver.GetInstallStatus(ctx)
 	switch installState {
-	case drivers.Absent:
+	case driver.Absent:
 		return status.Error(codes.Unavailable, "opensearch cluster is not installed")
-	case drivers.Pending, drivers.Installed:
+	case driver.Pending, driver.Installed:
 		return nil
-	case drivers.Error:
+	case driver.Error:
 		fallthrough
 	default:
 		return status.Error(codes.Internal, "unknown opensearch cluster state")
@@ -50,7 +50,7 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
-	if err := b.ClusterDriver.CreateCredentials(ctx, req.GetCluster()); err != nil {
+	if err := b.ClusterDriver.StoreCluster(ctx, req.GetCluster()); err != nil {
 		if !req.IgnoreWarnings {
 			return &capabilityv1.InstallResponse{
 				Status:  capabilityv1.InstallResponseStatus_Error,

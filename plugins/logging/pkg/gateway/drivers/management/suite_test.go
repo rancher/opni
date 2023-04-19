@@ -1,4 +1,4 @@
-package gateway_test
+package management_test
 
 import (
 	"context"

@@ -14,6 +14,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
@@ -229,7 +230,10 @@ func (p *Plugin) loadCoreInfo(ctx context.Context) (*coreInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusterList, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusterList, err := mgmtClient.ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +318,10 @@ func (p *Plugin) loadMetricsInfo(ctx context.Context) (*metricsInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusterList, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusterList, err := mgmtClient.ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +648,10 @@ func (p *Plugin) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*
 		return nil, err
 	}
 	clusterLookup := map[string]struct{}{}
-	cl, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	cl, err := p.mgmtClient.Get().ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}

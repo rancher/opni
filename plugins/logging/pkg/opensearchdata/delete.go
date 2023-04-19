@@ -2,8 +2,10 @@ package opensearchdata
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/util"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -25,9 +27,6 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	m.Lock()
 	defer m.Unlock()
 
-	m.kv.BackgroundInitClient(m.setJetStream)
-	m.kv.WaitForInit()
-
 	var createNewJob bool
 	idExists, err := m.keyExists(id)
 	if err != nil {
@@ -35,22 +34,23 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	}
 
 	if idExists {
-		entry, err := m.kv.Client.Get(id)
+		entry, err := m.systemKV.Get().Get(ctx, &system.Key{
+			Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+		})
 		if err != nil {
 			return nil
 		}
-		createNewJob = string(entry.Value()) == pendingValue
+		createNewJob = string(entry.GetValue()) == pendingValue
 	} else {
 		createNewJob = true
 	}
 
 	query, _ := sjson.Set("", `query.term.cluster_id`, id)
 	if createNewJob {
-		if idExists {
-			_, err = m.kv.Client.PutString(id, pendingValue)
-		} else {
-			_, err = m.kv.Client.Create(id, []byte(pendingValue))
-		}
+		_, err := m.systemKV.Get().Put(ctx, &system.KeyValue{
+			Key:   fmt.Sprintf("%s%s", loggingPrefix, id),
+			Value: []byte(pendingValue),
+		})
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,10 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
 		m.logger.Debugf("opensearch taskID is :%s", taskID)
-		_, err = m.kv.Client.PutString(id, taskID)
+		_, err = m.systemKV.Get().Put(ctx, &system.KeyValue{
+			Key:   fmt.Sprintf("%s%s", loggingPrefix, id),
+			Value: []byte(taskID),
+		})
 		if err != nil {
 			return err
 		}
@@ -91,8 +94,6 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	m.Lock()
 	defer m.Unlock()
 
-	m.kv.WaitForInit()
-
 	idExists, err := m.keyExists(id)
 	if err != nil {
 		return DeleteError, err
@@ -103,12 +104,14 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteFinishedWithErrors, nil
 	}
 
-	value, err := m.kv.Client.Get(id)
+	value, err := m.systemKV.Get().Get(ctx, &system.Key{
+		Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+	})
 	if err != nil {
 		return DeleteError, err
 	}
 
-	taskID := string(value.Value())
+	taskID := string(value.GetValue())
 
 	if taskID == pendingValue {
 		m.logger.Debug("kv status is pending")
@@ -136,7 +139,9 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteFinishedWithErrors, nil
 	}
 
-	err = m.kv.Client.Delete(id)
+	_, err = m.systemKV.Get().Delete(ctx, &system.Key{
+		Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+	})
 	if err != nil {
 		return DeleteError, err
 	}

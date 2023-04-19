@@ -50,46 +50,48 @@ func WithTransport(transport http.RoundTripper) ClientOption {
 }
 
 func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
-	if cfg.CertReader == nil {
-		return nil, fmt.Errorf("cert reader is required: %w", errors.ErrConfigMissing)
-	}
 	urls, err := addrsToURLs(cfg.URLs)
 	if err != nil {
 		return nil, err
 	}
-	// Set sane transport timeouts
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = (&net.Dialer{
-		Timeout: 5 * time.Second,
-	}).DialContext
-	transport.TLSHandshakeTimeout = 5 * time.Second
 
-	var usercerts tls.Certificate
-	if cfg.Username == "" {
-		usercerts, err = cfg.CertReader.GetAdminClientCert()
-	} else {
-		usercerts, err = cfg.CertReader.GetClientCert(cfg.Username)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cacerts, err := cfg.CertReader.GetHTTPRootCAs()
-	if err != nil {
-		return nil, err
-	}
-
-	transport.TLSClientConfig = &tls.Config{
-		Certificates: []tls.Certificate{
-			usercerts,
-		},
-		RootCAs: cacerts,
-	}
-
-	options := ClientOptions{
-		transport: transport,
-	}
+	options := ClientOptions{}
 	options.apply(opts...)
+
+	if options.transport == nil {
+		if cfg.CertReader == nil {
+			return nil, fmt.Errorf("cert reader is required: %w", errors.ErrConfigMissing)
+		}
+		// Set sane transport timeouts
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.DialContext = (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext
+		transport.TLSHandshakeTimeout = 5 * time.Second
+
+		var usercerts tls.Certificate
+		if cfg.Username == "" {
+			usercerts, err = cfg.CertReader.GetAdminClientCert()
+		} else {
+			usercerts, err = cfg.CertReader.GetClientCert(cfg.Username)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		cacerts, err := cfg.CertReader.GetHTTPRootCAs()
+		if err != nil {
+			return nil, err
+		}
+
+		transport.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{
+				usercerts,
+			},
+			RootCAs: cacerts,
+		}
+		options.transport = transport
+	}
 
 	client, err := opensearchtransport.New(opensearchtransport.Config{
 		URLs:      urls,

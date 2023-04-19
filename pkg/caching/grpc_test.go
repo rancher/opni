@@ -34,9 +34,7 @@ type cacheInterceptorConstructor func() caching.GrpcCachingInterceptor
 var _ = BuildCachingInterceptorSuite(
 	"default grpc middleware",
 	func() caching.GrpcCachingInterceptor {
-		return caching.NewClientGrpcTtlCacher(
-			caching.NewInMemoryGrpcTtlCache(5*1024*1024, defaultEvictionInterval),
-		)
+		return caching.NewClientGrpcTtlCacher()
 	},
 	func(buildCache cacheInterceptorConstructor) (
 		testgrpc.SimpleServiceServer,
@@ -46,9 +44,19 @@ var _ = BuildCachingInterceptorSuite(
 		testgrpc.ObjectServiceClient,
 		testgrpc.AggregatorServiceClient,
 	) {
+
 		testCacher := buildCache()
+		testCacher.SetCache(
+			caching.NewInMemoryGrpcTtlCache(10*1024, defaultEvictionInterval),
+		)
 		aggregatorCacher := buildCache()
+		aggregatorCacher.SetCache(
+			caching.NewInMemoryGrpcTtlCache(10*1024, defaultEvictionInterval),
+		)
 		testAggregatorClientCacher := buildCache()
+		testAggregatorClientCacher.SetCache(
+			caching.NewInMemoryGrpcTtlCache(10*1024, defaultEvictionInterval),
+		)
 
 		// ------ setup standalone servers
 		simpleServer := testgrpc.NewSimpleServer(defaultTtl)
@@ -119,10 +127,10 @@ var _ = BuildCachingInterceptorSuite(
 				aggregatorCacher.UnaryServerInterceptor(),
 			),
 		)
+		testgrpc.RegisterAggregatorServiceServer(server2, aggregatorServer)
 		_ = lo.Async(func() error {
 			return server2.Serve(aggregatorListener)
 		})
-		testgrpc.RegisterAggregatorServiceServer(server2, aggregatorServer)
 
 		opts3 := []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -484,10 +492,14 @@ func BuildCachingInterceptorSuite(
 				for i := 0; i < numTestcases; i++ {
 					wg.Add(1)
 					go func() {
+						defer GinkgoRecover()
 						defer wg.Done()
 						aggregate := 1
 						By("setting up a cache server")
 						testCacher := buildCache()
+						testCacher.SetCache(
+							caching.NewInMemoryGrpcTtlCache(10*1024, defaultTtl),
+						)
 						n := rand.Intn(len(randomInterceptors))
 						registerInterceptors := lo.Samples(randomInterceptors, n)
 						registerInterceptors = append(registerInterceptors, s{
@@ -603,6 +615,68 @@ func BuildCachingInterceptorSuite(
 					}()
 				}
 				wg.Wait()
+			})
+		})
+
+		When("using the caching interceptors without setting a cache provider", func() {
+			It("should not cache any responses", func() {
+				testCacher := caching.NewClientGrpcTtlCacher()
+				simpleServer := testgrpc.NewSimpleServer(defaultTtl)
+
+				defaultListener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", freeport.GetFreePort()))
+				Expect(err).To(Succeed())
+
+				server := grpc.NewServer(
+					grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+						MinTime:             15 * time.Second,
+						PermitWithoutStream: true,
+					}),
+					grpc.KeepaliveParams(keepalive.ServerParameters{
+						Time:    15 * time.Second,
+						Timeout: 5 * time.Second,
+					}),
+					grpc.ChainUnaryInterceptor(
+						testCacher.UnaryServerInterceptor(),
+					),
+				)
+
+				testgrpc.RegisterSimpleServiceServer(server, simpleServer)
+
+				_ = lo.Async(func() error {
+					return server.Serve(defaultListener)
+				})
+				opts1 := []grpc.DialOption{
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+					grpc.WithChainUnaryInterceptor(
+						testCacher.UnaryClientInterceptor(),
+					),
+				}
+				userConn, err := grpc.Dial(defaultListener.Addr().String(), opts1...)
+				Expect(err).To(Succeed())
+				simpleClientUser := testgrpc.NewSimpleServiceClient(userConn)
+
+				_, err = simpleClientUser.Increment(ctx, &testgrpc.IncrementRequest{
+					Value: 1,
+				})
+				Expect(err).To(Succeed())
+				value, err := simpleClientUser.GetValue(
+					caching.WithGrpcClientCaching(ctx, 5*time.Second),
+					&emptypb.Empty{},
+				)
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(1)))
+				_, err = simpleClientUser.Increment(ctx,
+					&testgrpc.IncrementRequest{
+						Value: 10,
+					},
+				)
+				Expect(err).To(Succeed())
+				value, err = simpleClientUser.GetValue(
+					caching.WithGrpcClientCaching(ctx, 5*time.Second),
+					&emptypb.Empty{},
+				)
+				Expect(err).To(Succeed())
+				Expect(value.Value).To(Equal(int64(11)))
 			})
 		})
 	})

@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/management"
 
 	"github.com/nats-io/nats.go"
@@ -20,6 +21,7 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -107,6 +109,10 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 		}
 	}()
 	<-p.Ctx.Done()
+}
+
+func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
+	c.SetCache(caching.NewInMemoryGrpcTtlCache(50*1024*1024, time.Minute))
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {

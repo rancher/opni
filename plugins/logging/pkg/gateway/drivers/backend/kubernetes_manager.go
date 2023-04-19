@@ -1,29 +1,27 @@
-package drivers
+package backend
 
 import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -99,7 +97,36 @@ func (d *KubernetesManagerDriver) Name() string {
 	return "kubernetes-manager"
 }
 
-func (d *KubernetesManagerDriver) CreateCredentials(ctx context.Context, req *opnicorev1.Reference) error {
+func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) InstallState {
+	opensearch := &loggingv1beta1.OpniOpensearch{}
+	if err := d.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.opensearchCluster.Name,
+		Namespace: d.opensearchCluster.Namespace,
+	}, opensearch); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return Absent
+		}
+		return Error
+	}
+
+	cluster := &opsterv1.OpenSearchCluster{}
+	if err := d.k8sClient.Get(ctx, types.NamespacedName{
+		Name:      d.opensearchCluster.Name,
+		Namespace: d.opensearchCluster.Namespace,
+	}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return Pending
+		}
+		return Error
+	}
+	if !cluster.Status.Initialized {
+		return Pending
+	}
+
+	return Installed
+}
+
+func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference) error {
 	labels := map[string]string{
 		resources.OpniClusterID: req.GetId(),
 	}
@@ -117,26 +144,6 @@ func (d *KubernetesManagerDriver) CreateCredentials(ctx context.Context, req *op
 		return errors.ErrCreateFailedAlreadyExists(req.GetId())
 	}
 
-	// Generate credentials
-	userSuffix := string(util.GenerateRandomString(6))
-
-	password := string(util.GenerateRandomString(20))
-
-	userSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("index-%s", strings.ToLower(userSuffix)),
-			Namespace: d.namespace,
-			Labels:    labels,
-		},
-		StringData: map[string]string{
-			"password": password,
-		},
-	}
-
-	if err := d.k8sClient.Create(ctx, userSecret); err != nil {
-		errors.ErrStoreUserCredentialsFailed(err)
-	}
-
 	loggingCluster := &opnicorev1beta1.LoggingCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "logging-",
@@ -144,9 +151,6 @@ func (d *KubernetesManagerDriver) CreateCredentials(ctx context.Context, req *op
 			Labels:       labels,
 		},
 		Spec: opnicorev1beta1.LoggingClusterSpec{
-			IndexUserSecret: &corev1.LocalObjectReference{
-				Name: userSecret.Name,
-			},
 			OpensearchClusterRef: d.opensearchCluster,
 		},
 	}
@@ -157,51 +161,26 @@ func (d *KubernetesManagerDriver) CreateCredentials(ctx context.Context, req *op
 	return nil
 }
 
-func (d *KubernetesManagerDriver) GetCredentials(ctx context.Context, id string) (username string, password string) {
-	labels := map[string]string{
-		resources.OpniClusterID: id,
-	}
-	secrets := &corev1.SecretList{}
-	if err := d.k8sClient.List(ctx, secrets, client.InNamespace(d.namespace), client.MatchingLabels(labels)); err != nil {
-		d.logger.Errorf("unable to list secrets: %v", err)
-		return
-	}
-
-	if len(secrets.Items) != 1 {
-		d.logger.Warn("no credential secrets found")
-		return
+func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context, id string) error {
+	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
+	if err := d.k8sClient.List(
+		ctx,
+		loggingClusterList,
+		client.InNamespace(d.opensearchCluster.Namespace),
+		client.MatchingLabels{resources.OpniClusterID: id},
+	); err != nil {
+		errors.ErrListingClustersFaled(err)
 	}
 
-	username = secrets.Items[0].Name
-	password = string(secrets.Items[0].Data["password"])
-	return
-}
-
-func (d *KubernetesManagerDriver) GetExternalURL(ctx context.Context) string {
-	opnimgmt := &loggingv1beta1.OpniOpensearch{}
-	if err := d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.namespace,
-	}, opnimgmt); err != nil {
-		d.logger.Errorf("unable to fetch opniopensearch object: %v", err)
-		return ""
+	switch {
+	case len(loggingClusterList.Items) > 1:
+		return errors.ErrDeleteClusterInvalidList(id)
+	case len(loggingClusterList.Items) == 1:
+		loggingCluster := &loggingClusterList.Items[0]
+		return d.k8sClient.Delete(ctx, loggingCluster)
+	default:
+		return nil
 	}
-
-	return opnimgmt.Spec.ExternalURL
-}
-
-func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) InstallState {
-	opensearch := &loggingv1beta1.OpniOpensearch{}
-	if err := d.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      d.opensearchCluster.Name,
-		Namespace: d.opensearchCluster.Namespace,
-	}, opensearch); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return Absent
-		}
-		return Error
-	}
-	return Installed
 }
 
 func (d *KubernetesManagerDriver) SetClusterStatus(ctx context.Context, id string, enabled bool) error {

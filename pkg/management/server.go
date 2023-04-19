@@ -145,8 +145,7 @@ func NewServer(
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(
-			// caching is done client-side, so it is safe to pass nil as a cache implementation here
-			caching.NewClientGrpcTtlCacher(nil).UnaryServerInterceptor(),
+			caching.NewClientGrpcTtlCacher().UnaryServerInterceptor(),
 			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)

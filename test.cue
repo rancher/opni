@@ -49,7 +49,7 @@ tests: ginkgo.#TestPlan & {
 			Suite: LabelFilter: "!deprecated"
 		}
 		logging: ginkgo.#Run & {
-			Packages: "./plugins/logging/pkg/gateway"
+			Packages: "./plugins/logging/pkg/gateway/..."
 			Build: CoverPkg: "github.com/rancher/opni/plugins/logging/pkg/gateway"
 		}
 		plugins: ginkgo.#Run & {

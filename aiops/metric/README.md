@@ -2,6 +2,9 @@
 
 * This service offers a new feature to match metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
 
+## Build
+run `mage generate` in the root dir of opni to generate .py proto-scripts from cortexadmin.proto 
+
 ## Testing
 Install libs for testing
 ```

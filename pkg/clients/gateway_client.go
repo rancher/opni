@@ -8,7 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"emperror.dev/errors"
+	"github.com/rancher/opni/pkg/auth/challenges"
+	"github.com/rancher/opni/pkg/auth/cluster"
+	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
+	"github.com/rancher/opni/pkg/auth/session"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,7 +20,7 @@ import (
 	"github.com/kralicky/totem"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -47,27 +50,14 @@ func NewGatewayClient(
 	if err != nil {
 		return nil, err
 	}
-	var sharedKeys *keyring.SharedKeys
-	kr.Try(func(sk *keyring.SharedKeys) {
-		if sharedKeys != nil {
-			err = errors.New("keyring contains multiple shared key sets")
-			return
-		}
-		sharedKeys = sk
-	})
-	if err != nil {
-		return nil, err
-	}
-	if sharedKeys == nil {
-		return nil, errors.New("keyring is missing shared keys")
-	}
 
 	tlsConfig, err := trustStrategy.TLSConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
-	cc, err := dial(ctx, address, id, sharedKeys, tlsConfig)
+	lg := logger.New().Named("gateway-client")
+	cc, err := dial(ctx, address, id, kr, tlsConfig, lg)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +70,7 @@ func NewGatewayClient(
 	client := &gatewayClient{
 		cc:     cc,
 		id:     id,
-		logger: logger.New().Named("gateway-client"),
+		logger: lg,
 	}
 
 	return client, nil
@@ -121,18 +111,33 @@ func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name
 	})
 }
 
-func dial(ctx context.Context, address, id string, sharedKeys *keyring.SharedKeys, tlsConfig *tls.Config) (*grpc.ClientConn, error) {
+func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig *tls.Config, lg *zap.SugaredLogger) (*grpc.ClientConn, error) {
+	authChallenge, err := authv2.NewClientChallenge(kr, id, lg)
+	if err != nil {
+		return nil, err
+	}
+
+	sessionAttrChallenge, err := session.NewClientChallenge(kr)
+	if err != nil {
+		return nil, err
+	}
+
+	challengeHandler := challenges.Chained(
+		authChallenge,
+		challenges.If(sessionAttrChallenge.HasAttributes).Then(sessionAttrChallenge),
+	)
 	return grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), cluster.NewClientStreamInterceptor(id, sharedKeys)),
+		grpc.WithChainStreamInterceptor(
+			otelgrpc.StreamClientInterceptor(),
+			cluster.StreamClientInterceptor(challengeHandler),
+		),
 		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithDefaultCallOptions(
 			grpc.WaitForReady(true),
 			grpc.MaxCallSendMsgSize(math.MaxInt32),
 			grpc.MaxCallRecvMsgSize(math.MaxInt32),
 		),
-		grpc.WithInitialConnWindowSize(1024*1024), // 1MB
-		grpc.WithInitialWindowSize(1024*1024),     // 1MB
 	)
 }
 
@@ -142,8 +147,32 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
 	}
+	ctx = stream.Context()
 
-	ts, err := totem.NewServer(stream, totem.WithName("gateway-client"))
+	authorizedId := cluster.StreamAuthorizedID(ctx)
+	attrs := session.StreamAuthorizedAttributes(ctx)
+	var attrNames []string
+	lg := gc.logger.With(
+		"id", authorizedId,
+	)
+	if len(attrs) > 0 {
+		for _, attr := range attrs {
+			attrNames = append(attrNames, attr.Name())
+		}
+		lg = lg.With("attributes", attrNames)
+	}
+	lg.Debug("authenticated")
+
+	cachingInterceptor := caching.NewClientGrpcTtlCacher()
+
+	ts, err := totem.NewServer(
+		stream,
+		totem.WithName("gateway-client"),
+		totem.WithInterceptors(totem.InterceptorConfig{
+			Incoming: cachingInterceptor.UnaryServerInterceptor(),
+			Outgoing: cachingInterceptor.UnaryClientInterceptor(),
+		}),
+	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}
@@ -152,6 +181,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
 	}
+
 	for _, sc := range gc.spliced {
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		splicedStream, err := streamClient.Connect(ctx)
@@ -164,7 +194,11 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 		}
 
 		if err := ts.Splice(splicedStream, totem.WithStreamName(sc.name)); err != nil {
-			return nil, future.Instant(fmt.Errorf("failed to splice stream: %w", err))
+			gc.logger.With(
+				zap.String("name", sc.name),
+				zap.Error(err),
+			).Warn("failed to splice remote stream, skipping")
+			continue
 		}
 
 		defer func() {

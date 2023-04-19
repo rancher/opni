@@ -10,7 +10,7 @@ import (
 
 func Env() {
 	mg.Deps(Deps...)
-	cmd := exec.Command("bin/testenv")
+	cmd := exec.Command("bin/testenv", "--enable-cortex-cluster-driver", "--agent-id-seed=0")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	sigint := make(chan os.Signal, 1)

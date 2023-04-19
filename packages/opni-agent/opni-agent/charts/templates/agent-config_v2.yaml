@@ -19,6 +19,9 @@ stringData:
         type: customResources
       plugins:
         dir: /var/lib/opni-agent/plugins
+      keyring:
+        ephemeralKeyDirs:
+          - /run/opni-agent/keyring
       bootstrap:
         {{- if .Values.bootstrapInCluster.enabled }}
         inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}

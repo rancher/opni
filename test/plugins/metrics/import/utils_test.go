@@ -3,6 +3,8 @@ package _import
 import (
 	"context"
 	"fmt"
+
+	"github.com/cortexproject/cortex/pkg/cortexpb"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -50,12 +52,12 @@ func (reader *mockRemoteReader) Read(ctx context.Context, endpoint string, readR
 }
 
 type mockRemoteWriteClient struct {
-	Payloads []*remotewrite.Payload
+	Payloads []*cortexpb.WriteRequest
 }
 
-func (client *mockRemoteWriteClient) Push(ctx context.Context, in *remotewrite.Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (client *mockRemoteWriteClient) Push(ctx context.Context, in *cortexpb.WriteRequest, opts ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
 	client.Payloads = append(client.Payloads, in)
-	return &emptypb.Empty{}, nil
+	return &cortexpb.WriteResponse{}, nil
 }
 
 func (client *mockRemoteWriteClient) SyncRules(ctx context.Context, in *remotewrite.Payload, opts ...grpc.CallOption) (*emptypb.Empty, error) {

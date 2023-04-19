@@ -7,7 +7,7 @@ import (
 
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	"k8s.io/utils/pointer"
+	"github.com/samber/lo"
 )
 
 const (
@@ -26,6 +26,8 @@ const (
 	kibanaDashboardVersionDocID = "latest"
 	kibanaDashboardVersion      = "v0.5.4"
 	kibanaDashboardVersionIndex = "opni-dashboard-version"
+
+	ClusterMetadataIndexName = "opni-cluster-metadata"
 )
 
 var (
@@ -174,7 +176,7 @@ var (
 				RolloverAlias:    spanIndexAlias,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
-				DateDetection: pointer.BoolPtr(false),
+				DateDetection: lo.ToPtr(false),
 				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"resource_attributes_map": opensearchtypes.DynamicTemplateSpec{
@@ -284,7 +286,7 @@ var (
 				NumberOfReplicas: 1,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
-				DateDetection: pointer.BoolPtr(false),
+				DateDetection: lo.ToPtr(false),
 				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"strings_as_keyword": {
@@ -406,6 +408,19 @@ var (
 	// index patterns and dashboards
 	//go:embed dashboard.ndjson
 	kibanaObjects string
+
+	clusterMetadataIndexSettings = map[string]opensearchtypes.TemplateMappingsSpec{
+		"mappings": {
+			Properties: map[string]opensearchtypes.PropertySettings{
+				"id": {
+					Type: "text",
+				},
+				"name": {
+					Type: "text",
+				},
+			},
+		},
+	}
 )
 
 func (r *Reconciler) logISMPolicy() opensearchtypes.ISMPolicySpec {

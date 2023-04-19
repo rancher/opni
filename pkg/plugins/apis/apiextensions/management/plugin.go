@@ -5,7 +5,6 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/kralicky/ragu/compat"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/util"
@@ -80,7 +79,5 @@ func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empt
 var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)
 
 func init() {
-	compat.LoadGogoFileDescriptor("k8s.io/api/core/v1/generated.proto")
-	compat.LoadGogoFileDescriptor("k8s.io/apimachinery/pkg/api/resource/generated.proto")
 	plugins.GatewayScheme.Add(ManagementAPIExtensionPluginID, NewPlugin())
 }

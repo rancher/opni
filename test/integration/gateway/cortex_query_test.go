@@ -44,9 +44,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			Ttl: durationpb.New(1 * time.Hour),
 		})
 
-		port, errC := environment.StartAgent(agentId, token, []string{fingerprint})
-		environment.StartPrometheus(port)
-		Expect(errC).To(Receive(BeNil()))
+		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
+		Eventually(errC).Should(Receive(BeNil()))
+		environment.StartPrometheus(agentId)
 
 		opsClient := environment.NewCortexOpsClient()
 		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
@@ -118,7 +118,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Expect(code).To(Equal(http.StatusOK))
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
-		fmt.Println(string(body))
+		Expect(err).NotTo(HaveOccurred())
 		Expect(body).NotTo(BeEmpty())
 	})
 })

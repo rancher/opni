@@ -23,23 +23,26 @@ func TestEtcd(t *testing.T) {
 var store = future.New[*etcd.EtcdStore]()
 
 var _ = BeforeSuite(func() {
-	env := test.Environment{
-		TestBin: "../../../testbin/bin",
-	}
-	env.Start(
-		test.WithEnableCortex(false),
-		test.WithEnableGateway(false),
-		test.WithEnableEtcd(true),
-		test.WithEnableJetstream(false),
-		test.WithEnableDisconnectServer(false),
-		test.WithEnableRealtimeServer(false),
-	)
+	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
+		env := test.Environment{
+			TestBin: "../../../testbin/bin",
+		}
+		env.Start(
+			test.WithEnableCortex(false),
+			test.WithEnableGateway(false),
+			test.WithEnableEtcd(true),
+			test.WithEnableJetstream(false),
+			test.WithEnableDisconnectServer(false),
+		)
 
-	store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
-		etcd.WithPrefix("test"),
-	))
+		client, err := etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
+			etcd.WithPrefix("test"),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		store.Set(client)
 
-	DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop)
+	})
 })
 
 var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))

@@ -91,7 +91,7 @@ func setMockKubernetesPodState(kubePort int, pod *mockPod) {
 	}()
 }
 
-var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
 	var env *test.Environment
 	var adminClient apis.CortexAdminClient
@@ -117,10 +117,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		adminClient := env.NewCortexAdminClient()
 		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
 		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
-		p, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc).Should(Receive(BeNil()))
 		kubernetesJobName = "kubernetes"
-		env.StartPrometheus(p, test.NewOverridePrometheusConfig(
+		env.StartPrometheus("agent", test.NewOverridePrometheusConfig(
 			"alerting/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -129,9 +129,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				},
 			}),
 		)
-		p2, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		_, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc2).Should(Receive(BeNil()))
-		env.StartPrometheus(p2)
+		env.StartPrometheus("agent2")
 		Eventually(func() error {
 			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
 			if err != nil {

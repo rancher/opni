@@ -192,3 +192,35 @@ func (cc *ClusterCapability) Validate() error {
 	}
 	return nil
 }
+
+func (l *ChallengeRequestList) Validate() error {
+	for _, cr := range l.GetItems() {
+		if err := cr.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cr *ChallengeRequest) Validate() error {
+	if len(cr.GetChallenge()) == 0 {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "challenge")
+	}
+	return nil
+}
+
+func (l *ChallengeResponseList) Validate() error {
+	for _, cr := range l.GetItems() {
+		if err := cr.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cr *ChallengeResponse) Validate() error {
+	if len(cr.GetResponse()) == 0 {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "response")
+	}
+	return nil
+}

@@ -13,7 +13,7 @@ import (
 func BuildKeyringStoreBroker(ctx context.Context, conf v1beta1.StorageSpec) (storage.KeyringStoreBroker, error) {
 	switch conf.Type {
 	case v1beta1.StorageTypeEtcd:
-		return etcd.NewEtcdStore(ctx, conf.Etcd), nil
+		return etcd.NewEtcdStore(ctx, conf.Etcd)
 	case v1beta1.StorageTypeCRDs:
 		return crds.NewCRDStore(), nil
 	default:

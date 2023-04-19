@@ -27,6 +27,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -144,7 +145,9 @@ func NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
-		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.ChainUnaryInterceptor(
+			caching.NewClientGrpcTtlCacher().UnaryServerInterceptor(),
+			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
 	if m.capabilitiesDataSource != nil {
@@ -237,9 +240,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux,
 		strings.TrimPrefix(m.config.GRPCListenAddress, "tcp://"),
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
-		lg.With(
-			zap.Error(err),
-		).Panic("failed to register management handler")
+		return fmt.Errorf("failed to register management handler: %w", err)
 	}
 	m.configureHttpApiExtensions(gwmux)
 	mux.Handle("/", gwmux)

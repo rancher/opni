@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/snappy"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/prometheus/prometheus/prompb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -18,9 +20,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"sync"
-	"time"
 )
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
@@ -65,9 +64,13 @@ func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
 }
 
 func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
+	if len(logs) == 0 {
+		return ""
+	}
+
 	for i := len(logs) - 1; i >= 0; i-- {
 		log := logs[i]
-		if log.Level == int32(zapcore.ErrorLevel) {
+		if log.Level != int32(zapcore.DebugLevel) {
 			return log.Msg
 		}
 	}
@@ -145,7 +148,7 @@ func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error 
 	return nil
 }
 
-func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -155,14 +158,25 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
+	progressDelta := nextStart
+
 	progress := &corev1.Progress{
 		Current: 0,
-		Total:   uint64(importEnd - nextStart),
+		Total:   uint64(importEnd - progressDelta),
 	}
 
 	activeTask.SetProgress(progress)
 
+	activeTask.AddLogEntry(zapcore.InfoLevel, "import running")
+
 	for nextStart < importEnd {
+		select {
+		case <-ctx.Done():
+			activeTask.AddLogEntry(zapcore.InfoLevel, "import stopped")
+			return ctx.Err()
+		default: // continue with import
+		}
+
 		nextStart = nextEnd
 		nextEnd = nextStart + TimeDeltaMillis
 
@@ -202,28 +216,17 @@ func (tr *taskRunner) OnTaskRunning(_ context.Context, activeTask task.ActiveTas
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			uncompressed, err := proto.Marshal(&writeRequest)
-			if err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to uncompress data from target endpoint: %s", err))
-				return fmt.Errorf("failed to uncompress data from target endpoint: %w", err)
-			}
-
-			compressed := snappy.Encode(nil, uncompressed)
-
-			payload := &remotewrite.Payload{
-				Contents: compressed,
-			}
-
 			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
-				if _, err := remoteWriteClient.Push(context.Background(), payload); err != nil {
+				promClient := remotewrite.AsPrometheusRemoteWriteClient(remoteWriteClient)
+				if _, err := promClient.Push(context.Background(), &writeRequest); err != nil {
 					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
 					return
 				}
 
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", len(payload.Contents)))
+				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", writeRequest.Size()))
 			})
 
-			progress.Current = uint64(nextEnd)
+			progress.Current = uint64(nextEnd - progressDelta)
 			activeTask.SetProgress(progress)
 		}
 	}

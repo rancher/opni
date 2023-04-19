@@ -8,11 +8,12 @@ import (
 	// todo: needed instead of google.golang.org/protobuf/proto since prometheus Messages are built with it
 	"github.com/golang/protobuf/proto"
 
+	"io"
+	"net/http"
+
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/prometheus/prompb"
-	"io"
-	"net/http"
 )
 
 type RemoteReader interface {

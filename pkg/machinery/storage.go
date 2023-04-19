@@ -19,9 +19,12 @@ func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (sto
 		if options == nil {
 			return nil, errors.New("etcd storage options are not set")
 		}
-		store := etcd.NewEtcdStore(ctx, cfg.Etcd,
+		store, err := etcd.NewEtcdStore(ctx, cfg.Etcd,
 			etcd.WithPrefix("gateway"),
 		)
+		if err != nil {
+			return nil, err
+		}
 		storageBackend.Use(store)
 	case v1beta1.StorageTypeCRDs:
 		options := cfg.CustomResources
@@ -32,7 +35,11 @@ func ConfigureStorageBackend(ctx context.Context, cfg *v1beta1.StorageSpec) (sto
 		crdStore := crds.NewCRDStore(crdOpts...)
 		storageBackend.Use(crdStore)
 	case v1beta1.StorageTypeJetStream:
-		store, err := jetstream.NewJetStreamStore(ctx, cfg.JetStream)
+		options := cfg.JetStream
+		if options == nil {
+			return nil, errors.New("jetstream storage options are not set")
+		}
+		store, err := jetstream.NewJetStreamStore(ctx, options)
 		if err != nil {
 			return nil, err
 		}

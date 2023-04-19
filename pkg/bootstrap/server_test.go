@@ -13,6 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -27,7 +28,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
-	"github.com/rancher/opni/pkg/util"
 )
 
 type testCapBackend struct {
@@ -92,7 +92,7 @@ var _ = Describe("Server", Label("slow"), func() {
 
 		cc, err := grpc.Dial("bufconn", grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
 			return listener.Dial()
-		}), grpc.WithInsecure())
+		}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).NotTo(HaveOccurred())
 		client = bootstrapv1.NewBootstrapClient(cc)
 
@@ -161,7 +161,7 @@ var _ = Describe("Server", Label("slow"), func() {
 						authReq := bootstrapv1.BootstrapAuthRequest{
 							Capability:   "test",
 							ClientID:     "foo",
-							ClientPubKey: ekp.PublicKey,
+							ClientPubKey: ekp.PublicKey.Bytes(),
 						}
 
 						_, err = client.Auth(ctx, &authReq)
@@ -210,7 +210,7 @@ var _ = Describe("Server", Label("slow"), func() {
 					authReq := bootstrapv1.BootstrapAuthRequest{
 						Capability:   "test",
 						ClientID:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 					}
 
 					_, err := client.Auth(ctx, &authReq)
@@ -233,7 +233,7 @@ var _ = Describe("Server", Label("slow"), func() {
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv1.BootstrapAuthRequest{
 						ClientID:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 						Capability:   "test",
 					}
 					_, err = client.Auth(ctx, &authReq)
@@ -259,7 +259,7 @@ var _ = Describe("Server", Label("slow"), func() {
 					authReq := bootstrapv1.BootstrapAuthRequest{
 						Capability:   "test",
 						ClientID:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 					}
 
 					ctx := newCtx()
@@ -271,7 +271,7 @@ var _ = Describe("Server", Label("slow"), func() {
 						authReq := bootstrapv1.BootstrapAuthRequest{
 							Capability:   "test",
 							ClientID:     "foo",
-							ClientPubKey: ekp.PublicKey,
+							ClientPubKey: ekp.PublicKey.Bytes(),
 						}
 
 						ctx := newCtx()
@@ -300,7 +300,7 @@ var _ = Describe("Server", Label("slow"), func() {
 							authReq := bootstrapv1.BootstrapAuthRequest{
 								Capability:   "test1.5",
 								ClientID:     "foo",
-								ClientPubKey: ekp.PublicKey,
+								ClientPubKey: ekp.PublicKey.Bytes(),
 							}
 
 							req := newCtx()
@@ -314,7 +314,7 @@ var _ = Describe("Server", Label("slow"), func() {
 							authReq := bootstrapv1.BootstrapAuthRequest{
 								Capability:   "test2",
 								ClientID:     "foo",
-								ClientPubKey: ekp.PublicKey,
+								ClientPubKey: ekp.PublicKey.Bytes(),
 							}
 
 							req := newCtx()
@@ -328,7 +328,7 @@ var _ = Describe("Server", Label("slow"), func() {
 							authReq := bootstrapv1.BootstrapAuthRequest{
 								Capability:   "test3",
 								ClientID:     "foo",
-								ClientPubKey: ekp.PublicKey,
+								ClientPubKey: ekp.PublicKey.Bytes(),
 							}
 
 							req := newCtx()
@@ -351,7 +351,7 @@ var _ = Describe("Server", Label("slow"), func() {
 							authReq := bootstrapv1.BootstrapAuthRequest{
 								Capability:   "test2",
 								ClientID:     "foo",
-								ClientPubKey: ekp.PublicKey,
+								ClientPubKey: ekp.PublicKey.Bytes(),
 							}
 							_, err = client.Auth(ctx, &authReq)
 							Expect(err).To(HaveOccurred())

@@ -1,6 +1,6 @@
 
 url: local
-version: 0.8.3-rc2
+version: 0.9.2-rc1
 workingDir: charts
 additionalCharts:
 - workingDir: charts-crd

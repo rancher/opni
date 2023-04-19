@@ -443,9 +443,13 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 				return err
 			}
 			reply := dynamic.NewMessage(meta.OutputType)
-			err = meta.Conn.Invoke(outgoingCtx, fullMethodName, request, reply)
+			var trailer metadata.MD
+			err = meta.Conn.Invoke(outgoingCtx, fullMethodName, request, reply, grpc.Trailer(&trailer))
 			if err != nil {
 				return err
+			}
+			if trailer != nil {
+				stream.SetTrailer(trailer)
 			}
 			return stream.SendMsg(reply)
 		}

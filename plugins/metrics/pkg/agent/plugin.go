@@ -39,28 +39,33 @@ func NewPlugin(ctx context.Context) *Plugin {
 		node:         NewMetricsNode(ct, lg),
 	}
 
-	if d, err := drivers.NewExternalPromOperatorDriver(lg.Named("external-operator")); err != nil {
-		lg.With(
-			"driver", d.Name(),
-			zap.Error(err),
-		).Info("node driver is unavailable")
-		drivers.LogNodeDriverFailure(d.Name(), err)
-	} else {
-		lg.With(
-			"driver", d.Name(),
-		).Info("node driver is available")
-		drivers.RegisterNodeDriver(d)
-		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, d.ConfigureNode))
-		p.node.SetNodeDriver(d)
+	drivers.RegisterNodeDriverBuilder("prometheus-operator", func() (drivers.MetricsNodeDriver, error) {
+		return drivers.NewExternalPromOperatorDriver(lg)
+	})
+
+	for _, name := range drivers.ListNodeDrivers() {
+		builder, ok := drivers.GetNodeDriverBuilder(name)
+		if !ok {
+			continue
+		}
+		driver, err := builder()
+		if err != nil {
+			lg.With(
+				"driver", name,
+				zap.Error(err),
+			).Warn("failed to initialize node driver")
+			continue
+		}
+		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, driver.ConfigureNode))
+		p.node.AddNodeDriver(driver)
 	}
 
 	p.node.AddConfigListener(drivers.NewListenerFunc(ctx, p.onConfigUpdated))
-
 	return p
 }
 
-func (p *Plugin) onConfigUpdated(cfg *node.MetricsCapabilityConfig) {
-	p.logger.Debug("metrics capability config updated")
+func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfig) {
+	p.logger.With("nodeId", nodeId).Debug("metrics capability config updated")
 
 	// at this point, we know the config has been updated
 	currentlyRunning := (p.stopRuleStreamer != nil)
@@ -98,7 +103,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpServer))
 	return scheme
 }

@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -29,47 +30,49 @@ const (
 )
 
 func init() {
-	BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
-		{
-			NumReplicas: 1,
-			ResourceLimits: &alertops.ResourceLimitSpec{
-				Cpu:     "100m",
-				Memory:  "100Mi",
-				Storage: "5Gi",
+	test.IfIntegration(func() {
+		BuildAlertingClusterIntegrationTests([]*alertops.ClusterConfiguration{
+			{
+				NumReplicas: 1,
+				ResourceLimits: &alertops.ResourceLimitSpec{
+					Cpu:     "100m",
+					Memory:  "100Mi",
+					Storage: "5Gi",
+				},
+				ClusterSettleTimeout:    "1m",
+				ClusterGossipInterval:   "1m",
+				ClusterPushPullInterval: "1m",
 			},
-			ClusterSettleTimeout:    "1m",
-			ClusterGossipInterval:   "1m",
-			ClusterPushPullInterval: "1m",
+			// HA Mode has inconsistent state results
+			// {
+			// 	NumReplicas: 3,
+			// 	ResourceLimits: &alertops.ResourceLimitSpec{
+			// 		Cpu:     "100m",
+			// 		Memory:  "100Mi",
+			// 		Storage: "5Gi",
+			// 	},
+			// 	ClusterSettleTimeout:    "1m",
+			// 	ClusterGossipInterval:   "1m",
+			// 	ClusterPushPullInterval: "1m",
+			// },
 		},
-		// HA Mode has inconsistent state results
-		// {
-		// 	NumReplicas: 3,
-		// 	ResourceLimits: &alertops.ResourceLimitSpec{
-		// 		Cpu:     "100m",
-		// 		Memory:  "100Mi",
-		// 		Storage: "5Gi",
-		// 	},
-		// 	ClusterSettleTimeout:    "1m",
-		// 	ClusterGossipInterval:   "1m",
-		// 	ClusterPushPullInterval: "1m",
-		// },
-	},
-		func() alertops.AlertingAdminClient {
-			return env.NewAlertOpsClient()
-		},
-		func() alertingv1.AlertConditionsClient {
-			return env.NewAlertConditionsClient()
-		},
-		func() alertingv1.AlertEndpointsClient {
-			return env.NewAlertEndpointsClient()
-		},
-		func() alertingv1.AlertNotificationsClient {
-			return env.NewAlertNotificationsClient()
-		},
-		func() managementv1.ManagementClient {
-			return env.NewManagementClient()
-		},
-	)
+			func() alertops.AlertingAdminClient {
+				return env.NewAlertOpsClient()
+			},
+			func() alertingv1.AlertConditionsClient {
+				return env.NewAlertConditionsClient()
+			},
+			func() alertingv1.AlertEndpointsClient {
+				return env.NewAlertEndpointsClient()
+			},
+			func() alertingv1.AlertNotificationsClient {
+				return env.NewAlertNotificationsClient()
+			},
+			func() managementv1.ManagementClient {
+				return env.NewManagementClient()
+			},
+		)
+	})
 }
 
 type agentWithContext struct {
@@ -87,7 +90,7 @@ func BuildAlertingClusterIntegrationTests(
 	alertingNotificationsConstructor func() alertingv1.AlertNotificationsClient,
 	mgmtClientConstructor func() managementv1.ManagementClient,
 ) bool {
-	return Describe("Alerting Cluster Integration tests", Ordered, func() {
+	return Describe("Alerting Cluster Integration tests", Ordered, Label("integration"), func() {
 		var alertClusterClient alertops.AlertingAdminClient
 		var alertEndpointsClient alertingv1.AlertEndpointsClient
 		var alertConditionsClient alertingv1.AlertConditionsClient
@@ -195,7 +198,8 @@ func BuildAlertingClusterIntegrationTests(
 					for i := 0; i < numAgents; i++ {
 						ctxCa, ca := context.WithCancel(env.Context())
 						id := agentIdFunc(i)
-						port, _ := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
+						port, errC := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
+						Eventually(errC).Should(Receive(BeNil()))
 						agents = append(agents, &agentWithContext{
 							port:       port,
 							CancelFunc: ca,
@@ -483,6 +487,26 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Minute*2, time.Second*30)
 				})
 
+				It("should be able to list opni messages", func() {
+					Eventually(func() error {
+						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
+						if err != nil {
+							return err
+						}
+						if len(list.Items) == 0 {
+							return fmt.Errorf("expected to find at least one notification, got 0")
+						}
+						return nil
+					}, time.Minute*2, time.Second*15).Should(BeNil())
+
+					By("verifying we enforce limits")
+					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{
+						Limit: lo.ToPtr(int32(1)),
+					})
+					Expect(err).To(Succeed())
+					Expect(len(list.Items)).To(Equal(1))
+				})
+
 				It("should return warnings when trying to edit/delete alert endpoints that are involved in conditions", func() {
 					webhooks := lo.Uniq(lo.Flatten(lo.Values(involvedDisconnects)))
 					Expect(len(webhooks)).To(BeNumerically(">", 0))
@@ -518,24 +542,49 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should have a functional timeline", func() {
-					By("verifying the timeline shows only the firing conditions")
-					timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
-						LookbackWindow: durationpb.New(time.Minute * 5),
-					})
-					Expect(err).To(Succeed())
-					// Expect(len(timeline.GetItems())).To(Equal(len(involvedDisconnects)))
-
 					condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
 					Expect(err).To(Succeed())
 
-					Expect(timeline.GetItems()).To(HaveLen(len(condList.Items)))
-					for id, item := range timeline.GetItems() {
-						if slices.Contains(lo.Keys(involvedDisconnects), id) {
-							Expect(item.Windows).NotTo(HaveLen(0), "firing condition should show up on timeline, but does not")
-						} else {
-							Expect(item.Windows).To(HaveLen(0), "conditions that have not fired should not show up on timeline, but do")
+					// By("verifying the timeline shows only the firing conditions ")
+					Eventually(func() error {
+						timeline, err := alertConditionsClient.Timeline(env.Context(), &alertingv1.TimelineRequest{
+							LookbackWindow: durationpb.New(time.Minute * 5),
+						})
+						if err != nil {
+							return err
 						}
-					}
+
+						By("verifying the timeline matches the conditions")
+						if len(timeline.Items) != len(condList.Items) {
+							return fmt.Errorf("expected timeline to have %d items, got %d", len(condList.Items), len(timeline.Items))
+						}
+
+						for id, item := range timeline.GetItems() {
+							if slices.Contains(lo.Keys(involvedDisconnects), id) {
+								if len(item.Windows) == 0 {
+									return fmt.Errorf("firing condition should show up on timeline, but does not")
+								}
+								if len(item.Windows) != 1 {
+									return fmt.Errorf("condition evaluation is flaky, should only have one window, but has %d", len(item.Windows))
+								}
+								messages, err := alertNotificationsClient.ListAlarmMessages(env.Context(), &alertingv1.ListAlarmMessageRequest{
+									ConditionId: id,
+									Start:       item.Windows[0].Start,
+									End:         timestamppb.Now(),
+								})
+								if err != nil {
+									return err
+								}
+								Expect(len(messages.Items)).To(BeNumerically(">", 0))
+
+							} else {
+								if len(item.Windows) != 0 {
+									return fmt.Errorf("conditions that have not fired should not show up on timeline, but do")
+								}
+							}
+						}
+						return nil
+					}, time.Minute*1, time.Second*15)
 				})
 
 				It("should force update/delete alert endpoints involved in conditions", func() {

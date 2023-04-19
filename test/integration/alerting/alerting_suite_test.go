@@ -17,14 +17,16 @@ var env *test.Environment
 var tmpConfigDir string
 
 var _ = BeforeSuite(func() {
-	env = &test.Environment{
-		TestBin: "../../../testbin/bin",
-	}
-	Expect(env).NotTo(BeNil())
-	Expect(env.Start(
-		test.WithEnableAlertingClusterDriver(true),
-	)).To(Succeed())
-	DeferCleanup(env.Stop)
-	tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
-	Expect(tmpConfigDir).NotTo(Equal(""))
+	test.IfIntegration(func() {
+		env = &test.Environment{
+			TestBin: "../../../testbin/bin",
+		}
+		Expect(env).NotTo(BeNil())
+		Expect(env.Start(
+			test.WithEnableAlertingClusterDriver(true),
+		)).To(Succeed())
+		DeferCleanup(env.Stop)
+		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
+		Expect(tmpConfigDir).NotTo(Equal(""))
+	})
 })

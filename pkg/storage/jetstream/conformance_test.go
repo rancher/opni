@@ -21,23 +21,24 @@ func TestJetStream(t *testing.T) {
 var store = future.New[*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
-	env := test.Environment{
-		TestBin: "../../../testbin/bin",
-	}
-	env.Start(
-		test.WithEnableCortex(false),
-		test.WithEnableGateway(false),
-		test.WithEnableEtcd(false),
-		test.WithEnableJetstream(true),
-		test.WithEnableDisconnectServer(false),
-		test.WithEnableRealtimeServer(false),
-	)
+	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
+		env := test.Environment{
+			TestBin: "../../../testbin/bin",
+		}
+		env.Start(
+			test.WithEnableCortex(false),
+			test.WithEnableGateway(false),
+			test.WithEnableEtcd(false),
+			test.WithEnableJetstream(true),
+			test.WithEnableDisconnectServer(false),
+		)
 
-	s, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())
-	Expect(err).NotTo(HaveOccurred())
-	store.Set(s)
+		s, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())
+		Expect(err).NotTo(HaveOccurred())
+		store.Set(s)
 
-	DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop)
+	})
 })
 
 var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))

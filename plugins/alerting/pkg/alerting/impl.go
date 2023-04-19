@@ -4,57 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/rancher/opni/pkg/management"
 
-	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/samber/lo"
+	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ WatcherHooks[proto.Message] = &ManagementWatcherHooks[proto.Message]{}
-
-type ManagementWatcherHooks[T proto.Message] struct {
-	parentCtx context.Context
-	cases     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]
-}
-
-func (c *ManagementWatcherHooks[T]) RegisterEvent(eventFilter func(T) bool, hook ...func(context.Context, T) error) {
-	c.cases = append(c.cases, lo.Tuple2[func(T) bool, []func(context.Context, T) error]{A: eventFilter, B: hook})
-}
-
-func (c *ManagementWatcherHooks[T]) HandleEvent(event T) {
-	for _, cs := range c.cases {
-		if cs.A(event) {
-			for _, hook := range cs.B {
-				_ = hook(c.parentCtx, event)
-			}
-		}
-	}
-}
-
-func NewDefaultClusterWatcherHooks[T proto.Message](parentCtx context.Context) *ManagementWatcherHooks[T] {
-	return &ManagementWatcherHooks[T]{
-		parentCtx: parentCtx,
-		cases:     []lo.Tuple2[func(T) bool, []func(context.Context, T) error]{},
-	}
-}
-
-func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *ManagementWatcherHooks[*managementv1.WatchEvent] {
+func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *management.ManagementWatcherHooks[*managementv1.WatchEvent] {
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
 	if err != nil {
 		panic(err)
 	}
-	cw := NewDefaultClusterWatcherHooks[*managementv1.WatchEvent](ctx)
-	cw.RegisterEvent(
+	cw := management.NewManagementWatcherHooks[*managementv1.WatchEvent](ctx)
+	cw.RegisterHook(
 		createClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			err := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, NewAgentDurableReplayConsumer(event.Cluster.Id))
@@ -63,16 +36,15 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 				panic(err)
 			}
 			return nil
-
 		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
-			return p.createDefaultDisconnect(ctx, event.Cluster.Id)
+			return p.createDefaultDisconnect(event.Cluster.Id)
 		},
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
-			return p.createDefaultCapabilityHealth(ctx, event.Cluster.Id)
+			return p.createDefaultCapabilityHealth(event.Cluster.Id)
 		},
 	)
-	cw.RegisterEvent(
+	cw.RegisterHook(
 		deleteClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			return p.onDeleteClusterAgentDisconnectHook(ctx, event.Cluster.Id)
@@ -90,27 +62,6 @@ func createClusterEvent(event *managementv1.WatchEvent) bool {
 
 func deleteClusterEvent(event *managementv1.WatchEvent) bool {
 	return event.Type == managementv1.WatchEventType_Deleted
-}
-
-var _ InternalConditionWatcher = &SimpleInternalConditionWatcher{}
-
-type SimpleInternalConditionWatcher struct {
-	closures []func()
-}
-
-func NewSimpleInternalConditionWatcher(cl ...func()) *SimpleInternalConditionWatcher {
-	return &SimpleInternalConditionWatcher{
-		closures: cl,
-	}
-}
-
-func (s *SimpleInternalConditionWatcher) WatchEvents() {
-	for _, f := range s.closures {
-		f := f
-		go func() {
-			f()
-		}()
-	}
 }
 
 type internalConditionMetadata struct {
@@ -162,6 +113,7 @@ func NewInternalConditionEvaluator[T proto.Message](
 		storage,
 		state,
 		hooks,
+		"",
 	}
 }
 
@@ -172,6 +124,7 @@ type InternalConditionEvaluator[T proto.Message] struct {
 	*internalConditionStorage
 	*internalConditionState
 	*internalConditionHooks[T]
+	fingerprint string
 }
 
 // infinite & blocking : must be run in a goroutine
@@ -205,8 +158,10 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	for {
 		select {
 		case <-c.parentCtx.Done():
+			c.lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
+			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case msg := <-c.msgCh:
 			var status T
@@ -234,8 +189,10 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 	for {
 		select {
 		case <-c.parentCtx.Done():
+			c.lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
+			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case <-ticker.C:
 			lastKnownState, err := c.storageClientSet.States().Get(c.evaluationCtx, c.conditionId)
@@ -245,13 +202,9 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 			if !lastKnownState.Healthy {
 				c.lg.Debugf("condition %s is unhealthy", c.conditionName)
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
-				if interval > c.evaluateDuration {
-					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
-					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
-					if err != nil {
-						c.lg.Error(err)
-					}
+				if interval > c.evaluateDuration { // then we must fire an alert
 					if !c.IsFiring() {
+						c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
 						c.SetFiring(true)
 						err = c.UpdateState(c.evaluationCtx, &alertingv1.CachedState{
 							Healthy:   lastKnownState.Healthy,
@@ -261,22 +214,33 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						if err != nil {
 							c.lg.Error(err)
 						}
-						err = c.storageClientSet.Incidents().OpenInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+						err = c.storageClientSet.Incidents().OpenInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
 						if err != nil {
 							c.lg.Error(err)
 						}
 					}
-				} else {
-					c.SetFiring(false)
+					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
+					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
+						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					}, map[string]string{
+						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					})
 				}
-			} else if lastKnownState.Healthy && c.IsFiring() {
+			} else if lastKnownState.Healthy && c.IsFiring() &&
+				// avoid potential noise from api streams & replays
+				lastKnownState.Timestamp.AsTime().Add(-c.evaluateInterval).Before(time.Now()) {
 				c.lg.Debugf("condition %s is now healthy again after having fired", c.conditionName)
 				c.SetFiring(false)
-				err = c.storageClientSet.Incidents().CloseInterval(c.evaluationCtx, c.conditionId, timestamppb.Now())
+				err = c.storageClientSet.Incidents().CloseInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
 				if err != nil {
 					c.lg.Error(err)
 				}
-				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{}, map[string]string{})
+				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
+					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+				}, map[string]string{
+					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+				})
+				c.fingerprint = ""
 			}
 		}
 	}

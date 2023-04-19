@@ -332,8 +332,7 @@ func BuildImportStartCmd() *cobra.Command {
 		},
 	}
 
-	// todo: this default does not pull anything, but job=prometheus-poc did
-	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~\".+\""}, "label matchers to use for the import")
+	cmd.Flags().StringSliceVar(&labelFilters, "filters", []string{"__name__=~.+"}, "label matchers to use for the import")
 
 	// todo: we probably want to allow for more human-readable timestamps here
 	cmd.Flags().Int64Var(&startTimestampSecs, "start", time.Now().Unix()-int64(time.Hour.Seconds())*3, "start time for the remote read in seconds since epoch")

@@ -5,6 +5,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/management"
+
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
@@ -19,6 +22,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -62,44 +66,9 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			}),
 		)
 	})
-	go func() {
-		for {
-			select {
-			case <-p.Ctx.Done():
-				return
-			case incomingState := <-p.clusterNotifier:
-				if !p.enabledBool.Load() && incomingState.A {
-					err := p.reindex(p.Ctx)
-					if err != nil {
-						p.Logger.With("err", err).Error("failed to reindex")
-					}
-				} else if !incomingState.A {
-					err := p.teardown(p.Ctx)
-					if err != nil {
-						p.Logger.With("err", err).Error("failed to teardown")
-					}
-				}
-				p.enabledBool.Store(incomingState.A)
-			}
-		}
-	}()
-	p.UseWatchers(client)
+	go p.handleDriverNotifications()
+	p.useWatchers(client)
 	<-p.Ctx.Done()
-}
-
-func (p *Plugin) UseWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
-	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
-		func() { p.watchGlobalCluster(client, cw) },
-		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
-		func() { p.watchCortexClusterStatus() }
-
-	p.globalWatchers = NewSimpleInternalConditionWatcher(
-		clusterCrud,
-		clusterHealthStatus,
-		cortexBackendStatus,
-	)
-	p.globalWatchers.WatchEvents()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -150,6 +119,10 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 	<-p.Ctx.Done()
 }
 
+func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
+	c.SetCache(caching.NewInMemoryGrpcTtlCache(50*1024*1024, time.Minute))
+}
+
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
 	if err != nil {
@@ -163,4 +136,46 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 		os.Exit(1)
 	}
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(ccCortexOps))
+}
+
+func (p *Plugin) handleDriverNotifications() {
+	for {
+		select {
+		case <-p.Ctx.Done():
+			p.Logger.Info("shutting down cluster driver update handler")
+			return
+		case incomingState := <-p.clusterNotifier:
+			evaluating := p.evaluating.Load()
+			shouldEvaluate := incomingState.A
+			if !evaluating && shouldEvaluate {
+				p.Logger.Debug("initiating alarm dependency reindex")
+				err := p.reindex(p.Ctx)
+				if err != nil {
+					p.Logger.With("err", err).Error("failed to reindex")
+				}
+			} else if evaluating && !shouldEvaluate {
+				p.Logger.Debug("initiating alarm dependency teardown")
+				err := p.teardown(p.Ctx)
+				if err != nil {
+					p.Logger.With("err", err).Error("failed to teardown")
+				}
+			}
+			p.evaluating.Store(shouldEvaluate)
+		}
+	}
+}
+
+func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
+	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
+	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
+		func() { p.watchGlobalCluster(client, cw) },
+		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
+		func() { p.watchCortexClusterStatus() }
+
+	p.globalWatchers = management.NewConditionWatcher(
+		clusterCrud,
+		clusterHealthStatus,
+		cortexBackendStatus,
+	)
+	p.globalWatchers.WatchEvents()
 }

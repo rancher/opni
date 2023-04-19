@@ -139,7 +139,7 @@ func (mr *MockBackendClientMockRecorder) InstallerTemplate(ctx, in interface{}, 
 }
 
 // Status mocks base method.
-func (m *MockBackendClient) Status(ctx context.Context, in *v1.StatusRequest, opts ...grpc.CallOption) (*v1.NodeCapabilityStatus, error) {
+func (m *MockBackendClient) Status(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v1.NodeCapabilityStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -297,7 +297,7 @@ func (mr *MockBackendServerMockRecorder) InstallerTemplate(arg0, arg1 interface{
 }
 
 // Status mocks base method.
-func (m *MockBackendServer) Status(arg0 context.Context, arg1 *v1.StatusRequest) (*v1.NodeCapabilityStatus, error) {
+func (m *MockBackendServer) Status(arg0 context.Context, arg1 *v10.Reference) (*v1.NodeCapabilityStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(*v1.NodeCapabilityStatus)

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/rancher/opni/pkg/management"
+
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 
 	"github.com/nats-io/nats.go"
@@ -46,24 +48,24 @@ type Plugin struct {
 	clusterOptions  *shared.AlertingClusterOptions
 	clusterNotifier chan shared.AlertingClusterNotification
 	// signifies that the Alerting Cluster is running and we should
-	// be reconciling external dependencies & router configurations
-	// from our (K,V) store
-	enabledBool *atomic.Bool
+	// be reconciling external dependencies in order to evaluate
+	// alerts
+	evaluating *atomic.Bool
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
 	natsConn        future.Future[*nats.Conn]
 	js              future.Future[nats.JetStreamContext]
-	globalWatchers  InternalConditionWatcher
+	globalWatchers  management.ConditionWatcher
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
 	clusterDriver := future.New[drivers.ClusterDriver]()
 	storageClientSet := future.New[storage.AlertingClientSet]()
-	defaultEnabledState := &atomic.Bool{}
-	defaultEnabledState.Store(false)
+	defaultEvaluationState := &atomic.Bool{}
+	defaultEvaluationState.Store(false)
 	p := &Plugin{
 		Ctx:    ctx,
 		Logger: lg,
@@ -73,7 +75,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		storageClientSet: storageClientSet,
 
 		clusterNotifier: make(chan shared.AlertingClusterNotification),
-		enabledBool:     defaultEnabledState,
+		evaluating:      defaultEvaluationState,
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),

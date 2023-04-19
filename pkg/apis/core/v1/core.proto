@@ -158,6 +158,7 @@ message SubjectAccessRequest {
 message Status {
   google.protobuf.Timestamp timestamp = 1;
   bool connected = 2;
+  repeated string sessionAttributes = 3;
 }
 
 message Health {
@@ -243,6 +244,34 @@ message LogEntry {
   google.protobuf.Timestamp timestamp = 3;
 }
 
+message ChallengeRequestList {
+  repeated ChallengeRequest items = 2040;
+  reserved 2041;
+}
+
+message ChallengeRequest {
+  bytes challenge = 2042;
+  reserved 2043, 2044;
+}
+
+message ChallengeResponseList {
+  repeated ChallengeResponse items = 2045;
+  reserved 2046;
+}
+
 message ChallengeResponse {
-  string authorization = 2047;
+  bytes response = 2047;
+  reserved 2048, 2049;
+}
+
+message SessionInfo {
+  repeated string attributes = 2051;
+  reserved 2052 to 2055;
+  bytes mac = 2056;
+}
+
+message AuthInfo {
+  string authorizedId = 2057;
+  reserved 2058 to 2060;
+  bytes mac = 2061;
 }

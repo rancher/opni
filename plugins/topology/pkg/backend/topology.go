@@ -172,13 +172,13 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	}, nil
 }
 
-func (t *TopologyBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (t *TopologyBackend) Status(_ context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	t.WaitForInit()
 
 	t.nodeStatusMu.RLock()
 	defer t.nodeStatusMu.RUnlock()
 
-	if status, ok := t.nodeStatus[req.Cluster.Id]; ok {
+	if status, ok := t.nodeStatus[req.Id]; ok {
 		return status, nil
 	}
 
@@ -277,10 +277,7 @@ func (t *TopologyBackend) InstallerTemplate(_ context.Context, _ *emptypb.Empty)
 func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	t.WaitForInit()
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
+	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
 	cluster, err := t.StorageBackend.GetCluster(ctx, &corev1.Reference{

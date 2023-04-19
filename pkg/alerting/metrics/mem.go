@@ -8,8 +8,8 @@ import (
 
 	"github.com/prometheus/common/model"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"k8s.io/utils/strings/slices"
 )
 
 const MemoryDeviceFilter = "device"
@@ -127,7 +127,7 @@ func NewMemSpikeRule(
 	tmpl := template.Must(template.New("").Parse(`
 	count_over_time(
 		((
-			1 -  
+			1 -
 			(
 				{{ .AggrMetrics }}
 			)

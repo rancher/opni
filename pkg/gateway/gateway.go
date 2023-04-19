@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/rancher/opni/pkg/auth/challenges"
+	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
+	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
 	"github.com/rancher/opni/pkg/patch"
+	"github.com/spf13/afero"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,8 +31,8 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
@@ -36,6 +40,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
@@ -92,7 +97,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Error("failed to configure storage backend")
+		).Panic("failed to configure storage backend")
 	}
 
 	// configure the server-side installer template with the external hostname
@@ -143,6 +148,19 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		go p.ServeKeyValueStore(store)
 	}))
 
+	// serve caching provider for plugin RPCs
+	pl.Hook(hooks.OnLoadM(func(p types.SystemPlugin, md meta.PluginMeta) {
+		ns := md.Module
+		if err := module.CheckPath(ns); err != nil {
+			lg.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			return
+		}
+		go p.ServeCachingProvider()
+	}))
+
 	// set up http server
 	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {
@@ -153,13 +171,34 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
-	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey)
-
+	// Set up cluster auth
+	ephemeralKeys, err := machinery.LoadEphemeralKeys(afero.Afero{
+		Fs: afero.NewOsFs(),
+	}, conf.Spec.Keyring.EphemeralKeyDirs...)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Panic("failed to create cluster auth")
+		).Panic("failed to load ephemeral keys")
 	}
+
+	v1Verifier := challenges.NewKeyringVerifier(storageBackend, authv1.DomainString, lg.Named("authv1"))
+	v2Verifier := challenges.NewKeyringVerifier(storageBackend, authv2.DomainString, lg.Named("authv2"))
+
+	sessionAttrChallenge, err := session.NewServerChallenge(
+		keyring.New(lo.ToAnySlice(ephemeralKeys)...))
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to configure authentication")
+	}
+
+	v1Challenge := authv1.NewServerChallenge(streamv1.Stream_Connect_FullMethodName, v1Verifier, lg.Named("authv1"))
+	v2Challenge := authv2.NewServerChallenge(v2Verifier, lg.Named("authv2"))
+
+	clusterAuth := cluster.StreamServerInterceptor(challenges.Chained(
+		challenges.If(authv2.ShouldEnableIncoming).Then(v2Challenge).Else(v1Challenge),
+		challenges.If(session.ShouldEnableIncoming).Then(sessionAttrChallenge),
+	))
 
 	// set up plugin sync server
 	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
@@ -189,7 +228,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(
-			clusterAuth.StreamServerInterceptor(),
+			clusterAuth,
 			syncServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),
 		),
@@ -204,21 +243,14 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	agentHandler := MultiConnectionHandler(listener, sync, delegate)
 
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(agentHandler, storageBackend, lg)
+	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
-	streamv1.RegisterDelegateServer(streamSvc, delegate)
+	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 
-	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		if err := streamSvc.AddRemote(cc, md.Filename()); err != nil {
-			lg.With(
-				zap.Error(err),
-				"plugin", md.Module,
-			).Error("failed to add plugin remote stream service")
-		}
-	}))
+	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 
 	// set up bootstrap server
 	bootstrapServerV1 := bootstrap.NewServer(storageBackend, pkey, capBackendStore)

@@ -15,6 +15,7 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,7 +31,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
-	"github.com/rancher/opni/pkg/util"
 )
 
 var _ = Describe("Server V2", func() {
@@ -76,7 +76,7 @@ var _ = Describe("Server V2", func() {
 
 		cc, err := grpc.Dial("bufconn", grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
 			return listener.Dial()
-		}), grpc.WithInsecure())
+		}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).NotTo(HaveOccurred())
 		client = bootstrapv2.NewBootstrapClient(cc)
 
@@ -144,7 +144,7 @@ var _ = Describe("Server V2", func() {
 						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrapv2.BootstrapAuthRequest{
 							ClientId:     "foo",
-							ClientPubKey: ekp.PublicKey,
+							ClientPubKey: ekp.PublicKey.Bytes(),
 						}
 
 						_, err = client.Auth(ctx, &authReq)
@@ -180,7 +180,7 @@ var _ = Describe("Server V2", func() {
 							ekp := ecdh.NewEphemeralKeyPair()
 							authReq := bootstrapv2.BootstrapAuthRequest{
 								ClientId:     "bar",
-								ClientPubKey: ekp.PublicKey,
+								ClientPubKey: ekp.PublicKey.Bytes(),
 								FriendlyName: lo.ToPtr("test-cluster"),
 							}
 
@@ -214,7 +214,7 @@ var _ = Describe("Server V2", func() {
 								ekp := ecdh.NewEphemeralKeyPair()
 								authReq := bootstrapv2.BootstrapAuthRequest{
 									ClientId:     "bar",
-									ClientPubKey: ekp.PublicKey,
+									ClientPubKey: ekp.PublicKey.Bytes(),
 									FriendlyName: &name,
 								}
 
@@ -231,7 +231,7 @@ var _ = Describe("Server V2", func() {
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
 						ClientId:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 					}
 
 					_, err := client.Auth(ctx, &authReq)
@@ -254,7 +254,7 @@ var _ = Describe("Server V2", func() {
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
 						ClientId:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 					}
 					_, err = client.Auth(ctx, &authReq)
 					Expect(err).To(HaveOccurred())
@@ -274,7 +274,7 @@ var _ = Describe("Server V2", func() {
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrapv2.BootstrapAuthRequest{
 						ClientId:     "foo",
-						ClientPubKey: ekp.PublicKey,
+						ClientPubKey: ekp.PublicKey.Bytes(),
 					}
 					_, err = client.Auth(ctx, &authReq)
 					Expect(err).NotTo(HaveOccurred())
@@ -296,7 +296,7 @@ var _ = Describe("Server V2", func() {
 						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrapv2.BootstrapAuthRequest{
 							ClientId:     "foo",
-							ClientPubKey: ekp.PublicKey,
+							ClientPubKey: ekp.PublicKey.Bytes(),
 						}
 						_, err = client.Auth(ctx, &authReq)
 						Expect(err).NotTo(HaveOccurred())

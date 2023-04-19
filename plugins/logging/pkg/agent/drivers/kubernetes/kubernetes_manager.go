@@ -13,8 +13,11 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/util/k8sutil/provider"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"github.com/samber/lo"
@@ -24,9 +27,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -38,6 +41,7 @@ const (
 	dataPrepperVersion = "2.0.1"
 	clusterOutputName  = "opni-output"
 	clusterFlowName    = "opni-flow"
+	loggingConfigName  = "opni-logging"
 )
 
 type KubernetesManagerDriver struct {
@@ -45,7 +49,6 @@ type KubernetesManagerDriver struct {
 	logger    *zap.SugaredLogger
 	namespace string
 	k8sClient client.Client
-	clusterID string
 	provider  string
 
 	state reconcilerState
@@ -108,11 +111,6 @@ func NewKubernetesManagerDriver(
 		return nil, fmt.Errorf("failed to create clientset: %w", err)
 	}
 
-	clusterID, err := getClusterId(context.TODO(), k8sClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch cluster ID: %w", err)
-	}
-
 	provider, err := provider.DetectProvider(context.TODO(), clientset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider: %w", err)
@@ -122,7 +120,6 @@ func NewKubernetesManagerDriver(
 		KubernetesManagerDriverOptions: options,
 		logger:                         logger,
 		namespace:                      namespace,
-		clusterID:                      clusterID,
 		provider:                       provider,
 		k8sClient:                      k8sClient,
 	}, nil
@@ -151,14 +148,15 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
+		// First remove old objects
 		for _, obj := range []client.Object{
-			m.buildAuthSecret(config.GetOpensearchConfig()),
-			m.buildDataPrepper(config.GetOpensearchConfig()),
+			m.buildAuthSecret(),
+			m.buildDataPrepper(),
 			m.buildOpniClusterOutput(),
 			m.buildOpniClusterFlow(),
 			m.buildLogAdapter(),
 		} {
-			if err := m.reconcileObject(obj, config.Enabled); err != nil {
+			if err := m.reconcileObject(obj, false); err != nil {
 				m.logger.With(
 					"object", client.ObjectKeyFromObject(obj).String(),
 					zap.Error(err),
@@ -166,6 +164,22 @@ BACKOFF:
 				continue BACKOFF
 			}
 		}
+		// Now create new objects
+		collectorConf := m.buildLoggingCollectorConfig()
+		if err := m.reconcileObject(collectorConf, config.Enabled); err != nil {
+			m.logger.With(
+				"object", client.ObjectKeyFromObject(collectorConf).String(),
+				zap.Error(err),
+			).Error("error reconciling object")
+			continue BACKOFF
+		}
+		if err := m.reconcileCollector(config.Enabled); err != nil {
+			m.logger.With(
+				"object", "opni collector",
+				zap.Error(err),
+			).Error("error reconciling object")
+		}
+
 		success = true
 		break
 	}
@@ -177,45 +191,22 @@ BACKOFF:
 	}
 }
 
-func (m *KubernetesManagerDriver) buildAuthSecret(config *node.OpensearchConfig) *corev1.Secret {
+func (m *KubernetesManagerDriver) buildAuthSecret() *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: m.namespace,
 		},
 	}
-	if config != nil {
-		secret.StringData = map[string]string{
-			secretKey: config.Password,
-		}
-	}
 	return secret
 }
 
-func (m *KubernetesManagerDriver) buildDataPrepper(config *node.OpensearchConfig) *opniloggingv1beta1.DataPrepper {
+func (m *KubernetesManagerDriver) buildDataPrepper() *opniloggingv1beta1.DataPrepper {
 	dataPrepper := &opniloggingv1beta1.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataPrepperName,
 			Namespace: m.namespace,
 		},
-	}
-	if config != nil {
-		dataPrepper.Spec = opniloggingv1beta1.DataPrepperSpec{
-			Username: config.Username,
-			PasswordFrom: &corev1.SecretKeySelector{
-				Key: secretKey,
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-			},
-			Opensearch: &opniloggingv1beta1.OpensearchSpec{
-				Endpoint:                 config.Url,
-				InsecureDisableSSLVerify: false,
-			},
-			ClusterID:     m.clusterID,
-			EnableTracing: true,
-			Version:       dataPrepperVersion,
-		}
 	}
 	return dataPrepper
 }
@@ -281,15 +272,6 @@ func (m *KubernetesManagerDriver) buildOpniClusterFlow() *loggingv1beta1.Cluster
 						MultilineFlushInterval: "0.1",
 					},
 				},
-				{
-					RecordTransformer: &filter.RecordTransformer{
-						Records: []filter.Record{
-							{
-								"cluster_id": m.clusterID,
-							},
-						},
-					},
-				},
 			},
 			Match: []loggingv1beta1.ClusterMatch{
 				{
@@ -324,6 +306,18 @@ func (m *KubernetesManagerDriver) buildLogAdapter() *opniloggingv1beta1.LogAdapt
 	return logAdapter
 }
 
+func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1beta1.CollectorConfig {
+	collectorConfig := &opniloggingv1beta1.CollectorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "opni-logging",
+		},
+		Spec: opniloggingv1beta1.CollectorConfigSpec{
+			Provider: opniloggingv1beta1.LogProvider(m.provider),
+		},
+	}
+	return collectorConfig
+}
+
 // TODO: make this generic
 func (m *KubernetesManagerDriver) reconcileObject(desired client.Object, shouldExist bool) error {
 	// get the object
@@ -332,23 +326,13 @@ func (m *KubernetesManagerDriver) reconcileObject(desired client.Object, shouldE
 	lg.Info("reconciling object")
 
 	// get the agent statefulset
-	list := &appsv1.StatefulSetList{}
-	if err := m.k8sClient.List(context.TODO(), list,
-		client.InNamespace(m.namespace),
-		client.MatchingLabels{
-			"opni.io/app": "agent",
-		},
-	); err != nil {
+	agentStatefulSet, err := m.getAgentSet()
+	if err != nil {
 		return err
 	}
 
-	if len(list.Items) != 1 {
-		return errors.New("statefulsets found not exactly 1")
-	}
-	agentStatefulSet := &list.Items[0]
-
 	current := desired.DeepCopyObject().(client.Object)
-	err := m.k8sClient.Get(context.TODO(), key, current)
+	err = m.k8sClient.Get(context.TODO(), key, current)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	}
@@ -370,6 +354,82 @@ func (m *KubernetesManagerDriver) reconcileObject(desired client.Object, shouldE
 		return m.k8sClient.Delete(context.TODO(), current)
 	}
 
+	// update the object
+	return m.patchObject(current, desired)
+}
+
+func (m *KubernetesManagerDriver) reconcileCollector(shouldExist bool) error {
+	coll := &opnicorev1beta1.Collector{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: otel.CollectorName,
+		},
+	}
+	err := m.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	if k8serrors.IsNotFound(err) && shouldExist {
+		coll = m.buildEmptyCollector()
+		coll.Spec.LoggingConfig = &corev1.LocalObjectReference{
+			Name: loggingConfigName,
+		}
+		return m.k8sClient.Create(context.TODO(), coll)
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := m.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)
+		if err != nil {
+			return err
+		}
+		if shouldExist {
+			coll.Spec.LoggingConfig = &corev1.LocalObjectReference{
+				Name: loggingConfigName,
+			}
+		} else {
+			coll.Spec.LoggingConfig = nil
+		}
+
+		return m.k8sClient.Update(context.TODO(), coll)
+	})
+	return err
+}
+
+func (m *KubernetesManagerDriver) getAgentSet() (*appsv1.StatefulSet, error) {
+	list := &appsv1.StatefulSetList{}
+	if err := m.k8sClient.List(context.TODO(), list,
+		client.InNamespace(m.namespace),
+		client.MatchingLabels{
+			"opni.io/app": "agent",
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	if len(list.Items) != 1 {
+		return nil, errors.New("statefulsets found not exactly 1")
+	}
+	return &list.Items[0], nil
+}
+
+func (m *KubernetesManagerDriver) getAgentService() (*corev1.Service, error) {
+	list := &corev1.ServiceList{}
+	if err := m.k8sClient.List(context.TODO(), list,
+		client.InNamespace(m.namespace),
+		client.MatchingLabels{
+			"opni.io/app": "agent",
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	if len(list.Items) != 1 {
+		return nil, errors.New("statefulsets found not exactly 1")
+	}
+	return &list.Items[0], nil
+}
+
+func (m *KubernetesManagerDriver) patchObject(current client.Object, desired client.Object) error {
 	// update the object
 	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 	if err != nil {
@@ -405,13 +465,22 @@ func (m *KubernetesManagerDriver) reconcileObject(desired client.Object, shouldE
 	return m.k8sClient.Update(context.TODO(), desired)
 }
 
-func getClusterId(ctx context.Context, k8sClient client.Client) (string, error) {
-	systemNamespace := &corev1.Namespace{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{
-		Name: "kube-system",
-	}, systemNamespace); err != nil {
-		return "", err
+func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collector {
+	var serviceName string
+	service, err := m.getAgentService()
+	if err == nil {
+		serviceName = service.Name
 	}
-
-	return string(systemNamespace.GetUID()), nil
+	return &opnicorev1beta1.Collector{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: otel.CollectorName,
+		},
+		Spec: opnicorev1beta1.CollectorSpec{
+			ImageSpec: opnimeta.ImageSpec{
+				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
+			},
+			SystemNamespace: m.namespace,
+			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+		},
+	}
 }

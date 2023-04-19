@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/kralicky/kmatch"
@@ -8,19 +9,18 @@ import (
 	. "github.com/onsi/gomega"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	ns           string
-	config       *opniloggingv1beta1.CollectorConfig
-	collectorObj *opnicorev1beta1.Collector
-)
-
 var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow"), func() {
+	var (
+		ns           string
+		config       *opniloggingv1beta1.CollectorConfig
+		collectorObj *opnicorev1beta1.Collector
+	)
+
 	When("creating a collector resource", func() {
 		It("should succeed", func() {
 			ns = makeTestNamespace()
@@ -39,7 +39,6 @@ var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow
 				Spec: opnicorev1beta1.CollectorSpec{
 					SystemNamespace: ns,
 					AgentEndpoint:   "http://test-endpoint",
-					ClusterID:       "test-id",
 					LoggingConfig: &corev1.LocalObjectReference{
 						Name: config.Name,
 					},

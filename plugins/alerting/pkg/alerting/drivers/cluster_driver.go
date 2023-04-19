@@ -202,13 +202,27 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 	return &emptypb.Empty{}, retryErr
 }
 
+func (a *AlertingManager) notify(status *alertops.InstallStatus) {
+	for _, subscriber := range a.Subscribers {
+		subscriber <- shared.AlertingClusterNotification{
+			A: status.State == alertops.InstallState_Installed || status.State == alertops.InstallState_InstallUpdating,
+			B: nil,
+		}
+	}
+}
+
 func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	existing := a.newOpniGateway()
 	err := a.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 	if err != nil {
 		return nil, err
 	}
-	return a.alertingControllerStatus(existing)
+	status, err := a.alertingControllerStatus(existing)
+	if err != nil {
+		return nil, err
+	}
+	a.notify(status)
+	return status, nil
 }
 
 func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
@@ -225,7 +239,10 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 		return nil, retryErr
 	}
 
-	// Install hooks
+	// broadcast install hooks
+	a.notify(&alertops.InstallStatus{
+		State: alertops.InstallState_InstallUpdating,
+	})
 
 	for _, subscriber := range a.Subscribers {
 		subscriber <- shared.AlertingClusterNotification{
@@ -250,14 +267,10 @@ func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.Unin
 	if retryErr != nil {
 		return nil, retryErr
 	}
-	// Uninstall hooks
-
-	for _, subscriber := range a.Subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: false,
-			B: nil,
-		}
-	}
+	// broadcast uninstall hooks
+	a.notify(&alertops.InstallStatus{
+		State: alertops.InstallState_Uninstalling,
+	})
 
 	return &emptypb.Empty{}, nil
 }
@@ -270,5 +283,6 @@ func (a *AlertingManager) GetRuntimeOptions() shared.AlertingClusterOptions {
 		ControllerNodeService: shared.OperatorAlertingControllerServiceName,
 		ControllerNodePort:    9093,
 		ControllerClusterPort: 9094,
+		OpniPort:              3000,
 	}
 }

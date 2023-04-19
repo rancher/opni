@@ -32,9 +32,18 @@ func init() {
 type UseKeyFn any // func(*KeyringType)
 
 type Keyring interface {
+	// Try will call the provided function for each key matching the type of
+	// the argument of the function. Try intentionally does not short-circuit;
+	// it will always call the function for every key.
 	Try(...UseKeyFn) bool
+	// ForEach is like Try, except it will call the function for every key
+	// regardless of type.
 	ForEach(func(key any))
+	// Marshal returns a wire representation of the keyring. The specific format
+	// is unspecified.
 	Marshal() ([]byte, error)
+	// Merge returns a new keyring that contains all keys from both keyrings.
+	// It does not deduplicate keys.
 	Merge(Keyring) Keyring
 }
 

@@ -17,6 +17,7 @@ type AlertingClusterOptions struct {
 	ControllerNodePort    int
 	ControllerClusterPort int
 	ControllerStatefulSet string
+	OpniPort              int
 	ConfigMap             string
 	ManagementHookHandler string
 }

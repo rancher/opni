@@ -5,12 +5,14 @@
 package alerting
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
@@ -110,7 +112,7 @@ func (p *Plugin) deleteCondition(ctx context.Context, _ *zap.SugaredLogger, req 
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 			ClusterId: r.Id,
 			Namespace: shared.OpniAlertingCortexNamespace,
-			GroupName: cortex.CortexRuleIdFromUuid(id),
+			GroupName: cortex.RuleIdFromUuid(id),
 		})
 		return err
 	}
@@ -192,7 +194,7 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, cond *alertingv1.A
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := cortex.NewCortexAlertingRule(newId, alertName,
+	kubeRuleContent, err := cortex.NewPrometheusAlertingRule(newId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		k, nil, baseKubeRule,
@@ -235,7 +237,7 @@ func (p *Plugin) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	cpuRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		c, nil, baseCpuRule)
@@ -269,7 +271,7 @@ func (p *Plugin) handleMemorySaturationAlertCreation(ctx context.Context, cond *
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	memRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		m,
@@ -305,7 +307,7 @@ func (p *Plugin) handleFsSaturationAlertCreation(ctx context.Context, cond *aler
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := cortex.NewCortexAlertingRule(
+	fsRuleContent, err := cortex.NewPrometheusAlertingRule(
 		conditionId,
 		alertName,
 		cond.GetRoutingLabels(),
@@ -342,22 +344,24 @@ func (p *Plugin) handlePrometheusQueryAlertCreation(ctx context.Context, cond *a
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := cortex.NewCortexAlertingRule(conditionId, alertName,
+	baseRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		q, nil, baseRule)
 	if err != nil {
 		return err
 	}
-	out, err := yaml.Marshal(baseRuleContent)
+	var out bytes.Buffer
+	encoder := yaml.NewEncoder(&out)
+	err = encoder.Encode(baseRuleContent)
 	if err != nil {
 		return err
 	}
-	p.Logger.With("Expr", "user-query").Debugf("%s", string(out))
+	p.Logger.With("Expr", "user-query").Debugf("%s", string(out.Bytes()))
 	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
-		YamlContent: out,
+		YamlContent: out.Bytes(),
 	})
 
 	return err
@@ -403,8 +407,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -412,8 +416,8 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},
@@ -426,6 +430,7 @@ func (p *Plugin) onSystemConditionCreate(conditionId, conditionName, namespace s
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -487,8 +492,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -496,8 +501,8 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},
@@ -510,6 +515,7 @@ func (p *Plugin) onDownstreamCapabilityConditionCreate(conditionId, conditionNam
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{
@@ -675,8 +681,8 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 			resolveHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -685,8 +691,8 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 					ConditionId:   &corev1.Reference{Id: conditionId},
 					ConditionName: conditionName,
 					Namespace:     namespace,
-					Labels:        condition.GetRoutingLabels(),
-					Annotations:   condition.GetRoutingAnnotations(),
+					Labels:        lo.Assign(condition.GetRoutingLabels(), labels),
+					Annotations:   lo.Assign(condition.GetRoutingAnnotations(), annotations),
 				})
 			},
 		},
@@ -699,6 +705,7 @@ func (p *Plugin) onCortexClusterStatusCreate(conditionId, conditionName, namespa
 	}()
 	// spawn a watcher for the incidents
 	go func() {
+		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
 	p.msgNode.AddSystemConfigListener(conditionId, messaging.EvaluatorContext{

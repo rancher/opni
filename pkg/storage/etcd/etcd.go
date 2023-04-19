@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"path"
 	"time"
 
@@ -70,7 +71,7 @@ func WithPrefix(prefix string) EtcdStoreOption {
 	}
 }
 
-func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
+func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
 	options := EtcdStoreOptions{}
 	options.apply(opts...)
 	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd")
@@ -79,9 +80,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		var err error
 		tlsConfig, err = util.LoadClientMTLSConfig(conf.Certs)
 		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Panic("failed to load client TLS config")
+			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
 	}
 	clientConfig := clientv3.Config{
@@ -92,9 +91,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Panic("failed to create etcd client")
+		return nil, fmt.Errorf("failed to create etcd client: %w", err)
 	}
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
@@ -103,7 +100,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		EtcdStoreOptions: options,
 		Logger:           lg,
 		Client:           cli,
-	}
+	}, nil
 }
 
 func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {

@@ -10,8 +10,6 @@ import (
 	"text/template"
 
 	"github.com/lithammer/shortuuid"
-	"github.com/prometheus/alertmanager/pkg/labels"
-	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,11 +39,6 @@ const InternalWechatId = "wechat"
 
 // -------- const routing label identifiers -----------
 
-const OpniDatasourceLabel = "OpniDatasource"
-const OpniSeverityLabel = "OpniSeverity"
-const OpniUnbufferedKey = "OpniGroupKey"
-const OpniDatasourceMetrics = "metrics"
-
 // -------- const routing annotation identifiers ------
 
 const OpniHeaderAnnotations = "OpniHeader"
@@ -54,39 +47,17 @@ const OpniClusterAnnotation = "OpniCluster"
 const OpniAlarmNameAnnotation = "OpniAlarmName"
 const OpniGoldenSignalAnnotation = "OpniGoldenSignal"
 
-var OpniGroupByClause = []model.LabelName{
-	"alertname",
-}
-
-var OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniDatasourceLabel,
-	Value: "",
-}
-
-var OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniDatasourceLabel,
-	Value: OpniDatasourceMetrics,
-}
-
-var OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
-	Type:  labels.MatchEqual,
-	Name:  OpniSeverityLabel,
-	Value: "true",
-}
-
 type OpniReceiverId struct {
 	Namespace  string
 	ReceiverId string
 }
 
 func NewOpniReceiverName(id OpniReceiverId) string {
-	return strings.Join([]string{"opni", id.Namespace, id.ReceiverId}, ".")
+	return strings.Join([]string{"opni", id.Namespace, id.ReceiverId}, "__")
 }
 
 func ExtractReceiverId(receiverName string) (*OpniReceiverId, error) {
-	parts := strings.Split(receiverName, ".")
+	parts := strings.Split(receiverName, "__")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid receiver name format: %s", receiverName)
 	}
@@ -129,18 +100,9 @@ const AgentDisconnectStorageType = "agent-disconnect"
 // labels
 const OpniTitleLabel = "OpniTitleLabel"
 const OpniBodyLabel = "OpniBodyLabel"
-const BroadcastIdLabel = "broadcastId"
-const BackendConditionIdLabel = "conditionId"
 const BackendConditionNameLabel = "opniname"
 const BackendConditionClusterIdLabel = "clusterId"
 const BackendConditionSeverityLabel = "severity"
-
-const (
-	AlertingV1Alpha      = "v1alpha"
-	MonitoringDatasource = "monitoring"
-	LoggingDatasource    = "logging"
-	SystemDatasource     = "system"
-)
 
 // Operator container & service definitions
 
@@ -226,13 +188,8 @@ func DefaultAlertManagerConfig(managementUrl string) (bytes.Buffer, error) {
 // Error declarations
 
 var (
-	AlertingErrNotImplemented           = WithUnimplementedError("Not implemented")
-	AlertingErrNotImplementedNOOP       = WithUnimplementedError("Alerting NOOP : Not implemented")
-	AlertingErrParseBucket              = WithInternalServerError("Failed to parse bucket index")
-	AlertingErrBucketIndexInvalid       = WithInternalServerError("Bucket index is invalid")
-	AlertingErrInvalidSlackChannel      = validation.Error("Slack channel invalid : must start with '#'")
-	AlertingErrK8sRuntime               = WithInternalServerError("K8s Runtime error")
-	AlertingErrMismatchedImplementation = validation.Error("Alerting endpoint did not match the given implementation")
+	AlertingErrNotImplemented      = WithUnimplementedError("Not implemented")
+	AlertingErrInvalidSlackChannel = validation.Error("Slack channel invalid : must start with '#'")
 )
 
 type UnimplementedError struct {
@@ -244,10 +201,6 @@ type InternalServerError struct {
 }
 
 type NotFoundError struct {
-	message string
-}
-
-type FailedPreconditionError struct {
 	message string
 }
 
@@ -308,42 +261,5 @@ func WithUnimplementedError(msg string) error {
 func WithUnimplementedErrorf(format string, args ...interface{}) error {
 	return &UnimplementedError{
 		message: fmt.Errorf(format, args...).Error(),
-	}
-}
-
-func (e *FailedPreconditionError) Error() string {
-	return e.message
-}
-
-func (e *FailedPreconditionError) GRPCStatus() *status.Status {
-	return status.New(codes.FailedPrecondition, e.message)
-}
-
-func WithFailedPreconditionError(msg string) error {
-	return &UnimplementedError{
-		message: msg,
-	}
-}
-
-func WithFailedPreconditionErrorf(format string, args ...interface{}) error {
-	return &UnimplementedError{
-		message: fmt.Errorf(format, args...).Error(),
-	}
-}
-
-func AlertManagerLabelsToAnnotations(m *labels.Matcher) (map[string]string, error) {
-	switch m.Type {
-	case labels.MatchEqual:
-		return map[string]string{
-			m.Name: m.Value,
-		}, nil
-	case labels.MatchNotEqual:
-		fallthrough
-	case labels.MatchRegexp:
-		fallthrough
-	case labels.MatchNotRegexp:
-		fallthrough
-	default:
-		return nil, fmt.Errorf("unsupported match type for internal routing %v", m.Type)
 	}
 }

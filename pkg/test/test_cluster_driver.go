@@ -16,18 +16,21 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -188,11 +191,65 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 	return &emptypb.Empty{}, nil
 }
 
+type TestEnvMetricsNodeDriver struct {
+	env *Environment
+
+	overridesMu      sync.Mutex
+	overridesForNode map[string]*overridePrometheusConfig
+
+	prometheusMu     sync.Mutex
+	prometheusCtx    context.Context
+	prometheusCancel context.CancelFunc
+}
+
+func (d *TestEnvMetricsNodeDriver) SetOverridesForNode(nodeName string, overrides *overridePrometheusConfig) {
+	d.overridesMu.Lock()
+	defer d.overridesMu.Unlock()
+	d.overridesForNode[nodeName] = overrides
+}
+
+var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvMetricsNodeDriver)(nil)
+
+// ConfigureNode implements drivers.MetricsNodeDriver
+func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
+	lg := d.env.Logger.With("node", nodeId)
+	lg.Debug("configuring node")
+
+	d.prometheusMu.Lock()
+	defer d.prometheusMu.Unlock()
+
+	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "test-environment"
+
+	if exists && !shouldExist {
+		lg.Info("stopping prometheus")
+		d.prometheusCancel()
+		d.prometheusCancel = nil
+		d.prometheusCtx = nil
+	} else if !exists && shouldExist {
+		lg.Info("starting prometheus")
+		ctx, ca := context.WithCancel(d.env.Context())
+		d.env.StartPrometheusContext(ctx, nodeId, d.overridesForNode[nodeId])
+		d.prometheusCtx = ctx
+		d.prometheusCancel = ca
+	} else if exists && shouldExist {
+		lg.Debug("nothing to do (already running)")
+	} else {
+		lg.Debug("nothing to do (already stopped)")
+	}
+}
+
+// DiscoverPrometheuses implements drivers.MetricsNodeDriver
+func (*TestEnvMetricsNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
+	return nil, nil
+}
+
 type TestEnvAlertingClusterDriver struct {
 	env              *Environment
 	managedInstances []AlertingServerUnit
 	enabled          *atomic.Bool
 	ConfigFile       string
+	stateMu          *sync.RWMutex
 
 	*shared.AlertingClusterOptions
 
@@ -218,7 +275,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 		Logger: lg,
 	}
 	options.Apply(opts...)
-	rTree := routing.NewDefaultRoutingTree("http://localhost:11080")
+	rTree := routing.NewRoutingTree("http://localhost:6000")
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -239,6 +296,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 			ResourceLimits: &alertops.ResourceLimitSpec{},
 		},
 		AlertingManagerDriverOptions: options,
+		stateMu:                      &sync.RWMutex{},
 	}
 }
 
@@ -247,6 +305,8 @@ func (l *TestEnvAlertingClusterDriver) GetClusterConfiguration(ctx context.Conte
 }
 
 func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	if err := configuration.Validate(); err != nil {
 		return nil, err
 	}
@@ -269,8 +329,9 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 		}
 	}
 	if len(l.managedInstances) > 1 {
-		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "localhost"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
+		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
 	l.ClusterConfiguration = configuration
 
@@ -289,6 +350,8 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, emp
 			State: alertops.InstallState_NotInstalled,
 		}, nil
 	}
+	l.stateMu.RLock()
+	defer l.stateMu.RUnlock()
 	for _, replica := range l.managedInstances {
 		apiNode := backend.NewAlertManagerReadyClient(ctx, fmt.Sprintf("127.0.0.1:%d", replica.AlertManagerPort))
 		if err := apiNode.DoRequest(); err != nil {
@@ -310,6 +373,8 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	if len(l.managedInstances) > 0 {
 		panic("should not have existing replicas")
 	}
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	l.NumReplicas = 1
 	for i := 0; i < int(l.NumReplicas); i++ {
 		l.managedInstances = append(
@@ -325,10 +390,22 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	l.ResourceLimits.Cpu = "500m"
 	l.ResourceLimits.Memory = "200Mi"
 	l.ResourceLimits.Storage = "500Mi"
-	l.AlertingClusterOptions.ControllerNodeService = "http://localhost"
+	l.AlertingClusterOptions.ControllerNodeService = "localhost"
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
+	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
+
+	rTree := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTreeBytes, err := yaml.Marshal(rTree)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	for _, subscriber := range l.Subscribers {
 		subscriber <- shared.AlertingClusterNotification{
 			A: true,
@@ -339,6 +416,8 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 }
 
 func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
+	l.stateMu.Lock()
+	defer l.stateMu.Unlock()
 	for _, replica := range l.managedInstances {
 		replica.CancelFunc()
 	}
@@ -368,6 +447,7 @@ func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Refer
 type AlertingServerUnit struct {
 	AlertManagerPort int
 	ClusterPort      int
+	OpniPort         int
 	Ctx              context.Context
 	CancelFunc       context.CancelFunc
 }
@@ -377,18 +457,9 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	configFilePath string,
 ) AlertingServerUnit {
 	opniBin := path.Join(l.env.TestBin, "../../bin/opni")
-	webPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	opniPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	syncerPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	webPort := freeport.GetFreePort()
+	opniPort := freeport.GetFreePort()
+	syncerPort := freeport.GetFreePort()
 	syncerArgs := []string{
 		"alerting-server",
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", configFilePath),
@@ -400,10 +471,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 
 	l.Logger.Debug("Syncer start : " + strings.Join(syncerArgs, " "))
 
-	clusterPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
+	clusterPort := freeport.GetFreePort()
 
 	alertmanagerArgs := []string{
 		"alerting-server",
@@ -421,14 +489,14 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 			alertmanagerArgs = append(alertmanagerArgs,
 				fmt.Sprintf("--cluster.peer=localhost:%d", replica.ClusterPort))
 		}
-		l.AlertingClusterOptions.WorkerNodesService = "http://localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "localhost"
 		l.AlertingClusterOptions.WorkerNodePort = webPort
 	}
 
 	ctxCa, cancelFunc := context.WithCancel(ctx)
 	alertmanagerCmd := exec.CommandContext(ctxCa, opniBin, alertmanagerArgs...)
 	plugins.ConfigureSysProcAttr(alertmanagerCmd)
-	l.Logger.With("port", webPort).Info("Starting AlertManager")
+	l.Logger.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(alertmanagerCmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
@@ -476,6 +544,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	return AlertingServerUnit{
 		AlertManagerPort: webPort,
 		ClusterPort:      clusterPort,
+		OpniPort:         opniPort,
 		Ctx:              ctxCa,
 		CancelFunc:       cancelFunc,
 	}

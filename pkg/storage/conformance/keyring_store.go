@@ -10,13 +10,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/samber/lo"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/future"
 )
 
@@ -111,7 +111,7 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 
 			var wg sync.WaitGroup
 			start := make(chan struct{})
-			for i := 0; i < testutil.IfCI(5).Else(10); i++ {
+			for i := 0; i < testruntime.IfCI(5).Else(10); i++ {
 				wg.Add(1)
 				go func() {
 					defer GinkgoRecover()

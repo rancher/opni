@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testruntime"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 )
@@ -273,7 +273,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 			wg := sync.WaitGroup{}
 			start := make(chan struct{})
-			count := testutil.IfCI(5).Else(10)
+			count := testruntime.IfCI(5).Else(10)
 			for i := 0; i < count; i++ {
 				wg.Add(1)
 				go func() {

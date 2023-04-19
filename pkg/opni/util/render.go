@@ -74,7 +74,18 @@ func RenderCertInfoChain(chain []*corev1.CertInfo) string {
 func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"})
+	renderSessionAttributes := false
+	for _, s := range status {
+		if len(s.GetStatus().GetSessionAttributes()) > 0 {
+			renderSessionAttributes = true
+			break
+		}
+	}
+	hdr := table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"}
+	if renderSessionAttributes {
+		hdr = append(hdr, "ATTRIBUTES")
+	}
+	w.AppendHeader(hdr)
 	for i, t := range list.Items {
 		labels := []string{}
 		for k, v := range t.GetMetadata().GetLabels() {
@@ -89,6 +100,9 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 			}
 		}
 		row := table.Row{t.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ","), status[i].Summary()}
+		if renderSessionAttributes {
+			row = append(row, strings.Join(status[i].Status.GetSessionAttributes(), ","))
+		}
 		w.AppendRow(row)
 	}
 	return w.Render()

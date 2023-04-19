@@ -6,26 +6,26 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
-	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (b *LoggingBackend) Status(ctx context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	b.WaitForInit()
 
 	b.nodeStatusMu.RLock()
 	defer b.nodeStatusMu.RUnlock()
 
-	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetCluster().GetId())
+	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, loggingerrors.ErrInvalidList) {
 			return nil, status.Error(codes.NotFound, "unable to list cluster status")
@@ -39,10 +39,7 @@ func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusReq
 func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	b.WaitForInit()
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
+	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
 	cluster, err := b.StorageBackend.GetCluster(ctx, &opnicorev1.Reference{
@@ -82,19 +79,9 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		b.ClusterDriver.SetSyncTime()
 	}
 
-	var osConf *node.OpensearchConfig
-
-	if !b.shouldDisableNode(ctx) {
-		osConf, err = b.getOpensearchConfig(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return b.buildResponse(req.GetCurrentConfig(), &node.LoggingCapabilityConfig{
-		Enabled:          enabled,
-		Conditions:       conditions,
-		OpensearchConfig: osConf,
+		Enabled:    enabled,
+		Conditions: conditions,
 	}), nil
 }
 
@@ -110,25 +97,14 @@ func (b *LoggingBackend) buildResponse(old, new *node.LoggingCapabilityConfig) *
 	}
 }
 
-func (b *LoggingBackend) getOpensearchConfig(ctx context.Context, id string) (*node.OpensearchConfig, error) {
-	username, password := b.ClusterDriver.GetCredentials(ctx, id)
-
-	return &node.OpensearchConfig{
-		Username:       username,
-		Password:       password,
-		Url:            b.ClusterDriver.GetExternalURL(ctx),
-		TracingEnabled: true,
-	}, nil
-}
-
 func (b *LoggingBackend) shouldDisableNode(ctx context.Context) bool {
 	installState := b.ClusterDriver.GetInstallStatus(ctx)
 	switch installState {
-	case drivers.Absent:
+	case driver.Absent:
 		return true
-	case drivers.Pending, drivers.Installed:
+	case driver.Pending, driver.Installed:
 		return false
-	case drivers.Error:
+	case driver.Error:
 		fallthrough
 	default:
 		// if status is unknown don't uninstall from the node

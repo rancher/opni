@@ -25,9 +25,10 @@ func Must[T any](t T, err ...error) T {
 		if err[0] != nil {
 			stackLg.Panic(err)
 		}
-	}
-	if typ := reflect.TypeOf(t); typ != nil && typ.Implements(errType) {
-		stackLg.Panic(err)
+	} else if tv := reflect.ValueOf(t); (tv != reflect.Value{}) {
+		if verr := tv.Interface().(error); verr != nil {
+			stackLg.Panic(verr)
+		}
 	}
 	return t
 }

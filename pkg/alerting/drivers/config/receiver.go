@@ -11,6 +11,7 @@ import (
 
 	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/templates"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
@@ -33,14 +34,6 @@ type OpniReceiver interface {
 	Clone() OpniReceiver
 	MarshalYAML() ([]byte, error)
 	yaml.Unmarshaler
-}
-
-func HeaderTemplate() string {
-	return fmt.Sprintf("{{ range .Alerts }} {{ .Annotations.%s }} \n {{ end }}", shared.OpniHeaderAnnotations)
-}
-
-func BodyTemplate() string {
-	return fmt.Sprintf("{{ range .Alerts }} {{ .Annotations.%s }} \n {{ end }}", shared.OpniBodyAnnotations)
 }
 
 func ExtractReceiver(unmarshall func(interface{}) error, _ /*data*/ interface{}) (OpniReceiver, error) {
@@ -229,8 +222,8 @@ func (c *EmailConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	if c.Headers == nil {
 		c.Headers = map[string]string{}
 	}
-	c.Headers["Subject"] = HeaderTemplate()
-	c.HTML = BodyTemplate()
+	c.Headers["Subject"] = templates.HeaderTemplate()
+	c.HTML = templates.BodyTemplate()
 	return c
 }
 
@@ -274,8 +267,8 @@ func (c *SlackConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 		URL: parsedURL,
 	}
 	c.Channel = slackSpec.Channel
-	c.Title = HeaderTemplate()
-	c.Text = BodyTemplate()
+	c.Title = templates.HeaderTemplate()
+	c.Text = templates.BodyTemplate()
 	return c
 }
 
@@ -323,9 +316,9 @@ func (c *PagerdutyConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver
 	c.Details = lo.Assign(c.Details,
 		DefaultPagerdutyDetails,
 		map[string]string{
-			"title": HeaderTemplate(),
+			"title": templates.HeaderTemplate(),
 		})
-	c.Description = HeaderTemplate() + "\n" + BodyTemplate()
+	c.Description = templates.HeaderTemplate() + "\n" + templates.BodyTemplate()
 	return c
 }
 

@@ -8,7 +8,8 @@ import (
 	"emperror.dev/errors"
 
 	"github.com/prometheus/common/model"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -45,7 +46,14 @@ func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, rule
 	return nil
 }
 
-func tryApplyThenDeleteCortexRules(ctx context.Context, p *Plugin, lg *zap.SugaredLogger, clusterId string, ruleId *string, toApply []RuleGroupYAMLv2) error {
+func tryApplyThenDeleteCortexRules(
+	ctx context.Context,
+	p *Plugin,
+	lg *zap.SugaredLogger,
+	clusterId string,
+	ruleId *string,
+	toApply []rulefmt.RuleGroup,
+) error {
 	var errArr []error
 	for _, rules := range toApply {
 		err := applyCortexSLORules(
@@ -93,7 +101,7 @@ func applyCortexSLORules(
 	p *Plugin,
 	lg *zap.SugaredLogger,
 	clusterId string,
-	ruleSpec RuleGroupYAMLv2,
+	ruleSpec rulefmt.RuleGroup,
 ) error {
 	out, err := yaml.Marshal(ruleSpec)
 	if err != nil {
@@ -148,7 +156,7 @@ func QuerySLOComponentByRecordName(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +181,7 @@ func QuerySLOComponentByRawQuery(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +212,7 @@ func QuerySLOComponentByRawQueryRange(
 		return nil, err
 	}
 	rawBytes := resp.Data
-	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	qres, err := compat.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
 		return nil, err
 	}

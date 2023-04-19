@@ -118,18 +118,19 @@ func newClient(conf *ServerConfig) NoauthClient {
 }
 
 func newOAuthProvider(conf *ServerConfig, key *rsa.PrivateKey) fosite.OAuth2Provider {
-	config := &compose.Config{
-		EnforcePKCE:                false,
-		SendDebugMessagesToClients: conf.Debug,
-	}
-	store := storage.NewMemoryStore()
-	store.Clients[conf.ClientID] = newClient(conf)
 	var secret = make([]byte, 32)
 	_, err := rand.Read(secret)
 	if err != nil {
 		panic(err)
 	}
-	return compose.ComposeAllEnabled(config, store, secret, key)
+	config := &fosite.Config{
+		EnforcePKCE:                false,
+		SendDebugMessagesToClients: conf.Debug,
+		GlobalSecret:               secret,
+	}
+	store := storage.NewMemoryStore()
+	store.Clients[conf.ClientID] = newClient(conf)
+	return compose.ComposeAllEnabled(config, store, key)
 }
 
 func newSession(cfg *ServerConfig, user string) *openid.DefaultSession {
@@ -201,7 +202,7 @@ func (s *Server) handleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 		lg.With(
 			zap.Error(err),
 		).Error("authorize request failed")
-		s.noauthProvider.WriteAuthorizeError(w, ar, err)
+		s.noauthProvider.WriteAuthorizeError(ctx, w, ar, err)
 		return
 	}
 
@@ -239,7 +240,7 @@ func (s *Server) handleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 		lg.With(
 			zap.Error(err),
 		).Error("authorize response failed")
-		s.noauthProvider.WriteAuthorizeError(w, ar, err)
+		s.noauthProvider.WriteAuthorizeError(ctx, w, ar, err)
 		return
 	}
 
@@ -247,7 +248,7 @@ func (s *Server) handleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 		"code", resp.GetCode(),
 	).Debug("sending code")
 
-	s.noauthProvider.WriteAuthorizeResponse(w, ar, resp)
+	s.noauthProvider.WriteAuthorizeResponse(ctx, w, ar, resp)
 }
 
 func (s *Server) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
@@ -265,7 +266,7 @@ func (s *Server) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
 		lg.With(
 			zap.Error(err),
 		).Error("token request failed")
-		s.noauthProvider.WriteAccessError(w, ar, err)
+		s.noauthProvider.WriteAccessError(ctx, w, ar, err)
 		return
 	}
 	lg.With(
@@ -285,7 +286,7 @@ func (s *Server) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
 		lg.With(
 			zap.Error(err),
 		).Error("token response failed")
-		s.noauthProvider.WriteAccessError(w, ar, err)
+		s.noauthProvider.WriteAccessError(ctx, w, ar, err)
 		return
 	}
 
@@ -297,12 +298,12 @@ func (s *Server) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
 		"refresh_token", response.GetExtra("refresh_token"),
 	).Debug("sending token response")
 
-	s.noauthProvider.WriteAccessResponse(w, ar, response)
+	s.noauthProvider.WriteAccessResponse(ctx, w, ar, response)
 }
 
 func (s *Server) handleRevokeRequest(rw http.ResponseWriter, req *http.Request) {
 	err := s.noauthProvider.NewRevocationRequest(req.Context(), req)
-	s.noauthProvider.WriteRevocationResponse(rw, err)
+	s.noauthProvider.WriteRevocationResponse(req.Context(), rw, err)
 }
 
 func (s *Server) handleUserInfoRequest(rw http.ResponseWriter, req *http.Request) {

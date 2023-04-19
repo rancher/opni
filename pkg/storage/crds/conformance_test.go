@@ -20,18 +20,20 @@ func TestCrds(t *testing.T) {
 var store = future.New[*crds.CRDStore]()
 
 var _ = BeforeSuite(func() {
-	env := test.Environment{
-		TestBin: "../../../testbin/bin",
-		CRDDirectoryPaths: []string{
-			"../../../config/crd/bases",
-		},
-	}
-	config, _, err := env.StartK8s()
-	Expect(err).NotTo(HaveOccurred())
+	test.IfLabelFilterMatches(Label("integration", "slow"), func() {
+		env := test.Environment{
+			TestBin: "../../../testbin/bin",
+			CRDDirectoryPaths: []string{
+				"../../../config/crd/bases",
+			},
+		}
+		config, _, err := env.StartK8s()
+		Expect(err).NotTo(HaveOccurred())
 
-	store.Set(crds.NewCRDStore(crds.WithRestConfig(config)))
+		store.Set(crds.NewCRDStore(crds.WithRestConfig(config)))
 
-	DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop)
+	})
 })
 
 var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))

@@ -4,12 +4,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 
-var _ = Describe("SLO Filter tests", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("SLO Filter tests", Ordered, Label("unit", "slow"), func() {
 	{
 		When("We use SLO filters", func() {
 			It("should get parse them from our embedded directory definitions", func() {

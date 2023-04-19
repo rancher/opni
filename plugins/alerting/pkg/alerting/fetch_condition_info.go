@@ -12,9 +12,10 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -60,7 +61,7 @@ func clusterHasKubeStateMetrics(ctx context.Context, adminClient cortexadmin.Cor
 	if err != nil {
 		return false
 	}
-	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	qr, err := compat.UnmarshalPrometheusResponse(q.Data)
 	if err != nil {
 		return false
 	}
@@ -82,7 +83,7 @@ func clusterHasNodeExporterMetrics(ctx context.Context, adminClient cortexadmin.
 	if err != nil {
 		return false
 	}
-	qr, err := unmarshal.UnmarshalPrometheusResponse(q.Data)
+	qr, err := compat.UnmarshalPrometheusResponse(q.Data)
 	if err != nil {
 		return false
 	}
@@ -103,7 +104,10 @@ func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeD
 	if err != nil {
 		return nil, err
 	}
-	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	clusters, err := mgmtClient.ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +131,10 @@ func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1
 	if err != nil {
 		return nil, err
 	}
-	clusters, err := mgmtClient.ListClusters(ctxCa, &managementv1.ListClustersRequest{})
+	clusters, err := mgmtClient.ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +160,10 @@ func (p *Plugin) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertT
 		Clusters: map[string]*alertingv1.KubeObjectGroups{},
 		States:   shared.KubeStates,
 	}
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusters, err := p.mgmtClient.Get().ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +267,10 @@ type clusterCpuSaturation struct {
 
 func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	lg := p.Logger.With("handler", "fetchCPUSaturationInfo")
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusters, err := p.mgmtClient.Get().ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		lg.Error("failed to get clusters", zap.Error(err))
 		return nil, err
@@ -376,7 +389,9 @@ type clusterMemorySaturation struct {
 
 func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusters, err := p.mgmtClient.Get().ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{})
 	if err != nil {
 		lg.Error("failed to get clusters", zap.Error(err))
 		return nil, err
@@ -500,7 +515,10 @@ type clusterFilesystemSaturation struct {
 
 func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
-	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	clusters, err := p.mgmtClient.Get().ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		lg.Error("failed to get clusters", zap.Error(err))
 		return nil, err
@@ -639,7 +657,10 @@ func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.List
 	if err != nil {
 		return nil, err
 	}
-	cls, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	cls, err := mgmtClient.ListClusters(
+		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
+		&managementv1.ListClustersRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,11 @@ package openid
 import (
 	"errors"
 	"fmt"
-
-	"github.com/rancher/opni/pkg/util"
 )
 
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen +object +paths=.
+
+// +k8s:deepcopy-gen=true
 type WellKnownConfiguration struct {
 	Issuer                            string   `json:"issuer,omitempty"`
 	AuthEndpoint                      string   `json:"authorization_endpoint,omitempty"`
@@ -24,6 +25,7 @@ type WellKnownConfiguration struct {
 	EndSessionEndpoint                string   `json:"end_session_endpoint,omitempty"`
 }
 
+// +k8s:deepcopy-gen=true
 type OpenidConfig struct {
 	// Discovery and WellKnownConfiguration are mutually exclusive.
 	// If the OP (openid provider) has a discovery endpoint, it should be
@@ -57,12 +59,4 @@ func (w WellKnownConfiguration) CheckRequiredFields() error {
 		return fmt.Errorf("%w: jwks_uri", ErrMissingRequiredField)
 	}
 	return nil
-}
-
-func (in *OpenidConfig) DeepCopyInto(out *OpenidConfig) {
-	util.DeepCopyInto(out, in)
-}
-
-func (in *OpenidConfig) DeepCopy() *OpenidConfig {
-	return util.DeepCopy(in)
 }

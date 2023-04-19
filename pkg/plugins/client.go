@@ -7,7 +7,11 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/auth/session"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util/streams"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
@@ -50,10 +54,15 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			Level: hclog.Error,
 		}),
 		GRPCDialOptions: []grpc.DialOption{
-			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(
+				otelgrpc.UnaryClientInterceptor(),
+			),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
+			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		Stderr: os.Stderr,
+		SyncStderr: os.Stderr,
+		Stderr:     os.Stderr,
 	}
 
 	if options.reattach != nil {
@@ -86,8 +95,20 @@ func ServeConfig(scheme meta.Scheme) *plugin.ServeConfig {
 		Plugins:         scheme.PluginMap(),
 		GRPCServer: func(opts []grpc.ServerOption) *grpc.Server {
 			opts = append(opts,
-				grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
-				grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+				grpc.ChainStreamInterceptor(
+					otelgrpc.StreamServerInterceptor(),
+					func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+						stream := streams.NewServerStreamWithContext(ss)
+						stream.Ctx = cluster.ClusterIDKey.FromIncomingCredentials(stream.Ctx)
+						stream.Ctx = session.AttributesKey.FromIncomingCredentials(stream.Ctx)
+						return handler(srv, stream)
+					},
+				),
+				grpc.ChainUnaryInterceptor(
+					otelgrpc.UnaryServerInterceptor(),
+					// Marks plugins as valid for caching, if any of their rpcs meet the criteria
+					caching.NewClientGrpcTtlCacher().UnaryServerInterceptor(),
+				),
 			)
 			return grpc.NewServer(opts...)
 		},

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/pkp"
 )
 
@@ -115,8 +116,8 @@ var _ = Describe("Keyring", Label("unit"), func() {
 			kr.Try(
 				func(keys *keyring.SharedKeys) {
 					counterA.Inc()
-					Expect(keys.ClientKey).To(HaveLen(64))
-					Expect(keys.ServerKey).To(HaveLen(64))
+					Expect(keys.ClientKey).To(HaveLen(32))
+					Expect(keys.ServerKey).To(HaveLen(32))
 				},
 				func(key *keyring.PKPKey) {
 					counterB.Inc()
@@ -204,11 +205,7 @@ var _ = Describe("Keyring", Label("unit"), func() {
 		_, err := rand.Read(key[:])
 		Expect(err).NotTo(HaveOccurred())
 
-		ek := &keyring.EphemeralKey{
-			Usage:  keyring.Encryption,
-			Secret: key[:],
-			Labels: map[string]string{"test": "test"},
-		}
+		ek := ephemeral.NewKey(ephemeral.Authentication, map[string]string{"test": "test"})
 		sk := keyring.NewSharedKeys(make([]byte, 64))
 		kr1 := keyring.New(ek, sk)
 		kr2 := keyring.New(sk)
@@ -227,20 +224,20 @@ var _ = Describe("Keyring", Label("unit"), func() {
 		b64key := base64.StdEncoding.EncodeToString(key[:])
 
 		jsonData := fmt.Sprintf(`{
-			"usage": "encryption",
-			"secret": %q,
+			"usage": "auth",
+			"sec": %q,
 			"labels": {
 				"test": "test"
 			}
 		}`, b64key)
 
 		expected := &keyring.EphemeralKey{
-			Usage:  keyring.Encryption,
+			Usage:  ephemeral.Authentication,
 			Secret: key[:],
 			Labels: map[string]string{"test": "test"},
 		}
 
-		actual, err := keyring.LoadEphemeralKey(strings.NewReader(jsonData))
+		actual, err := ephemeral.LoadKey(strings.NewReader(jsonData))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(actual).To(Equal(expected))
 	})

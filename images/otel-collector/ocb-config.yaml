@@ -1,0 +1,52 @@
+dist:
+  module: github.com/rancher/opni/images/otel-collector # the module name for the new distribution, following Go mod conventions. Optional, but recommended.
+  name: otelcol-custom # the binary name. Optional.
+  description: "Custom OpenTelemetry Collector distribution" # a long name for the application. Optional.
+  otelcol_version: "0.71.0"
+  version: "0.71.0"
+  output_path: .
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8seventsreceiver v0.71.0
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/loggingexporter v0.71.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.71.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/jaegerexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/kafkaexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opencensusexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/zipkinexporter v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opensearchexporter v0.71.0
+
+extensions:
+  - gomod: go.opentelemetry.io/collector/extension/zpagesextension v0.71.0
+  - gomod: go.opentelemetry.io/collector/extension/ballastextension v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension v0.71.0
+
+processors:
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.71.0
+  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/spanprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor v0.71.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.71.0
+
+replaces:
+- github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opensearchexporter => github.com/dbason/opentelemetry-collector-contrib/exporter/opensearchexporter v0.0.0-20230306003502-9c6c4f5280f7

@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
+	"github.com/rancher/opni/pkg/resources"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -26,6 +27,12 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 
 	//Generate admin user cert to use
 	retErr = certMgr.GenerateClientCert(username)
+	if retErr != nil {
+		return
+	}
+
+	//Generate indexing user for preprocessor to use
+	retErr = certMgr.GenerateClientCert(resources.InternalIndexingUser)
 	if retErr != nil {
 		return
 	}
@@ -52,6 +59,12 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 	}
 
 	retErr = reconciler.MaybeCreateRole(clusterIndexRole)
+	if retErr != nil {
+		return
+	}
+
+	// bind the indexing user to the index role
+	retErr = reconciler.MaybeUpdateRolesMapping(clusterIndexRole.RoleName, resources.InternalIndexingUser)
 	if retErr != nil {
 		return
 	}
@@ -119,6 +132,11 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		"mappings": opniServiceMapTemplate.Template.Mappings,
 	}
 	retErr = reconciler.MaybeCreateIndex(serviceMapIndexName, mappings)
+	if retErr != nil {
+		return
+	}
+
+	retErr = reconciler.MaybeCreateIndex(ClusterMetadataIndexName, clusterMetadataIndexSettings)
 	if retErr != nil {
 		return
 	}

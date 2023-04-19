@@ -99,3 +99,9 @@ ruler_storage:
   backend: filesystem
   filesystem:
     dir: "{{ .StorageDir }}/rules"
+
+limits:
+  metric_relabel_configs:
+  - source_labels: [zz_opni_impersonate_as]
+    regex: '.+'
+    action: drop

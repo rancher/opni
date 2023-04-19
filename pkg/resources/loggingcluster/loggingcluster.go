@@ -73,11 +73,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	if r.loggingCluster.Spec.IndexUserSecret == nil {
-		retErr = errors.New("index user secret not provided")
-		return
-	}
-
 	opensearchCluster := &opensearchv1.OpenSearchCluster{}
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.loggingCluster.Spec.OpensearchClusterRef.Name,

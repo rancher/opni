@@ -2,12 +2,14 @@ package opniopensearch
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"text/template"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
+	"github.com/rancher/opni/pkg/resources/multiclusterrolebinding"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +19,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	OpniPreprocessingInstanceName = "opni"
 )
 
 var (
@@ -39,7 +45,7 @@ func (r *Reconciler) buildOpensearchCluster(
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.8.3-rc2"
+		version = "0.9.2-rc1"
 	}
 
 	image := fmt.Sprintf(
@@ -180,7 +186,31 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 	return configmap
 }
 
+func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
+	otel := &loggingv1beta1.Preprocessor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpniPreprocessingInstanceName,
+			Namespace: r.instance.Namespace,
+		},
+		Spec: loggingv1beta1.PreprocessorSpec{
+			ImageSpec: opnimeta.ImageSpec{
+				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
+			},
+			OpensearchCluster: &opnimeta.OpensearchClusterRef{
+				Name:      r.instance.Name,
+				Namespace: r.instance.Namespace,
+			},
+			WriteIndex: multiclusterrolebinding.LogIndexAlias,
+		},
+	}
+	ctrl.SetControllerReference(r.instance, otel, r.client.Scheme())
+	return otel
+}
+
 func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
+	if r.instance.Spec.NatsRef == nil {
+		return "", false, errors.New("missing nats reference")
+	}
 	nats := &opnicorev1beta1.NatsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.instance.Spec.NatsRef.Name,

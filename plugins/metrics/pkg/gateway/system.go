@@ -14,7 +14,10 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 )
 
@@ -77,5 +80,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		os.Exit(1)
 	}
 	p.uninstallController.Set(ctrl)
+
+	p.backendKvClients.Set(&backend.KVClients{
+		DefaultCapabilitySpec: storage.NewValueStore(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/default"),
+		NodeCapabilitySpecs:   storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/nodes/"),
+	})
 	<-p.ctx.Done()
 }

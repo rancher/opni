@@ -34,9 +34,6 @@ func RegisterClusterDriver(driver ClusterDriver) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, ok := clusterDrivers[driver.Name()]; ok {
-		panic("driver already exists: " + driver.Name())
-	}
 	clusterDrivers[driver.Name()] = driver
 }
 

@@ -11,6 +11,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -98,13 +99,16 @@ func NewListener(opts ...ListenerOption) *Listener {
 	return l
 }
 
-func (l *Listener) publishStatus(id string, connected bool) {
+func (l *Listener) publishStatus(id string, connected bool, attrs []session.Attribute) {
 	s := StatusUpdate{
 		ID: id,
 		Status: &corev1.Status{
 			Connected: connected,
 			Timestamp: timestamppb.Now(),
 		},
+	}
+	for _, attr := range attrs {
+		s.Status.SessionAttributes = append(s.Status.SessionAttributes, attr.Name())
 	}
 	l.statusUpdate <- s
 }
@@ -123,6 +127,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer l.sem.Release(1) // 5th
 
 	id := cluster.StreamAuthorizedID(ctx)
+	attrs := session.StreamAuthorizedAttributes(ctx)
 
 	l.idLocksMu.Lock()
 	var clientLock *sync.Mutex
@@ -150,7 +155,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 		l.incomingHealthUpdatesMu.Unlock()
 	}()
 
-	l.publishStatus(id, true)
+	l.publishStatus(id, true, attrs)
 	defer func() { // 2nd
 		l.healthUpdate <- HealthUpdate{
 			ID: id,
@@ -159,7 +164,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 				Ready:     false,
 			},
 		}
-		l.publishStatus(id, false)
+		l.publishStatus(id, false, nil)
 	}()
 	curHealth, err := clientset.GetHealth(ctx, &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err == nil {

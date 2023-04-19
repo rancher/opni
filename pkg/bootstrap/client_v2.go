@@ -77,7 +77,7 @@ func (c *ClientConfigV2) Bootstrap(
 	}
 	authReq := &bootstrapv2.BootstrapAuthRequest{
 		ClientId:     id,
-		ClientPubKey: ekp.PublicKey,
+		ClientPubKey: ekp.PublicKey.Bytes(),
 		FriendlyName: c.FriendlyName,
 	}
 
@@ -88,10 +88,11 @@ func (c *ClientConfigV2) Bootstrap(
 		return nil, fmt.Errorf("auth request failed: %w", err)
 	}
 
-	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
-		PublicKey: authResp.ServerPubKey,
-		PeerType:  ecdh.PeerTypeServer,
-	})
+	serverPubKey, err := ecdh.ServerPubKey(authResp)
+	if err != nil {
+		return nil, err
+	}
+	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, serverPubKey)
 	if err != nil {
 		return nil, err
 	}

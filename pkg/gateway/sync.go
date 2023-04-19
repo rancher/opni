@@ -13,6 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/validation"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,6 +65,10 @@ func (f *SyncRequester) HandleAgentConnection(ctx context.Context, clientSet age
 
 // Implements capabilityv1.NodeManagerServer
 func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncRequest) (*emptypb.Empty, error) {
+	if err := validation.Validate(req); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -91,12 +96,10 @@ func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncR
 			f.logger.With(
 				zap.Error(err),
 			).Warn("sync request failed")
-			return &emptypb.Empty{}, err
 		}
-		return &emptypb.Empty{}, nil
 	}
 
-	return &emptypb.Empty{}, status.Error(codes.NotFound, "agent is not connected")
+	return &emptypb.Empty{}, nil
 }
 
 func (f *SyncRequester) runPeriodicSync(ctx context.Context, req *capabilityv1.SyncRequest, period time.Duration, jitter time.Duration) {

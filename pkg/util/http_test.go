@@ -10,20 +10,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testgrpc"
-	"github.com/rancher/opni/pkg/util"
 )
 
 var _ = BuildHttpTransportCaching(
-	util.NewInternalHttpCacheTransport(
-		caching.NewInMemoryHttpTtlCache("50Mi", time.Second*1),
+	caching.NewInternalHttpCacheTransport(
+		caching.NewInMemoryHttpTtlCache(5*1024*1024, time.Second*1),
 	),
 )
 
 func BuildHttpTransportCaching(
-	t util.HttpCachingTransport,
+	t caching.HttpCachingTransport,
 ) bool {
 	return Describe("Http util test suites", Ordered, Label("unit"), func() {
 		var serverPort int
@@ -58,7 +57,7 @@ func BuildHttpTransportCaching(
 			}
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-Object-Id", objectId)
-			util.WithHttpMaxAgeCachingHeader(req.Header, time.Second*5)
+			caching.WithHttpMaxAgeCachingHeader(req.Header, time.Second*5)
 			return cachingClient.Do(req)
 		}
 
@@ -75,7 +74,7 @@ func BuildHttpTransportCaching(
 			}
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-Object-Id", objectId)
-			util.WithHttpNoCachingHeader(req.Header)
+			caching.WithHttpNoCachingHeader(req.Header)
 			return cachingClient.Do(req)
 		}
 
@@ -106,27 +105,27 @@ func BuildHttpTransportCaching(
 		}
 
 		BeforeAll(func() {
-			port, err := freeport.GetFreePort()
-			Expect(err).To(Succeed())
-			serverPort = port
+			serverPort = freeport.GetFreePort()
 
 			cachingHttpServer := testgrpc.NewCachingHttpServer(
 				serverPort,
 			)
-
+			shutdownchan := make(chan error, 1)
 			go func() {
 				err := cachingHttpServer.ListenAndServe()
 				if !errors.Is(err, http.ErrServerClosed) {
-					panic(err)
+					shutdownchan <- err
 				}
+				shutdownchan <- nil
 			}()
 
 			DeferCleanup(func() {
 				cachingHttpServer.Shutdown(context.TODO())
+				Expect(shutdownchan).Should(Receive(BeNil()))
 			})
 			defaultClient = http.DefaultClient
 			client := http.DefaultClient
-			err = t.Use(client)
+			err := t.Use(client)
 			Expect(err).To(Succeed())
 			Expect(client.Transport).NotTo(BeNil())
 			Expect(serverPort).NotTo(BeZero())

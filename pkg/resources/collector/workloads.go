@@ -6,13 +6,12 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -21,10 +20,16 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "docker.io/otel"
-	collectorImage     = "opentelemetry-collector-contrib"
-	collectorVersion   = "0.68.0"
+	collectorImageRepo = "ghcr.io/rancher-sandbox"
+	collectorImage     = "opni-otel-collector"
+	collectorVersion   = "v0.1.1-0.74.0"
 	otlpGRPCPort       = int32(4317)
+	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
+	machineID          = "/etc/machine-id"
+)
+
+var (
+	directoryOrCreate = corev1.HostPathDirectoryOrCreate
 )
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
@@ -38,125 +43,9 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 			return
 		}
 		retData = append(retData, data...)
-		if receiver != "" {
-			retReceivers = append(retReceivers, receiver)
+		if len(receiver) > 0 {
+			retReceivers = append(retReceivers, receiver...)
 		}
-	}
-	return
-}
-
-func (r *Reconciler) generateDistributionReceiver() (receiver string, retBytes []byte, retErr error) {
-	config := &opniloggingv1beta1.CollectorConfig{}
-	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.collector.Spec.LoggingConfig.Name,
-		Namespace: r.collector.Spec.SystemNamespace,
-	}, config)
-	if retErr != nil {
-		return
-	}
-	var providerReceiver bytes.Buffer
-	switch config.Spec.Provider {
-	case opniloggingv1beta1.LogProviderRKE:
-		return logReceiverRKE, []byte(templateLogAgentRKE), nil
-	case opniloggingv1beta1.LogProviderK3S:
-		journaldDir := "/var/log/journald"
-		if config.Spec.K3S != nil && config.Spec.K3S.LogPath != "" {
-			journaldDir = config.Spec.K3S.LogPath
-		}
-		retErr = templateLogAgentK3s.Execute(&providerReceiver, journaldDir)
-		if retErr != nil {
-			return
-		}
-		return logReceiverK3s, providerReceiver.Bytes(), nil
-	case opniloggingv1beta1.LogProviderRKE2:
-		journaldDir := "/var/log/journald"
-		if config.Spec.RKE2 != nil && config.Spec.RKE2.LogPath != "" {
-			journaldDir = config.Spec.RKE2.LogPath
-		}
-		retErr = templateLogAgentRKE2.Execute(&providerReceiver, journaldDir)
-		if retErr != nil {
-			return
-		}
-		return logReceiverRKE2, providerReceiver.Bytes(), nil
-	default:
-		return
-	}
-}
-
-func (r *Reconciler) hostLoggingVolumes() (
-	retVolumeMounts []corev1.VolumeMount,
-	retVolumes []corev1.Volume,
-	retErr error,
-) {
-	config := &opniloggingv1beta1.CollectorConfig{}
-	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.collector.Spec.LoggingConfig.Name,
-		Namespace: r.collector.Spec.SystemNamespace,
-	}, config)
-	if retErr != nil {
-		return
-	}
-
-	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
-		Name:      "varlogpods",
-		MountPath: "/var/log/pods",
-	})
-	retVolumes = append(retVolumes, corev1.Volume{
-		Name: "varlogpods",
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: "/var/log/pods",
-			},
-		},
-	})
-	switch config.Spec.Provider {
-	case opniloggingv1beta1.LogProviderRKE:
-		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
-			Name:      "rancher",
-			MountPath: "/var/lib/rancher/rke/log",
-		})
-		retVolumes = append(retVolumes, corev1.Volume{
-			Name: "rancher",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/var/lib/rancher/rke/log",
-				},
-			},
-		})
-	case opniloggingv1beta1.LogProviderK3S:
-		journaldDir := "/var/log/journald"
-		if config.Spec.K3S != nil && config.Spec.K3S.LogPath != "" {
-			journaldDir = config.Spec.K3S.LogPath
-		}
-		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
-			Name:      "journald",
-			MountPath: journaldDir,
-		})
-		retVolumes = append(retVolumes, corev1.Volume{
-			Name: "journald",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: journaldDir,
-				},
-			},
-		})
-	case opniloggingv1beta1.LogProviderRKE2:
-		journaldDir := "/var/log/journald"
-		if config.Spec.RKE2 != nil && config.Spec.RKE2.LogPath != "" {
-			journaldDir = config.Spec.RKE2.LogPath
-		}
-		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
-			Name:      "journald",
-			MountPath: journaldDir,
-		})
-		retVolumes = append(retVolumes, corev1.Volume{
-			Name: "journald",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: journaldDir,
-				},
-			},
-		})
 	}
 	return
 }
@@ -216,8 +105,11 @@ func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 	hash.Write(combinedData)
 	configHash := hex.EncodeToString(hash.Sum(nil))
 
-	ctrl.SetControllerReference(r.collector, cm, r.client.Scheme())
+	if r.collector.Spec.IsEmpty() {
+		return resources.Absent(cm), ""
+	}
 
+	ctrl.SetControllerReference(r.collector, cm, r.client.Scheme())
 	return resources.Present(cm), configHash
 }
 
@@ -237,7 +129,6 @@ func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
 	err := templateAggregatorConfig.Execute(&buffer, AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
-		ClusterID:     r.collector.Spec.ClusterID,
 	})
 	if err != nil {
 		return resources.Error(nil, err), ""
@@ -248,8 +139,11 @@ func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
 	hash.Write(config)
 	configHash := hex.EncodeToString(hash.Sum(nil))
 
-	ctrl.SetControllerReference(r.collector, cm, r.client.Scheme())
+	if r.collector.Spec.IsEmpty() {
+		return resources.Absent(cm), ""
+	}
 
+	ctrl.SetControllerReference(r.collector, cm, r.client.Scheme())
 	return resources.Present(cm), configHash
 }
 
@@ -315,11 +209,17 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 						{
 							Name: "otel-collector",
 							Command: []string{
-								"/otelcol-contrib",
+								"/otelcol-custom",
 								fmt.Sprintf("--config=/etc/otel/%s", mainKey),
 							},
 							Image:           *imageSpec.Image,
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+							SecurityContext: &corev1.SecurityContext{
+								SELinuxOptions: &corev1.SELinuxOptions{
+									Type: "rke_logreader_t",
+								},
+								RunAsUser: lo.ToPtr[int64](0),
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name: "NODE_NAME",
@@ -360,12 +260,17 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 							Effect: corev1.TaintEffectNoExecute,
 						},
 					},
+					ServiceAccountName: "opni-agent",
 				},
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.collector, ds, r.client.Scheme())
 
+	if r.collector.Spec.IsEmpty() {
+		return resources.Absent(ds)
+	}
+
+	ctrl.SetControllerReference(r.collector, ds, r.client.Scheme())
 	return resources.Present(ds)
 }
 
@@ -405,7 +310,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 						{
 							Name: "otel-collector",
 							Command: []string{
-								"/otelcol-contrib",
+								"/otelcol-custom",
 								fmt.Sprintf("--config=/etc/otel/%s", aggregatorKey),
 							},
 							Image:           *imageSpec.Image,
@@ -455,12 +360,17 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 							},
 						},
 					},
+					ServiceAccountName: "opni-agent",
 				},
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.collector, deploy, r.client.Scheme())
 
+	if r.collector.Spec.IsEmpty() {
+		return resources.Absent(deploy)
+	}
+
+	ctrl.SetControllerReference(r.collector, deploy, r.client.Scheme())
 	return resources.Present(deploy)
 }
 

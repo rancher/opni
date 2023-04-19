@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -41,7 +42,7 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/rancher/opni/pkg/alerting/extensions"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/rancher/opni/pkg/alerting/templates"
 
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"
@@ -68,6 +69,9 @@ import (
 	"github.com/prometheus/alertmanager/timeinterval"
 	"github.com/prometheus/alertmanager/types"
 	"github.com/prometheus/alertmanager/ui"
+
+	// add profiles for opni
+	_ "net/http/pprof"
 )
 
 var (
@@ -115,6 +119,9 @@ func init() {
 	prometheus.MustRegister(configuredReceivers)
 	prometheus.MustRegister(configuredIntegrations)
 	prometheus.MustRegister(version.NewCollector("alertmanager"))
+
+	// register custom opni template functions to AlertManager
+	templates.RegisterNewAlertManagerDefaults(template.DefaultFuncs, templates.DefaultTemplateFuncs)
 }
 
 func instrumentHandler(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
@@ -239,14 +246,10 @@ func run(args []string) int {
 	kingpin.Version(version.Print("alertmanager"))
 	kingpin.CommandLine.GetFlag("help").Short('h')
 	kingpin.Parse()
+	ctxCa, cancelCa := context.WithCancel(context.Background())
+	defer cancelCa()
 	if opniAddr != nil && *opniAddr != "" {
-		opniSrv := extensions.StartOpniEmbeddedServer(*opniAddr)
-		defer func() {
-			err := opniSrv.Shutdown(context.TODO())
-			if err != nil {
-				panic(err)
-			}
-		}()
+		extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr)
 	}
 
 	logger := promlog.New(&promlogConfig)

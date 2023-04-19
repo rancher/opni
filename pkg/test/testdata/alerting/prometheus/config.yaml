@@ -16,7 +16,6 @@ scrape_configs:
     static_configs:
       - targets:
           - "localhost:{{ .ListenPort }}"
-          - "localhost:{{ .RTMetricsPort }}"
   {{range .Jobs}}
   - job_name: "{{ .JobName }}"
     # metrics_path defaults to '/metrics'
@@ -29,4 +28,4 @@ scrape_configs:
 # When running prometheus in Agent mode, remote-write is required.
 remote_write:
   # Agent is able to run with a invalid remote-write URL, but, of course, will fail to push timeseries.
-  - url: "http://localhost:{{ .OpniAgentPort }}/api/agent/push"
+  - url: "http://{{ .OpniAgentAddress }}/api/agent/push"

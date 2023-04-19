@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Task", Ordered, func() {
+var _ = Describe("Task", Ordered, Label("unit"), func() {
 	var store task.KVStore
 
 	BeforeAll(func() {

@@ -45,6 +45,9 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
@@ -104,6 +107,12 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 								{
 									Name:      "plugin-cache",
 									MountPath: "/var/lib/opni/plugin-cache",
+								},
+								{
+									Name:        "local-agent-key",
+									MountPath:   "/run/opni/keyring/session-attribute.json",
+									SubPathExpr: "session-attribute.json",
+									ReadOnly:    true,
 								},
 							},
 							Ports: append(append(publicPorts, internalPorts...), adminDashboardPorts...),
@@ -247,6 +256,21 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: pvc.Name,
+								},
+							},
+						},
+						{
+							Name: "local-agent-key",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "opni-local-agent-key",
+									DefaultMode: lo.ToPtr[int32](0400),
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "session-attribute.json",
+											Path: "session-attribute.json",
+										},
+									},
 								},
 							},
 						},

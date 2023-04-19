@@ -213,7 +213,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 
 	driverOptions := []driverutil.Option{
-		driverutil.NewOption("k8sClient", p.restconfig),
+		driverutil.NewOption("restConfig", p.restconfig),
 		driverutil.NewOption("namespace", p.storageNamespace),
 		driverutil.NewOption("opensearchCluster", p.opensearchCluster),
 		driverutil.NewOption("logger", p.logger),

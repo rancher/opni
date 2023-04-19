@@ -26,6 +26,9 @@ func ApplyOptions(dest any, opts ...Option) error {
 }
 
 func (o *option[T]) Apply(dest any) error {
+	if o.key == "" {
+		return nil
+	}
 	v := reflect.ValueOf(dest)
 	if v.Kind() != reflect.Ptr {
 		panic("destination must be a pointer")
@@ -42,10 +45,14 @@ func (o *option[T]) Apply(dest any) error {
 		}
 		tag := v.Type().Field(i).Tag.Get("option")
 		if tag == o.key {
+			val := reflect.ValueOf(o.value)
+			if val.IsZero() {
+				return nil
+			}
 			if field.Type() != reflect.TypeOf(o.value) {
 				return fmt.Errorf("mismatched option types for key %q: %T != %T", tag, field.Interface(), o.value)
 			}
-			field.Set(reflect.ValueOf(o.value))
+			field.Set(val)
 			return nil
 		}
 	}

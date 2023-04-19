@@ -35,10 +35,7 @@ import (
 
 type OTELNodeDriver struct {
 	OTELNodeDriverOptions
-
-	logger    *zap.SugaredLogger
-	namespace string
-	state     reconcilerutil.ReconcilerState
+	state reconcilerutil.ReconcilerState
 }
 
 func (*OTELNodeDriver) ConfigureRuleGroupFinder(_ *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
@@ -94,13 +91,13 @@ func (o *OTELNodeDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityCon
 BACKOFF:
 	for backoff.Continue(b) {
 		for _, obj := range objList {
-			o.logger.Debugf(
+			o.Logger.Debugf(
 				"object : %s, should exist : %t",
 				client.ObjectKeyFromObject(obj.A).String(),
 				obj.B,
 			)
-			if err := reconcilerutil.ReconcileObject(o.logger, o.K8sClient, o.namespace, obj); err != nil {
-				o.logger.With(
+			if err := reconcilerutil.ReconcileObject(o.Logger, o.K8sClient, o.Namespace, obj); err != nil {
+				o.Logger.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
 					zap.Error(err),
 				).Error("error reconciling object")
@@ -112,18 +109,18 @@ BACKOFF:
 	}
 
 	if !success {
-		o.logger.Error("timed out reconciling objects")
+		o.Logger.Error("timed out reconciling objects")
 	} else {
-		o.logger.Info("objects reconciled successfully")
+		o.Logger.Info("objects reconciled successfully")
 	}
-	o.logger.Info("starting collector reconcile...")
+	o.Logger.Info("starting collector reconcile...")
 	if err := o.reconcileCollector(deployOTEL); err != nil {
-		o.logger.With(
+		o.Logger.With(
 			"object", "opni collector",
 			zap.Error(err),
 		).Error("error reconciling object")
 	}
-	o.logger.Info("collector reconcile complete")
+	o.Logger.Info("collector reconcile complete")
 }
 
 // no-op
@@ -144,12 +141,12 @@ func (o *OTELNodeDriver) buildMonitoringCollectorConfig(
 			OtelSpec:            lo.FromPtrOr(node.CompatOTELStruct(incomingSpec), otel.OTELSpec{}),
 		},
 	}
-	o.logger.Debugf("building %s", string(util.Must(json.Marshal(collectorConfig))))
+	o.Logger.Debugf("building %s", string(util.Must(json.Marshal(collectorConfig))))
 	return collectorConfig
 }
 
 func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
-	o.logger.Debug("reconciling collector")
+	o.Logger.Debug("reconciling collector")
 	coll := &opnicorev1beta1.Collector{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: otel.CollectorName,
@@ -164,22 +161,22 @@ func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
 		coll.Spec.MetricsConfig = &corev1.LocalObjectReference{
 			Name: otel.MetricsCrdName,
 		}
-		o.logger.Debug("creating collector with metrics config")
+		o.Logger.Debug("creating collector with metrics config")
 		return o.K8sClient.Create(context.TODO(), coll)
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		o.logger.Debug("updating collector with metrics config")
+		o.Logger.Debug("updating collector with metrics config")
 		err := o.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)
 		if err != nil {
 			return err
 		}
 		if shouldExist {
-			o.logger.Debug("setting metrics config")
+			o.Logger.Debug("setting metrics config")
 			coll.Spec.MetricsConfig = &corev1.LocalObjectReference{
 				Name: otel.MetricsCrdName,
 			}
 		} else {
-			o.logger.Debug("removing metrics config")
+			o.Logger.Debug("removing metrics config")
 			coll.Spec.MetricsConfig = nil
 		}
 		return o.K8sClient.Update(context.TODO(), coll)
@@ -201,7 +198,7 @@ func (o *OTELNodeDriver) buildEmptyCollector() *opnicorev1beta1.Collector {
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: o.namespace,
+			SystemNamespace: o.Namespace,
 			AgentEndpoint:   otel.AgentEndpoint(serviceName),
 		},
 	}
@@ -215,13 +212,13 @@ func (o *OTELNodeDriver) getRemoteWriteEndpoint() string {
 	} else {
 		serviceName = service.Name
 	}
-	return fmt.Sprintf("http://%s.%s.svc/api/agent/push", serviceName, o.namespace)
+	return fmt.Sprintf("http://%s.%s.svc/api/agent/push", serviceName, o.Namespace)
 }
 
 func (o *OTELNodeDriver) getAgentService() (*corev1.Service, error) {
 	list := &corev1.ServiceList{}
 	if err := o.K8sClient.List(context.TODO(), list,
-		client.InNamespace(o.namespace),
+		client.InNamespace(o.Namespace),
 		client.MatchingLabels{
 			"opni.io/app": "agent",
 		},

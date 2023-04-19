@@ -69,10 +69,11 @@ type KubernetesManagerDriverOptions struct {
 }
 
 func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
+	scheme := apis.NewScheme()
 	if options.RestConfig == nil {
 		var err error
 		options.RestConfig, err = k8sutil.NewRestConfig(k8sutil.ClientOptions{
-			Scheme: apis.NewScheme(),
+			Scheme: scheme,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
@@ -89,14 +90,16 @@ func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*Kubern
 		return nil, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	k8sCLient, err := client.New(options.RestConfig, client.Options{})
+	k8sClient, err := client.New(options.RestConfig, client.Options{
+		Scheme: scheme,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
 	return &KubernetesManagerDriver{
 		KubernetesManagerDriverOptions: options,
-		k8sClient:                      k8sCLient,
+		k8sClient:                      k8sClient,
 		provider:                       provider,
 	}, nil
 }

@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.opentelemetry.io/otel/sdk/resource"
 	metricsotlpv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 )
 
@@ -18,6 +19,26 @@ func TestOtlp(t *testing.T) {
 
 func compat(otlpMetrics []*metricsotlpv1.ResourceMetrics) []*metricdata.ResourceMetrics {
 	res := make([]*metricdata.ResourceMetrics, len(otlpMetrics))
+	for i := range otlpMetrics {
+		res[i] = &metricdata.ResourceMetrics{
+			Resource:     &resource.Resource{},
+			ScopeMetrics: []metricdata.ScopeMetrics{},
+		}
+		// for _, sm := range rm.ScopeMetrics {
+		// 	newMdataScope := metricdata.ScopeMetrics{
+		// 		Scope: instrumentation.Scope{
+		// 			Name:    sm.Scope.Name,
+		// 			Version: sm.Scope.Version,
+		// 		},
+		// 		Metrics: make([]metricdata.Metrics, len(sm.Metrics)),
+		// 	}
+		// 	for _, m := range sm.Metrics {
+		// 		newMdataScope.Metrics = append(newMdataScope.Metrics, metricdata.Metrics{
+		// 			Data: metricdata.Gauge[int64]{},
+		// 		})
+		// 	}
+		// }
+	}
 	return res
 }
 

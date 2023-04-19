@@ -57,6 +57,32 @@ var _ = Describe("OTLP metrics processing", Label("unit"), func() {
 			otlp.DropConfig{},
 			nil,
 		),
+		Entry(
+			"dropping entire metric scopes",
+			dropScope,
+			otlp.DropConfig{
+				DropCfg: []otlp.DropCondition{
+					{
+						Op:    otlp.OpEquals,
+						Value: "drop",
+					},
+				},
+			},
+			nil,
+		),
+		Entry(
+			"dropping entire metric datapoints",
+			dropDataPoints,
+			otlp.DropConfig{
+				DropCfg: []otlp.DropCondition{
+					{
+						Op:    otlp.OpEquals,
+						Value: "drop",
+					},
+				},
+			},
+			nil,
+		),
 	)
 	DescribeTable("Aggregate", validateAggregate,
 		Entry(

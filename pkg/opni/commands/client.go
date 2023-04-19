@@ -9,6 +9,9 @@ import (
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
@@ -17,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/versions"
+	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +37,8 @@ var (
 const (
 	upgradeResponderAddress = "https://upgrades.opni-upgrade-responder.livestock.rancher.io/v1/checkupgrade"
 )
+
+type crdFunc func() (*crd.CRD, error)
 
 func init() {
 	apis.InitScheme(scheme)
@@ -67,7 +73,9 @@ func BuildClientCmd() *cobra.Command {
 
 		ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
 
-		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		config := ctrl.GetConfigOrDie()
+
+		mgr, err := ctrl.NewManager(config, ctrl.Options{
 			Scheme:                 scheme,
 			MetricsBindAddress:     metricsAddr,
 			Port:                   9443,
@@ -76,6 +84,12 @@ func BuildClientCmd() *cobra.Command {
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to start client manager")
+			return err
+		}
+
+		crdFactory, err := crd.NewFactoryFromClient(config)
+		if err != nil {
+			setupLog.Error(err, "unable to create crd factory")
 			return err
 		}
 
@@ -92,20 +106,28 @@ func BuildClientCmd() *cobra.Command {
 			defer upgradeChecker.Stop()
 		}
 
-		if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging")
-			return err
+		// Apply CRDs
+		crds := []crd.CRD{}
+		for _, crdFunc := range []crdFunc{
+			opnicorev1beta1.CollectorCRD,
+			loggingv1beta1.CollectorConfigCRD,
+			monitoringv1beta1.CollectorConfigCRD,
+			loggingv1beta1.DataPrepperCRD,
+			loggingv1beta1.ClusterOutputCRD,
+			loggingv1beta1.ClusterFlowCRD,
+			loggingv1beta1.LogAdapterCRD,
+			opnicorev1beta1.KeyringCRD,
+		} {
+			crd, err := crdFunc()
+			if err != nil {
+				setupLog.Error(err, "failed to create crd")
+				return err
+			}
+			crds = append(crds, *crd)
 		}
-
-		if err = (&controllers.LoggingLogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging LogAdapter")
-			return err
-		}
-
-		if err = (&controllers.LoggingDataPrepperReconciler{
-			OpniCentral: opniCentral,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
+		err = crdFactory.BatchCreateCRDs(signalCtx, crds...).BatchWait()
+		if err != nil {
+			setupLog.Error(err, "failed to apply crds")
 			return err
 		}
 

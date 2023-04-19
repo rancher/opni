@@ -104,6 +104,7 @@ require (
 	github.com/qmuntal/stateless v1.6.3
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
+	github.com/rancher/wrangler v1.1.1
 	github.com/samber/lo v1.37.0
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
@@ -427,6 +428,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20201118171849-f6a6b3f636fc // indirect
 	github.com/pulumi/pulumi-docker/sdk/v3 v3.2.0 // indirect
+	github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/rs/cors v1.8.2 // indirect

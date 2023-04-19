@@ -2845,6 +2845,10 @@ github.com/qmuntal/stateless v1.6.3 h1:4UOgMiaT4v3a0Q0goGauegg5qTAWw4q5XTlAaOlgw
 github.com/qmuntal/stateless v1.6.3/go.mod h1:/HWN2w30OtWL2VT9EUZxMsnz26iIbzuE8R0HOEcMaBY=
 github.com/rancher/kubernetes-provider-detector v0.1.5 h1:hWRAsWuJOemzGjz/XrbTlM7QmfO4OedvFE3QwXiH60I=
 github.com/rancher/kubernetes-provider-detector v0.1.5/go.mod h1:ypuJS7kP7rUiAn330xG46mj+Nhvym05GM8NqMVekpH0=
+github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc h1:29VHrInLV4qSevvcvhBj5UhQWkPShxrxv4AahYg2Scw=
+github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc/go.mod h1:dEfC9eFQigj95lv/JQ8K5e7+qQCacWs1aIA6nLxKzT8=
+github.com/rancher/wrangler v1.1.1 h1:wmqUwqc2M7ADfXnBCJTFkTB5ZREWpD78rnZMzmxwMvM=
+github.com/rancher/wrangler v1.1.1/go.mod h1:ioVbKupzcBOdzsl55MvEDN0R1wdGggj8iNCYGFI5JvM=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=

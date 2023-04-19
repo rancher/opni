@@ -462,7 +462,7 @@ func ProtobufPython() error {
 		return err
 	}
 	for _, file := range out {
-		if err := os.WriteFile(filepath.Join("aiops/apis/opni_proto", file.Name), []byte(file.Content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join("aiops/metric/metric_analysis", file.Name), []byte(file.Content), 0644); err != nil {
 			return err
 		}
 	}

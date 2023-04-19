@@ -406,6 +406,14 @@ func init() {
 			URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getJetstreamVersion,
 		},
+		{
+			Name:    "otelcol-custom",
+			Version: "0.1.2-rc2",
+			URL:     "https://github.com/rancher-sandbox/opni-otel-collector/releases/download/v{{.Version}}/otelcol-custom_{{.Version}}_{{.GOOS}}_{{.GOARCH}}.tar.gz",
+			GetVersion: func(_ string) string {
+				return "0.1.2-rc2"
+			},
+		},
 	}
 	if runtime.GOOS == "linux" {
 		testbin.Config.Binaries = append(testbin.Config.Binaries,

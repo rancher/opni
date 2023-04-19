@@ -1,6 +1,8 @@
 package collector
 
-import "html/template"
+import (
+	"text/template"
+)
 
 const (
 	logReceiverK8s      = "filelog/k8s"
@@ -130,7 +132,7 @@ filelog/rke2:
     to: attributes.message
 `))
 
-	templateMainConfig = template.Must(template.New("main").Parse(`
+	templateMainConfig = `
 receivers: ${file:/etc/otel/receivers.yaml}
 exporters:
   otlp:
@@ -144,7 +146,7 @@ exporters:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 250
+    limit_mib: 500
     spike_limit_mib: 50
     check_interval: 1s
   k8sattributes:
@@ -173,7 +175,9 @@ processors:
       labels:
       - key: tier
       - key: component
+    {{ template "metrics-system-processor" . }}
 service:
+  {{ template "metrics-self-telemetry" .}}
   pipelines:
   {{- if .Logs.Enabled }}
     logs:
@@ -184,13 +188,18 @@ service:
       processors: ["memory_limiter", "k8sattributes"]
       exporters: ["otlp"]
   {{- end }}
-`))
-	templateAggregatorConfig = template.Must(template.New("aggregator").Parse(`
+  {{ template "metrics-node-pipeline" .}}
+`
+
+	templateAggregatorConfig = `
 receivers:
   otlp:
     protocols:
       grpc: {}
       http: {}
+  {{ template "metrics-self-receiver" . }}
+  {{ template "metrics-prometheus-receiver" . }}
+  {{ template "metrics-prometheus-discoverer" . }}
 {{- if .LogsEnabled }}
   k8s_events:
     auth_type: serviceAccount
@@ -201,7 +210,7 @@ processors:
     send_batch_size: 1000
     timeout: 15s
   memory_limiter:
-    limit_mib: 1000
+    limit_mib: 500
     spike_limit_mib: 250
     check_interval: 1s
   transform:
@@ -209,12 +218,20 @@ processors:
     - context: log
       statements:
       - set(attributes["log_type"], "event") where attributes["k8s.event.uid"] != nil
+  {{ template "metrics-prometheus-processor" .}}
 exporters:
   otlphttp:
     endpoint: "{{ .AgentEndpoint }}"
     tls:
       insecure: true
+    sending_queue:
+      num_consumers: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+  {{ template "metrics-remotewrite-exporter" .}}
 service:
+  {{ template "metrics-self-telemetry" .}}
   pipelines:
   {{- if .LogsEnabled }}
     logs:
@@ -222,19 +239,12 @@ service:
       processors: ["transform", "memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
-`))
+  {{ template "metrics-remotewrite-pipeline" .}}
+`
 )
 
-type AgentConfig struct {
-	Instance string
-	Logs     LoggingConfig
-}
-
-type LoggingConfig struct {
-	Enabled   bool
-	Receivers []string
-}
-type AggregatorConfig struct {
-	AgentEndpoint string
-	LogsEnabled   bool
+func init() {
+	// compile time validation
+	template.Must(template.New("aggregator-config").Parse(templateAggregatorConfig))
+	template.Must(template.New("main-config").Parse(templateMainConfig))
 }

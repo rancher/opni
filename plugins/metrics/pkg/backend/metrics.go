@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/rancher/opni/pkg/config/v1beta1"
+
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"go.uber.org/zap"
@@ -21,7 +23,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -110,7 +111,9 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 // Implements node.NodeMetricsCapabilityServer
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	m.WaitForInit()
-	// todo: validate
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 
 	id := cluster.StreamAuthorizedID(ctx)
 
@@ -160,7 +163,6 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	if err != nil {
 		return nil, err
 	}
-
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
 		Enabled:    enabled,
 		Conditions: conditions,
@@ -201,6 +203,10 @@ func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*
 		m.Logger.With(zap.Error(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
+	// handle the case where an older config is now invalid: reset to factory default
+	if err := nodeSpec.Validate(); err != nil {
+		return m.getDefaultNodeSpec(ctx)
+	}
 	return nodeSpec, nil
 }
 
@@ -237,6 +243,9 @@ func (m *MetricsBackend) SetDefaultConfiguration(ctx context.Context, conf *node
 		m.requestNodeSync(ctx, &corev1.Reference{})
 		return &emptypb.Empty{}, nil
 	}
+	if err := conf.Validate(); err != nil {
+		return nil, err
+	}
 	if err := m.KV.DefaultCapabilitySpec.Put(ctx, conf); err != nil {
 		return nil, err
 	}
@@ -252,6 +261,9 @@ func (m *MetricsBackend) SetNodeConfiguration(ctx context.Context, req *node.Nod
 		}
 		m.requestNodeSync(ctx, req.Node)
 		return &emptypb.Empty{}, nil
+	}
+	if err := req.Spec.Validate(); err != nil {
+		return nil, err
 	}
 
 	if err := m.KV.NodeCapabilitySpecs.Put(ctx, req.Node.GetId(), req.GetSpec()); err != nil {

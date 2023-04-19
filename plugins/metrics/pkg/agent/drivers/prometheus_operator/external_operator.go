@@ -1,16 +1,16 @@
-package external_operator
+package prometheus_operator
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
+	reconcilerutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
@@ -37,14 +37,7 @@ import (
 
 type ExternalPromOperatorDriver struct {
 	ExternalPromOperatorDriverOptions
-	state reconcilerState
-}
-
-type reconcilerState struct {
-	sync.Mutex
-	running       bool
-	backoffCtx    context.Context
-	backoffCancel context.CancelFunc
+	state reconcilerutil.ReconcilerState
 }
 
 type ExternalPromOperatorDriverOptions struct {
@@ -63,38 +56,55 @@ func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*
 		}
 		options.K8sClient = c
 	}
-
-	return &ExternalPromOperatorDriver{
+	driver := &ExternalPromOperatorDriver{
 		ExternalPromOperatorDriverOptions: options,
-	}, nil
+	}
+	return driver, nil
 }
 
 func (d *ExternalPromOperatorDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityConfig) {
-	d.state.Lock()
-	if d.state.running {
-		d.state.backoffCancel()
+	if d.state.GetRunning() {
+		d.state.Cancel()
 	}
-	d.state.running = true
+	d.state.SetRunning(true)
 	ctx, ca := context.WithCancel(context.TODO())
-	d.state.backoffCtx = ctx
-	d.state.backoffCancel = ca
-	d.state.Unlock()
+	d.state.SetBackoffCtx(ctx, ca)
 
-	additionalScrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
+	// deployOtel := conf.Enabled && features.FeatureList.FeatureIsEnabled(FeatureFlagOtel)
+	deployPrometheus := conf.Enabled &&
+		conf.GetSpec().GetPrometheus() != nil &&
+		conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
 
-	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
+	objList := []reconcilerutil.ReconcileItem{}
 	svcAccount, cr, crb := d.buildRbac()
-
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
+	scrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
+	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
+	objList = append(objList, reconcilerutil.ReconcileItem{
+		A: svcAccount,
+		B: deployPrometheus,
+	}, reconcilerutil.ReconcileItem{
+		A: cr,
+		B: deployPrometheus,
+	}, reconcilerutil.ReconcileItem{
+		A: crb,
+		B: deployPrometheus,
+	}, reconcilerutil.ReconcileItem{
+		A: prometheus,
+		B: deployPrometheus,
+	}, reconcilerutil.ReconcileItem{
+		A: scrapeConfigs,
+		B: deployPrometheus,
+	})
 	p := backoff.Exponential()
 	b := p.Start(ctx)
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		for _, obj := range []client.Object{svcAccount, cr, crb, additionalScrapeConfigs, prometheus} {
-			if err := d.reconcileObject(obj, shouldExist); err != nil {
+		for _, obj := range objList {
+			d.Logger.Debugf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B)
+			if err := reconcilerutil.ReconcileObject(d.Logger, d.K8sClient, d.Namespace, obj); err != nil {
 				d.Logger.With(
-					"object", client.ObjectKeyFromObject(obj).String(),
+					"object", client.ObjectKeyFromObject(obj.A).String(),
 					zap.Error(err),
 				).Error("error reconciling object")
 				continue BACKOFF

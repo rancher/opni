@@ -11,14 +11,16 @@ from access_admin_api import (
     list_namespace,
     list_ns_pod,
     list_ns_service,
+    get_query
 )
 from cortexadmin_pb import CortexAdminStub
-from envvars import OPNI_HOST, OPNI_PORT
+from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT
 from fastapi import BackgroundTasks, FastAPI
 from filter_anomaly_metric import get_abnormal_metrics
 from grpclib.client import Channel
 from model.metric_pattern_classification import predict
 from opni_nats import NatsWrapper
+from grafana_dashboard_utils import get_grafana_dashboard_payload
 
 BUCKET_NAME = "metric_ai_jobs"
 BUCKET_NAME_RUNS = "metric_ai_job_runs"
@@ -54,7 +56,7 @@ async def startup_event():
 
 @app.get("/get_users")
 async def get_users():
-    channel = Channel(host=OPNI_HOST, port=OPNI_PORT)
+    channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = await get_all_users(service)
     channel.close()
@@ -63,7 +65,7 @@ async def get_users():
 
 @app.get("/get_metrics/{cluster_id}")
 async def get_metrics(cluster_id):
-    channel = Channel(host=OPNI_HOST, port=11090)
+    channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = await list_all_metric(service, cluster_id)
     channel.close()
@@ -72,7 +74,7 @@ async def get_metrics(cluster_id):
 
 @app.get("/list_namespace/{cluster_id}")
 async def list_cluster_namespace(cluster_id):
-    channel = Channel(host=OPNI_HOST, port=11090)
+    channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = await list_namespace(service, cluster_id)
     channel.close()
@@ -81,7 +83,7 @@ async def list_cluster_namespace(cluster_id):
 
 @app.get("/list_ns_service/{cluster_id}/{namespace}")
 async def list_cluster_ns_service(cluster_id, namespace):
-    channel = Channel(host=OPNI_HOST, port=11090)
+    channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = await list_ns_service(service, cluster_id, namespace)
     channel.close()
@@ -185,35 +187,39 @@ async def run_job(job_id, background_tasks: BackgroundTasks):
     return response
 
 
-async def func_get_abnormal_metrics(task_id, user_id, requested_ts=None, nss=[]):
-    channel = Channel(host=OPNI_HOST, port=OPNI_PORT)
+async def func_get_abnormal_metrics(jobrun_id, cluster_id, requested_ts=None, nss=[]):
+    channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = {}
+    dashboard_payload_info = []
     anomaly_count, total_count = 0, 0
     # get anomalous metrics and match pattern
     for ns in nss:
         anomaly_metric_list, all_metric_list = await get_abnormal_metrics(
-            service, user_id, requested_ts, ns
+            service, cluster_id, requested_ts, ns
         )
         anomaly_count += len(anomaly_metric_list)
         total_count += len(all_metric_list)
-        anomaly_metrics_value = [v for p, m, v in anomaly_metric_list]
+        anomaly_metrics_value = [values for pod, metric_name, values in anomaly_metric_list]
         preds = predict(anomaly_metrics_value)
-        for i, (p, m, v) in enumerate(anomaly_metric_list):
-            res[p + JOB_RUN_DELIMITER + m] = preds[i]
+        
+        for i, (pod, metric_name, values) in enumerate(anomaly_metric_list):
+            res[pod + JOB_RUN_DELIMITER + metric_name] = preds[i]
+            dashboard_payload_info.append((preds[i], pod + JOB_RUN_DELIMITER + metric_name, get_query(metric_name, namespace=ns)))
     channel.close()
 
     # update jobrun status to natsKV
     kv = await nw.get_bucket(BUCKET_NAME_RUNS)
 
-    current_status = json.loads((await kv.get(task_id)).decode())
+    dashboard_payload = get_grafana_dashboard_payload(dashboard_payload_info, jobrun_id)
+    current_status = json.loads((await kv.get(jobrun_id)).decode())
     current_status = jobRunStatus(**current_status)
     current_status.JobRunResult = (
         f"Scanned {total_count} metrics, Anomalous metrics: {anomaly_count}"
     )
-    current_status.JobRunResultDetails = json.dumps(res)
+    current_status.JobRunResultDetails = json.dumps(dashboard_payload)
     current_status.Status = JOBRUN_STATUS_COMPLETED
     current_status = asdict(current_status)
 
-    await kv.put(key=task_id, value=json.dumps(current_status).encode())
+    await kv.put(key=jobrun_id, value=json.dumps(current_status).encode())
     return res

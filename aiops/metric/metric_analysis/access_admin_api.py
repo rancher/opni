@@ -16,10 +16,8 @@ from cortexadmin_pb import (
     QueryRequest,
     SeriesRequest,
 )
-from envvars import OPNI_HOST, OPNI_PORT
+from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT
 from grpclib.client import Channel
-
-default_query_interval = "1m"
 
 
 async def get_all_users(service: CortexAdminStub) -> List[str]:
@@ -76,6 +74,16 @@ async def list_all_metric(service: CortexAdminStub, cluster_id: str) -> List[str
         s.add(r["metric"]["__name__"])
     return list(s)
 
+def get_query(metric_name: str, query_interval:str = "2m", namespace: str= None, aggregate:str = "by (pod)"):
+    """
+    form a query given certain information
+    """
+    if namespace is None:
+        res_query = f'sum(rate({metric_name}[{query_interval}])) ' + aggregate
+    else:
+        res_query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{query_interval}])) ' + aggregate
+    return res_query
+
 
 async def metric_query(
     service: CortexAdminStub, cluster_id: str, metric_name: str, namespace="opni"
@@ -83,7 +91,7 @@ async def metric_query(
     """
     query
     """
-    query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{default_query_interval}])) by (pod)'
+    query = get_query(metric_name, namespace=namespace)
     response = await service.query(QueryRequest(tenants=[cluster_id], query=query))
     response = json.loads(response.data.decode())["data"]
     return response
@@ -105,8 +113,7 @@ async def metric_queryrange(
       @step_minute: defines step in the unit `minute`, default value is 1, indicate it will collect data points every 1 min
       @end_time: the timestamp to trace back.
     """
-    query_interval = "2m"  # f"{step_minute}m"
-    query = f'sum(rate({metric_name}{{namespace="{namespace}"}}[{query_interval}])) by (pod)'
+    query = get_query(metric_name, namespace=namespace)
     if end_time is None:
         end_time = datetime.now()
     start_time = end_time - time_delta

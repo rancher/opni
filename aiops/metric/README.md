@@ -4,6 +4,10 @@
 
 ## Build
 run `mage generate` in the root dir of opni to generate .py proto-scripts from cortexadmin.proto 
+TO edit the python code generator rule: the file - https://github.com/kralicky/ragu/tree/main/pkg/plugins/python
+1. clone github.com/kralicky/ragu somewhere
+2. run go mod edit -replace github.com/kralicky/ragu => /path/to/clone && go mod tidy
+3. mage generate again
 
 ## Testing
 Install libs for testing

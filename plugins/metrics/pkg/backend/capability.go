@@ -95,7 +95,7 @@ func (m *MetricsBackend) Status(_ context.Context, req *corev1.Reference) (*v1.N
 	defer m.nodeStatusMu.RUnlock()
 
 	if status, ok := m.nodeStatus[req.Id]; ok {
-		return status, nil
+		return util.ProtoClone(status), nil
 	}
 
 	return nil, status.Error(codes.NotFound, "no status has been reported for this node")

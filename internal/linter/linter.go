@@ -88,10 +88,9 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 			},
 		},
 		{
-			Regex: regexp.MustCompile("^github.com/rancher/opni/controllers"),
+			Regex: regexp.MustCompile("^github.com/rancher/opni/pkg/opni/commands"),
 			Exceptions: []any{
-				"github.com/rancher/opni/pkg/opni/commands",
-				matchTestPackages,
+				"github.com/rancher/opni/pkg/opni",
 			},
 		},
 	}

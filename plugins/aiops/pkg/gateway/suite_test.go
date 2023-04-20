@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 		"../../../../config/crd/bases",
 		"../../../../config/crd/opensearch",
 		"../../../../test/resources",
-	})
+	}, runtime.NewScheme())
 	Expect(err).NotTo(HaveOccurred())
 
 	DeferCleanup(func() {

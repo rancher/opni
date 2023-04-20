@@ -11,6 +11,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
@@ -246,6 +247,7 @@ func init() {
 			},
 			ConfigKey:          shared.AlertManagerConfigKey,
 			InternalRoutingKey: shared.InternalRoutingConfigKey,
+			Logger:             logger.NewPluginLogger().Named("alerting").Named("alerting-manager"),
 		}
 		driverutil.ApplyOptions(&options, opts...)
 		return NewAlertingManagerDriver(options)

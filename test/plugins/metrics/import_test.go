@@ -9,8 +9,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
@@ -23,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const testNamespace = "test-ns"
@@ -96,9 +99,12 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())
+		s := scheme.Scheme
+		monitoringcoreosv1.AddToScheme(s)
+
 		config, _, err := testk8s.StartK8s(k8sctx, []string{
 			"../../../config/crd/prometheus",
-		})
+		}, s)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			ca()

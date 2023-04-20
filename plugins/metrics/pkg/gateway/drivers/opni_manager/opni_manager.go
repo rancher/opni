@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/rancher/opni/apis"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -23,6 +22,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -41,8 +41,10 @@ type OpniManagerClusterDriverOptions struct {
 
 func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*OpniManager, error) {
 	if options.K8sClient == nil {
+		s := scheme.Scheme
+		opnicorev1beta1.AddToScheme(s)
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-			Scheme: apis.NewScheme(),
+			Scheme: s,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
@@ -54,8 +56,8 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	}, nil
 }
 
-func (k *OpniManager) newMonitoringCluster() *corev1beta1.MonitoringCluster {
-	return &corev1beta1.MonitoringCluster{
+func (k *OpniManager) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster {
+	return &opnicorev1beta1.MonitoringCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.MonitoringCluster.Name,
 			Namespace: k.MonitoringCluster.Namespace,
@@ -96,7 +98,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	}
 
 	// look up the gateway so we can set it as an owner reference
-	gateway := &corev1beta1.Gateway{}
+	gateway := &opnicorev1beta1.Gateway{}
 	err = k.K8sClient.Get(ctx, k.GatewayRef, gateway)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gateway: %w", err)
@@ -121,7 +123,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		}
 	}
 
-	mutator := func(cluster *corev1beta1.MonitoringCluster) error {
+	mutator := func(cluster *opnicorev1beta1.MonitoringCluster) error {
 		if err := conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
 			return err
 		}
@@ -136,7 +138,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		cluster.Spec.Gateway = v1.LocalObjectReference{
 			Name: k.GatewayRef.Name,
 		}
-		cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
+		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
 		return nil
 	}

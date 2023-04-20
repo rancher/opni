@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,7 +21,7 @@ var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 	BeforeAll(func() {
 		var err error
 		ctx, ca := context.WithCancel(waitctx.Background())
-		restConfig, _, err = testk8s.StartK8s(ctx, nil)
+		restConfig, _, err = testk8s.StartK8s(ctx, nil, scheme.Scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		DeferCleanup(func() {

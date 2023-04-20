@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
@@ -41,7 +42,7 @@ var _ = BeforeSuite(func() {
 			"../../../../../../../config/crd/bases",
 			"../../../../../../../config/crd/opensearch",
 			"../../../../../../../test/resources",
-		})
+		}, apis.NewScheme())
 		Expect(err).NotTo(HaveOccurred())
 
 		nc, err = env.StartEmbeddedJetstream()

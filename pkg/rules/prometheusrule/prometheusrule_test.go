@@ -5,8 +5,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/pkg/test/testk8s"
@@ -16,10 +16,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow"), func() {
+var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration", "slow"), func() {
 	testGroups1 := []monitoringv1.RuleGroup{
 		{
 			Name: "test",
@@ -92,11 +93,14 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow
 	BeforeAll(func() {
 		ctx, ca := context.WithCancel(waitctx.Background())
 
-		restConfig, _, err := testk8s.StartK8s(ctx, []string{"testdata/crds"})
+		s := scheme.Scheme
+		monitoringcoreosv1.AddToScheme(s)
+
+		restConfig, _, err := testk8s.StartK8s(ctx, []string{"testdata/crds"}, s)
 		Expect(err).NotTo(HaveOccurred())
 
 		k8sClient, err = client.New(restConfig, client.Options{
-			Scheme: apis.NewScheme(),
+			Scheme: s,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {

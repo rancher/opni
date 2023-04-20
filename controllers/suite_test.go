@@ -425,7 +425,6 @@ func RunTestEnvironment(
 	}
 
 	scheme := apis.NewScheme()
-	apis.InitScheme(scheme)
 
 	ports := freeport.GetFreePorts(2)
 

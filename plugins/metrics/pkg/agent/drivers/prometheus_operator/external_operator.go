@@ -6,22 +6,20 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/plugins/driverutil"
-	"github.com/rancher/opni/pkg/rules/prometheusrule"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	reconcilerutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
+	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
+	reconcilerutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,7 +28,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -48,8 +46,10 @@ type ExternalPromOperatorDriverOptions struct {
 
 func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*ExternalPromOperatorDriver, error) {
 	if options.K8sClient == nil {
+		s := scheme.Scheme
+		monitoringcoreosv1.AddToScheme(s)
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-			Scheme: apis.NewScheme(),
+			Scheme: s,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)

@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/lestrrat-go/backoff/v2"
-	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -29,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,8 +52,11 @@ type OTELNodeDriverOptions struct {
 
 func NewOTELDriver(options OTELNodeDriverOptions) (*OTELNodeDriver, error) {
 	if options.K8sClient == nil {
+		s := scheme.Scheme
+		opnicorev1beta1.AddToScheme(s)
+		monitoringv1beta1.AddToScheme(s)
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
-			Scheme: apis.NewScheme(),
+			Scheme: s,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)

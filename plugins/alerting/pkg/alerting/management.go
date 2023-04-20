@@ -82,9 +82,6 @@ func init() {
 
 func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...driverutil.Option) {
 	priorityOrder := []string{"alerting-manager", "local-alerting", "test-environment", "noop"}
-	p.Logger.With(
-		"priorityOrder", priorityOrder,
-	).Warn("failed to load cluster driver, checking other drivers...")
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
 			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")
@@ -110,7 +107,19 @@ func (p *Plugin) watchCortexClusterStatus() {
 	if err != nil {
 		panic(err)
 	}
-	adminClient := p.adminClient.Get()
+	// acquire cortex client
+	var adminClient cortexadmin.CortexAdminClient
+	for {
+		ctxca, ca := context.WithTimeout(p.Ctx, 5*time.Second)
+		acquiredClient, err := p.adminClient.GetContext(ctxca)
+		ca()
+		if err != nil {
+			lg.Warn("could not acquire cortex admin client within timeout, retrying...")
+		} else {
+			adminClient = acquiredClient
+			break
+		}
+	}
 
 	ticker := time.NewTicker(60 * time.Second) // making this more fine-grained is not necessary
 	defer ticker.Stop()

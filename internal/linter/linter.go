@@ -35,16 +35,17 @@ type restrictedImport struct {
 	Exceptions []any // string prefix, regex, or func(pkg *types.Package, from *analysis.Pass) bool
 }
 
+func matchTestPackages(_ *types.Package, from *analysis.Pass) bool {
+	return strings.HasSuffix(from.Pkg.Name(), "_test")
+}
+
 func analyzeImports(p *analysis.Pass) (any, error) {
 	restrictions := []restrictedImport{
 		{
 			Regex: regexp.MustCompile("^github.com/rancher/opni/plugins/"),
 			Exceptions: []any{
 				"github.com/rancher/opni/plugins/",
-				func(_ *types.Package, from *analysis.Pass) bool {
-					// allow imports from test packages
-					return strings.HasSuffix(from.Pkg.Name(), "_test")
-				},
+				matchTestPackages,
 				"github.com/rancher/opni/cmd/",
 				"github.com/rancher/opni/pkg/opni/",
 				"github.com/rancher/opni/internal/cmd/",
@@ -57,12 +58,40 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 				"github.com/rancher/opni/pkg/test",
 				"github.com/rancher/opni/test/",
 				regexp.MustCompile(`^github.com/rancher/opni/plugins/\w+/test$`),
-				func(pkg *types.Package, from *analysis.Pass) bool {
-					// allow imports from test packages
-					return strings.HasSuffix(from.Pkg.Name(), "_test")
-				},
+				matchTestPackages,
 				"github.com/rancher/opni/internal/mage/",
 				"github.com/rancher/opni/internal/cmd/testenv",
+			},
+		},
+		{
+			Regex: regexp.MustCompile("^github.com/rancher/opni/test"),
+		},
+		{
+			Regex: regexp.MustCompile("^github.com/rancher/opni/web"),
+			Exceptions: []any{
+				"github.com/rancher/opni/pkg/opni/commands",
+				"github.com/rancher/opni/pkg/dashboard",
+			},
+		},
+		{
+			Regex: regexp.MustCompile("^github.com/rancher/opni/pkg/dashboard"),
+			Exceptions: []any{
+				"github.com/rancher/opni/pkg/opni/commands",
+				"github.com/rancher/opni/internal/cmd/testenv",
+			},
+		},
+		{
+			Regex: regexp.MustCompile("^github.com/rancher/opni/controllers"),
+			Exceptions: []any{
+				"github.com/rancher/opni/controllers",
+				"github.com/rancher/opni/pkg/opni/commands",
+			},
+		},
+		{
+			Regex: regexp.MustCompile("^github.com/rancher/opni/controllers"),
+			Exceptions: []any{
+				"github.com/rancher/opni/pkg/opni/commands",
+				matchTestPackages,
 			},
 		},
 	}

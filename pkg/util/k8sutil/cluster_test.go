@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -21,7 +22,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	BeforeAll(func() {
 		var err error
 		ctx, ca := context.WithCancel(waitctx.Background())
-		restConfig, _, err = testk8s.StartK8s(ctx, nil)
+		restConfig, _, err = testk8s.StartK8s(ctx, nil, runtime.NewScheme())
 		Expect(err).NotTo(HaveOccurred())
 		tempFile, err := os.CreateTemp("", "test-kubeconfig")
 		Expect(err).NotTo(HaveOccurred())

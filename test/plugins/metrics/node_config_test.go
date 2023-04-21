@@ -2,6 +2,7 @@ package metrics_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -11,12 +12,13 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -60,6 +62,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	}
 
 	var verifySync = func(fn func(), capability string, agentIds ...string) {
+		GinkgoHelper()
 		times := make(map[string]time.Time)
 		for _, id := range agentIds {
 			id := strings.TrimPrefix(id, "!")
@@ -117,8 +120,20 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	var originalDefaultConfig *node.MetricsCapabilitySpec
 	It("should initially have all nodes using the default config", func() {
-		defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
+		var defaultConfig *node.MetricsCapabilitySpec
+		// wait for the test env to replace the default config
+		Eventually(func() error {
+			var err error
+			defaultConfig, err = nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			if defaultConfig.Prometheus.DeploymentStrategy != "testEnvironment" {
+				return errors.New("waiting for test environment config to be applied")
+			}
+			return nil
+		}).Should(Succeed())
+
+		// replace the standard default config with the test environment config
+		backend.FallbackDefaultNodeSpec = util.ProtoClone(defaultConfig)
 
 		spec, isDefault, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())
@@ -130,7 +145,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		Expect(spec).To(testutil.ProtoEqual(defaultConfig))
 		Expect(isDefault).To(BeTrue())
 
-		originalDefaultConfig = proto.Clone(defaultConfig).(*node.MetricsCapabilitySpec)
+		originalDefaultConfig = util.ProtoClone(defaultConfig)
 	})
 
 	When("changing the default config", func() {

@@ -1,4 +1,4 @@
-//go:build !noscheme_prometheus && !noscheme_thirdparty
+//go:build !minimal
 
 package apis
 

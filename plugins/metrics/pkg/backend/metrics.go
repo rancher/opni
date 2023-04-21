@@ -167,7 +167,8 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 }
 
 var (
-	fallbackDefaultNodeSpec = &node.MetricsCapabilitySpec{
+	// The "default" default node spec. Exported for testing purposes.
+	FallbackDefaultNodeSpec = &node.MetricsCapabilitySpec{
 		Rules: &v1beta1.RulesSpec{
 			Discovery: &v1beta1.DiscoverySpec{
 				PrometheusRules: &v1beta1.PrometheusRulesSpec{},
@@ -182,7 +183,7 @@ var (
 func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
 	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
 	if status.Code(err) == codes.NotFound {
-		nodeSpec = fallbackDefaultNodeSpec
+		nodeSpec = FallbackDefaultNodeSpec
 	} else if err != nil {
 		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)

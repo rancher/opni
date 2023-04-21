@@ -34,7 +34,7 @@ import (
 func buildExamplePlugin(destDir string) error {
 	testlog.Log.Debug("building new example plugin...")
 	cmd := exec.Command("go", "build", "-o", path.Join(destDir, "/plugin_example"),
-		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/util.BuildTime=\"%d\"", time.Now().UnixNano()),
+		"-ldflags", "-w -s",
 		"./plugins/example",
 	)
 	cmd.Stdout = GinkgoWriter
@@ -151,7 +151,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 			buildExamplePlugin(path.Join(tempDir, "plugins"))
 
 			cmd := exec.Command("bin/opni", "gateway", "--config", configFile)
-			cmd.Dir = "../../../"
+			cmd.Dir = "../../"
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				Setsid: true,
 			}

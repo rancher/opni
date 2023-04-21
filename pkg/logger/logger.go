@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"

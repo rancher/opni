@@ -8,6 +8,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,11 +33,19 @@ func (matcher *ProtoMatcher) Match(actual any) (success bool, err error) {
 }
 
 func (matcher *ProtoMatcher) FailureMessage(actual any) (message string) {
-	return format.Message(actual, "to equal", matcher.Expected)
+	return fmt.Sprintf("Expected\n%s\n%s\n%s",
+		format.IndentString(prototext.Format(actual.(proto.Message)), 1),
+		"to equal",
+		format.IndentString(prototext.Format(matcher.Expected), 1),
+	)
 }
 
 func (matcher *ProtoMatcher) NegatedFailureMessage(actual any) (message string) {
-	return format.Message(actual, "not to equal", matcher.Expected)
+	return fmt.Sprintf("Expected\n%s\n%s\n%s",
+		format.IndentString(prototext.Format(actual.(proto.Message)), 1),
+		"not to equal",
+		format.IndentString(prototext.Format(matcher.Expected), 1),
+	)
 }
 
 type StatusCodeMatcher struct {

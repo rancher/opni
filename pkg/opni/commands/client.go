@@ -1,5 +1,3 @@
-//go:build !nomanager
-
 package commands
 
 import (
@@ -21,9 +19,19 @@ import (
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+)
+
+var (
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+)
+
+const (
+	upgradeResponderAddress = "https://upgrades.opni-upgrade-responder.livestock.rancher.io/v1/checkupgrade"
 )
 
 func init() {

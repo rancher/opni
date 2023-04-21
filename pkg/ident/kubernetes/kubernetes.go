@@ -5,14 +5,15 @@ import (
 
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 )
 
 type kubernetesProvider struct {
 	KubernetesIdentOptions
-	clientset *kubernetes.Clientset
+	restClient *rest.RESTClient
 }
 
 type KubernetesIdentOptions struct {
@@ -39,16 +40,19 @@ func NewKubernetesProvider(opts ...KubernetesIdentOption) ident.Provider {
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}
-	cs := kubernetes.NewForConfigOrDie(options.restConfig)
+
+	scheme := runtime.NewScheme()
+	util.Must(corev1.AddToScheme(scheme))
+	options.restConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme)
+
 	return &kubernetesProvider{
-		clientset: cs,
+		restClient: util.Must(rest.UnversionedRESTClientFor(options.restConfig)),
 	}
 }
 
 func (p *kubernetesProvider) UniqueIdentifier(ctx context.Context) (string, error) {
-	ns, err := p.clientset.CoreV1().
-		Namespaces().
-		Get(ctx, "kube-system", metav1.GetOptions{})
+	var ns corev1.Namespace
+	err := p.restClient.Get().AbsPath("/api/v1/namespaces/kube-system").Do(ctx).Into(&ns)
 	if err != nil {
 		return "", err
 	}

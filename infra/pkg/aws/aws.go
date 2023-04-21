@@ -99,7 +99,7 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 
 	_, err = eksapi.NewAddon(ctx, "aws-ebs-csi-driver", &eksapi.AddonArgs{
 		AddonName:             String("aws-ebs-csi-driver"),
-		AddonVersion:          String("v1.11.4-eksbuild.1"),
+		AddonVersion:          String("v1.17.0-eksbuild.1"),
 		ClusterName:           cluster.EksCluster.Name(),
 		Tags:                  ToStringMap(conf.Tags),
 		ServiceAccountRoleArn: role.Arn,
@@ -249,6 +249,14 @@ func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClu
 		},
 		UsernameConfiguration: cognito.UserPoolUsernameConfigurationArgs{
 			CaseSensitive: Bool(true),
+		},
+		AccountRecoverySetting: cognito.UserPoolAccountRecoverySettingArgs{
+			RecoveryMechanisms: cognito.UserPoolAccountRecoverySettingRecoveryMechanismArray{
+				cognito.UserPoolAccountRecoverySettingRecoveryMechanismArgs{
+					Name:     String("admin_only"),
+					Priority: Int(1),
+				},
+			},
 		},
 	})
 	if err != nil {

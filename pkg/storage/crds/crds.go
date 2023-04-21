@@ -5,11 +5,9 @@ import (
 	"os"
 	"time"
 
-	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -78,9 +76,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}
-	s := scheme.Scheme
-	opnicorev1beta1.AddToScheme(s)
-	monitoringv1beta1.AddToScheme(s)
+	s := apis.NewScheme()
 	return &CRDStore{
 		CRDStoreOptions: options,
 		client: util.Must(client.NewWithWatch(options.restConfig, client.Options{

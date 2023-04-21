@@ -1,4 +1,4 @@
-//go:build !nomanager
+//go:build !minimal
 
 package commands
 
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
-	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
@@ -21,25 +20,11 @@ import (
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
-	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	opensearchcontrollers "opensearch.opster.io/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
-
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
-
-const (
-	upgradeResponderAddress = "https://upgrades.opni-upgrade-responder.livestock.rancher.io/v1/checkupgrade"
-)
-
-func init() {
-	apis.InitScheme(scheme)
-}
 
 func BuildManagerCmd() *cobra.Command {
 	var (

@@ -1,4 +1,4 @@
-//go:build !noagentv1 && !nomanager
+//go:build !noagentv1
 
 package commands
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	promcommon "github.com/prometheus/common/config"
 	promcfg "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/samber/lo"
@@ -15,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	// "k8s.io/apimachinery/pkg/runtime"
@@ -23,16 +25,20 @@ import (
 type podMonitorScrapeConfigRetriever struct {
 	client client.Client
 	logger *zap.SugaredLogger
+	// current namespace the collector is defined in.
+	// it should only discoverer secrets for TLS/auth in this namespace.
+	namespace string
 }
 
 func NewPodMonitorScrapeConfigRetriever(
 	logger *zap.SugaredLogger,
 	client client.Client,
+	namespace string,
 ) ScrapeConfigRetriever {
 	return &podMonitorScrapeConfigRetriever{
-		client: client,
-
-		logger: logger,
+		client:    client,
+		namespace: namespace,
+		logger:    logger,
 	}
 }
 
@@ -40,7 +46,7 @@ func (p *podMonitorScrapeConfigRetriever) Name() string {
 	return "podMonitor"
 }
 
-func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
+func (p podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, retErr error) {
 	listOptions := &client.ListOptions{
 		Namespace: metav1.NamespaceAll,
 	}
@@ -60,6 +66,7 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
 
 	// jobName -> scrapeConfig
 	cfgMap := jobs{}
+	secretRes := []SecretResolutionConfig{}
 	p.logger.Debugf("found %d pod monitors", len(pMons))
 	for _, pMon := range pMons {
 		lg := p.logger.With("podMonitor", pMon.Namespace+"-"+pMon.Name)
@@ -136,23 +143,27 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
 			lg.Debugf("found %v targets", targets)
 			if len(targets) > 0 {
 				//de-dupe discovered targets
-				job, sCfg := generateStaticPodConfig(pMon, ep, i, targets)
+				job, sCfg, secrets := p.generateStaticPodConfig(pMon, ep, i, targets)
 				if _, ok := cfgMap[job]; !ok {
 					cfgMap[job] = sCfg
 				}
+				secretRes = append(secretRes, secrets...)
 			}
 		}
 	}
 
-	return cfgMap, nil
+	return &promCRDOperatorConfig{
+		jobs:    cfgMap,
+		secrets: secretRes,
+	}, nil
 }
 
-func generateStaticPodConfig(
+func (p *podMonitorScrapeConfigRetriever) generateStaticPodConfig(
 	m *promoperatorv1.PodMonitor,
 	ep promoperatorv1.PodMetricsEndpoint,
 	i int,
 	targets []string,
-) (key string, out yaml.MapSlice) {
+) (key string, out yaml.MapSlice, secretRes []SecretResolutionConfig) {
 	cfg := promcfg.ScrapeConfig{
 		JobName:                 fmt.Sprintf("podMonitor/%s/%s/%d", m.Namespace, m.Name, i),
 		ServiceDiscoveryConfigs: discovery.Configs{},
@@ -182,6 +193,59 @@ func generateStaticPodConfig(
 
 	// cfg.RelabelConfigs = append(cfg.RelabelConfigs, relabelServiceMonitor(m.Spec)...)
 
+	if ep.BearerTokenSecret.Name != "" {
+		bearerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ep.BearerTokenSecret.Name,
+				Namespace: m.Namespace,
+			},
+		}
+		err := p.client.Get(context.TODO(), types.NamespacedName{
+			Name:      ep.BearerTokenSecret.Name,
+			Namespace: m.Namespace,
+		}, bearerSecret)
+		if err == nil {
+			bearerSecretRes := SecretResolutionConfig{
+				TargetKey: ep.BearerTokenSecret.Key,
+				namespace: p.namespace,
+				Secret:    bearerSecret,
+			}
+			secretRes = append(secretRes, bearerSecretRes)
+			cfg.HTTPClientConfig.Authorization = &promcommon.Authorization{
+				Type:            "Bearer",
+				CredentialsFile: bearerSecretRes.Path(),
+			}
+		} else {
+			p.logger.Warnf("failed to get expected bearer token secret %s for pod monitor %s", ep.BearerTokenSecret.Name, m.Name)
+		}
+	}
+
+	if cfg.HTTPClientConfig.Authorization == nil {
+		if ep.Authorization != nil {
+			authorizationCfg, secrets := fromSafeAuthorization(
+				p.client,
+				ep.Authorization,
+				p.logger,
+				p.namespace,
+			)
+			secretRes = append(secretRes, secrets...)
+			cfg.HTTPClientConfig.Authorization = &authorizationCfg
+		}
+	}
+
+	if ep.TLSConfig != nil {
+		if !isEmpty(ep.TLSConfig.SafeTLSConfig) {
+			tlsCfg, secrets := fromSafeTlsConfig(
+				p.client,
+				ep.TLSConfig.SafeTLSConfig,
+				p.logger,
+				p.namespace,
+			)
+			secretRes = append(secretRes, secrets...)
+			cfg.HTTPClientConfig.TLSConfig = tlsCfg
+		}
+	}
+
 	bytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		panic(err)
@@ -206,5 +270,5 @@ func generateStaticPodConfig(
 		},
 	}
 	ret = append(ret, staticConfig)
-	return cfg.JobName, ret
+	return cfg.JobName, ret, secretRes
 }

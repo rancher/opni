@@ -22,9 +22,9 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "ghcr.io/rancher-sandbox"
-	collectorImage     = "opni-otel-collector"
-	collectorVersion   = "v0.1.1-0.74.0"
+	collectorImageRepo = "docker.io/alex7285"
+	collectorImage     = "opni-collector"
+	collectorVersion   = "prometheus"
 	otlpGRPCPort       = int32(4317)
 	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
 	machineID          = "/etc/machine-id"
@@ -54,10 +54,12 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 	}
 }
 
-func (r *Reconciler) getAggregatorConfig() otel.AggregatorConfig {
+func (r *Reconciler) getAggregatorConfig(
+	metricsCfg otel.MetricsConfig,
+) otel.AggregatorConfig {
 	return otel.AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
-		Metrics:       lo.FromPtr(r.withPrometheusCrdDiscovery(r.getMetricsConfig())),
+		Metrics:       metricsCfg,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 	}
@@ -142,7 +144,7 @@ func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 	return resources.Present(cm), configHash
 }
 
-func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
+func (r *Reconciler) aggregatorConfigMap(curCfg otel.AggregatorConfig) (resources.Resource, string) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.aggregatorConfigMapName(),
@@ -159,7 +161,7 @@ func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
 	if err != nil {
 		return resources.Error(nil, err), ""
 	}
-	err = t.Execute(&buffer, r.getAggregatorConfig())
+	err = t.Execute(&buffer, curCfg)
 	if err != nil {
 		r.logger.Error(err)
 		return resources.Error(nil, err), ""

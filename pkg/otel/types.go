@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	CollectorName      = "opni"
-	MetricsCrdName     = "opni-monitoring"
-	MetricsFeatureFlag = "otel-metrics"
+	CollectorName             = "opni"
+	MetricsCrdName            = "opni-monitoring"
+	MetricsFeatureFlag        = "otel-metrics"
+	MetricsServiceAccountName = "opni-otel-prometheus-agent"
 )
 
 func AgentEndpoint(serviceName string) string {
@@ -50,7 +51,7 @@ type MetricsConfig struct {
 type OTELSpec struct {
 	AdditionalScrapeConfigs []*ScrapeConfig `json:"additionalScrapeConfigs,omitempty"`
 	Wal                     *WALConfig      `json:"wal,omitempty"`
-	HostMetrics             bool            `json:"hostMetrics,omitempty"`
+	HostMetrics             *bool           `json:"hostMetrics,omitempty"`
 }
 
 func (o *OTELSpec) DeepCopyInto(out *OTELSpec) {
@@ -75,7 +76,7 @@ func (d NodeConfig) MetricReceivers() []string {
 	res := []string{}
 	if d.Metrics.Enabled {
 		res = append(res, "prometheus/self")
-		if d.Metrics.Spec.HostMetrics {
+		if d.Metrics.Spec.HostMetrics != nil && *d.Metrics.Spec.HostMetrics {
 			res = append(res, "hostmetrics")
 			if d.Containerized {
 				res = append(res, "kubeletstats")

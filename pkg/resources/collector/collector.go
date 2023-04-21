@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
 	"github.com/rancher/opni/pkg/util/k8sutil"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,7 +90,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	resourceList = append(resourceList, config)
 	resourceList = append(resourceList, r.daemonSet(configHash))
 
-	config, configHash = r.aggregatorConfigMap()
+	// check metrics service discovery
+	metricsConfig, tlsSecrets := r.withPrometheusCrdDiscovery(r.getMetricsConfig()) // check metrics SD
+	r.logger.Debugf("metrics config : %v", metricsConfig.Spec)
+	aggCfg := r.getAggregatorConfig(lo.FromPtr(metricsConfig)) // generate aggregator struct
+	config, configHash = r.aggregatorConfigMap(aggCfg)         // generate aggregator configmap
+
+	resourceList = append(resourceList, r.metricsTlsAssets(tlsSecrets))
 	resourceList = append(resourceList, config)
 	resourceList = append(resourceList, r.deployment(configHash))
 	resourceList = append(resourceList, r.service())

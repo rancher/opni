@@ -81,6 +81,8 @@ kubeletstats:
 {{- define "metrics-self-telemetry" -}}
 {{- if .Metrics.Enabled -}}
   telemetry:
+    logs:
+      level : "debug"
     metrics:
       address : "127.0.0.1:{{ .Metrics.ListenPort }}"
 {{- end -}}

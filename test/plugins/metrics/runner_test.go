@@ -147,6 +147,12 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 				return status.State
 			}).Should(Equal(remoteread.TargetState_Completed))
 
+			// log message timing is not guaranteed
+			Eventually(func() string {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.Message
+			}).Should(Equal("completed"))
+
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{
 					StartTimestamp: &timestamppb.Timestamp{},
@@ -178,6 +184,11 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.State
 			}).Should(Equal(remoteread.TargetState_Completed))
+
+			Eventually(func() string {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.Message
+			}).Should(Equal("completed"))
 
 			expected := &remoteread.TargetStatus{
 				Progress: &remoteread.TargetProgress{

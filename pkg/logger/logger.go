@@ -35,6 +35,7 @@ var (
 
 	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
 	DefaultLogLevel    = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	DefaultWriter      io.Writer
 )
 
 func init() {
@@ -147,6 +148,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
 		logLevel:    DefaultLogLevel.Level(),
 		timeEncoder: zapcore.RFC3339TimeEncoder,
+		writer:      DefaultWriter,
 	}
 
 	options.apply(opts...)
@@ -250,15 +252,6 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 		panic("logger not found in context")
 	}
 	return lg
-}
-
-func NewForPlugin() hclog.Logger {
-	opts := &hclog.LoggerOptions{
-		Level:       hclog.Debug,
-		JSONFormat:  true,
-		DisableTime: true,
-	}
-	return hclog.New(opts)
 }
 
 func NewPluginLogger() ExtendedSugaredLogger {

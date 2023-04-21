@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/task"
+	_ "github.com/rancher/opni/pkg/test/setup"
 	"go.uber.org/zap/zapcore"
 )
 

@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/test"
+	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util/waitctx"

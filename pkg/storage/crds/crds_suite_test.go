@@ -8,14 +8,14 @@ import (
 	. "github.com/onsi/gomega"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
-	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/test/testruntime"
-	"k8s.io/client-go/kubernetes/scheme"
-
 	conformance "github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/crds"
+	_ "github.com/rancher/opni/pkg/test/setup"
+	"github.com/rancher/opni/pkg/test/testk8s"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 func TestCrds(t *testing.T) {

@@ -16,11 +16,15 @@ import (
 )
 
 var (
-	stackLg = logger.New(logger.WithZapOptions(zap.AddStacktrace(zap.InfoLevel)))
-	errType = reflect.TypeOf((*error)(nil)).Elem()
+	stackLg     logger.ExtendedSugaredLogger
+	initStackLg sync.Once
+	errType     = reflect.TypeOf((*error)(nil)).Elem()
 )
 
 func Must[T any](t T, err ...error) T {
+	initStackLg.Do(func() {
+		stackLg = logger.New(logger.WithZapOptions(zap.AddStacktrace(zap.InfoLevel)))
+	})
 	if len(err) > 0 {
 		if err[0] != nil {
 			stackLg.Panic(err)

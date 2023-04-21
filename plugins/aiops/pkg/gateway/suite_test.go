@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"k8s.io/apimachinery/pkg/runtime"

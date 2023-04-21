@@ -169,6 +169,7 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 func analyzeTests(p *analysis.Pass) (any, error) {
 	// - Test files must have a package name ending in _test
 	// - All ginkgo suites must have labels
+	// - All ginkgo suites must import "github.com/rancher/opni/pkg/test/setup"
 	var hasTests, hasSuite, hasGinkgoTests bool
 	allLabels := map[string]struct{}{}
 	for _, f := range p.Files {
@@ -183,6 +184,22 @@ func analyzeTests(p *analysis.Pass) (any, error) {
 			}
 			if !hasSuite && strings.HasSuffix(name, "suite_test.go") {
 				hasSuite = true
+
+				// check for setup import
+				var hasSetupImport bool
+				for _, imp := range f.Imports {
+					if imp.Path.Value == `"github.com/rancher/opni/pkg/test/setup"` {
+						hasSetupImport = true
+						break
+					}
+				}
+				if !hasSetupImport {
+					p.Report(analysis.Diagnostic{
+						Pos:      f.Pos(),
+						Category: "ginkgo",
+						Message:  "test suite is missing import `_ \"github.com/rancher/opni/pkg/test/setup\"`",
+					})
+				}
 			}
 			if isGinkgo(f) {
 				hasGinkgoTests = true

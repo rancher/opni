@@ -1,4 +1,3 @@
-{{- if eq .Values.agent.version "v2" }}
 {{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -300,4 +299,3 @@ metadata:
   namespace: {{ $namespace }}
   labels:
     {{- include "opni-agent.labels" . | nindent 4 }}
-{{- end }}

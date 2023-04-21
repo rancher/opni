@@ -234,8 +234,8 @@ func (m *KubernetesManagerDriver) reconcileCollector(shouldExist bool) error {
 	return err
 }
 
-func (m *KubernetesManagerDriver) getAgentSet() (*appsv1.StatefulSet, error) {
-	list := &appsv1.StatefulSetList{}
+func (m *KubernetesManagerDriver) getAgentSet() (*appsv1.Deployment, error) {
+	list := &appsv1.DeploymentList{}
 	if err := m.k8sClient.List(context.TODO(), list,
 		client.InNamespace(m.Namespace),
 		client.MatchingLabels{
@@ -246,7 +246,7 @@ func (m *KubernetesManagerDriver) getAgentSet() (*appsv1.StatefulSet, error) {
 	}
 
 	if len(list.Items) != 1 {
-		return nil, errors.New("statefulsets found not exactly 1")
+		return nil, errors.New("deployments found not exactly 1")
 	}
 	return &list.Items[0], nil
 }

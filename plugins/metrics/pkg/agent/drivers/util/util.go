@@ -60,7 +60,7 @@ func ReconcileObject(logger *zap.SugaredLogger, k8sClient client.Client, namespa
 	lg.Info("reconciling object")
 
 	// get the agent statefulset
-	list := &appsv1.StatefulSetList{}
+	list := &appsv1.DeploymentList{}
 	if err := k8sClient.List(context.TODO(), list,
 		client.InNamespace(namespace),
 		client.MatchingLabels{
@@ -71,9 +71,9 @@ func ReconcileObject(logger *zap.SugaredLogger, k8sClient client.Client, namespa
 	}
 
 	if len(list.Items) != 1 {
-		return errors.New("statefulsets found not exactly 1")
+		return errors.New("deployments found not exactly 1")
 	}
-	agentStatefulSet := &list.Items[0]
+	agentDep := &list.Items[0]
 
 	current := desired.DeepCopyObject().(client.Object)
 	err := k8sClient.Get(context.TODO(), key, current)
@@ -82,7 +82,7 @@ func ReconcileObject(logger *zap.SugaredLogger, k8sClient client.Client, namespa
 	}
 
 	// this can error if the object is cluster-scoped, but that's ok
-	controllerutil.SetOwnerReference(agentStatefulSet, desired, k8sClient.Scheme())
+	controllerutil.SetOwnerReference(agentDep, desired, k8sClient.Scheme())
 
 	if k8serrors.IsNotFound(err) {
 		if !shouldExist {

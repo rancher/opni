@@ -1,5 +1,3 @@
-//go:build !minimal
-
 package apis
 
 import monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"

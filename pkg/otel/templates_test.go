@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
@@ -98,7 +99,7 @@ var _ = Describe("Otel config template generation", Label("unit"), Ordered, func
 					RemoteWriteEndpoint: "http://localhost:1234",
 					DiscoveredScrapeCfg: otel.PromCfgToString(scrapeCfg),
 					Spec: &otel.OTELSpec{
-						HostMetrics: true,
+						HostMetrics: lo.ToPtr(true),
 						AdditionalScrapeConfigs: []*otel.ScrapeConfig{
 							{
 								JobName:        "test",
@@ -175,7 +176,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 						ListenPort:          8888,
 						RemoteWriteEndpoint: "http://localhost:1234",
 						Spec: &otel.OTELSpec{
-							HostMetrics: true,
+							HostMetrics: lo.ToPtr(true),
 							AdditionalScrapeConfigs: []*otel.ScrapeConfig{
 								{
 									JobName:        "test",
@@ -196,7 +197,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 						ListenPort:          8888,
 						RemoteWriteEndpoint: "http://localhost:1234",
 						Spec: &otel.OTELSpec{
-							HostMetrics: false,
+							HostMetrics: lo.ToPtr(false),
 							AdditionalScrapeConfigs: []*otel.ScrapeConfig{
 								{
 									JobName:        "test",
@@ -265,7 +266,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 						RemoteWriteEndpoint: "http://localhost:1234",
 						DiscoveredScrapeCfg: otel.PromCfgToString(scrapeCfg),
 						Spec: &otel.OTELSpec{
-							HostMetrics: true,
+							HostMetrics: lo.ToPtr(true),
 							AdditionalScrapeConfigs: []*otel.ScrapeConfig{
 								{
 									JobName:        "test",
@@ -286,7 +287,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 						WALDir:              "/tmp/wal",
 						DiscoveredScrapeCfg: otel.PromCfgToString(scrapeCfg),
 						Spec: &otel.OTELSpec{
-							HostMetrics: true,
+							HostMetrics: lo.ToPtr(true),
 							AdditionalScrapeConfigs: []*otel.ScrapeConfig{
 								{
 									JobName:        "test",

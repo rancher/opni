@@ -1,5 +1,3 @@
-{{- if eq .Values.agent.version "v1" }}
-{{- if or (and .Values.token .Values.metrics.enabled) (.Values.bootstrapInCluster.enabled) }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -12,25 +10,26 @@ stringData:
     apiVersion: v1beta1
     kind: AgentConfig
     spec:
-      gatewayAddress: {{ .Values.address }}
+      gatewayAddress: {{ include "opni-agent.gatewayAddress" . }}
       identityProvider: kubernetes
       listenAddress: :8080
-      {{- if .Values.bootstrapInCluster.enabled }}
       trustStrategy: pkp
-      {{- else }}
-      trustStrategy: {{ .Values.metrics.insecure | ternary "insecure" "pkp" }}
-      {{- end }}
-      rules:
-        discovery:
-          prometheusRules: {}
       storage:
         type: customResources
+      plugins:
+        dir: /var/lib/opni-agent/plugins
+      keyring:
+        ephemeralKeyDirs:
+          - /run/opni-agent/keyring
       bootstrap:
         {{- if .Values.bootstrapInCluster.enabled }}
         inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}
         {{- else }}
         token: {{ .Values.token }}
         pins: [{{ .Values.pin }}]
+        {{- if .Values.friendlyName }}
+        friendlyName: {{ .Values.friendlyName }}
+        {{- end }}
         {{- end }}
       {{- if .Values.logLevel }}
       logLevel: {{ .Values.logLevel }}
@@ -38,5 +37,3 @@ stringData:
       {{- if .Values.profiling }}
       profiling: {{ .Values.profiling }}
       {{- end }}
-{{- end }}
-{{- end }}

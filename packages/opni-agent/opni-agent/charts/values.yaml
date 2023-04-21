@@ -2,10 +2,6 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-agent:
-  # agent version: "v1" or "v2"
-  version: v2
-
 image:
   repository: rancher/opni
   # Overrides the image tag whose default is the chart appVersion.
@@ -83,10 +79,7 @@ pin: ""
 address: ""
 
 # v2 only
-persistence:
-  # mode: pvc
-  # clusters without persistent storage can use a hostPath volume
-  mode: hostPath
+persistence: {}
   # hostDirectoryPath: /var/lib/opni/plugins
 
 

@@ -65,7 +65,7 @@ func init() {
 	panic("could not find cortex dependency in build info")
 }
 
-type TestEnvMetricsClusterDriver struct {
+type MetricsCortexClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
 
 	lock         sync.Mutex
@@ -77,19 +77,19 @@ type TestEnvMetricsClusterDriver struct {
 	Configuration *cortexops.ClusterConfiguration
 }
 
-func NewTestEnvMetricsClusterDriver(env *Environment) *TestEnvMetricsClusterDriver {
-	return &TestEnvMetricsClusterDriver{
+func NewMetricsCortexClusterDriver(env *Environment) *MetricsCortexClusterDriver {
+	return &MetricsCortexClusterDriver{
 		Env:           env,
 		Configuration: &cortexops.ClusterConfiguration{},
 		state:         cortexops.InstallState_NotInstalled,
 	}
 }
 
-func (d *TestEnvMetricsClusterDriver) Name() string {
+func (d *MetricsCortexClusterDriver) Name() string {
 	return "test-environment"
 }
 
-func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) error {
+func (d *MetricsCortexClusterDriver) ShouldDisableNode(*corev1.Reference) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -106,13 +106,13 @@ func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) error
 	}
 }
 
-func (d *TestEnvMetricsClusterDriver) GetClusterConfiguration(context.Context, *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+func (d *MetricsCortexClusterDriver) GetClusterConfiguration(context.Context, *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	return d.Configuration, nil
 }
 
-func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+func (d *MetricsCortexClusterDriver) ConfigureCluster(_ context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	d.lock.Lock()
 
 	switch d.state {
@@ -149,7 +149,7 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 	return &emptypb.Empty{}, nil
 }
 
-func (d *TestEnvMetricsClusterDriver) GetClusterStatus(context.Context, *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (d *MetricsCortexClusterDriver) GetClusterStatus(context.Context, *emptypb.Empty) (*cortexops.InstallStatus, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -160,7 +160,7 @@ func (d *TestEnvMetricsClusterDriver) GetClusterStatus(context.Context, *emptypb
 	}, nil
 }
 
-func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (d *MetricsCortexClusterDriver) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	d.lock.Lock()
 
 	switch d.state {
@@ -191,7 +191,54 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 	return &emptypb.Empty{}, nil
 }
 
-type TestEnvMetricsNodeDriver struct {
+type MetricsOTELNodeDriver struct {
+	env *Environment
+
+	overridesMu      sync.Mutex
+	overridesForNode map[string]*overridePrometheusConfig
+
+	otelCtx    context.Context
+	otelCancel context.CancelFunc
+}
+
+func (m *MetricsOTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
+	lg := m.env.Logger.With("node", nodeId, "conf", "OTEL")
+	lg.Debug("configuring node")
+
+	exists := m.otelCtx != nil && m.otelCancel != nil
+	shouldExist := conf.Enabled &&
+		conf.GetSpec().GetOtel() != nil
+	if exists && !shouldExist {
+		lg.Info("stopping OTEL agent")
+		m.otelCancel()
+		m.otelCancel = nil
+		m.otelCtx = nil
+	} else if !exists && shouldExist {
+		lg.Info("starting OTEL agent")
+		ctx, ca := context.WithCancel(m.env.Context())
+		m.env.StartOTELCollectorContext(ctx, nodeId, conf.GetSpec())
+		m.otelCtx = ctx
+		m.otelCancel = ca
+	} else if exists && shouldExist {
+		lg.Debug("nothing to do (already running)")
+	} else {
+		lg.Debug("nothing to do (already stopped)")
+	}
+}
+
+func (m *MetricsOTELNodeDriver) DiscoverPrometheuses(ctx context.Context, s string) ([]*remoteread.DiscoveryEntry, error) {
+	return nil, nil
+}
+
+func (m *MetricsOTELNodeDriver) SetOverridesForNode(nodeName string, overrides *overridePrometheusConfig) {
+	m.overridesMu.Lock()
+	defer m.overridesMu.Unlock()
+	m.overridesForNode[nodeName] = overrides
+}
+
+var _ metrics_agent_drivers.MetricsNodeDriver = (*MetricsOTELNodeDriver)(nil)
+
+type MetricsPrometheusNodeDriver struct {
 	env *Environment
 
 	overridesMu      sync.Mutex
@@ -202,24 +249,26 @@ type TestEnvMetricsNodeDriver struct {
 	prometheusCancel context.CancelFunc
 }
 
-func (d *TestEnvMetricsNodeDriver) SetOverridesForNode(nodeName string, overrides *overridePrometheusConfig) {
+func (d *MetricsPrometheusNodeDriver) SetOverridesForNode(nodeName string, overrides *overridePrometheusConfig) {
 	d.overridesMu.Lock()
 	defer d.overridesMu.Unlock()
 	d.overridesForNode[nodeName] = overrides
 }
 
-var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvMetricsNodeDriver)(nil)
+var _ metrics_agent_drivers.MetricsNodeDriver = (*MetricsPrometheusNodeDriver)(nil)
 
 // ConfigureNode implements drivers.MetricsNodeDriver
-func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
-	lg := d.env.Logger.With("node", nodeId)
+func (d *MetricsPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
+	lg := d.env.Logger.With("node", nodeId, "conf", "prometheus")
 	lg.Debug("configuring node")
 
 	d.prometheusMu.Lock()
 	defer d.prometheusMu.Unlock()
 
 	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "test-environment"
+	shouldExist := conf.Enabled &&
+		conf.GetSpec().GetPrometheus() != nil &&
+		conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "test-environment"
 
 	if exists && !shouldExist {
 		lg.Info("stopping prometheus")
@@ -240,11 +289,11 @@ func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.Metri
 }
 
 // DiscoverPrometheuses implements drivers.MetricsNodeDriver
-func (*TestEnvMetricsNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
+func (*MetricsPrometheusNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
 	return nil, nil
 }
 
-type TestEnvAlertingClusterDriver struct {
+type AlertingAlertManagerClusterDriver struct {
 	env              *Environment
 	managedInstances []AlertingServerUnit
 	enabled          *atomic.Bool
@@ -259,10 +308,10 @@ type TestEnvAlertingClusterDriver struct {
 	alertops.UnsafeAlertingAdminServer
 }
 
-var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
-var _ alertops.AlertingAdminServer = (*TestEnvAlertingClusterDriver)(nil)
+var _ alerting_drivers.ClusterDriver = (*AlertingAlertManagerClusterDriver)(nil)
+var _ alertops.AlertingAdminServer = (*AlertingAlertManagerClusterDriver)(nil)
 
-func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.AlertingManagerDriverOption) *TestEnvAlertingClusterDriver {
+func NewAlertingAlertManagerClusterDriver(env *Environment, opts ...alerting_drivers.AlertingManagerDriverOption) *AlertingAlertManagerClusterDriver {
 	dir := env.GenerateNewTempDirectory("alertmanager-config")
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -286,7 +335,7 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 	}
 	initial := &atomic.Bool{}
 	initial.Store(false)
-	return &TestEnvAlertingClusterDriver{
+	return &AlertingAlertManagerClusterDriver{
 		env:                    env,
 		managedInstances:       []AlertingServerUnit{},
 		enabled:                initial,
@@ -300,11 +349,11 @@ func NewTestEnvAlertingClusterDriver(env *Environment, opts ...alerting_drivers.
 	}
 }
 
-func (l *TestEnvAlertingClusterDriver) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
+func (l *AlertingAlertManagerClusterDriver) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	return l.ClusterConfiguration, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
+func (l *AlertingAlertManagerClusterDriver) ConfigureCluster(ctx context.Context, configuration *alertops.ClusterConfiguration) (*emptypb.Empty, error) {
 	l.stateMu.Lock()
 	defer l.stateMu.Unlock()
 	if err := configuration.Validate(); err != nil {
@@ -344,7 +393,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(ctx context.Context, con
 	return &emptypb.Empty{}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*alertops.InstallStatus, error) {
+func (l *AlertingAlertManagerClusterDriver) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*alertops.InstallStatus, error) {
 	if !l.enabled.Load() {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_NotInstalled,
@@ -366,7 +415,7 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, emp
 	}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (l *AlertingAlertManagerClusterDriver) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
 	if l.enabled.Load() {
 		return &emptypb.Empty{}, nil
 	}
@@ -415,7 +464,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(ctx context.Context, empty
 	return &emptypb.Empty{}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
+func (l *AlertingAlertManagerClusterDriver) UninstallCluster(ctx context.Context, req *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	l.stateMu.Lock()
 	defer l.stateMu.Unlock()
 	for _, replica := range l.managedInstances {
@@ -432,15 +481,15 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(ctx context.Context, req
 	return &emptypb.Empty{}, nil
 }
 
-func (l *TestEnvAlertingClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
+func (l *AlertingAlertManagerClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
 	return *l.AlertingClusterOptions
 }
 
-func (l *TestEnvAlertingClusterDriver) Name() string {
+func (l *AlertingAlertManagerClusterDriver) Name() string {
 	return "local-alerting"
 }
 
-func (l *TestEnvAlertingClusterDriver) ShouldDisableNode(reference *corev1.Reference) error {
+func (l *AlertingAlertManagerClusterDriver) ShouldDisableNode(reference *corev1.Reference) error {
 	return nil
 }
 
@@ -452,7 +501,7 @@ type AlertingServerUnit struct {
 	CancelFunc       context.CancelFunc
 }
 
-func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
+func (l *AlertingAlertManagerClusterDriver) StartAlertingBackendServer(
 	ctx context.Context,
 	configFilePath string,
 ) AlertingServerUnit {

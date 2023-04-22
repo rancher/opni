@@ -8,6 +8,7 @@ version = '0.9.2-rc1'
 config.define_string_list('allowedContexts')
 config.define_string_list('opniChartValues')
 config.define_string('defaultRegistry')
+config.define_string('valuesPath')
 
 cfg = config.parse()
 
@@ -39,11 +40,18 @@ k8s_yaml(helm('./charts/opni-crd/'+version,
   namespace='opni',
 ), allow_duplicates=True)
 
-k8s_yaml(helm('./charts/opni/'+version,
-  name='opni',
-  namespace='opni',
-  set=cfg.get('opniChartValues')
-), allow_duplicates=True)
+if cfg.get('valuesPath') != None:
+  k8s_yaml(helm('./charts/opni/'+version,
+    name='opni',
+    namespace='opni',
+    values=cfg.get('valuesPath')
+  ), allow_duplicates=True)
+else:
+  k8s_yaml(helm('./charts/opni/'+version,
+    name='opni',
+    namespace='opni',
+    set=cfg.get('opniChartValues')
+  ), allow_duplicates=True)
 
 if cfg.get('defaultRegistry') != None:
   default_registry(cfg.get('defaultRegistry'))

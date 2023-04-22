@@ -13,6 +13,7 @@ resources:
 - logging/logging.opni.io_syslogngflows.yaml
 - bases/logging.opni.io_logadapters.yaml
 - bases/logging.opni.io_collectorconfigs.yaml
+- bases/monitoring.opni.io_collectorconfigs.yaml
 - bases/logging.opni.io_datapreppers.yaml
 - bases/core.opni.io_bootstraptokens.yaml
 - bases/core.opni.io_keyrings.yaml

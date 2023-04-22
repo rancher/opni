@@ -9,6 +9,17 @@ import "google/api/annotations.proto";
 package metricai;
 
 service MetricAI {
+    rpc CreateGrafanaDashboard(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            post: "/metricai/creategrafanadashboard/{id}"
+        };
+    }
+    rpc DeleteGrafanaDashboard(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletegrafanadashboard/{id}"
+        };
+    }
+
     // list cluster_ids from Opni, return IDs of each downstream cluster
     rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
         option (google.api.http) = {

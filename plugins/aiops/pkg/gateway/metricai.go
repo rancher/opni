@@ -7,17 +7,29 @@ import (
     "encoding/json"
     "net/http"
     "strings"
+    "os"
 
     "github.com/nats-io/nats.go"
     "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	metricai "github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
 	"google.golang.org/protobuf/types/known/emptypb"
+    grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+    "github.com/rancher/opni/pkg/resources"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
     
 )
 
 const serverUrl = "http://metric-ai-service:8090" // URL of the python metric-ai service
 const jobRunDelimiter = "=" // delimiter that splits jobid and suffix, in order to save in natsKV
+const dashboardNamePrefix = "metricai-"
+var dashboardSelector = &metav1.LabelSelector{
+    MatchLabels: map[string]string{
+        resources.AppNameLabel:  "grafana",
+        resources.PartOfLabel:   "opni",
+        resources.InstanceLabel: "opni", // TODO: this should be the name of MonitoringCluster
+    },
+}
 
 type RequestError struct {
 	StatusCode int
@@ -27,6 +39,63 @@ func (r *RequestError) Error() string {
 	return r.Err.Error()
 }
 
+
+
+func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+    res, err := p.GetJobRunResult(ctx, jobRunId)
+    if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
+	}
+    dashboardJson := string(res.JobRunResultDetails)
+    dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
+    grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dashboardNamePrefix+ dashboardName,
+				Namespace: os.Getenv("POD_NAMESPACE"),
+                Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: dashboardJson,
+			},
+		},
+    }
+    for _, dashboard := range grafanaDashboards {
+        err := p.k8sClient.Create(ctx, dashboard)
+        if err != nil {
+            return nil, status.Errorf(codes.Internal, "Error Creating Dashboard for metricAI: %v", err)
+        }
+	}
+    return &metricai.MetricAIAPIResponse{ SubmittedTime: time.Now().String(), Description:dashboardJson,Status: "Success"}, nil
+}
+
+func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+    res, err := p.GetJobRunResult(ctx, jobRunId)
+    if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
+	}
+    dashboardJson := res.JobRunResultDetails
+    dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
+    grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:     dashboardNamePrefix+ dashboardName,
+				Namespace: os.Getenv("POD_NAMESPACE"),
+                Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: dashboardJson,
+			},
+		},
+    }
+    for _, dashboard := range grafanaDashboards {
+        err := p.k8sClient.Delete(ctx, dashboard)
+        if err != nil {
+            return nil, status.Errorf(codes.Internal, "Error Deleting Dashboard for metricAI: %v", err)
+        }
+	}
+    return &metricai.MetricAIAPIResponse{ SubmittedTime: time.Now().String(), Description:dashboardJson,Status: "Success"}, nil
+}
 
 func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
     var httpClient = &http.Client{Timeout: 10 * time.Second}
@@ -124,7 +193,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %v", err)
 	}
-    jid := jobRequest.JobId
+    jid := strings.ToLower(jobRequest.JobId)
 
     if jid == "" { // id can't be empty
         return nil, &RequestError{
@@ -133,7 +202,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
         }
     }
 
-    if strings.Contains(jid, jobRunDelimiter) { // no char `|` for id
+    if strings.Contains(jid, jobRunDelimiter) { // TODO: should only allow chars include alphanum and - and _
         return nil, &RequestError{
             StatusCode: 503,
             Err:        errors.New("jobId can't contain special char "+jobRunDelimiter),

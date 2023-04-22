@@ -54,11 +54,12 @@ def get_row(title):
       "title": title,
       "type": "row"
     }
+
     return row
 
-def get_grafana_dashboard_payload(form_payload, dashboard_uid:str, dashboard_title: str="Opni-metricAI", dashboard_tags: List[str]=["Opni-metricAI"]):
+def get_grafana_dashboard_payload_httpapi(form_payload, dashboard_uid:str, dashboard_title: str=None, dashboard_tags: List[str]=["Opni-metricAI"]):
     """
-    Generate the json format payload for grafana dashboard
+    Generate the json format payload for grafana dashboard http api
     params:
     @form_payload: List of tuples, each item contains information of a panel in the dashboard - (type_pattern, panel_title, query):
                             type_pattern: the pattern predicted from CNN model
@@ -68,6 +69,8 @@ def get_grafana_dashboard_payload(form_payload, dashboard_uid:str, dashboard_tit
     @dashboard_title: a string that is simple the title of the dashboard
     @dashboard_tags: List[str], the tags of the dashboard
     """
+    if dashboard_title is None:
+        dashboard_title = "Opni-metricAI-" +  dashboard_uid
     panels1, panels2 = [get_row("Type1")], [get_row("Type2")]
     for type_pattern, panel_title ,query in form_payload:
         ## definition of each panel
@@ -161,7 +164,147 @@ def get_grafana_dashboard_payload(form_payload, dashboard_uid:str, dashboard_tit
             },
             'panels': panels1
         },
-        'folderId': 34,
+        'folderId': 0,
         'overwrite': False
     }
+    return dashboard_payload
+
+
+def get_grafana_dashboard_payload(form_payload, dashboard_uid:str, dashboard_title: str="", dashboard_tags: List[str]=["Opni-metricAI"]):
+    """
+    Generate the json format payload for grafana dashboard k8s 
+    params:
+    @form_payload: List of tuples, each item contains information of a panel in the dashboard - (type_pattern, panel_title, query):
+                            type_pattern: the pattern predicted from CNN model
+                            panel_title: title of the panel, contains information of the metric name and pod name
+                            query: the promQL query for this panel
+    @dashboard_uid: the unique id of the dashboard, which can be used to identify/create/update/delete the dashboard.
+    @dashboard_title: a string that is simple the title of the dashboard
+    @dashboard_tags: List[str], the tags of the dashboard
+    """
+    if dashboard_title == "":
+        dashboard_title = "Opni-metricAI-" +  dashboard_uid
+    panels1, panels2 = [get_row("Type1")], [get_row("Type2")]
+    for type_pattern, panel_title ,query in form_payload:
+        ## definition of each panel
+        p= {
+            "datasource": {
+                "type": "default"
+            },
+            "fieldConfig": {
+                "defaults": {
+                "color": {
+                    "mode": "palette-classic"
+                },
+                "custom": {
+                    "axisCenteredZero": False,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                    "legend": False,
+                    "tooltip": False,
+                    "viz": False
+                    },
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                    "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "spanNulls": False,
+                    "stacking": {
+                    "group": "A",
+                    "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                    "mode": "off"
+                    }
+                },
+                "mappings": [],
+                "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                    {
+                        "color": "green",
+                        "value": None
+                    },
+                    {
+                        "color": "red",
+                        "value": 80
+                    }
+                    ]
+                }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 1
+            },
+            "id": 4,
+            "options": {
+                "legend": {
+                "calcs": [],
+                "displayMode": "list",
+                "placement": "bottom",
+                "showLegend": True
+                },
+                "tooltip": {
+                "mode": "single",
+                "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                "datasource": {
+                    "type": "default"
+                },
+                "editorMode": "builder",
+                "expr": query,
+                "legendFormat": "__auto",
+                "range": True,
+                "refId": "A"
+                }
+            ],
+            "title": panel_title,
+            "type": "timeseries"
+            }
+        if "type1" in type_pattern:
+            panels1.append(p)
+        else:
+            panels2.append(p)
+    panels1.extend(panels2)
+    ## dashboard metadata
+    dashboard_payload = {
+        "fiscalYearStartMonth": 0,
+        "graphTooltip": 0,
+        "id": 0,
+        "links": [],
+        "panels": panels1,
+        "refresh": "30s",
+        "revision": 1,
+        "schemaVersion": 38,
+        "tags": dashboard_tags,
+        "templating": {
+            "list": []
+        },
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "timepicker": {},
+        "timezone": "browser",
+        "title": dashboard_title,
+        "uid": dashboard_uid,
+        "version": 1,
+        "weekStart": ""
+        }
     return dashboard_payload

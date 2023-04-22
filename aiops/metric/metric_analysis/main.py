@@ -3,6 +3,9 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import List
+import requests
+import logging
+import asyncio
 
 # Third Party
 from access_admin_api import (
@@ -14,7 +17,7 @@ from access_admin_api import (
     get_query
 )
 from cortexadmin_pb import CortexAdminStub
-from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT
+from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT, OPNI_GATEWAY_PLUGINAPI_PORT
 from fastapi import BackgroundTasks, FastAPI
 from filter_anomaly_metric import get_abnormal_metrics
 from grpclib.client import Channel
@@ -24,9 +27,11 @@ from grafana_dashboard_utils import get_grafana_dashboard_payload
 
 BUCKET_NAME = "metric_ai_jobs"
 BUCKET_NAME_RUNS = "metric_ai_job_runs"
-JOB_RUN_DELIMITER = "="
+JOB_RUN_DELIMITER = "=" # use this to seperate job_id and suffix, so we can identify properly jobrun_id in natsKV
 JOBRUN_STATUS_SUBMITTED = "Job Run Submitted"
 JOBRUN_STATUS_COMPLETED = "Job Run Completed"
+
+create_dashboard_url = f"http://{OPNI_GATEWAY_HOST}:{OPNI_GATEWAY_PLUGINAPI_PORT}/MetricAI/metricai/creategrafanadashboard"
 
 nw = NatsWrapper()
 app = FastAPI()
@@ -154,14 +159,14 @@ async def run_job(job_id, background_tasks: BackgroundTasks):
     kv = await nw.get_bucket(BUCKET_NAME)
     job_meta = json.loads((await kv.get(job_id)).decode())
     job_meta = jobStatus(**job_meta)
-    user_id = job_meta.ClusterId
+    cluster_id = job_meta.ClusterId
     namespaces = job_meta.Namespaces
 
     jobrun_id = (
-        job_id + JOB_RUN_DELIMITER + ts.strftime("T%Y%m%d%H%M%S%f")
-    )  # use ts as unique suffix
+        job_id + JOB_RUN_DELIMITER + ts.strftime("t%Y%m%d%H%M%S%f")
+    ).lower()  # use ts as unique suffix
     background_tasks.add_task(
-        func_get_abnormal_metrics, jobrun_id, user_id, ts, namespaces
+        func_get_abnormal_metrics, jobrun_id, cluster_id, ts, namespaces
     )  # run as background task
 
     kv_run = await nw.get_bucket(BUCKET_NAME_RUNS)
@@ -205,21 +210,33 @@ async def func_get_abnormal_metrics(jobrun_id, cluster_id, requested_ts=None, ns
         
         for i, (pod, metric_name, values) in enumerate(anomaly_metric_list):
             res[pod + JOB_RUN_DELIMITER + metric_name] = preds[i]
-            dashboard_payload_info.append((preds[i], pod + JOB_RUN_DELIMITER + metric_name, get_query(metric_name, namespace=ns)))
+            dashboard_payload_info.append((preds[i], pod + metric_name, get_query(metric_name, namespace=ns)))
     channel.close()
-
+    
+    if anomaly_count > 0:
+        legal_dashboard_id = jobrun_id.replace(JOB_RUN_DELIMITER,"").lower()
+        dashboard_payload = get_grafana_dashboard_payload(dashboard_payload_info, legal_dashboard_id)
+        
+        dashboard_payload = json.dumps(dashboard_payload)
+    else:
+        dashboard_payload = ""
     # update jobrun status to natsKV
     kv = await nw.get_bucket(BUCKET_NAME_RUNS)
-
-    dashboard_payload = get_grafana_dashboard_payload(dashboard_payload_info, jobrun_id)
     current_status = json.loads((await kv.get(jobrun_id)).decode())
     current_status = jobRunStatus(**current_status)
     current_status.JobRunResult = (
         f"Scanned {total_count} metrics, Anomalous metrics: {anomaly_count}"
     )
-    current_status.JobRunResultDetails = json.dumps(dashboard_payload)
+    current_status.JobRunResultDetails = dashboard_payload
     current_status.Status = JOBRUN_STATUS_COMPLETED
     current_status = asdict(current_status)
+    await kv.put(key=jobrun_id, value=json.dumps(current_status).encode())   
 
-    await kv.put(key=jobrun_id, value=json.dumps(current_status).encode())
+    if anomaly_count > 0:
+        try:
+            await asyncio.sleep(2)
+            url = create_dashboard_url + "/" + jobrun_id
+            response = requests.post(url)
+        except Exception as e:
+            logging.error(f"failed to create dashboard, Error : {e}")
     return res

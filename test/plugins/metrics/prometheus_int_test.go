@@ -3,6 +3,7 @@ package metrics_test
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -12,9 +13,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 )
@@ -67,8 +70,14 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 
 			_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 			Eventually(errC).Should(Receive(BeNil()))
-			promAgentPort := environment.StartPrometheus("test-cluster-id")
-			Expect(promAgentPort).NotTo(BeZero())
+
+			_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+				Name: wellknown.CapabilityMetrics,
+				Target: &capabilityv1.InstallRequest{
+					Cluster: &corev1.Reference{Id: "test-cluster-id"},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			//http request to the gateway endpoint including auth header
 			_, err = client.CreateRole(context.Background(), &corev1.Role{
@@ -90,14 +99,24 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 					},
 				},
 			}
-			req, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
-			Expect(err).NotTo(HaveOccurred())
 
-			req.Header.Add("Accept", "application/json")
-			req.Header.Add("Authorization", "user@example.com")
+			var resp *http.Response
+			Eventually(func() error {
+				req, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
+				Expect(err).NotTo(HaveOccurred())
 
-			resp, httpErr := httpClient.Do(req)
-			Expect(httpErr).NotTo(HaveOccurred())
+				req.Header.Add("Accept", "application/json")
+				req.Header.Add("Authorization", "user@example.com")
+				resp, err = httpClient.Do(req)
+				if err != nil {
+					return err
+				}
+				if resp.StatusCode != http.StatusOK {
+					return fmt.Errorf("unexpected status: %s", resp.Status)
+				}
+				return nil
+			}).Should(Succeed())
+
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
 			Expect(resp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())

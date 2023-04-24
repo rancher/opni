@@ -40,7 +40,6 @@ func (r *RequestError) Error() string {
 }
 
 
-
 func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
     res, err := p.GetJobRunResult(ctx, jobRunId)
     if err != nil {
@@ -98,39 +97,55 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 }
 
 func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
-    var httpClient = &http.Client{Timeout: 10 * time.Second}
-    resp, err := httpClient.Get(serverUrl+ "/get_users" )
+    timeout := 10*time.Second
+    ctxca, cancel := context.WithTimeout(ctx, timeout)
+    defer cancel()
+    httpClient := &http.Client{Timeout: timeout}
+    // make the http request with context
+	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+ "/get_users", nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to RunJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %v", err)
 	}
 	defer resp.Body.Close()
+
 	var result []string
-	
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of SubmitJobRequest for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListClusters for metricAI: %v", err)
 	}
     return &metricai.MetricAIIdList{Items: result,}, nil
 }
 
 func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
-    var httpClient = &http.Client{Timeout: 10 * time.Second}
-    resp, err := httpClient.Get(serverUrl+ "/list_namespace/" + clusterId.Id )
+    timeout := 10*time.Second
+    ctxca, cancel := context.WithTimeout(ctx, timeout)
+    defer cancel()
+    httpClient := &http.Client{Timeout: timeout}
+    // make the http request with context
+	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+ "/list_namespace/" + clusterId.Id, nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to RunJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %v", err)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListNamespaces for metricAI: %v", err)
 	}
 	defer resp.Body.Close()
 	var result []string
 	
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of SubmitJobRequest for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListNamespaces for metricAI: %v", err)
 	}
     return &metricai.MetricAIIdList{Items: result,}, nil
 }
 
 // list keys in the natsKV Job bucket
 func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to ListJobs for metricAI: %v", err)
@@ -147,8 +162,8 @@ func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai
 
 // list keys in the natsKV JobRun bucket
 func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %v", err)
@@ -171,10 +186,18 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 }
 
 func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAIId) (*metricai.MetricAIRunJobResponse, error) {
-    var httpClient = &http.Client{Timeout: 10 * time.Second}
-    resp, err := httpClient.Get(serverUrl+ "/run_job/" + jobRequest.Id)
+    timeout := 10*time.Second
+    ctxca, cancel := context.WithTimeout(ctx, timeout)
+    defer cancel()
+    httpClient := &http.Client{Timeout: timeout}
+    // make the http request with context
+	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+ "/run_job/" + jobRequest.Id, nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to RunJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to RunJob for metricAI: %v", err)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to RunJob for metricAI: %v", err)
 	}
 	defer resp.Body.Close()
 	var res map[string]interface{}
@@ -187,8 +210,8 @@ func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAII
 
 
 func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %v", err)
@@ -235,8 +258,8 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
 
 // delete job_id from the natsKV bucket. This won't delete the job_run attached to this job_id
 func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %v", err)
@@ -257,8 +280,8 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
 
 // delete a job_run of a job. Won't delete the job itself.
 func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
@@ -279,8 +302,8 @@ func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.Metri
 
 
 func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIJobRunResult, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult bucket for metricAI: %v", err)
@@ -305,8 +328,8 @@ func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.Me
 }
 
 func (p *AIOpsPlugin) GetJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIJobStatus, error) {
-    ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
-	defer ca()
+    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
     metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
     if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: %v", err)

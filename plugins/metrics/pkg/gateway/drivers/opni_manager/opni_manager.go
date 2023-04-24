@@ -139,6 +139,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
+
 		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
 		return nil
 	}

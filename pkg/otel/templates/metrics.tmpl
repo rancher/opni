@@ -164,7 +164,7 @@ kubeletstats:
 
 {{- define "metrics-prometheus-processor" -}}
 {{- if.Metrics.Enabled -}}
-  filter/metrics:
+  filter/metrics: #this is for dropping high cardinality metrics
     metrics:
       exclude:
         match_type: regexp

@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promcommon "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/relabel"
+
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -18,7 +21,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const TlsAssetMountPath = "/etc/otel/prometheus/certs"
+const (
+	TlsAssetMountPath = "/etc/otel/prometheus/certs"
+	overrideJobName   = "__override_prometheus_job_name"
+)
+
+var (
+	// somewhat counter-intuitively, decreasing this increases memory usage
+	opniDefaultScrapeInterval = model.Duration(60 * time.Second)
+	opniDefaultScrapeTimeout  = model.Duration(30 * time.Second)
+)
+
+type target struct {
+	staticAddress string
+	friendlyName  string
+}
 
 type PrometheusDiscovery struct {
 	logger     *zap.SugaredLogger
@@ -306,4 +323,49 @@ func isEmpty(sf promoperatorv1.SafeTLSConfig) bool {
 	return sf.KeySecret == nil &&
 		(sf.CA.ConfigMap == nil && sf.CA.Secret == nil) &&
 		(sf.Cert.ConfigMap == nil && sf.Cert.Secret == nil)
+}
+
+func jobRelabelling(newJobName string) []*relabel.Config {
+	return []*relabel.Config{
+		{
+			TargetLabel: "job",
+			Replacement: newJobName,
+		},
+	}
+}
+
+func generateRelabelConfig(rc []*promoperatorv1.RelabelConfig) []*relabel.Config {
+	cfg := []*relabel.Config{}
+	for _, c := range rc {
+		relabeling := &relabel.Config{}
+		if len(c.SourceLabels) > 0 {
+			relabeling.SourceLabels = lo.Map(c.SourceLabels, func(r promoperatorv1.LabelName, _ int) model.LabelName {
+				return model.LabelName(r)
+			})
+		}
+		if c.Separator != "" {
+			relabeling.Separator = c.Separator
+		}
+		if c.TargetLabel != "" {
+			relabeling.TargetLabel = c.TargetLabel
+		}
+		if c.Regex != "" {
+			rRe, err := relabel.NewRegexp(c.Regex)
+			if err != nil {
+				panic(err) // panic for now
+			}
+			relabeling.Regex = rRe
+		}
+		if c.Modulus != uint64(0) {
+			relabeling.Modulus = c.Modulus
+		}
+		if c.Replacement != "" {
+			relabeling.Replacement = c.Replacement
+		}
+		if c.Action != "" {
+			relabeling.Action = relabel.Action(strings.ToLower(c.Action))
+		}
+		cfg = append(cfg, relabeling)
+	}
+	return cfg
 }

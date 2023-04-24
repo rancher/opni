@@ -76,6 +76,8 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
 		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, requestMapper).
 		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, requestMapper).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, requestMapper).
+		Watches(&source.Kind{Type: &corev1.Service{}}, requestMapper).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).

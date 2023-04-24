@@ -179,6 +179,11 @@ service Management {
       body: "target"
     };
   }
+  rpc CapabilityStatus(CapabilityStatusRequest) returns (capability.NodeCapabilityStatus) {
+    option (google.api.http) = {
+      get: "/management/clusters/{cluster.id}/capabilities/{name}/status"
+    };
+  }
   rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {
     option (google.api.http) = {
       get: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/status"
@@ -193,7 +198,7 @@ service Management {
     option (google.api.http) = {
       get: "/management/dashboard/settings"
     };
-  } 
+  }
   rpc UpdateDashboardSettings(DashboardSettings) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/management/dashboard/settings"
@@ -214,7 +219,7 @@ message CertsInfoResponse {
 
 message ListClustersRequest {
   core.LabelSelector matchLabels = 1;
-  core.MatchOptions matchOptions = 2;  
+  core.MatchOptions matchOptions = 2;
 }
 
 message EditClusterRequest {
@@ -235,6 +240,7 @@ enum WatchEventType {
 message WatchEvent {
   core.Cluster cluster = 1;
   WatchEventType type = 2;
+  core.Cluster previous = 3;
 }
 
 message APIExtensionInfoList {

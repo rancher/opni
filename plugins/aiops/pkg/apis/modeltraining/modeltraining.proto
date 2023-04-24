@@ -14,9 +14,9 @@ service ModelTraining {
       body: "*"
     };
   }
-  rpc PutModelTrainingStatus(ModelTrainingStatistics) returns (google.protobuf.Empty) {
+  rpc PutModelTrainingStatus(ModelStatus) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/model/statistics"
+      put: "/model/current_status"
       body: "*"
     };
   }

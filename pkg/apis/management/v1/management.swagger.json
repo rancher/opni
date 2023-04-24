@@ -301,6 +301,42 @@
         ]
       }
     },
+    "/management/clusters/{cluster.id}/capabilities/{name}/status": {
+      "get": {
+        "operationId": "Management_CapabilityStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/capabilityNodeCapabilityStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel": {
       "post": {
         "operationId": "Management_CancelCapabilityUninstall",
@@ -1165,6 +1201,18 @@
       ],
       "default": "Unknown"
     },
+    "capabilityNodeCapabilityStatus": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "lastSync": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "capabilityUninstallRequest": {
       "type": "object",
       "properties": {
@@ -1909,6 +1957,9 @@
         },
         "type": {
           "$ref": "#/definitions/managementWatchEventType"
+        },
+        "previous": {
+          "$ref": "#/definitions/coreCluster"
         }
       }
     },

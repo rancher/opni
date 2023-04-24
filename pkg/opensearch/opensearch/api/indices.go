@@ -84,10 +84,9 @@ func generateIndicesSettingsPath(indices []string) strings.Builder {
 
 func generateDeleteByQueryPath(indices []string) strings.Builder {
 	var path strings.Builder
-	path.Grow(1 + len(strings.Join(indices, ",")) + 1 + len("_doc") + 1 + len("_delete_by_query"))
+	path.Grow(1 + len(strings.Join(indices, ",")) + 1 + len("_delete_by_query"))
 	path.WriteString("/")
 	path.WriteString(strings.Join(indices, ","))
-	path.WriteString("_doc")
 	path.WriteString("/")
 	path.WriteString("_delete_by_query")
 	return path
@@ -301,6 +300,25 @@ func (a *IndicesAPI) GetDocument(ctx context.Context, index, documentID string) 
 func (a *IndicesAPI) UpdateDocument(ctx context.Context, index, documentID string, body io.Reader) (*Response, error) {
 	method := http.MethodPost
 	path := generateDocumentUpdatePath(index, documentID)
+
+	req, err := http.NewRequest(method, path.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	req.Header.Add(headerContentType, jsonContentHeader)
+
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
+
+func (a *IndicesAPI) AddDocument(ctx context.Context, index, documentID string, body io.Reader) (*Response, error) {
+	method := http.MethodPost
+	path := generateDocumentPath(index, documentID)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {

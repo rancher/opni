@@ -60,6 +60,19 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
 	}
 	modelTrainingKv.Put(modelTrainingParametersKey, parametersBytes)
+	if len(modelTrainingParameters) > 0 {
+		initialStatus := modeltraining.ModelStatus{Status: "training", Statistics: &modeltraining.ModelTrainingStatistics{Stage: "fetching data"}}
+		_, err = p.PutModelTrainingStatus(ctx, &initialStatus)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
+		}
+	} else {
+		initialStatus := modeltraining.ModelStatus{Status: "no model trained"}
+		_, err = p.PutModelTrainingStatus(ctx, &initialStatus)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
+		}
+	}
 	natsConnection, err := p.natsConnection.GetContext(ctxca)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training parameters: %v", err)
@@ -67,10 +80,6 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	msg, err := natsConnection.Request(modelTrainingNatsSubject, jsonParameters, time.Minute)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "Failed to train model: %v", err)
-	}
-	_, err = p.PutModelTrainingStatus(ctx, &modeltraining.ModelTrainingStatistics{Stage: "fetching data"})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to put model training status: %v", err)
 	}
 	return &modeltraining.ModelTrainingResponse{
 		Response: string(msg.Data),
@@ -93,7 +102,7 @@ func (p *AIOpsPlugin) LaunchAIServices(ctx context.Context) (*emptypb.Empty, err
 	return nil, nil
 }
 
-func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelTrainingStatistics) (*emptypb.Empty, error) {
+func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltraining.ModelStatus) (*emptypb.Empty, error) {
 	jsonParameters, err := protojson.Marshal(in)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to marshal model training statistics: %v", err)
@@ -149,15 +158,6 @@ func (p *AIOpsPlugin) ClusterWorkloadAggregation(ctx context.Context, in *corev1
 func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*modeltraining.ModelStatus, error) {
 	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
-	b := []byte("model_status")
-	natsConnection, err := p.natsConnection.GetContext(ctxca)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "Failed to get model status.")
-	}
-	msg, err := natsConnection.Request(modelStatusNatsSubject, b, time.Minute)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "Failed to get model status.")
-	}
 	statisticsKv, err := p.statisticsKv.GetContext(ctxca)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get model training status from Jetstream: %v", err)
@@ -165,21 +165,16 @@ func (p *AIOpsPlugin) GetModelStatus(ctx context.Context, _ *emptypb.Empty) (*mo
 	result, err := statisticsKv.Get(modelTrainingStatusKey)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return &modeltraining.ModelStatus{
-				Status: string(msg.Data),
-			}, nil
+			return &modeltraining.ModelStatus{}, nil
 		}
 		return nil, status.Errorf(codes.NotFound, "Failed to get model training status from Jetstream: %v", err)
 	}
 	jsonRes := result.Value()
-	var resultsStorage = modeltraining.ModelTrainingStatistics{}
+	var resultsStorage = modeltraining.ModelStatus{}
 	if err := protojson.Unmarshal(jsonRes, &resultsStorage); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal model training status from Jetstream: %v", err)
 	}
-	return &modeltraining.ModelStatus{
-		Status:     string(msg.Data),
-		Statistics: &resultsStorage,
-	}, nil
+	return &resultsStorage, nil
 }
 
 func (p *AIOpsPlugin) GetModelTrainingParameters(ctx context.Context, _ *emptypb.Empty) (*modeltraining.ModelTrainingParametersList, error) {

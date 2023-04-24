@@ -40,10 +40,10 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 		Expect(fingerprint).NotTo(BeEmpty())
 
-		port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-		promAgentPort := environment.StartPrometheus(port)
-		Expect(promAgentPort).NotTo(BeZero())
+		_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
+		promAgentPort := environment.StartPrometheus("test-cluster-id")
+		Expect(promAgentPort).NotTo(BeZero())
 	})
 
 	AfterAll(func() {

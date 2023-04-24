@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,6 +34,35 @@ var (
 	directoryOrCreate = corev1.HostPathDirectoryOrCreate
 )
 
+func (r *Reconciler) agentConfigMapName() string {
+	return fmt.Sprintf("%s-agent-config", r.collector.Name)
+}
+
+func (r *Reconciler) aggregatorConfigMapName() string {
+	return fmt.Sprintf("%s-aggregator-config", r.collector.Name)
+}
+
+func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig {
+	return otel.NodeConfig{
+		Instance: r.collector.Name,
+		Logs: otel.LoggingConfig{
+			Enabled:   r.collector.Spec.LoggingConfig != nil,
+			Receivers: loggingReceivers,
+		},
+		Metrics:       lo.FromPtr(r.getMetricsConfig()),
+		Containerized: true,
+	}
+}
+
+func (r *Reconciler) getAggregatorConfig() otel.AggregatorConfig {
+	return otel.AggregatorConfig{
+		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
+		Metrics:       lo.FromPtr(r.withPrometheusCrdDiscovery(r.getMetricsConfig())),
+		AgentEndpoint: r.collector.Spec.AgentEndpoint,
+		Containerized: true,
+	}
+}
+
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
 	if r.collector.Spec.LoggingConfig != nil {
 		retData = append(retData, []byte(templateLogAgentK8sReceiver)...)
@@ -47,33 +78,29 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 			retReceivers = append(retReceivers, receiver...)
 		}
 	}
+	if r.collector.Spec.MetricsConfig != nil {
+		cfg := r.getDaemonConfig([]string{})
+		data, err := r.metricsNodeReceiverConfig(cfg)
+		if err != nil {
+			retErr = err
+			return
+		}
+		retData = append(retData, data...)
+		retReceivers = append(retReceivers)
+	}
 	return
 }
 
-func (r *Reconciler) agentConfigMapName() string {
-	return fmt.Sprintf("%s-agent-config", r.collector.Name)
-}
-
-func (r *Reconciler) aggregatorConfigMapName() string {
-	return fmt.Sprintf("%s-aggregator-config", r.collector.Name)
-}
-
-func (r *Reconciler) mainConfig(receivers []string) ([]byte, error) {
-	config := AgentConfig{
-		Instance: r.collector.Name,
-		Logs: LoggingConfig{
-			Enabled:   r.collector.Spec.LoggingConfig != nil,
-			Receivers: receivers,
-		},
-	}
+func (r *Reconciler) mainConfig(loggingReceivers []string) ([]byte, error) {
+	config := r.getDaemonConfig(loggingReceivers)
 
 	var buffer bytes.Buffer
-	err := templateMainConfig.Execute(&buffer, config)
+	t, err := r.tmpl.Parse(templateMainConfig)
 	if err != nil {
 		return buffer.Bytes(), err
 	}
-
-	return buffer.Bytes(), nil
+	err = t.Execute(&buffer, config)
+	return buffer.Bytes(), err
 }
 
 func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
@@ -88,14 +115,16 @@ func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 		Data: map[string]string{},
 	}
 
-	receiverData, receivers, err := r.receiverConfig()
+	receiverData, logReceivers, err := r.receiverConfig()
 	if err != nil {
+		r.logger.Error(err)
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[receiversKey] = string(receiverData)
 
-	mainData, err := r.mainConfig(receivers)
+	mainData, err := r.mainConfig(logReceivers)
 	if err != nil {
+		r.logger.Error(err)
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[mainKey] = string(mainData)
@@ -126,18 +155,19 @@ func (r *Reconciler) aggregatorConfigMap() (resources.Resource, string) {
 	}
 
 	var buffer bytes.Buffer
-	err := templateAggregatorConfig.Execute(&buffer, AggregatorConfig{
-		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
-		AgentEndpoint: r.collector.Spec.AgentEndpoint,
-	})
+	t, err := r.tmpl.Parse(templateAggregatorConfig)
 	if err != nil {
 		return resources.Error(nil, err), ""
 	}
+	err = t.Execute(&buffer, r.getAggregatorConfig())
+	if err != nil {
+		r.logger.Error(err)
+		return resources.Error(nil, err), ""
+	}
 	config := buffer.Bytes()
-	cm.Data[aggregatorKey] = string(config)
-	hash := sha256.New()
-	hash.Write(config)
-	configHash := hex.EncodeToString(hash.Sum(nil))
+	configStr := string(config)
+	cm.Data[aggregatorKey] = configStr
+	configHash := fmt.Sprintf("%d", util.HashString(configStr))
 
 	if r.collector.Spec.IsEmpty() {
 		return resources.Absent(cm), ""
@@ -169,6 +199,14 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 	}
 	if r.collector.Spec.LoggingConfig != nil {
 		hostVolumeMounts, hostVolumes, err := r.hostLoggingVolumes()
+		if err != nil {
+			return resources.Error(nil, err)
+		}
+		volumeMounts = append(volumeMounts, hostVolumeMounts...)
+		volumes = append(volumes, hostVolumes...)
+	}
+	if r.collector.Spec.MetricsConfig != nil {
+		hostVolumeMounts, hostVolumes, err := r.hostMetricsVolumes()
 		if err != nil {
 			return resources.Error(nil, err)
 		}
@@ -275,6 +313,31 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 }
 
 func (r *Reconciler) deployment(configHash string) resources.Resource {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "collector-config",
+			MountPath: "/etc/otel",
+		},
+	}
+	volumes := []corev1.Volume{
+		{
+			Name: "collector-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.aggregatorConfigMapName(),
+					},
+				},
+			},
+		},
+	}
+
+	if r.collector.Spec.MetricsConfig != nil {
+		retVolumeMounts, retVolumes := r.aggregatorMetricVolumes()
+		volumeMounts = append(volumeMounts, retVolumeMounts...)
+		volumes = append(volumes, retVolumes...)
+	}
+
 	imageSpec := r.imageSpec()
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -333,33 +396,21 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 									},
 								},
 							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "collector-config",
-									MountPath: "/etc/otel",
-								},
-							},
+							VolumeMounts: volumeMounts,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "otlp-grpc",
 									ContainerPort: otlpGRPCPort,
 								},
-							},
-						},
-					},
-					ImagePullSecrets: imageSpec.ImagePullSecrets,
-					Volumes: []corev1.Volume{
-						{
-							Name: "collector-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.aggregatorConfigMapName(),
-									},
+								{
+									Name:          "pprof",
+									ContainerPort: 1777,
 								},
 							},
 						},
 					},
+					ImagePullSecrets:   imageSpec.ImagePullSecrets,
+					Volumes:            volumes,
 					ServiceAccountName: "opni-agent",
 				},
 			},

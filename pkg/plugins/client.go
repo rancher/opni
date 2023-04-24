@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/streams"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -53,7 +54,9 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			Level: hclog.Error,
 		}),
 		GRPCDialOptions: []grpc.DialOption{
-			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(
+				otelgrpc.UnaryClientInterceptor(),
+			),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
@@ -101,7 +104,11 @@ func ServeConfig(scheme meta.Scheme) *plugin.ServeConfig {
 						return handler(srv, stream)
 					},
 				),
-				grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+				grpc.ChainUnaryInterceptor(
+					otelgrpc.UnaryServerInterceptor(),
+					// Marks plugins as valid for caching, if any of their rpcs meet the criteria
+					caching.NewClientGrpcTtlCacher().UnaryServerInterceptor(),
+				),
 			)
 			return grpc.NewServer(opts...)
 		},

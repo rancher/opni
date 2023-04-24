@@ -130,7 +130,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 		),
 	)
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.topologyBackend))
 	return scheme
 }

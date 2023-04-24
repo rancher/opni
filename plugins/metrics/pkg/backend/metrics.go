@@ -2,19 +2,16 @@ package backend
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"sync"
 
-	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
+
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -22,12 +19,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -40,15 +35,13 @@ import (
 type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
+	node.UnsafeNodeConfigurationServer
 	cortexops.UnsafeCortexOpsServer
 	remoteread.UnsafeRemoteReadGatewayServer
 	MetricsBackendConfig
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
-
-	desiredNodeSpecMu sync.RWMutex
-	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
 	// the stored remoteread.Target should never have their status populated
 	remoteReadTargetMu sync.RWMutex
@@ -58,6 +51,7 @@ type MetricsBackend struct {
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
+var _ node.NodeConfigurationServer = (*MetricsBackend)(nil)
 var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
 var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
@@ -69,6 +63,12 @@ type MetricsBackendConfig struct {
 	UninstallController *task.Controller                                           `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
 	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
+	KV                  *KVClients
+}
+
+type KVClients struct {
+	DefaultCapabilitySpec storage.ValueStoreT[*node.MetricsCapabilitySpec]
+	NodeCapabilitySpecs   storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -78,197 +78,8 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		}
 		m.MetricsBackendConfig = conf
 		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
-		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
 	})
-}
-
-func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
-	// Info must not block
-	var drivers []string
-	if m.Initialized() {
-		drivers = append(drivers, m.ClusterDriver.Name())
-	}
-
-	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityMetrics,
-		Source:  "plugin_metrics",
-		Drivers: drivers,
-	}, nil
-}
-
-func (m *MetricsBackend) CanInstall(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) canInstall(ctx context.Context) error {
-	stat, err := m.ClusterDriver.GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return status.Error(codes.Unavailable, err.Error())
-	}
-	switch stat.State {
-	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
-		// ok
-	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
-		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
-	case cortexops.InstallState_Unknown:
-		fallthrough
-	default:
-		return status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))
-	}
-	return nil
-}
-
-func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
-	m.WaitForInit()
-
-	var warningErr error
-	err := m.canInstall(ctx)
-	if err != nil {
-		if !req.IgnoreWarnings {
-			return &capabilityv1.InstallResponse{
-				Status:  capabilityv1.InstallResponseStatus_Error,
-				Message: err.Error(),
-			}, nil
-		}
-		warningErr = err
-	}
-
-	_, err = m.StorageBackend.UpdateCluster(ctx, req.Cluster,
-		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	m.requestNodeSync(ctx, req.Cluster)
-
-	if warningErr != nil {
-		return &capabilityv1.InstallResponse{
-			Status:  capabilityv1.InstallResponseStatus_Warning,
-			Message: warningErr.Error(),
-		}, nil
-	}
-	return &capabilityv1.InstallResponse{
-		Status: capabilityv1.InstallResponseStatus_Success,
-	}, nil
-}
-
-func (m *MetricsBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
-	m.WaitForInit()
-
-	m.nodeStatusMu.RLock()
-	defer m.nodeStatusMu.RUnlock()
-
-	if status, ok := m.nodeStatus[req.Cluster.Id]; ok {
-		return status, nil
-	}
-
-	return nil, status.Error(codes.NotFound, "no status has been reported for this node")
-}
-
-func (m *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	cluster, err := m.MgmtClient.GetCluster(ctx, req.Cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	var defaultOpts capabilityv1.DefaultUninstallOptions
-	if req.Options != nil {
-		if err := defaultOpts.LoadFromStruct(req.Options); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal options: %v", err)
-		}
-	}
-
-	exists := false
-	for _, cap := range cluster.GetMetadata().GetCapabilities() {
-		if cap.Name != wellknown.CapabilityMetrics {
-			continue
-		}
-		exists = true
-
-		// check for a previous stale task that may not have been cleaned up
-		if cap.DeletionTimestamp != nil {
-			// if the deletion timestamp is set and the task is not completed, error
-			stat, err := m.UninstallController.TaskStatus(cluster.Id)
-			if err != nil {
-				if util.StatusCode(err) != codes.NotFound {
-					return nil, status.Errorf(codes.Internal, "failed to get task status: %v", err)
-				}
-				// not found, ok to reset
-			}
-			switch stat.GetState() {
-			case task.StateCanceled, task.StateFailed:
-				// stale/completed, ok to reset
-			case task.StateCompleted:
-				// this probably shouldn't happen, but reset anyway to get back to a good state
-				return nil, status.Errorf(codes.FailedPrecondition, "uninstall already completed")
-			default:
-				return nil, status.Errorf(codes.FailedPrecondition, "uninstall is already in progress")
-			}
-		}
-		break
-	}
-	if !exists {
-		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the reuqested capability")
-	}
-
-	now := timestamppb.Now()
-	_, err = m.StorageBackend.UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
-		for _, cap := range c.Metadata.Capabilities {
-			if cap.Name == wellknown.CapabilityMetrics {
-				cap.DeletionTimestamp = now
-				break
-			}
-		}
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
-	}
-	m.requestNodeSync(ctx, req.Cluster)
-
-	md := uninstall.TimestampedMetadata{
-		DefaultUninstallOptions: defaultOpts,
-		DeletionTimestamp:       now.AsTime(),
-	}
-	err = m.UninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
-	if err != nil {
-		return nil, err
-	}
-
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
-	m.WaitForInit()
-
-	return m.UninstallController.TaskStatus(cluster.Id)
-}
-
-func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	m.UninstallController.CancelTask(cluster.Id)
-
-	m.requestNodeSync(ctx, cluster)
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
-	m.WaitForInit()
-
-	return &capabilityv1.InstallerTemplateResponse{
-		Template: `helm install opni-agent ` +
-			`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-agent" "+format:-n {{ value }}" }} ` +
-			`oci://docker.io/rancher/opni-agent --version=0.5.4 ` +
-			`--set monitoring.enabled=true,token={{ .Token }},pin={{ .Pin }},address={{ arg "input" "Gateway Hostname" "+default:{{ .Address }}" }}:{{ arg "input" "Gateway Port" "+default:{{ .Port }}" }} ` +
-			`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-stack.enabled={{ value }}" }} ` +
-			`--create-namespace`,
-	}, nil
 }
 
 func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
@@ -298,11 +109,8 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 }
 
 // Implements node.NodeMetricsCapabilityServer
-
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
 	m.WaitForInit()
-	// todo: validate
-
 	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
@@ -331,9 +139,6 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		}
 	}
 
-	m.desiredNodeSpecMu.RLock()
-	defer m.desiredNodeSpecMu.RUnlock()
-
 	m.nodeStatusMu.Lock()
 	defer m.nodeStatusMu.Unlock()
 
@@ -345,22 +150,60 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.LastSync = timestamppb.Now()
+	m.Logger.With(
+		"id", id,
+		"time", status.LastSync.AsTime(),
+	).Debugf("synced node")
 
-	// todo: allow for this to be configurable
+	nodeSpec, err := m.getNodeSpecOrDefault(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
 		Enabled:    enabled,
 		Conditions: conditions,
-		Spec: &node.MetricsCapabilitySpec{
-			Rules: &v1beta1.RulesSpec{
-				Discovery: &v1beta1.DiscoverySpec{
-					PrometheusRules: &v1beta1.PrometheusRulesSpec{},
-				},
-			},
-			Prometheus: &node.PrometheusSpec{
-				DeploymentStrategy: "externalPromOperator",
+		Spec:       nodeSpec,
+	}), nil
+}
+
+var (
+	fallbackDefaultNodeSpec = &node.MetricsCapabilitySpec{
+		Rules: &v1beta1.RulesSpec{
+			Discovery: &v1beta1.DiscoverySpec{
+				PrometheusRules: &v1beta1.PrometheusRulesSpec{},
 			},
 		},
-	}), nil
+		Prometheus: &node.PrometheusSpec{
+			DeploymentStrategy: "externalPromOperator",
+		},
+	}
+)
+
+func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
+	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
+	if status.Code(err) == codes.NotFound {
+		nodeSpec = fallbackDefaultNodeSpec
+	} else if err != nil {
+		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
+		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
+	}
+	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
+	return nodeSpec, nil
+}
+
+func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.MetricsCapabilitySpec, error) {
+	nodeSpec, err := m.KV.NodeCapabilitySpecs.Get(ctx, id)
+	if status.Code(err) == codes.NotFound {
+		return m.getDefaultNodeSpec(ctx)
+	} else if err != nil {
+		m.Logger.With(zap.Error(err)).Error("failed to get node capability spec")
+		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
+	}
+	// handle the case where an older config is now invalid: reset to factory default
+	if err := nodeSpec.Validate(); err != nil {
+		return m.getDefaultNodeSpec(ctx)
+	}
+	return nodeSpec, nil
 }
 
 // the calling function must have exclusive ownership of both old and new
@@ -376,358 +219,53 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 	}
 }
 
-// Cortex Ops Backend
-
-func (m *MetricsBackend) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+func (m *MetricsBackend) GetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*node.MetricsCapabilitySpec, error) {
 	m.WaitForInit()
-
-	return m.ClusterDriver.GetClusterConfiguration(ctx, in)
+	return m.getDefaultNodeSpec(ctx)
 }
 
-func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+func (m *MetricsBackend) GetNodeConfiguration(ctx context.Context, node *v1.Reference) (*node.MetricsCapabilitySpec, error) {
 	m.WaitForInit()
-
-	defer m.requestNodeSync(ctx, &corev1.Reference{})
-	return m.ClusterDriver.ConfigureCluster(ctx, in)
+	return m.getNodeSpecOrDefault(ctx, node.GetId())
 }
 
-func (m *MetricsBackend) GetClusterStatus(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (m *MetricsBackend) SetDefaultConfiguration(ctx context.Context, conf *node.MetricsCapabilitySpec) (*emptypb.Empty, error) {
 	m.WaitForInit()
-
-	return m.ClusterDriver.GetClusterStatus(ctx, in)
-}
-
-func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	clusters, err := m.StorageBackend.ListClusters(ctx, &corev1.LabelSelector{}, corev1.MatchOptions_Default)
-	if err != nil {
+	var empty node.MetricsCapabilitySpec
+	if cmp.Equal(conf, &empty, protocmp.Transform()) {
+		if err := m.KV.DefaultCapabilitySpec.Delete(ctx); err != nil {
+			return nil, err
+		}
+		m.requestNodeSync(ctx, &corev1.Reference{})
+		return &emptypb.Empty{}, nil
+	}
+	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
-	clustersWithCapability := []string{}
-	for _, c := range clusters.GetItems() {
-		if capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics)) {
-			clustersWithCapability = append(clustersWithCapability, c.Id)
-		}
+	if err := m.KV.DefaultCapabilitySpec.Put(ctx, conf); err != nil {
+		return nil, err
 	}
-	if len(clustersWithCapability) > 0 {
-		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("metrics capability is still installed on the following clusters: %s", strings.Join(clustersWithCapability, ", ")))
-	}
-	defer m.requestNodeSync(ctx, &corev1.Reference{})
-	return m.ClusterDriver.UninstallCluster(ctx, in)
-}
-
-// Metrics Remote Read Backend
-
-func targetAlreadyExistsError(id string) error {
-	return status.Errorf(codes.AlreadyExists, "target '%s' already exists", id)
-}
-
-func targetDoesNotExistError(id string) error {
-	return status.Errorf(codes.NotFound, "target '%s' not found", id)
-}
-
-func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
-	return fmt.Sprintf("%s/%s", meta.ClusterId, meta.Name)
-}
-
-func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
-
-	targetId := getIdFromTargetMeta(request.Target.Meta)
-
-	if _, found := m.remoteReadTargets[targetId]; found {
-		return nil, targetAlreadyExistsError(targetId)
-	}
-
-	if request.Target.Status == nil {
-		request.Target.Status = &remoteread.TargetStatus{
-			Progress: &remoteread.TargetProgress{},
-			Message:  "",
-			State:    remoteread.TargetState_Running,
-		}
-	}
-
-	m.remoteReadTargets[targetId] = request.Target
-
-	m.Logger.With(
-		"cluster", request.Target.Meta.ClusterId,
-		"target", request.Target.Meta.Name,
-		"capability", wellknown.CapabilityMetrics,
-	).Infof("added new target")
-
+	m.requestNodeSync(ctx, &corev1.Reference{})
 	return &emptypb.Empty{}, nil
 }
 
-func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+func (m *MetricsBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
-
-	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
-		Meta: request.Meta,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("could not check on target status: %w", err)
-	}
-
-	if status.State == remoteread.TargetState_Running {
-		return nil, fmt.Errorf("can not edit running target")
-	}
-
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
-
-	diff := request.TargetDiff
-	targetId := getIdFromTargetMeta(request.Meta)
-
-	target, found := m.remoteReadTargets[targetId]
-	if !found {
-		return nil, targetDoesNotExistError(targetId)
-	}
-
-	if diff.Name != "" {
-		target.Meta.Name = diff.Name
-		newTargetId := getIdFromTargetMeta(target.Meta)
-
-		if _, found := m.remoteReadTargets[newTargetId]; found {
-			return nil, targetAlreadyExistsError(diff.Name)
+	if req.Spec == nil {
+		if err := m.KV.NodeCapabilitySpecs.Delete(ctx, req.Node.GetId()); err != nil {
+			return nil, err
 		}
-
-		delete(m.remoteReadTargets, targetId)
-		m.remoteReadTargets[newTargetId] = target
+		m.requestNodeSync(ctx, req.Node)
+		return &emptypb.Empty{}, nil
 	}
-
-	if diff.Endpoint != "" {
-		target.Spec.Endpoint = diff.Endpoint
-	}
-
-	m.Logger.With(
-		"cluster", request.Meta.ClusterId,
-		"target", request.Meta.Name,
-		"capability", wellknown.CapabilityMetrics,
-	).Infof("edited target")
-
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
-		Meta: request.Meta,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("could not check on target status: %w", err)
-	}
-
-	if status.State == remoteread.TargetState_Running {
-		return nil, fmt.Errorf("can not edit running target")
-	}
-
-	m.remoteReadTargetMu.Lock()
-	defer m.remoteReadTargetMu.Unlock()
-
-	targetId := getIdFromTargetMeta(request.Meta)
-
-	if _, found := m.remoteReadTargets[targetId]; !found {
-		return nil, targetDoesNotExistError(request.Meta.Name)
-	}
-
-	delete(m.remoteReadTargets, targetId)
-
-	m.Logger.With(
-		"cluster", request.Meta.ClusterId,
-		"target", request.Meta.Name,
-		"capability", wellknown.CapabilityMetrics,
-	).Infof("removed target")
-
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
-	m.WaitForInit()
-
-	m.remoteReadTargetMu.RLock()
-	defer m.remoteReadTargetMu.RUnlock()
-
-	inner := make([]*remoteread.Target, 0, len(m.remoteReadTargets))
-	innerMu := sync.RWMutex{}
-
-	eg, ctx := errgroup.WithContext(ctx)
-	for _, target := range m.remoteReadTargets {
-		if request.ClusterId == "" || request.ClusterId == target.Meta.ClusterId {
-			target := target
-			eg.Go(func() error {
-				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
-				if err != nil {
-					m.Logger.Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
-					newStatus.State = remoteread.TargetState_Unknown
-				}
-
-				target.Status = newStatus
-
-				innerMu.Lock()
-				inner = append(inner, target)
-				innerMu.Unlock()
-
-				return nil
-			})
-		}
-	}
-
-	if err := eg.Wait(); err != nil {
-		m.Logger.Errorf("error waiting for status to update: %s", err)
-	}
-
-	list := &remoteread.TargetList{Targets: inner}
-
-	return list, nil
-}
-
-func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
-	m.WaitForInit()
-
-	targetId := getIdFromTargetMeta(request.Meta)
-
-	m.remoteReadTargetMu.RLock()
-	defer m.remoteReadTargetMu.RUnlock()
-	if _, found := m.remoteReadTargets[targetId]; !found {
-		return nil, fmt.Errorf("target '%s/%s' does not exist", request.Meta.ClusterId, request.Meta.Name)
-	}
-
-	newStatus, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
-
-	if err != nil {
-		if strings.Contains(err.Error(), "target not found") {
-			return &remoteread.TargetStatus{
-				State: remoteread.TargetState_NotRunning,
-			}, nil
-		}
-
-		m.Logger.With(
-			"cluster", request.Meta.ClusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.Meta.Name,
-			zap.Error(err),
-		).Error("failed to get target status")
-
+	if err := req.Spec.Validate(); err != nil {
 		return nil, err
 	}
 
-	return newStatus, nil
-}
-
-func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	if m.Delegate == nil {
-		return nil, fmt.Errorf("encountered nil delegate")
-	}
-
-	m.remoteReadTargetMu.RLock()
-	defer m.remoteReadTargetMu.RUnlock()
-
-	targetId := getIdFromTargetMeta(request.Target.Meta)
-
-	// agent needs the full target but cli will ony have access to remoteread.TargetMeta values (clusterId, name, etc)
-	// so we need to replace the naive request target
-	target, found := m.remoteReadTargets[targetId]
-	if !found {
-		return nil, targetDoesNotExistError(targetId)
-	}
-
-	request.Target = target
-
-	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
-
-	if err != nil {
-		m.Logger.With(
-			"cluster", request.Target.Meta.ClusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.Target.Meta.Name,
-			zap.Error(err),
-		).Error("failed to start target")
-
+	if err := m.KV.NodeCapabilitySpecs.Put(ctx, req.Node.GetId(), req.GetSpec()); err != nil {
 		return nil, err
 	}
 
-	m.Logger.With(
-		"cluster", request.Target.Meta.ClusterId,
-		"capability", wellknown.CapabilityMetrics,
-		"target", request.Target.Meta.Name,
-	).Info("target started")
-
+	m.requestNodeSync(ctx, req.Node)
 	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	if m.Delegate == nil {
-		return nil, fmt.Errorf("encountered nil delegate")
-	}
-
-	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
-
-	if err != nil {
-		m.Logger.With(
-			"cluster", request.Meta.ClusterId,
-			"capability", wellknown.CapabilityMetrics,
-			"target", request.Meta.Name,
-			zap.Error(err),
-		).Error("failed to stop target")
-
-		return nil, err
-	}
-
-	m.Logger.With(
-		"cluster", request.Meta.Name,
-		"capability", wellknown.CapabilityMetrics,
-		"target", request.Meta.Name,
-	).Info("target stopped")
-
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	m.WaitForInit()
-	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
-		ClusterIDs: request.ClusterIds,
-	}, func(reply interface{}, responses *streamv1.BroadcastReplyList) error {
-		discoveryReply := reply.(*remoteread.DiscoveryResponse)
-		discoveryReply.Entries = make([]*remoteread.DiscoveryEntry, 0)
-
-		for _, response := range responses.Responses {
-			discoverResponse := &remoteread.DiscoveryResponse{}
-
-			if err := proto.Unmarshal(response.Reply.GetResponse().Response, discoverResponse); err != nil {
-				m.Logger.Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
-			}
-
-			// inject the cluster id gateway-side
-			lo.Map(discoverResponse.Entries, func(entry *remoteread.DiscoveryEntry, _ int) *remoteread.DiscoveryEntry {
-				entry.ClusterId = response.Ref.Id
-				return entry
-			})
-
-			discoveryReply.Entries = append(discoveryReply.Entries, discoverResponse.Entries...)
-		}
-
-		return nil
-	}).Discover(ctx, request)
-
-	if err != nil {
-		m.Logger.With(
-			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
-		).Error("failed to run import discovery")
-
-		return nil, err
-	}
-
-	return response, nil
 }

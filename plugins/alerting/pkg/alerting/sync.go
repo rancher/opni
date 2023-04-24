@@ -21,7 +21,7 @@ func (p *Plugin) reindex(ctx context.Context) error {
 	for _, cond := range conditions {
 		cond := cond
 		go func() {
-			_, err = p.setupCondition(ctx, p.Logger, cond, cond.Id)
+			_, err = p.setupCondition(p.Ctx, p.Logger, cond, cond.Id)
 			if err != nil {
 				p.Logger.Errorf("failed to setup alert condition %s: %s", cond.Id, err)
 			}
@@ -50,7 +50,7 @@ func (p *Plugin) teardown(ctx context.Context) error {
 	return nil
 }
 
-func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) error {
+func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
@@ -68,7 +68,7 @@ func (p *Plugin) createDefaultDisconnect(ctx context.Context, clusterId string) 
 	if disconnectExists {
 		return nil
 	}
-	_, err = p.CreateAlertCondition(ctx, &alertingv1.AlertCondition{
+	_, err = p.CreateAlertCondition(p.Ctx, &alertingv1.AlertCondition{
 		Name:        "agent-disconnect",
 		Description: "Alert when the downstream agent disconnects from the opni upstream",
 		Labels:      []string{"agent-disconnect", "opni", "automatic"},
@@ -123,7 +123,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 	return nil
 }
 
-func (p *Plugin) createDefaultCapabilityHealth(_ context.Context, clusterId string) error {
+func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
 	items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)

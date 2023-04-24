@@ -148,6 +148,19 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		go p.ServeKeyValueStore(store)
 	}))
 
+	// serve caching provider for plugin RPCs
+	pl.Hook(hooks.OnLoadM(func(p types.SystemPlugin, md meta.PluginMeta) {
+		ns := md.Module
+		if err := module.CheckPath(ns); err != nil {
+			lg.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			return
+		}
+		go p.ServeCachingProvider()
+	}))
+
 	// set up http server
 	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {
@@ -230,10 +243,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	agentHandler := MultiConnectionHandler(listener, sync, delegate)
 
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(agentHandler, storageBackend, lg, WithMetricsRegisterer(httpServer.metricsRegisterer))
+	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
-	streamv1.RegisterDelegateServer(streamSvc, delegate)
+	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 

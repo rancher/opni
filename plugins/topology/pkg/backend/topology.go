@@ -172,13 +172,13 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	}, nil
 }
 
-func (t *TopologyBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (t *TopologyBackend) Status(_ context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	t.WaitForInit()
 
 	t.nodeStatusMu.RLock()
 	defer t.nodeStatusMu.RUnlock()
 
-	if status, ok := t.nodeStatus[req.Cluster.Id]; ok {
+	if status, ok := t.nodeStatus[req.Id]; ok {
 		return status, nil
 	}
 

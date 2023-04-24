@@ -90,22 +90,26 @@ func (m *Server) WatchClusters(
 	}
 
 	for event := range eventC {
-		var c *corev1.Cluster
+		var c, o *corev1.Cluster
 		var eventType managementv1.WatchEventType
 		switch event.EventType {
 		case storage.WatchEventCreate:
 			eventType = managementv1.WatchEventType_Created
 			c = event.Current
+			o = event.Previous
 		case storage.WatchEventUpdate:
 			eventType = managementv1.WatchEventType_Updated
 			c = event.Current
+			o = event.Previous
 		case storage.WatchEventDelete:
 			eventType = managementv1.WatchEventType_Deleted
 			c = event.Previous
+			o = event.Previous
 		}
 		if err := stream.Send(&managementv1.WatchEvent{
-			Cluster: c,
-			Type:    eventType,
+			Cluster:  c,
+			Type:     eventType,
+			Previous: o,
 		}); err != nil {
 			return err
 		}
@@ -199,6 +203,30 @@ func (m *Server) UninstallCapability(
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (m *Server) CapabilityStatus(
+	ctx context.Context,
+	req *managementv1.CapabilityStatusRequest,
+) (*capabilityv1.NodeCapabilityStatus, error) {
+	if err := validation.Validate(req); err != nil {
+		return nil, err
+	}
+
+	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(req.Name)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Error(codes.NotFound, "capability not found")
+		}
+		return nil, err
+	}
+
+	return backend.Status(ctx, req.Cluster)
 }
 
 func (m *Server) CapabilityUninstallStatus(

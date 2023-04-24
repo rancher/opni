@@ -198,7 +198,8 @@ func BuildAlertingClusterIntegrationTests(
 					for i := 0; i < numAgents; i++ {
 						ctxCa, ca := context.WithCancel(env.Context())
 						id := agentIdFunc(i)
-						port, _ := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
+						port, errC := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
+						Eventually(errC).Should(Receive(BeNil()))
 						agents = append(agents, &agentWithContext{
 							port:       port,
 							CancelFunc: ca,

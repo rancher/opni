@@ -20,6 +20,7 @@ import (
 	"github.com/kralicky/totem"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -162,8 +163,16 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	}
 	lg.Debug("authenticated")
 
-	ts, err := totem.NewServer(stream, totem.WithName("gateway-client"))
+	cachingInterceptor := caching.NewClientGrpcTtlCacher()
 
+	ts, err := totem.NewServer(
+		stream,
+		totem.WithName("gateway-client"),
+		totem.WithInterceptors(totem.InterceptorConfig{
+			Incoming: cachingInterceptor.UnaryServerInterceptor(),
+			Outgoing: cachingInterceptor.UnaryClientInterceptor(),
+		}),
+	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
@@ -55,6 +56,7 @@ type Plugin struct {
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
 	delegate            future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
+	backendKvClients    future.Future[*backend.KVClients]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -75,6 +77,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
 		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
+		backendKvClients:    future.New[*backend.KVClients](),
 	}
 
 	future.Wait2(p.cortexClientSet, p.config,
@@ -104,7 +107,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait6(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate,
+	future.Wait7(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate, p.backendKvClients,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
@@ -112,6 +115,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
 			delegate streamext.StreamDelegate[remoteread.RemoteReadAgentClient],
+			backendKvClients *backend.KVClients,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
@@ -121,6 +125,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 				Delegate:            delegate,
+				KV:                  backendKvClients,
 			})
 		})
 
@@ -152,8 +157,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(&p.cortexHttp))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p,
-		streamext.WithMetrics(streamext.StreamMetricsConfig{
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p,
+		streamext.WithMetrics(streamext.GatewayStreamMetricsConfig{
 			Registerer:      prometheus.WrapRegistererWithPrefix("opni_gateway_", p),
 			LabelsForStream: p.labelsForStreamMetrics,
 		})),
@@ -162,6 +167,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, &p.cortexAdmin),
 		util.PackService(&cortexops.CortexOps_ServiceDesc, &p.metrics),
 		util.PackService(&remoteread.RemoteReadGateway_ServiceDesc, &p.metrics),
+		util.PackService(&node.NodeConfiguration_ServiceDesc, &p.metrics),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))

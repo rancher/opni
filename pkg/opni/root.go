@@ -23,7 +23,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddGroup(commands.AllGroups...)
 	rootCmd.AddCommand(commands.AllCommands...)
 
-	rootCmd.AddCommand(commands.CompletionCmd)
+	rootCmd.InitDefaultCompletionCmd()
 	rootCmd.AddCommand(commands.BuildVersionCmd())
 
 	rootCmd.PersistentFlags().BoolVar(&common.DisableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")

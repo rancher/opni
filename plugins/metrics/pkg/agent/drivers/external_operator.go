@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"os"
-	"sync"
+
+	driverutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -32,15 +33,7 @@ type ExternalPromOperatorDriver struct {
 
 	logger    *zap.SugaredLogger
 	namespace string
-
-	state reconcilerState
-}
-
-type reconcilerState struct {
-	sync.Mutex
-	running       bool
-	backoffCtx    context.Context
-	backoffCancel context.CancelFunc
+	state     driverutil.ReconcilerState
 }
 
 type ExternalPromOperatorDriverOptions struct {
@@ -82,46 +75,59 @@ func NewExternalPromOperatorDriver(
 		}
 		options.k8sClient = c
 	}
-
-	return &ExternalPromOperatorDriver{
+	driver := &ExternalPromOperatorDriver{
 		ExternalPromOperatorDriverOptions: options,
 		logger:                            logger,
 		namespace:                         namespace,
-	}, nil
+	}
+	return driver, nil
 }
 
 var _ MetricsNodeDriver = (*ExternalPromOperatorDriver)(nil)
 
-func (*ExternalPromOperatorDriver) Name() string {
-	return "external-operator"
-}
-
-func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) {
-	d.state.Lock()
-	if d.state.running {
-		d.state.backoffCancel()
+func (d *ExternalPromOperatorDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityConfig) {
+	if d.state.GetRunning() {
+		d.state.Cancel()
 	}
-	d.state.running = true
+	d.state.SetRunning(true)
 	ctx, ca := context.WithCancel(context.TODO())
-	d.state.backoffCtx = ctx
-	d.state.backoffCancel = ca
-	d.state.Unlock()
+	d.state.SetBackoffCtx(ctx, ca)
 
-	additionalScrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
+	// deployOtel := conf.Enabled && features.FeatureList.FeatureIsEnabled(FeatureFlagOtel)
+	deployPrometheus := conf.Enabled &&
+		conf.GetSpec().GetPrometheus() != nil &&
+		conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
 
-	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
+	objList := []driverutil.ReconcileItem{}
 	svcAccount, cr, crb := d.buildRbac()
-
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
+	scrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
+	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
+	objList = append(objList, driverutil.ReconcileItem{
+		A: svcAccount,
+		B: deployPrometheus,
+	}, driverutil.ReconcileItem{
+		A: cr,
+		B: deployPrometheus,
+	}, driverutil.ReconcileItem{
+		A: crb,
+		B: deployPrometheus,
+	}, driverutil.ReconcileItem{
+		A: prometheus,
+		B: deployPrometheus,
+	}, driverutil.ReconcileItem{
+		A: scrapeConfigs,
+		B: deployPrometheus,
+	})
 	p := backoff.Exponential()
 	b := p.Start(ctx)
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		for _, obj := range []client.Object{svcAccount, cr, crb, additionalScrapeConfigs, prometheus} {
-			if err := d.reconcileObject(obj, shouldExist); err != nil {
+		for _, obj := range objList {
+			d.logger.Debugf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B)
+			if err := driverutil.ReconcileObject(d.logger, d.k8sClient, d.namespace, obj); err != nil {
 				d.logger.With(
-					"object", client.ObjectKeyFromObject(obj).String(),
+					"object", client.ObjectKeyFromObject(obj.A).String(),
 					zap.Error(err),
 				).Error("error reconciling object")
 				continue BACKOFF

@@ -136,6 +136,11 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
+	retErr = reconciler.MaybeCreateIndex(ClusterMetadataIndexName, clusterMetadataIndexSettings)
+	if retErr != nil {
+		return
+	}
+
 	if opensearchCluster.Spec.Dashboards.Enable {
 		retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
 	}

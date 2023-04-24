@@ -7,7 +7,9 @@ platform:
   arch: amd64
 steps:
   - name: lint
-    image: rancher/drone-golangci-lint:latest
+    image: golangci/golangci-lint:latest
+    commands: 
+      - golangci-lint run
   - name: build-and-package
     image: docker
     environment: &dagger_env

@@ -81,6 +81,11 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 					"/run/opni/keyring",
 				},
 			},
+			ImageResolver: cfgv1beta1.ImageResolverSpec{
+				Type:             cfgv1beta1.ImageResolverTypeKubernetes,
+				ImageTagOverride: r.gw.Spec.AgentImageTagOverride,
+				Kubernetes:       &cfgv1beta1.KubernetesImageResolverSpec{},
+			},
 		},
 	}
 	gatewayConf.Spec.SetDefaults()

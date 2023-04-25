@@ -12,6 +12,9 @@ spec:
     enabled: {{ .Values.gateway.alerting.enabled }}
   {{- end}}
   hostname: {{ .Values.gateway.hostname }}
+  {{- if .Values.image.tag }}
+  agentImageTagOverride: {{ .Values.image.tag }}
+  {{- end }}
   serviceType: {{ .Values.gateway.serviceType }}
   {{- if .Values.gateway.storageType }}
   storageType: {{ .Values.gateway.storageType }}

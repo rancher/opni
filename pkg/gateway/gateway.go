@@ -223,6 +223,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Error("failed to run garbage collection")
 	}
 
+	// set up image resolver service
+	imageResolverServer, err := machinery.ConfigureImageResolver(ctx, &conf.Spec.ImageResolver)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to create image resolver server")
+	}
 	// set up grpc server
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
@@ -248,6 +255,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
+	controlv1.RegisterImageUpgradeServer(grpcServer, imageResolverServer)
 
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 

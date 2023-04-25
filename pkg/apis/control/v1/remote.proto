@@ -20,6 +20,10 @@ service PluginSync {
   rpc GetPluginManifest(google.protobuf.Empty) returns (PluginManifest);
 }
 
+service ImageUpgrade {
+  rpc GetAgentImages(google.protobuf.Empty) returns (AgentImages);
+}
+
 enum PatchOp {
   // revisions match
   None = 0;
@@ -70,4 +74,9 @@ message PatchSpec {
 
 message PatchList {
   repeated PatchSpec items = 1;
+}
+
+message AgentImages {
+  string agentImage = 1;
+  string controllerImage = 2;
 }

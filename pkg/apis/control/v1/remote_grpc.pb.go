@@ -326,3 +326,93 @@ var PluginSync_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
+
+const (
+	ImageUpgrade_GetAgentImages_FullMethodName = "/control.ImageUpgrade/GetAgentImages"
+)
+
+// ImageUpgradeClient is the client API for ImageUpgrade service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ImageUpgradeClient interface {
+	GetAgentImages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentImages, error)
+}
+
+type imageUpgradeClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewImageUpgradeClient(cc grpc.ClientConnInterface) ImageUpgradeClient {
+	return &imageUpgradeClient{cc}
+}
+
+func (c *imageUpgradeClient) GetAgentImages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentImages, error) {
+	out := new(AgentImages)
+	err := c.cc.Invoke(ctx, ImageUpgrade_GetAgentImages_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ImageUpgradeServer is the server API for ImageUpgrade service.
+// All implementations must embed UnimplementedImageUpgradeServer
+// for forward compatibility
+type ImageUpgradeServer interface {
+	GetAgentImages(context.Context, *emptypb.Empty) (*AgentImages, error)
+	mustEmbedUnimplementedImageUpgradeServer()
+}
+
+// UnimplementedImageUpgradeServer must be embedded to have forward compatible implementations.
+type UnimplementedImageUpgradeServer struct {
+}
+
+func (UnimplementedImageUpgradeServer) GetAgentImages(context.Context, *emptypb.Empty) (*AgentImages, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentImages not implemented")
+}
+func (UnimplementedImageUpgradeServer) mustEmbedUnimplementedImageUpgradeServer() {}
+
+// UnsafeImageUpgradeServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ImageUpgradeServer will
+// result in compilation errors.
+type UnsafeImageUpgradeServer interface {
+	mustEmbedUnimplementedImageUpgradeServer()
+}
+
+func RegisterImageUpgradeServer(s grpc.ServiceRegistrar, srv ImageUpgradeServer) {
+	s.RegisterService(&ImageUpgrade_ServiceDesc, srv)
+}
+
+func _ImageUpgrade_GetAgentImages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ImageUpgradeServer).GetAgentImages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ImageUpgrade_GetAgentImages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ImageUpgradeServer).GetAgentImages(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ImageUpgrade_ServiceDesc is the grpc.ServiceDesc for ImageUpgrade service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ImageUpgrade_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.ImageUpgrade",
+	HandlerType: (*ImageUpgradeServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetAgentImages",
+			Handler:    _ImageUpgrade_GetAgentImages_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}

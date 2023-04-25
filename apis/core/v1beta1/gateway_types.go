@@ -41,6 +41,8 @@ type GatewaySpec struct {
 	Auth     AuthSpec `json:"auth,omitempty"`
 	Hostname string   `json:"hostname,omitempty"`
 
+	AgentImageTagOverride string `json:"agentImageTagOverride,omitempty"`
+
 	// Deprecated: this field is ignored.
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 

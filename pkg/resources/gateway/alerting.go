@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/nats"
-	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -224,6 +224,7 @@ func (r *Reconciler) newAlertingCluster(
 	alertManagerPorts []corev1.ContainerPort,
 	volumes []corev1.Volume,
 	persistentClaims []corev1.PersistentVolumeClaim,
+	replicas int32,
 ) (*corev1.Service, *appsv1.StatefulSet) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -245,7 +246,7 @@ func (r *Reconciler) newAlertingCluster(
 			Labels:    deployLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(int32(1)),
+			Replicas: lo.ToPtr(replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deployLabels,
 			},
@@ -344,6 +345,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.controllerAlertingPorts(),
 		requiredVolumes,
 		requiredPersistentClaims,
+		1,
 	)
 
 	workerService, workerWorkers := r.newAlertingCluster(
@@ -354,6 +356,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.nodeAlertingPorts(),
 		requiredVolumes,
 		requiredPersistentClaims,
+		r.gw.Spec.Alerting.Replicas-1,
 	)
 	ctrl.SetControllerReference(r.gw, controllerService, r.client.Scheme())
 	ctrl.SetControllerReference(r.gw, controllerWorkers, r.client.Scheme())

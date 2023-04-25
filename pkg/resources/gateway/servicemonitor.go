@@ -11,7 +11,7 @@ import (
 
 func (r *Reconciler) serviceMonitor() resources.Resource {
 	publicSvcLabels := resources.NewGatewayLabels()
-	publicSvcLabels["service-type"] = "public"
+	publicSvcLabels["service-type"] = "internal"
 	svcMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",

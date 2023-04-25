@@ -150,7 +150,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 		return nil, validation.Error("Endpoint must be set")
 	}
 	// if it has an Id it needs to be unredacted
-	if req.Endpoint.Id == "" {
+	if req.Endpoint.Id != "" {
 		unredactSecrets(ctx, p.storageClientSet.Get(), req.Endpoint.Id, req.Endpoint)
 	}
 	if err := req.Validate(); err != nil {
@@ -193,6 +193,10 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAler
 		_, err := p.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},
 			Namespace:   ns,
+			Annotations: map[string]string{
+				shared.OpniHeaderAnnotations: "Test notification",
+				shared.OpniBodyAnnotations:   "Admin has sent a test notification",
+			},
 			Labels: map[string]string{
 				ns: ephemeralId,
 			},

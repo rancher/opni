@@ -42,7 +42,7 @@ func (r *RequestError) Error() string {
 
 func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	// dashboardJson is generated in the python service. This function simply create a GrafanaDashboard resource with it and apply it
-    res, err := p.GetJobRunResult(ctx, jobRunId)
+	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
 	}
@@ -71,7 +71,7 @@ func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metr
 
 func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	// delete the grafanadashboard resource for the given jobrun id
-    res, err := p.GetJobRunResult(ctx, jobRunId)
+	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
 	}
@@ -99,9 +99,9 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 }
 
 func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
-	// For the UI to list clusters. Returns cluster_id 
+	// For the UI to list clusters. Returns cluster_id
 
-    timeout := 10 * time.Second
+	timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	httpClient := &http.Client{Timeout: timeout}
@@ -125,8 +125,8 @@ func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metr
 
 func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
 	// For the UI to list namespaces of a given cluster. Returns a list of namespaces
-    
-    timeout := 10 * time.Second
+
+	timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	httpClient := &http.Client{Timeout: timeout}
@@ -192,7 +192,7 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 }
 
 func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAIId) (*metricai.MetricAIRunJobResponse, error) {
-    // run a job. Post a request to the python metric-ai service.
+	// run a job. Post a request to the python metric-ai service.
 	timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -217,8 +217,8 @@ func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAII
 
 func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
 	// use the info provided by user to create a job
-    // Info includes: job's name, the cluseter_id, a list of namespaces to watch.
-    ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Info includes: job's name, the cluseter_id, a list of namespaces to watch.
+	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
 	if err != nil {

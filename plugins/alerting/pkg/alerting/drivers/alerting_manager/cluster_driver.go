@@ -129,7 +129,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 		}
 		clone := existing.DeepCopy()
 		mutator(clone)
-		lg.Debugf("updated alerting spec : %v", existing.Spec.Alerting)
+		lg.Debugf("updated alerting spec : %v", clone.Spec.Alerting)
 		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 			patch.IgnoreStatusFields(),
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
@@ -141,12 +141,10 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
-		return a.K8sClient.Update(ctx, clone)
+		return a.K8sClient.Patch(ctx, existing, client.RawPatch(types.MergePatchType, cmp.Patch))
 	})
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)
-	}
-	if retryErr != nil {
 		return nil, retryErr
 	}
 

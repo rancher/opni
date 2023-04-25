@@ -1,0 +1,14 @@
+annotations:
+  catalog.cattle.io/hidden: "true"
+  catalog.cattle.io/namespace: opni-system
+  catalog.cattle.io/release-name: opni-agent-crd
+apiVersion: v1
+description: Installs the CRDs for Opni.
+maintainers:
+- email: joe.kralicky@suse.com
+  name: Joe Kralicky
+- email: dan.bason@suse.com
+  name: Dan Bason
+name: opni-agent-crd
+type: application
+version: 0.9.2-rc3

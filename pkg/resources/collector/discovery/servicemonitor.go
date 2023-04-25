@@ -253,9 +253,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
 				if ep.Port != "" && port.Name != "" {
-					// lg.Debugf("trying to match port name %s", port.Name)
 					if ep.Port == port.Name {
-						// lg.Debugf("matched port name %s", port.Name)
 						targets = append(targets, target{
 							staticAddress: s.generateStaticAddress(pod, port),
 							friendlyName:  s.generateFriendlySvcJobName(svcMon, svc),
@@ -266,18 +264,14 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 				if ep.TargetPort != nil {
 					switch ep.TargetPort.Type {
 					case intstr.Int:
-						// lg.Debugf("trying to match target port number %d", ep.TargetPort.IntVal)
 						if port.ContainerPort == ep.TargetPort.IntVal {
-							// lg.Debug("matched target port number")
 							targets = append(targets, target{
 								staticAddress: s.generateStaticAddress(pod, port),
 								friendlyName:  s.generateFriendlySvcJobName(svcMon, svc),
 							})
 						}
 					case intstr.String:
-						// lg.Debugf("trying to match target port number %s", ep.TargetPort.StrVal)
 						if port.Name != "" && port.Name == ep.TargetPort.StrVal {
-							// lg.Debug("matched target port name")
 							targets = append(targets, target{
 								staticAddress: s.generateStaticAddress(pod, port),
 								friendlyName:  s.generateFriendlySvcJobName(svcMon, svc),
@@ -296,14 +290,11 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 			lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
 			return
 		}
-		// lg.Debugf("found %d endpoints matching service", len(endpointList.Items))
 		for _, endp := range endpointList.Items {
 			for _, subset := range endp.Subsets {
 				for _, port := range subset.Ports {
 					if ep.Port != "" && port.Name != "" {
-						// lg.Debugf("trying to match port name %s", port.Name)
 						if ep.Port == port.Name {
-							// lg.Debugf("matched port name %s", port.Name)
 							for _, addr := range subset.Addresses {
 								targets = append(targets, target{
 									staticAddress: fmt.Sprintf("%s:%d", addr.IP, port.Port),
@@ -316,9 +307,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 					if ep.TargetPort != nil {
 						switch ep.TargetPort.Type {
 						case intstr.Int:
-							// lg.Debugf("trying to match target port number %d", ep.TargetPort.IntVal)
 							if port.Port == ep.TargetPort.IntVal {
-								// lg.Debug("matched target port number")
 								for _, addr := range subset.Addresses {
 									targets = append(targets, target{
 										staticAddress: fmt.Sprintf("%s:%d", addr.IP, port.Port),
@@ -327,9 +316,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 								}
 							}
 						case intstr.String:
-							// lg.Debugf("trying to match target port number %s", ep.TargetPort.StrVal)
 							if port.Name != "" && port.Name == ep.TargetPort.StrVal {
-								// lg.Debug("matched target port name")
 								for _, addr := range subset.Addresses {
 									targets = append(targets, target{
 										staticAddress: fmt.Sprintf("%s:%d", addr.IP, port.Port),
@@ -369,11 +356,13 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 			lg.Warnf("failed to select services for service monitor %s: %s", svcMon.Spec.Selector, err)
 			continue
 		}
-		lg.Debugf("found %d matching services", len(svcList.Items))
 		for _, svc := range svcList.Items {
 			for i, ep := range svcMon.Spec.Endpoints {
 				targets := s.resolveServiceTargets(*svcMon, svc, ep)
 				numTargets += len(targets)
+				slices.SortFunc(targets, func(i, j target) bool {
+					return i.staticAddress < j.staticAddress
+				})
 				if len(targets) > 0 {
 					job, sCfg, secrets := s.generateStaticServiceConfig(svcMon, ep, i, targets)
 					if _, ok := cfgMap[job]; !ok {
@@ -387,31 +376,6 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 		if numTargets == 0 {
 			lg.Warn("no scrape targets found for service monitor")
 		}
-
-		// endpList, err := s.findEndpoints(svcMon)
-		// if err != nil {
-		// 	lg.Warnf("failed to select endpointslices for service monitor %s: %s", err, svcMon.Spec.Selector)
-		// 	continue
-		// }
-		// lg.Debugf("found %d matching endpoint slices", len(endpList.Items))
-		// for _, endpSlice := range endpList.Items {
-		// 	lg = lg.With("endpSlice", endpSlice.Namespace+"-"+endpSlice.Name)
-		// 	// see if we can match any endpoints
-		// 	for i, ep := range svcMon.Spec.Endpoints {
-		// 		targets := s.resolveEndpSliceTargets(*svcMon, endpSlice, ep)
-		// 		// TODO : we need to deref pods and see if additional ports exist there
-		// 		// TODO : there is an edge case where we can skip checking pods; if all endpoints
-		// 		// are found on the endpoint slice
-		// 		if len(targets) > 0 {
-		// 			job, sCfg, secrets := s.generateStaticServiceConfig(svcMon, ep, i, targets, endpSlice)
-		// 			if _, ok := cfgMap[job]; !ok {
-		// 				cfgMap[job] = sCfg
-		// 			}
-		// 			secretRes = append(secretRes, secrets...)
-		// 		}
-		// 		lg.Debugf("found %d targets for endpoint : %v", len(targets), targets)
-		// 	}
-		// }
 	}
 	return &promCRDOperatorConfig{
 		jobs:    cfgMap,
@@ -549,24 +513,10 @@ func (s *serviceMonitorScrapeConfigRetriever) generateStaticServiceConfig(
 		},
 	}
 
-	// we need to add operator specific labels to the static config
-	sdLabels := yaml.MapSlice{
-		{
-			Key: "labels",
-			Value: yaml.MapSlice{
-				{
-					Key:   overrideJobName,
-					Value: targets[0].friendlyName,
-				},
-			},
-		},
-	}
-
 	staticConfig := yaml.MapItem{
 		Key: "static_configs",
 		Value: []yaml.MapSlice{
 			sd,
-			sdLabels,
 		},
 	}
 	ret = append(ret, staticConfig)

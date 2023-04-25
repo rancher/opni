@@ -67,7 +67,7 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, re
 	// jobName -> scrapeConfig
 	cfgMap := jobs{}
 	secretRes := []SecretResolutionConfig{}
-	p.logger.Debugf("found %d pod monitors", len(pMons))
+	p.logger.Infof("found %d pod monitors", len(pMons))
 	for _, pMon := range pMons {
 		lg := p.logger.With("podMonitor", pMon.Namespace+"-"+pMon.Name)
 		selectorMap, err := metav1.LabelSelectorAsMap(&pMon.Spec.Selector)
@@ -113,30 +113,35 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, re
 				podList.Items = append(podList.Items, pList.Items...)
 			}
 		}
-
+		numTargets := 0
 		for i, ep := range pMon.Spec.PodMetricsEndpoints {
-			lg := lg.With("podEndpoint", fmt.Sprintf("%s/%s", ep.Port, ep.Path))
-			targets := []string{}
-			friendlyName := ""
+			targets := []target{}
 			for _, pod := range podList.Items {
 				podIP := pod.Status.PodIP
 				for _, container := range pod.Spec.Containers {
 					for _, port := range container.Ports {
 						if port.Name != "" && ep.Port != "" && port.Name == ep.Port {
-							targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
-							friendlyName = p.generateFriendlyJobName(pMon, pod)
+							targets = append(targets,
+								target{
+									staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+									friendlyName:  p.generateFriendlyJobName(pMon, pod),
+								})
 						}
 						if ep.TargetPort != nil {
 							switch ep.TargetPort.Type {
 							case intstr.Int:
 								if port.ContainerPort == ep.TargetPort.IntVal {
-									targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
-									friendlyName = p.generateFriendlyJobName(pMon, pod)
+									targets = append(targets, target{
+										staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+										friendlyName:  p.generateFriendlyJobName(pMon, pod),
+									})
 								}
 							case intstr.String:
 								if port.Name == ep.TargetPort.StrVal {
-									targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
-									friendlyName = p.generateFriendlyJobName(pMon, pod)
+									targets = append(targets, target{
+										staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+										friendlyName:  p.generateFriendlyJobName(pMon, pod),
+									})
 								}
 							}
 						}
@@ -144,15 +149,22 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, re
 
 				}
 			}
-			lg.Debugf("found %v targets", targets)
+			numTargets += len(targets)
+			slices.SortFunc(targets, func(i, j target) bool {
+				return i.staticAddress < j.staticAddress
+			})
 			if len(targets) > 0 {
 				//de-dupe discovered targets
-				job, sCfg, secrets := p.generateStaticPodConfig(pMon, ep, i, targets, friendlyName)
+				job, sCfg, secrets := p.generateStaticPodConfig(pMon, ep, i, targets)
 				if _, ok := cfgMap[job]; !ok {
 					cfgMap[job] = sCfg
 				}
 				secretRes = append(secretRes, secrets...)
 			}
+
+		}
+		if numTargets == 0 {
+			lg.Warn("no targets found for pod monitor")
 		}
 	}
 
@@ -166,14 +178,13 @@ func (p *podMonitorScrapeConfigRetriever) generateStaticPodConfig(
 	m *promoperatorv1.PodMonitor,
 	ep promoperatorv1.PodMetricsEndpoint,
 	i int,
-	targets []string,
-	friendlyName string,
+	targets []target,
 ) (key string, out yaml.MapSlice, secretRes []SecretResolutionConfig) {
 	uid := fmt.Sprintf("podMonitor/%s/%s/%d", m.Namespace, m.Name, i)
 	cfg := promcfg.ScrapeConfig{
 		// note : we need to treat this as uuid, the job name will get relabelled to its target job name
 		// in the metric lifetime
-		JobName:                 friendlyName,
+		JobName:                 uid,
 		ServiceDiscoveryConfigs: discovery.Configs{},
 		MetricsPath:             ep.Path,
 	}
@@ -199,7 +210,7 @@ func (p *podMonitorScrapeConfigRetriever) generateStaticPodConfig(
 		cfg.Scheme = "http"
 	}
 
-	cfg.RelabelConfigs = append(cfg.RelabelConfigs, append(jobRelabelling(friendlyName), generateRelabelConfig(ep.RelabelConfigs)...)...)
+	cfg.RelabelConfigs = append(cfg.RelabelConfigs, append(jobRelabelling(targets[0].friendlyName), generateRelabelConfig(ep.RelabelConfigs)...)...)
 	cfg.MetricRelabelConfigs = append(cfg.MetricRelabelConfigs, generateRelabelConfig(ep.MetricRelabelConfigs)...)
 
 	if ep.BearerTokenSecret.Name != "" {
@@ -272,24 +283,10 @@ func (p *podMonitorScrapeConfigRetriever) generateStaticPodConfig(
 		},
 	}
 
-	// we need to add operator specific labels to the static config
-	sdLabels := yaml.MapSlice{
-		{
-			Key: "labels",
-			Value: yaml.MapSlice{
-				{
-					Key:   overrideJobName,
-					Value: friendlyName,
-				},
-			},
-		},
-	}
-
 	staticConfig := yaml.MapItem{
 		Key: "static_configs",
 		Value: []yaml.MapSlice{
 			sd,
-			sdLabels,
 		},
 	}
 	ret = append(ret, staticConfig)

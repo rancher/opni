@@ -23,7 +23,7 @@ import (
 
 const (
 	TlsAssetMountPath = "/etc/otel/prometheus/certs"
-	overrideJobName   = "__override_prometheus_job_name"
+	overrideJobName   = "__tmp_prometheus_job_name"
 )
 
 var (
@@ -133,8 +133,8 @@ func (p *PrometheusDiscovery) YieldScrapeConfigs() (
 					lg.Warnf("failed to retrieve scrape configs : %s", err)
 					return
 				}
-				lg.Debugf("found %d scrape configs", len(cfg.jobs))
-				lg.Debugf("found %d secrets to combine and mount", len(cfg.secrets))
+				lg.Infof("found %d scrape configs", len(cfg.jobs))
+				lg.Infof("found %d secrets to combine and mount", len(cfg.secrets))
 				cfgChan <- cfg
 			}()
 		}

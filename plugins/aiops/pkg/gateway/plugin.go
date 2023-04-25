@@ -16,8 +16,8 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,8 +38,8 @@ type AIOpsPlugin struct {
 	aggregationKv   future.Future[nats.KeyValue]
 	modelTrainingKv future.Future[nats.KeyValue]
 	statisticsKv    future.Future[nats.KeyValue]
-	metricAIJobKv      future.Future[nats.KeyValue]
-	metricAIRunKv      future.Future[nats.KeyValue]
+	metricAIJobKv   future.Future[nats.KeyValue]
+	metricAIRunKv   future.Future[nats.KeyValue]
 }
 
 type PluginOptions struct {
@@ -55,8 +55,8 @@ const (
 	workloadAggregationCountBucket = "os-workload-aggregation"
 	modelTrainingParametersBucket  = "model-training-parameters"
 	modelTrainingStatisticsBucket  = "model-training-statistics"
-	metricAIJobBucket                 = "metric_ai_jobs"
-	metricAIRunBucket				 = "metric_ai_job_runs"
+	metricAIJobBucket              = "metric_ai_jobs"
+	metricAIRunBucket              = "metric_ai_job_runs"
 )
 
 func (o *PluginOptions) apply(opts ...PluginOption) {
@@ -122,13 +122,12 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		aggregationKv:   future.New[nats.KeyValue](),
 		modelTrainingKv: future.New[nats.KeyValue](),
 		statisticsKv:    future.New[nats.KeyValue](),
-		metricAIJobKv:      future.New[nats.KeyValue](),
-		metricAIRunKv:      future.New[nats.KeyValue](),
+		metricAIJobKv:   future.New[nats.KeyValue](),
+		metricAIRunKv:   future.New[nats.KeyValue](),
 		osClient:        future.New[*opensearch.Client](),
 		k8sClient:       cli,
 	}
 }
-
 
 func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	lg := p.Logger

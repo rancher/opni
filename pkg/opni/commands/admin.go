@@ -48,18 +48,18 @@ func BuildCortexAdminCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildCortexOpsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "ops",
-		Short: "Cortex cluster setup and config operations",
-	}
-	cmd.AddCommand(BuildCortexClusterStatusCmd())
-	cmd.AddCommand(BuildCortexClusterConfigureCmd())
-	cmd.AddCommand(BuildCortexClusterGetConfigurationCmd())
-	cmd.AddCommand(BuildCortexClusterUninstallCmd())
+// func BuildCortexOpsCmd() *cobra.Command {
+// 	cmd := &cobra.Command{
+// 		Use:   "ops",
+// 		Short: "Cortex cluster setup and config operations",
+// 	}
+// 	cmd.AddCommand(BuildCortexClusterStatusCmd())
+// 	cmd.AddCommand(BuildCortexClusterConfigureCmd())
+// 	cmd.AddCommand(BuildCortexClusterGetConfigurationCmd())
+// 	cmd.AddCommand(BuildCortexClusterUninstallCmd())
 
-	return cmd
-}
+// 	return cmd
+// }
 
 func BuildCortexAdminRulesCmd() *cobra.Command {
 	cmd := &cobra.Command{

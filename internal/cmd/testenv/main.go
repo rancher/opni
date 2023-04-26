@@ -32,7 +32,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/samber/lo"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 	"golang.org/x/exp/slices"
@@ -324,9 +323,6 @@ func main() {
 						Filesystem: &storagev1.FilesystemStorageSpec{
 							Directory: path.Join(environment.GetTempDirectory(), "cortex", "data"),
 						},
-					},
-					Grafana: &cortexops.GrafanaConfig{
-						Enabled: lo.ToPtr(false),
 					},
 				})
 				if err != nil {

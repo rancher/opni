@@ -5,29 +5,71 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "google/api/annotations.proto";
+import "github.com/rancher/opni/internal/generators/cli.proto";
 
 package cortexops;
 
-// The CortexOps service controls meta-operations for deploying and configuring
-// Cortex in the upstream environment.
+option (cli.generator) = {
+  generate: true
+  client_dependency_injection: InjectIntoContext
+};
+
+// The CortexOps service contains setup and configuration lifecycle actions for the managed Cortex cluster.
 service CortexOps {
+  option (cli.command_group) = {
+    use: "ops"
+  };
+
+  // Gets the current configuration of the managed Cortex cluster.
   rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
+    option (cli.command) = {
+      use: "get-configuration";
+    };
     option (google.api.http) = {
       get: "/configuration"
     };
   }
+
+  // Updates the configuration of the managed Cortex cluster to match the provided configuration.
+  // If the cluster is not installed, it will be configured and installed.
+  // Otherwise, the already-installed cluster will be reconfigured.
+  //
+  // Note: some fields may contain secrets. The placeholder value "***" can be used to
+  // keep an existing secret when updating the cluster configuration.
   rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "configure";
+      // required_flags: ["mode", "storage.backend"];
+    };
     option (google.api.http) = {
       post: "/configure"
       body: "*"
     };
   }
+
+  // Gets the current status of the managed Cortex cluster.
+  // The status includes the current install state, version, and metadata. If
+  // the cluster is in the process of being reconfigured or uninstalled, it will
+  // be reflected in the install state.
+  // No guarantees are made about the contents of the metadata field; its
+  // contents are strictly informational.
   rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+    option (cli.command) = {
+      use: "status";
+    };
     option (google.api.http) = {
       get: "/status"
     };
   }
+
+  // Uninstalls the managed Cortex cluster.
+  // Implementation details including error handling and system state requirements
+  // are left to the cluster driver, and this API makes no guarantees about
+  // the state of the cluster after the call completes (regardless of success).
   rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "uninstall";
+    };
     option (google.api.http) = {
       post: "/uninstall"
     };
@@ -49,11 +91,14 @@ message InstallStatus {
 }
 
 enum DeploymentMode {
+  // All components are together in a single process. Not recommended for production use.
   AllInOne = 0;
+  // Components are distributed across multiple processes.
   HighlyAvailable = 1;
 }
 
 message ClusterConfiguration {
+  // The deployment mode to use for Cortex.
   DeploymentMode mode = 1;
   storage.StorageSpec storage = 2;
   GrafanaConfig grafana = 3;
@@ -73,132 +118,105 @@ message Workloads {
 }
 
 message CortexWorkloadSpec {
-  optional int32 replicas = 1;
+  int32 replicas = 1;
   repeated string extraArgs = 2;
 }
 
 message CortexConfig {
-  optional CompactorConfig compactor = 1;
-  optional QuerierConfig querier = 2;
-  optional DistributorConfig distributor = 3;
-  optional IngesterConfig ingester = 4;
+  CompactorConfig compactor = 1;
+  QuerierConfig querier = 2;
+  DistributorConfig distributor = 3;
+  IngesterConfig ingester = 4;
 }
 
 message CompactorConfig {
   // List of compaction time ranges
-  // Default: [2h, 12h, 24h]
-  optional BlockRanges blockRanges = 1;
+  repeated google.protobuf.Duration blockRanges = 1 [(cli.flag).default="2h,12h,24h"];
   // The frequency at which the compaction runs
-  // Default: 1h
-  optional google.protobuf.Duration compactionInterval = 2;
+  google.protobuf.Duration compactionInterval = 2 [(cli.flag).default="1h"];
   // How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index
-  // Default: 15m
-  optional google.protobuf.Duration cleanupInterval = 3;
+  google.protobuf.Duration cleanupInterval = 3 [(cli.flag).default="15m"];
   // Time before a block marked for deletion is deleted from the bucket
-  // Default: 12h
-  optional google.protobuf.Duration deletionDelay = 4;
+  google.protobuf.Duration deletionDelay = 4 [(cli.flag).default="12h"];
   // For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant
-  // Default: 6h
-  optional google.protobuf.Duration tenantCleanupDelay = 5;
-}
-
-message BlockRanges {
-  repeated google.protobuf.Duration ranges = 1;
+  google.protobuf.Duration tenantCleanupDelay = 5 [(cli.flag).default="6h"];
 }
 
 message QuerierConfig {
   // The timeout for a query
-  // Default: 2m
-  optional google.protobuf.Duration queryTimeout = 1;
+  google.protobuf.Duration queryTimeout = 1 [(cli.flag).default="2m"];
 
   // Maximum number of samples a single query can load into memory
-  // Default: 50e6
-  optional int32 maxSamples = 2;
+  int32 maxSamples = 2 [(cli.flag).default="50e6"];
 
   // Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.
-  // Default: 0
-  optional google.protobuf.Duration queryIngestersWithin = 3;
+  google.protobuf.Duration queryIngestersWithin = 3 [(cli.flag).default="0"];
 
   // Maximum duration into the future you can query. 0 to disable
-  // Default: 10m
-  optional google.protobuf.Duration maxQueryIntoFuture = 4;
+  google.protobuf.Duration maxQueryIntoFuture = 4 [(cli.flag).default="10m"];
 
   // The default evaluation interval or step size for subqueries
-  // Default: 1m
-  optional google.protobuf.Duration defaultEvaluationInterval = 5;
+  google.protobuf.Duration defaultEvaluationInterval = 5 [(cli.flag).default="1m"];
 
   // The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store.
   // When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated
   // to ensure the query end is not more recent than 'now - query-store-after'.
-  // Default: 0
-  optional google.protobuf.Duration queryStoreAfter = 6;
+  google.protobuf.Duration queryStoreAfter = 6 [(cli.flag).default="0"];
 
   // Time since the last sample after which a time series is considered stale and ignored by expression evaluations
-  // Default: 5m
-  optional google.protobuf.Duration lookbackDelta = 7;
+  google.protobuf.Duration lookbackDelta = 7 [(cli.flag).default="5m"];
 
   // When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from
   // the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'.
   // The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'.
   // If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).
-  // Default: 0
-  optional google.protobuf.Duration shuffleShardingIngestersLookbackPeriod = 8;
+  google.protobuf.Duration shuffleShardingIngestersLookbackPeriod = 8 [(cli.flag).default="0"];
 
   // The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable
-  // Default: 0
-  optional int32 maxFetchedSeriesPerQuery = 9;
+  int32 maxFetchedSeriesPerQuery = 9 [(cli.flag).default="0"];
 }
 
 
 message DistributorConfig {
   // Per-user ingestion rate limit in samples per second.
-  // Default: 600000
-  optional double ingestionRate = 1;
+  double ingestionRate = 1 [(cli.flag).default="600000"];
 
   // Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).
-  // Default: "local"
-  optional string ingestionRateStrategy = 2;
+  string ingestionRateStrategy = 2 [(cli.flag).default="local"];
 
   // Per-user allowed ingestion burst size (in number of samples).
-  // Default: 1000000
-  optional int32 ingestionBurstSize = 3;
+  int32 ingestionBurstSize = 3 [(cli.flag).default="1000000"];
 }
 
 message IngesterConfig {
   // The maximum number of active series per user, per ingester. 0 to disable.
-  // Default: 0
-  optional int32 maxLocalSeriesPerUser = 1;
+  int32 maxLocalSeriesPerUser = 1 [(cli.flag).default="0"];
 
   // The maximum number of active series per metric name, per ingester. 0 to disable.
-  // Default: 0
-  optional int32 maxLocalSeriesPerMetric = 2;
+  int32 maxLocalSeriesPerMetric = 2 [(cli.flag).default="0"];
 
   // The maximum number of active series per user, across the cluster before replication. 0 to disable.
-  // Default: 0
-  optional int32 maxGlobalSeriesPerUser = 3;
+  int32 maxGlobalSeriesPerUser = 3 [(cli.flag).default="0"];
 
   // The maximum number of active series per metric name, across the cluster before replication. 0 to disable.
-  // Default: 0
-  optional int32 maxGlobalSeriesPerMetric = 4;
+  int32 maxGlobalSeriesPerMetric = 4 [(cli.flag).default="0"];
 
   // The maximum number of active metrics with metadata per user, per ingester. 0 to disable.
-  // Default: 0
-  optional int32 maxLocalMetricsWithMetadataPerUser = 5;
+  int32 maxLocalMetricsWithMetadataPerUser = 5 [(cli.flag).default="0"];
 
   // The maximum number of metadata per metric, per ingester. 0 to disable.
-  // Default: 0
-  optional int32 maxLocalMetadataPerMetric = 6;
+  int32 maxLocalMetadataPerMetric = 6 [(cli.flag).default="0"];
 
   // The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.
-  // Default: 0
-  optional int32 maxGlobalMetricsWithMetadataPerUser = 7;
+  int32 maxGlobalMetricsWithMetadataPerUser = 7 [(cli.flag).default="0"];
 
   // The maximum number of metadata per metric, across the cluster. 0 to disable.
-  // Default: 0
-  optional int32 maxGlobalMetadataPerMetric = 8;
+  int32 maxGlobalMetadataPerMetric = 8 [(cli.flag).default="0"];
 }
 
 message GrafanaConfig {
-  optional bool enabled = 1;
+  bool enabled = 1 [(cli.flag).default="true"];
+
+  // DNS name at which Grafana will be available in the browser.
   string hostname = 2;
 }

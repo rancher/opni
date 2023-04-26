@@ -24,7 +24,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -93,9 +92,6 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 				Filesystem: &storagev1.FilesystemStorageSpec{
 					Directory: path.Join(env.GetTempDirectory(), "cortex", "data"),
 				},
-			},
-			Grafana: &cortexops.GrafanaConfig{
-				Enabled: lo.ToPtr(false),
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())

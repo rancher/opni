@@ -1,4 +1,4 @@
-//go:build !minimal
+//go:build ignore
 
 package commands
 

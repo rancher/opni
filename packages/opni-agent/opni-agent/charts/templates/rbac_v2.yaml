@@ -29,10 +29,28 @@ rules:
   - pods/log
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/stats
+  verbs:
+  - get
+
+# discovery permissions
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
 
 # client manager permissions
 - apiGroups:
   - logging.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - monitoring.opni.io
   resources:
   - "*"
   verbs:

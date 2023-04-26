@@ -47,6 +47,12 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              metricsConfig:
+                properties:
+                  name:
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               systemNamespace:
                 type: string
             type: object

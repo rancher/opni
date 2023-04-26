@@ -39,7 +39,7 @@ func deleteEvent(old *corev1.Cluster) storage.WatchEvent[*corev1.Cluster] {
 	}
 }
 
-var _ = Describe("Capability Context", func() {
+var _ = Describe("Capability Context", Label("unit"), func() {
 	When("no specific capabilities are given", func() {
 		var eventC chan storage.WatchEvent[*corev1.Cluster]
 		var ctx context.Context
@@ -163,18 +163,22 @@ var _ = Describe("Capability Context", func() {
 		ctx, ca := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 		defer ca()
 		type test string
-		testKey := ("test")
+		testKey := test("test")
 		ctx = context.WithValue(ctx, testKey, "value")
 
 		ctx2, ca2 := capabilities.NewContext[*corev1.ClusterCapability](ctx, eventC)
 		defer ca2()
 		d, ok := ctx.Deadline()
 		d2, ok2 := ctx2.Deadline()
+		Expect(ok).To(BeTrue())
+		Expect(ok2).To(BeTrue())
 		Expect(d).To(Equal(d2))
 		Expect(ok).To(Equal(ok2))
 
-		v, ok := ctx.Value(testKey).(test)
-		v2, ok2 := ctx2.Value(testKey).(test)
+		v, ok := ctx.Value(testKey).(string)
+		v2, ok2 := ctx2.Value(testKey).(string)
+		Expect(ok).To(BeTrue())
+		Expect(ok2).To(BeTrue())
 		Expect(v).To(Equal(v2))
 	})
 })

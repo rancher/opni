@@ -62,10 +62,8 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 	}
 	var env *test.Environment
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
-		Expect(env.Start(test.WithEnableCortexClusterDriver(true))).To(Succeed())
+		env = &test.Environment{}
+		Expect(env.Start()).To(Succeed())
 
 		mgmtClient := env.NewManagementClient()
 

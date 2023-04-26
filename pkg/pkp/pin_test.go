@@ -2,13 +2,12 @@ package pkp_test
 
 import (
 	"crypto/x509"
-	_ "embed"
 	"encoding/base64"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/pkp"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -42,7 +41,7 @@ var _ = Describe("Public Key Pinning", Label("unit"), func() {
 	It("should compute correct certificate fingerprints", func() {
 		Expect(testFingerprints.TestData).To(HaveLen(5))
 		for _, actual := range testFingerprints.TestData {
-			certData := test.TestData(actual.Cert)
+			certData := testdata.TestData(actual.Cert)
 			cert, err := util.ParsePEMEncodedCert(certData)
 			Expect(err).NotTo(HaveOccurred())
 			for _, alg := range []pkp.Alg{pkp.AlgSHA256, pkp.AlgB2B256} {
@@ -57,7 +56,7 @@ var _ = Describe("Public Key Pinning", Label("unit"), func() {
 		}
 	})
 	It("should correctly deep-copy", func() {
-		certData := test.TestData("root_ca.crt")
+		certData := testdata.TestData("root_ca.crt")
 		cert, err := util.ParsePEMEncodedCert(certData)
 		Expect(err).NotTo(HaveOccurred())
 		pin := pkp.NewSha256(cert)

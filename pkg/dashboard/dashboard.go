@@ -34,15 +34,15 @@ func AddExtraHandler(path string, handler http.HandlerFunc) {
 }
 
 type Server struct {
-	config *v1beta1.GatewayConfig
+	config *v1beta1.ManagementSpec
 	logger *zap.SugaredLogger
 }
 
-func NewServer(config *v1beta1.GatewayConfig) (*Server, error) {
+func NewServer(config *v1beta1.ManagementSpec) (*Server, error) {
 	if !web.EmbeddedAssetsAvailable() {
 		return nil, errors.New("embedded assets not available")
 	}
-	if config.Spec.Management.WebListenAddress == "" {
+	if config.WebListenAddress == "" {
 		return nil, errors.New("management.webListenAddress not set in config")
 	}
 	return &Server{
@@ -53,7 +53,7 @@ func NewServer(config *v1beta1.GatewayConfig) (*Server, error) {
 
 func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	lg := ws.logger
-	listener, err := net.Listen("tcp4", ws.config.Spec.Management.WebListenAddress)
+	listener, err := net.Listen("tcp4", ws.config.WebListenAddress)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		c.FileFromFS("200.html", webfs)
 	})
 
-	opniApiAddr := ws.config.Spec.Management.HTTPListenAddress
+	opniApiAddr := ws.config.HTTPListenAddress
 	mgmtUrl, err := url.Parse("http://" + opniApiAddr)
 	if err != nil {
 		lg.With(

@@ -10,7 +10,7 @@ import (
 
 type testHttp struct{}
 
-func (*testHttp) Handle(ctx *gin.Context) {
+func (*testHttp) Handle(_ *gin.Context) {
 }
 
 type testUnaryGrpc struct{}

@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -482,8 +481,7 @@ func Protobuf() {
 
 func Minimal() error {
 	if err := goBuild(
-		"-tags",
-		"noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty,noalertmanager,nomsgpack",
+		"-tags", "minimal,noagentv1,noscheme_thirdparty,nomsgpack",
 		"./cmd/opni",
 	); err != nil {
 		return err
@@ -532,4 +530,13 @@ func ChartsV(version string) error {
 	}
 	Charts()
 	return nil
+}
+
+func BuildLinter() {
+	sh.Run(mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+}
+func Lint() {
+	mg.Deps(BuildLinter)
+	sh.RunV("golangci-lint", "cache", "clean")
+	sh.RunV("golangci-lint", "run")
 }

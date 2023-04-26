@@ -111,6 +111,7 @@ func (f *SyncRequester) runPeriodicSync(ctx context.Context, req *capabilityv1.S
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+			f.logger.Debug("running periodic sync")
 			go f.RequestSync(ctx, util.ProtoClone(req))
 			timer.Reset(period + time.Duration(rand.Int63n(int64(jitter))))
 		}

@@ -9,11 +9,11 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/metrics/compat"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 )
 
 func convertToMatrix(filepath string) []*alertingv1.ActiveWindow {
-	mat := test.TestData(filepath)
+	mat := testdata.TestData(filepath)
 	qr, err := compat.UnmarshalPrometheusResponse(mat)
 	Expect(err).To(Succeed())
 	Expect(qr).ToNot(BeNil())
@@ -58,17 +58,17 @@ var _ = Describe("Alerting cortex suite", Label("unit"), func() {
 		It("should parse valid payloads to appropriate opni alerting payloads", func() {
 			someId := shared.NewAlertingRefId()
 			somename := "some-alert-name"
-			exampleWorkingPayload := cortex.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+			exampleWorkingPayload := NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
 				"alertname":   somename,
 				"conditionId": someId,
 			})
 			mockBody, err := json.Marshal(&exampleWorkingPayload)
 			Expect(err).To(Succeed())
-			annotations, err := cortex.ParseCortexPayloadBytes(mockBody)
+			annotations, err := ParseCortexPayloadBytes(mockBody)
 			Expect(err).To(Succeed())
 			Expect(annotations).To(HaveLen(1))
 
-			opniResponses, errors := cortex.ParseAlertManagerWebhookPayload(annotations)
+			opniResponses, errors := ParseAlertManagerWebhookPayload(annotations)
 			Expect(errors).To(HaveLen(1))
 			Expect(len(opniResponses)).To(Equal(len(errors)))
 			for _, e := range errors {
@@ -80,14 +80,14 @@ var _ = Describe("Alerting cortex suite", Label("unit"), func() {
 
 		It("Should errror on invalid cortex webhook payloads", func() {
 			somename := "some-alert-name"
-			exampleInvalidPayload := cortex.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+			exampleInvalidPayload := NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
 				"alertname": somename,
 			})
 			mockBody, err := json.Marshal(&exampleInvalidPayload)
 			Expect(err).To(Succeed())
-			annotations, err := cortex.ParseCortexPayloadBytes(mockBody)
+			annotations, err := ParseCortexPayloadBytes(mockBody)
 			Expect(err).To(Succeed())
-			opniRequests, errors := cortex.ParseAlertManagerWebhookPayload(annotations)
+			opniRequests, errors := ParseAlertManagerWebhookPayload(annotations)
 			Expect(errors).To(HaveLen(1))
 			Expect(len(opniRequests)).To(Equal(len(errors)))
 			Expect(errors[0]).To(HaveOccurred())

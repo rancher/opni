@@ -1,4 +1,4 @@
-package conformance
+package conformance_test
 
 import (
 	"context"

@@ -4,16 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/extensions"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/samber/lo"
-
-	"net/http"
-	_ "net/http/pprof"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -53,7 +51,7 @@ func Main(
 
 	alertingv1.RegisterSyncerServer(
 		server,
-		extensions.NewAlertingSyncerV1( // run with defaults
+		NewAlertingSyncerV1( // run with defaults
 			runCtx,
 			cfg,
 			mgmtClient,

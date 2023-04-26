@@ -1,4 +1,4 @@
-//go:build !noplugins
+//go:build !minimal
 
 package cliutil
 

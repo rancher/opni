@@ -1,4 +1,4 @@
-//go:build !noscheme_opensearch && !noscheme_thirdparty
+//go:build !minimal
 
 package apis
 

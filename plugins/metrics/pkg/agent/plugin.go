@@ -10,8 +10,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/rules"
+	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	oteldriver "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/otel"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 )
@@ -40,20 +41,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 		node:         NewMetricsNode(ct, lg),
 	}
 
-	drivers.RegisterNodeDriverBuilder("prometheus-operator", func() (drivers.MetricsNodeDriver, error) {
-		return drivers.NewExternalPromOperatorDriver(lg)
-	})
-
-	drivers.RegisterNodeDriverBuilder("opni-manager-otel", func() (drivers.MetricsNodeDriver, error) {
-		return oteldriver.NewOTELDriver(lg)
-	})
-
-	for _, name := range drivers.ListNodeDrivers() {
-		builder, ok := drivers.GetNodeDriverBuilder(name)
+	for _, name := range drivers.NodeDrivers.List() {
+		builder, ok := drivers.NodeDrivers.Get(name)
 		if !ok {
 			continue
 		}
-		driver, err := builder()
+		driver, err := builder(ctx)
 		if err != nil {
 			lg.With(
 				"driver", name,
@@ -79,7 +72,13 @@ func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfi
 	startRuleStreamer := func() {
 		ctx, ca := context.WithCancel(p.ctx)
 		p.stopRuleStreamer = ca
-		go p.ruleStreamer.Run(ctx, cfg.GetSpec().GetRules())
+		finders := []notifier.Finder[rules.RuleGroup]{}
+		for _, driver := range p.node.nodeDrivers {
+			if f := driver.ConfigureRuleGroupFinder(cfg.Spec.Rules); f != nil {
+				finders = append(finders, f)
+			}
+		}
+		go p.ruleStreamer.Run(ctx, cfg.GetSpec().GetRules(), notifier.NewMultiFinder(finders...))
 	}
 
 	switch {

@@ -1,3 +1,5 @@
+//go:build e2e
+
 package e2e
 
 import (
@@ -26,6 +28,7 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testbench"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -155,7 +158,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		testEnv.StartPrometheus(agentId)
 
 		By("starting a new metrics writer")
-		benchRunner, err := testEnv.NewBenchRunner(agentId, bench.WorkloadDesc{
+		benchRunner, err := testbench.NewBenchRunner(testEnv, agentId, bench.WorkloadDesc{
 			Replicas: 1,
 			Series: []bench.SeriesDesc{
 				{

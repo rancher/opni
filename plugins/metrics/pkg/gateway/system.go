@@ -19,6 +19,9 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+
+	_ "github.com/rancher/opni/pkg/storage/etcd"
+	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {

@@ -74,8 +74,8 @@ func (s *Server) Collect(c chan<- prometheus.Metric) {
 		if hs, err := s.GetClusterHealthStatus(ctx, &corev1.Reference{Id: cluster.Id}); err == nil {
 			connected = lo.Ternary[float64](hs.Status.Connected, 1, 0)
 			// todo: possible bug here? hs.Health==nil
-			ready = lo.Ternary[float64](hs.Health.Ready, 1, 0)
-			conditions = strings.Join(hs.Health.Conditions, ",")
+			ready = lo.Ternary[float64](hs.GetHealth().GetReady(), 1, 0)
+			conditions = strings.Join(hs.GetHealth().GetConditions(), ",")
 			summary = hs.Summary()
 		}
 		c <- prometheus.MustNewConstMetric(

@@ -67,6 +67,12 @@ func OpensearchMockTransport() http.RoundTripper {
 		httpmock.NewJsonResponderOrPanic(200, statusResp),
 	)
 
+	transport.RegisterResponder(
+		http.MethodPost,
+		fmt.Sprintf("=~%s/opni-cluster-metadata/_doc/.+", OpensearchURL),
+		httpmock.NewStringResponder(200, ""),
+	)
+
 	return transport
 }
 

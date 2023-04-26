@@ -23,7 +23,7 @@ func descriptorString(fqName, help string, constLabels, varLabels []string) stri
 	)
 }
 
-var _ = Describe("Collector", Ordered, Label("slow"), func() {
+var _ = Describe("Collector", Ordered, Label("unit"), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 

@@ -18,8 +18,10 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/patch"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/memfs"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/spf13/afero"
@@ -34,7 +36,7 @@ import (
 
 var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func() {
 	var srv *patch.FilesystemPluginSyncServer
-	fsys := afero.Afero{Fs: test.NewModeAwareMemFs()}
+	fsys := afero.Afero{Fs: memfs.NewModeAwareMemFs()}
 	tmpDir := "/tmp/test"
 	fsys.MkdirAll(tmpDir, 0755)
 
@@ -51,7 +53,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 					Dir: filepath.Join(tmpDir, "cache"),
 				},
 			},
-		}, test.Log, patch.WithFs(fsys))
+		}, testlog.Log, patch.WithFs(fsys))
 	}
 
 	When("starting the filesystem sync server", func() {
@@ -397,7 +399,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			}
 		})
 		It("should garbage collect old plugins and patches", func() {
-			store := test.NewTestClusterStore(ctrl)
+			store := mock_storage.NewTestClusterStore(ctrl)
 			store.CreateCluster(context.Background(), &corev1.Cluster{
 				Id: "cluster-1",
 				Metadata: &corev1.ClusterMetadata{
@@ -419,7 +421,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 				Expect(plugins).To(HaveLen(4))
 			}
 
-			srv.RunGarbageCollection(context.Background(), test.NewTestClusterStore(ctrl))
+			srv.RunGarbageCollection(context.Background(), mock_storage.NewTestClusterStore(ctrl))
 
 			// all patches and old plugins should be removed, since the cluster store is empty
 			plugins, err := fsys.ReadDir(filepath.Join(tmpDir, "cache", "plugins"))
@@ -442,7 +444,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 						Cache: v1beta1.CacheSpec{
 							PatchEngine: "unknown",
 						},
-					}, test.Log)
+					}, testlog.Log)
 					Expect(err).To(MatchError("unknown patch engine: unknown"))
 				})
 			})
@@ -454,7 +456,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 							PatchEngine: v1beta1.PatchEngineBsdiff,
 							Backend:     "unknown",
 						},
-					}, test.Log)
+					}, testlog.Log)
 					Expect(err).To(MatchError("unknown cache backend: unknown"))
 				})
 			})
@@ -469,7 +471,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 								Dir: "/dev/null",
 							},
 						},
-					}, test.Log)
+					}, testlog.Log)
 					Expect(err).To(HaveOccurred())
 				})
 			})

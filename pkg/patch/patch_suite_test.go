@@ -13,6 +13,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/patch"
+	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/blake2b"

@@ -35,3 +35,6 @@ exclude = '''
 pythonpath = [
   ".", "metric_analysis"
 ]
+
+[tool.coverage.run] # scripts to ignore in pytest coverage
+omit = ["metric_analysis/model/data_simulator.py", "metric_analysis/cortexadmin_pb.py", "metric_analysis/status_pb.py"]

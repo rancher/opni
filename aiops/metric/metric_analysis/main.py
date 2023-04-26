@@ -19,7 +19,7 @@ from access_admin_api import (
 from cortexadmin_pb import CortexAdminStub
 from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT, OPNI_GATEWAY_PLUGINAPI_PORT
 from fastapi import BackgroundTasks, FastAPI
-from filter_anomaly_metric import get_abnormal_metrics
+from get_abnormal_metrics import get_abnormal_metrics
 from grpclib.client import Channel
 from model.metric_pattern_classification import predict
 from opni_nats import NatsWrapper

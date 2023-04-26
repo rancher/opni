@@ -1,6 +1,5 @@
 FROM rancher/opni-python-base:3.8-torch
 
-
 COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 

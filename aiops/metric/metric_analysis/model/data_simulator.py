@@ -238,8 +238,8 @@ def simulate_data(n):
     f = pattern_class_map[c]
     for i in range(n):
       normalized_data = [normalize_timeseries(f())]
-      normalize_data = torch.tensor(np.array(normalized_data), dtype=torch.float32)
+      normalized_data = torch.tensor(np.array(normalized_data), dtype=torch.float32)
       data.append(normalized_data)
       label.append(c)
-  return MpcDataset(data, label)
+  return data, label
 

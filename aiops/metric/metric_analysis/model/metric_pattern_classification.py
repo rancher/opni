@@ -1,12 +1,16 @@
-from model.cnn_model import MpcModel
+from model.cnn_model import MpcModel, MpcDataset
 from model.data_simulator import simulate_data 
 from model.utils import normalize_timeseries
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+from envvars import MODEL_PATH
+from typing import List
 
-device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+gpu_available = torch.cuda.is_available()
+device = torch.device("cuda" if gpu_available else 'cpu')
+
 
 class_map = {
       0: "type1_level_shift_up",
@@ -26,7 +30,8 @@ class_map = {
 
 def train_model():
     batch_size = 32
-    train_data = simulate_data(1000)
+    train_x, train_y = simulate_data(1000)
+    train_data = MpcDataset(train_x, train_y) 
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     total_batch = len(train_loader)
     n_epoch = 400 
@@ -60,21 +65,27 @@ def train_model():
 
         ## eval?
 
-    torch.save(model.state_dict() ,"model.pth")
+    torch.save(model.state_dict() ,MODEL_PATH)
     return model
 
-def eval_model(test_data = None):
+def eval_model(test_x = None, test_y = None, simulate_data_n: int=100):
     '''
     evaluate trained model. Should only be invoked after model training
+    test_x: a list of torch.Tensor() or numpy array
     '''
-    if not test_data:
-        test_data = simulate_data(100)
+    if test_x is None:
+        test_x, test_y = simulate_data(simulate_data_n)
+    test_x = [torch.tensor(np.array([normalize_timeseries(t)]), dtype=torch.float32) for t in test_x] 
+    test_data = MpcDataset(test_x, test_y)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False)
     num_correct, num_total = 0, 0
     mistakes = []
     model = MpcModel()
     model = model.to(device)
-    model.load_state_dict(torch.load("model.pth"))
+    if gpu_available:
+        model.load_state_dict(torch.load(MODEL_PATH))
+    else:
+        model.load_state_dict(torch.load(MODEL_PATH , map_location=torch.device('cpu')))
     model.eval()
 
     with torch.no_grad():
@@ -93,10 +104,13 @@ def eval_model(test_data = None):
     print(f"mistakes : {mistakes}")
     print(len(mistakes))
     print(num_total)
+    return accuracy
 
-def predict(pred_data):
+def predict(pred_data: List[List[float]]) -> List[str]:
     '''
     model prediction.
+    Input:
+    @pred_data: List of timeseries. 
     '''
     # shape the data as model requires -- (n , 1 , 60)
     pred_data = [torch.tensor(np.array([normalize_timeseries(p)]), dtype=torch.float32) for p in pred_data] 
@@ -105,7 +119,10 @@ def predict(pred_data):
     test_loader = DataLoader(pred_data, batch_size=1, shuffle=False)
     model = MpcModel()
     model = model.to(device)
-    model.load_state_dict(torch.load("model.pth" , map_location=torch.device('cpu')))
+    if gpu_available:
+        model.load_state_dict(torch.load(MODEL_PATH))
+    else:
+        model.load_state_dict(torch.load(MODEL_PATH , map_location=torch.device('cpu')))
     model.eval()
     res = []
 

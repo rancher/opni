@@ -7,10 +7,8 @@ metadata:
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:
-  {{- if .Values.gateway.alerting.enabled }}
   alerting:
-    enabled: {{ .Values.gateway.alerting.enabled }}
-  {{- end}}
+    enabled:  {{ .Values.gateway.alerting.enabled }}
   hostname: {{ .Values.gateway.hostname }}
   serviceType: {{ .Values.gateway.serviceType }}
   {{- if .Values.gateway.storageType }}

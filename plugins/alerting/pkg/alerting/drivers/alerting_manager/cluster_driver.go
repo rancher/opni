@@ -129,7 +129,7 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 		}
 		clone := existing.DeepCopy()
 		mutator(clone)
-		lg.Debugf("updated alerting spec : %v", existing.Spec.Alerting)
+		lg.Debugf("updated alerting spec : %v", clone.Spec.Alerting)
 		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 			patch.IgnoreStatusFields(),
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
@@ -141,12 +141,10 @@ func (a *AlertingManager) ConfigureCluster(ctx context.Context, conf *alertops.C
 			}
 		}
 		lg.Debug("Done cacluating external reconcile.")
-		return a.K8sClient.Update(ctx, clone)
+		return a.K8sClient.Patch(ctx, existing, client.RawPatch(types.MergePatchType, cmp.Patch))
 	})
 	if retryErr != nil {
 		lg.Errorf("%s", retryErr)
-	}
-	if retryErr != nil {
 		return nil, retryErr
 	}
 
@@ -178,13 +176,31 @@ func (a *AlertingManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty
 
 func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	existing := a.newOpniGateway()
+	lg := a.Logger.With("action", "install-cluster")
+
+	mutator := func(gateway *corev1beta1.Gateway) {
+		gateway.Spec.Alerting.Enabled = true
+	}
+
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err
 		}
-		existing.Spec.Alerting.Enabled = true
-		return a.K8sClient.Update(ctx, existing)
+		clone := existing.DeepCopy()
+		mutator(clone)
+		lg.Debugf("updated alerting spec : %v", clone.Spec.Alerting)
+		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
+			patch.IgnoreStatusFields(),
+			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
+			patch.IgnorePDBSelector(),
+		)
+		if err == nil {
+			if cmp.IsEmpty() {
+				return status.Error(codes.FailedPrecondition, "no changes to apply")
+			}
+		}
+		return a.K8sClient.Patch(ctx, existing, client.RawPatch(types.MergePatchType, cmp.Patch))
 	})
 	if retryErr != nil {
 		return nil, retryErr
@@ -206,8 +222,9 @@ func (a *AlertingManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) 
 }
 
 func (a *AlertingManager) UninstallCluster(ctx context.Context, _ *alertops.UninstallRequest) (*emptypb.Empty, error) {
+	existing := a.newOpniGateway()
+
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		existing := a.newOpniGateway()
 		err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
 		if err != nil {
 			return err

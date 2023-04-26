@@ -39,32 +39,14 @@ func (r *ImageResolver) GetAgentImages(ctx context.Context, _ *emptypb.Empty) (*
 	}, nil
 }
 
-type defaultImageResolverDriver struct {
-	image string
-	tag   string
+var (
+	imageResolverBuilderCache = map[string]func(...any) (ResolveImageDriver, error){}
+)
+
+func RegisterImageResolverBuilder[T ~string](name T, builder func(...any) (ResolveImageDriver, error)) {
+	imageResolverBuilderCache[string(name)] = builder
 }
 
-func NewDefaultResolveImageDriver(image string, tag string) ResolveImageDriver {
-	return &defaultImageResolverDriver{
-		image: image,
-		tag:   tag,
-	}
-}
-
-func (d *defaultImageResolverDriver) GetImageRepository(_ context.Context) string {
-	if d.image == "" {
-		return "example.io/opni"
-	}
-	return d.image
-}
-
-func (d *defaultImageResolverDriver) GetImageTag(_ context.Context) string {
-	if d.tag == "" {
-		return "latest"
-	}
-	return d.tag
-}
-
-func (d *defaultImageResolverDriver) UseMinimalImage() bool {
-	return true
+func GetImageResolverBuilder[T ~string](name T) func(...any) (ResolveImageDriver, error) {
+	return imageResolverBuilderCache[string(name)]
 }

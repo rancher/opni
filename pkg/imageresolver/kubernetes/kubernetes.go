@@ -2,11 +2,13 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/imageresolver"
 	"github.com/rancher/opni/pkg/versions"
 	"k8s.io/client-go/rest"
@@ -104,4 +106,26 @@ func (d *kubernetesResolveImageDriver) GetImageTag(_ context.Context) string {
 
 func (d *kubernetesResolveImageDriver) UseMinimalImage() bool {
 	return d.tag == ""
+}
+
+func init() {
+	imageresolver.RegisterImageResolverBuilder(
+		v1beta1.ImageResolverTypeKubernetes,
+		func(args ...any) (imageresolver.ResolveImageDriver, error) {
+			namespace := args[0].(string)
+			tag := args[1].(string)
+
+			var opts []kubernetesResolveImageDriverOption
+			for _, arg := range args[2:] {
+				switch v := arg.(type) {
+				case *rest.Config:
+					opts = append(opts, WithRestConfig(v))
+				default:
+					return nil, fmt.Errorf("unexpected argument: %v", arg)
+				}
+			}
+
+			return NewKubernetesResolveImageDriver(namespace, tag, opts...)
+		},
+	)
 }

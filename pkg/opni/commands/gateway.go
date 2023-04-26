@@ -27,6 +27,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
+	_ "github.com/rancher/opni/pkg/imageresolver/kubernetes"
+	_ "github.com/rancher/opni/pkg/imageresolver/noop"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
 	_ "github.com/rancher/opni/pkg/storage/crds"
 	_ "github.com/rancher/opni/pkg/storage/etcd"

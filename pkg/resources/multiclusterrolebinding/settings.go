@@ -41,105 +41,6 @@ var (
 		Backoff: "exponential",
 		Delay:   "1m",
 	}
-	OpniLogPolicy = opensearchtypes.ISMPolicySpec{
-		ISMPolicyIDSpec: &opensearchtypes.ISMPolicyIDSpec{
-			PolicyID:   LogPolicyName,
-			MarshallID: false,
-		},
-		Description:  "Opni policy with hot-warm-cold workflow",
-		DefaultState: "hot",
-		States: []opensearchtypes.StateSpec{
-			{
-				Name: "hot",
-				Actions: []opensearchtypes.ActionSpec{
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							Rollover: &opensearchtypes.RolloverOperation{
-								MinIndexAge: "1d",
-								MinSize:     "20gb",
-							},
-						},
-					},
-				},
-				Transitions: []opensearchtypes.TransitionSpec{
-					{
-						StateName: "warm",
-					},
-				},
-			},
-			{
-				Name: "warm",
-				Actions: []opensearchtypes.ActionSpec{
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							ReplicaCount: &opensearchtypes.ReplicaCountOperation{
-								NumberOfReplicas: 0,
-							},
-						},
-					},
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							IndexPriority: &opensearchtypes.IndexPriorityOperation{
-								Priority: 50,
-							},
-						},
-					},
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							ForceMerge: &opensearchtypes.ForceMergeOperation{
-								MaxNumSegments: 1,
-							},
-						},
-					},
-				},
-				Transitions: []opensearchtypes.TransitionSpec{
-					{
-						StateName: "cold",
-						Conditions: &opensearchtypes.ConditionSpec{
-							MinIndexAge: "2d",
-						},
-					},
-				},
-			},
-			{
-				Name: "cold",
-				Actions: []opensearchtypes.ActionSpec{
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							ReadOnly: &opensearchtypes.ReadOnlyOperation{},
-						},
-					},
-				},
-				Transitions: []opensearchtypes.TransitionSpec{
-					{
-						StateName: "delete",
-						Conditions: &opensearchtypes.ConditionSpec{
-							MinIndexAge: "7d",
-						},
-					},
-				},
-			},
-			{
-				Name: "delete",
-				Actions: []opensearchtypes.ActionSpec{
-					{
-						ActionOperation: &opensearchtypes.ActionOperation{
-							Delete: &opensearchtypes.DeleteOperation{},
-						},
-					},
-				},
-				Transitions: make([]opensearchtypes.TransitionSpec, 0),
-			},
-		},
-		ISMTemplate: []opensearchtypes.ISMTemplateSpec{
-			{
-				IndexPatterns: []string{
-					fmt.Sprintf("%s*", LogIndexPrefix),
-				},
-				Priority: 100,
-			},
-		},
-	}
 
 	clusterIndexRole = opensearchtypes.RoleSpec{
 		RoleName: "cluster_index",
@@ -477,6 +378,11 @@ func (r *Reconciler) logISMPolicy() opensearchtypes.ISMPolicySpec {
 							},
 						},
 						Retry: &indices.DefaultRetry,
+					},
+					{
+						ActionOperation: &opensearchtypes.ActionOperation{
+							ReadWrite: &opensearchtypes.ReadWriteOperation{},
+						},
 					},
 				},
 				Transitions: []opensearchtypes.TransitionSpec{

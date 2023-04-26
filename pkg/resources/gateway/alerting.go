@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/nats"
@@ -246,7 +245,7 @@ func (r *Reconciler) newAlertingCluster(
 			Labels:    deployLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(replicas),
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deployLabels,
 			},

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	// "k8s.io/apimachinery/pkg/runtime"
 )
 
 type podMonitorScrapeConfigRetriever struct {
@@ -28,12 +28,14 @@ type podMonitorScrapeConfigRetriever struct {
 	// current namespace the collector is defined in.
 	// it should only discoverer secrets for TLS/auth in this namespace.
 	namespace string
+	discovery monitoringv1beta1.PrometheusDiscovery
 }
 
 func NewPodMonitorScrapeConfigRetriever(
 	logger *zap.SugaredLogger,
 	client client.Client,
 	namespace string,
+	discovery monitoringv1beta1.PrometheusDiscovery,
 ) ScrapeConfigRetriever {
 	return &podMonitorScrapeConfigRetriever{
 		client:    client,
@@ -46,25 +48,51 @@ func (p *podMonitorScrapeConfigRetriever) Name() string {
 	return "podMonitor"
 }
 
-func (p podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, retErr error) {
-	listOptions := &client.ListOptions{
-		Namespace: metav1.NamespaceAll,
-	}
+func (p *podMonitorScrapeConfigRetriever) resolvePodMonitor(ns []string) (*promoperatorv1.PodMonitorList, error) {
 	podMonitorList := &promoperatorv1.PodMonitorList{}
-	err := p.client.List(
-		context.TODO(),
-		podMonitorList,
-		listOptions,
-	)
+	if len(ns) == 0 {
+		listOptions := &client.ListOptions{
+			Namespace: metav1.NamespaceAll,
+		}
+		err := p.client.List(
+			context.TODO(),
+			podMonitorList,
+			listOptions,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return podMonitorList, nil
+	} else {
+		for _, n := range ns {
+			listOptions := &client.ListOptions{
+				Namespace: n,
+			}
+			err := p.client.List(
+				context.TODO(),
+				podMonitorList,
+				listOptions,
+			)
+			if err != nil {
+				p.logger.Warnf("failed to list pod monitors %s", err)
+				continue
+			}
+			podMonitorList.Items = append(podMonitorList.Items, podMonitorList.Items...)
+		}
+	}
+	return &promoperatorv1.PodMonitorList{}, nil
+}
+
+func (p *podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, retErr error) {
+	podMonitorList, err := p.resolvePodMonitor(p.discovery.NamespaceSelector)
 	if err != nil {
-		p.logger.Warnf("failed to list pod monitors %s", err)
 		return nil, err
 	}
 	pMons := lo.Associate(podMonitorList.Items, func(item *promoperatorv1.PodMonitor) (string, *promoperatorv1.PodMonitor) {
 		return item.ObjectMeta.Name + "-" + item.ObjectMeta.Namespace, item
 	})
 
-	// jobName -> scrapeConfig
+	// jobName -> scrapeConfigs
 	cfgMap := jobs{}
 	secretRes := []SecretResolutionConfig{}
 	p.logger.Infof("found %d pod monitors", len(pMons))

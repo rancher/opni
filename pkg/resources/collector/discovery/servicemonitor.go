@@ -13,6 +13,7 @@ import (
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promcommon "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -30,17 +31,20 @@ type serviceMonitorScrapeConfigRetriever struct {
 	// current namespace the collector is defined in.
 	// it should only discoverer secrets for TLS/auth in this namespace.
 	namespace string
+	discovery monitoringv1beta1.PrometheusDiscovery
 }
 
 func NewServiceMonitorScrapeConfigRetriever(
 	logger *zap.SugaredLogger,
 	client client.Client,
 	namespace string,
+	discovery monitoringv1beta1.PrometheusDiscovery,
 ) ScrapeConfigRetriever {
 	return &serviceMonitorScrapeConfigRetriever{
 		client:    client,
 		logger:    logger,
 		namespace: namespace,
+		discovery: discovery,
 	}
 }
 
@@ -48,19 +52,40 @@ func (s *serviceMonitorScrapeConfigRetriever) Name() string {
 	return "serviceMonitor"
 }
 
-func (s *serviceMonitorScrapeConfigRetriever) findServiceMonitors() (map[string]*promoperatorv1.ServiceMonitor, error) {
-	listOptions := &client.ListOptions{
-		Namespace: metav1.NamespaceAll,
-	}
+func (s *serviceMonitorScrapeConfigRetriever) findServiceMonitors(ns []string) (map[string]*promoperatorv1.ServiceMonitor, error) {
 	serviceMonitorList := &promoperatorv1.ServiceMonitorList{}
-	err := s.client.List(
-		context.TODO(),
-		serviceMonitorList,
-		listOptions,
-	)
-	if err != nil {
-		return nil, err
+	if len(ns) == 0 {
+		listOptions := &client.ListOptions{
+			Namespace: metav1.NamespaceAll,
+		}
+		svcList := &promoperatorv1.ServiceMonitorList{}
+		err := s.client.List(
+			context.TODO(),
+			svcList,
+			listOptions,
+		)
+		if err != nil {
+			return nil, err
+		}
+		serviceMonitorList = svcList
+	} else {
+		for _, n := range ns {
+			listOptions := &client.ListOptions{
+				Namespace: n,
+			}
+			svcList := &promoperatorv1.ServiceMonitorList{}
+			err := s.client.List(
+				context.TODO(),
+				svcList,
+				listOptions,
+			)
+			if err != nil {
+				s.logger.Warn("failed to list service monitors: %s", err)
+			}
+			serviceMonitorList.Items = append(serviceMonitorList.Items, svcList.Items...)
+		}
 	}
+
 	return lo.Associate(serviceMonitorList.Items, func(item *promoperatorv1.ServiceMonitor) (string, *promoperatorv1.ServiceMonitor) {
 		return item.ObjectMeta.Name + "-" + item.ObjectMeta.Namespace, item
 	}), nil
@@ -335,7 +360,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 }
 
 func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, retErr error) {
-	sMons, err := s.findServiceMonitors()
+	sMons, err := s.findServiceMonitors(s.discovery.NamespaceSelector)
 	if err != nil {
 		return nil, err
 	}

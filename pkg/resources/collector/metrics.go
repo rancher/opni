@@ -49,6 +49,7 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 		RemoteWriteEndpoint: "",
 		WALDir:              walDir,
 	}
+
 	if r.collector.Spec.MetricsConfig != nil {
 		var metricsConfig monitoringv1beta1.CollectorConfig
 		err := r.client.Get(r.ctx, types.NamespacedName{
@@ -62,6 +63,17 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 		config.Enabled = true
 		config.RemoteWriteEndpoint = metricsConfig.Spec.RemoteWriteEndpoint
 		config.Spec = &metricsConfig.Spec.OtelSpec
+		r.PrometheusDiscovery = lo.ToPtr(
+			promdiscover.NewPrometheusDiscovery(
+				r.logger.With("component", "prometheus-discovery"),
+				r.client,
+				r.collector.Spec.SystemNamespace,
+				metricsConfig.Spec.PrometheusDiscovery,
+			),
+		)
+	}
+	if !config.Enabled {
+		r.PrometheusDiscovery = nil
 	}
 	return
 }
@@ -71,17 +83,8 @@ func (r *Reconciler) withPrometheusCrdDiscovery(
 	*otel.MetricsConfig,
 	[]discovery.SecretResolutionConfig,
 ) {
-	if !config.Enabled {
-		r.PrometheusDiscovery = nil
-		return config, []discovery.SecretResolutionConfig{}
-	}
 	if r.PrometheusDiscovery == nil {
-		r.PrometheusDiscovery = lo.ToPtr(
-			promdiscover.NewPrometheusDiscovery(
-				r.logger.With("component", "prometheus-discovery"),
-				r.client,
-				r.collector.Spec.SystemNamespace,
-			))
+		return config, []discovery.SecretResolutionConfig{}
 	}
 	discStr, secrets, err := r.discoveredScrapeCfg(config)
 	if err != nil {
@@ -92,7 +95,7 @@ func (r *Reconciler) withPrometheusCrdDiscovery(
 }
 
 func (r *Reconciler) discoveredScrapeCfg(
-	_ *otel.MetricsConfig, // TODO : eventually this config will drive selector config for SD
+	cfg *otel.MetricsConfig, // TODO : eventually this config will drive selector config for SD
 ) (
 	retCfg string,
 	secrets []discovery.SecretResolutionConfig,

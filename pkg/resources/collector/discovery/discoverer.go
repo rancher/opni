@@ -9,6 +9,8 @@ import (
 	"time"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
+
 	promcommon "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/relabel"
@@ -102,12 +104,13 @@ func NewPrometheusDiscovery(
 	logger *zap.SugaredLogger,
 	client client.Client,
 	namespace string,
+	discovery monitoringv1beta1.PrometheusDiscovery,
 ) PrometheusDiscovery {
 	return PrometheusDiscovery{
 		logger: logger,
 		retrievers: []ScrapeConfigRetriever{
-			NewServiceMonitorScrapeConfigRetriever(logger, client, namespace),
-			NewPodMonitorScrapeConfigRetriever(logger, client, namespace),
+			NewServiceMonitorScrapeConfigRetriever(logger, client, namespace, discovery),
+			NewPodMonitorScrapeConfigRetriever(logger, client, namespace, discovery),
 		},
 	}
 }

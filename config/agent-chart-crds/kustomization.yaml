@@ -1,8 +1,0 @@
-# namespace: opni-system
-namePrefix: opni-
-bases:
-  - ../agent-crd
-
-#patchesStrategicMerge:
-#- patches/webhook_in_logadapters.yaml
-#- patches/cainjection_in_logadapters.yaml

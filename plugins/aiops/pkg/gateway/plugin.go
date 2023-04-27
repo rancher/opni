@@ -2,8 +2,8 @@ package gateway
 
 import (
 	"context"
-	"os"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"

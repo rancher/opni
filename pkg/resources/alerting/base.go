@@ -81,6 +81,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.controllerAlertingPorts(),
 		requiredVolumes,
 		requiredPersistentClaims,
+		1,
 	)
 
 	workerService, workerWorkers := r.newAlertingCluster(
@@ -91,6 +92,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.nodeAlertingPorts(),
 		requiredVolumes,
 		requiredPersistentClaims,
+		lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)-1,
 	)
 	ctrl.SetControllerReference(r.ac, controllerService, r.client.Scheme())
 	ctrl.SetControllerReference(r.ac, controllerWorkers, r.client.Scheme())
@@ -125,7 +127,7 @@ func (r *Reconciler) alertmanagerControllerArgs() []string {
 }
 
 func (r *Reconciler) alertmanagerWorkerArgs() []string {
-	return []string{
+	base := []string{
 		fmt.Sprintf("--config.file=%s", r.configPath()),
 		fmt.Sprintf("--storage.path=%s", dataMountPath),
 		fmt.Sprintf("--log.level=%s", "info"),
@@ -137,6 +139,11 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 		),
 		fmt.Sprintf("--opni.listen-address=:%d", 3000),
 	}
+	base = append(
+		base,
+		r.ac.Spec.Alertmanager.ApplicationSpec.ExtraArgs...,
+	)
+	return base
 }
 
 func (r *Reconciler) syncerArgs() []string {
@@ -275,6 +282,7 @@ func (r *Reconciler) newAlertingCluster(
 	alertManagerPorts []corev1.ContainerPort,
 	volumes []corev1.Volume,
 	persistentClaims []corev1.PersistentVolumeClaim,
+	replicas int32,
 ) (*corev1.Service, *appsv1.StatefulSet) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -296,7 +304,7 @@ func (r *Reconciler) newAlertingCluster(
 			Labels:    deployLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(int32(1)),
+			Replicas: lo.ToPtr(replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deployLabels,
 			},

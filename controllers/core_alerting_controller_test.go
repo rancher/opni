@@ -174,7 +174,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 					},
 				})).Should(ExistAnd(
 					HaveOwner(cl),
-					HaveReplicaCount(1),
+					HaveReplicaCount(2),
 					HaveMatchingContainer(And(
 						HaveName("opni-syncer"),
 						HavePorts("syncer-port"),

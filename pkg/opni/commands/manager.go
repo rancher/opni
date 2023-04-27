@@ -140,6 +140,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.CoreAlertingReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Core AlertingCluster")
+			return err
+		}
+
 		if err = (&opensearchcontrollers.OpenSearchClusterReconciler{
 			Client:   mgr.GetClient(),
 			Scheme:   mgr.GetScheme(),

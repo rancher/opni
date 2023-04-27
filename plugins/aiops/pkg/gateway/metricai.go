@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"fmt"
 
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/nats-io/nats.go"
@@ -19,9 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const serverUrl = "http://metric-ai-service:8090" // URL of the python metric-ai service
-const jobRunDelimiter = "="                       // delimiter that splits jobid and suffix, in order to save in natsKV
-const dashboardNamePrefix = "metricai-"
+const (
+	serverUrl = "http://metric-ai-service:8090" // URL of the python metric-ai service
+	jobRunDelimiter = "="                       // delimiter that splits jobid and suffix, in order to save in natsKV
+	dashboardNamePrefix = "metricai-"
+	timeout = 10*time.Second
+)
 
 var dashboardSelector = &metav1.LabelSelector{
 	MatchLabels: map[string]string{
@@ -101,16 +105,15 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
 	// For the UI to list clusters. Returns cluster_id 
 
-    timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	httpClient := &http.Client{Timeout: timeout}
 	// make the http request with context
-	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+"/get_users", nil)
+	url := serverUrl + "/get_users"
+	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %v", err)
 	}
@@ -126,16 +129,15 @@ func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metr
 func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
 	// For the UI to list namespaces of a given cluster. Returns a list of namespaces
     
-    timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	httpClient := &http.Client{Timeout: timeout}
 	// make the http request with context
-	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+"/list_namespace/"+clusterId.Id, nil)
+	url := serverUrl +"/list_namespace/"+clusterId.Id
+	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url , nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %v", err)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListNamespaces for metricAI: %v", err)
 	}
@@ -182,8 +184,9 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 		return nil, status.Errorf(codes.NotFound, "Failed to ListJobRuns for metricAI: %v", err)
 	}
 	var jobRunIdArray []string
+	// use jobId.Id + jobRunDelimiter to uniquely identify jobrun IDs for different jobs.
 	for _, j := range jobruns {
-		if strings.HasPrefix(j, jobId.Id+jobRunDelimiter) {
+		if strings.HasPrefix(j, jobId.Id + jobRunDelimiter) {
 			jobRunIdArray = append(jobRunIdArray, j)
 		}
 
@@ -193,16 +196,15 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 
 func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAIId) (*metricai.MetricAIRunJobResponse, error) {
     // run a job. Post a request to the python metric-ai service.
-	timeout := 10 * time.Second
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	httpClient := &http.Client{Timeout: timeout}
 	// make the http request with context
-	req, err := http.NewRequestWithContext(ctxca, "GET", serverUrl+"/run_job/"+jobRequest.Id, nil)
+	url := serverUrl+ "/run_job/"+ jobRequest.Id
+	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to RunJob for metricAI: %v", err)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to RunJob for metricAI: %v", err)
 	}
@@ -236,7 +238,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
 	if strings.Contains(jid, jobRunDelimiter) { // disallow the delimiter. TODO: should only allow chars include alphanum and - and _
 		return nil, &RequestError{
 			StatusCode: 503,
-			Err:        errors.New("jobId can't contain special char " + jobRunDelimiter),
+			Err:        errors.New(fmt.Sprintf("jobId can't contain special char %s" ,jobRunDelimiter)),
 		}
 	}
 
@@ -283,7 +285,7 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
 		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %v", err)
 	}
 	metricAIKeyValue.Delete(jid)
-	return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobId key :" + jid + " is deleted"}, nil
+	return &metricai.MetricAIAPIResponse{Status: "Success", Description: fmt.Sprintf("The JobId key %s is deleted", jid)}, nil
 }
 
 // delete a job_run of a job. Won't delete the job itself.
@@ -305,7 +307,7 @@ func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.Metri
 		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
 	}
 	metricAIKeyValue.Delete(jid)
-	return &metricai.MetricAIAPIResponse{Status: "Success", Description: "The JobRunId key :" + jid + " is deleted"}, nil
+	return &metricai.MetricAIAPIResponse{Status: "Success", Description: fmt.Sprintf("The JobRunId key :%s is deleted", jid)}, nil
 }
 
 // Grab the result of a job run from natsKV

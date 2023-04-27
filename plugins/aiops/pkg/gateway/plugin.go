@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"os"
+	"net/http"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
@@ -33,6 +35,7 @@ type AIOpsPlugin struct {
 	ctx             context.Context
 	Logger          *zap.SugaredLogger
 	k8sClient       client.Client
+	httpClient      *http.Client
 	osClient        future.Future[*opensearch.Client]
 	natsConnection  future.Future[*nats.Conn]
 	aggregationKv   future.Future[nats.KeyValue]
@@ -114,6 +117,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		panic(err)
 	}
 
+	httpCli := &http.Client{Timeout: 10 * time.Second}
+
 	return &AIOpsPlugin{
 		PluginOptions:   options,
 		Logger:          logger.NewPluginLogger().Named("AIOps"),
@@ -126,6 +131,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		metricAIRunKv:   future.New[nats.KeyValue](),
 		osClient:        future.New[*opensearch.Client](),
 		k8sClient:       cli,
+		httpClient:      httpCli,
 	}
 }
 

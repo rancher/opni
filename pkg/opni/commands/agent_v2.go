@@ -28,6 +28,8 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 
+	_ "github.com/rancher/opni/pkg/agent/upgrader/kubernetes"
+	_ "github.com/rancher/opni/pkg/agent/upgrader/noop"
 	_ "github.com/rancher/opni/pkg/ident/kubernetes"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
 	_ "github.com/rancher/opni/pkg/storage/crds"

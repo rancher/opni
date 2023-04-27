@@ -21,6 +21,10 @@ stringData:
       keyring:
         ephemeralKeyDirs:
           - /run/opni-agent/keyring
+      upgrader:
+        type: kubernetes
+        kubernetes:
+          namespace: {{ .Release.Namespace }}
       bootstrap:
         {{- if .Values.bootstrapInCluster.enabled }}
         inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}

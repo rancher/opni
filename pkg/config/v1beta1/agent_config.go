@@ -33,12 +33,13 @@ type AgentConfigSpec struct {
 	// gateway server. Defaults to "pkp".
 	TrustStrategy TrustStrategyKind `json:"trustStrategy,omitempty"`
 	// Configuration for agent keyring storage.
-	Storage   StorageSpec    `json:"storage,omitempty"`
-	Rules     *RulesSpec     `json:"rules,omitempty"`
-	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
-	LogLevel  string         `json:"logLevel,omitempty"`
-	Plugins   PluginsSpec    `json:"plugins,omitempty"`
-	Keyring   KeyringSpec    `json:"keyring,omitempty"`
+	Storage   StorageSpec      `json:"storage,omitempty"`
+	Rules     *RulesSpec       `json:"rules,omitempty"`
+	Bootstrap *BootstrapSpec   `json:"bootstrap,omitempty"`
+	LogLevel  string           `json:"logLevel,omitempty"`
+	Plugins   PluginsSpec      `json:"plugins,omitempty"`
+	Keyring   KeyringSpec      `json:"keyring,omitempty"`
+	Upgrader  AgentUpgradeSpec `json:"upgrader,omitempty"`
 }
 
 type BootstrapSpec struct {
@@ -59,6 +60,22 @@ type BootstrapSpec struct {
 	// List of paths to CA Certs. Used when the trust strategy is "cacerts".
 	// If empty, the system certs will be used.
 	CACerts []string `json:"caCerts,omitempty"`
+}
+
+type AgentUpgradeType string
+
+const (
+	AgentUpgradeNoop       AgentUpgradeType = "noop"
+	AgentUpgradeKubernetes AgentUpgradeType = "kubernetes"
+)
+
+type AgentUpgradeSpec struct {
+	Type       AgentUpgradeType       `json:"type,omitempty"`
+	Kubernetes *KubernetesUpgradeSpec `json:"kubernetes,omitempty"`
+}
+
+type KubernetesUpgradeSpec struct {
+	Namespace string `json:"namespace,omitempty"`
 }
 
 func (s *AgentConfigSpec) ContainsBootstrapCredentials() bool {

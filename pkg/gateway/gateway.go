@@ -224,7 +224,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}
 
 	// set up image resolver service
-	imageResolverServer, err := machinery.ConfigureImageResolver(ctx, &conf.Spec.ImageResolver)
+	imageResolverServer, err := machinery.ConfigureImageResolver(&conf.Spec.ImageResolver)
 	if err != nil {
 		lg.With(
 			zap.Error(err),

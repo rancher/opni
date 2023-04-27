@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/pkg/agent/upgrader"
 	"github.com/rancher/opni/pkg/ident/identserver"
 	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/versions"
@@ -73,6 +74,7 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
+	upgrader         upgrader.AgentUpgrader
 
 	healthzMu *sync.Mutex
 	healthz   *uint32
@@ -181,6 +183,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		}
 		setupPluginRoutes(lg, routerMutex, router, cfg, md, []string{"/healthz", "/metrics"})
 	}))
+
+	upgrader, err := machinery.ConfigureAgentUpgrader(&conf.Spec.Upgrader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure upgrader: %w", err)
+	}
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer initCancel()
@@ -308,6 +315,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		keyringStore:     ks,
 		trust:            trust,
 		gatewayClient:    gatewayClient,
+		upgrader:         upgrader,
 
 		healthzMu: healthzMu,
 		healthz:   healthz,
@@ -321,6 +329,12 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		var manifests *controlv1.PluginManifest
 		for ctx.Err() == nil {
 			var err error
+			// check for upgrades to the agent
+			err = a.maybeUpgradeAgent(ctx)
+			if err != nil {
+				return fmt.Errorf("error upgrading agent: %w", err)
+			}
+			// next upgrade plugins
 			manifests, err = a.syncPlugins(ctx)
 			if err != nil {
 				switch status.Code(err) {
@@ -529,4 +543,22 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, r
 	}
 
 	return syncResp.DesiredState, nil
+}
+
+func (a *Agent) maybeUpgradeAgent(ctx context.Context) error {
+	a.Logger.Info("checking for agent upgrades")
+	if imageChecker, ok := a.upgrader.(upgrader.AgentImageUpgrader); ok {
+		imageChecker.CreateGatewayClient(a.gatewayClient.ClientConn())
+	}
+	required, err := a.upgrader.UpgradeRequired(ctx)
+	if err != nil {
+		return err
+	}
+
+	if required {
+		a.Logger.Info("upgrading agent")
+		return a.upgrader.DoUpgrade(ctx)
+	}
+
+	return nil
 }

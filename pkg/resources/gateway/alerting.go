@@ -97,7 +97,7 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 }
 
 func (r *Reconciler) syncerArgs() []string {
-	_, gatewayPort, _ := net.SplitHostPort(strings.TrimPrefix(r.gw.Spec.Management.GRPCListenAddress, "tcp://"))
+	_, gatewayPort, _ := net.SplitHostPort(strings.TrimPrefix(r.gw.Spec.Management.GetGRPCListenAddress(), "tcp://"))
 	return []string{
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", r.configPath()),
 		fmt.Sprintf("--syncer.listen.address=:%d", 4000),

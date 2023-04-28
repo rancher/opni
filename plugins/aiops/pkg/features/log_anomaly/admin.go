@@ -1,4 +1,4 @@
-package gateway
+package log_anomaly
 
 import (
 	"context"
@@ -64,16 +64,16 @@ var (
 	}
 )
 
-func (s *AIOpsPlugin) getPretrainedModel(ctx context.Context, modelType pretrainedModelType) (*admin.PretrainedModel, error) {
+func (s *LogAnomaly) getPretrainedModel(ctx context.Context, modelType pretrainedModelType) (*admin.PretrainedModel, error) {
 	_, ok := DefaultModelSources[modelType]
 	if !ok {
 		err := status.Error(codes.InvalidArgument, "invalid model type")
 		return nil, err
 	}
 	model := &aiv1beta1.PretrainedModel{}
-	err := s.k8sClient.Get(ctx, types.NamespacedName{
+	err := s.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      modelObjectName(modelType),
-		Namespace: s.storageNamespace,
+		Namespace: s.StorageNamespace,
 	}, model)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -103,7 +103,7 @@ func (s *AIOpsPlugin) getPretrainedModel(ctx context.Context, modelType pretrain
 	}, nil
 }
 
-func (s *AIOpsPlugin) putPretrainedModel(
+func (s *LogAnomaly) putPretrainedModel(
 	ctx context.Context,
 	modelType pretrainedModelType,
 	model *admin.PretrainedModel,
@@ -117,12 +117,12 @@ func (s *AIOpsPlugin) putPretrainedModel(
 	modelObject := &aiv1beta1.PretrainedModel{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      modelObjectName(modelType),
-			Namespace: s.storageNamespace,
+			Namespace: s.StorageNamespace,
 		},
 	}
 
 	exists := true
-	err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(modelObject), modelObject)
+	err := s.K8sClient.Get(ctx, client.ObjectKeyFromObject(modelObject), modelObject)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return nil, err
@@ -132,25 +132,25 @@ func (s *AIOpsPlugin) putPretrainedModel(
 
 	if exists {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(modelObject), modelObject)
+			err := s.K8sClient.Get(ctx, client.ObjectKeyFromObject(modelObject), modelObject)
 			if err != nil {
 				return err
 			}
 			updateModelSpec(modelType, model, modelObject)
-			return s.k8sClient.Update(ctx, modelObject)
+			return s.K8sClient.Update(ctx, modelObject)
 		})
 		return &emptypb.Empty{}, err
 	}
 
 	updateModelSpec(modelType, model, modelObject)
-	return &emptypb.Empty{}, s.k8sClient.Create(ctx, modelObject)
+	return &emptypb.Empty{}, s.K8sClient.Create(ctx, modelObject)
 }
 
-func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*admin.AISettings, error) {
+func (s *LogAnomaly) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*admin.AISettings, error) {
 	opni := &aiv1beta1.OpniCluster{}
-	err := s.k8sClient.Get(ctx, types.NamespacedName{
+	err := s.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      OpniServicesName,
-		Namespace: s.storageNamespace,
+		Namespace: s.StorageNamespace,
 	}, opni)
 
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 	}, nil
 }
 
-func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISettings) (*emptypb.Empty, error) {
+func (s *LogAnomaly) PutAISettings(ctx context.Context, settings *admin.AISettings) (*emptypb.Empty, error) {
 	models := []corev1.LocalObjectReference{}
 	if settings.GetControlplane() != nil {
 		models = append(models, corev1.LocalObjectReference{
@@ -235,7 +235,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		}
 	}
 
-	version := s.version
+	version := s.Version
 	if versions.Version != "" && versions.Version != "unversioned" {
 		version = versions.Version
 	}
@@ -244,7 +244,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 	opniCluster := &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniServicesName,
-			Namespace: s.storageNamespace,
+			Namespace: s.StorageNamespace,
 		},
 		Spec: aiv1beta1.OpniClusterSpec{
 			NatsRef: corev1.LocalObjectReference{
@@ -258,13 +258,13 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 					Enabled: lo.ToPtr(false),
 				},
 			},
-			Opensearch: s.opensearchCluster,
+			Opensearch: s.OpensearchCluster,
 			S3: aiv1beta1.S3Spec{
 				Internal: &aiv1beta1.InternalSpec{},
 			},
 		},
 	}
-	err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+	err := s.K8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return nil, err
@@ -277,40 +277,40 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
 		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
 
-		return &emptypb.Empty{}, s.k8sClient.Create(ctx, opniCluster)
+		return &emptypb.Empty{}, s.K8sClient.Create(ctx, opniCluster)
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+		err := s.K8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 		if err != nil {
 			return err
 		}
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
 		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
-		return s.k8sClient.Update(ctx, opniCluster)
+		return s.K8sClient.Update(ctx, opniCluster)
 	})
 	return &emptypb.Empty{}, err
 }
 
-func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := s.k8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
+func (s *LogAnomaly) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	err := s.K8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniServicesName,
-			Namespace: s.storageNamespace,
+			Namespace: s.StorageNamespace,
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	err = s.k8sClient.DeleteAllOf(ctx, &aiv1beta1.PretrainedModel{}, client.InNamespace(s.storageNamespace))
+	err = s.K8sClient.DeleteAllOf(ctx, &aiv1beta1.PretrainedModel{}, client.InNamespace(s.StorageNamespace))
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*admin.UpgradeAvailableResponse, error) {
-	version := s.version
+func (s *LogAnomaly) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*admin.UpgradeAvailableResponse, error) {
+	version := s.Version
 	if versions.Version != "" && versions.Version != "unversioned" {
 		version = versions.Version
 	}
@@ -319,9 +319,9 @@ func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*
 		return nil, err
 	}
 	opniCluster := &aiv1beta1.OpniCluster{}
-	err = s.k8sClient.Get(ctx, types.NamespacedName{
+	err = s.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      OpniServicesName,
-		Namespace: s.storageNamespace,
+		Namespace: s.StorageNamespace,
 	}, opniCluster)
 	if err != nil {
 		return nil, err
@@ -337,8 +337,8 @@ func (s *AIOpsPlugin) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*
 	}, nil
 }
 
-func (s *AIOpsPlugin) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	version := s.version
+func (s *LogAnomaly) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	version := s.Version
 	if versions.Version != "" && versions.Version != "unversioned" {
 		version = versions.Version
 	}
@@ -350,10 +350,10 @@ func (s *AIOpsPlugin) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb
 	opniCluster := &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniServicesName,
-			Namespace: s.storageNamespace,
+			Namespace: s.StorageNamespace,
 		},
 	}
-	err = s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+	err = s.K8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 	if err != nil {
 		return nil, err
 	}
@@ -368,19 +368,19 @@ func (s *AIOpsPlugin) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+		err := s.K8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 		if err != nil {
 			return err
 		}
 		opniCluster.Spec.Version = "v" + strings.TrimPrefix(version, "v")
-		return s.k8sClient.Update(ctx, opniCluster)
+		return s.K8sClient.Update(ctx, opniCluster)
 	})
 	return &emptypb.Empty{}, err
 }
 
-func (s *AIOpsPlugin) GetRuntimeClasses(ctx context.Context, _ *emptypb.Empty) (*admin.RuntimeClassResponse, error) {
+func (s *LogAnomaly) GetRuntimeClasses(ctx context.Context, _ *emptypb.Empty) (*admin.RuntimeClassResponse, error) {
 	runtimeClasses := &nodev1.RuntimeClassList{}
-	if err := s.k8sClient.List(ctx, runtimeClasses); err != nil {
+	if err := s.K8sClient.List(ctx, runtimeClasses); err != nil {
 		return nil, err
 	}
 

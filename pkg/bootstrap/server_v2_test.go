@@ -15,6 +15,8 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
@@ -29,11 +31,10 @@ import (
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 )
 
-var _ = Describe("Server V2", func() {
+var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 	var token *corev1.BootstrapToken
 	var token2 *corev1.BootstrapToken
 	var cert *tls.Certificate
@@ -45,9 +46,9 @@ var _ = Describe("Server V2", func() {
 	BeforeEach(func() {
 		ctx, ca := context.WithCancel(context.Background())
 		DeferCleanup(ca)
-		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
-		mockClusterStore = test.NewTestClusterStore(ctrl)
-		mockKeyringStoreBroker = test.NewTestKeyringStoreBroker(ctrl)
+		mockTokenStore = mock_storage.NewTestTokenStore(ctx, ctrl)
+		mockClusterStore = mock_storage.NewTestClusterStore(ctrl)
+		mockKeyringStoreBroker = mock_storage.NewTestKeyringStoreBroker(ctrl)
 
 		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
 			storage.WithLabels(map[string]string{"foo": "bar"}),
@@ -57,7 +58,7 @@ var _ = Describe("Server V2", func() {
 
 	JustBeforeEach(func() {
 		var err error
-		crt, err := tls.X509KeyPair(test.TestData("self_signed_leaf.crt"), test.TestData("self_signed_leaf.key"))
+		crt, err := tls.X509KeyPair(testdata.TestData("self_signed_leaf.crt"), testdata.TestData("self_signed_leaf.key"))
 		Expect(err).NotTo(HaveOccurred())
 		crt.Leaf, err = x509.ParseCertificate(crt.Certificate[0])
 		Expect(err).NotTo(HaveOccurred())
@@ -125,6 +126,7 @@ var _ = Describe("Server V2", func() {
 						jsonData, err := json.Marshal(rawToken)
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+						Expect(err).NotTo(HaveOccurred())
 						ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
 
 						_, err = client.Auth(ctx, &bootstrapv2.BootstrapAuthRequest{})
@@ -301,7 +303,7 @@ var _ = Describe("Server V2", func() {
 						_, err = client.Auth(ctx, &authReq)
 						Expect(err).NotTo(HaveOccurred())
 
-						_, err = client.Auth(test.InjectStorageError(ctx, errors.New("test error")), &authReq)
+						_, err = client.Auth(mock_storage.InjectStorageError(ctx, errors.New("test error")), &authReq)
 						Expect(err).To(HaveOccurred())
 						Expect(util.StatusCode(err)).To(Equal(codes.Unavailable))
 					})

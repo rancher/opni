@@ -21,7 +21,7 @@ func sloCortexGroupsToCheck(groupName string) []string {
 	}
 }
 
-func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
+func expectSLOGroupToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) {
 	var anyError error
 	var wg sync.WaitGroup
 	groupsToCheck := sloCortexGroupsToCheck(groupName)
@@ -31,7 +31,7 @@ func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx contex
 		groupToCheck := group
 		go func() {
 			defer wg.Done()
-			if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
+			if err := expectRuleGroupToExist(ctx, adminClient, tenant, groupToCheck); err != nil {
 				anyError = err
 			}
 		}()
@@ -40,7 +40,7 @@ func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx contex
 	Expect(anyError).Should(BeNil())
 }
 
-func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
+func expectSLOGroupNotToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) {
 	var anyError error
 	var wg sync.WaitGroup
 	groupsToCheck := sloCortexGroupsToCheck(groupName)
@@ -50,7 +50,7 @@ func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx con
 		groupToCheck := group
 		go func() {
 			defer wg.Done()
-			if err := expectRuleGroupNotToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
+			if err := expectRuleGroupNotToExist(ctx, adminClient, tenant, groupToCheck); err != nil {
 				anyError = err
 			}
 		}()
@@ -60,7 +60,7 @@ func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx con
 }
 
 // potentially "long" running function, call asynchronously
-func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+func expectRuleGroupToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,
@@ -77,7 +77,7 @@ func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx conte
 }
 
 // potentially "long" running function, call asynchronously
-func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+func expectRuleGroupNotToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
 			ClusterId: tenant,

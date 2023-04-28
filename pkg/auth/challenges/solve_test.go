@@ -8,7 +8,7 @@ import (
 	authutil "github.com/rancher/opni/pkg/auth/util"
 )
 
-var _ = Describe("Challenge", func() {
+var _ = Describe("Challenge", Label("unit"), func() {
 	seen := map[string]struct{}{}
 	DescribeTable("It should solve challenges with different parameters",
 		func(challenge, id, clientRand string, key []byte, domain string) {

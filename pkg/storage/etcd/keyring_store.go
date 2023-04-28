@@ -1,5 +1,3 @@
-//go:build !noetcd
-
 package etcd
 
 import (
@@ -15,7 +13,6 @@ import (
 )
 
 type etcdKeyringStore struct {
-	EtcdStoreOptions
 	client *clientv3.Client
 	ref    *corev1.Reference
 	prefix string

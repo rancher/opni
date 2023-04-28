@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -21,15 +22,10 @@ import (
 
 func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*v1.Details, error) {
 	// Info must not block
-	var drivers []string
-	if m.Initialized() {
-		drivers = append(drivers, m.ClusterDriver.Name())
-	}
-
 	return &v1.Details{
 		Name:    wellknown.CapabilityMetrics,
 		Source:  "plugin_metrics",
-		Drivers: drivers,
+		Drivers: drivers.ClusterDrivers.List(),
 	}, nil
 }
 
@@ -99,7 +95,7 @@ func (m *MetricsBackend) Status(_ context.Context, req *corev1.Reference) (*v1.N
 	defer m.nodeStatusMu.RUnlock()
 
 	if status, ok := m.nodeStatus[req.Id]; ok {
-		return status, nil
+		return util.ProtoClone(status), nil
 	}
 
 	return nil, status.Error(codes.NotFound, "no status has been reported for this node")

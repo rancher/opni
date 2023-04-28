@@ -1,4 +1,4 @@
-//go:build !noalertmanager
+//go:build !minimal
 
 package commands
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
+	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
@@ -25,9 +26,9 @@ func (a *Agent) configureRuleFinder() (notifier.Finder[rules.RuleGroup], error) 
 			if err != nil {
 				return nil, fmt.Errorf("failed to create k8s client: %w", err)
 			}
-			finder := rules.NewPrometheusRuleFinder(client,
-				rules.WithLogger(a.logger),
-				rules.WithNamespaces(pr.SearchNamespaces...),
+			finder := prometheusrule.NewPrometheusRuleFinder(client,
+				prometheusrule.WithLogger(a.logger),
+				prometheusrule.WithNamespaces(pr.SearchNamespaces...),
 			)
 			return finder, nil
 		} else if a.config.Rules.Discovery.Filesystem != nil {

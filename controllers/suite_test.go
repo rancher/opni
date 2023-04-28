@@ -14,14 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controllers_test
 
 import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,37 +33,45 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
 	"github.com/rancher/opni/pkg/test/freeport"
-	"github.com/rancher/opni/pkg/test/testutil"
+	_ "github.com/rancher/opni/pkg/test/setup"
+	"github.com/rancher/opni/pkg/test/testk8s"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
+	"go.uber.org/zap/zapcore"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/test"
 	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+// http://onsi.github.io/ginkgo/ to learn more about
 
 var (
 	// all processes
 	k8sClient client.Client
-	certMgr   *test.TestCertManager
+	certMgr   *testk8s.TestCertManager
 	scheme    = apis.NewScheme()
 
 	// process 1 only
@@ -85,12 +97,12 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	logf.SetLogger(testutil.NewTestLogger())
+	logf.SetLogger(NewTestLogger())
 	port := freeport.GetFreePort()
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		Scheme: scheme,
-		CRDs:   test.DownloadCertManagerCRDs(scheme),
+		CRDs:   testk8s.GetCertManagerCRDs(scheme),
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
 			"../config/crd/logging",
@@ -113,30 +125,30 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		},
 	}
 
-	certMgr = &test.TestCertManager{}
+	certMgr = &testk8s.TestCertManager{}
 
-	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
-		&GpuPolicyAdapterReconciler{},
-		&LoggingReconciler{},
-		&CoreGatewayReconciler{},
-		&CoreMonitoringReconciler{},
-		&LoggingDataPrepperReconciler{},
-		&LoggingLogAdapterReconciler{},
-		&AIOpniClusterReconciler{
+	stopEnv, k8sManager, k8sClient = RunTestEnvironment(testEnv, true, false,
+		&controllers.GpuPolicyAdapterReconciler{},
+		&controllers.LoggingReconciler{},
+		&controllers.CoreGatewayReconciler{},
+		&controllers.CoreMonitoringReconciler{},
+		&controllers.LoggingDataPrepperReconciler{},
+		&controllers.LoggingLogAdapterReconciler{},
+		&controllers.AIOpniClusterReconciler{
 			Opts: []opnicluster.ReconcilerOption{
 				opnicluster.WithContinueOnIndexError(),
 				opnicluster.WithCertManager(certMgr),
 			},
 		},
-		&LoggingOpniOpensearchReconciler{
+		&controllers.LoggingOpniOpensearchReconciler{
 			Opts: []opniopensearch.ReconcilerOption{
 				opniopensearch.WithCertManager(certMgr),
 			},
 		},
-		&AIPretrainedModelReconciler{},
-		&NatsClusterReonciler{},
-		&CoreCollectorReconciler{},
-		&LoggingPreprocessorReconciler{
+		&controllers.AIPretrainedModelReconciler{},
+		&controllers.NatsClusterReonciler{},
+		&controllers.CoreCollectorReconciler{},
+		&controllers.LoggingPreprocessorReconciler{
 			Opts: []preprocessor.ReconcilerOption{
 				preprocessor.WithCertManager(certMgr),
 			},
@@ -173,7 +185,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	DeferCleanup(func() {
 		By("tearing down the test environment")
 		stopEnv()
-		test.ExternalResources.Wait()
+		ExternalResources.Wait()
 	})
 	return configBytes
 }, func(configBytes []byte) {
@@ -375,4 +387,161 @@ func marshal(hp map[string]intstr.IntOrString) string {
 	b, err := json.MarshalIndent(hp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 	return string(b)
+}
+
+type Reconciler interface {
+	SetupWithManager(ctrl.Manager) error
+}
+
+var ExternalResources sync.WaitGroup
+
+func RunTestEnvironment(
+	testEnv *envtest.Environment,
+	runControllerManager bool,
+	externalEnv bool,
+	reconcilers ...Reconciler,
+) (stop context.CancelFunc, k8sManager ctrl.Manager, k8sClient client.Client) {
+	if !externalEnv && len(reconcilers) == 0 {
+		panic("no reconcilers")
+	}
+	var ctx context.Context
+	ctx, stop = context.WithCancel(ctrl.SetupSignalHandler())
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+	ExternalResources.Add(1)
+
+	go func() {
+		defer GinkgoRecover()
+		defer ExternalResources.Done()
+		<-ctx.Done()
+		err := testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	if runControllerManager {
+		StartControllerManager(ctx, testEnv)
+	}
+
+	scheme := apis.NewScheme()
+
+	ports := freeport.GetFreePorts(2)
+
+	// add the opnicluster manager
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
+		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).NotTo(BeNil())
+
+	for _, rec := range reconcilers {
+		Expect(rec.SetupWithManager(k8sManager)).NotTo(HaveOccurred())
+	}
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	err = k8sClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "opnicluster-test",
+		},
+	})
+	Expect(err).Should(Or(BeNil(), WithTransform(errors.IsAlreadyExists, BeTrue())))
+
+	err = k8sClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "opnidemo-test",
+		},
+	})
+	Expect(err).Should(Or(BeNil(), WithTransform(errors.IsAlreadyExists, BeTrue())))
+
+	err = k8sClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "logadapter-test",
+		},
+	})
+	Expect(err).Should(Or(BeNil(), WithTransform(errors.IsAlreadyExists, BeTrue())))
+	return
+}
+
+var defaultControllers = []string{
+	"cronjob",
+	"daemonset",
+	"deployment",
+	"garbagecollector",
+	"namespace",
+	"replicaset",
+	"service",
+	"serviceaccount",
+	"statefulset",
+}
+
+func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
+	cfg := testEnv.Config
+	controllerMgrBin := path.Join(testEnv.BinaryAssetsDirectory, "kube-controller-manager")
+
+	apiCfg := api.Config{
+		Clusters: map[string]*api.Cluster{
+			"default": {
+				Server:                   cfg.Host,
+				CertificateAuthorityData: cfg.CAData,
+			},
+		},
+		Contexts: map[string]*api.Context{
+			"default": {
+				Cluster:  "default",
+				AuthInfo: "default",
+			},
+		},
+		AuthInfos: map[string]*api.AuthInfo{
+			"default": {
+				ClientCertificateData: cfg.CertData,
+				ClientKeyData:         cfg.KeyData,
+				Token:                 cfg.BearerToken,
+				Username:              cfg.Username,
+				Password:              cfg.Password,
+			},
+		},
+		CurrentContext: "default",
+	}
+	port := freeport.GetFreePort()
+	clientcmd.WriteToFile(apiCfg, path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"))
+	cmd := exec.CommandContext(ctx, controllerMgrBin,
+		"--kubeconfig", path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"),
+		"--controllers", strings.Join(defaultControllers, ","),
+		"--leader-elect=false",
+		"--bind-address=127.0.0.1",
+		fmt.Sprintf("--secure-port=%d", port),
+		"--enable-garbage-collector",
+		"--concurrent-gc-syncs=40",
+	)
+	cmd.Stdout = GinkgoWriter
+	cmd.Stderr = GinkgoWriter
+	go func() {
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+		ExternalResources.Add(1)
+		defer ExternalResources.Done()
+		if err := cmd.Wait(); err != nil {
+			fmt.Fprintln(GinkgoWriter, err)
+		}
+	}()
+}
+
+func NewTestLogger() logr.Logger {
+	return zap.New(
+		zap.Level(zapcore.InfoLevel),
+		zap.WriteTo(GinkgoWriter),
+		zap.UseDevMode(false),
+		zap.Encoder(zapcore.NewConsoleEncoder(k8sutil.EncoderConfig)),
+	)
 }

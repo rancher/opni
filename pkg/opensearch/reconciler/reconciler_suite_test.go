@@ -1,4 +1,4 @@
-package reconciler
+package reconciler_test
 
 import (
 	"crypto/tls"
@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 func TestResources(t *testing.T) {
@@ -26,7 +27,7 @@ func (m *mockCertReader) GetHTTPRootCAs() (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func (m *mockCertReader) GetClientCert(user string) (tls.Certificate, error) {
+func (m *mockCertReader) GetClientCert(_ string) (tls.Certificate, error) {
 	return tls.Certificate{}, nil
 }
 

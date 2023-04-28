@@ -99,7 +99,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.9.2-rc3",
+		version: "v0.9.2",
 	}
 	options.apply(opts...)
 

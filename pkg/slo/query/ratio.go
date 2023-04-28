@@ -12,7 +12,6 @@ import (
 	"text/template"
 
 	"github.com/prometheus/client_golang/prometheus"
-	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type RatioQuery struct {
@@ -63,11 +62,11 @@ func (rq RatioQuery) IsHistogram() bool {
 	return false
 }
 
-func (rq RatioQuery) Construct(serv *api.ServiceInfo) (string, error) {
+func (rq RatioQuery) Construct(serv ServiceInfo) (string, error) {
 	return rq.FillQueryTemplate(templateExecutor{
-		MetricIdGood:  serv.MetricIdGood,
-		MetricIdTotal: serv.MetricIdTotal,
-		JobId:         serv.JobId,
+		MetricIdGood:  serv.GetMetricIdGood(),
+		MetricIdTotal: serv.GetMetricIdTotal(),
+		JobId:         serv.GetJobId(),
 	})
 }
 

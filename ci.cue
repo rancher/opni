@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/images"
 )
 
-opniVersion: "0.9.2-rc3"
+opniVersion: "0.9.2"
 
 dagger.#Plan & {
 	client: {
@@ -147,9 +147,14 @@ dagger.#Plan & {
 					args: ["-v", target] + targetArgs
 				}
 				export: directories: {
-					"/opt":             _
-					"/src/bin":         _
-					"/src/bin/plugins": _
+					if target == "all" || target == "minimal" {
+						"/opt":             _
+						"/src/bin":         _
+						"/src/bin/plugins": _
+					}
+					if target == "buildLinter" {
+						"/src/internal/linter": _
+					}
 					if target == "chartsv" {
 						"/src/charts": _
 						"/src/assets": _
@@ -168,10 +173,14 @@ dagger.#Plan & {
 			target: "chartsv"
 			targetArgs: [client.env.CHARTS_VERSION]
 		}
+		#_linterBuild: #_build & {
+			target: "buildLinter"
+		}
 
 		_defaultBuild: #_defaultBuild
 		_minimalBuild: #_minimalBuild
 		_chartsBuild:  #_chartsBuild
+		_linterBuild:  #_linterBuild
 
 		build:        _defaultBuild
 		minimalBuild: _minimalBuild
@@ -256,6 +265,12 @@ dagger.#Plan & {
 				sourceBuild: _minimalBuild
 			}
 			image: _out.output
+		}
+
+		lint: mage.#Run & {
+			input: _linterBuild.output
+			mageArgs: ["-v", "lint"]
+			always: true
 		}
 
 		// Build docker images and load them into the local docker daemon

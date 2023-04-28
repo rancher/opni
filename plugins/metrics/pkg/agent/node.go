@@ -138,7 +138,7 @@ func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.D
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityMetrics,
 		Source:  "plugin_metrics",
-		Drivers: drivers.ListNodeDrivers(),
+		Drivers: drivers.NodeDrivers.List(),
 	}, nil
 }
 

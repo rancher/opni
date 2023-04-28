@@ -5,4 +5,5 @@ const (
 	CapabilityMetrics  = "metrics"
 	CapabilityTraces   = "traces"
 	CapabilityTopology = "topology"
+	CapabilityExample  = "example"
 )

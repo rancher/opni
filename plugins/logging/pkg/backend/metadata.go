@@ -3,13 +3,14 @@ package backend
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"go.uber.org/zap"
-	"os"
-	"time"
 )
 
 func (b *LoggingBackend) waitForOpensearchClient(ctx context.Context) error {
@@ -28,7 +29,10 @@ CHECK:
 		case <-expBackoff.Done():
 			return fmt.Errorf("context cancelled before client was set")
 		case <-expBackoff.Next():
-			if b.OpensearchManager.Client != nil {
+			b.OpensearchManager.Lock()
+			client := b.OpensearchManager.Client
+			b.OpensearchManager.Unlock()
+			if client != nil {
 				break CHECK
 			} else {
 				b.Logger.Errorf("opensearch client not set, waiting")
@@ -81,7 +85,7 @@ func (b *LoggingBackend) watchClusterEvents(ctx context.Context) {
 outer:
 	for {
 		select {
-		case <-ctx.Done():
+		case <-clusterClient.Context().Done():
 			b.Logger.Infof("context cancelled, stoping cluster event watcher")
 			break outer
 		default:

@@ -1,8 +1,7 @@
 run:
-  tests: false
+  tests: true
   timeout: 5m
   skip-dirs:
-    - test
     - pkg/test/mock
     - pkg/test/testdata
   skip-files:
@@ -15,33 +14,37 @@ linters:
     - revive
     - ineffassign
     - gofmt
+    - opni
 linters-settings:
+  custom:
+    opni:
+      path: internal/linter/linter.so
   revive:
     ignore-generated-header: false
     severity: warning
     rules:
-    - name: atomic
-    - name: context-as-argument
-    - name: context-keys-type
-    - name: empty-block
-    - name: errorf
-    - name: error-naming
-    - name: error-return
-    - name: error-strings
-    - name: imports-blacklist
-      arguments: ["grpc.go4.org/**", "github.com/gogo/status","github.com/gogo/codes"]
-    - name: increment-decrement
-    - name: indent-error-flow
-    - name: package-comments
-    - name: range
-    - name: receiver-naming
-    - name: redefines-builtin-id
-    - name: time-naming
-    - name: unexported-return
-    - name: unnecessary-stmt
-    - name: unreachable-code
-    - name: unused-parameter
-    - name: useless-break
-    - name: var-declaration
-    - name: waitgroup-by-value
- 
+      - name: atomic
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: empty-block
+      - name: errorf
+      - name: error-naming
+      - name: error-return
+      - name: error-strings
+      - name: imports-blacklist
+        arguments:
+          ["grpc.go4.org/**", "github.com/gogo/status", "github.com/gogo/codes"]
+      - name: increment-decrement
+      # - name: indent-error-flow
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: redefines-builtin-id
+      - name: time-naming
+      - name: unexported-return
+      - name: unnecessary-stmt
+      - name: unreachable-code
+      - name: unused-parameter
+      - name: useless-break
+      - name: var-declaration
+      - name: waitgroup-by-value

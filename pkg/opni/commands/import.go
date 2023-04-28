@@ -1,18 +1,19 @@
-//go:build !noplugins
+//go:build !minimal
 
 package commands
 
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	v1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strings"
-	"time"
 )
 
 func parseLabelMatcher(s string) (*remoteread.LabelMatcher, error) {

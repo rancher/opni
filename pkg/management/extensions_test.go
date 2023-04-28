@@ -12,6 +12,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -304,7 +305,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				Expect(err).NotTo(HaveOccurred())
 				resp.Body.Close()
 				msg := string(body)
-				test.Log.Debugf("code: %d, msg: %s", resp.StatusCode, msg)
+				testlog.Log.Debugf("code: %d, msg: %s", resp.StatusCode, msg)
 				if req.err != nil {
 					Expect(resp.StatusCode).To(Equal(400))
 					Expect(msg).To(Equal(req.err))

@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 )
 
 type ClusterDriver interface {
-	Name() string
 	AdminPassword(context.Context) ([]byte, error)
 	NewOpensearchClientForCluster(context.Context) *opensearch.Client
 	GetCluster(context.Context) (*loggingadmin.OpensearchClusterV2, error)
@@ -18,3 +18,5 @@ type ClusterDriver interface {
 	DoUpgrade(ctx context.Context, opniVersion string) error
 	GetStorageClasses(context.Context) ([]string, error)
 }
+
+var Drivers = driverutil.NewDriverCache[ClusterDriver]()

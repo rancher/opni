@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/storage"
 )
 
 var _ = Describe("RBAC Provider", Ordered, Label("unit"), func() {
@@ -46,8 +46,8 @@ var _ = Describe("RBAC Provider", Ordered, Label("unit"), func() {
 		ctrl = gomock.NewController(GinkgoT())
 	})
 	DescribeTable("Subject Access", func(objects rbacObjects, subject string, expected ...string) {
-		rbacStore = test.NewTestRBACStore(ctrl)
-		clusterStore := test.NewTestClusterStore(ctrl)
+		rbacStore = mock_storage.NewTestRBACStore(ctrl)
+		clusterStore := mock_storage.NewTestClusterStore(ctrl)
 		for _, cluster := range clusters {
 			err := clusterStore.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())

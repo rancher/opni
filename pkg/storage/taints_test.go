@@ -6,10 +6,10 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/mock/storage"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("Taints", Ordered, Label("unit"), func() {
@@ -19,7 +19,7 @@ var _ = Describe("Taints", Ordered, Label("unit"), func() {
 	})
 	When("A referenced role is missing", func() {
 		It("should apply the relevant taint", func() {
-			store := test.NewTestRBACStore(ctrl)
+			store := mock_storage.NewTestRBACStore(ctrl)
 			rb := &corev1.RoleBinding{
 				Id:       "test",
 				RoleId:   "test",
@@ -43,7 +43,7 @@ var _ = Describe("Taints", Ordered, Label("unit"), func() {
 	})
 	When("A role binding has no subjects", func() {
 		It("should apply the relevant taint", func() {
-			store := test.NewTestRBACStore(ctrl)
+			store := mock_storage.NewTestRBACStore(ctrl)
 			err := store.CreateRole(context.Background(), &corev1.Role{
 				Id:         "test",
 				ClusterIDs: []string{"foo"},

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -186,12 +187,20 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 	completedActions := []RunSpec{}
 
 	for _, run := range rt.spec.Actions {
+		run := run
 		if len(actions) > 0 {
 			if !slices.Contains(actions, run.Name) {
 				continue
 			}
 		} else if run.Explicit {
 			continue
+		}
+
+		if rt.spec.Parallel {
+			run.Run.NumCompilers = runtime.NumCPU() / len(rt.spec.Actions)
+		} else if run.Run.Parallel {
+			run.Run.NumCompilers = runtime.NumCPU() / 2
+			run.Run.Procs = runtime.NumCPU() / 2
 		}
 		name, args, err := run.CommandLine()
 		if err != nil {

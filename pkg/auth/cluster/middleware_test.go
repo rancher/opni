@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/auth"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/util/streams"
 	"golang.org/x/exp/slices"
@@ -40,7 +40,7 @@ var _ = Describe("Cluster Auth Middleware", Ordered, Label("unit"), func() {
 	var testClient testgrpc.StreamServiceClient
 	var clientId string
 	var expectedMetadata []string
-	serverChallengeHandler := test.NewTestChallengeHandler(
+	serverChallengeHandler := mock_auth.NewTestChallengeHandler(
 		func(ss streams.Stream) (context.Context, error) {
 			md, ok := metadata.FromIncomingContext(ss.Context())
 			if !ok {
@@ -64,7 +64,7 @@ var _ = Describe("Cluster Auth Middleware", Ordered, Label("unit"), func() {
 
 			return context.WithValue(ss.Context(), contextValue, msg.Request), nil
 		})
-	clientChallengeHandler := test.NewTestChallengeHandler(
+	clientChallengeHandler := mock_auth.NewTestChallengeHandler(
 		func(cs streams.Stream) (context.Context, error) {
 			md, ok := metadata.FromOutgoingContext(cs.Context())
 			if !ok {

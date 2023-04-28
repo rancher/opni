@@ -3,9 +3,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/x509"
-	"errors"
 	"fmt"
-	"os"
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -19,7 +17,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"k8s.io/client-go/rest"
 )
 
 type ClientConfig struct {
@@ -27,8 +24,6 @@ type ClientConfig struct {
 	Token         *tokens.Token
 	Endpoint      string
 	DialOpts      []grpc.DialOption
-	K8sConfig     *rest.Config
-	K8sNamespace  string
 	TrustStrategy trust.Strategy
 }
 
@@ -102,22 +97,6 @@ func (c *ClientConfig) Bootstrap(
 		keys = append(keys, k)
 	}
 	return keyring.New(keys...), nil
-}
-
-func (c *ClientConfig) Finalize(ctx context.Context) error {
-	if c.K8sConfig == nil {
-		return nil
-	}
-
-	ns := c.K8sNamespace
-	if ns == "" {
-		if nsEnv, ok := os.LookupEnv("POD_NAMESPACE"); ok {
-			ns = nsEnv
-		} else {
-			return errors.New("POD_NAMESPACE not set, and no namespace was explicitly configured")
-		}
-	}
-	return eraseBootstrapTokensFromConfig(ctx, c.K8sConfig, ns)
 }
 
 func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.BootstrapJoinResponse, *x509.Certificate, error) {

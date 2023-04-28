@@ -18,6 +18,7 @@ import (
 	promcfg "github.com/prometheus/prometheus/config"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
@@ -70,7 +71,7 @@ var _ = Describe("Otel template functions", Label("unit"), func() {
 var _ = Describe("Otel config template generation", Label("unit"), Ordered, func() {
 	var t *template.Template
 	BeforeAll(func() {
-		t = util.Must(otel.OTELTemplates.ParseFS(test.TestDataFS, "testdata/otel/*.tmpl"))
+		t = util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/*.tmpl"))
 	})
 	When("we use the base templates...", func() {
 		Specify("with metrics enabled", func() {
@@ -157,7 +158,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 		}
 	}
 	BeforeAll(func() {
-		t = util.Must(otel.OTELTemplates.ParseFS(test.TestDataFS, "testdata/otel/*.tmpl"))
+		t = util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/*.tmpl"))
 	})
 
 	When("we use the node template", func() {

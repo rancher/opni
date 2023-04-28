@@ -279,6 +279,14 @@ dagger.#Plan & {
 			}
 		}
 
+		aiopsload: {
+			aiopsmetricai: cli.#Load & {
+				image: actions.aiopsmetricai.build.output
+				host:  client.network."unix:///var/run/docker.sock".connect
+				tag:   "\(client.env.REPO)/metric-ai-service:\(client.env.TAG)"
+			}
+		}
+
 		// Run unit and integration tests
 		test: mage.#Run & {
 			input: build.output
@@ -607,6 +615,47 @@ dagger.#Plan & {
 			push: docker.#Push & {
 				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
 				image: opensearchUpdateService.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
+		}
+
+		aiopsmetricai: {
+			build: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "rancher/opni-python-base:3.8-torch"
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "aiops/metric/requirements.txt"
+						dest:     "./requirements.txt"
+					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install","--no-cache-dir", "-r", "./requirements.txt"]
+						}
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "aiops/metric/metric_analysis"
+						dest:     "."
+					},
+					docker.#Set & {
+						config: {
+							cmd: ["uvicorn", "main:app","--host", "0.0.0.0", "--port", "8090"]
+						}
+					},
+				]
+			}
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/metric-ai-service:\(client.env.TAG)"
+				image: build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
 						username: client.env.DOCKER_USERNAME

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/rancher/opni/internal/generators";
+option go_package = "github.com/rancher/opni/internal/cli";
 package cli;
 
 import "google/protobuf/descriptor.proto";
@@ -12,6 +12,7 @@ extend google.protobuf.FileOptions {
 
 extend google.protobuf.FieldOptions {
   FlagOptions flag = 25601;
+  FlagSetOptions flag_set = 25602;
 }
 
 extend google.protobuf.ServiceOptions {
@@ -23,9 +24,10 @@ extend google.protobuf.MethodOptions {
 }
 
 enum ClientDependencyInjectionStrategy {
-  InjectAsArgument = 0;
-  InjectIntoContext = 1;
+  InjectIntoContext = 0;
+  InjectAsArgument = 1;
 }
+
 message GeneratorOptions {
   bool generate = 1;
   ClientDependencyInjectionStrategy client_dependency_injection = 2;
@@ -33,6 +35,12 @@ message GeneratorOptions {
 
 message FlagOptions {
   string default = 1;
+  string env = 2;
+  bool secret = 3;
+}
+
+message FlagSetOptions {
+  google.protobuf.Any default = 1;
 }
 
 message CommandGroupOptions {

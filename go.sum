@@ -2221,8 +2221,8 @@ github.com/kralicky/logging-operator/pkg/sdk/logging/model/syslogng/config v0.0.
 github.com/kralicky/logging-operator/pkg/sdk/logging/model/syslogng/config v0.0.0-20230206225216-304d63447c1f/go.mod h1:D1mP9WmbDIlqMHPoTKc9ibjlFVX8cEnu7ch4NgEXc+w=
 github.com/kralicky/protobuf-go v0.0.0-20230320172414-3920b92ef96f h1:+RY6TSuQ0aqHIC3WUigslTv7NuAnsst8i/ujoFJQ3+U=
 github.com/kralicky/protobuf-go v0.0.0-20230320172414-3920b92ef96f/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
-github.com/kralicky/ragu v1.0.0-rc7 h1:btH691AyX3npK5G9jHTTDTPSnlC/kbULwZf0PQCLBFk=
-github.com/kralicky/ragu v1.0.0-rc7/go.mod h1:10zjXJpEuDTr5wCP/SFHPYnpF30EpSCr1Ij3FO/34vw=
+github.com/kralicky/ragu v1.0.8 h1:ADXOGKo/FE3kededS+WeI2cOmKMn3f/mm+sAUN7qFCE=
+github.com/kralicky/ragu v1.0.8/go.mod h1:10zjXJpEuDTr5wCP/SFHPYnpF30EpSCr1Ij3FO/34vw=
 github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105 h1:kXjWMmgEai6YOl0hGJpOnhHIMSLgo+Plbfw+gKCKABQ=
 github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105/go.mod h1:qp6R4XKeuJk2j8nHke4Y9rBEpc2HkCjXR/gssL3OpOU=
 github.com/kralicky/totem v1.1.15 h1:NyR9PV75k25D0onXmC67i6Zv0job4ZDQvtirGH0FFeU=

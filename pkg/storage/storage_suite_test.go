@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 func TestStorage(t *testing.T) {

@@ -10,17 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/test/freeport"
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 func TestOpenid(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Openid Suite")
 }

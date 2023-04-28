@@ -1,4 +1,4 @@
-package controllers
+package controllers_test
 
 import (
 	"context"

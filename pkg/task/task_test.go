@@ -6,19 +6,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("Task", Ordered, Label("unit"), func() {
 	var store task.KVStore
 
 	BeforeAll(func() {
-		store = test.NewTestKeyValueStore(ctrl, util.ProtoClone[*corev1.TaskStatus])
+		store = mock_storage.NewTestKeyValueStore(ctrl, util.ProtoClone[*corev1.TaskStatus])
 	})
 
 	newController := func(ctx context.Context, ch chan any) *task.Controller {
@@ -129,6 +129,7 @@ var _ = Describe("Task", Ordered, Label("unit"), func() {
 			err = controller.LaunchTask("test4", task.WithMetadata(SampleTaskConfig{
 				Limit: 2,
 			}), task.WithStateCallback(endState))
+			Expect(err).NotTo(HaveOccurred())
 
 			By("completing half the task")
 			Eventually(input).Should(BeSent("foo"))
@@ -150,6 +151,7 @@ var _ = Describe("Task", Ordered, Label("unit"), func() {
 			err = controller.LaunchTask("test4", task.WithMetadata(SampleTaskConfig{
 				Limit: 2,
 			}), task.WithStateCallback(endState))
+			Expect(err).NotTo(HaveOccurred())
 
 			By("completing half the task")
 			Eventually(input).Should(BeSent("bar"))

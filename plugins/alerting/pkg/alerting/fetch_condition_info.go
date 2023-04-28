@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -182,10 +183,10 @@ func (p *Plugin) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertT
 			if clusterHasKubeStateMetrics(ctx, adminClient, cl) {
 				rawKubeStateSeries, err := adminClient.ExtractRawSeries(ctx, &cortexadmin.MatcherRequest{
 					Tenant:    cl.Id,
-					MatchExpr: metrics.KubeObjMetricNameMatcher,
+					MatchExpr: naming.KubeObjMetricNameMatcher,
 				})
 				if err != nil {
-					lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.KubeObjMetricNameMatcher, err)
+					lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, naming.KubeObjMetricNameMatcher, err)
 					return
 				}
 				result := gjson.Get(string(rawKubeStateSeries.Data), "data.result")
@@ -211,7 +212,7 @@ func (p *Plugin) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertT
 					namespace := seriesInfoMap["namespace"].String()
 					//phase := seriesInfo["phase"].String()
 
-					objType := metrics.KubeObjTypeExtractor.FindStringSubmatch(name)[1]
+					objType := naming.KubeObjTypeExtractor.FindStringSubmatch(name)[1]
 					if objType == "namespace" {
 						continue // namespaces don't have a state to monitor
 					}

@@ -1,18 +1,19 @@
-//go:build !noplugins
+//go:build !minimal
 
 package commands
 
 import (
 	"context"
+	"math"
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"math"
-	"strings"
-	"time"
 )
 
 const (

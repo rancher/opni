@@ -7,13 +7,11 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
-	"github.com/rancher/opni/apis"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -23,6 +21,7 @@ import (
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
@@ -38,7 +37,6 @@ import (
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
-	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 )
 
@@ -153,35 +151,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		),
 	}
 
-	switch restconfig, err := rest.InClusterConfig(); {
-	case options.restconfig != nil:
-		backendDriver, managementDriver, err := createKubernetesDrivers(
-			options.restconfig,
-			options.opensearchCluster,
-			lg.Named("cluster-driver"),
-		)
-		if err != nil {
-			panic(err)
-		}
-		p.backendDriver = backendDriver
-		p.managementDriver = managementDriver
-	case err == nil:
-		backendDriver, managementDriver, err := createKubernetesDrivers(
-			restconfig,
-			options.opensearchCluster,
-			lg.Named("cluster-driver"),
-		)
-		if err != nil {
-			panic(err)
-		}
-		p.backendDriver = backendDriver
-		p.managementDriver = managementDriver
-	default:
-		stateStore := &loggingutil.MockInstallState{}
-		p.backendDriver = backenddriver.NewMockDriver(stateStore)
-		p.managementDriver = managementdriver.NewMockDriver(stateStore)
-	}
-
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
 		func(
 			storageBackend storage.Backend,
@@ -193,7 +162,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				Logger:              p.logger.Named("logging-backend"),
 				StorageBackend:      storageBackend,
 				UninstallController: uninstallController,
-				OpensearchCluster:   p.opensearchCluster,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
 				OpensearchManager:   p.opensearchManager,
@@ -211,18 +179,7 @@ var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 
-	ns := os.Getenv("POD_NAMESPACE")
-
-	opniCluster := &opnimeta.OpensearchClusterRef{
-		Name:      "opni",
-		Namespace: ns,
-	}
-
-	p := NewPlugin(
-		ctx,
-		WithNamespace(ns),
-		WithOpensearchCluster(opniCluster),
-	)
+	p := NewPlugin(ctx)
 	p.logger.Info("logging plugin enabled")
 
 	restconfig, err := rest.InClusterConfig()
@@ -236,8 +193,39 @@ func Scheme(ctx context.Context) meta.Scheme {
 		restconfig = p.restconfig
 	}
 
+	var driverName string
 	if restconfig != nil {
 		features.PopulateFeatures(ctx, restconfig)
+		driverName = "kubernetes-manager"
+	} else {
+		// TODO: need a way to configure this
+		driverName = "mock-driver"
+	}
+
+	var ok bool
+	backendDriverBuilder, ok := backenddriver.Drivers.Get(driverName)
+	if !ok {
+		p.logger.Fatalf("could not find backend driver %q", driverName)
+	}
+	managementDriverBuilder, ok := managementdriver.Drivers.Get(driverName)
+	if !ok {
+		p.logger.Fatalf("could not find management driver %q", driverName)
+	}
+
+	driverOptions := []driverutil.Option{
+		driverutil.NewOption("restConfig", p.restconfig),
+		driverutil.NewOption("namespace", p.storageNamespace),
+		driverutil.NewOption("opensearchCluster", p.opensearchCluster),
+		driverutil.NewOption("logger", p.logger),
+	}
+	p.backendDriver, err = backendDriverBuilder(ctx, driverOptions...)
+	if err != nil {
+		p.logger.Fatalf("failed to create backend driver: %v", err)
+	}
+
+	p.managementDriver, err = managementDriverBuilder(ctx, driverOptions...)
+	if err != nil {
+		p.logger.Fatalf("failed to create management driver: %v", err)
 	}
 
 	loggingManager := p.NewLoggingManagerForPlugin()
@@ -254,15 +242,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
-
-	if restconfig != nil {
-		scheme.Add(
-			managementext.ManagementAPIExtensionPluginID,
-			managementext.NewPlugin(
-				util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
-			),
-		)
-	}
+	scheme.Add(
+		managementext.ManagementAPIExtensionPluginID,
+		managementext.NewPlugin(
+			util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
+		),
+	)
 
 	return scheme
 }
@@ -277,36 +262,4 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		natsRef:           p.natsRef,
 		otelForwarder:     p.otelForwarder,
 	}
-}
-
-func createKubernetesDrivers(
-	restconfig *rest.Config,
-	opensearchCluster *opnimeta.OpensearchClusterRef,
-	lg *zap.SugaredLogger,
-) (backenddriver.ClusterDriver, managementdriver.ClusterDriver, error) {
-	cli, err := client.New(restconfig, client.Options{
-		Scheme: apis.NewScheme(),
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	backendDriver, err := backenddriver.NewKubernetesManagerDriver(
-		backenddriver.WithK8sClient(cli),
-		backenddriver.WithLogger(lg),
-		backenddriver.WithOpensearchCluster(opensearchCluster),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	managementDriver, err := managementdriver.NewKubernetesManagerDriver(
-		managementdriver.WithOpensearchCluster(opensearchCluster),
-		managementdriver.WithRestConfig(restconfig),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return backendDriver, managementDriver, nil
 }

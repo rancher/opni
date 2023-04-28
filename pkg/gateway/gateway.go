@@ -38,7 +38,6 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -311,28 +310,7 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 		return err
 	})
 
-	// start web server
-	dashboardSrv, err := dashboard.NewServer(g.config)
-	var e3 chan error
-	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Warn("not starting web ui server")
-		e3 = make(chan error)
-		close(e3)
-	} else {
-		e3 = lo.Async(func() error {
-			err := dashboardSrv.ListenAndServe(ctx)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("ui server exited with error")
-			}
-			return err
-		})
-	}
-
-	return util.WaitAll(ctx, ca, e1, e2, e3)
+	return util.WaitAll(ctx, ca, e1, e2)
 }
 
 // Implements management.CoreDataSource

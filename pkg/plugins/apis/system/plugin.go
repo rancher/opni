@@ -131,10 +131,10 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 		grpc.WithContextDialer(util.DialProtocol),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.Config{
-				BaseDelay:  1.0 * time.Second,
-				Multiplier: 1.5,
+				BaseDelay:  1 * time.Millisecond,
+				Multiplier: 2,
 				Jitter:     0.2,
-				MaxDelay:   10 * time.Second,
+				MaxDelay:   1 * time.Second,
 			},
 		}),
 		grpc.WithChainUnaryInterceptor(

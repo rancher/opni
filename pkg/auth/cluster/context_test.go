@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/keyring"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/streams"
@@ -40,7 +40,7 @@ var _ = Describe("Cluster Context Utils", Label("unit"), func() {
 		It("should allow using cluster ID as PerRPCCredentials", func() {
 			server := grpc.NewServer(
 				grpc.Creds(credentials.NewServerTLSFromCert(
-					lo.ToPtr(testutil.Must(tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key")))),
+					lo.ToPtr(testutil.Must(tls.X509KeyPair(testdata.TestData("localhost.crt"), testdata.TestData("localhost.key")))),
 				)),
 				grpc.ChainStreamInterceptor(
 					func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -63,7 +63,7 @@ var _ = Describe("Cluster Context Utils", Label("unit"), func() {
 			DeferCleanup(listener.Close)
 
 			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(test.TestData("root_ca.crt"))
+			pool.AppendCertsFromPEM(testdata.TestData("root_ca.crt"))
 			cc, err := grpc.Dial("localhost",
 				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()

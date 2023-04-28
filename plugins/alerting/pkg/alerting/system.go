@@ -18,8 +18,8 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -46,7 +46,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		os.Exit(1)
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		opt := shared.AlertingClusterOptions{
+		opt := &shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
 			WorkerNodePort:        config.Spec.Alerting.WorkerPort,
@@ -57,13 +57,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureAlertManagerConfiguration(
-			p.Ctx,
-			drivers.WithAlertingRuntimeOptions(&opt),
-			drivers.WithLogger(p.Logger.Named("alerting-manager")),
-			drivers.WithSubscribers([]chan shared.AlertingClusterNotification{
-				p.clusterNotifier,
-			}),
+		p.configureAlertManagerConfiguration(p.Ctx,
+			driverutil.NewOption("alertingOptions", opt),
+			driverutil.NewOption("logger", p.Logger.Named("alerting-manager")),
+			driverutil.NewOption("subscribers", []chan shared.AlertingClusterNotification{p.clusterNotifier}),
 		)
 	})
 	go p.handleDriverNotifications()

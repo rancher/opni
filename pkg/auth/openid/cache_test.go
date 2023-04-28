@@ -8,15 +8,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"go.uber.org/atomic"
 
 	"github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("User Info Cache", Ordered, Label("unit"), func() {
 	var cache *openid.UserInfoCache
-	lg := test.Log
+	lg := testlog.Log
 	var addr string
 	requestCount := atomic.NewInt32(0)
 	userMap := map[string]string{} // token: sub

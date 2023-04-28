@@ -12,6 +12,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -189,7 +190,7 @@ func (p *Plugin) handleKubeAlertCreation(ctx context.Context, cond *alertingv1.A
 		k.GetNamespace(),
 		k.GetState(),
 		cortex.TimeDurationToPromStr(k.GetFor().AsDuration()),
-		metrics.KubeStateAnnotations,
+		naming.KubeStateAnnotations,
 	)
 	if err != nil {
 		return err

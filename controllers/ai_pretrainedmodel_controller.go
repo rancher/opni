@@ -1,3 +1,5 @@
+//go:build !minimal
+
 /*
 Copyright 2021.
 

@@ -10,13 +10,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/memfs"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/patch"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/spf13/afero"
 )
@@ -91,7 +92,7 @@ func op(ot optype, plugin string, version string, opts ...any) (retVal *controlv
 
 func newFs(mkdirs ...string) afero.Afero {
 	fsys := afero.Afero{
-		Fs: test.NewModeAwareMemFs(),
+		Fs: memfs.NewModeAwareMemFs(),
 	}
 	fsys.Chmod("/", 0o777)
 	for _, dir := range mkdirs {
@@ -112,7 +113,7 @@ func newFs(mkdirs ...string) afero.Afero {
 	return afero.Afero{Fs: fsys}
 }
 
-var _ = Describe("Client", func() {
+var _ = Describe("Client", Label("unit"), func() {
 	When("creating a new patch client", func() {
 		It("should create the default plugin directory if it does not exist yet", func() {
 			fsys := newFs("/plugins")
@@ -120,7 +121,7 @@ var _ = Describe("Client", func() {
 				Dir: "/plugins",
 			}
 
-			_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
+			_, err := patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = fsys.Stat(conf.Dir)
@@ -133,7 +134,7 @@ var _ = Describe("Client", func() {
 		When("no directories are specified", func() {
 			It("should return an error", func() {
 				conf := v1beta1.PluginsSpec{}
-				_, err := patch.NewPatchClient(conf, test.Log)
+				_, err := patch.NewPatchClient(conf, testlog.Log)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -146,7 +147,7 @@ var _ = Describe("Client", func() {
 
 				fs.Chmod("/plugins", 0555)
 
-				_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fs))
+				_, err := patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(fs))
 				Expect(err).To(MatchError(ContainSubstring("failed to create")))
 			})
 		})
@@ -159,7 +160,7 @@ var _ = Describe("Client", func() {
 
 				fs.Chmod("/plugins", 0)
 
-				_, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fs))
+				_, err := patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(fs))
 				Expect(err).To(MatchError(ContainSubstring("failed to stat")))
 			})
 		})
@@ -174,7 +175,7 @@ var _ = Describe("Client", func() {
 			conf = v1beta1.PluginsSpec{
 				Dir: "/plugins",
 			}
-			client, err = patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
+			client, err = patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
 		})
 		When("receiving a create operation", func() {
@@ -334,7 +335,7 @@ var _ = Describe("Client", func() {
 				Dir: "/plugins",
 			}
 			var err error
-			client, err = patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(fsys))
+			client, err = patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
 		})
 		When("the default plugin directory is not writable", func() {
@@ -718,8 +719,8 @@ var _ = Describe("Client", func() {
 		})
 		When("the plugin directory is located on a separate filesystem than the os temp directory", func() {
 			It("should not use the rename strategy to replace plugins", func() {
-				testfs := &test.CrossDeviceTestFs{Fs: fsys}
-				client, err := patch.NewPatchClient(conf, test.Log, patch.WithBaseFS(testfs))
+				testfs := &memfs.CrossDeviceTestFs{Fs: fsys}
+				client, err := patch.NewPatchClient(conf, testlog.Log, patch.WithBaseFS(testfs))
 				Expect(err).NotTo(HaveOccurred())
 
 				patches := &controlv1.PatchList{

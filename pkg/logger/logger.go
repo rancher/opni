@@ -6,10 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -37,6 +34,7 @@ var (
 
 	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
 	DefaultLogLevel    = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	DefaultWriter      io.Writer
 )
 
 func init() {
@@ -149,10 +147,9 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
 		logLevel:    DefaultLogLevel.Level(),
 		timeEncoder: zapcore.RFC3339TimeEncoder,
+		writer:      DefaultWriter,
 	}
-	if testruntime.IsTesting {
-		options.writer = ginkgo.GinkgoWriter
-	}
+
 	options.apply(opts...)
 	var color bool
 	if options.color != nil {
@@ -254,18 +251,6 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 		panic("logger not found in context")
 	}
 	return lg
-}
-
-func NewForPlugin() hclog.Logger {
-	opts := &hclog.LoggerOptions{
-		Level:       hclog.Debug,
-		JSONFormat:  true,
-		DisableTime: true,
-	}
-	if testruntime.IsTesting {
-		opts.Output = ginkgo.GinkgoWriter
-	}
-	return hclog.New(opts)
 }
 
 func NewPluginLogger() ExtendedSugaredLogger {

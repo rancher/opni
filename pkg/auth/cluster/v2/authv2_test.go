@@ -17,10 +17,12 @@ import (
 	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/auth"
 	mock_grpc "github.com/rancher/opni/pkg/test/mock/grpc"
+	"github.com/rancher/opni/pkg/test/mock/storage"
 	mock_streams "github.com/rancher/opni/pkg/test/mock/streams"
 	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/streams"
 	"golang.org/x/crypto/blake2b"
@@ -61,13 +63,13 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 	var verifier challenges.KeyringVerifier
 	var serverInterceptors []grpc.StreamServerInterceptor
 	JustBeforeEach(func() {
-		broker = test.NewTestKeyringStoreBroker(ctrl)
+		broker = mock_storage.NewTestKeyringStoreBroker(ctrl)
 		var err error
-		verifier = challenges.NewKeyringVerifier(broker, authv2.DomainString, test.Log)
+		verifier = challenges.NewKeyringVerifier(broker, authv2.DomainString, testlog.Log)
 		Expect(err).NotTo(HaveOccurred())
-		clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
+		clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", testlog.Log)
 		Expect(err).NotTo(HaveOccurred())
-		serverMw = authv2.NewServerChallenge(verifier, test.Log, authv2.WithChallengeTimeout(100*time.Millisecond))
+		serverMw = authv2.NewServerChallenge(verifier, testlog.Log, authv2.WithChallengeTimeout(100*time.Millisecond))
 
 		server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()),
 			grpc.ChainStreamInterceptor(append(serverInterceptors, cluster.StreamServerInterceptor(serverMw))...))
@@ -177,7 +179,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 			addKeyring()
 			invalidKeyring := keyring.New(keyring.NewSharedKeys(make([]byte, 64)), sessionAttrKey1, sessionAttrKey2)
 
-			clientMw, err := authv2.NewClientChallenge(invalidKeyring, "foo", test.Log)
+			clientMw, err := authv2.NewClientChallenge(invalidKeyring, "foo", testlog.Log)
 			Expect(err).NotTo(HaveOccurred())
 
 			cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
@@ -195,7 +197,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 	Context("error handling", func() {
 		When("creating a new v2 client and the keyring is missing shared keys", func() {
 			It("should return a DataLoss error", func() {
-				_, err := authv2.NewClientChallenge(keyring.New(), "foo", test.Log)
+				_, err := authv2.NewClientChallenge(keyring.New(), "foo", testlog.Log)
 				Expect(status.Code(err)).To(Equal(codes.DataLoss))
 			})
 		})
@@ -435,7 +437,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 		When("an error occurs sending the challenge response", func() {
 			It("should return an error", func() {
-				clientChallenge, err := authv2.NewClientChallenge(testKeyring, "foo", test.Log)
+				clientChallenge, err := authv2.NewClientChallenge(testKeyring, "foo", testlog.Log)
 				Expect(err).NotTo(HaveOccurred())
 
 				ctx := outgoingCtx(context.Background())
@@ -461,7 +463,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 
 		When("the server sends a challenge request with the wrong number of challenges", func() {
 			It("should return an error", func() {
-				handler := test.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
+				handler := mock_auth.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
 					challenge := authutil.NewRandom256()
 					req := corev1.ChallengeRequestList{
 						Items: []*corev1.ChallengeRequest{
@@ -494,7 +496,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 		When("an error occurs receiving the auth info message", func() {
 			It("should return an error", func() {
 				stop := make(chan struct{})
-				handler := test.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
+				handler := mock_auth.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
 					// send challenge request
 					challenge := authutil.NewRandom256()
 
@@ -523,7 +525,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				})
 				var err error
 				serverMw := handler
-				clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
+				clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", testlog.Log)
 				Expect(err).NotTo(HaveOccurred())
 				addKeyring()
 				server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(cluster.StreamServerInterceptor(serverMw)))
@@ -549,7 +551,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 		})
 		When("the auth info message does not validate", func() {
 			It("should return an aborted error", func() {
-				handler := test.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
+				handler := mock_auth.NewTestChallengeHandler(func(ss streams.Stream) (context.Context, error) {
 					// send challenge request
 					challenge := authutil.NewRandom256()
 
@@ -597,7 +599,7 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				})
 				var err error
 				serverMw := handler
-				clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", test.Log)
+				clientMw, err = authv2.NewClientChallenge(testKeyring, "foo", testlog.Log)
 				Expect(err).NotTo(HaveOccurred())
 				addKeyring()
 				server = grpc.NewServer(grpc.Creds(insecure.NewCredentials()), grpc.StreamInterceptor(cluster.StreamServerInterceptor(serverMw)))

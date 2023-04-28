@@ -1,4 +1,4 @@
-package reconciler
+package reconciler_test
 
 import (
 	"context"
@@ -14,12 +14,13 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/dashboards"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	"github.com/rancher/opni/pkg/opensearch/reconciler"
 )
 
-var _ = Describe("Opensearch", Label("unit"), func() {
+var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 	var (
-		reconciler *Reconciler
-		transport  *httpmock.MockTransport
+		rec       *reconciler.Reconciler
+		transport *httpmock.MockTransport
 
 		logPolicyName               = "log-policy"
 		logIndexAlias               = "logs"
@@ -60,12 +61,13 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 			},
 			dashboards.WithTransport(transport),
 		)
+		Expect(err).NotTo(HaveOccurred())
 
-		reconciler, err = NewReconciler(
+		rec, err = reconciler.NewReconciler(
 			context.Background(),
-			ReconcilerConfig{},
-			WithOpensearchClient(opensearchClient),
-			WithDashboardshClient(dashboardsClient),
+			reconciler.ReconcilerConfig{},
+			reconciler.WithOpensearchClient(opensearchClient),
+			reconciler.WithDashboardshClient(dashboardsClient),
 		)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -153,7 +155,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ReconcileISM(policy)
+					err := rec.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -171,7 +173,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ReconcileISM(policy)
+					err := rec.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -234,7 +236,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponseNew).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ReconcileISM(policy)
+					err := rec.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -283,7 +285,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "complete"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateIndexTemplate(indexTemplate)
+					err := rec.MaybeCreateIndexTemplate(indexTemplate)
 					if err != nil {
 						log.Println(err)
 					}
@@ -301,7 +303,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"mesg": "found it"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateIndexTemplate(indexTemplate)
+					err := rec.MaybeCreateIndexTemplate(indexTemplate)
 					if err != nil {
 						log.Println(err)
 					}
@@ -346,7 +348,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
+					err := rec.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -393,7 +395,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
+					err := rec.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -414,7 +416,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `[{"test-000002": "thisexists"}, {"test-000003": "this also exists"}]`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
+					err := rec.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -463,7 +465,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateIndex(indexName, indexSettings)
+					err := rec.MaybeCreateIndex(indexName, indexSettings)
 					if err != nil {
 						log.Println(err)
 					}
@@ -484,7 +486,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateIndex(indexName, indexSettings)
+					err := rec.MaybeCreateIndex(indexName, indexSettings)
 					if err != nil {
 						log.Println(err)
 					}
@@ -544,7 +546,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateRole(role)
+					err := rec.MaybeCreateRole(role)
 					if err != nil {
 						log.Println(err)
 					}
@@ -561,7 +563,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateRole(role)
+					err := rec.MaybeCreateRole(role)
 					if err != nil {
 						log.Println(err)
 					}
@@ -583,7 +585,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateUser(user)
+					err := rec.MaybeCreateUser(user)
 					if err != nil {
 						log.Println(err)
 					}
@@ -600,7 +602,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeCreateUser(user)
+					err := rec.MaybeCreateUser(user)
 					if err != nil {
 						log.Println(err)
 					}
@@ -629,7 +631,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					},
 				)
 				Expect(func() error {
-					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					err := rec.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
 					if err != nil {
 						log.Println(err)
 					}
@@ -667,7 +669,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					},
 				)
 				Expect(func() error {
-					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					err := rec.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
 					if err != nil {
 						log.Println(err)
 					}
@@ -691,7 +693,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, roleMappingBody).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					err := rec.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
 					if err != nil {
 						log.Println(err)
 					}
@@ -726,7 +728,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
+					err := rec.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}
@@ -775,7 +777,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
+					err := rec.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}
@@ -811,7 +813,7 @@ var _ = Describe("Opensearch", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, kibanaResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
+					err := rec.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}

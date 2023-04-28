@@ -4,11 +4,10 @@ import (
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
 var OpniMetricsSubRoutingTreeId config.Matchers = []*labels.Matcher{
-	alertingv1.OpniMetricsSubRoutingTreeMatcher,
+	OpniMetricsSubRoutingTreeMatcher,
 }
 
 // this subtree connects to cortex

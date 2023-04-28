@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	OpniVersionBuildInfoKey   = "opni.version"
-	OpniBuildTimeBuildInfoKey = "opni.buildTimestamp"
+	OpniVersionBuildInfoKey = "opni.version"
 )
 
 func ReadBuildInfo() (*corev1.BuildInfo, bool) {
@@ -31,10 +30,6 @@ func ReadBuildInfo() (*corev1.BuildInfo, bool) {
 		&corev1.BuildSetting{
 			Key:   OpniVersionBuildInfoKey,
 			Value: Version,
-		},
-		&corev1.BuildSetting{
-			Key:   OpniBuildTimeBuildInfoKey,
-			Value: BuildTime,
 		},
 	)
 	return protoBuildInfo, true

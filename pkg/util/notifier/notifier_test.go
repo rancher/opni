@@ -9,10 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/pkg/test/mock/rules"
 	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/rules"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
@@ -42,7 +42,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 	}
 	It("should wait until any receivers are present before updating rules", func() {
 
-		un := notifier.NewUpdateNotifier(test.NewTestFinder(ctrl, func() []rules.RuleGroup {
+		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 			return notifier.CloneList(testGroups1)
 		}))
 		// un := rules.NewUpdateNotifier(test.NewTestRuleFinder(ctrl, func() []rules.RuleGroup {
@@ -64,7 +64,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 	It("should handle notifying multiple receivers", func() {
 
-		un := notifier.NewUpdateNotifier(test.NewTestFinder(ctrl, func() []rules.RuleGroup {
+		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 			return notifier.CloneList(testGroups1)
 		}))
 
@@ -101,7 +101,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		groups := atomic.Value[[]rules.RuleGroup]{}
 		groups.Store(testGroups1)
-		un := notifier.NewUpdateNotifier(test.NewTestFinder(ctrl, func() []rules.RuleGroup {
+		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 			return notifier.CloneList(groups.Load())
 		}))
 
@@ -147,7 +147,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		groups := atomic.Value[[]rules.RuleGroup]{}
 		groups.Store(testGroups1)
-		un := notifier.NewUpdateNotifier(test.NewTestFinder(ctrl, func() []rules.RuleGroup {
+		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 			return notifier.CloneList(groups.Load())
 		}))
 
@@ -195,7 +195,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		It("should not block the update notifier", func() {
 			groups := testGroups1
-			un := notifier.NewUpdateNotifier(test.NewTestFinder(ctrl, func() []rules.RuleGroup {
+			un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 				return notifier.CloneList(groups)
 			}))
 			ch := un.NotifyC(context.Background())

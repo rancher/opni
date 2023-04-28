@@ -11,7 +11,8 @@ import (
 	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,18 +27,18 @@ var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 	_ = verifier
 
 	BeforeAll(func() {
-		krStore = test.NewTestKeyringStore(ctrl, "gateway", &corev1.Reference{Id: expectedId})
+		krStore = mock_storage.NewTestKeyringStore(ctrl, "gateway", &corev1.Reference{Id: expectedId})
 		bytes := make([]byte, 64)
 		rand.Read(bytes)
 		sharedKeys = keyring.NewSharedKeys(bytes)
 		krStore.Put(context.Background(), keyring.New(sharedKeys))
-		broker = test.NewTestKeyringStoreBroker(ctrl, func(_ string, ref *corev1.Reference) storage.KeyringStore {
+		broker = mock_storage.NewTestKeyringStoreBroker(ctrl, func(_ string, ref *corev1.Reference) storage.KeyringStore {
 			if ref.GetId() == expectedId {
 				return krStore
 			}
 			return nil
 		})
-		verifier = challenges.NewKeyringVerifier(broker, domain, test.Log)
+		verifier = challenges.NewKeyringVerifier(broker, domain, testlog.Log)
 	})
 
 	When("preparing a pre-cached verifier", func() {
@@ -63,7 +64,7 @@ var _ = Describe("Verifier", Label("unit"), Ordered, func() {
 					Random:      authutil.NewRandom256(),
 				}
 				cr := &corev1.ChallengeRequest{Challenge: challenge[:]}
-				v, err := verifier.Prepare(test.ErrContext_TestKeyringStore_Get, cm, cr)
+				v, err := verifier.Prepare(mock_storage.ErrContext_TestKeyringStore_Get, cm, cr)
 				Expect(err).To(HaveOccurred())
 				Expect(status.Code(err)).To(Equal(codes.Unavailable))
 				Expect(v).To(BeNil())

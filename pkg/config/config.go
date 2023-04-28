@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -59,9 +59,8 @@ func LoadObjects(documents [][]byte) (meta.ObjectList, error) {
 }
 
 func LoadObject(document []byte) (meta.Object, error) {
-	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(document), 4096)
 	typeMeta := meta.TypeMeta{}
-	if err := decoder.Decode(&typeMeta); err != nil {
+	if err := yaml.Unmarshal(document, &typeMeta); err != nil {
 		return nil, errors.New("object has missing or invalid TypeMeta")
 	}
 	if typeMeta.APIVersion == "" || typeMeta.Kind == "" {

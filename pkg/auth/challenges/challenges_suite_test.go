@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 var (

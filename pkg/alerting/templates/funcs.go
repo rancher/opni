@@ -3,11 +3,11 @@ package templates
 import (
 	"errors"
 	"fmt"
+	"html/template"
 	"math"
 	"strconv"
 	"time"
 
-	amtemplate "github.com/prometheus/alertmanager/template"
 	"github.com/prometheus/common/model"
 )
 
@@ -44,7 +44,7 @@ func convertToFloat(i any) (float64, error) {
 
 var errNaNOrInf = errors.New("value is NaN or Inf")
 
-var DefaultTemplateFuncs = amtemplate.FuncMap{
+var DefaultTemplateFuncs = template.FuncMap{
 	"humanize": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {
@@ -177,7 +177,7 @@ var DefaultTemplateFuncs = amtemplate.FuncMap{
 	},
 }
 
-func RegisterNewAlertManagerDefaults(amTmplMap, newTmplMap amtemplate.FuncMap) {
+func RegisterNewAlertManagerDefaults[T, U ~map[string]any](amTmplMap T, newTmplMap U) {
 	for key := range newTmplMap {
 		if err := RegisterTemplateMap(amTmplMap, key, newTmplMap[key]); err != nil {
 			panic(err)
@@ -185,7 +185,7 @@ func RegisterNewAlertManagerDefaults(amTmplMap, newTmplMap amtemplate.FuncMap) {
 	}
 }
 
-func RegisterTemplateMap(templateMap amtemplate.FuncMap, key string, templateFunc any) error {
+func RegisterTemplateMap[T ~map[string]any](templateMap T, key string, templateFunc any) error {
 	if _, ok := templateMap[key]; ok {
 		return fmt.Errorf("key error : template function %s already exists", key)
 	}

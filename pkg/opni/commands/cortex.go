@@ -1,4 +1,4 @@
-//go:build !nocortex
+//go:build !minimal
 
 package commands
 

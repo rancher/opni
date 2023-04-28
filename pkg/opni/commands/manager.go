@@ -1,4 +1,4 @@
-//go:build !nomanager
+//go:build !minimal
 
 package commands
 
@@ -10,38 +10,21 @@ import (
 	"time"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
-	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tracing"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
-	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	opensearchcontrollers "opensearch.opster.io/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
-
-const (
-	upgradeResponderAddress = "https://upgrades.opni-upgrade-responder.livestock.rancher.io/v1/checkupgrade"
-)
-
-func init() {
-	apis.InitScheme(scheme)
-}
 
 func BuildManagerCmd() *cobra.Command {
 	var (
@@ -65,10 +48,12 @@ func BuildManagerCmd() *cobra.Command {
 			disableUsage = true
 		}
 
-		ctrl.SetLogger(zap.New(
-			zap.Level(util.Must(zapcore.ParseLevel(logLevel))),
-			zap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
-		))
+		level, err := zapcore.ParseLevel(logLevel)
+		if err != nil {
+			return err
+		}
+
+		ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 			Scheme:                 scheme,

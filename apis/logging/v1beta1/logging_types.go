@@ -2,7 +2,35 @@ package v1beta1
 
 import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
+	"github.com/rancher/wrangler/pkg/crd"
+	"github.com/rancher/wrangler/pkg/schemas/openapi"
 )
+
+func ClusterOutputCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(loggingv1beta1.ClusterOutput{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:        GroupVersion.WithKind("ClusterOutput"),
+		PluralName: "clusteroutputs",
+		Status:     true,
+		Schema:     schema,
+	}, nil
+}
+
+func ClusterFlowCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(loggingv1beta1.ClusterFlow{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:        GroupVersion.WithKind("ClusterFlow"),
+		PluralName: "clusterflows",
+		Status:     true,
+		Schema:     schema,
+	}, nil
+}
 
 func init() {
 	SchemeBuilder.Register(

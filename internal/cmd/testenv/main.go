@@ -282,37 +282,35 @@ func main() {
 				close(c)
 			})
 		case 'a', 'A':
-			go func() {
-				bt, err := client.CreateBootstrapToken(environment.Context(), &managementv1.CreateBootstrapTokenRequest{
-					Ttl: durationpb.New(1 * time.Minute),
-				})
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				token, err := tokens.FromBootstrapToken(bt)
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				certInfo, err := client.CertsInfo(environment.Context(), &emptypb.Empty{})
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
+			bt, err := client.CreateBootstrapToken(environment.Context(), &managementv1.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(1 * time.Minute),
+			})
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			token, err := tokens.FromBootstrapToken(bt)
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			certInfo, err := client.CertsInfo(environment.Context(), &emptypb.Empty{})
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
 
-				resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.GetPorts().TestEnvironment), "application/json",
-					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
-						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					testlog.Log.Errorf("%s", resp.Status)
-					return
-				}
-			}()
+			resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.GetPorts().TestEnvironment), "application/json",
+				strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
+					token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			if resp.StatusCode != http.StatusOK {
+				testlog.Log.Errorf("%s", resp.Status)
+				return
+			}
 		case 'M':
 			capabilityMu.Lock()
 			go func() {

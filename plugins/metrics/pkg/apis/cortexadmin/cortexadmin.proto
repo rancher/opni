@@ -9,8 +9,7 @@ import "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin/status.prot
 
 package cortexadmin;
 
-// The CortexAdmin service provides authenticated endpoints for internal
-// Cortex APIs.
+// The CortexAdmin service provides authenticated endpoints for internal Cortex APIs.
 service CortexAdmin {
   rpc AllUserStats(google.protobuf.Empty) returns (UserIDStatsList) {
     option (google.api.http) = {

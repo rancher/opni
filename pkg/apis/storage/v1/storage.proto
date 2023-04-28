@@ -2,16 +2,24 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/storage/v1";
 
 import "google/protobuf/duration.proto";
+import "github.com/rancher/opni/internal/cli/cli.proto";
 
 package storage;
 
+option (cli.generator) = {
+  generate: true
+};
+
 message StorageSpec {
-  string backend = 1;
+  // Name of the storage backend to use. (s3|gcs|azure|swift|filesystem)
+  string backend = 1 [(cli.flag).default="filesystem"];
   S3StorageSpec s3 = 2;
   GCSStorageSpec gcs = 3;
   AzureStorageSpec azure = 4;
   SwiftStorageSpec swift = 5;
   FilesystemStorageSpec filesystem = 6;
+
+	// Retention period for persisted data. If 0, data will be retained indefinitely.
 	google.protobuf.Duration retentionPeriod = 7;
 }
 
@@ -26,7 +34,7 @@ message S3StorageSpec {
 	// S3 bucket name
 	string bucketName = 3;
 	// S3 secret access key
-	string secretAccessKey = 4;
+	string secretAccessKey = 4 [(cli.flag).secret=true];
 	// S3 access key ID
 	string accessKeyID = 5;
 	// If enabled, use http:// for the S3 endpoint instead of https://. This could
@@ -47,7 +55,7 @@ message SSEConfig {
 	// KMS Key ID used to encrypt objects in S3
 	string kmsKeyID = 2;
 	// KMS Encryption Context used for object encryption. It expects a JSON formatted string.
-	string kmsEncryptionContext = 3;
+	string kmsEncryptionContext = 3 [(cli.flag).secret=true];
 }
 
 message HTTPConfig {
@@ -74,14 +82,14 @@ message GCSStorageSpec {
 	string bucketName = 1;
 	// JSON representing either a Google Developers Console client_credentials.json file
 	// or a Google Developers service account key file. If empty, fallback to Google default logic.
-	string serviceAccount = 2;
+	string serviceAccount = 2 [(cli.flag).secret=true];
 }
 
 message AzureStorageSpec {
 	// Azure storage account name
 	string storageAccountName = 1;
 	// Azure storage account key
-	string storageAccountKey = 2;
+	string storageAccountKey = 2 [(cli.flag).secret=true];
 	// Azure storage container name
 	string containerName = 3;
 	// Azure storage endpoint suffix without schema. The account name will be
@@ -90,7 +98,7 @@ message AzureStorageSpec {
 	// Number of retries for recoverable errors
 	int32 maxRetries = 5;
 	// Azure storage MSI resource. Either this or account key must be set.
-	string msiResource = 6;
+	string msiResource = 6 [(cli.flag).secret=true];
 	// Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used
 	string userAssignedID = 7;
 
@@ -101,33 +109,33 @@ message SwiftStorageSpec {
 	// OpenStack Swift authentication API version. 0 to autodetect.
 	int32 authVersion = 1;
 	// OpenStack Swift authentication URL.
-	string authURL = 2;
+	string authURL = 2 [(cli.flag).env="OS_AUTH_URL"];
 	// OpenStack Swift username.
-	string username = 3;
+	string username = 3 [(cli.flag).env="OS_USERNAME"];
 	// OpenStack Swift user's domain name.
-	string userDomainName = 4;
+	string userDomainName = 4 [(cli.flag).env="OS_USER_DOMAIN_NAME"];
 	// OpenStack Swift user's domain ID.
-	string userDomainID = 5;
+	string userDomainID = 5 [(cli.flag).env="OS_USER_DOMAIN_ID"];
 	// OpenStack Swift user ID.
-	string userID = 6;
+	string userID = 6 [(cli.flag).env="OS_USER_ID"];
 	// OpenStack Swift API key.
-	string password = 7;
+	string password = 7 [(cli.flag) = {env: "OS_PASSWORD", secret: true}];
 	// OpenStack Swift user's domain ID.
-	string domainID = 8;
+	string domainID = 8 [(cli.flag).env="OS_USER_DOMAIN_ID"];
 	// OpenStack Swift user's domain name.
-	string domainName = 9;
+	string domainName = 9 [(cli.flag).env="OS_USER_DOMAIN_NAME"];
 	// OpenStack Swift project ID (v2,v3 auth only).
 	string projectID = 10;
 	// OpenStack Swift project name (v2,v3 auth only).
-	string projectName = 11;
+	string projectName = 11 [(cli.flag).env="OS_PROJECT_NAME"];
 	// ID of the OpenStack Swift project's domain (v3 auth only), only needed
 	// if it differs the from user domain.
-	string projectDomainID = 12;
+	string projectDomainID = 12 [(cli.flag).env="OS_PROJECT_DOMAIN_ID"];
 	// Name of the OpenStack Swift project's domain (v3 auth only), only needed
 	// if it differs from the user domain.
-	string projectDomainName = 13;
+	string projectDomainName = 13 [(cli.flag).env="OS_PROJECT_DOMAIN_NAME"];
 	// OpenStack Swift Region to use (v2,v3 auth only).
-	string regionName = 14;
+	string regionName = 14 [(cli.flag).env="OS_REGION_NAME"];
 	// Name of the OpenStack Swift container to use. The container must already
 	// exist.
 	string containerName = 15;

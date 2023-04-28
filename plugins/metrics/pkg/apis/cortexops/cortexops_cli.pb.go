@@ -5,13 +5,14 @@ package cortexops
 
 import (
 	context "context"
+	cli "github.com/rancher/opni/internal/cli"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
-	protojson "google.golang.org/protobuf/encoding/protojson"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	strings "strings"
 	time "time"
 )
 
@@ -40,6 +41,7 @@ func BuildCortexOpsCmd() *cobra.Command {
 	cmd.AddCommand(BuildConfigureClusterCmd())
 	cmd.AddCommand(BuildGetClusterStatusCmd())
 	cmd.AddCommand(BuildUninstallClusterCmd())
+	cli.AddOutputFlag(cmd)
 	return cmd
 }
 
@@ -63,7 +65,7 @@ HTTP handlers for this method:
 			if err != nil {
 				return err
 			}
-			cmd.Println(protojson.MarshalOptions{Multiline: true, EmitUnpopulated: true}.Format(response))
+			cli.RenderOutput(cmd, response)
 			return nil
 		},
 	}
@@ -83,7 +85,7 @@ Note: some fields may contain secrets. The placeholder value "***" can be used t
 keep an existing secret when updating the cluster configuration.
 
 HTTP handlers for this method:
-- post:"/configure"  body:"*"
+- post:"/configure" body:"*"
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -94,192 +96,14 @@ HTTP handlers for this method:
 				return nil
 			}
 			_, err := client.ConfigureCluster(cmd.Context(), input)
-			return err
+			if err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 	cmd.Flags().AddFlagSet(input.FlagSet())
 	return cmd
-}
-
-func (input *ClusterConfiguration) FlagSet() *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ClusterConfiguration", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(v2.New(&input.Mode, "DeploymentMode", map[DeploymentMode][]string{
-		DeploymentMode_AllInOne:        {"AllInOne"},
-		DeploymentMode_HighlyAvailable: {"HighlyAvailable"},
-	}, v2.EnumCaseSensitive), "mode", "The deployment mode to use for Cortex.")
-	if input.Storage == nil {
-		input.Storage = &v1.StorageSpec{}
-	}
-	fs.StringVar(&input.Storage.Backend, "storage.backend", "", "")
-	if input.Storage.S3 == nil {
-		input.Storage.S3 = &v1.S3StorageSpec{}
-	}
-	fs.StringVar(&input.Storage.S3.Endpoint, "storage.s3.endpoint", "", "The S3 bucket endpoint. It could be an AWS S3 endpoint listed at  https:docs.aws.amazon.com/general/latest/gr/s3.html or the address of an  S3-compatible service in hostname:port format.")
-	fs.StringVar(&input.Storage.S3.Region, "storage.s3.region", "", "S3 region. If unset, the client will issue a S3 GetBucketLocation API call  to autodetect it.")
-	fs.StringVar(&input.Storage.S3.BucketName, "storage.s3.bucket-name", "", "S3 bucket name")
-	fs.StringVar(&input.Storage.S3.SecretAccessKey, "storage.s3.secret-access-key", "", "S3 secret access key")
-	fs.StringVar(&input.Storage.S3.AccessKeyID, "storage.s3.access-key-id", "", "S3 access key ID")
-	fs.BoolVar(&input.Storage.S3.Insecure, "storage.s3.insecure", false, "If enabled, use http: for the S3 endpoint instead of https:. This could  be useful in local dev/test environments while using an S3-compatible  backend storage, like Minio.")
-	fs.StringVar(&input.Storage.S3.SignatureVersion, "storage.s3.signature-version", "", "The signature version to use for authenticating against S3.  Supported values are: v4, v2")
-	if input.Storage.S3.Sse == nil {
-		input.Storage.S3.Sse = &v1.SSEConfig{}
-	}
-	fs.StringVar(&input.Storage.S3.Sse.Type, "storage.s3.sse.type", "", "Enable AWS Server Side Encryption. Supported values: SSE-KMS, SSE-S3")
-	fs.StringVar(&input.Storage.S3.Sse.KmsKeyID, "storage.s3.sse.kms-key-id", "", "KMS Key ID used to encrypt objects in S3")
-	fs.StringVar(&input.Storage.S3.Sse.KmsEncryptionContext, "storage.s3.sse.kms-encryption-context", "", "KMS Encryption Context used for object encryption. It expects a JSON formatted string.")
-	if input.Storage.S3.Http == nil {
-		input.Storage.S3.Http = &v1.HTTPConfig{}
-	}
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.S3.Http.IdleConnTimeout), "storage.s3.http.idle-conn-timeout", "The time an idle connection will remain idle before closing.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.S3.Http.ResponseHeaderTimeout), "storage.s3.http.response-header-timeout", "The amount of time the client will wait for a servers response headers.")
-	fs.BoolVar(&input.Storage.S3.Http.InsecureSkipVerify, "storage.s3.http.insecure-skip-verify", false, "If the client connects via HTTPS and this option is enabled, the client will accept any certificate and hostname.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.S3.Http.TlsHandshakeTimeout), "storage.s3.http.tls-handshake-timeout", "Maximum time to wait for a TLS handshake. 0 means no limit.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.S3.Http.ExpectContinueTimeout), "storage.s3.http.expect-continue-timeout", "The time to wait for a server's first response headers after fully writing the request headers if the request has an Expect header. 0 to send the request body immediately.")
-	fs.Int32Var(&input.Storage.S3.Http.MaxIdleConns, "storage.s3.http.max-idle-conns", 0, "Maximum number of idle (keep-alive) connections across all hosts. 0 means no limit.")
-	fs.Int32Var(&input.Storage.S3.Http.MaxIdleConnsPerHost, "storage.s3.http.max-idle-conns-per-host", 0, "Maximum number of idle (keep-alive) connections to keep per-host. If 0, a built-in default value is used.")
-	fs.Int32Var(&input.Storage.S3.Http.MaxConnsPerHost, "storage.s3.http.max-conns-per-host", 0, "Maximum number of connections per host. 0 means no limit.")
-	if input.Storage.Gcs == nil {
-		input.Storage.Gcs = &v1.GCSStorageSpec{}
-	}
-	fs.StringVar(&input.Storage.Gcs.BucketName, "storage.gcs.bucket-name", "", "GCS bucket name")
-	fs.StringVar(&input.Storage.Gcs.ServiceAccount, "storage.gcs.service-account", "", "JSON representing either a Google Developers Console client_credentials.json file  or a Google Developers service account key file. If empty, fallback to Google default logic.")
-	if input.Storage.Azure == nil {
-		input.Storage.Azure = &v1.AzureStorageSpec{}
-	}
-	fs.StringVar(&input.Storage.Azure.StorageAccountName, "storage.azure.storage-account-name", "", "Azure storage account name")
-	fs.StringVar(&input.Storage.Azure.StorageAccountKey, "storage.azure.storage-account-key", "", "Azure storage account key")
-	fs.StringVar(&input.Storage.Azure.ContainerName, "storage.azure.container-name", "", "Azure storage container name")
-	fs.StringVar(&input.Storage.Azure.Endpoint, "storage.azure.endpoint", "", "Azure storage endpoint suffix without schema. The account name will be  prefixed to this value to create the FQDN")
-	fs.Int32Var(&input.Storage.Azure.MaxRetries, "storage.azure.max-retries", 0, "Number of retries for recoverable errors")
-	fs.StringVar(&input.Storage.Azure.MsiResource, "storage.azure.msi-resource", "", "Azure storage MSI resource. Either this or account key must be set.")
-	fs.StringVar(&input.Storage.Azure.UserAssignedID, "storage.azure.user-assigned-id", "", "Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used")
-	if input.Storage.Azure.Http == nil {
-		input.Storage.Azure.Http = &v1.HTTPConfig{}
-	}
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Azure.Http.IdleConnTimeout), "storage.azure.http.idle-conn-timeout", "The time an idle connection will remain idle before closing.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Azure.Http.ResponseHeaderTimeout), "storage.azure.http.response-header-timeout", "The amount of time the client will wait for a servers response headers.")
-	fs.BoolVar(&input.Storage.Azure.Http.InsecureSkipVerify, "storage.azure.http.insecure-skip-verify", false, "If the client connects via HTTPS and this option is enabled, the client will accept any certificate and hostname.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Azure.Http.TlsHandshakeTimeout), "storage.azure.http.tls-handshake-timeout", "Maximum time to wait for a TLS handshake. 0 means no limit.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Azure.Http.ExpectContinueTimeout), "storage.azure.http.expect-continue-timeout", "The time to wait for a server's first response headers after fully writing the request headers if the request has an Expect header. 0 to send the request body immediately.")
-	fs.Int32Var(&input.Storage.Azure.Http.MaxIdleConns, "storage.azure.http.max-idle-conns", 0, "Maximum number of idle (keep-alive) connections across all hosts. 0 means no limit.")
-	fs.Int32Var(&input.Storage.Azure.Http.MaxIdleConnsPerHost, "storage.azure.http.max-idle-conns-per-host", 0, "Maximum number of idle (keep-alive) connections to keep per-host. If 0, a built-in default value is used.")
-	fs.Int32Var(&input.Storage.Azure.Http.MaxConnsPerHost, "storage.azure.http.max-conns-per-host", 0, "Maximum number of connections per host. 0 means no limit.")
-	if input.Storage.Swift == nil {
-		input.Storage.Swift = &v1.SwiftStorageSpec{}
-	}
-	fs.Int32Var(&input.Storage.Swift.AuthVersion, "storage.swift.auth-version", 0, "OpenStack Swift authentication API version. 0 to autodetect.")
-	fs.StringVar(&input.Storage.Swift.AuthURL, "storage.swift.auth-url", "", "OpenStack Swift authentication URL.")
-	fs.StringVar(&input.Storage.Swift.Username, "storage.swift.username", "", "OpenStack Swift username.")
-	fs.StringVar(&input.Storage.Swift.UserDomainName, "storage.swift.user-domain-name", "", "OpenStack Swift user's domain name.")
-	fs.StringVar(&input.Storage.Swift.UserDomainID, "storage.swift.user-domain-id", "", "OpenStack Swift user's domain ID.")
-	fs.StringVar(&input.Storage.Swift.UserID, "storage.swift.user-id", "", "OpenStack Swift user ID.")
-	fs.StringVar(&input.Storage.Swift.Password, "storage.swift.password", "", "OpenStack Swift API key.")
-	fs.StringVar(&input.Storage.Swift.DomainID, "storage.swift.domain-id", "", "OpenStack Swift user's domain ID.")
-	fs.StringVar(&input.Storage.Swift.DomainName, "storage.swift.domain-name", "", "OpenStack Swift user's domain name.")
-	fs.StringVar(&input.Storage.Swift.ProjectID, "storage.swift.project-id", "", "OpenStack Swift project ID (v2,v3 auth only).")
-	fs.StringVar(&input.Storage.Swift.ProjectName, "storage.swift.project-name", "", "OpenStack Swift project name (v2,v3 auth only).")
-	fs.StringVar(&input.Storage.Swift.ProjectDomainID, "storage.swift.project-domain-id", "", "ID of the OpenStack Swift project's domain (v3 auth only), only needed  if it differs the from user domain.")
-	fs.StringVar(&input.Storage.Swift.ProjectDomainName, "storage.swift.project-domain-name", "", "Name of the OpenStack Swift project's domain (v3 auth only), only needed  if it differs from the user domain.")
-	fs.StringVar(&input.Storage.Swift.RegionName, "storage.swift.region-name", "", "OpenStack Swift Region to use (v2,v3 auth only).")
-	fs.StringVar(&input.Storage.Swift.ContainerName, "storage.swift.container-name", "", "Name of the OpenStack Swift container to use. The container must already  exist.")
-	fs.Int32Var(&input.Storage.Swift.MaxRetries, "storage.swift.max-retries", 0, "Max number of times to retry failed requests.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Swift.ConnectTimeout), "storage.swift.connect-timeout", "Time after which a connection attempt is aborted.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.Swift.RequestTimeout), "storage.swift.request-timeout", "Time after which an idle request is aborted. The timeout watchdog is reset  each time some data is received, so the timeout triggers after X time no  data is received on a request.")
-	if input.Storage.Filesystem == nil {
-		input.Storage.Filesystem = &v1.FilesystemStorageSpec{}
-	}
-	fs.StringVar(&input.Storage.Filesystem.Directory, "storage.filesystem.directory", "", "Local filesystem storage directory.")
-	fs.Var(flagutil.DurationpbValue(0, &input.Storage.RetentionPeriod), "storage.retention-period", "")
-	if input.Grafana == nil {
-		input.Grafana = &GrafanaConfig{}
-	}
-	fs.BoolVar(&input.Grafana.Enabled, "grafana.enabled", false, "")
-	fs.StringVar(&input.Grafana.Hostname, "grafana.hostname", "", "DNS name at which Grafana will be available in the browser.")
-	if input.Workloads == nil {
-		input.Workloads = &Workloads{}
-	}
-	if input.Workloads.Distributor == nil {
-		input.Workloads.Distributor = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Distributor.Replicas, "workloads.distributor.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Distributor.ExtraArgs, "workloads.distributor.extra-args", nil, "")
-	if input.Workloads.Ingester == nil {
-		input.Workloads.Ingester = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Ingester.Replicas, "workloads.ingester.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Ingester.ExtraArgs, "workloads.ingester.extra-args", nil, "")
-	if input.Workloads.Compactor == nil {
-		input.Workloads.Compactor = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Compactor.Replicas, "workloads.compactor.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Compactor.ExtraArgs, "workloads.compactor.extra-args", nil, "")
-	if input.Workloads.StoreGateway == nil {
-		input.Workloads.StoreGateway = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.StoreGateway.Replicas, "workloads.store-gateway.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.StoreGateway.ExtraArgs, "workloads.store-gateway.extra-args", nil, "")
-	if input.Workloads.Ruler == nil {
-		input.Workloads.Ruler = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Ruler.Replicas, "workloads.ruler.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Ruler.ExtraArgs, "workloads.ruler.extra-args", nil, "")
-	if input.Workloads.QueryFrontend == nil {
-		input.Workloads.QueryFrontend = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.QueryFrontend.Replicas, "workloads.query-frontend.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.QueryFrontend.ExtraArgs, "workloads.query-frontend.extra-args", nil, "")
-	if input.Workloads.Querier == nil {
-		input.Workloads.Querier = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Querier.Replicas, "workloads.querier.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Querier.ExtraArgs, "workloads.querier.extra-args", nil, "")
-	if input.Workloads.Purger == nil {
-		input.Workloads.Purger = &CortexWorkloadSpec{}
-	}
-	fs.Int32Var(&input.Workloads.Purger.Replicas, "workloads.purger.replicas", 0, "")
-	fs.StringSliceVar(&input.Workloads.Purger.ExtraArgs, "workloads.purger.extra-args", nil, "")
-	if input.Cortex == nil {
-		input.Cortex = &CortexConfig{}
-	}
-	if input.Cortex.Compactor == nil {
-		input.Cortex.Compactor = &CompactorConfig{}
-	}
-	fs.Var(flagutil.DurationpbSliceValue([]time.Duration{2 * time.Hour, 12 * time.Hour, 24 * time.Hour}, &input.Cortex.Compactor.BlockRanges), "cortex.compactor.block-ranges", "List of compaction time ranges")
-	fs.Var(flagutil.DurationpbValue(1*time.Hour, &input.Cortex.Compactor.CompactionInterval), "cortex.compactor.compaction-interval", "The frequency at which the compaction runs")
-	fs.Var(flagutil.DurationpbValue(15*time.Minute, &input.Cortex.Compactor.CleanupInterval), "cortex.compactor.cleanup-interval", "How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index")
-	fs.Var(flagutil.DurationpbValue(12*time.Hour, &input.Cortex.Compactor.DeletionDelay), "cortex.compactor.deletion-delay", "Time before a block marked for deletion is deleted from the bucket")
-	fs.Var(flagutil.DurationpbValue(6*time.Hour, &input.Cortex.Compactor.TenantCleanupDelay), "cortex.compactor.tenant-cleanup-delay", "For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant")
-	if input.Cortex.Querier == nil {
-		input.Cortex.Querier = &QuerierConfig{}
-	}
-	fs.Var(flagutil.DurationpbValue(2*time.Minute, &input.Cortex.Querier.QueryTimeout), "cortex.querier.query-timeout", "The timeout for a query")
-	fs.Int32Var(&input.Cortex.Querier.MaxSamples, "cortex.querier.max-samples", 0, "Maximum number of samples a single query can load into memory")
-	fs.Var(flagutil.DurationpbValue(0, &input.Cortex.Querier.QueryIngestersWithin), "cortex.querier.query-ingesters-within", "Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.")
-	fs.Var(flagutil.DurationpbValue(10*time.Minute, &input.Cortex.Querier.MaxQueryIntoFuture), "cortex.querier.max-query-into-future", "Maximum duration into the future you can query. 0 to disable")
-	fs.Var(flagutil.DurationpbValue(1*time.Minute, &input.Cortex.Querier.DefaultEvaluationInterval), "cortex.querier.default-evaluation-interval", "The default evaluation interval or step size for subqueries")
-	fs.Var(flagutil.DurationpbValue(0, &input.Cortex.Querier.QueryStoreAfter), "cortex.querier.query-store-after", "The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store.  When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated  to ensure the query end is not more recent than 'now - query-store-after'.")
-	fs.Var(flagutil.DurationpbValue(5*time.Minute, &input.Cortex.Querier.LookbackDelta), "cortex.querier.lookback-delta", "Time since the last sample after which a time series is considered stale and ignored by expression evaluations")
-	fs.Var(flagutil.DurationpbValue(0, &input.Cortex.Querier.ShuffleShardingIngestersLookbackPeriod), "cortex.querier.shuffle-sharding-ingesters-lookback-period", "When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from  the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'.  The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'.  If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).")
-	fs.Int32Var(&input.Cortex.Querier.MaxFetchedSeriesPerQuery, "cortex.querier.max-fetched-series-per-query", 0, "The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable")
-	if input.Cortex.Distributor == nil {
-		input.Cortex.Distributor = &DistributorConfig{}
-	}
-	fs.Float64Var(&input.Cortex.Distributor.IngestionRate, "cortex.distributor.ingestion-rate", 0.0, "Per-user ingestion rate limit in samples per second.")
-	fs.StringVar(&input.Cortex.Distributor.IngestionRateStrategy, "cortex.distributor.ingestion-rate-strategy", "", "Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).")
-	fs.Int32Var(&input.Cortex.Distributor.IngestionBurstSize, "cortex.distributor.ingestion-burst-size", 0, "Per-user allowed ingestion burst size (in number of samples).")
-	if input.Cortex.Ingester == nil {
-		input.Cortex.Ingester = &IngesterConfig{}
-	}
-	fs.Int32Var(&input.Cortex.Ingester.MaxLocalSeriesPerUser, "cortex.ingester.max-local-series-per-user", 0, "The maximum number of active series per user, per ingester. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxLocalSeriesPerMetric, "cortex.ingester.max-local-series-per-metric", 0, "The maximum number of active series per metric name, per ingester. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxGlobalSeriesPerUser, "cortex.ingester.max-global-series-per-user", 0, "The maximum number of active series per user, across the cluster before replication. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxGlobalSeriesPerMetric, "cortex.ingester.max-global-series-per-metric", 0, "The maximum number of active series per metric name, across the cluster before replication. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxLocalMetricsWithMetadataPerUser, "cortex.ingester.max-local-metrics-with-metadata-per-user", 0, "The maximum number of active metrics with metadata per user, per ingester. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxLocalMetadataPerMetric, "cortex.ingester.max-local-metadata-per-metric", 0, "The maximum number of metadata per metric, per ingester. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxGlobalMetricsWithMetadataPerUser, "cortex.ingester.max-global-metrics-with-metadata-per-user", 0, "The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.")
-	fs.Int32Var(&input.Cortex.Ingester.MaxGlobalMetadataPerMetric, "cortex.ingester.max-global-metadata-per-metric", 0, "The maximum number of metadata per metric, across the cluster. 0 to disable.")
-	return fs
 }
 
 func BuildGetClusterStatusCmd() *cobra.Command {
@@ -308,7 +132,7 @@ HTTP handlers for this method:
 			if err != nil {
 				return err
 			}
-			cmd.Println(protojson.MarshalOptions{Multiline: true, EmitUnpopulated: true}.Format(response))
+			cli.RenderOutput(cmd, response)
 			return nil
 		},
 	}
@@ -336,8 +160,182 @@ HTTP handlers for this method:
 				return nil
 			}
 			_, err := client.UninstallCluster(cmd.Context(), &emptypb.Empty{})
-			return err
+			if err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 	return cmd
+}
+
+func (input *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ClusterConfiguration", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(v2.New(&input.Mode, "DeploymentMode", map[DeploymentMode][]string{
+		DeploymentMode_AllInOne:        {"AllInOne"},
+		DeploymentMode_HighlyAvailable: {"HighlyAvailable"},
+	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "mode"), "."), "The deployment mode to use for Cortex.")
+	if input.Storage == nil {
+		input.Storage = &v1.StorageSpec{}
+	}
+	fs.AddFlagSet(input.Storage.FlagSet(append(prefix, "storage")...))
+	if input.Grafana == nil {
+		input.Grafana = &GrafanaConfig{}
+	}
+	fs.AddFlagSet(input.Grafana.FlagSet(append(prefix, "grafana")...))
+	if input.Workloads == nil {
+		input.Workloads = &Workloads{}
+	}
+	fs.AddFlagSet(input.Workloads.FlagSet(append(prefix, "workloads")...))
+	if input.Cortex == nil {
+		input.Cortex = &CortexConfig{}
+	}
+	fs.AddFlagSet(input.Cortex.FlagSet(append(prefix, "cortex")...))
+	return fs
+}
+
+func (input *ClusterConfiguration) RedactSecrets() {
+	if input == nil {
+		return
+	}
+	input.Storage.RedactSecrets()
+}
+
+func (input *ClusterConfiguration) UnredactSecrets(unredacted *ClusterConfiguration) error {
+	if input == nil {
+		return nil
+	}
+	if err := input.Storage.UnredactSecrets(unredacted.GetStorage()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (input *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("GrafanaConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.BoolVar(&input.Enabled, strings.Join(append(prefix, "enabled"), "."), false, "Whether to deploy a managed Grafana instance.")
+	fs.StringVar(&input.Hostname, strings.Join(append(prefix, "hostname"), "."), "", "DNS name at which Grafana will be available in the browser.")
+	return fs
+}
+
+func (input *Workloads) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Workloads", pflag.ExitOnError)
+	fs.SortFlags = true
+	if input.Distributor == nil {
+		input.Distributor = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Distributor.FlagSet(append(prefix, "distributor")...))
+	fs.Lookup(strings.Join(append(prefix, "distributor", "replicas"), ".")).DefValue = "1"
+	if input.Ingester == nil {
+		input.Ingester = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Ingester.FlagSet(append(prefix, "ingester")...))
+	if input.Compactor == nil {
+		input.Compactor = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Compactor.FlagSet(append(prefix, "compactor")...))
+	if input.StoreGateway == nil {
+		input.StoreGateway = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.StoreGateway.FlagSet(append(prefix, "store-gateway")...))
+	if input.Ruler == nil {
+		input.Ruler = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Ruler.FlagSet(append(prefix, "ruler")...))
+	if input.QueryFrontend == nil {
+		input.QueryFrontend = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.QueryFrontend.FlagSet(append(prefix, "query-frontend")...))
+	fs.Lookup(strings.Join(append(prefix, "query-frontend", "replicas"), ".")).DefValue = "1"
+	if input.Querier == nil {
+		input.Querier = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Querier.FlagSet(append(prefix, "querier")...))
+	if input.Purger == nil {
+		input.Purger = &CortexWorkloadSpec{}
+	}
+	fs.AddFlagSet(input.Purger.FlagSet(append(prefix, "purger")...))
+	fs.Lookup(strings.Join(append(prefix, "purger", "replicas"), ".")).DefValue = "1"
+	return fs
+}
+
+func (input *CortexWorkloadSpec) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CortexWorkloadSpec", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&input.Replicas, strings.Join(append(prefix, "replicas"), "."), 0, "Number of replicas to run for this workload. Should be an odd number.")
+	fs.StringSliceVar(&input.ExtraArgs, strings.Join(append(prefix, "extra-args"), "."), nil, "Any additional arguments to pass to Cortex.")
+	return fs
+}
+
+func (input *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CortexConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	if input.Compactor == nil {
+		input.Compactor = &CompactorConfig{}
+	}
+	fs.AddFlagSet(input.Compactor.FlagSet(append(prefix, "compactor")...))
+	if input.Querier == nil {
+		input.Querier = &QuerierConfig{}
+	}
+	fs.AddFlagSet(input.Querier.FlagSet(append(prefix, "querier")...))
+	if input.Distributor == nil {
+		input.Distributor = &DistributorConfig{}
+	}
+	fs.AddFlagSet(input.Distributor.FlagSet(append(prefix, "distributor")...))
+	if input.Ingester == nil {
+		input.Ingester = &IngesterConfig{}
+	}
+	fs.AddFlagSet(input.Ingester.FlagSet(append(prefix, "ingester")...))
+	return fs
+}
+
+func (input *CompactorConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CompactorConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.DurationpbSliceValue([]time.Duration{2 * time.Hour, 12 * time.Hour, 24 * time.Hour}, &input.BlockRanges), strings.Join(append(prefix, "block-ranges"), "."), "List of compaction time ranges")
+	fs.Var(flagutil.DurationpbValue(1*time.Hour, &input.CompactionInterval), strings.Join(append(prefix, "compaction-interval"), "."), "The frequency at which the compaction runs")
+	fs.Var(flagutil.DurationpbValue(15*time.Minute, &input.CleanupInterval), strings.Join(append(prefix, "cleanup-interval"), "."), "How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index")
+	fs.Var(flagutil.DurationpbValue(12*time.Hour, &input.DeletionDelay), strings.Join(append(prefix, "deletion-delay"), "."), "Time before a block marked for deletion is deleted from the bucket")
+	fs.Var(flagutil.DurationpbValue(6*time.Hour, &input.TenantCleanupDelay), strings.Join(append(prefix, "tenant-cleanup-delay"), "."), "For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant")
+	return fs
+}
+
+func (input *QuerierConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("QuerierConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.DurationpbValue(2*time.Minute, &input.QueryTimeout), strings.Join(append(prefix, "query-timeout"), "."), "The timeout for a query")
+	fs.Int32Var(&input.MaxSamples, strings.Join(append(prefix, "max-samples"), "."), 50e6, "Maximum number of samples a single query can load into memory")
+	fs.Var(flagutil.DurationpbValue(0, &input.QueryIngestersWithin), strings.Join(append(prefix, "query-ingesters-within"), "."), "Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.")
+	fs.Var(flagutil.DurationpbValue(10*time.Minute, &input.MaxQueryIntoFuture), strings.Join(append(prefix, "max-query-into-future"), "."), "Maximum duration into the future you can query. 0 to disable")
+	fs.Var(flagutil.DurationpbValue(1*time.Minute, &input.DefaultEvaluationInterval), strings.Join(append(prefix, "default-evaluation-interval"), "."), "The default evaluation interval or step size for subqueries")
+	fs.Var(flagutil.DurationpbValue(0, &input.QueryStoreAfter), strings.Join(append(prefix, "query-store-after"), "."), "The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store.  When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated  to ensure the query end is not more recent than 'now - query-store-after'.")
+	fs.Var(flagutil.DurationpbValue(5*time.Minute, &input.LookbackDelta), strings.Join(append(prefix, "lookback-delta"), "."), "Time since the last sample after which a time series is considered stale and ignored by expression evaluations")
+	fs.Var(flagutil.DurationpbValue(0, &input.ShuffleShardingIngestersLookbackPeriod), strings.Join(append(prefix, "shuffle-sharding-ingesters-lookback-period"), "."), "When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from  the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'.  The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'.  If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).")
+	fs.Int32Var(&input.MaxFetchedSeriesPerQuery, strings.Join(append(prefix, "max-fetched-series-per-query"), "."), 0, "The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable")
+	return fs
+}
+
+func (input *DistributorConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("DistributorConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Float64Var(&input.IngestionRate, strings.Join(append(prefix, "ingestion-rate"), "."), 600000, "Per-user ingestion rate limit in samples per second.")
+	fs.StringVar(&input.IngestionRateStrategy, strings.Join(append(prefix, "ingestion-rate-strategy"), "."), "local", "Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).")
+	fs.Int32Var(&input.IngestionBurstSize, strings.Join(append(prefix, "ingestion-burst-size"), "."), 1000000, "Per-user allowed ingestion burst size (in number of samples).")
+	return fs
+}
+
+func (input *IngesterConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("IngesterConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&input.MaxLocalSeriesPerUser, strings.Join(append(prefix, "max-local-series-per-user"), "."), 0, "The maximum number of active series per user, per ingester. 0 to disable.")
+	fs.Int32Var(&input.MaxLocalSeriesPerMetric, strings.Join(append(prefix, "max-local-series-per-metric"), "."), 0, "The maximum number of active series per metric name, per ingester. 0 to disable.")
+	fs.Int32Var(&input.MaxGlobalSeriesPerUser, strings.Join(append(prefix, "max-global-series-per-user"), "."), 0, "The maximum number of active series per user, across the cluster before replication. 0 to disable.")
+	fs.Int32Var(&input.MaxGlobalSeriesPerMetric, strings.Join(append(prefix, "max-global-series-per-metric"), "."), 0, "The maximum number of active series per metric name, across the cluster before replication. 0 to disable.")
+	fs.Int32Var(&input.MaxLocalMetricsWithMetadataPerUser, strings.Join(append(prefix, "max-local-metrics-with-metadata-per-user"), "."), 0, "The maximum number of active metrics with metadata per user, per ingester. 0 to disable.")
+	fs.Int32Var(&input.MaxLocalMetadataPerMetric, strings.Join(append(prefix, "max-local-metadata-per-metric"), "."), 0, "The maximum number of metadata per metric, per ingester. 0 to disable.")
+	fs.Int32Var(&input.MaxGlobalMetricsWithMetadataPerUser, strings.Join(append(prefix, "max-global-metrics-with-metadata-per-user"), "."), 0, "The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.")
+	fs.Int32Var(&input.MaxGlobalMetadataPerMetric, strings.Join(append(prefix, "max-global-metadata-per-metric"), "."), 0, "The maximum number of metadata per metric, across the cluster. 0 to disable.")
+	return fs
 }

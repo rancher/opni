@@ -24,4 +24,6 @@ func (d *durationpbValue) Type() string {
 	return "duration"
 }
 
-func (d *durationpbValue) String() string { return (*durationpb.Duration)(d).AsDuration().String() }
+func (d *durationpbValue) String() string {
+	return (*durationpb.Duration)(d).AsDuration().String()
+}

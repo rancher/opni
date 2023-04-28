@@ -5,13 +5,12 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "google/api/annotations.proto";
-import "github.com/rancher/opni/internal/generators/cli.proto";
+import "github.com/rancher/opni/internal/cli/cli.proto";
 
 package cortexops;
 
 option (cli.generator) = {
   generate: true
-  client_dependency_injection: InjectIntoContext
 };
 
 // The CortexOps service contains setup and configuration lifecycle actions for the managed Cortex cluster.
@@ -107,18 +106,20 @@ message ClusterConfiguration {
 }
 
 message Workloads {
-  CortexWorkloadSpec distributor = 1;
+  CortexWorkloadSpec distributor = 1 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
   CortexWorkloadSpec ingester = 2;
   CortexWorkloadSpec compactor = 3;
   CortexWorkloadSpec storeGateway = 4;
   CortexWorkloadSpec ruler = 5;
-  CortexWorkloadSpec queryFrontend = 6;
+  CortexWorkloadSpec queryFrontend = 6 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
   CortexWorkloadSpec querier = 7;
-  CortexWorkloadSpec purger = 8;
+  CortexWorkloadSpec purger = 8 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
 }
 
 message CortexWorkloadSpec {
+  // Number of replicas to run for this workload. Should be an odd number.
   int32 replicas = 1;
+  // Any additional arguments to pass to Cortex.
   repeated string extraArgs = 2;
 }
 
@@ -215,7 +216,8 @@ message IngesterConfig {
 }
 
 message GrafanaConfig {
-  bool enabled = 1 [(cli.flag).default="true"];
+  // Whether to deploy a managed Grafana instance.
+  bool enabled = 1 [(cli.flag).default="false"];
 
   // DNS name at which Grafana will be available in the browser.
   string hostname = 2;

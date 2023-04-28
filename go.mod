@@ -61,7 +61,7 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.15.2
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
-	github.com/kralicky/ragu v1.0.0-rc7
+	github.com/kralicky/ragu v1.0.9
 	github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105
 	github.com/kralicky/totem v1.1.15
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d

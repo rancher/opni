@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"github.com/rancher/opni/pkg/validation"
 
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/nats-io/nats.go"
@@ -35,20 +36,11 @@ var dashboardSelector = &metav1.LabelSelector{
 	},
 }
 
-type RequestError struct {
-	StatusCode int
-	Err        error
-}
-
-func (r *RequestError) Error() string {
-	return r.Err.Error()
-}
-
 func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	// dashboardJson is generated in the python service. This function simply create a GrafanaDashboard resource with it and apply it
 	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %s", err)
 	}
 	dashboardJson := string(res.JobRunResultDetails)
 	dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
@@ -67,7 +59,7 @@ func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metr
 	for _, dashboard := range grafanaDashboards {
 		err := p.k8sClient.Create(ctx, dashboard)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Error Creating Dashboard for metricAI: %v", err)
+			return nil, status.Errorf(codes.Internal, "Error Creating Dashboard for metricAI: %s", err)
 		}
 	}
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Description: dashboardJson, Status: "Success"}, nil
@@ -77,7 +69,7 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 	// delete the grafanadashboard resource for the given jobrun id
 	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %s", err)
 	}
 	dashboardJson := res.JobRunResultDetails
 	dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
@@ -96,7 +88,7 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 	for _, dashboard := range grafanaDashboards {
 		err := p.k8sClient.Delete(ctx, dashboard)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Error Deleting Dashboard for metricAI: %v", err)
+			return nil, status.Errorf(codes.Internal, "Error Deleting Dashboard for metricAI: %s", err)
 		}
 	}
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Description: dashboardJson, Status: "Success"}, nil
@@ -111,17 +103,17 @@ func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metr
 	url := serverUrl + "/get_users"
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %s", err)
 	}
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %s", err)
 	}
 	defer resp.Body.Close()
 
 	var result []string
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListClusters for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListClusters for metricAI: %s", err)
 	}
 	return &metricai.MetricAIIdList{Items: result}, nil
 }
@@ -135,17 +127,17 @@ func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.Me
 	url := serverUrl + "/list_namespace/" + clusterId.Id
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %s", err)
 	}
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListNamespaces for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListNamespaces for metricAI: %s", err)
 	}
 	defer resp.Body.Close()
 	var result []string
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListNamespaces for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListNamespaces for metricAI: %s", err)
 	}
 	return &metricai.MetricAIIdList{Items: result}, nil
 }
@@ -156,14 +148,14 @@ func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to ListJobs for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to ListJobs for metricAI: %s", err)
 	}
 	jobs, err := metricAIKeyValue.Keys()
 	if err != nil {
 		if errors.Is(err, nats.ErrNoKeysFound) {
 			return &metricai.MetricAIIdList{}, nil
 		}
-		return nil, status.Errorf(codes.NotFound, "Failed to ListJobs for metricAI: %v", err)
+		return nil, status.Errorf(codes.NotFound, "Failed to ListJobs for metricAI: %s", err)
 	}
 	return &metricai.MetricAIIdList{Items: jobs}, nil
 }
@@ -174,14 +166,14 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %s", err)
 	}
 	jobruns, err := metricAIKeyValue.Keys()
 	if err != nil {
 		if errors.Is(err, nats.ErrNoKeysFound) {
 			return &metricai.MetricAIIdList{}, nil
 		}
-		return nil, status.Errorf(codes.NotFound, "Failed to ListJobRuns for metricAI: %v", err)
+		return nil, status.Errorf(codes.NotFound, "Failed to ListJobRuns for metricAI: %s", err)
 	}
 	var jobRunIdArray []string
 	// use jobId.Id + jobRunDelimiter to uniquely identify jobrun IDs for different jobs.
@@ -202,19 +194,30 @@ func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAII
 	url := serverUrl + "/run_job/" + jobRequest.Id
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to RunJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to RunJob for metricAI: %s", err)
 	}
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to RunJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to RunJob for metricAI: %s", err)
 	}
 	defer resp.Body.Close()
 	var res map[string]interface{}
 
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of SubmitJobRequest for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of SubmitJobRequest for metricAI: %s", err)
 	}
 	return &metricai.MetricAIRunJobResponse{JobRunId: res["JobRunId"].(string), SubmittedTime: time.Now().String(), Status: res["Status"].(string)}, nil
+}
+
+func (p *AIOpsPlugin) JobIdValidate(jobId string) error {
+	if jobId == "" { // id can't be empty
+		return validation.Error("jobId can't be empty")
+	}
+
+	if strings.Contains(jobId, jobRunDelimiter) { // disallow the delimiter. TODO: should only allow chars include alphanum and - and _
+		return validation.Error(fmt.Sprintf("jobId can't contain special char %s", jobRunDelimiter))
+	}
+	return nil
 }
 
 func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
@@ -224,29 +227,16 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to ListJobRuns for metricAI: %s", err)
 	}
 	jid := strings.ToLower(jobRequest.JobId)
-
-	if jid == "" { // id can't be empty
-		return nil, &RequestError{
-			StatusCode: 503,
-			Err:        errors.New("jobId can't be empty"),
-		}
-	}
-
-	if strings.Contains(jid, jobRunDelimiter) { // disallow the delimiter. TODO: should only allow chars include alphanum and - and _
-		return nil, &RequestError{
-			StatusCode: 503,
-			Err:        errors.New(fmt.Sprintf("jobId can't contain special char %s", jobRunDelimiter)),
-		}
+	err = p.JobIdValidate(jid)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to CreateJob with jobID %s for metricAI, Error: %s",jid, err)
 	}
 
 	if _, err := metricAIKeyValue.Get(jid); err == nil { // check if this id exists
-		return nil, &RequestError{
-			StatusCode: 503,
-			Err:        errors.New("The jobId to add already exist"),
-		}
+		return nil, status.Errorf(codes.Internal, "Failed to CreateJob with jobID %s for metricAI, Error: The jobId to add already exist",jid)
 	}
 
 	job := make(map[string]interface{})
@@ -257,11 +247,11 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
 	job["JobDescription"] = jobRequest.JobDescription
 	jobJsonStr, err := json.Marshal(job)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to marshal JobStatus for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to marshal JobStatus for metricAI: %s", err)
 	}
 	_, err = metricAIKeyValue.Put(jid, []byte(jobJsonStr))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to CreateJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to CreateJob for metricAI: %s", err)
 	}
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Status: "Success"}, nil
 }
@@ -272,17 +262,14 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %s", err)
 	}
 	jid := jobId.Id
 	if _, err := metricAIKeyValue.Get(jid); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, &RequestError{
-				StatusCode: 503,
-				Err:        errors.New("The jobId to delete doesn't exist"),
-			}
+			return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: The jobId to delete doesn't exist")
 		}
-		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJob for metricAI: %s", err)
 	}
 	metricAIKeyValue.Delete(jid)
 	return &metricai.MetricAIAPIResponse{Status: "Success", Description: fmt.Sprintf("The JobId key %s is deleted", jid)}, nil
@@ -294,17 +281,14 @@ func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.Metri
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %s", err)
 	}
 	jid := jobRunId.Id
 	if _, err := metricAIKeyValue.Get(jid); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, &RequestError{
-				StatusCode: 503,
-				Err:        errors.New("The jobRunId to delete doesn't exist"),
-			}
+			return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: The jobRunId to delete doesn't exist")
 		}
-		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to DeleteJobRun for metricAI: %s", err)
 	}
 	metricAIKeyValue.Delete(jid)
 	return &metricai.MetricAIAPIResponse{Status: "Success", Description: fmt.Sprintf("The JobRunId key :%s is deleted", jid)}, nil
@@ -316,22 +300,19 @@ func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.Me
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult bucket for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult bucket for metricAI: %s", err)
 	}
 	jid := jobRunId.Id
 	jobRes, err := metricAIKeyValue.Get(jid)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, &RequestError{
-				StatusCode: 503,
-				Err:        errors.New("The jobRunId doesn't exist"),
-			}
+			return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult with ID %s for metricAI: The jobRunId doesn't exist", jid)
 		}
-		return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult key %s for metricAI: %v", jid, err)
+		return nil, status.Errorf(codes.Internal, "Failed to GetJobRunResult key %s for metricAI: %s", jid, err)
 	}
 	var res = metricai.MetricAIJobRunResult{}
 	if err := json.Unmarshal(jobRes.Value(), &res); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal GetJobRunResult from Jetstream for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal GetJobRunResult from Jetstream for metricAI: %s", err)
 	}
 	return &res, nil
 
@@ -343,22 +324,19 @@ func (p *AIOpsPlugin) GetJob(ctx context.Context, jobId *metricai.MetricAIId) (*
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: %s", err)
 	}
 	jid := jobId.Id
 	jobRes, err := metricAIKeyValue.Get(jid)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, &RequestError{
-				StatusCode: 503,
-				Err:        errors.New("The jobId doesn't exist"),
-			}
+			return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: The jobId doesn't exist")
 		}
-		return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to GetJob for metricAI: %s", err)
 	}
 	var res = metricai.MetricAIJobStatus{}
 	if err := json.Unmarshal(jobRes.Value(), &res); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JobStatus from Jetstream for metricAI: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal JobStatus from Jetstream for metricAI: %s", err)
 	}
 	return &res, nil
 

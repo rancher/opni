@@ -4,3 +4,4 @@ scipy
 scikit-learn
 opni-nats==0.1.0
 matplotlib
+uvicorn

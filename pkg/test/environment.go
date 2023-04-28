@@ -84,19 +84,20 @@ var agentList = make(map[string]context.CancelFunc)
 var agentListMu sync.Mutex
 
 type ServicePorts struct {
-	Etcd             int `env:"ETCD_PORT"`
-	Jetstream        int `env:"JETSTREAM_PORT"`
-	GatewayGRPC      int `env:"OPNI_GATEWAY_GRPC_PORT"`
-	GatewayHTTP      int `env:"OPNI_GATEWAY_HTTP_PORT"`
-	GatewayMetrics   int `env:"OPNI_GATEWAY_METRICS_PORT"`
-	ManagementGRPC   int `env:"OPNI_MANAGEMENT_GRPC_PORT"`
-	ManagementHTTP   int `env:"OPNI_MANAGEMENT_HTTP_PORT"`
-	ManagementWeb    int `env:"OPNI_MANAGEMENT_WEB_PORT"`
-	CortexGRPC       int `env:"CORTEX_GRPC_PORT"`
-	CortexHTTP       int `env:"CORTEX_HTTP_PORT"`
-	TestEnvironment  int `env:"TEST_ENV_API_PORT"`
-	DisconnectPort   int `env:"AGENT_DISCONNECT_PORT"`
-	NodeExporterPort int `env:"NODE_EXPORTER_PORT"`
+	Etcd                     int `env:"ETCD_PORT"`
+	Jetstream                int `env:"JETSTREAM_PORT"`
+	GatewayGRPC              int `env:"OPNI_GATEWAY_GRPC_PORT"`
+	GatewayHTTP              int `env:"OPNI_GATEWAY_HTTP_PORT"`
+	GatewayMetrics           int `env:"OPNI_GATEWAY_METRICS_PORT"`
+	ManagementGRPC           int `env:"OPNI_MANAGEMENT_GRPC_PORT"`
+	ManagementHTTP           int `env:"OPNI_MANAGEMENT_HTTP_PORT"`
+	ManagementWeb            int `env:"OPNI_MANAGEMENT_WEB_PORT"`
+	CortexGRPC               int `env:"CORTEX_GRPC_PORT"`
+	CortexHTTP               int `env:"CORTEX_HTTP_PORT"`
+	TestEnvironment          int `env:"TEST_ENV_API_PORT"`
+	DisconnectPort           int `env:"AGENT_DISCONNECT_PORT"`
+	NodeExporterPort         int `env:"NODE_EXPORTER_PORT"`
+	MetricAnomalyServicePort int `env:"METRIC_ANOMALY_SERVICE_PORT"`
 }
 
 func newServicePorts() (ServicePorts, error) {
@@ -151,6 +152,7 @@ type Environment struct {
 	cancel context.CancelFunc
 	once   sync.Once
 
+	rootDir        string
 	tempDir        string
 	ports          ServicePorts
 	localAgentOnce sync.Once
@@ -241,7 +243,7 @@ func defaultStorageBackend() v1beta1.StorageType {
 	return "jetstream"
 }
 
-func FindTestBin() (string, error) {
+func FindRootDir() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return "", err
@@ -273,11 +275,22 @@ WALK:
 		}
 		wd = filepath.Dir(wd)
 	}
-	testbin := filepath.Join(wd, "testbin", "bin")
+	return wd, nil
+}
+
+func FindTestBin() (string, error) {
+	rootDir, err := FindRootDir()
+	if err != nil {
+		return "", err
+	}
+	return findTestBinFromRoot(rootDir)
+}
+
+func findTestBinFromRoot(rootDir string) (string, error) {
+	testbin := filepath.Join(rootDir, "testbin", "bin")
 	if _, err := os.Stat(testbin); err != nil {
 		return "", fmt.Errorf("testbin directory not found at its expected location: %s", testbin)
 	}
-
 	return testbin, nil
 }
 
@@ -294,9 +307,13 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	options.apply(opts...)
 
+	rootDir, err := FindRootDir()
+	if err != nil {
+		return err
+	}
 	if e.TestBin == "" {
 		var err error
-		e.TestBin, err = FindTestBin()
+		e.TestBin, err = findTestBinFromRoot(rootDir)
 		if err != nil {
 			return err
 		}
@@ -325,7 +342,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	var err error
 	e.ports, err = newServicePorts()
 	if err != nil {
 		return err
@@ -381,6 +397,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	})
 	keyData, _ := json.Marshal(key)
 	os.WriteFile(path.Join(e.tempDir, "keyring", "local-agent.json"), keyData, 0400)
+
+	e.writeGrafanaConfig()
 
 	if options.enableEtcd {
 		e.startEtcd()
@@ -533,7 +551,7 @@ func (e *Environment) startJetstream() {
 			return
 		}
 	}
-	os.Setenv("NATS_SERVER_URL", fmt.Sprintf("http://localhost:%d", e.ports.Jetstream))
+	os.Setenv("NATS_SERVER_URL", fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream))
 	authConfigFile := path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf")
 	err = os.WriteFile(authConfigFile, []byte(seed), 0644)
 	if err != nil {
@@ -1846,10 +1864,24 @@ type grafanaConfigTemplateData struct {
 	DatasourceUrl string
 }
 
-func (e *Environment) WriteGrafanaConfig() {
+func (e *Environment) writeGrafanaConfig() {
 	os.MkdirAll(path.Join(e.tempDir, "grafana", "provisioning", "datasources"), 0777)
 	os.MkdirAll(path.Join(e.tempDir, "grafana", "provisioning", "dashboards"), 0777)
 	os.MkdirAll(path.Join(e.tempDir, "grafana", "dashboards"), 0777)
+	copyDashboard := func(filename string) {
+		jsonData, err := os.ReadFile(path.Join(e.rootDir, filename))
+		if err != nil {
+			e.Logger.Error(err)
+		} else {
+			if err := os.WriteFile(path.Join(e.tempDir, "grafana", "dashboards", filepath.Base(filename)), jsonData, 644); err != nil {
+				e.Logger.Error(err)
+			} else {
+				e.Logger.Info("copied dashboard " + filename)
+			}
+		}
+	}
+	copyDashboard("pkg/resources/monitoring/dashboards/home.json")
+	copyDashboard("pkg/resources/monitoring/dashboards/opni-gateway.json")
 
 	tmplData := grafanaConfigTemplateData{
 		DatasourceUrl: fmt.Sprintf("https://localhost:%d", e.ports.GatewayHTTP),
@@ -1926,4 +1958,46 @@ func (e *Environment) StartGrafana(extraDockerArgs ...string) {
 		<-e.ctx.Done()
 		session.Wait()
 	})
+}
+
+func (e *Environment) StartMetricAnalysisServer() error {
+	if _, ok := os.LookupEnv("VIRTUAL_ENV"); !ok {
+		return fmt.Errorf("no virtualenv found")
+	}
+	// check if $VIRTUAL_ENV/bin/python and $VIRTUAL_ENV/bin/pip exist
+	if _, err := os.Stat(path.Join(os.Getenv("VIRTUAL_ENV"), "bin", "python")); os.IsNotExist(err) {
+		return fmt.Errorf("no python executable found in virtualenv")
+	}
+	if _, err := os.Stat(path.Join(os.Getenv("VIRTUAL_ENV"), "bin", "pip")); os.IsNotExist(err) {
+		return fmt.Errorf("no pip executable found in virtualenv")
+	}
+	workdir := filepath.Join(e.rootDir, "aiops", "metric")
+	// run pip install -r aiops/requirements.txt
+	cmd := exec.CommandContext(e.ctx, "pip", "install", "-q", "-r", "requirements.txt")
+	cmd.Dir = workdir
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		return err
+	}
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("error installing requirements: %w", err)
+	}
+
+	// start metric analysis server
+	cmd = exec.CommandContext(e.ctx, "uvicorn", "main:app", "--host", "localhost", "--port", fmt.Sprint(e.ports.MetricAnomalyServicePort))
+	cmd.Dir = filepath.Join(workdir, "metric_analysis")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("OPNI_GATEWAY_PORT=%d", e.ports.GatewayGRPC),
+		fmt.Sprintf("OPNI_GATEWAY_PLUGINAPI_PORT=%d", e.ports.GatewayHTTP),
+	)
+	session, err = testutil.StartCmd(cmd)
+	if err != nil {
+		return fmt.Errorf("cannot start metric analysis server: %w", err)
+	}
+
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
+	return nil
 }

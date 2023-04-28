@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
+	_ "github.com/rancher/opni/pkg/test/setup"
+	"github.com/rancher/opni/pkg/test/testruntime"
 )
 
 func TestAlertstorage(t *testing.T) {
@@ -22,10 +24,8 @@ var testObj nats.ObjectStore
 var env *test.Environment
 
 var _ = BeforeSuite(func() {
-	test.IfIntegration(func() {
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
+	testruntime.IfIntegration(func() {
+		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
 		nc, err := env.StartEmbeddedJetstream()
 		Expect(err).NotTo(HaveOccurred())

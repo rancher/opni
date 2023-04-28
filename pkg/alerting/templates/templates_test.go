@@ -39,7 +39,7 @@ type TestMessage interface {
 	Validate() error
 }
 
-var _ = Describe("Prometheus fingerprint templating", func() {
+var _ = Describe("Prometheus fingerprint templating", Label("unit"), func() {
 	When("we use a promteheus template expander we should get back a fingerprint", func() {
 		It("should create a valid template expander mock", func() {
 			prometheusAlert := &alertingv1.AlertCondition{

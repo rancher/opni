@@ -59,16 +59,15 @@ func NewCachingHttpServer(serverPort int) *CachingHttpServer {
 			encoder := json.NewEncoder(w)
 			encoder.Encode(ValueResponse{Value: int(c.value.Load())})
 			return
+		}
+		if obj, ok := c.objects[id]; !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		} else {
-			if obj, ok := c.objects[id]; !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			} else {
-				w.WriteHeader(http.StatusOK)
-				encoder := json.NewEncoder(w)
-				encoder.Encode(ValueResponse{Value: int(obj.Load())})
-				return
-			}
+			w.WriteHeader(http.StatusOK)
+			encoder := json.NewEncoder(w)
+			encoder.Encode(ValueResponse{Value: int(obj.Load())})
+			return
 		}
 	})
 
@@ -147,14 +146,14 @@ func NewAggregatorServer(
 	}
 }
 
-func (c *SimpleServer) Increment(ctx context.Context, request *IncrementRequest) (*emptypb.Empty, error) {
+func (c *SimpleServer) Increment(_ context.Context, request *IncrementRequest) (*emptypb.Empty, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.value += request.Value
 	return &emptypb.Empty{}, nil
 }
 
-func (c *SimpleServer) GetValue(ctx context.Context, _ *emptypb.Empty) (*Value, error) {
+func (c *SimpleServer) GetValue(_ context.Context, _ *emptypb.Empty) (*Value, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return &Value{
@@ -171,7 +170,7 @@ func (c *SimpleServer) GetValueWithForcedClientCaching(ctx context.Context, _ *e
 	}, nil
 }
 
-func (o *ObjectServer) IncrementObject(ctx context.Context, request *IncrementObjectRequest) (*emptypb.Empty, error) {
+func (o *ObjectServer) IncrementObject(_ context.Context, request *IncrementObjectRequest) (*emptypb.Empty, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.items[request.Id.Id]; !ok {
@@ -181,7 +180,7 @@ func (o *ObjectServer) IncrementObject(ctx context.Context, request *IncrementOb
 	return &emptypb.Empty{}, nil
 }
 
-func (o *ObjectServer) GetObjectValue(ctx context.Context, reference *ObjectReference) (*Value, error) {
+func (o *ObjectServer) GetObjectValue(_ context.Context, reference *ObjectReference) (*Value, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.items[reference.Id]; !ok {
@@ -191,7 +190,7 @@ func (o *ObjectServer) GetObjectValue(ctx context.Context, reference *ObjectRefe
 	return &Value{Value: returnVal}, nil
 }
 
-func (o *ObjectServer) List(ctx context.Context, _ *emptypb.Empty) (*ObjectList, error) {
+func (o *ObjectServer) List(_ context.Context, _ *emptypb.Empty) (*ObjectList, error) {
 	list := &ObjectList{
 		Items: []*ObjectReference{},
 	}

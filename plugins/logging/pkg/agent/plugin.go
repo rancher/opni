@@ -9,9 +9,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/health"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"go.uber.org/zap"
@@ -36,20 +36,21 @@ func NewPlugin(ctx context.Context) *Plugin {
 		otelForwarder: otel.NewOTELForwarder(otel.WithLogger(lg.Named("otel-forwarder"))),
 	}
 
-	if d, err := kubernetes.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {
-		lg.With(
-			"driver", d.Name(),
-			zap.Error(err),
-		).Info("node driver is unavailable")
-		drivers.LogNodeDriverFailure(d.Name(), err)
-	} else {
-		lg.With(
-			"driver", d.Name(),
-		).Info("node driver is available")
-		drivers.RegisterNodeDriver(d)
-		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, d.ConfigureNode))
-	}
+	for _, d := range drivers.NodeDrivers.List() {
+		driverBuilder, _ := drivers.NodeDrivers.Get(d)
+		driver, err := driverBuilder(ctx,
+			driverutil.NewOption("logger", lg),
+		)
+		if err != nil {
+			lg.With(
+				"driver", d,
+				zap.Error(err),
+			).Error("failed to initialize logging node driver")
+			continue
+		}
 
+		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, driver.ConfigureNode))
+	}
 	return p
 }
 

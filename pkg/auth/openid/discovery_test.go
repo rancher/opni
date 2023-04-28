@@ -19,8 +19,11 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 				Issuer: "http://" + discovery.addr,
 			},
 		}
-		response, err := cfg.GetWellKnownConfiguration()
-		Expect(err).NotTo(HaveOccurred())
+		var response *openid.WellKnownConfiguration
+		Eventually(func() (err error) {
+			response, err = cfg.GetWellKnownConfiguration()
+			return
+		}).Should(Succeed())
 		Expect(*response).To(Equal(discovery.wellKnownCfg))
 	})
 

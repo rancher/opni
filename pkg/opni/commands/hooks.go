@@ -1,4 +1,4 @@
-//go:build !nohooks
+//go:build !minimal
 
 package commands
 

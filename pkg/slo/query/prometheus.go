@@ -10,7 +10,6 @@ import (
 	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
-	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type PrometheusQueryImpl struct {
@@ -26,7 +25,7 @@ type PrometheusQueryImpl struct {
 }
 
 // The actual metricId and window are only known at SLO creation time
-func (p *PrometheusQueryImpl) Construct(service *api.ServiceInfo) (*SLOQueryResult, error) {
+func (p *PrometheusQueryImpl) Construct(service ServiceInfo) (*SLOQueryResult, error) {
 	goodQueryStr, err := p.GoodQuery.Construct(service)
 	if err != nil {
 		return nil, err

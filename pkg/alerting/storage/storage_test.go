@@ -10,22 +10,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/interfaces"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
-	"github.com/rancher/opni/pkg/test/freeport"
-
-	"github.com/nats-io/nats.go"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/alerting/interfaces"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/alerting"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
@@ -412,7 +411,7 @@ func BuildAlertRouterStorageTestSuite(
 				Expect(err).To(Succeed())
 				Expect(getRouter).NotTo(BeNil())
 				By("checking the router object is the same")
-				test.ExpectRouterEqual(getRouter, defaultRouter)
+				alerting.ExpectRouterEqual(getRouter, defaultRouter)
 			})
 		})
 
@@ -424,7 +423,7 @@ func BuildAlertRouterStorageTestSuite(
 				Expect(err).To(Succeed())
 				Expect(originalRouter).NotTo(BeNil())
 				By("attaching some configurations to the obtained router")
-				endpSet := test.CreateRandomSetOfEndpoints()
+				endpSet := alerting.CreateRandomSetOfEndpoints()
 				getRouter.SetDefaultNamespaceConfig(lo.Map(
 					lo.Samples(
 						lo.Values(endpSet),
@@ -434,7 +433,7 @@ func BuildAlertRouterStorageTestSuite(
 						return v.AlertEndpoint
 					}))
 				By("expecting the modified router to be different from the original")
-				test.ExpectRouterNotEqual(getRouter, originalRouter)
+				alerting.ExpectRouterNotEqual(getRouter, originalRouter)
 
 				err = routerStore.Put(ctx, "cluster1", getRouter)
 				Expect(err).To(Succeed())
@@ -442,7 +441,7 @@ func BuildAlertRouterStorageTestSuite(
 				Expect(err).To(Succeed())
 				Expect(updatedRouter).NotTo(BeNil())
 				By("expecting the persisted updated router to be different from the original")
-				test.ExpectRouterNotEqual(updatedRouter, originalRouter)
+				alerting.ExpectRouterNotEqual(updatedRouter, originalRouter)
 			})
 		})
 
@@ -457,7 +456,7 @@ func BuildStorageClientSetSuite(
 		var s storage.AlertingClientSet
 		var ctx context.Context
 		BeforeAll(func() {
-			broker := broker_init.NewDefaultAlertingBroker(embeddedJetstream)
+			broker := brokerConstructor()
 
 			s = broker.NewClientSet()
 			Expect(s).NotTo(BeNil())
@@ -608,20 +607,13 @@ func BuildStorageClientSetSuite(
 				cfg, err := tree.BuildConfig()
 				Expect(err).To(Succeed())
 				newDir := env.GenerateNewTempDirectory("force-sync")
-				test.ExpectAlertManagerConfigToBeValid(
-					env,
-					newDir,
-					"default-after-force-sync.yaml",
-					ctx,
-					cfg,
-					freeport.GetFreePort(),
-				)
+				alerting.ExpectAlertManagerConfigToBeValid(ctx, env, newDir, "default-after-force-sync.yaml", cfg, freeport.GetFreePort())
 			})
 		})
 
 		When("force syncing with user configurations", func() {
 			It("should create a routing tree with the correct configuration", func() {
-				endps := test.CreateRandomSetOfEndpoints()
+				endps := alerting.CreateRandomSetOfEndpoints()
 				for _, endp := range endps {
 					err := s.Endpoints().Put(ctx, endp.GetEndpointId(), endp.GetAlertEndpoint())
 					Expect(err).To(Succeed())
@@ -674,14 +666,7 @@ func BuildStorageClientSetSuite(
 				cfg, err := tree.BuildConfig()
 				Expect(err).To(Succeed())
 				newDir := env.GenerateNewTempDirectory("force-sync")
-				test.ExpectAlertManagerConfigToBeValid(
-					env,
-					newDir,
-					"user-configs-force-sync.yaml",
-					ctx,
-					cfg,
-					freeport.GetFreePort(),
-				)
+				alerting.ExpectAlertManagerConfigToBeValid(ctx, env, newDir, "user-configs-force-sync.yaml", cfg, freeport.GetFreePort())
 			})
 		})
 

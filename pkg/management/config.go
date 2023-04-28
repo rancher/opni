@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 func (m *Server) GetConfig(

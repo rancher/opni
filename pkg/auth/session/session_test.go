@@ -20,9 +20,11 @@ import (
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
-	"github.com/rancher/opni/pkg/test"
 	mock_grpc "github.com/rancher/opni/pkg/test/mock/grpc"
+	"github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/samber/lo"
@@ -53,7 +55,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 		Expect(err).NotTo(HaveOccurred())
 
 		handler := challenges.Chained(
-			testutil.Must(authv2.NewClientChallenge(clientKeyring, "foo", test.Log)),
+			testutil.Must(authv2.NewClientChallenge(clientKeyring, "foo", testlog.Log)),
 			challenges.If(clientChallenge.HasAttributes).Then(clientChallenge),
 		)
 
@@ -101,13 +103,13 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 		attrChallenge, err := session.NewServerChallenge(testKeyring, session.WithAttributeRequestLimit(50))
 		Expect(err).NotTo(HaveOccurred())
 
-		broker := test.NewTestKeyringStoreBroker(ctrl)
+		broker := mock_storage.NewTestKeyringStoreBroker(ctrl)
 		broker.KeyringStore("gateway", &corev1.Reference{Id: "foo"}).Put(context.Background(), testKeyring)
 
-		verifier := challenges.NewKeyringVerifier(broker, authv2.DomainString, test.Log)
+		verifier := challenges.NewKeyringVerifier(broker, authv2.DomainString, testlog.Log)
 
 		serverMw := challenges.Chained(
-			testutil.Must(authv2.NewServerChallenge(verifier, test.Log)),
+			testutil.Must(authv2.NewServerChallenge(verifier, testlog.Log)),
 			challenges.If(session.ShouldEnableIncoming).Then(attrChallenge),
 		)
 
@@ -553,7 +555,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 				Expect(err).NotTo(HaveOccurred())
 
 				handler := challenges.Chained(
-					testutil.Must(authv2.NewClientChallenge(testKeyring, "foo", test.Log)),
+					testutil.Must(authv2.NewClientChallenge(testKeyring, "foo", testlog.Log)),
 					challenges.If(clientChallenge.HasAttributes).Then(clientChallenge),
 				)
 
@@ -630,7 +632,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 		It("should allow using session attributes as PerRPCCredentials", func() {
 			server := grpc.NewServer(
 				grpc.Creds(credentials.NewServerTLSFromCert(
-					lo.ToPtr(testutil.Must(tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key")))),
+					lo.ToPtr(testutil.Must(tls.X509KeyPair(testdata.TestData("localhost.crt"), testdata.TestData("localhost.key")))),
 				)),
 				grpc.ChainStreamInterceptor(
 					func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -653,7 +655,7 @@ var _ = Describe("Session Attributes Challenge", Ordered, Label("unit"), func() 
 			DeferCleanup(listener.Close)
 
 			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(test.TestData("root_ca.crt"))
+			pool.AppendCertsFromPEM(testdata.TestData("root_ca.crt"))
 			cc, err := grpc.Dial("localhost",
 				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()

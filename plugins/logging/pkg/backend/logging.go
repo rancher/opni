@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -35,7 +34,6 @@ type LoggingBackend struct {
 
 type LoggingBackendConfig struct {
 	Logger              *zap.SugaredLogger             `validate:"required"`
-	OpensearchCluster   *opnimeta.OpensearchClusterRef `validate:"required"`
 	StorageBackend      storage.Backend                `validate:"required"`
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
@@ -89,6 +87,6 @@ func (b *LoggingBackend) Info(context.Context, *emptypb.Empty) (*capabilityv1.De
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityLogs,
 		Source:  "plugin_logging",
-		Drivers: driver.ListClusterDrivers(),
+		Drivers: driver.Drivers.List(),
 	}, nil
 }

@@ -1,5 +1,3 @@
-//go:build !nogateway
-
 package web
 
 import (

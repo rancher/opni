@@ -16,6 +16,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	_ "github.com/rancher/opni/pkg/storage/etcd"
+	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {

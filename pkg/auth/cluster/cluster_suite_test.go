@@ -3,12 +3,12 @@ package cluster_test
 import (
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 var (
@@ -22,7 +22,6 @@ var (
 )
 
 func TestClusterAuth(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cluster Suite")
 }

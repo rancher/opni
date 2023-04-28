@@ -2,6 +2,8 @@ package v1beta1
 
 import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/wrangler/pkg/crd"
+	"github.com/rancher/wrangler/pkg/schemas/openapi"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -55,6 +57,19 @@ type DataPrepperList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DataPrepper `json:"items"`
+}
+
+func DataPrepperCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(DataPrepper{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:        GroupVersion.WithKind("DataPrepper"),
+		PluralName: "datapreppers",
+		Status:     true,
+		Schema:     schema,
+	}, nil
 }
 
 func init() {

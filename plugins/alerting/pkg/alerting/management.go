@@ -3,10 +3,12 @@ package alerting
 import (
 	"context"
 	"encoding/json"
-	"github.com/rancher/opni/pkg/management"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -78,36 +80,24 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(_ context.Context, opts ...drivers.AlertingManagerDriverOption) {
-	// load default cluster drivers
-	var (
-		driver drivers.ClusterDriver
-		err    error
-	)
-	drivers.ResetClusterDrivers()
-	if kcd, err := drivers.NewAlertingManagerDriver(opts...); err == nil {
-		drivers.RegisterClusterDriver(kcd)
-	} else {
-		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
-	}
-	name := "alerting-manager"
-	driver, err = drivers.GetClusterDriver(name)
-	if err != nil {
-		p.Logger.With(
-			"driver", name,
-			zap.Error(err),
-		).Error("failed to load kubernetes driver, checking other drivers...")
-		localName := "local-alerting"
-		driver, err = drivers.GetClusterDriver(localName)
-		if err != nil {
-			p.Logger.With(
-				"driver", localName,
-				zap.Error(err),
-			).Error("failed to load cluster driver, using fallback no-op driver")
-			driver = &drivers.NoopClusterDriver{}
+func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...driverutil.Option) {
+	priorityOrder := []string{"alerting-manager", "local-alerting", "test-environment", "noop"}
+	for _, name := range priorityOrder {
+		if builder, ok := drivers.Drivers.Get(name); ok {
+			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")
+			driver, err := builder(ctx, opts...)
+			if err != nil {
+				p.Logger.With(
+					"driver", name,
+					zap.Error(err),
+				).Error("failed to initialize cluster driver")
+				return
+			}
+
+			p.opsNode.ClusterDriver.Set(driver)
+			break
 		}
 	}
-	p.opsNode.ClusterDriver.Set(driver)
 }
 
 // blocking
@@ -137,6 +127,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 		select {
 		case <-p.Ctx.Done():
 			lg.Debug("closing cortex cluster status watcher...")
+			return
 		case <-ticker.C:
 			ccStatus, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
 			if err != nil {
@@ -190,6 +181,7 @@ func (p *Plugin) watchGlobalCluster(
 			event, err := clusterClient.Recv()
 			if err != nil {
 				p.Logger.Errorf("failed to receive cluster event : %s", err)
+				continue
 			}
 			watcher.HandleEvent(event)
 		}

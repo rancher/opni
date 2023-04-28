@@ -7,7 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 )
 
-var _ = Describe("Building Kube Pod State Alert Rules", func() {
+var _ = Describe("Building Kube Pod State Alert Rules", Label("unit"), func() {
 	It("Should be able to construct a basic kube pod state alert rule", func() {
 		alertRule, err := metrics.NewKubeStateRule(
 			"pod",

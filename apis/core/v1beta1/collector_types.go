@@ -2,6 +2,8 @@ package v1beta1
 
 import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/wrangler/pkg/crd"
+	"github.com/rancher/wrangler/pkg/schemas/openapi"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -49,6 +51,20 @@ type CollectorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Collector `json:"items"`
+}
+
+func CollectorCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(Collector{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:          GroupVersion.WithKind("Collector"),
+		PluralName:   "collectors",
+		Status:       true,
+		Schema:       schema,
+		NonNamespace: true,
+	}, nil
 }
 
 func init() {

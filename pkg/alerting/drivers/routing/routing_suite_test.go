@@ -6,6 +6,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
+	_ "github.com/rancher/opni/pkg/test/setup"
+	"github.com/rancher/opni/pkg/test/testruntime"
+	_ "github.com/rancher/opni/plugins/alerting/test"
 )
 
 func TestRouting(t *testing.T) {
@@ -17,12 +20,10 @@ var env *test.Environment
 var tmpConfigDir string
 
 var _ = BeforeSuite(func() {
-	test.IfIntegration(func() {
-		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
-		}
+	testruntime.IfIntegration(func() {
+		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
-		Expect(env.Start()).To(Succeed())
+		Expect(env.Start(test.WithEnableNodeExporter(true))).To(Succeed())
 		DeferCleanup(env.Stop)
 		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
 		Expect(tmpConfigDir).NotTo(Equal(""))

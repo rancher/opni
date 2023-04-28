@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-var _ = Describe("compute alerting options pipeline & compute alerts construction", func() {
+var _ = Describe("compute alerting options pipeline & compute alerts construction", Label("unit"), func() {
 	When("users want to create cpu compute alerts", func() {
 		Specify("alerting/metrics package should export cpu alerts", func() {
 			var err error

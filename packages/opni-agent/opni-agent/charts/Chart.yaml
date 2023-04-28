@@ -1,11 +1,10 @@
 annotations:
-  catalog.cattle.io/auto-install: opni-agent-crd=match
   catalog.cattle.io/display-name: Opni Agent
   catalog.cattle.io/os: linux
   catalog.rancher.io/namespace: opni-system
   catalog.rancher.io/release-name: opni-agent
 apiVersion: v2
-appVersion: 0.9.2-rc1
+appVersion: 0.9.2
 dependencies:
 - condition: kube-prometheus-stack.enabled
   name: kube-prometheus-stack
@@ -13,4 +12,4 @@ dependencies:
 description: Opni Agent
 name: opni-agent
 type: application
-version: 0.9.2-rc1
+version: 0.9.2

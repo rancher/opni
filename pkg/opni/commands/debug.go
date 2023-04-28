@@ -1,4 +1,4 @@
-//go:build !nodebug
+//go:build !minimal
 
 package commands
 

@@ -55,6 +55,12 @@ func (o *JetStreamStoreOptions) apply(opts ...JetStreamStoreOption) {
 	}
 }
 
+func WithBucketPrefix(prefix string) JetStreamStoreOption {
+	return func(o *JetStreamStoreOptions) {
+		o.BucketPrefix = prefix
+	}
+}
+
 func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, opts ...JetStreamStoreOption) (*JetStreamStore, error) {
 	options := JetStreamStoreOptions{
 		BucketPrefix: "gateway",
@@ -168,4 +174,23 @@ func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	return &jetstreamKeyValueStore{
 		kv: bucket,
 	}
+}
+
+func init() {
+	storage.RegisterStoreBuilder(v1beta1.StorageTypeJetStream, func(args ...any) (any, error) {
+		ctx := args[0].(context.Context)
+		conf := args[1].(*v1beta1.JetStreamStorageSpec)
+
+		var opts []JetStreamStoreOption
+		for _, arg := range args[2:] {
+			switch v := arg.(type) {
+			case string:
+				opts = append(opts, WithBucketPrefix(v))
+			default:
+				return nil, fmt.Errorf("unexpected argument: %v", arg)
+			}
+		}
+
+		return NewJetStreamStore(ctx, conf, opts...)
+	})
 }

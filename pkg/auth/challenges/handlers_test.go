@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/mock/auth"
 	"github.com/rancher/opni/pkg/util/streams"
 	"google.golang.org/grpc/metadata"
 
@@ -32,10 +32,10 @@ func (m *mockStream) Context() context.Context {
 
 var _ = Describe("Handlers", Label("unit"), func() {
 	Context("Conditional Handler", func() {
-		ifTrueH := test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
+		ifTrueH := mock_auth.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
 			return context.WithValue(s.Context(), conditionChallengeKey, true), nil
 		}, "condition", "true")
-		ifFalseH := test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
+		ifFalseH := mock_auth.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
 			return context.WithValue(s.Context(), conditionChallengeKey, false), nil
 		}, "condition", "false")
 		// errH := test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
@@ -138,7 +138,7 @@ var _ = Describe("Handlers", Label("unit"), func() {
 			handlers := []challenges.ChallengeHandler{}
 			for i := 0; i < 100; i++ {
 				i := i
-				handlers = append(handlers, test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
+				handlers = append(handlers, mock_auth.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
 					return context.WithValue(s.Context(), conditionChallengeKeyType(fmt.Sprint(i)), i), nil
 				}, "handler-indexes", fmt.Sprint(i)))
 			}
@@ -167,7 +167,7 @@ var _ = Describe("Handlers", Label("unit"), func() {
 				handlers := []challenges.ChallengeHandler{}
 				for i := 0; i < 100; i++ {
 					i := i
-					handlers = append(handlers, test.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
+					handlers = append(handlers, mock_auth.NewTestChallengeHandler(func(s streams.Stream) (context.Context, error) {
 						if i == 50 {
 							return nil, errors.New("error")
 						}

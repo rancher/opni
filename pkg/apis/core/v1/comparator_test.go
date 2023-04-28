@@ -8,15 +8,15 @@ import (
 )
 
 func tc(t string, id ...string) *v1.TokenCapability {
-	cap := &v1.TokenCapability{
+	c := &v1.TokenCapability{
 		Type: t,
 	}
 	if len(id) > 0 {
-		cap.Reference = &v1.Reference{
+		c.Reference = &v1.Reference{
 			Id: id[0],
 		}
 	}
-	return cap
+	return c
 }
 
 func cc(id string) *v1.ClusterCapability {

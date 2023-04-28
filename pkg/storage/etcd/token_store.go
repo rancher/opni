@@ -1,5 +1,3 @@
-//go:build !noetcd
-
 package etcd
 
 import (
@@ -11,8 +9,8 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"k8s.io/client-go/util/retry"
 
+	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
@@ -115,7 +113,7 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, e
 
 func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.BootstrapToken]) (*corev1.BootstrapToken, error) {
 	var retToken *corev1.BootstrapToken
-	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
+	retryFunc := func() error {
 		txn := e.Client.Txn(ctx)
 		key := path.Join(e.Prefix, tokensKey, ref.Id)
 		token, version, err := e.getToken(ctx, ref)
@@ -141,7 +139,16 @@ func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, muta
 		}
 		retToken = token
 		return nil
-	})
+	}
+	c := defaultBackoff.Start(ctx)
+	var err error
+	for backoff.Continue(c) {
+		err = retryFunc()
+		if isRetryErr(err) {
+			continue
+		}
+		break
+	}
 	if err != nil {
 		return nil, err
 	}

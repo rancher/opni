@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -15,7 +16,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -26,88 +26,64 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	natstest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/auth/session"
-	"github.com/rancher/opni/pkg/caching"
-	"github.com/rancher/opni/pkg/keyring/ephemeral"
-	"github.com/rancher/opni/pkg/otel"
-	metrics_node "github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-
-	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
-	"github.com/mattn/go-tty"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/pkg/browser"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rancher/opni/pkg/test/freeport"
-	"github.com/samber/lo"
-	"github.com/ttacon/chalk"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-
-	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
-	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
+	"github.com/rancher/opni/pkg/alerting/metrics/naming"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/bootstrap"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
-	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/slo/query"
+	"github.com/rancher/opni/pkg/test/freeport"
+	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
+	"github.com/rancher/opni/pkg/test/testdata"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"github.com/samber/lo"
+	"github.com/ttacon/chalk"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	_ "github.com/rancher/opni/pkg/storage/etcd"
+	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
 
-var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 var collectorWriteSync sync.Mutex
 var agentList = make(map[string]context.CancelFunc)
 var agentListMu sync.Mutex
 
-type servicePorts struct {
+type ServicePorts struct {
 	Etcd             int `env:"ETCD_PORT"`
 	Jetstream        int `env:"JETSTREAM_PORT"`
 	GatewayGRPC      int `env:"OPNI_GATEWAY_GRPC_PORT"`
@@ -123,9 +99,9 @@ type servicePorts struct {
 	NodeExporterPort int `env:"NODE_EXPORTER_PORT"`
 }
 
-func newServicePorts() (servicePorts, error) {
+func newServicePorts() (ServicePorts, error) {
 	// use environment variables if available, then fallback to random ports
-	var p servicePorts
+	var p ServicePorts
 	setRandomPorts := []func(int){}
 	v := reflect.ValueOf(&p).Elem()
 	for i := 0; i < v.NumField(); i++ {
@@ -138,7 +114,7 @@ func newServicePorts() (servicePorts, error) {
 			if portStr, ok := os.LookupEnv(envName); ok {
 				port, err := strconv.Atoi(portStr)
 				if err != nil {
-					return servicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
+					return ServicePorts{}, fmt.Errorf("invalid port %s for %s: %w", portStr, envName, err)
 				}
 				field.SetInt(int64(port))
 			} else {
@@ -176,43 +152,29 @@ type Environment struct {
 	once   sync.Once
 
 	tempDir        string
-	ports          servicePorts
+	ports          ServicePorts
 	localAgentOnce sync.Once
 
 	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
 
 	gatewayConfig *v1beta1.GatewayConfig
-	k8sEnv        *envtest.Environment
 
 	embeddedJS *natsserver.Server
 
-	metricsPrometheusNodeDriver *MetricsPrometheusNodeDriver
-	metricsOTELNodeDriver       *MetricsOTELNodeDriver
-
-	Processes struct {
-		Etcd      future.Future[*os.Process]
-		APIServer future.Future[*os.Process]
-		Grafana   future.Future[*os.Process]
-	}
+	nodeConfigOverridesMu sync.Mutex
+	nodeConfigOverrides   map[string]*OverridePrometheusConfig
 }
 
 type EnvironmentOptions struct {
-	enableEtcd                        bool
-	enableJetstream                   bool
-	enableGateway                     bool
-	enableCortex                      bool
-	enableCortexClusterDriver         bool
-	enableAlertingClusterDriver       bool
-	enableAgentOpenTelemetryCollector bool
-	delayStartEtcd                    chan struct{}
-	delayStartCortex                  chan struct{}
-	defaultAgentOpts                  []StartAgentOption
-	agentIdSeed                       int64
-	defaultAgentVersion               string
-	enableDisconnectServer            bool
-	enableNodeExporter                bool
-	storageBackend                    v1beta1.StorageType
+	enableEtcd             bool
+	enableJetstream        bool
+	enableGateway          bool
+	defaultAgentOpts       []StartAgentOption
+	defaultAgentVersion    string
+	enableDisconnectServer bool
+	enableNodeExporter     bool
+	storageBackend         v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -247,51 +209,9 @@ func WithEnableGateway(enable bool) EnvironmentOption {
 	}
 }
 
-func WithEnableCortex(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableCortex = enable
-	}
-}
-
-func WithEnableAgentOpenTelemetryCollector(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableAgentOpenTelemetryCollector = enable
-	}
-}
-
 func WithDefaultAgentOpts(opts ...StartAgentOption) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.defaultAgentOpts = opts
-	}
-}
-
-func WithDelayStartEtcd(delay chan struct{}) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.delayStartEtcd = delay
-	}
-}
-
-func WithDelayStartCortex(delay chan struct{}) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.delayStartCortex = delay
-	}
-}
-
-func WithAgentIdSeed(seed int64) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.agentIdSeed = seed
-	}
-}
-
-func WithEnableCortexClusterDriver(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableCortexClusterDriver = enable
-	}
-}
-
-func WithEnableAlertingClusterDriver(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableAlertingClusterDriver = enable
 	}
 }
 
@@ -318,30 +238,80 @@ func defaultStorageBackend() v1beta1.StorageType {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_STORAGE_BACKEND"); ok {
 		return v1beta1.StorageType(v)
 	}
-	return "etcd"
+	return "jetstream"
+}
+
+func FindTestBin() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+WALK:
+	for {
+		if wd == "/" {
+			return "", errors.New("could not find go.mod for github.com/rancher/opni")
+		}
+		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
+			// check to make sure it's the right one
+			f, err := os.Open(filepath.Join(wd, "go.mod"))
+			if err != nil {
+				return "", err
+			}
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.HasPrefix(line, "module") {
+					if line == "module github.com/rancher/opni" {
+						f.Close()
+						break WALK
+					}
+					// not the right one (probably a sub-module)
+					break
+				}
+			}
+			f.Close()
+		}
+		wd = filepath.Dir(wd)
+	}
+	testbin := filepath.Join(wd, "testbin", "bin")
+	if _, err := os.Stat(testbin); err != nil {
+		return "", fmt.Errorf("testbin directory not found at its expected location: %s", testbin)
+	}
+
+	return testbin, nil
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
-		enableEtcd:                        true,
-		enableJetstream:                   true,
-		enableNodeExporter:                true,
-		enableGateway:                     true,
-		enableCortex:                      true,
-		enableDisconnectServer:            true,
-		enableAgentOpenTelemetryCollector: false,
-		agentIdSeed:                       time.Now().UnixNano(),
-		defaultAgentVersion:               defaultAgentVersion(),
-		storageBackend:                    defaultStorageBackend(),
+		enableEtcd:             false,
+		enableJetstream:        true,
+		enableNodeExporter:     false,
+		enableGateway:          true,
+		enableDisconnectServer: false,
+		defaultAgentVersion:    defaultAgentVersion(),
+		storageBackend:         defaultStorageBackend(),
 	}
 	options.apply(opts...)
 
-	e.Logger = Log.Named("env")
+	if e.TestBin == "" {
+		var err error
+		e.TestBin, err = FindTestBin()
+		if err != nil {
+			return err
+		}
+	}
+
+	if options.storageBackend == "etcd" && !options.enableEtcd {
+		options.enableEtcd = true
+	} else if options.storageBackend == "jetstream" && !options.enableJetstream {
+		options.enableJetstream = true
+	}
+
+	e.Logger = testlog.Log.Named("env")
+	e.nodeConfigOverrides = make(map[string]*OverridePrometheusConfig)
 
 	e.EnvironmentOptions = options
-	e.Processes.Etcd = future.New[*os.Process]()
-	e.Processes.Grafana = future.New[*os.Process]()
 
 	lg := e.Logger
 	lg.Info("Starting test environment")
@@ -378,7 +348,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return err
 		}
 	}
-	if options.enableCortex {
+
+	{
 		cortexTempDir := path.Join(e.tempDir, "cortex")
 		if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
 			return err
@@ -387,18 +358,19 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return err
 		}
 
-		entries, _ := fs.ReadDir(TestDataFS, "testdata/cortex")
+		entries, _ := fs.ReadDir(testdata.TestDataFS, "testdata/cortex")
 		lg.Infof("Copying %d files from embedded testdata/cortex to %s", len(entries), cortexTempDir)
 		for _, entry := range entries {
-			if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), TestData("cortex/"+entry.Name()), 0644); err != nil {
+			if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), testdata.TestData("cortex/"+entry.Name()), 0644); err != nil {
 				return err
 			}
 		}
 	}
+
 	if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
 		return err
 	}
-	os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
+	os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), testdata.TestData("prometheus/sample-rules.yaml"), 0644)
 
 	if err := os.Mkdir(path.Join(e.tempDir, "keyring"), 0700); err != nil {
 		return err
@@ -411,19 +383,9 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	os.WriteFile(path.Join(e.tempDir, "keyring", "local-agent.json"), keyData, 0400)
 
 	if options.enableEtcd {
-		if options.delayStartEtcd != nil {
-			go func() {
-				select {
-				case <-e.ctx.Done():
-					return
-				case <-options.delayStartEtcd:
-				}
-				e.startEtcd()
-			}()
-		} else {
-			e.startEtcd()
-		}
+		e.startEtcd()
 	}
+
 	if options.enableJetstream {
 		e.startJetstream()
 	}
@@ -436,50 +398,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		e.StartNodeExporter()
 	}
 
-	if options.enableCortex {
-		if options.delayStartCortex != nil && options.enableCortexClusterDriver {
-			return fmt.Errorf("cannot specify both delayStartCortex and enableCortexClusterDriver")
-		}
-		if options.delayStartCortex != nil {
-			go func() {
-				select {
-				case <-e.ctx.Done():
-					return
-				case <-options.delayStartCortex:
-				}
-				e.StartCortex(e.ctx)
-			}()
-		} else if options.enableCortexClusterDriver {
-			e.metricsPrometheusNodeDriver = &MetricsPrometheusNodeDriver{
-				env:              e,
-				overridesForNode: make(map[string]*overridePrometheusConfig),
-			}
-			e.metricsOTELNodeDriver = &MetricsOTELNodeDriver{
-				env:              e,
-				overridesForNode: make(map[string]*overridePrometheusConfig),
-			}
-			// metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment-prom", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
-			// 	return e.metricsPrometheusNodeDriver, nil
-			// })
-			metrics_agent_drivers.RegisterNodeDriverBuilder("test-environment-otel", func() (metrics_agent_drivers.MetricsNodeDriver, error) {
-				return e.metricsOTELNodeDriver, nil
-			})
-			metrics_drivers.RegisterPersistentClusterDriver(func() metrics_drivers.ClusterDriver {
-				return NewMetricsCortexClusterDriver(e)
-			})
-		} else {
-			e.StartCortex(e.ctx)
-		}
-	}
-	if options.enableAlertingClusterDriver {
-		alerting_drivers.RegisterPersistentClusterDriver(func() alerting_drivers.ClusterDriver {
-			return NewAlertingAlertManagerClusterDriver(e)
-		})
-	}
 	if options.enableGateway {
 		e.startGateway()
 	}
 	return nil
+}
+
+func (e *Environment) GetPorts() ServicePorts {
+	return e.ports
 }
 
 func (e *Environment) PutTestData(inputPath string, data []byte) string {
@@ -524,132 +450,10 @@ func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 	return nats.Connect(sUrl)
 }
 
-func (e *Environment) StartK8s() (*rest.Config, *k8sruntime.Scheme, error) {
-	e.initCtx()
-	e.Processes.APIServer = future.New[*os.Process]()
-
-	lg := Log.Named("k8s")
-
-	port := freeport.GetFreePort()
-
-	scheme := apis.NewScheme()
-
-	for _, path := range e.CRDDirectoryPaths {
-		_, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			panic(fmt.Errorf("k8s CRDS : %v", err))
-		}
-	}
-
-	e.k8sEnv = &envtest.Environment{
-		BinaryAssetsDirectory: e.TestBin,
-		CRDDirectoryPaths:     e.CRDDirectoryPaths,
-		Scheme:                scheme,
-		CRDs:                  DownloadCertManagerCRDs(scheme),
-		ControlPlane: envtest.ControlPlane{
-			APIServer: &envtest.APIServer{
-				SecureServing: envtest.SecureServing{
-					ListenAddr: envtest.ListenAddr{
-						Address: "127.0.0.1",
-						Port:    fmt.Sprint(port),
-					},
-				},
-			},
-		},
-	}
-
-	cfg, err := e.k8sEnv.Start()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// wait for the apiserver to be ready
-	readyCount := 0
-	client := kubernetes.NewForConfigOrDie(cfg).CoreV1().RESTClient().Get().AbsPath("/healthz")
-	for readyCount < 5 {
-		response := client.Do(context.Background())
-		if response.Error() == nil {
-			var code int
-			response.StatusCode(&code)
-			if code == 200 {
-				readyCount++
-				continue
-			}
-		}
-		lg.With(zap.Error(response.Error())).Debug("apiserver is not ready yet")
-		readyCount = 0
-		time.Sleep(100 * time.Millisecond)
-	}
-	lg.Info("apiserver is ready")
-
-	pid := os.Getpid()
-	threads, err := os.ReadDir(fmt.Sprintf("/proc/%d/task/", pid))
-	if err != nil {
-		panic(err)
-	}
-	possiblePIDs := []int{}
-	for _, thread := range threads {
-		childProcessIDs, err := os.ReadFile(fmt.Sprintf("/proc/%d/task/%s/children", pid, thread.Name()))
-		if err != nil {
-			continue
-		}
-		if len(childProcessIDs) > 0 {
-			parts := strings.Split(string(childProcessIDs), " ")
-			for _, part := range parts {
-				if pid, err := strconv.Atoi(part); err == nil {
-					possiblePIDs = append(possiblePIDs, pid)
-				}
-			}
-		}
-	}
-	var apiserverPID int
-	for _, pid := range possiblePIDs {
-		exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
-		if err != nil {
-			continue
-		}
-		if filepath.Base(exe) == "kube-apiserver" {
-			apiserverPID = pid
-			break
-		}
-	}
-	if apiserverPID == 0 {
-		panic("could not find kube-apiserver PID")
-	}
-	proc, err := os.FindProcess(apiserverPID)
-	if err != nil {
-		panic(err)
-	}
-	e.Processes.APIServer.Set(proc)
-	return cfg, scheme, nil
-}
-
-func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {
-	ports := freeport.GetFreePorts(2)
-
-	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                 e.k8sEnv.Scheme,
-		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
-		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
-	}))
-	for _, reconciler := range reconcilers {
-		util.Must(reconciler.SetupWithManager(manager))
-	}
-	go func() {
-		if err := manager.Start(e.ctx); err != nil {
-			panic(err)
-		}
-	}()
-	return manager
-}
-
 func (e *Environment) Stop() error {
 	if e.cancel != nil {
 		e.cancel()
 		waitctx.WaitWithTimeout(e.ctx, 40*time.Second, 20*time.Second)
-	}
-	if e.k8sEnv != nil {
-		e.k8sEnv.Stop()
 	}
 	if e.embeddedJS != nil {
 		e.embeddedJS.Shutdown()
@@ -663,10 +467,18 @@ func (e *Environment) Stop() error {
 	return nil
 }
 
+type envContextKeyType struct{}
+
+var envContextKey = envContextKeyType{}
+
 func (e *Environment) initCtx() {
 	e.once.Do(func() {
-		e.ctx, e.cancel = context.WithCancel(waitctx.Background())
+		e.ctx, e.cancel = context.WithCancel(context.WithValue(waitctx.Background(), envContextKey, e))
 	})
+}
+
+func EnvFromContext(ctx context.Context) *Environment {
+	return ctx.Value(envContextKey).(*Environment)
 }
 
 func (e *Environment) startJetstream() {
@@ -746,13 +558,16 @@ func (e *Environment) startJetstream() {
 			opt,
 			nats.MaxReconnects(-1),
 			nats.RetryOnFailedConnect(true),
+			nats.CustomReconnectDelay(func(attempts int) time.Duration {
+				return 10 * time.Millisecond
+			}),
 		); err == nil {
 			defer nc.Close()
 			for e.ctx.Err() == nil {
 				if _, err := nc.RTT(); err == nil {
 					break
 				}
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 			break
 		} else {
@@ -837,7 +652,6 @@ func (e *Environment) startEtcd() {
 			return
 		}
 	}
-	e.Processes.Etcd.Set(cmd.Process)
 
 	lg.Info("Waiting for etcd to start...")
 	waitctx.Go(e.ctx, func() {
@@ -861,15 +675,11 @@ type cortexTemplateOptions struct {
 	HttpListenPort int
 	GrpcListenPort int
 	StorageDir     string
-	EtcdPort       int
 }
 
 func (e *Environment) StartCortex(ctx context.Context) {
-	if !e.enableCortex {
-		e.Logger.Panic("cortex disabled")
-	}
 	lg := e.Logger
-	configTemplate := TestData("cortex/config.yaml")
+	configTemplate := testdata.TestData("cortex/config.yaml")
 	t := util.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
 	if err != nil {
@@ -879,7 +689,6 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		HttpListenPort: e.ports.CortexHTTP,
 		GrpcListenPort: e.ports.CortexGRPC,
 		StorageDir:     path.Join(e.tempDir, "cortex"),
-		EtcdPort:       e.ports.Etcd,
 	}); err != nil {
 		panic(err)
 	}
@@ -895,6 +704,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
 		}
+		return
 	}
 	lg.Info("Waiting for cortex to start...")
 	for ctx.Err() == nil {
@@ -942,32 +752,45 @@ type prometheusTemplateOptions struct {
 	Jobs []PrometheusJob
 }
 
-type overridePrometheusConfig struct {
+type OverridePrometheusConfig struct {
 	configContents string
 	jobs           []PrometheusJob
 }
 
-func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overridePrometheusConfig {
-	return &overridePrometheusConfig{
-		configContents: string(TestData(configPath)),
+func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *OverridePrometheusConfig {
+	return &OverridePrometheusConfig{
+		configContents: string(testdata.TestData(configPath)),
 		jobs:           jobs,
 	}
 }
 
-func (e *Environment) StartPrometheus(opniAgentId string, override ...*overridePrometheusConfig) int {
+func (e *Environment) SetPrometheusNodeConfigOverride(agentId string, override *OverridePrometheusConfig) {
+	e.nodeConfigOverridesMu.Lock()
+	defer e.nodeConfigOverridesMu.Unlock()
+	e.nodeConfigOverrides[agentId] = override
+}
+
+func (e *Environment) StartPrometheus(opniAgentId string, override ...*OverridePrometheusConfig) int {
 	return e.StartPrometheusContext(e.ctx, opniAgentId, override...)
 }
 
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*overridePrometheusConfig) int {
+func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) int {
+	if len(override) == 0 {
+		e.nodeConfigOverridesMu.Lock()
+		if v, ok := e.nodeConfigOverrides[opniAgentId]; ok {
+			override = append(override, v)
+		}
+		e.nodeConfigOverridesMu.Unlock()
+	}
 	lg := e.Logger
 	port := freeport.GetFreePort()
 
 	var configTemplate string
 	var jobs []PrometheusJob
 
-	configTemplate = string(TestData("prometheus/config.yaml"))
+	configTemplate = string(testdata.TestData("prometheus/config.yaml"))
 	if len(override) > 1 {
 		panic("Too many overrides, only one is allowed")
 	}
@@ -1082,7 +905,7 @@ func (t TestAggregatorConfig) MetricReceivers() []string {
 	return res
 }
 
-func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, cfg *metrics_node.MetricsCapabilitySpec) {
+func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) {
 	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
 	os.MkdirAll(otelDir, 0755)
 
@@ -1114,11 +937,11 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 			ListenPort:          freeport.GetFreePort(),
 			RemoteWriteEndpoint: fmt.Sprintf("http://%s/api/agent/push", agent.Agent.ListenAddress()),
 			DiscoveredScrapeCfg: "",
-			Spec:                metrics_node.CompatOTELStruct(cfg.GetOtel()),
+			Spec:                spec,
 		},
 		Containerized: false,
 	}
-	t := util.Must(otel.OTELTemplates.ParseFS(TestDataFS, "testdata/otel/base.tmpl"))
+	t := util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/base.tmpl"))
 	aggregatorTmpl := util.Must(t.Parse(`{{template "aggregator-config" .}}`))
 	if err := aggregatorTmpl.Execute(aggregatorFile, aggregatorCfg); err != nil {
 		panic(err)
@@ -1133,7 +956,7 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 			ListenPort:          freeport.GetFreePort(),
 			RemoteWriteEndpoint: fmt.Sprintf("%s/api/agent/push", agent.Agent.ListenAddress()),
 			DiscoveredScrapeCfg: "",
-			Spec:                metrics_node.CompatOTELStruct(cfg.GetOtel()),
+			Spec:                spec,
 		},
 		Containerized: false,
 	}
@@ -1189,7 +1012,7 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
-func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan struct{}) {
+func (e *Environment) StartInstrumentationServer() (int, chan struct{}) {
 	// lg := e.logger
 	port := freeport.GetFreePort()
 
@@ -1236,7 +1059,7 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 	return port, done
 }
 
-func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port int) {
+func (e *Environment) StartMockKubernetesMetricServer() (port int) {
 	port = freeport.GetFreePort()
 
 	mux := http.NewServeMux()
@@ -1245,7 +1068,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	registeredCollectors := map[string]*prometheus.GaugeVec{}
 
 	kubeMetricsIsDefined := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: metrics.KubeMetricsIsDefinedMetricName,
+		Name: naming.KubeMetricsIsDefinedMetricName,
 	}, []string{"namespace"})
 
 	kubeMetricsIsDefined.WithLabelValues("kube-system").Set(1)
@@ -1261,7 +1084,7 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 
 		accessedState := false
 		var b bytes.Buffer
-		err := metrics.KubeObjMetricCreator.Execute(&b, map[string]string{
+		err := naming.KubeObjMetricCreator.Execute(&b, map[string]string{
 			"ObjType": objType,
 		})
 		if err != nil {
@@ -1360,7 +1183,7 @@ func (e *Environment) StartAgentDisconnectServer() {
 		case <-e.ctx.Done():
 		}
 	})
-	Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), e.ports.DisconnectPort)
+	testlog.Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), e.ports.DisconnectPort)
 }
 
 func (e *Environment) StartNodeExporter() {
@@ -1394,7 +1217,7 @@ func (e *Environment) StartNodeExporter() {
 	})
 }
 
-func (e *Environment) simulateKubeObject(kPort int) {
+func (e *Environment) SimulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}
 	namespace := namespaces[rand.Intn(len(namespaces))]
@@ -1431,9 +1254,9 @@ func (e *Environment) simulateKubeObject(kPort int) {
 }
 
 func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
-	caCertData := TestData("root_ca.crt")
-	servingCertData := TestData("localhost.crt")
-	servingKeyData := TestData("localhost.key")
+	caCertData := testdata.TestData("root_ca.crt")
+	servingCertData := testdata.TestData("localhost.crt")
+	servingKeyData := testdata.TestData("localhost.key")
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1465,7 +1288,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			},
 			Cortex: v1beta1.CortexSpec{
 				Management: v1beta1.ClusterManagementSpec{
-					ClusterDriver: lo.Ternary(e.enableCortexClusterDriver, "test-environment", ""),
+					ClusterDriver: "test-environment",
 				},
 				Distributor: v1beta1.DistributorSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
@@ -1558,7 +1381,7 @@ func (e *EnvClientOptions) apply(opts ...EnvClientOption) {
 	}
 }
 
-func WithClientCaching(memoryLimitBytes int64, maxAge time.Duration) EnvClientOption {
+func WithClientCaching(memoryLimitBytes int64, _ time.Duration) EnvClientOption {
 	return func(o *EnvClientOptions) {
 		entityCacher := caching.NewInMemoryGrpcTtlCache(memoryLimitBytes, time.Minute)
 		interceptor := caching.NewClientGrpcTtlCacher()
@@ -1605,48 +1428,6 @@ func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 		panic(err)
 	}
 	return cc
-}
-
-func (e *Environment) NewCortexAdminClient() cortexadmin.CortexAdminClient {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
-	}
-	c, err := cortexadmin.NewClient(e.ctx,
-		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
-		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func (e *Environment) NewCortexOpsClient() cortexops.CortexOpsClient {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
-	}
-	c, err := cortexops.NewClient(e.ctx,
-		cortexops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
-		cortexops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func (e *Environment) NewAlertOpsClient() alertops.AlertingAdminClient {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
-	}
-	c, err := alertops.NewClient(e.ctx,
-		alertops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
-		alertops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return c
 }
 
 func (e *Environment) NewAlertEndpointsClient() alertingv1.AlertEndpointsClient {
@@ -1747,7 +1528,8 @@ func (e *Environment) startGateway() {
 		}
 	}))
 
-	LoadPlugins(pluginLoader, pluginmeta.ModeGateway)
+	lg.Info("Loading gateway plugins...")
+	LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
 
 	lg.Info("Waiting for gateway to start...")
 	for i := 0; i < 10; i++ {
@@ -1767,28 +1549,11 @@ func (e *Environment) startGateway() {
 		}
 	}
 	lg.Info("Gateway started")
-
-	if e.enableCortexClusterDriver {
-		nodeConfigClient := node.NewNodeConfigurationClient(e.ManagementClientConn())
-		for {
-			_, err := nodeConfigClient.SetDefaultConfiguration(e.ctx, &node.MetricsCapabilitySpec{
-				Prometheus: &node.PrometheusSpec{
-					DeploymentStrategy: "test-environment",
-				},
-			})
-			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to set default node configuration, retrying in 1 second")
-			}
-			lg.Debug("default node configuration set")
-			break
-		}
-	}
 }
 
 type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
-	remoteKubeconfig     string
 	listenPort           int
 	version              string
 	local                bool
@@ -1811,12 +1576,6 @@ func WithContext(ctx context.Context) StartAgentOption {
 func WithRemoteGatewayAddress(addr string) StartAgentOption {
 	return func(o *StartAgentOptions) {
 		o.remoteGatewayAddress = addr
-	}
-}
-
-func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
-	return func(o *StartAgentOptions) {
-		o.remoteKubeconfig = kubeconfig
 	}
 }
 
@@ -1852,7 +1611,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 
 	errC := make(chan error, 2)
 	if err := ident.RegisterProvider(id, func() ident.Provider {
-		return NewTestIdentProvider(e.mockCtrl, id)
+		return mock_ident.NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {
 		if !errors.Is(err, ident.ErrProviderAlreadyExists) {
 			panic(err)
@@ -1879,12 +1638,29 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					},
 				},
 			},
-			Storage: v1beta1.StorageSpec{
-				Type: v1beta1.StorageTypeEtcd,
-				Etcd: &v1beta1.EtcdStorageSpec{
-					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
-				},
-			},
+			// Storage: v1beta1.StorageSpec{
+			// 	Type: v1beta1.StorageTypeEtcd,
+			// 	Etcd: &v1beta1.EtcdStorageSpec{
+			// 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+			// 	},
+			// },
+			Storage: lo.Switch[v1beta1.StorageType, v1beta1.StorageSpec](e.storageBackend).
+				Case(v1beta1.StorageTypeEtcd, v1beta1.StorageSpec{
+					Type: v1beta1.StorageTypeEtcd,
+					Etcd: &v1beta1.EtcdStorageSpec{
+						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+					},
+				}).
+				Case(v1beta1.StorageTypeJetStream, v1beta1.StorageSpec{
+					Type: v1beta1.StorageTypeJetStream,
+					JetStream: &v1beta1.JetStreamStorageSpec{
+						Endpoint:     fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream),
+						NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
+					},
+				}).
+				DefaultF(func() v1beta1.StorageSpec {
+					panic("unknown storage backend")
+				}),
 		},
 	}
 	if options.local {
@@ -1893,7 +1669,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		)
 	}
 
-	Log.With(
+	testlog.Log.With(
 		"id", id,
 		"address", agentConfig.Spec.ListenAddress,
 		"version", options.version,
@@ -1937,14 +1713,6 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			return
 		}
 		switch options.version {
-		case "v1":
-			a, err = agentv1.New(options.ctx, agentConfig,
-				agentv1.WithBootstrapper(&bootstrap.ClientConfig{
-					Capability:    wellknown.CapabilityMetrics,
-					Token:         bt,
-					Endpoint:      gatewayAddress,
-					TrustStrategy: strategy,
-				}))
 		case "v2":
 			ctx, cancel := context.WithCancel(options.ctx)
 			pl := plugins.NewPluginLoader()
@@ -1956,16 +1724,16 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				}),
 				agentv2.WithUnmanagedPluginLoader(pl),
 			)
-			LoadPlugins(pl, pluginmeta.ModeAgent)
+			LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel
 			agentListMu.Unlock()
 		default:
-			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)
+			errC <- fmt.Errorf("unknown agent version %q (expected \"v2\")", options.version)
 			return
 		}
 		if err != nil {
-			Log.With(zap.Error(err)).Error("failed to start agent")
+			testlog.Log.With(zap.Error(err)).Error("failed to start agent")
 			errC <- err
 			mu.Unlock()
 			return
@@ -1979,7 +1747,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		mu.Unlock()
 		errC <- nil
 		if err := a.ListenAndServe(options.ctx); err != nil {
-			Log.Errorf("agent %q exited: %v", id, err)
+			testlog.Log.Errorf("agent %q exited: %v", id, err)
 		}
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)
@@ -2018,11 +1786,11 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 
 func (e *Environment) CortexTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(TestData("cortex/root.crt")) {
+	if !pool.AppendCertsFromPEM(testdata.TestData("cortex/root.crt")) {
 		e.Logger.Panic("failed to load Cortex CA cert")
 	}
-	clientCert := TestData("cortex/client.crt")
-	clientKey := TestData("cortex/client.key")
+	clientCert := testdata.TestData("cortex/client.crt")
+	clientKey := testdata.TestData("cortex/client.key")
 	cert, err := tls.X509KeyPair(clientCert, clientKey)
 	if err != nil {
 		e.Logger.Panic(err)
@@ -2087,7 +1855,7 @@ func (e *Environment) WriteGrafanaConfig() {
 		DatasourceUrl: fmt.Sprintf("https://localhost:%d", e.ports.GatewayHTTP),
 	}
 
-	datasourceTemplate := TestData("grafana/datasource.yaml")
+	datasourceTemplate := testdata.TestData("grafana/datasource.yaml")
 	t := util.Must(template.New("datasource").Parse(string(datasourceTemplate)))
 	datasourceFile, err := os.Create(path.Join(e.tempDir, "grafana", "provisioning", "datasources", "datasource.yaml"))
 	if err != nil {
@@ -2099,7 +1867,7 @@ func (e *Environment) WriteGrafanaConfig() {
 		panic(err)
 	}
 
-	dashboardTemplate := TestData("grafana/dashboards.yaml")
+	dashboardTemplate := testdata.TestData("grafana/dashboards.yaml")
 	t = util.Must(template.New("dashboard").Parse(string(dashboardTemplate)))
 	dashboardFile, err := os.Create(path.Join(e.tempDir, "grafana", "provisioning", "dashboards", "dashboards.yaml"))
 	if err != nil {
@@ -2153,422 +1921,9 @@ func (e *Environment) StartGrafana(extraDockerArgs ...string) {
 			return
 		}
 	}
-	e.Processes.Grafana.Set(cmd.Process)
 
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		session.Wait()
 	})
-}
-
-func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
-	options := &EnvironmentOptions{
-		enableGateway:                     true,
-		enableEtcd:                        true,
-		enableCortex:                      true,
-		enableNodeExporter:                true,
-		enableAgentOpenTelemetryCollector: false,
-		defaultAgentOpts:                  []StartAgentOption{},
-		agentIdSeed:                       rand.Int63(),
-	}
-	options.apply(opts...)
-
-	agentOptions := &StartAgentOptions{}
-	agentOptions.apply(options.defaultAgentOpts...)
-
-	environment := &Environment{
-		TestBin: "testbin/bin",
-	}
-	randSrc := rand.New(rand.NewSource(options.agentIdSeed))
-	var iPort int
-	var kPort int
-	var localAgentOnce sync.Once
-	addAgent := func(rw http.ResponseWriter, r *http.Request) {
-		Log.Infof("%s %s", r.Method, r.URL.Path)
-		switch r.Method {
-		case http.MethodPost:
-			body := struct {
-				Token string   `json:"token"`
-				Pins  []string `json:"pins"`
-				ID    string   `json:"id"`
-			}{}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				rw.WriteHeader(http.StatusBadRequest)
-				rw.Write([]byte(err.Error()))
-				return
-			}
-			if body.ID == "" {
-				body.ID = util.Must(uuid.NewRandomFromReader(randSrc)).String()
-			}
-			token, err := tokens.ParseHex(body.Token)
-			if err != nil {
-				rw.WriteHeader(http.StatusBadRequest)
-				rw.Write([]byte(err.Error()))
-				return
-			}
-			startOpts := slices.Clone(options.defaultAgentOpts)
-			var isLocalAgent bool
-			localAgentOnce.Do(func() {
-				isLocalAgent = true
-			})
-			if isLocalAgent {
-				startOpts = append(startOpts, WithLocalAgent())
-			}
-			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
-				append(startOpts, WithAgentVersion("v2"))...)
-			if err := <-errC; err != nil {
-				rw.WriteHeader(http.StatusInternalServerError)
-				rw.Write([]byte(err.Error()))
-				return
-			}
-
-			environment.metricsPrometheusNodeDriver.SetOverridesForNode(body.ID, func() *overridePrometheusConfig {
-				optional := []PrometheusJob{}
-				if options.enableNodeExporter {
-					optional = append(optional, PrometheusJob{
-						JobName:    "node_exporter",
-						ScrapePort: environment.ports.NodeExporterPort,
-					})
-				}
-				if options.enableGateway && isLocalAgent {
-					optional = append(optional, PrometheusJob{
-						JobName:     "opni-gateway",
-						ScrapePort:  environment.ports.GatewayMetrics,
-						MetricsPath: "/metrics",
-					})
-				}
-				return NewOverridePrometheusConfig("prometheus/config.yaml",
-					append([]PrometheusJob{
-						{
-							JobName:    "payment_service",
-							ScrapePort: iPort,
-						},
-						{
-							JobName:    "kubernetes",
-							ScrapePort: kPort,
-						},
-					}, optional...))
-			}())
-
-			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte(fmt.Sprintf("%d", port)))
-		}
-	}
-	http.HandleFunc("/agents", addAgent)
-	if err := environment.Start(opts...); err != nil {
-		panic(err)
-	}
-	go func() {
-		addr := fmt.Sprintf("127.0.0.1:%d", environment.ports.TestEnvironment)
-		Log.Infof(chalk.Green.Color("Test environment API listening on %s"), addr)
-		if err := http.ListenAndServe(addr, nil); err != nil {
-			panic(err)
-		}
-	}()
-	c := make(chan os.Signal, 2)
-	var closeOnce sync.Once
-	signal.Notify(c, os.Interrupt)
-	iPort, _ = environment.StartInstrumentationServer(context.Background())
-	kPort = environment.StartMockKubernetesMetricServer(context.Background())
-	for i := 0; i < 100; i++ {
-		environment.simulateKubeObject(kPort)
-	}
-	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
-	var client managementv1.ManagementClient
-	if options.enableGateway {
-		client = environment.NewManagementClient()
-	} else if agentOptions.remoteKubeconfig != "" {
-		ports, err := testutil.PortForward(environment.ctx, types.NamespacedName{
-			Namespace: "opni",
-			Name:      "opni-internal",
-		}, []string{"11090"}, util.Must(k8sutil.NewRestConfig(k8sutil.ClientOptions{
-			Kubeconfig: &agentOptions.remoteKubeconfig,
-		})), apis.NewScheme())
-		if err != nil || len(ports) != 1 {
-			Log.Panic(err)
-		}
-		client, err = clients.NewManagementClient(environment.ctx,
-			clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", ports[0].Local)),
-		)
-	}
-
-	showHelp := func() {
-		Log.Infof(chalk.Green.Color("Kubernetes metric server listening on %d"), kPort)
-		Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
-		if options.enableGateway {
-			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
-		}
-		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
-			Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
-			Log.Info(chalk.Blue.Color("Press (M) to configure the metrics backend"))
-			Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
-			Log.Info(chalk.Blue.Color("Press (m) to install the metrics capability on all agents"))
-			Log.Info(chalk.Blue.Color("Press (u) to uninstall the metrics capability on all agents"))
-			Log.Info(chalk.Blue.Color("Press (g) to run a Grafana container"))
-			Log.Info(chalk.Blue.Color("Press (r) to configure sample rbac rules"))
-			Log.Info(chalk.Blue.Color("Press (p)(i) to open the pprof index page"))
-			Log.Info(chalk.Blue.Color("Press (p)(h) to open a pprof heap profile"))
-			Log.Info(chalk.Blue.Color("Press (p)(a) to open a pprof allocs profile"))
-			Log.Info(chalk.Blue.Color("Press (p)(p) to run and open a pprof profile"))
-			Log.Info(chalk.Blue.Color("Press (i) to show runtime information"))
-			Log.Info(chalk.Blue.Color("Press (h) to show this help message"))
-		}
-	}
-
-	var capabilityMu sync.Mutex
-	var startedGrafana bool
-
-	var pPressed bool
-	handleKey := func(rn rune) {
-		if pPressed {
-			pPressed = false
-			var path string
-			switch rn {
-			case 'i':
-				go browser.OpenURL(fmt.Sprintf("http://localhost:%d/debug/pprof/", environment.ports.TestEnvironment))
-				return
-			case 'h':
-				path = "heap"
-			case 'a':
-				path = "allocs"
-			case 'p':
-				path = "profile"
-			default:
-				Log.Error("Invalid pprof command: %c", rn)
-				return
-			}
-			url := fmt.Sprintf("http://localhost:%d/debug/pprof/%s", environment.ports.TestEnvironment, path)
-			port := freeport.GetFreePort()
-			cmd := exec.CommandContext(environment.Context(), "go", "tool", "pprof", "-http", fmt.Sprintf("localhost:%d", port), url)
-			session, err := testutil.StartCmd(cmd)
-			if err != nil {
-				Log.Error(err)
-			} else {
-				waitctx.Go(environment.Context(), func() {
-					<-environment.Context().Done()
-					session.Wait()
-				})
-			}
-			Log.Infof("Starting pprof server on %s", url)
-			return
-		}
-
-		switch rn {
-		case ' ':
-			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
-		case 'q':
-			closeOnce.Do(func() {
-				signal.Stop(c)
-				close(c)
-			})
-		case 'a', 'A':
-			go func() {
-				bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
-					Ttl: durationpb.New(1 * time.Minute),
-				})
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-				token, err := tokens.FromBootstrapToken(bt)
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-				certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-
-				resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
-					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
-						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					Log.Errorf("%s", resp.Status)
-					return
-				}
-			}()
-		case 'M':
-			capabilityMu.Lock()
-			go func() {
-				defer capabilityMu.Unlock()
-				defer func() {
-					Log.Info(chalk.Green.Color("Metrics backend configured"))
-				}()
-				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{
-					Mode: cortexops.DeploymentMode_AllInOne,
-					Storage: &storagev1.StorageSpec{
-						Backend: "filesystem",
-						Filesystem: &storagev1.FilesystemStorageSpec{
-							Directory: path.Join(environment.tempDir, "cortex", "data"),
-						},
-					},
-					Grafana: &cortexops.GrafanaConfig{
-						Enabled: lo.ToPtr(false),
-					},
-				})
-				if err != nil {
-					Log.Error(err)
-				}
-			}()
-		case 'U':
-			capabilityMu.Lock()
-			go func() {
-				defer capabilityMu.Unlock()
-				defer func() {
-					Log.Info(chalk.Green.Color("Metrics backend uninstalled"))
-				}()
-				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.UninstallCluster(environment.Context(), &emptypb.Empty{})
-				if err != nil {
-					Log.Error(err)
-				}
-			}()
-		case 'm':
-			capabilityMu.Lock()
-			go func() {
-				defer capabilityMu.Unlock()
-				clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-				for _, cluster := range clusters.Items {
-					_, err := client.InstallCapability(environment.Context(), &managementv1.CapabilityInstallRequest{
-						Name: "metrics",
-						Target: &v1.InstallRequest{
-							Cluster:        cluster.Reference(),
-							IgnoreWarnings: true,
-						},
-					})
-					if err != nil {
-						Log.Error(err)
-					}
-				}
-			}()
-		case 'u':
-			capabilityMu.Lock()
-			go func() {
-				defer capabilityMu.Unlock()
-				clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
-				if err != nil {
-					Log.Error(err)
-					return
-				}
-				for _, cluster := range clusters.Items {
-					_, err := client.UninstallCapability(environment.Context(), &managementv1.CapabilityUninstallRequest{
-						Name: "metrics",
-						Target: &v1.UninstallRequest{
-							Cluster: cluster.Reference(),
-						},
-					})
-					if err != nil {
-						Log.Error(err)
-					}
-				}
-			}()
-		case 'i':
-			Log.Infof("Temp directory: %s", environment.tempDir)
-			Log.Infof("Ports: %s", environment.tempDir)
-			ports := environment.ports
-			// print the field name and int value for each field (all ints)
-			v := reflect.ValueOf(ports)
-			for i := 0; i < v.NumField(); i++ {
-				name := v.Type().Field(i).Name
-				value := v.Field(i).Interface().(int)
-				envVarName := v.Type().Field(i).Tag.Get("env")
-				Log.Infof("  %s: %d (env: %s)", name, value, envVarName)
-			}
-		case 'p':
-			pPressed = true
-			Log.Info("'p' pressed, waiting for next key...")
-		case 'g':
-			if !startedGrafana {
-				environment.WriteGrafanaConfig()
-				environment.StartGrafana()
-				startedGrafana = true
-				Log.Info(chalk.Green.Color("Grafana started"))
-			} else {
-				Log.Error("Grafana already started")
-			}
-		case 'r':
-			clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
-			if err != nil {
-				Log.Error(err)
-				return
-			}
-			if _, err := client.CreateRole(environment.Context(), &corev1.Role{
-				Id: "testenv-role",
-				MatchLabels: &corev1.LabelSelector{
-					MatchLabels: map[string]string{
-						"visible": "true",
-					},
-				},
-			}); err != nil {
-				Log.Error(err)
-			}
-			if _, err := client.CreateRoleBinding(environment.Context(), &corev1.RoleBinding{
-				Id:       "testenv-rb",
-				RoleId:   "testenv-role",
-				Subjects: []string{"testenv"},
-			}); err != nil {
-				Log.Error(err)
-			}
-			for _, cluster := range clusters.Items {
-				cluster.Metadata.Labels["visible"] = "true"
-				if _, err := client.EditCluster(environment.Context(), &managementv1.EditClusterRequest{
-					Cluster: cluster.Reference(),
-					Labels:  cluster.GetLabels(),
-				}); err != nil {
-					Log.Error(err)
-				}
-			}
-		case 'h':
-			showHelp()
-		}
-	}
-
-	// listen for spacebar on stdin
-	t, err := tty.Open()
-	if err == nil {
-		showHelp()
-		go func() {
-			for {
-				rn, err := t.ReadRune()
-				if err != nil {
-					Log.Panic(err)
-				}
-				handleKey(rn)
-			}
-		}()
-	}
-
-	if sim, ok := os.LookupEnv("TEST_ENV_SIM_KEYS"); ok {
-		// syntax: <key>[;<key>][;sleep:<duration>]...
-		go func() {
-			for _, cmd := range strings.Split(sim, ";") {
-				if strings.HasPrefix(cmd, "sleep:") {
-					d, err := time.ParseDuration(strings.TrimPrefix(cmd, "sleep:"))
-					if err != nil {
-						Log.Panic(err)
-					}
-					time.Sleep(d)
-				} else {
-					handleKey(rune(cmd[0]))
-				}
-			}
-		}()
-	}
-
-	<-c
-	fmt.Println(chalk.Yellow.Color("\nStopping test environment"))
-	if err := environment.Stop(); err != nil {
-		panic(err)
-	}
 }

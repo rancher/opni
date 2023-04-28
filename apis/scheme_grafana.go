@@ -1,4 +1,4 @@
-//go:build !noscheme_grafana && !noscheme_thirdparty
+//go:build !minimal
 
 package apis
 

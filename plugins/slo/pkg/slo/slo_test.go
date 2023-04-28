@@ -81,10 +81,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 	var adminClient cortexadmin.CortexAdminClient
 
 	BeforeAll(func() {
-		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
-		}
-		Expect(env.Start(test.WithEnableCortex(true))).To(Succeed())
+		env = &test.Environment{}
+		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
 
 		client := env.NewManagementClient()
@@ -95,11 +93,11 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
+		Eventually(errC).Should(Receive(BeNil()))
 		pPort = env.StartPrometheus("agent")
-		_, errC2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
+		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
+		Eventually(errC).Should(Receive(BeNil()))
 		pPort = env.StartPrometheus("agent2")
-		Consistently(errC).ShouldNot(Receive(HaveOccurred()))
-		Consistently(errC2).ShouldNot(Receive(HaveOccurred()))
 
 		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 			Name: wellknown.CapabilityMetrics,

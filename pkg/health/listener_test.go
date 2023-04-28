@@ -8,10 +8,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test/mock/auth"
+	"github.com/rancher/opni/pkg/test/mock/health"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("Listener", Label("unit", "slow"), func() {
@@ -24,12 +25,12 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 	})
 	When("handling a new connection", func() {
 		It("should send health and status updates", func() {
-			agent1 := &test.HealthStore{}
+			agent1 := &mock_health.HealthStore{}
 			agent1.SetHealth(&corev1.Health{
 				Ready: true,
 			})
 			listener := health.NewListener()
-			go listener.HandleConnection(test.ContextWithAuthorizedID(context.Background(), "agent1"), agent1)
+			go listener.HandleConnection(mock_auth.ContextWithAuthorizedID(context.Background(), "agent1"), agent1)
 
 			select {
 			case update := <-listener.HealthC():
@@ -48,11 +49,11 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		})
 	})
 	It("should poll for client health updates", func() {
-		agent1 := &test.HealthStore{}
+		agent1 := &mock_health.HealthStore{}
 		agent1.SetHealth(&corev1.Health{Ready: false})
 		id := "agent1"
 		listener := newFastListener()
-		go listener.HandleConnection(test.ContextWithAuthorizedID(context.Background(), id), agent1)
+		go listener.HandleConnection(mock_auth.ContextWithAuthorizedID(context.Background(), id), agent1)
 
 		checkHealth(listener, id, false)
 		checkStatus(listener, id, true)
@@ -72,12 +73,12 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 	})
 
 	It("should send health and status updates when clients disconnect", func() {
-		agent1 := &test.HealthStore{}
+		agent1 := &mock_health.HealthStore{}
 		agent1.SetHealth(&corev1.Health{Ready: false})
 		id := "agent1"
 		listener := newFastListener()
 		ctx, ca := context.WithCancel(context.Background())
-		ctx = test.ContextWithAuthorizedID(ctx, id)
+		ctx = mock_auth.ContextWithAuthorizedID(ctx, id)
 		go listener.HandleConnection(ctx, agent1)
 
 		checkStatus(listener, id, true)
@@ -96,14 +97,14 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 			health.WithMaxConnections(math.MaxInt64),
 		)
 		statusC := listener.StatusC()
-		a := &test.HealthStore{GetHealthShouldFail: true}
+		a := &mock_health.HealthStore{GetHealthShouldFail: true}
 		for i := 0; i < numAgents; i++ {
 
 			agentId := fmt.Sprintf("agent%d", i)
 			// 49 connects and disconnects = 98 queued status updates for this agent
 			for j := 0; j < 49; j++ {
 				ctx, ca := context.WithCancel(context.Background())
-				ctx = test.ContextWithAuthorizedID(ctx, agentId)
+				ctx = mock_auth.ContextWithAuthorizedID(ctx, agentId)
 				go listener.HandleConnection(ctx, a)
 				ca()
 			}
@@ -118,7 +119,7 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		// some of the previous reconnects from being processed, breaking the test
 		for i := 0; i < numAgents; i++ {
 			agentId := fmt.Sprintf("agent%d", i)
-			go listener.HandleConnection(test.ContextWithAuthorizedID(context.Background(), agentId), a)
+			go listener.HandleConnection(mock_auth.ContextWithAuthorizedID(context.Background(), agentId), a)
 		}
 
 		Eventually(statusC, 5*time.Second, 100*time.Millisecond).Should(HaveLen(99 * numAgents))
@@ -153,7 +154,7 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		returned := make(chan struct{})
 		go func() {
 			defer close(returned)
-			listener.HandleConnection(context.Background(), &test.HealthStore{})
+			listener.HandleConnection(context.Background(), &mock_health.HealthStore{})
 		}()
 		Eventually(returned).Should(BeClosed())
 	})
@@ -161,19 +162,19 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		listener := health.NewListener(health.WithMaxConnections(1))
 
 		ctx1, ca := context.WithCancel(context.Background())
-		ctx1 = test.ContextWithAuthorizedID(ctx1, "agent1")
+		ctx1 = mock_auth.ContextWithAuthorizedID(ctx1, "agent1")
 
 		ctx2, ca2 := context.WithCancel(context.Background())
-		ctx2 = test.ContextWithAuthorizedID(ctx2, "agent2")
+		ctx2 = mock_auth.ContextWithAuthorizedID(ctx2, "agent2")
 
-		go listener.HandleConnection(ctx1, &test.HealthStore{})
+		go listener.HandleConnection(ctx1, &mock_health.HealthStore{})
 
 		sc := listener.StatusC()
 		stat := <-sc
 		Expect(stat.ID).To(Equal("agent1"))
 		Expect(stat.Status.Connected).To(BeTrue())
 
-		go listener.HandleConnection(ctx2, &test.HealthStore{})
+		go listener.HandleConnection(ctx2, &mock_health.HealthStore{})
 
 		Consistently(sc).ShouldNot(Receive())
 
@@ -195,8 +196,8 @@ var _ = Describe("Listener", Label("unit", "slow"), func() {
 		Expect(receivedAgent2Connect).To(BeTrue())
 
 		ctx3, ca3 := context.WithCancel(context.Background())
-		ctx3 = test.ContextWithAuthorizedID(ctx3, "agent3")
-		go listener.HandleConnection(ctx3, &test.HealthStore{})
+		ctx3 = mock_auth.ContextWithAuthorizedID(ctx3, "agent3")
+		go listener.HandleConnection(ctx3, &mock_health.HealthStore{})
 		Consistently(sc).ShouldNot(Receive())
 		ca3()
 		Consistently(sc).ShouldNot(Receive())

@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -164,9 +163,6 @@ func CRDGen() error {
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
 		"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
 	))
-	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
-		"build", "./config/agent-chart-crds", "-o", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
-	))
 	for _, cmd := range commands {
 		buf := new(bytes.Buffer)
 		cmd.Stderr = buf
@@ -195,19 +191,13 @@ func CRDGen() error {
 	e1 := lo.Async(func() error {
 		return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
 	})
-	e2 := lo.Async(func() error {
-		return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4", "-i", expr, "./packages/opni-agent/opni-agent/charts/crds/crds.yaml")
-	})
 
 	if err := <-e1; err != nil {
 		return err
 	}
-	if err := <-e2; err != nil {
-		return err
-	}
 
 	// prepend "---" to each file, otherwise kubernetes will think it's json
-	for _, f := range []string{"./packages/opni/opni/charts/crds/crds.yaml", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml"} {
+	for _, f := range []string{"./packages/opni/opni/charts/crds/crds.yaml"} {
 		if err := prependDocumentSeparator(f); err != nil {
 			return err
 		}
@@ -248,7 +238,6 @@ func prependDocumentSeparator(path string) error {
 func ReplaceCRDText() error {
 	files := []string{
 		"./packages/opni/opni/charts/crds/crds.yaml",
-		"./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
 	}
 
 	for _, file := range files {
@@ -483,8 +472,7 @@ func Protobuf() {
 
 func Minimal() error {
 	if err := goBuild(
-		"-tags",
-		"noagentv1,noplugins,nohooks,norealtime,nomanager,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty,noalertmanager,nomsgpack",
+		"-tags", "minimal,noagentv1,noscheme_thirdparty,nomsgpack",
 		"./cmd/opni",
 	); err != nil {
 		return err
@@ -533,4 +521,13 @@ func ChartsV(version string) error {
 	}
 	Charts()
 	return nil
+}
+
+func BuildLinter() {
+	sh.Run(mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+}
+func Lint() {
+	mg.Deps(BuildLinter)
+	sh.RunV("golangci-lint", "cache", "clean")
+	sh.RunV("golangci-lint", "run")
 }

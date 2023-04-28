@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	natsutil "github.com/rancher/opni/pkg/util/nats/k8snats"
 
 	"emperror.dev/errors"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -16,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
-	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

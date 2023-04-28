@@ -2,229 +2,80 @@ package gateway
 
 import (
 	"context"
-	"net/http"
-	"os"
-	"time"
+	"sync"
 
-	"github.com/nats-io/nats.go"
-	opensearch "github.com/opensearch-project/opensearch-go"
-	"github.com/rancher/opni/apis"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/future"
-	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
+	"github.com/rancher/opni/pkg/versions"
+	"github.com/rancher/opni/plugins/aiops/pkg/features"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AIOpsPlugin struct {
-	PluginOptions
-	modeltraining.UnsafeModelTrainingServer
-	admin.UnsafeAIAdminServer
-	metricai.UnsafeMetricAIServer
 	system.UnimplementedSystemPluginClient
-	ctx             context.Context
-	Logger          *zap.SugaredLogger
-	k8sClient       client.Client
-	httpClient      *http.Client
-	osClient        future.Future[*opensearch.Client]
-	natsConnection  future.Future[*nats.Conn]
-	aggregationKv   future.Future[nats.KeyValue]
-	modelTrainingKv future.Future[nats.KeyValue]
-	statisticsKv    future.Future[nats.KeyValue]
-	metricAIJobKv   future.Future[nats.KeyValue]
-	metricAIRunKv   future.Future[nats.KeyValue]
+	ctx    context.Context
+	Logger *zap.SugaredLogger
+
+	Features []features.Feature
 }
 
-type PluginOptions struct {
-	storageNamespace  string
-	version           string
-	opensearchCluster *opnimeta.OpensearchClusterRef
-	restconfig        *rest.Config
-}
-
-type PluginOption func(*PluginOptions)
-
-const (
-	workloadAggregationCountBucket = "os-workload-aggregation"
-	modelTrainingParametersBucket  = "model-training-parameters"
-	modelTrainingStatisticsBucket  = "model-training-statistics"
-	metricAIJobBucket              = "metric_ai_jobs"
-	metricAIRunBucket              = "metric_ai_job_runs"
-)
-
-func (o *PluginOptions) apply(opts ...PluginOption) {
-	for _, op := range opts {
-		op(o)
+func NewPlugin(ctx context.Context, opts ...driverutil.Option) *AIOpsPlugin {
+	p := &AIOpsPlugin{
+		Logger: logger.NewPluginLogger().Named("aiops"),
+		ctx:    ctx,
 	}
-}
+	featureList := features.Features.List()
+	p.Logger.With("features", featureList).Info("loading features")
 
-func WithNamespace(namespace string) PluginOption {
-	return func(o *PluginOptions) {
-		o.storageNamespace = namespace
-	}
-}
-
-func WithVersion(version string) PluginOption {
-	return func(o *PluginOptions) {
-		o.version = version
-	}
-}
-
-func WithOpensearchCluster(cluster *opnimeta.OpensearchClusterRef) PluginOption {
-	return func(o *PluginOptions) {
-		o.opensearchCluster = cluster
-	}
-}
-
-func WithRestConfig(restconfig *rest.Config) PluginOption {
-	return func(o *PluginOptions) {
-		o.restconfig = restconfig
-	}
-}
-
-func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
-	options := PluginOptions{
-		storageNamespace: os.Getenv("POD_NAMESPACE"),
-		opensearchCluster: &opnimeta.OpensearchClusterRef{
-			Name:      "opni",
-			Namespace: os.Getenv("POD_NAMESPACE"),
-		},
-		version: "v0.9.2",
-	}
-	options.apply(opts...)
-
-	var restconfig *rest.Config
-	if options.restconfig != nil {
-		restconfig = options.restconfig
-	} else {
-		restconfig = ctrl.GetConfigOrDie()
-	}
-
-	cli, err := client.New(restconfig, client.Options{
-		Scheme: apis.NewScheme(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	httpCli := &http.Client{Timeout: 10 * time.Second}
-
-	return &AIOpsPlugin{
-		PluginOptions:   options,
-		Logger:          logger.NewPluginLogger().Named("AIOps"),
-		ctx:             ctx,
-		natsConnection:  future.New[*nats.Conn](),
-		aggregationKv:   future.New[nats.KeyValue](),
-		modelTrainingKv: future.New[nats.KeyValue](),
-		statisticsKv:    future.New[nats.KeyValue](),
-		metricAIJobKv:   future.New[nats.KeyValue](),
-		metricAIRunKv:   future.New[nats.KeyValue](),
-		osClient:        future.New[*opensearch.Client](),
-		k8sClient:       cli,
-		httpClient:      httpCli,
-	}
-}
-
-func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
-	lg := p.Logger
-	nc, err := newNatsConnection()
-	if err != nil {
-		lg.Fatal(err)
-	}
-	mgr, err := nc.JetStream()
-	if err != nil {
-		lg.Fatal(err)
-	}
-	aggregationKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      workloadAggregationCountBucket,
-		Description: "Storing aggregation of workload logs from Opensearch.",
-	})
-	if err != nil {
-		lg.Fatal(err)
-	}
-
-	p.aggregationKv.Set(aggregationKeyValue)
-
-	modelParametersKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      modelTrainingParametersBucket,
-		Description: "Storing the workloads specified for model training.",
-	})
-	if err != nil {
-		lg.Fatal(err)
-	}
-
-	p.modelTrainingKv.Set(modelParametersKeyValue)
-
-	modelStatisticsKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      modelTrainingStatisticsBucket,
-		Description: "Storing the statistics for the training of the model.",
-	})
-	if err != nil {
-		lg.Fatal(err)
-	}
-
-	p.statisticsKv.Set(modelStatisticsKeyValue)
-
-	metricAIJobKeyValue, err := mgr.KeyValue(metricAIJobBucket)
-	if err != nil {
-		lg.Warn(err)
-		metricAIJobKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
-			Bucket:      metricAIJobBucket,
-			Description: "Storing the submitted jobs for metric AI service.",
-		})
+	for _, featureName := range featureList {
+		builder, _ := features.Features.Get(featureName)
+		feat, err := builder(ctx, append([]driverutil.Option{
+			driverutil.NewOption("version", versions.Version),
+			driverutil.NewOption("logger", p.Logger),
+		}, opts...)...)
 		if err != nil {
-			lg.Fatal(err)
+			p.Logger.Fatal(err)
 		}
+		p.Features = append(p.Features, feat)
 	}
-	p.metricAIJobKv.Set(metricAIJobKeyValue)
-
-	metricAIRunKeyValue, err := mgr.KeyValue(metricAIRunBucket)
-	if err != nil {
-		lg.Warn(err)
-		metricAIRunKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
-			Bucket:      metricAIRunBucket,
-			Description: "Storing the submitted jobs arun results for metric AI service.",
-		})
-		if err != nil {
-			lg.Fatal(err)
-		}
-	}
-	p.metricAIRunKv.Set(metricAIRunKeyValue)
-
-	p.natsConnection.Set(nc)
-
-	go p.runAggregation()
-	<-p.ctx.Done()
+	return p
 }
 
-var _ modeltraining.ModelTrainingServer = (*AIOpsPlugin)(nil)
-var _ admin.AIAdminServer = (*AIOpsPlugin)(nil)
-var _ metricai.MetricAIServer = (*AIOpsPlugin)(nil)
+func SchemeWith(ctx context.Context, opts ...driverutil.Option) meta.Scheme {
+	return scheme(NewPlugin(ctx, opts...))
+}
 
 func Scheme(ctx context.Context) meta.Scheme {
+	return scheme(NewPlugin(ctx))
+}
+
+func scheme(p *AIOpsPlugin) meta.Scheme {
 	scheme := meta.NewScheme()
 
-	p := NewPlugin(ctx)
-
-	p.storageNamespace = os.Getenv("POD_NAMESPACE")
-
-	go p.setOpensearchConnection()
-
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
-		util.PackService(&admin.AIAdmin_ServiceDesc, p),
-		util.PackService(&metricai.MetricAI_ServiceDesc, p),
-	))
+
+	var services []util.ServicePackInterface
+	for _, feature := range p.Features {
+		services = append(services, feature.ManagementAPIExtensionServices()...)
+	}
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(services...))
 	return scheme
+}
+
+func (p *AIOpsPlugin) UseManagementAPI(managementClient managementv1.ManagementClient) {
+	wg := sync.WaitGroup{}
+	for _, feature := range p.Features {
+		feature := feature
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			feature.UseManagementAPI(managementClient)
+		}()
+	}
+	wg.Wait()
 }

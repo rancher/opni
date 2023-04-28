@@ -1,4 +1,4 @@
-package gateway
+package metric_anomaly
 
 import (
 	"context"
@@ -6,34 +6,21 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/resources"
-	metricai "github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	serverUrl           = "http://metric-ai-service:8090" // URL of the python metric-ai service
-	jobRunDelimiter     = "="                             // delimiter that splits jobid and suffix, in order to save in natsKV
+	jobRunDelimiter     = "=" // delimiter that splits jobid and suffix, in order to save in natsKV
 	dashboardNamePrefix = "metricai-"
 	timeout             = 10 * time.Second
 )
-
-var dashboardSelector = &metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		resources.AppNameLabel:  "grafana",
-		resources.PartOfLabel:   "opni",
-		resources.InstanceLabel: "opni", // TODO: this should be the name of MonitoringCluster
-	},
-}
 
 type RequestError struct {
 	StatusCode int
@@ -44,36 +31,23 @@ func (r *RequestError) Error() string {
 	return r.Err.Error()
 }
 
-func (p *AIOpsPlugin) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+func (p *MetricAnomaly) CreateGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	// dashboardJson is generated in the python service. This function simply create a GrafanaDashboard resource with it and apply it
 	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to Get JobRunRes for metricAI: %v", err)
 	}
-	dashboardJson := string(res.JobRunResultDetails)
+	dashboardJson := res.JobRunResultDetails
 	dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
-	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      dashboardNamePrefix + dashboardName,
-				Namespace: os.Getenv("POD_NAMESPACE"),
-				Labels:    dashboardSelector.MatchLabels,
-			},
-			Spec: grafanav1alpha1.GrafanaDashboardSpec{
-				Json: dashboardJson,
-			},
-		},
+	err = p.DashboardDriver.CreateDashboard(dashboardNamePrefix+dashboardName, dashboardJson)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Error Creating Dashboard for metricAI: %v", err)
 	}
-	for _, dashboard := range grafanaDashboards {
-		err := p.k8sClient.Create(ctx, dashboard)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Error Creating Dashboard for metricAI: %v", err)
-		}
-	}
+
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Description: dashboardJson, Status: "Success"}, nil
 }
 
-func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+func (p *MetricAnomaly) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	// delete the grafanadashboard resource for the given jobrun id
 	res, err := p.GetJobRunResult(ctx, jobRunId)
 	if err != nil {
@@ -81,34 +55,19 @@ func (p *AIOpsPlugin) DeleteGrafanaDashboard(ctx context.Context, jobRunId *metr
 	}
 	dashboardJson := res.JobRunResultDetails
 	dashboardName := strings.ToLower(strings.ReplaceAll(res.JobRunId, jobRunDelimiter, ""))
-	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      dashboardNamePrefix + dashboardName,
-				Namespace: os.Getenv("POD_NAMESPACE"),
-				Labels:    dashboardSelector.MatchLabels,
-			},
-			Spec: grafanav1alpha1.GrafanaDashboardSpec{
-				Json: dashboardJson,
-			},
-		},
-	}
-	for _, dashboard := range grafanaDashboards {
-		err := p.k8sClient.Delete(ctx, dashboard)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Error Deleting Dashboard for metricAI: %v", err)
-		}
-	}
+
+	p.DashboardDriver.DeleteDashboard(dashboardNamePrefix + dashboardName)
+
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Description: dashboardJson, Status: "Success"}, nil
 }
 
-func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
+func (p *MetricAnomaly) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
 	// For the UI to list clusters. Returns cluster_id
 
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	// make the http request with context
-	url := serverUrl + "/get_users"
+	url := p.MetricAnomalyServiceURL + "/get_users"
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
@@ -126,13 +85,13 @@ func (p *AIOpsPlugin) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metr
 	return &metricai.MetricAIIdList{Items: result}, nil
 }
 
-func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
+func (p *MetricAnomaly) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
 	// For the UI to list namespaces of a given cluster. Returns a list of namespaces
 
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	// make the http request with context
-	url := serverUrl + "/list_namespace/" + clusterId.Id
+	url := p.MetricAnomalyServiceURL + "/list_namespace/" + clusterId.Id
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %v", err)
@@ -151,7 +110,7 @@ func (p *AIOpsPlugin) ListNamespaces(ctx context.Context, clusterId *metricai.Me
 }
 
 // list keys in the natsKV Job bucket
-func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
+func (p *MetricAnomaly) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
@@ -169,7 +128,7 @@ func (p *AIOpsPlugin) ListJobs(ctx context.Context, _ *emptypb.Empty) (*metricai
 }
 
 // list keys in the natsKV JobRun bucket
-func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
+func (p *MetricAnomaly) ListJobRuns(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
@@ -194,12 +153,12 @@ func (p *AIOpsPlugin) ListJobRuns(ctx context.Context, jobId *metricai.MetricAII
 	return &metricai.MetricAIIdList{Items: jobRunIdArray}, nil
 }
 
-func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAIId) (*metricai.MetricAIRunJobResponse, error) {
+func (p *MetricAnomaly) RunJob(ctx context.Context, jobRequest *metricai.MetricAIId) (*metricai.MetricAIRunJobResponse, error) {
 	// run a job. Post a request to the python metric-ai service.
 	ctxca, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	// make the http request with context
-	url := serverUrl + "/run_job/" + jobRequest.Id
+	url := p.MetricAnomalyServiceURL + "/run_job/" + jobRequest.Id
 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to RunJob for metricAI: %v", err)
@@ -217,7 +176,7 @@ func (p *AIOpsPlugin) RunJob(ctx context.Context, jobRequest *metricai.MetricAII
 	return &metricai.MetricAIRunJobResponse{JobRunId: res["JobRunId"].(string), SubmittedTime: time.Now().String(), Status: res["Status"].(string)}, nil
 }
 
-func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
+func (p *MetricAnomaly) CreateJob(ctx context.Context, jobRequest *metricai.MetricAICreateJobRequest) (*metricai.MetricAIAPIResponse, error) {
 	// use the info provided by user to create a job
 	// Info includes: job's name, the cluseter_id, a list of namespaces to watch.
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -267,7 +226,7 @@ func (p *AIOpsPlugin) CreateJob(ctx context.Context, jobRequest *metricai.Metric
 }
 
 // delete job_id from the natsKV bucket. This won't delete the job_run attached to this job_id
-func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+func (p *MetricAnomaly) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)
@@ -289,7 +248,7 @@ func (p *AIOpsPlugin) DeleteJob(ctx context.Context, jobId *metricai.MetricAIId)
 }
 
 // delete a job_run of a job. Won't delete the job itself.
-func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
+func (p *MetricAnomaly) DeleteJobRun(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIAPIResponse, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
@@ -311,7 +270,7 @@ func (p *AIOpsPlugin) DeleteJobRun(ctx context.Context, jobRunId *metricai.Metri
 }
 
 // Grab the result of a job run from natsKV
-func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIJobRunResult, error) {
+func (p *MetricAnomaly) GetJobRunResult(ctx context.Context, jobRunId *metricai.MetricAIId) (*metricai.MetricAIJobRunResult, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIRunKv.GetContext(ctxca)
@@ -338,7 +297,7 @@ func (p *AIOpsPlugin) GetJobRunResult(ctx context.Context, jobRunId *metricai.Me
 }
 
 // Get the metadata from natsKV
-func (p *AIOpsPlugin) GetJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIJobStatus, error) {
+func (p *MetricAnomaly) GetJob(ctx context.Context, jobId *metricai.MetricAIId) (*metricai.MetricAIJobStatus, error) {
 	ctxca, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	metricAIKeyValue, err := p.metricAIJobKv.GetContext(ctxca)

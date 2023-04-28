@@ -1,4 +1,4 @@
-package gateway
+package log_anomaly
 
 import (
 	"bytes"
@@ -71,7 +71,7 @@ func (a *Aggregations) Add(bucket Bucket) {
 	}
 }
 
-func (p *AIOpsPlugin) aggregateWorkloadLogs() {
+func (p *LogAnomaly) aggregateWorkloadLogs() {
 	request := map[string]any{
 		"size": 0,
 		"query": map[string]any{
@@ -174,7 +174,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	p.Logger.Info("Updated aggregation of deployments to Jetstream.")
 }
 
-func (p *AIOpsPlugin) runAggregation() {
+func (p *LogAnomaly) runAggregation() {
 	t := time.NewTicker(30 * time.Second)
 	for {
 		select {

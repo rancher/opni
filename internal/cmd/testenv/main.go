@@ -42,6 +42,8 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 
+	_ "github.com/rancher/opni/plugins/aiops/pkg/features/metric_anomaly"
+	_ "github.com/rancher/opni/plugins/aiops/test"
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"

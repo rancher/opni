@@ -9,7 +9,7 @@ import (
 
 	"github.com/Masterminds/semver"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
-	"github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/pkg/util/nats/k8snats"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
 	"github.com/samber/lo"
@@ -248,7 +248,7 @@ func (s *LogAnomaly) PutAISettings(ctx context.Context, settings *admin.AISettin
 		},
 		Spec: aiv1beta1.OpniClusterSpec{
 			NatsRef: corev1.LocalObjectReference{
-				Name: nats.NatsObjectNameFromURL(os.Getenv("NATS_SERVER_URL")),
+				Name: k8snats.NatsObjectNameFromURL(os.Getenv("NATS_SERVER_URL")),
 			},
 			Services: aiv1beta1.ServicesSpec{
 				Metrics: aiv1beta1.MetricsServiceSpec{

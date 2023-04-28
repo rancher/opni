@@ -1,4 +1,4 @@
-IMAGE_NAME=tybalex/metric:dev2
-docker build . -t $IMAGE_NAME -f ./Dockerfile 
+cd ../..
+dagger-cue do aiopsload
+docker tag rancher/metric-ai-service  tybalex/metric-ai-service  &&  docker push tybalex/metric-ai-service
 
-docker push $IMAGE_NAME

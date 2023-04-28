@@ -2,6 +2,8 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/pkg/otel"
+	"github.com/rancher/wrangler/pkg/crd"
+	"github.com/rancher/wrangler/pkg/schemas/openapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,6 +47,20 @@ type CollectorConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CollectorConfig `json:"items"`
+}
+
+func CollectorConfigCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(CollectorConfig{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:          GroupVersion.WithKind("CollectorConfig"),
+		PluralName:   "collectorconfigs",
+		Status:       true,
+		Schema:       schema,
+		NonNamespace: true,
+	}, nil
 }
 
 func init() {

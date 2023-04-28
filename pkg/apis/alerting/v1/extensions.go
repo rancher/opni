@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -23,26 +21,6 @@ const EndpointTagNotifications = "notifications"
 const (
 	// maps to a wellknown.Capability
 	RoutingPropertyDatasource = "opni_datasource"
-)
-
-var (
-	OpniSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-		Type:  labels.MatchEqual,
-		Name:  RoutingPropertyDatasource,
-		Value: "",
-	}
-
-	OpniMetricsSubRoutingTreeMatcher *labels.Matcher = &labels.Matcher{
-		Type:  labels.MatchEqual,
-		Name:  RoutingPropertyDatasource,
-		Value: wellknown.CapabilityMetrics,
-	}
-
-	OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
-		Type:  labels.MatchNotEqual,
-		Name:  NotificationPropertySeverity,
-		Value: "",
-	}
 )
 
 // Note these properties have to conform to the AlertManager label naming convention

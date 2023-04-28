@@ -2,7 +2,9 @@ package gateway
 
 import (
 	"context"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
@@ -16,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
+	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
@@ -27,15 +30,19 @@ type AIOpsPlugin struct {
 	PluginOptions
 	modeltraining.UnsafeModelTrainingServer
 	admin.UnsafeAIAdminServer
+	metricai.UnsafeMetricAIServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
 	Logger          *zap.SugaredLogger
 	k8sClient       client.Client
+	httpClient      *http.Client
 	osClient        future.Future[*opensearch.Client]
 	natsConnection  future.Future[*nats.Conn]
 	aggregationKv   future.Future[nats.KeyValue]
 	modelTrainingKv future.Future[nats.KeyValue]
 	statisticsKv    future.Future[nats.KeyValue]
+	metricAIJobKv   future.Future[nats.KeyValue]
+	metricAIRunKv   future.Future[nats.KeyValue]
 }
 
 type PluginOptions struct {
@@ -51,6 +58,8 @@ const (
 	workloadAggregationCountBucket = "os-workload-aggregation"
 	modelTrainingParametersBucket  = "model-training-parameters"
 	modelTrainingStatisticsBucket  = "model-training-statistics"
+	metricAIJobBucket              = "metric_ai_jobs"
+	metricAIRunBucket              = "metric_ai_job_runs"
 )
 
 func (o *PluginOptions) apply(opts ...PluginOption) {
@@ -90,7 +99,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 			Name:      "opni",
 			Namespace: os.Getenv("POD_NAMESPACE"),
 		},
-		version: "v0.9.2-rc1",
+		version: "v0.9.2",
 	}
 	options.apply(opts...)
 
@@ -108,16 +117,21 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		panic(err)
 	}
 
+	httpCli := &http.Client{Timeout: 10 * time.Second}
+
 	return &AIOpsPlugin{
 		PluginOptions:   options,
-		Logger:          logger.NewPluginLogger().Named("modeltraining"),
+		Logger:          logger.NewPluginLogger().Named("AIOps"),
 		ctx:             ctx,
 		natsConnection:  future.New[*nats.Conn](),
 		aggregationKv:   future.New[nats.KeyValue](),
 		modelTrainingKv: future.New[nats.KeyValue](),
 		statisticsKv:    future.New[nats.KeyValue](),
+		metricAIJobKv:   future.New[nats.KeyValue](),
+		metricAIRunKv:   future.New[nats.KeyValue](),
 		osClient:        future.New[*opensearch.Client](),
 		k8sClient:       cli,
+		httpClient:      httpCli,
 	}
 }
 
@@ -160,6 +174,33 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	}
 
 	p.statisticsKv.Set(modelStatisticsKeyValue)
+
+	metricAIJobKeyValue, err := mgr.KeyValue(metricAIJobBucket)
+	if err != nil {
+		lg.Warn(err)
+		metricAIJobKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:      metricAIJobBucket,
+			Description: "Storing the submitted jobs for metric AI service.",
+		})
+		if err != nil {
+			lg.Fatal(err)
+		}
+	}
+	p.metricAIJobKv.Set(metricAIJobKeyValue)
+
+	metricAIRunKeyValue, err := mgr.KeyValue(metricAIRunBucket)
+	if err != nil {
+		lg.Warn(err)
+		metricAIRunKeyValue, err = mgr.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:      metricAIRunBucket,
+			Description: "Storing the submitted jobs arun results for metric AI service.",
+		})
+		if err != nil {
+			lg.Fatal(err)
+		}
+	}
+	p.metricAIRunKv.Set(metricAIRunKeyValue)
+
 	p.natsConnection.Set(nc)
 
 	go p.runAggregation()
@@ -168,6 +209,7 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 
 var _ modeltraining.ModelTrainingServer = (*AIOpsPlugin)(nil)
 var _ admin.AIAdminServer = (*AIOpsPlugin)(nil)
+var _ metricai.MetricAIServer = (*AIOpsPlugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
@@ -182,6 +224,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
 		util.PackService(&admin.AIAdmin_ServiceDesc, p),
+		util.PackService(&metricai.MetricAI_ServiceDesc, p),
 	))
 	return scheme
 }

@@ -57,6 +57,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"monitoring.opni.io",
 					"core.opni.io",
 					"ai.opni.io",
+					"grafana.opni.io",
 				},
 				Resources: []string{
 					"*",

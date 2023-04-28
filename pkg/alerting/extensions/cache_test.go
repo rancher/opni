@@ -107,8 +107,6 @@ var _ = Describe("Message caching for alerting", Label("unit"), Ordered, func() 
 				Expect(keys).ToNot(BeNil())
 				Expect(keys).To(HaveLen(0))
 			}
-
 		})
-
 	})
 })

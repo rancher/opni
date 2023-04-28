@@ -1,13 +1,14 @@
-//go:build !noplugins
+//go:build !minimal
 
 package commands
 
 import (
+	"strings"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
-	"strings"
 )
 
 func completeImportTargets(cmd *cobra.Command, args []string, toComplete string, _ ...func(token *corev1.BootstrapToken) bool) ([]string, cobra.ShellCompDirective) {

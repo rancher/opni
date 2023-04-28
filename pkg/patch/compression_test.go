@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/encoding"
 )
 
-var _ = Describe("Compression", func() {
+var _ = Describe("Compression", Label("unit"), func() {
 	It("should enable the zstd compression format in grpc", func() {
 		compressor := encoding.GetCompressor("zstd")
 		Expect(compressor).NotTo(BeNil())

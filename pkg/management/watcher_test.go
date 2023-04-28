@@ -1,18 +1,20 @@
-package management
+package management_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/management"
 )
 
 var _ = Describe("ManagementWatcherHooks", Ordered, Label("unit"), func() {
-	var hooks *ManagementWatcherHooks[*managementv1.WatchEvent]
+	var hooks *management.ManagementWatcherHooks[*managementv1.WatchEvent]
 	var count int
 
 	BeforeAll(func() {
-		hooks = NewManagementWatcherHooks[*managementv1.WatchEvent](context.Background())
+		hooks = management.NewManagementWatcherHooks[*managementv1.WatchEvent](context.Background())
 		hooks.RegisterHook(func(event *managementv1.WatchEvent) bool {
 			return event.Type == managementv1.WatchEventType_Updated
 		}, func(ctx context.Context, event *managementv1.WatchEvent) error {

@@ -1,5 +1,3 @@
-//go:build !noetcd
-
 package etcd
 
 import (
@@ -12,8 +10,8 @@ import (
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -23,13 +21,13 @@ import (
 
 var (
 	errRetry       = errors.New("the object has been modified, retrying")
-	defaultBackoff = wait.Backoff{
-		Steps:    20,
-		Duration: 10 * time.Millisecond,
-		Cap:      1 * time.Second,
-		Factor:   1.5,
-		Jitter:   0.1,
-	}
+	defaultBackoff = backoff.NewExponentialPolicy(
+		backoff.WithMaxRetries(20),
+		backoff.WithMinInterval(10*time.Millisecond),
+		backoff.WithMaxInterval(1*time.Second),
+		backoff.WithJitterFactor(0.1),
+		backoff.WithMultiplier(1.5),
+	)
 )
 
 func isRetryErr(err error) bool {
@@ -109,10 +107,9 @@ func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.K
 		pfx = prefix
 	}
 	return &etcdKeyringStore{
-		EtcdStoreOptions: e.EtcdStoreOptions,
-		client:           e.Client,
-		ref:              ref,
-		prefix:           pfx,
+		client: e.Client,
+		ref:    ref,
+		prefix: pfx,
 	}
 }
 
@@ -122,8 +119,25 @@ func (e *EtcdStore) KeyValueStore(prefix string) storage.KeyValueStore {
 		pfx = prefix
 	}
 	return &genericKeyValueStore{
-		EtcdStoreOptions: e.EtcdStoreOptions,
-		client:           e.Client,
-		prefix:           path.Join(pfx, "kv"),
+		client: e.Client,
+		prefix: path.Join(pfx, "kv"),
 	}
+}
+
+func init() {
+	storage.RegisterStoreBuilder(v1beta1.StorageTypeEtcd, func(args ...any) (any, error) {
+		ctx := args[0].(context.Context)
+		conf := args[1].(*v1beta1.EtcdStorageSpec)
+
+		var opts []EtcdStoreOption
+		for _, arg := range args[2:] {
+			switch v := arg.(type) {
+			case string:
+				opts = append(opts, WithPrefix(v))
+			default:
+				return nil, fmt.Errorf("unexpected argument: %v", arg)
+			}
+		}
+		return NewEtcdStore(ctx, conf, opts...)
+	})
 }

@@ -36,7 +36,7 @@ var _ = Describe("Flags", Label("unit"), func() {
 		trust.BindFlags(flagset)
 		Expect(flagset.Parse([]string{
 			"--trust-strategy=cacerts",
-			"--cacert=../test/testdata/root_ca.crt",
+			"--cacert=../test/testdata/testdata/root_ca.crt",
 		})).To(Succeed())
 
 		conf, err := trust.BuildConfigFromFlags(flagset)
@@ -126,7 +126,7 @@ var _ = Describe("Flags", Label("unit"), func() {
 			trust.BindFlags(flagset)
 			Expect(flagset.Parse([]string{
 				"--trust-strategy=cacerts",
-				"--cacert=../test/testdata/root_ca.key",
+				"--cacert=../test/testdata/testdata/root_ca.key",
 			})).To(Succeed())
 
 			_, err = trust.BuildConfigFromFlags(flagset)

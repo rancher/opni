@@ -2,7 +2,6 @@ package slo
 
 import (
 	"embed"
-	_ "embed"
 	"fmt"
 	"io/fs"
 	"path/filepath"

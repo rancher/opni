@@ -1,3 +1,5 @@
+//go:build e2e
+
 package e2e
 
 import (
@@ -15,7 +17,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -60,9 +61,7 @@ type StackOutputs struct {
 }
 
 var _ = BeforeSuite(func() {
-	testEnv = &test.Environment{
-		TestBin: "../../testbin/bin",
-	}
+	testEnv = &test.Environment{}
 
 	if value, ok := os.LookupEnv("STACK_OUTPUTS"); ok {
 		Expect(json.Unmarshal([]byte(value), &outputs)).To(Succeed())
@@ -80,7 +79,7 @@ var _ = BeforeSuite(func() {
 	ctx, ca := context.WithCancel(context.Background())
 	DeferCleanup(ca)
 
-	internalPorts, err := testutil.PortForward(ctx, types.NamespacedName{
+	internalPorts, err := PortForward(ctx, types.NamespacedName{
 		Namespace: "opni",
 		Name:      "opni-internal",
 	}, []string{
@@ -90,7 +89,6 @@ var _ = BeforeSuite(func() {
 	Expect(len(internalPorts)).To(Equal(1))
 
 	Expect(testEnv.Start(
-		test.WithEnableCortex(false),
 		test.WithEnableGateway(false),
 		test.WithDefaultAgentOpts(
 			test.WithRemoteGatewayAddress(outputs.GatewayURL+":9090"),

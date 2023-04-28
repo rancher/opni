@@ -12,9 +12,8 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 )
 
-var keyringLog = logger.New().Named("keyring")
-
 func LoadEphemeralKeys(fsys afero.Afero, dirs ...string) ([]*keyring.EphemeralKey, error) {
+	keyringLog := logger.New().Named("keyring")
 	var keys []*keyring.EphemeralKey
 
 	for _, dir := range dirs {

@@ -21,10 +21,11 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/samber/lo"
 
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -33,7 +34,7 @@ import (
 
 func BuildEmbeddedServerNotificationTests(
 	routerConstructor func(int) routing.OpniRouting,
-	dataset *test.RoutableDataset,
+	dataset *alerting.RoutableDataset,
 ) bool {
 	var webPort int
 	var opniPort int
@@ -90,13 +91,24 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 		return listResp
 	}
-	return XDescribe("EmbeddedServer test suite", Ordered, Label("unit"), func() {
+	return XDescribe("EmbeddedServer test suite", Ordered, Label("integration"), func() {
 		var client *http.Client
 		var fingerprints []string
 		var id string
+		var env *test.Environment
+		var tmpConfigDir string
 		BeforeAll(func() {
-			// start embedded alert manager with config that points to opni embedded server
+
+			env = &test.Environment{}
 			Expect(env).NotTo(BeNil())
+			Expect(env.Start()).To(Succeed())
+			DeferCleanup(env.Stop)
+			tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
+			err := os.MkdirAll(tmpConfigDir, 0755)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tmpConfigDir).NotTo(Equal(""))
+
+			// start embedded alert manager with config that points to opni embedded server
 
 			freeport := freeport.GetFreePort()
 			Expect(freeport).NotTo(BeZero())
@@ -406,4 +418,4 @@ var _ = BuildEmbeddedServerNotificationTests(func(dynamicPort int) routing.OpniR
 		dynamicPort,
 		shared.AlertingDefaultHookName,
 	))
-}, test.NewRoutableDataset())
+}, alerting.NewRoutableDataset())

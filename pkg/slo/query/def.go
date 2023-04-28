@@ -29,7 +29,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/slo/shared"
-	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 var (
@@ -129,6 +128,12 @@ type SLOQueryResult struct {
 	TotalQuery string
 }
 
+type ServiceInfo interface {
+	GetMetricIdGood() string
+	GetMetricIdTotal() string
+	GetJobId() string
+}
+
 type MetricQuery interface {
 	// User facing name of the pre-confured metric
 	Name() string
@@ -136,7 +141,7 @@ type MetricQuery interface {
 	Description() string
 	// Each metric has a unique opni datasource (monitoring vs logging) by which it is filtered by
 	Datasource() string
-	Construct(*api.ServiceInfo) (*SLOQueryResult, error)
+	Construct(ServiceInfo) (*SLOQueryResult, error)
 	// Some metrics will have different labels for metrics, so handle them independently
 	GetGoodQuery() Query
 	GetTotalQuery() Query
@@ -155,7 +160,7 @@ type Query interface {
 	IsRatio() bool
 	BestMatch([]string) string
 	IsHistogram() bool
-	Construct(*api.ServiceInfo) (string, error)
+	Construct(ServiceInfo) (string, error)
 }
 
 type QueryBuilder interface {

@@ -63,7 +63,7 @@ func (l *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.D
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityLogs,
 		Source:  "plugin_logging",
-		Drivers: drivers.ListNodeDrivers(),
+		Drivers: drivers.NodeDrivers.List(),
 	}, nil
 }
 

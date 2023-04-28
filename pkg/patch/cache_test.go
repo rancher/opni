@@ -52,7 +52,7 @@ func newTestCache(c patch.Cache, opts CacheTestSuiteOptions) TestCache {
 }
 
 func BuildCacheTestSuite(name string, patchConstructor func() TestCache) bool {
-	return Describe(name, Ordered, Label("unit"), func() {
+	return Describe(name, Ordered, Label("unit", "slow"), func() {
 		var cache TestCache
 		BeforeEach(func() {
 			cache = patchConstructor()

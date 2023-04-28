@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 )
 
-var _ = Describe("Constructing cortex alerting rules", func() {
+var _ = Describe("Constructing cortex alerting rules", Label("unit"), func() {
 	It("should be able to construct a basic cortex alerting rule", func() {
 		simple := metrics.AlertingRule{
 			Alert: "valid-rule-name",

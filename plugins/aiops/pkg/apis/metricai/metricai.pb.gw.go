@@ -136,24 +136,6 @@ func local_request_MetricAI_DeleteGrafanaDashboard_0(ctx context.Context, marsha
 
 }
 
-func request_MetricAI_ListClusters_0(ctx context.Context, marshaler runtime.Marshaler, client MetricAIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq emptypb.Empty
-	var metadata runtime.ServerMetadata
-
-	msg, err := client.ListClusters(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_MetricAI_ListClusters_0(ctx context.Context, marshaler runtime.Marshaler, server MetricAIServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq emptypb.Empty
-	var metadata runtime.ServerMetadata
-
-	msg, err := server.ListClusters(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
 func request_MetricAI_ListNamespaces_0(ctx context.Context, marshaler runtime.Marshaler, client MetricAIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq MetricAIId
 	var metadata runtime.ServerMetadata
@@ -660,31 +642,6 @@ func RegisterMetricAIHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 
 	})
 
-	mux.Handle("GET", pattern_MetricAI_ListClusters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/metricai.MetricAI/ListClusters", runtime.WithHTTPPathPattern("/metricai/listclusters"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_MetricAI_ListClusters_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_MetricAI_ListClusters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
 	mux.Handle("GET", pattern_MetricAI_ListNamespaces_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -995,28 +952,6 @@ func RegisterMetricAIHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 
 	})
 
-	mux.Handle("GET", pattern_MetricAI_ListClusters_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/metricai.MetricAI/ListClusters", runtime.WithHTTPPathPattern("/metricai/listclusters"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_MetricAI_ListClusters_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_MetricAI_ListClusters_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
 	mux.Handle("GET", pattern_MetricAI_ListNamespaces_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -1223,8 +1158,6 @@ var (
 
 	pattern_MetricAI_DeleteGrafanaDashboard_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"metricai", "deletegrafanadashboard", "id"}, ""))
 
-	pattern_MetricAI_ListClusters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"metricai", "listclusters"}, ""))
-
 	pattern_MetricAI_ListNamespaces_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"metricai", "listnamespaces", "id"}, ""))
 
 	pattern_MetricAI_ListJobs_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"metricai", "listjobs"}, ""))
@@ -1248,8 +1181,6 @@ var (
 	forward_MetricAI_CreateGrafanaDashboard_0 = runtime.ForwardResponseMessage
 
 	forward_MetricAI_DeleteGrafanaDashboard_0 = runtime.ForwardResponseMessage
-
-	forward_MetricAI_ListClusters_0 = runtime.ForwardResponseMessage
 
 	forward_MetricAI_ListNamespaces_0 = runtime.ForwardResponseMessage
 

@@ -20,12 +20,13 @@ service MetricAI {
         };
     }
 
+    // use management.ListClusters instead
     // list cluster_ids from Opni, return IDs of each downstream cluster
-    rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
-        option (google.api.http) = {
-            get: "/metricai/listclusters"
-        };
-    }
+    // rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
+    //     option (google.api.http) = {
+    //         get: "/metricai/listclusters"
+    //     };
+    // }
 
     // list namespaces of a cluster given cluster_id
     rpc ListNamespaces(MetricAIId) returns(MetricAIIdList) {
@@ -93,7 +94,7 @@ service MetricAI {
 }
 
 message MetricAIJobStatus {
-    string clusterId = 1; 
+    string clusterId = 1;
     string jobCreateTime = 2;
     string jobId = 3;
     repeated string namespaces = 4;
@@ -104,7 +105,7 @@ message MetricAIJobRunResult {
     string jobId = 1;
     string jobRunId = 2;
     string jobRunResult = 3;
-    string jobRunCreateTime = 4; 
+    string jobRunCreateTime = 4;
     string jobRunBaseTime = 5; // the actual timestamp to run metric anomaly detection. For now it's the same as CreeateTime
     string status = 6;
     string jobRunResultDetails = 7;

@@ -9,6 +9,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -16,6 +17,7 @@ import (
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
 	"github.com/rancher/opni/plugins/aiops/pkg/features"
 	"github.com/rancher/opni/plugins/aiops/pkg/features/metric_anomaly/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 )
 
@@ -36,10 +38,11 @@ type MetricAnomaly struct {
 
 	ctx context.Context
 
-	httpClient     *http.Client
-	natsConnection future.Future[*nats.Conn]
-	metricAIJobKv  future.Future[nats.KeyValue]
-	metricAIRunKv  future.Future[nats.KeyValue]
+	httpClient        *http.Client
+	natsConnection    future.Future[*nats.Conn]
+	metricAIJobKv     future.Future[nats.KeyValue]
+	metricAIRunKv     future.Future[nats.KeyValue]
+	cortexadminClient future.Future[cortexadmin.CortexAdminClient]
 }
 
 func NewMetricAnomalyFeature(ctx context.Context, options MetricAnomalyFeatureOptions) (*MetricAnomaly, error) {
@@ -49,6 +52,7 @@ func NewMetricAnomalyFeature(ctx context.Context, options MetricAnomalyFeatureOp
 		natsConnection:              future.New[*nats.Conn](),
 		metricAIJobKv:               future.New[nats.KeyValue](),
 		metricAIRunKv:               future.New[nats.KeyValue](),
+		cortexadminClient:           future.New[cortexadmin.CortexAdminClient](),
 		httpClient:                  &http.Client{Timeout: 10 * time.Second},
 	}, nil
 }
@@ -100,6 +104,16 @@ func (p *MetricAnomaly) UseManagementAPI(_ managementv1.ManagementClient) {
 
 	lg.Debug("initialization completed")
 
+	<-p.ctx.Done()
+}
+
+func (p *MetricAnomaly) UseAPIExtensions(client system.ExtensionClientInterface) {
+	cc, err := client.GetClientConn(p.ctx, cortexadmin.CortexAdmin_ServiceDesc.ServiceName)
+	if err != nil {
+		p.Logger.Error(err)
+	}
+
+	p.cortexadminClient.Set(cortexadmin.NewCortexAdminClient(cc))
 	<-p.ctx.Done()
 }
 

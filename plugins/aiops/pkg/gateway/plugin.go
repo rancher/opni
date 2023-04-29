@@ -79,3 +79,16 @@ func (p *AIOpsPlugin) UseManagementAPI(managementClient managementv1.ManagementC
 	}
 	wg.Wait()
 }
+
+func (p *AIOpsPlugin) UseAPIExtensions(client system.ExtensionClientInterface) {
+	wg := sync.WaitGroup{}
+	for _, feature := range p.Features {
+		feature := feature
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			feature.UseAPIExtensions(client)
+		}()
+	}
+	wg.Wait()
+}

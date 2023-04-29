@@ -13,6 +13,7 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -63,6 +64,9 @@ func (p *LogAnomaly) ManagementAPIExtensionServices() []util.ServicePackInterfac
 		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
 		util.PackService(&admin.AIAdmin_ServiceDesc, p),
 	}
+}
+
+func (p *LogAnomaly) UseAPIExtensions(_ system.ExtensionClientInterface) {
 }
 
 func (p *LogAnomaly) UseManagementAPI(managementClient managementv1.ManagementClient) {

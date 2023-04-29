@@ -10,7 +10,11 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/metricai"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -61,52 +65,56 @@ func (p *MetricAnomaly) DeleteGrafanaDashboard(ctx context.Context, jobRunId *me
 	return &metricai.MetricAIAPIResponse{SubmittedTime: time.Now().String(), Description: dashboardJson, Status: "Success"}, nil
 }
 
-func (p *MetricAnomaly) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
-	// For the UI to list clusters. Returns cluster_id
+// func (p *MetricAnomaly) ListClusters(ctx context.Context, _ *emptypb.Empty) (*metricai.MetricAIIdList, error) {
+// 	// For the UI to list clusters. Returns cluster_id
 
-	ctxca, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	// make the http request with context
-	url := p.MetricAnomalyServiceURL + "/get_users"
-	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
-	}
-	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %v", err)
-	}
-	defer resp.Body.Close()
+// 	ctxca, cancel := context.WithTimeout(ctx, timeout)
+// 	defer cancel()
+// 	// make the http request with context
+// 	url := p.MetricAnomalyServiceURL + "/get_users"
+// 	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
+// 	if err != nil {
+// 		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListClusters for metricAI: %v", err)
+// 	}
+// 	resp, err := p.httpClient.Do(req)
+// 	if err != nil {
+// 		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListClusters for metricAI: %v", err)
+// 	}
+// 	defer resp.Body.Close()
 
-	var result []string
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListClusters for metricAI: %v", err)
-	}
-	return &metricai.MetricAIIdList{Items: result}, nil
-}
+// 	var result []string
+// 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+// 		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListClusters for metricAI: %v", err)
+// 	}
+// 	return &metricai.MetricAIIdList{Items: result}, nil
+// }
 
 func (p *MetricAnomaly) ListNamespaces(ctx context.Context, clusterId *metricai.MetricAIId) (*metricai.MetricAIIdList, error) {
 	// For the UI to list namespaces of a given cluster. Returns a list of namespaces
 
-	ctxca, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	// make the http request with context
-	url := p.MetricAnomalyServiceURL + "/list_namespace/" + clusterId.Id
-	req, err := http.NewRequestWithContext(ctxca, http.MethodGet, url, nil)
+	// TODO: maybe GetSeriesMetrics or GetMetricLabelSets would work better here?
+	response, err := p.cortexadminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId.Id},
+		Query:   "kube_namespace_labels",
+	})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to form httprequest to ListNamespaces for metricAI: %v", err)
+		return nil, status.Errorf(codes.Unavailable, "Failed to query cortex: %v", err)
 	}
-	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to make httprequest to ListNamespaces for metricAI: %v", err)
-	}
-	defer resp.Body.Close()
-	var result []string
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to unmarshal response of ListNamespaces for metricAI: %v", err)
+	queryResult, err := compat.UnmarshalPrometheusResponse(response.Data)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal prometheus response: %v", err)
 	}
-	return &metricai.MetricAIIdList{Items: result}, nil
+	vec, err := queryResult.GetVector()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal prometheus response: %v", err)
+	}
+	list := &metricai.MetricAIIdList{}
+	for _, sample := range *vec {
+		list.Items = append(list.Items, string(sample.Metric[model.LabelName("namespace")]))
+	}
+	slices.Sort(list.Items)
+	return list, nil
 }
 
 // list keys in the natsKV Job bucket

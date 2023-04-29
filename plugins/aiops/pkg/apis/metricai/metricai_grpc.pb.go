@@ -22,7 +22,6 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	MetricAI_CreateGrafanaDashboard_FullMethodName = "/metricai.MetricAI/CreateGrafanaDashboard"
 	MetricAI_DeleteGrafanaDashboard_FullMethodName = "/metricai.MetricAI/DeleteGrafanaDashboard"
-	MetricAI_ListClusters_FullMethodName           = "/metricai.MetricAI/ListClusters"
 	MetricAI_ListNamespaces_FullMethodName         = "/metricai.MetricAI/ListNamespaces"
 	MetricAI_ListJobs_FullMethodName               = "/metricai.MetricAI/ListJobs"
 	MetricAI_ListJobRuns_FullMethodName            = "/metricai.MetricAI/ListJobRuns"
@@ -40,8 +39,6 @@ const (
 type MetricAIClient interface {
 	CreateGrafanaDashboard(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
 	DeleteGrafanaDashboard(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error)
-	// list cluster_ids from Opni, return IDs of each downstream cluster
-	ListClusters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricAIIdList, error)
 	// list namespaces of a cluster given cluster_id
 	ListNamespaces(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIIdList, error)
 	// list jobs created by user
@@ -82,15 +79,6 @@ func (c *metricAIClient) CreateGrafanaDashboard(ctx context.Context, in *MetricA
 func (c *metricAIClient) DeleteGrafanaDashboard(ctx context.Context, in *MetricAIId, opts ...grpc.CallOption) (*MetricAIAPIResponse, error) {
 	out := new(MetricAIAPIResponse)
 	err := c.cc.Invoke(ctx, MetricAI_DeleteGrafanaDashboard_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *metricAIClient) ListClusters(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricAIIdList, error) {
-	out := new(MetricAIIdList)
-	err := c.cc.Invoke(ctx, MetricAI_ListClusters_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +172,6 @@ func (c *metricAIClient) GetJob(ctx context.Context, in *MetricAIId, opts ...grp
 type MetricAIServer interface {
 	CreateGrafanaDashboard(context.Context, *MetricAIId) (*MetricAIAPIResponse, error)
 	DeleteGrafanaDashboard(context.Context, *MetricAIId) (*MetricAIAPIResponse, error)
-	// list cluster_ids from Opni, return IDs of each downstream cluster
-	ListClusters(context.Context, *emptypb.Empty) (*MetricAIIdList, error)
 	// list namespaces of a cluster given cluster_id
 	ListNamespaces(context.Context, *MetricAIId) (*MetricAIIdList, error)
 	// list jobs created by user
@@ -216,9 +202,6 @@ func (UnimplementedMetricAIServer) CreateGrafanaDashboard(context.Context, *Metr
 }
 func (UnimplementedMetricAIServer) DeleteGrafanaDashboard(context.Context, *MetricAIId) (*MetricAIAPIResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteGrafanaDashboard not implemented")
-}
-func (UnimplementedMetricAIServer) ListClusters(context.Context, *emptypb.Empty) (*MetricAIIdList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListClusters not implemented")
 }
 func (UnimplementedMetricAIServer) ListNamespaces(context.Context, *MetricAIId) (*MetricAIIdList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListNamespaces not implemented")
@@ -292,24 +275,6 @@ func _MetricAI_DeleteGrafanaDashboard_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MetricAIServer).DeleteGrafanaDashboard(ctx, req.(*MetricAIId))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _MetricAI_ListClusters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MetricAIServer).ListClusters(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: MetricAI_ListClusters_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetricAIServer).ListClusters(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -490,10 +455,6 @@ var MetricAI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteGrafanaDashboard",
 			Handler:    _MetricAI_DeleteGrafanaDashboard_Handler,
-		},
-		{
-			MethodName: "ListClusters",
-			Handler:    _MetricAI_ListClusters_Handler,
 		},
 		{
 			MethodName: "ListNamespaces",

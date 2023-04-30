@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	pendingValue  = "job pending"
-	loggingPrefix = "logging_"
+	pendingValue     = "job pending"
+	opensearchPrefix = "os_"
 )
 
 type DeleteStatus int
@@ -58,14 +58,14 @@ func NewManager(logger *zap.SugaredLogger, kv future.Future[system.KeyValueStore
 
 func (m *Manager) keyExists(keyToCheck string) (bool, error) {
 	prefixKey := &system.Key{
-		Key: loggingPrefix,
+		Key: opensearchPrefix,
 	}
 	keys, err := m.systemKV.Get().ListKeys(context.Background(), prefixKey)
 	if err != nil {
 		return false, err
 	}
 	for _, key := range keys.GetItems() {
-		if key == fmt.Sprintf("%s%s", loggingPrefix, keyToCheck) {
+		if key == fmt.Sprintf("%s%s", opensearchPrefix, keyToCheck) {
 			return true, nil
 		}
 	}

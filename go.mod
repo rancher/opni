@@ -44,6 +44,7 @@ require (
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/grafana-operator/grafana-operator/v4 v4.3.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-plugin v1.4.9
 	github.com/hashicorp/golang-lru/v2 v2.0.2
@@ -58,7 +59,6 @@ require (
 	github.com/karlseguin/ccache/v3 v3.0.3
 	github.com/klauspost/compress v1.16.3
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
-	github.com/kralicky/grpc-gateway/v2 v2.15.2
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/ragu v1.0.0-rc7
 	github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105
@@ -316,7 +316,6 @@ require (
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.2.0.20201207153454-9f6bf00c00a7 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/hashicorp/consul/api v1.18.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -351,6 +350,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
+	github.com/kralicky/grpc-gateway/v2 v2.15.2 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect

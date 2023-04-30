@@ -11,20 +11,8 @@ import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
-import "github.com/kralicky/grpc-gateway/v2/protoc-gen-openapiv2/options/annotations.proto";
 
 package management;
-
-option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
-	info: {
-		title: "Opni Monitoring Management API";
-		version: "1.0";
-		license: {
-			name: "Apache 2.0";
-			url: "https://github.com/rancher/opni/blob/main/LICENSE";
-		};
-  };
-};
 
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {

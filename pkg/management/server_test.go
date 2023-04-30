@@ -1,9 +1,7 @@
 package management_test
 
 import (
-	"bytes"
 	"context"
-	"net/http"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -49,15 +47,7 @@ var _ = Describe("Server", Ordered, Label("unit"), func() {
 		Expect(info.Chain).To(HaveLen(1))
 		Expect(info.Chain[0].Subject).To(Equal("CN=leaf"))
 	})
-	It("should serve the swagger.json endpoint", func() {
-		resp, err := http.Get(tv.httpEndpoint + "/swagger.json")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		body := new(bytes.Buffer)
-		_, err = body.ReadFrom(resp.Body)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(body.String()).To(ContainSubstring(`"swagger": "2.0"`))
-	})
+
 	It("should handle configuration errors", func() {
 		By("checking required config fields are set")
 		conf := &v1beta1.ManagementSpec{

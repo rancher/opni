@@ -10,17 +10,18 @@ import (
 	"strings"
 
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	gsync "github.com/kralicky/gpkg/sync"
-	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -34,6 +35,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
+	"github.com/rancher/opni/pkg/util"
 )
 
 func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.APIExtensionInfoList, error) {
@@ -139,46 +141,80 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 	}
 }
 
+func (m *Server) configureManagementHttpApi(ctx context.Context, mux *runtime.ServeMux) error {
+	m.apiExtMu.RLock()
+	defer m.apiExtMu.RUnlock()
+
+	cc, err := grpc.DialContext(ctx, m.config.GRPCListenAddress,
+		grpc.WithBlock(),
+		grpc.WithContextDialer(util.DialProtocol),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to dial grpc server: %w", err)
+	}
+	stub := grpcdynamic.NewStub(cc)
+
+	desc, err := grpcreflect.LoadServiceDescriptor(&managementv1.Management_ServiceDesc)
+	if err != nil {
+		return fmt.Errorf("failed to load service descriptor: %w", err)
+	}
+
+	rules := loadHttpRuleDescriptors(desc)
+
+	m.configureServiceStubHandlers(mux, stub, desc, rules)
+	return nil
+}
+
 func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
-	lg := m.logger
 	m.apiExtMu.RLock()
 	defer m.apiExtMu.RUnlock()
 	for _, ext := range m.apiExtensions {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
-		for _, rule := range ext.httpRules {
-			var method string
-			var path string
-			switch rp := rule.Http.Pattern.(type) {
-			case *annotations.HttpRule_Get:
-				method = "GET"
-				path = rp.Get
-			case *annotations.HttpRule_Post:
-				method = "POST"
-				path = rp.Post
-			case *annotations.HttpRule_Put:
-				method = "PUT"
-				path = rp.Put
-			case *annotations.HttpRule_Delete:
-				method = "DELETE"
-				path = rp.Delete
-			case *annotations.HttpRule_Patch:
-				method = "PATCH"
-				path = rp.Patch
-			}
-			qualifiedPath := fmt.Sprintf("/%s%s", svcDesc.GetName(), path)
-			if err := mux.HandlePath(method, qualifiedPath, newHandler(stub, svcDesc, mux, rule, path)); err != nil {
-				lg.With(
-					zap.Error(err),
-					zap.String("method", method),
-					zap.String("path", qualifiedPath),
-				).Error("failed to configure http handler")
-			} else {
-				lg.With(
-					zap.String("method", method),
-					zap.String("path", qualifiedPath),
-				).Debug("configured http handler")
-			}
+		httpRules := ext.httpRules
+		m.configureServiceStubHandlers(mux, stub, svcDesc, httpRules)
+	}
+}
+func (m *Server) configureServiceStubHandlers(
+	mux *runtime.ServeMux,
+	stub grpcdynamic.Stub,
+	svcDesc *desc.ServiceDescriptor,
+	httpRules []*managementv1.HTTPRuleDescriptor,
+) {
+	lg := m.logger
+	for _, rule := range httpRules {
+		var method string
+		var path string
+		switch rp := rule.Http.Pattern.(type) {
+		case *annotations.HttpRule_Get:
+			method = "GET"
+			path = rp.Get
+		case *annotations.HttpRule_Post:
+			method = "POST"
+			path = rp.Post
+		case *annotations.HttpRule_Put:
+			method = "PUT"
+			path = rp.Put
+		case *annotations.HttpRule_Delete:
+			method = "DELETE"
+			path = rp.Delete
+		case *annotations.HttpRule_Patch:
+			method = "PATCH"
+			path = rp.Patch
+		}
+		qualifiedPath := fmt.Sprintf("/%s%s", svcDesc.GetName(), path)
+		if err := mux.HandlePath(method, qualifiedPath, newHandler(stub, svcDesc, mux, rule, path)); err != nil {
+			lg.With(
+				zap.Error(err),
+				zap.String("method", method),
+				zap.String("path", qualifiedPath),
+			).Error("failed to configure http handler")
+		} else {
+			lg.With(
+				zap.String("method", method),
+				zap.String("path", qualifiedPath),
+			).Debug("configured http handler")
 		}
 	}
 }

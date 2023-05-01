@@ -31,6 +31,7 @@ func BuildTokensCmd() *cobra.Command {
 func BuildTokensCreateCmd() *cobra.Command {
 	var ttl string
 	var labels []string
+	var onetime bool
 	tokensCreateCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a bootstrap token",
@@ -45,8 +46,9 @@ func BuildTokensCreateCmd() *cobra.Command {
 			}
 			t, err := mgmtClient.CreateBootstrapToken(cmd.Context(),
 				&managementv1.CreateBootstrapTokenRequest{
-					Ttl:    durationpb.New(duration),
-					Labels: labelMap,
+					Ttl:     durationpb.New(duration),
+					Labels:  labelMap,
+					Onetime: onetime,
 				})
 			if err != nil {
 				lg.Fatal(err)
@@ -56,6 +58,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 	}
 	tokensCreateCmd.Flags().StringVar(&ttl, "ttl", "300s", "Time to live")
 	tokensCreateCmd.Flags().StringSliceVar(&labels, "labels", []string{}, "Labels which will be auto-applied to any clusters created with this token")
+	tokensCreateCmd.Flags().BoolVar(&onetime, "onetime", false, "Create a one-time use token")
 	return tokensCreateCmd
 }
 

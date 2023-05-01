@@ -23,6 +23,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 	gateway := &types.NamespacedName{}
 	testImage := "monitoring-controller-test:latest"
 	volumeMounts := []any{"data", "config", "runtime-config", "client-certs", "server-certs", "etcd-client-certs", "etcd-server-cacert"}
+	forwarderMounts := []any{"client-certs", "metrics-forwarder-config"}
 	BeforeAll(func() {
 		os.Setenv("OPNI_DEBUG_MANAGER_IMAGE", testImage)
 		DeferCleanup(os.Unsetenv, "OPNI_DEBUG_MANAGER_IMAGE")
@@ -107,6 +108,13 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						"app.kubernetes.io/name": "cortex",
 					}),
 				})()).To(HaveLen(0))
+
+				// no otlp forwarders should be created
+				Expect(List(&appsv1.DeploymentList{}, &client.ListOptions{
+					LabelSelector: labels.SelectorFromSet(labels.Set{
+						"app.kubernetes.io/name": "metrics-forwarder",
+					}),
+				})()).To(HaveLen(0))
 			})
 		})
 		When("using the HighlyAvailable mode", func() {
@@ -173,6 +181,64 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						Namespace: aio.Namespace,
 					},
 				})).ShouldNot(Exist())
+
+				// no otlp forwarders should be created
+				Expect(List(&appsv1.DeploymentList{}, &client.ListOptions{
+					LabelSelector: labels.SelectorFromSet(labels.Set{
+						"app.kubernetes.io/name": "metrics-forwarder",
+					}),
+				})()).To(HaveLen(0))
+			})
+		})
+
+		When("using the gateway OTLP metrics forwarder", func() {
+			It("should create the OTLP forwarder deployment", func() {
+				clWithOtel := &corev1beta1.MonitoringCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cortex",
+						Namespace: gateway.Namespace,
+					},
+					Spec: corev1beta1.MonitoringClusterSpec{
+						Gateway: corev1.LocalObjectReference{
+							Name: gateway.Name,
+						},
+						Cortex: corev1beta1.CortexSpec{
+							Enabled:        true,
+							DeploymentMode: corev1beta1.DeploymentModeHighlyAvailable,
+						},
+						Grafana: corev1beta1.GrafanaSpec{
+							Enabled: true,
+						},
+						OTEL: corev1beta1.OTELSpec{
+							Enabled:      true,
+							ExtraEnvVars: []corev1.EnvVar{{Name: "FOO", Value: "BAZ"}},
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), clWithOtel)).To(Succeed())
+				Eventually(Object(clWithOtel)).Should(Exist())
+
+				Eventually(Object(&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "metrics-forwarder",
+						Namespace: clWithOtel.Namespace,
+					},
+				})).Should(ExistAnd(
+					HaveOwner(clWithOtel),
+					HaveReplicaCount(1),
+					HaveMatchingContainer(And(
+						HaveName("metrics-forwarder"),
+						HavePorts("otlp-grpc"),
+						HaveEnv("FOO", "BAZ"),
+						HaveVolumeMounts(forwarderMounts...),
+					)),
+				))
+
+				Expect(List(&appsv1.DeploymentList{}, &client.ListOptions{
+					LabelSelector: labels.SelectorFromSet(labels.Set{
+						"app.kubernetes.io/name": "metrics-forwarder",
+					}),
+				})()).To(HaveLen(1))
 			})
 		})
 	})

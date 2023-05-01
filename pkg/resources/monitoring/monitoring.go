@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
+	"github.com/rancher/opni/pkg/resources/monitoring/otel"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
@@ -88,6 +89,18 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	cortexResult, err := cortexRec.Reconcile()
 	if err != nil {
 		result := k8sutil.LoadResult(cortexResult, err)
+		if result.ShouldRequeue() {
+			return result.Result()
+		}
+	}
+	otelRec := otel.NewReconciler(
+		r.ctx,
+		r.client,
+		r.mc,
+	)
+	otelResult, err := otelRec.Reconcile()
+	if err != nil {
+		result := k8sutil.LoadResult(otelResult, err)
 		if result.ShouldRequeue() {
 			return result.Result()
 		}

@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	v1 "k8s.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -65,9 +65,64 @@ func (k *OpniManager) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster 
 	}
 }
 
-func (k *OpniManager) ConfigureOTELCollector(_ bool) (collectorAddress string, err error) {
-	// TODO : noop : until #1176
-	return "", nil
+func (k *OpniManager) ConfigureOTELCollector(enabled bool) (collectorAddress string, err error) {
+	mc := k.newMonitoringCluster()
+	err = k.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(mc), mc)
+	if err != nil {
+		return "", err
+	}
+	// look up the gateway so we can set it as an owner reference
+	gateway := &opnicorev1beta1.Gateway{}
+	err = k.K8sClient.Get(context.TODO(), k.GatewayRef, gateway)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gateway: %w", err)
+	}
+
+	mutator := func(cluster *opnicorev1beta1.MonitoringCluster) error {
+		cluster.Spec.OTEL.Enabled = enabled
+		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
+		found := false
+		envVar := k8scorev1.EnvVar{
+			Name:  "CORTEX_REMOTE_WRITE_ADDRESS",
+			Value: "https://cortex-distributor:8080/api/v1/push",
+		}
+		for i := range cluster.Spec.OTEL.ExtraEnvVars {
+			if cluster.Spec.OTEL.ExtraEnvVars[i].Name == envVar.Name {
+				found = true
+				cluster.Spec.OTEL.ExtraEnvVars[i].Value = envVar.Value
+				break
+			}
+		}
+		if !found {
+			cluster.Spec.OTEL.ExtraEnvVars = append(cluster.Spec.OTEL.ExtraEnvVars, envVar)
+		}
+		return nil
+	}
+	err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
+		existing := k.newMonitoringCluster()
+		err := k.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(mc), existing)
+		if err != nil {
+			return err
+		}
+		clone := existing.DeepCopy()
+		if err := mutator(clone); err != nil {
+			return err
+		}
+		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
+			patch.IgnoreStatusFields(),
+			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
+			patch.IgnorePDBSelector(),
+		)
+		if err == nil && cmp.IsEmpty() {
+			return nil
+		}
+		return k.K8sClient.Update(context.TODO(), clone)
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to update monitoring cluster: %w", err)
+	}
+
+	return "metrics-forwarder:4317", nil
 }
 
 func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
@@ -137,7 +192,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		}
 		cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled
 		cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
-		cluster.Spec.Gateway = v1.LocalObjectReference{
+		cluster.Spec.Gateway = k8scorev1.LocalObjectReference{
 			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])

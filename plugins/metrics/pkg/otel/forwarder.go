@@ -9,8 +9,10 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
 	httputil "github.com/rancher/opni/pkg/util/http"
+	"github.com/samber/lo"
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
+	otlpmetricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -104,13 +106,18 @@ func (f *OTELForwarder) Export(
 	if !f.HasRemoteTarget() {
 		return nil, status.Error(codes.Unavailable, "remote OTLP target not available")
 	}
+	f.logger.Infof("Received %d metrics", lo.Reduce(req.GetResourceMetrics(), func(acc int, rsc *otlpmetricsv1.ResourceMetrics, _ int) int {
+		for _, scope := range rsc.GetScopeMetrics() {
+			acc += len(scope.Metrics)
+		}
+		return acc
+	}, 0))
 	var tenantId string
 	if f.IsPrivileged() {
 		tenantId = cluster.StreamAuthorizedID(ctx)
 	}
 
 	for _, resourceMetrics := range req.GetResourceMetrics() {
-		// undecided whether or not we should include this safeguard
 		if resourceMetrics == nil {
 			continue
 		}
@@ -140,7 +147,16 @@ func (f *OTELForwarder) forwardMetricsToRemote(
 	if err != nil {
 		return nil, err
 	}
-	return remoteTarget.Export(ctx, req)
+	resp, err := remoteTarget.Export(ctx, req)
+	if err != nil {
+		f.logger.Errorf("failed to forward to remote target '%s': %s", func() string {
+			if f.remoteAddress == "" {
+				return "(implicit stream)"
+			}
+			return f.remoteAddress
+		}, err)
+	}
+	return resp, err
 }
 
 func clusterIdExists(attrs []*otlpcommonv1.KeyValue) bool {

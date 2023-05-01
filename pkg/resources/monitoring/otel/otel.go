@@ -25,12 +25,14 @@ import (
 )
 
 const (
-	otlpPort            = 4317
-	collectorImageRepo  = "ghcr.io/rancher-sandbox"
-	collectorImage      = "opni-otel-collector"
-	collectorVersion    = "v0.1.1-0.74.0"
-	forwarderConfigName = "metrics-forwarder-config"
-	forwarderConfigKey  = "config.yaml"
+	metricsTelemetryPort = 8888
+	otlpPort             = 4317
+	otlpPortName         = "otlp-grpc"
+	collectorImageRepo   = "docker.io/alex7285"
+	collectorImage       = "collector"
+	collectorVersion     = "fork3"
+	forwarderConfigName  = "metrics-forwarder-config"
+	forwarderConfigKey   = "config.yaml"
 )
 
 // OTLP input
@@ -41,41 +43,40 @@ receivers:
     protocols:
       grpc:
         endpoint: ":{{ .SinkPort }}"
-	prometheus/self:
-	  config:
-		scrape_configs:
-		- job_name: 'otel-collector'
-			scrape_interval: 15s
-			static_configs:
-			- targets: ['127.0.0.1:{{ .TelemetryPort }}']
+  prometheus/self:
+    config:
+      scrape_configs:
+      - job_name: 'otel-collector'
+        scrape_interval: 15s
+        static_configs:
+        - targets: ['127.0.0.1:{{ .TelemetryPort }}']
 exporters:
   prometheusremotewrite/cortex:
-    endpoint: "{{ .CortexRemoteWriteAddress }}"
-	tls_config: 
-	  ca_file: /etc/otel/run/cortex/certs/client/ca.crt
-	  cert_file: /etc/otel/run/cortex/certs/client/tls.crt
-	  key_file: /etc/otel/run/cortex/certs/client/tls.key
+    endpoint: ${env:CORTEX_REMOTE_WRITE_ADDRESS}
+    tls: 
+      ca_file: /etc/otel/prometheus/certs/ca.crt
+      cert_file: /etc/otel/prometheus/certs/tls.crt
+      key_file: /etc/otel/prometheus/certs/tls.key
+    opni:
+      tenant_resource_label: "__tenant_id__"
     resource_to_telemetry_conversion:
       enabled: true
 service:
   telemetry:
+    logs:
+      level : "debug"
     metrics:
       address: "127.0.0.1:{{ .TelemetryPort }}"
   pipelines:
     metrics:
       receivers:
-	    - otlp
-		- prometheus/self
+      - otlp
       exporters: [prometheusremotewrite/cortex]
 `))
 
 type forwarderConfig struct {
-	TelemetryPort            int
-	SinkPort                 int
-	CortexRemoteWriteAddress string
-	CaFile                   string
-	CertFile                 string
-	KeyFile                  string
+	TelemetryPort int
+	SinkPort      int
 }
 
 type Reconciler struct {
@@ -128,12 +129,8 @@ func (r *Reconciler) imageSpec() opnimeta.ImageSpec {
 func (r *Reconciler) configMapData() ([]byte, error) {
 	//FIXME: do not hardcode distributor address
 	config := forwarderConfig{
-		TelemetryPort:            8888,
-		SinkPort:                 otlpPort,
-		CortexRemoteWriteAddress: "https://cortex-distributor:8080/distributor/api/v1/push",
-		CaFile:                   "/run/cortex/certs/client/ca.crt",
-		CertFile:                 "/run/cortex/certs/client/tls.crt",
-		KeyFile:                  "/run/cortex/certs/client/tls.key",
+		TelemetryPort: metricsTelemetryPort,
+		SinkPort:      otlpPort,
 	}
 	var b bytes.Buffer
 	if err := gatewayForwarderConfig.Execute(&b, config); err != nil {
@@ -169,7 +166,7 @@ func (r *Reconciler) deployment() []resources.Resource {
 		},
 		{
 			Name:      "client-certs",
-			MountPath: "/run/cortex/certs/client",
+			MountPath: "/etc/otel/prometheus/certs",
 			ReadOnly:  true,
 		},
 	}
@@ -182,6 +179,12 @@ func (r *Reconciler) deployment() []resources.Resource {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: forwarderConfigName,
 					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  forwarderConfigKey,
+							Path: forwarderConfigKey,
+						},
+					},
 				},
 			},
 		},
@@ -189,7 +192,7 @@ func (r *Reconciler) deployment() []resources.Resource {
 			Name: "client-certs",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: "cortex-serving-cert-keys",
+					SecretName: "cortex-client-cert-keys",
 					Items: []corev1.KeyToPath{
 						{
 							Key:  "tls.crt",
@@ -246,7 +249,7 @@ func (r *Reconciler) deployment() []resources.Resource {
 							Image:           *imageSpec.Image,
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Command: []string{
-								"otelcol-custom",
+								"/otelcol-custom",
 								fmt.Sprintf("--config=/etc/otel/%s", forwarderConfigKey),
 							},
 							Env: append(r.mc.Spec.OTEL.ExtraEnvVars, []corev1.EnvVar{
@@ -270,8 +273,12 @@ func (r *Reconciler) deployment() []resources.Resource {
 							VolumeMounts: volumeMounts,
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          "otlp-grpc",
+									Name:          otlpPortName,
 									ContainerPort: otlpPort,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: metricsTelemetryPort,
 								},
 							},
 						},
@@ -307,10 +314,16 @@ func (r *Reconciler) service() resources.Resource {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "otlp-grpc",
+					Name:       otlpPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       otlpPort,
 					TargetPort: intstr.FromInt(int(otlpPort)),
+				},
+				{
+					Name:       "metrics",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       metricsTelemetryPort,
+					TargetPort: intstr.FromInt(metricsTelemetryPort),
 				},
 			},
 		},

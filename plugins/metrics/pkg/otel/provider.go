@@ -68,6 +68,10 @@ func (c *ClientProvider) SetClient(client colmetricspb.MetricsServiceClient) {
 }
 
 func (c *ClientProvider) SetAddress(address string) {
+	if c.remoteTarget.IsSet() && c.remoteAddress == address {
+		return
+	}
+	c.logger.Infof("updating remote OTLP address to %s", address)
 	c.setMu.Lock()
 	if c.setAddressCtx != nil {
 		c.setAdressCancelFunc()

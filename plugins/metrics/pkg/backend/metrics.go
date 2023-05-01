@@ -161,7 +161,9 @@ func (m *MetricsBackend) onSyncUpdateClusterResources(ctx context.Context, curre
 	collectorAddress, err := m.ClusterDriver.ConfigureOTELCollector(toggle)
 	if err != nil {
 		m.Logger.Errorf("failed to apply collector updates: %v", err)
+		return
 	}
+	m.Logger.Debugf("collector address discovered from sync : %s", collectorAddress)
 	m.OTELForwarder.SetAddress(collectorAddress)
 }
 

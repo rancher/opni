@@ -76,8 +76,8 @@ import (
 				docker.#Run & {
 					workdir: "/app"
 					command: {
-						name : "yarn"
-						args : ["build"]
+						name: "yarn"
+						args: ["build"]
 					}
 				},
 				docker.#Run & {

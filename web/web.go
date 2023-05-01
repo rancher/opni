@@ -8,7 +8,7 @@ import (
 var DistFS embed.FS
 
 func EmbeddedAssetsAvailable() bool {
-	f, err := DistFS.Open("dist/_nuxt")
+	f, err := DistFS.Open("dist")
 	if err != nil {
 		return false
 	}

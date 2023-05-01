@@ -82,7 +82,7 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 			return
 		}
 
-		c.FileFromFS("200.html", webfs)
+		c.FileFromFS("/", webfs) // serve index.html
 	})
 
 	opniApiAddr := ws.config.HTTPListenAddress

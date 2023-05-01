@@ -7,6 +7,7 @@ import (
 	errors "errors"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	pflag "github.com/spf13/pflag"
+	v2 "github.com/thediveo/enumflag/v2"
 	os "os"
 	strings "strings"
 )
@@ -14,7 +15,13 @@ import (
 func (input *StorageSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("StorageSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&input.Backend, strings.Join(append(prefix, "backend"), "."), "filesystem", "Name of the storage backend to use. (s3|gcs|azure|swift|filesystem)")
+	fs.Var(v2.New(&input.Backend, "Backend", map[Backend][]string{
+		Backend_filesystem: {"filesystem"},
+		Backend_s3:         {"s3"},
+		Backend_gcs:        {"gcs"},
+		Backend_azure:      {"azure"},
+		Backend_swift:      {"swift"},
+	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "backend"), "."), "Name of the storage backend to use.")
 	if input.S3 == nil {
 		input.S3 = &S3StorageSpec{}
 	}

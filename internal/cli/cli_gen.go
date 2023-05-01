@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -283,9 +285,9 @@ func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File
 	// Generate flags for input fields recursively
 	if !isEmpty {
 		flagSet := cg.generateFlagSet(g, method.Input)
-		_ = flagSet
 		g.P("cmd.Flags().AddFlagSet(input.FlagSet())")
 
+		cg.generateFlagCompletionFuncs(g, flagSet)
 	}
 
 	for _, requiredFlag := range opts.RequiredFlags {
@@ -337,6 +339,11 @@ var specialCaseReplacements = map[string]string{
 	"s-3": "s3",
 }
 
+type flagCompletion struct {
+	name string
+	fn   string
+}
+
 type flagSet struct {
 	receiver *protogen.Message
 	buf      *buffer
@@ -345,6 +352,8 @@ type flagSet struct {
 
 	secretFields         []*protogen.Field
 	depsWithSecretFields []*protogen.Field
+
+	flagCompletionFuncs []flagCompletion
 }
 
 type buffer struct {
@@ -484,6 +493,14 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					g.P(g.QualifiedGoIdent(v.GoIdent), `: {`, fmt.Sprintf("%q", string(v.Desc.Name())), `},`)
 				}
 				g.P("},", _enumflag.Ident("EnumCaseSensitive"), `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				var allValues []string
+				for _, v := range field.Enum.Values {
+					allValues = append(allValues, strconv.Quote(string(v.Desc.Name())))
+				}
+				fs.flagCompletionFuncs = append(fs.flagCompletionFuncs, flagCompletion{
+					name: kebabName,
+					fn:   `return []string{` + strings.Join(allValues, ", ") + `}, cobra.ShellCompDirectiveDefault`,
+				})
 				continue
 			case protoreflect.MessageKind:
 				if custom, ok := customFieldGenerators[string(field.Message.Desc.FullName())]; ok {
@@ -505,7 +522,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					})
 
 					depFs := cg.generateFlagSet(g.g, field.Message)
-					deps[g.QualifiedGoIdent(field.Message.GoIdent)] = depFs
+					deps[kebabName] = depFs
 					if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {
 						fs.depsWithSecretFields = append(fs.depsWithSecretFields, field)
 					}
@@ -592,6 +609,25 @@ var customFieldGenerators = map[string]func(g *buffer, field *protogen.Field, de
 		}
 		g.P(`fs.Var(`, _flagutil.Ident("TimestamppbValue"), `(`, defaultValue, `, &input.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
 	},
+}
+
+func (cg *Generator) generateFlagCompletionFuncs(g *protogen.GeneratedFile, fs *flagSet, prefix ...string) {
+	for _, comp := range fs.flagCompletionFuncs {
+		flagName := strings.Join(append(prefix, comp.name), ".")
+		g.P(`cmd.RegisterFlagCompletionFunc("`, flagName, `", func(cmd *`, _cobra.Ident("Command"), `, args []string, toComplete string) ([]string, `, _cobra.Ident("ShellCompDirective"), `) {`)
+		g.P(comp.fn)
+		g.P(`})`)
+	}
+
+	orderedDeps := make([]string, 0, len(fs.deps))
+	for k := range fs.deps {
+		orderedDeps = append(orderedDeps, k)
+	}
+	sort.Strings(orderedDeps)
+	for _, depName := range orderedDeps {
+		dep := fs.deps[depName]
+		cg.generateFlagCompletionFuncs(g, dep, append(prefix, depName)...)
+	}
 }
 
 // converts a duration string (e.g. "1h", "15m", 2h30m) into the equivalent go syntax

@@ -10,9 +10,17 @@ option (cli.generator) = {
   generate: true
 };
 
+enum Backend {
+	filesystem = 0;
+	s3 = 1;
+	gcs = 2;
+	azure = 3;
+	swift = 4;
+}
+
 message StorageSpec {
-  // Name of the storage backend to use. (s3|gcs|azure|swift|filesystem)
-  string backend = 1 [(cli.flag).default="filesystem"];
+  // Name of the storage backend to use.
+  Backend backend = 1;
   S3StorageSpec s3 = 2;
   GCSStorageSpec gcs = 3;
   AzureStorageSpec azure = 4;

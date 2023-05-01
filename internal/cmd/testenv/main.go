@@ -319,7 +319,7 @@ func main() {
 				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{
 					Mode: cortexops.DeploymentMode_AllInOne,
 					Storage: &storagev1.StorageSpec{
-						Backend: "filesystem",
+						Backend: storagev1.Filesystem,
 						Filesystem: &storagev1.FilesystemStorageSpec{
 							Directory: path.Join(environment.GetTempDirectory(), "cortex", "data"),
 						},

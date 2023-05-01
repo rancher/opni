@@ -22,13 +22,68 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Backend int32
+
+const (
+	Backend_filesystem Backend = 0
+	Backend_s3         Backend = 1
+	Backend_gcs        Backend = 2
+	Backend_azure      Backend = 3
+	Backend_swift      Backend = 4
+)
+
+// Enum value maps for Backend.
+var (
+	Backend_name = map[int32]string{
+		0: "filesystem",
+		1: "s3",
+		2: "gcs",
+		3: "azure",
+		4: "swift",
+	}
+	Backend_value = map[string]int32{
+		"filesystem": 0,
+		"s3":         1,
+		"gcs":        2,
+		"azure":      3,
+		"swift":      4,
+	}
+)
+
+func (x Backend) Enum() *Backend {
+	p := new(Backend)
+	*p = x
+	return p
+}
+
+func (x Backend) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Backend) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_enumTypes[0].Descriptor()
+}
+
+func (Backend) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_enumTypes[0]
+}
+
+func (x Backend) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Backend.Descriptor instead.
+func (Backend) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDescGZIP(), []int{0}
+}
+
 type StorageSpec struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of the storage backend to use. (s3|gcs|azure|swift|filesystem)
-	Backend    string                 `protobuf:"bytes,1,opt,name=backend,proto3" json:"backend,omitempty"`
+	// Name of the storage backend to use.
+	Backend    Backend                `protobuf:"varint,1,opt,name=backend,proto3,enum=storage.Backend" json:"backend,omitempty"`
 	S3         *S3StorageSpec         `protobuf:"bytes,2,opt,name=s3,proto3" json:"s3,omitempty"`
 	Gcs        *GCSStorageSpec        `protobuf:"bytes,3,opt,name=gcs,proto3" json:"gcs,omitempty"`
 	Azure      *AzureStorageSpec      `protobuf:"bytes,4,opt,name=azure,proto3" json:"azure,omitempty"`
@@ -70,11 +125,11 @@ func (*StorageSpec) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *StorageSpec) GetBackend() string {
+func (x *StorageSpec) GetBackend() Backend {
 	if x != nil {
 		return x.Backend
 	}
-	return ""
+	return Backend_filesystem
 }
 
 func (x *StorageSpec) GetS3() *S3StorageSpec {
@@ -857,8 +912,8 @@ var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDesc = []b
 	0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x63, 0x6c, 0x69, 0x2f, 0x63, 0x6c, 0x69, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x22, 0xf3, 0x02, 0x0a, 0x0b, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
 	0x53, 0x70, 0x65, 0x63, 0x12, 0x2a, 0x0a, 0x07, 0x62, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x10, 0x8a, 0xc0, 0x0c, 0x0c, 0x0a, 0x0a, 0x66, 0x69, 0x6c,
-	0x65, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x52, 0x07, 0x62, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64,
+	0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x10, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
+	0x42, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x52, 0x07, 0x62, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64,
 	0x12, 0x26, 0x0a, 0x02, 0x73, 0x33, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x73,
 	0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x53, 0x33, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
 	0x53, 0x70, 0x65, 0x63, 0x52, 0x02, 0x73, 0x33, 0x12, 0x29, 0x0a, 0x03, 0x67, 0x63, 0x73, 0x18,
@@ -1030,10 +1085,14 @@ var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDesc = []b
 	0x6c, 0x65, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x53,
 	0x70, 0x65, 0x63, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72,
-	0x79, 0x42, 0x33, 0x82, 0xc0, 0x0c, 0x02, 0x08, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70,
-	0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x73, 0x74, 0x6f, 0x72,
-	0x61, 0x67, 0x65, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x79, 0x2a, 0x40, 0x0a, 0x07, 0x42, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x12, 0x0e, 0x0a, 0x0a,
+	0x66, 0x69, 0x6c, 0x65, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02,
+	0x73, 0x33, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x67, 0x63, 0x73, 0x10, 0x02, 0x12, 0x09, 0x0a,
+	0x05, 0x61, 0x7a, 0x75, 0x72, 0x65, 0x10, 0x03, 0x12, 0x09, 0x0a, 0x05, 0x73, 0x77, 0x69, 0x66,
+	0x74, 0x10, 0x04, 0x42, 0x33, 0x82, 0xc0, 0x0c, 0x02, 0x08, 0x01, 0x5a, 0x2b, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f,
+	0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x73, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1048,39 +1107,42 @@ func file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDescGZIP(
 	return file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDescData
 }
 
+var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_goTypes = []interface{}{
-	(*StorageSpec)(nil),           // 0: storage.StorageSpec
-	(*S3StorageSpec)(nil),         // 1: storage.S3StorageSpec
-	(*SSEConfig)(nil),             // 2: storage.SSEConfig
-	(*HTTPConfig)(nil),            // 3: storage.HTTPConfig
-	(*GCSStorageSpec)(nil),        // 4: storage.GCSStorageSpec
-	(*AzureStorageSpec)(nil),      // 5: storage.AzureStorageSpec
-	(*SwiftStorageSpec)(nil),      // 6: storage.SwiftStorageSpec
-	(*FilesystemStorageSpec)(nil), // 7: storage.FilesystemStorageSpec
-	(*durationpb.Duration)(nil),   // 8: google.protobuf.Duration
+	(Backend)(0),                  // 0: storage.Backend
+	(*StorageSpec)(nil),           // 1: storage.StorageSpec
+	(*S3StorageSpec)(nil),         // 2: storage.S3StorageSpec
+	(*SSEConfig)(nil),             // 3: storage.SSEConfig
+	(*HTTPConfig)(nil),            // 4: storage.HTTPConfig
+	(*GCSStorageSpec)(nil),        // 5: storage.GCSStorageSpec
+	(*AzureStorageSpec)(nil),      // 6: storage.AzureStorageSpec
+	(*SwiftStorageSpec)(nil),      // 7: storage.SwiftStorageSpec
+	(*FilesystemStorageSpec)(nil), // 8: storage.FilesystemStorageSpec
+	(*durationpb.Duration)(nil),   // 9: google.protobuf.Duration
 }
 var file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_depIdxs = []int32{
-	1,  // 0: storage.StorageSpec.s3:type_name -> storage.S3StorageSpec
-	4,  // 1: storage.StorageSpec.gcs:type_name -> storage.GCSStorageSpec
-	5,  // 2: storage.StorageSpec.azure:type_name -> storage.AzureStorageSpec
-	6,  // 3: storage.StorageSpec.swift:type_name -> storage.SwiftStorageSpec
-	7,  // 4: storage.StorageSpec.filesystem:type_name -> storage.FilesystemStorageSpec
-	8,  // 5: storage.StorageSpec.retentionPeriod:type_name -> google.protobuf.Duration
-	2,  // 6: storage.S3StorageSpec.sse:type_name -> storage.SSEConfig
-	3,  // 7: storage.S3StorageSpec.http:type_name -> storage.HTTPConfig
-	8,  // 8: storage.HTTPConfig.idleConnTimeout:type_name -> google.protobuf.Duration
-	8,  // 9: storage.HTTPConfig.responseHeaderTimeout:type_name -> google.protobuf.Duration
-	8,  // 10: storage.HTTPConfig.tlsHandshakeTimeout:type_name -> google.protobuf.Duration
-	8,  // 11: storage.HTTPConfig.expectContinueTimeout:type_name -> google.protobuf.Duration
-	3,  // 12: storage.AzureStorageSpec.http:type_name -> storage.HTTPConfig
-	8,  // 13: storage.SwiftStorageSpec.connectTimeout:type_name -> google.protobuf.Duration
-	8,  // 14: storage.SwiftStorageSpec.requestTimeout:type_name -> google.protobuf.Duration
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	0,  // 0: storage.StorageSpec.backend:type_name -> storage.Backend
+	2,  // 1: storage.StorageSpec.s3:type_name -> storage.S3StorageSpec
+	5,  // 2: storage.StorageSpec.gcs:type_name -> storage.GCSStorageSpec
+	6,  // 3: storage.StorageSpec.azure:type_name -> storage.AzureStorageSpec
+	7,  // 4: storage.StorageSpec.swift:type_name -> storage.SwiftStorageSpec
+	8,  // 5: storage.StorageSpec.filesystem:type_name -> storage.FilesystemStorageSpec
+	9,  // 6: storage.StorageSpec.retentionPeriod:type_name -> google.protobuf.Duration
+	3,  // 7: storage.S3StorageSpec.sse:type_name -> storage.SSEConfig
+	4,  // 8: storage.S3StorageSpec.http:type_name -> storage.HTTPConfig
+	9,  // 9: storage.HTTPConfig.idleConnTimeout:type_name -> google.protobuf.Duration
+	9,  // 10: storage.HTTPConfig.responseHeaderTimeout:type_name -> google.protobuf.Duration
+	9,  // 11: storage.HTTPConfig.tlsHandshakeTimeout:type_name -> google.protobuf.Duration
+	9,  // 12: storage.HTTPConfig.expectContinueTimeout:type_name -> google.protobuf.Duration
+	4,  // 13: storage.AzureStorageSpec.http:type_name -> storage.HTTPConfig
+	9,  // 14: storage.SwiftStorageSpec.connectTimeout:type_name -> google.protobuf.Duration
+	9,  // 15: storage.SwiftStorageSpec.requestTimeout:type_name -> google.protobuf.Duration
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_init() }
@@ -1191,13 +1253,14 @@ func file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_rawDesc,
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_goTypes,
 		DependencyIndexes: file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_depIdxs,
+		EnumInfos:         file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_enumTypes,
 		MessageInfos:      file_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto_msgTypes,
 	}.Build()
 	File_github_com_rancher_opni_pkg_apis_storage_v1_storage_proto = out.File

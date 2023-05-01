@@ -103,6 +103,12 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(input.FlagSet())
+	cmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"AllInOne", "HighlyAvailable"}, cobra.ShellCompDirectiveDefault
+	})
+	cmd.RegisterFlagCompletionFunc("storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
+	})
 	return cmd
 }
 

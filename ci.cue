@@ -483,14 +483,6 @@ dagger.#Plan & {
 						auth: _auth
 					}
 				}
-				agentCrd: helm.#Push & {
-					source: _chartsBuild.export.directories."/src/assets"
-					chart:  "opni-agent-crd/opni-agent-crd-\(_agentChartVersion).tgz"
-					remote: client.env.HELM_OCI_REPO
-					if _auth != _|_ {
-						auth: _auth
-					}
-				}
 
 				dev: helm.#PublishToChartsRepo & {
 					dev:    true

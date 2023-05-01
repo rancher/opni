@@ -111,18 +111,29 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 }
 
 func cfgHasOTELCapablity(currentNodeCfg *node.MetricsCapabilityConfig) bool {
-	// TODO : #1176 should check for otel capability
-	return currentNodeCfg != nil && currentNodeCfg.GetSpec() != nil && currentNodeCfg.GetEnabled()
+	return currentNodeCfg != nil &&
+		currentNodeCfg.GetSpec() != nil &&
+		currentNodeCfg.GetEnabled() &&
+		currentNodeCfg.GetSpec().GetOtel() != nil
 }
 
-func clusterHasOtelCapability(md *corev1.ClusterMetadata) bool {
+func (m *MetricsBackend) clusterHasOtelCapability(ctx context.Context, cl *corev1.Cluster) bool {
+	md := cl.GetMetadata()
 	if md == nil {
 		return false
 	}
 	for _, cap := range md.Capabilities {
 		if cap.Name == wellknown.CapabilityMetrics {
-			// TODO : #1176 also need to check for otel capability is loaded on the spec
-			return true
+			cfg, err := m.GetNodeConfiguration(ctx, cl.Reference())
+			if err != nil {
+				m.Logger.Warn("failed to get node configuration when checking cluster metadata")
+				return false
+			}
+			return cfgHasOTELCapablity(&node.MetricsCapabilityConfig{
+				Enabled:    true, // since the cluster has metrics capabilities
+				Conditions: []string{},
+				Spec:       cfg,
+			})
 		}
 	}
 	return false
@@ -137,7 +148,7 @@ func (m *MetricsBackend) shouldUpdateColletor(ctx context.Context, currentCfg *n
 		return false
 	}
 	for _, cl := range cls.Items {
-		if clusterHasOtelCapability(cl.Metadata) {
+		if m.clusterHasOtelCapability(ctx, cl) {
 			return true
 		}
 	}

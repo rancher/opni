@@ -21,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
@@ -37,6 +38,7 @@ type agentForwarderConfig struct {
 var _ = Describe("Agent - OTLP metrics test", Ordered, Label("integration"), func() {
 	var env *test.Environment
 	var client managementv1.ManagementClient
+	var nodeConfigClient node.NodeConfigurationClient
 	var fingerprint string
 	var mut1 *test.RemoteWriteMutator
 	BeforeAll(func() {
@@ -60,6 +62,7 @@ var _ = Describe("Agent - OTLP metrics test", Ordered, Label("integration"), fun
 		)).To(Succeed())
 		DeferCleanup(env.Stop)
 		client = env.NewManagementClient()
+		nodeConfigClient = node.NewNodeConfigurationClient(env.ManagementClientConn())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
@@ -93,7 +96,16 @@ var _ = Describe("Agent - OTLP metrics test", Ordered, Label("integration"), fun
 				},
 			})
 			Expect(err).To(Succeed())
-			//TODO : #1176 install with otel capability
+			_, err = nodeConfigClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
+				Node: &corev1.Reference{
+					Id: "otelmetrics",
+				},
+				Spec: &node.MetricsCapabilitySpec{
+					Otel: &node.OTELSpec{},
+				},
+			})
+			Expect(err).To(Succeed())
+
 			_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 				Name: "metrics",
 				Target: &capabilityv1.InstallRequest{

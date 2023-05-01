@@ -115,12 +115,27 @@ type MonitoringClusterSpec struct {
 	Gateway corev1.LocalObjectReference `json:"gateway,omitempty"`
 	Cortex  CortexSpec                  `json:"cortex,omitempty"`
 	Grafana GrafanaSpec                 `json:"grafana,omitempty"`
+	OTEL    OTELSpec                    `json:"otel,omitempty"`
+}
+
+type OTELSpec struct {
+	Enabled            bool                       `json:"enable,omitempty"`
+	Replicas           *int32                     `json:"replicas,omitempty"`
+	LogLevel           string                     `json:"logLevel,omitempty"`
+	ExtraVolumes       []corev1.Volume            `json:"extraVolumes,omitempty"`
+	ExtraVolumeMounts  []corev1.VolumeMount       `json:"extraVolumeMounts,omitempty"`
+	ExtraEnvVars       []corev1.EnvVar            `json:"extraEnvVars,omitempty"`
+	SidecarContainers  []corev1.Container         `json:"sidecarContainers,omitempty"`
+	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
+	SecurityContext    *corev1.SecurityContext    `json:"securityContext,omitempty"`
+	Affinity           *corev1.Affinity           `json:"affinity,omitempty"`
 }
 
 type MonitoringClusterStatus struct {
 	Image           string            `json:"image,omitempty"`
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	Cortex          CortexStatus      `json:"cortex,omitempty"`
+	OTEL            OTELStatus        `json:"otel,omitempty"`
 }
 
 type CortexStatus struct {
@@ -128,6 +143,11 @@ type CortexStatus struct {
 	WorkloadsReady bool                      `json:"workloadsReady,omitempty"`
 	Conditions     []string                  `json:"conditions,omitempty"`
 	WorkloadStatus map[string]WorkloadStatus `json:"workloadStatus,omitempty"`
+}
+
+type OTELStatus struct {
+	Version    string   `json:"version,omitempty"`
+	Conditions []string `json:"conditions,omitempty"`
 }
 
 type WorkloadStatus struct {

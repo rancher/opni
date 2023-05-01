@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
@@ -76,7 +77,7 @@ func (d NodeConfig) MetricReceivers() []string {
 	res := []string{}
 	if d.Metrics.Enabled {
 		res = append(res, "prometheus/self")
-		if d.Metrics.Spec.HostMetrics != nil && *d.Metrics.Spec.HostMetrics {
+		if lo.FromPtrOr(d.Metrics.Spec.HostMetrics, false) {
 			res = append(res, "hostmetrics")
 			if d.Containerized {
 				res = append(res, "kubeletstats")

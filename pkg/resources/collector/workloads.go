@@ -22,9 +22,9 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "docker.io/alex7285"
-	collectorImage     = "opni-collector"
-	collectorVersion   = "prometheus"
+	collectorImageRepo = "ghcr.io/rancher-sandbox"
+	collectorImage     = "opni-otel-collector"
+	collectorVersion   = "v0.1.2-0.74.0"
 	otlpGRPCPort       = int32(4317)
 	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
 	machineID          = "/etc/machine-id"

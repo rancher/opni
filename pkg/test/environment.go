@@ -873,7 +873,7 @@ func (t TestNodeConfig) MetricReceivers() []string {
 	res := []string{}
 	if t.Metrics.Enabled {
 		res = append(res, "prometheus/self")
-		if t.Metrics.Spec.HostMetrics != nil && *t.Metrics.Spec.HostMetrics {
+		if lo.FromPtrOr(t.Metrics.Spec.HostMetrics, false) {
 			res = append(res, "hostmetrics")
 			if t.Containerized {
 				res = append(res, "kubeletstats")

@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
-	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -231,17 +230,9 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
 	mux := http.NewServeMux()
-	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write(managementv1.OpenAPISpec()); err != nil {
-			lg.Error(err)
-		}
-	})
 	gwmux := runtime.NewServeMux(runtime.WithErrorHandler(extensionsErrorHandler))
-	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux,
-		strings.TrimPrefix(m.config.GRPCListenAddress, "tcp://"),
-		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
-		return fmt.Errorf("failed to register management handler: %w", err)
-	}
+
+	m.configureManagementHttpApi(ctx, gwmux)
 	m.configureHttpApiExtensions(gwmux)
 	mux.Handle("/", gwmux)
 	server := &http.Server{

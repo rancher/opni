@@ -21,6 +21,8 @@ import (
 
 	"github.com/kralicky/ragu"
 	_ "github.com/kralicky/ragu/compat"
+	"github.com/kralicky/ragu/pkg/plugins/golang"
+	"github.com/kralicky/ragu/pkg/plugins/golang/grpc"
 	"github.com/kralicky/ragu/pkg/plugins/python"
 
 	// mage:import
@@ -435,7 +437,7 @@ func init() {
 	}
 }
 func ProtobufGo() error {
-	out, err := ragu.GenerateCode(ragu.DefaultGenerators(),
+	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator},
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)

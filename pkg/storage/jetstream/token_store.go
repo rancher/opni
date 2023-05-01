@@ -26,6 +26,7 @@ func (s *JetStreamStore) CreateToken(_ context.Context, ttl time.Duration, opts 
 		UsageCount:   0,
 		Labels:       options.Labels,
 		Capabilities: options.Capabilities,
+		Onetime:      options.OneTime,
 	}
 	data, err := protojson.Marshal(token)
 	if err != nil {

@@ -48,6 +48,8 @@ spec:
                   leaseID:
                     format: int64
                     type: integer
+                  onetime:
+                    type: boolean
                   resourceVersion:
                     type: string
                   ttl:

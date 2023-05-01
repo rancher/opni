@@ -153,13 +153,21 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	if err := h.storage.CreateCluster(ctx, newCluster); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error creating cluster: %v", err))
 	}
-	_, err = h.storage.UpdateToken(ctx, token.Reference(),
-		storage.NewCompositeMutator(
-			storage.NewIncrementUsageCountMutator(),
-		),
-	)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("error incrementing usage count: %v", err))
+
+	if bootstrapToken.GetMetadata().GetOnetime() {
+		err = h.storage.DeleteToken(ctx, token.Reference())
+		if err != nil {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("error deleting onetime token: %v", err))
+		}
+	} else {
+		_, err = h.storage.UpdateToken(ctx, token.Reference(),
+			storage.NewCompositeMutator(
+				storage.NewIncrementUsageCountMutator(),
+			),
+		)
+		if err != nil {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("error incrementing usage count: %v", err))
+		}
 	}
 	krStore := h.storage.KeyringStore("gateway", newCluster.Reference())
 	if err := krStore.Put(ctx, kr); err != nil {

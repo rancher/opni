@@ -1,0 +1,119 @@
+opni:
+  title: Opni - Logging / Monitoring
+  description: Opni is open source software that combines everything an organization needs for multi-cluster and multi-tenant observability. Built on Kubernetes, Opni makes it easy for operators to create and manage backends, agents, and data associated with logging, monitoring, and tracing. Opni comes with AIOps built in so that users can immediately identify anomalous activity in their data.
+  install: Install Opni
+  installRepository: Install Opni Repository
+  installChart: Install Opni Chart
+  breakdowns:
+    title: Breakdowns
+    tabs:
+      controlPlane: Control Plane
+      namespace: Namespace
+      pod: Pod
+      workload: Workload
+  chart:
+    areaOfInterest: Area of Interest
+    labels:
+      anomaly: Anomalous
+      normal: Normal
+      suspicious: Suspicious
+      controlPlaneAnomaly: |-
+        {count, plural,
+        one  {Control Plane Anomaly}
+        other {Control Plane Anomalies}
+        }
+      workloadAnomaly: |-
+        {count, plural,
+        one  {Workload Anomaly}
+        other {Workload Anomalies}
+        }
+    resetZoom: Reset Zoom
+  configurator:
+    granularity: Granularity
+    range: Range
+    refresh: Refresh
+  dashboard:
+    title: Logging
+  logsDrawer:
+    title: Logs
+  monitoring:
+    clusters:
+      tabs:
+        target:
+          label: Target
+          token: Token
+          capability: Capability
+        labels:
+          label: Labels
+    roleBindings:
+      role: Role
+      tabs:
+        subjects:
+          label: Subjects
+        taints:
+          label: Taints
+    role:
+      tabs:
+        clusters:
+          label: Clusters
+          add: Add Cluster
+        matchLabels:
+          label: Match Labels
+        matchExpressions:
+          label: Match Expressions
+  nav:
+    aiOps: AIOps
+    alertingBackend: Alerting
+    alerting: Alerting
+    backends: Backends
+    configuration: Advanced Configuration
+    agents: Agents
+    rbac: RBAC
+    roles: Roles
+    roleBindings: Role Bindings
+    tokens: Tokens
+    slos: SLOs
+    loggingConfig: Logging
+    monitoring: Monitoring
+    management: Management
+    workloadModel: Workload Insights
+    endpoints: Endpoints
+    alarms: Alarms
+    alertingOverview: Overview
+  workloadInsights:
+    noRowsKey: There are not any deployments accessible for this cluster
+  workloadVsControlPlaneChart:
+    workload: Workload
+    controlPlane: Control Plane
+
+
+tableHeaders:
+  capabilities: Capabilities
+  clusterName: Cluster Name
+  clusters: Clusters
+  date: Date
+  description: Description
+  empty: ""
+  expiration: Expiration
+  id: ID
+  labels: Labels
+  logs: Log Count
+  matchExpressions: Match Expressions
+  matchLabels: Match Labels
+  name: Name
+  namespace: Namespace
+  numSeries: Distinct Metrics
+  period: Period
+  podName: Pod Name
+  role: Role
+  sampleRate: Metrics Ingestion Rate
+  status: Status
+  subjects: Subjects
+  tags: Tags
+  token: Token
+  type: Type
+  used: Used
+
+
+
+  

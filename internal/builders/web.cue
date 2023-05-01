@@ -76,8 +76,8 @@ import (
 				docker.#Run & {
 					workdir: "/app"
 					command: {
-						name: "node_modules/.bin/nuxt"
-						args: ["generate", "-c", "product/opni/nuxt.config.js", "--spa"]
+						name : "yarn"
+						args : ["build"]
 					}
 				},
 				docker.#Run & {

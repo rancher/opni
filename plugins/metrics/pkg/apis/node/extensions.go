@@ -6,6 +6,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func (m *MetricsCapabilitySpec) RuleDiscoveryEnabled() bool {
+	return m.Rules != nil && m.Rules.Discovery != nil
+}
+
 func IsDefaultConfig(trailer metadata.MD) bool {
 	if len(trailer["is-default-config"]) > 0 {
 		return trailer["is-default-config"][0] == "true"

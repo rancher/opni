@@ -118,6 +118,14 @@ export class Capability extends Resource {
     return this.cluster.capabilities.includes(this.type);
   }
 
+  get isLocal(): boolean {
+    return this.cluster.isLocal;
+  }
+
+  get localIcon(): string {
+    return this.isLocal ? 'icon-checkmark text-success' : '';
+  }
+
   get clusterNameDisplay(): string {
     return this.cluster.nameDisplay;
   }

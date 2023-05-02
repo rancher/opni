@@ -3,6 +3,7 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
+import { Banner } from '@components/Banner';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import { getCapabilities } from '../../utils/requests/capability';
@@ -20,6 +21,7 @@ export async function isEnabled() {
 export default {
   components: {
     Backend,
+    Banner,
     LabeledSelect,
     Grafana,
     CapabilityTable,
@@ -95,10 +97,6 @@ export default {
   },
 
   methods: {
-    async load() {
-
-    },
-
     async updateStatus(capabilities = []) {
       try {
         const stats = await getClusterStats(this);
@@ -108,7 +106,9 @@ export default {
     },
 
     async loadCapabilities(parent) {
-      return await getCapabilities('metrics', parent);
+      this.capabilities = await getCapabilities('metrics', parent);
+
+      return this.capabilities;
     },
 
     headerProvider(headers) {
@@ -129,7 +129,15 @@ export default {
           value:         'sampleRate',
           formatter:     'Number',
           formatterOpts: { suffix: '/s' }
-        }
+        },
+        {
+          name:          'isLocal',
+          labelKey:      'opni.tableHeaders.local',
+          sort:          ['isLocal'],
+          value:         'localIcon',
+          formatter:     'Icon',
+          width:     20
+        },
       ]);
 
       return newHeaders;
@@ -227,6 +235,14 @@ export default {
         return null;
       }
     }
+  },
+  computed: {
+    localCapability() {
+      return this.capabilities.filter(c => c.isLocal)[0];
+    },
+    showDegradedBanner() {
+      return this.localCapability && this.localCapability.isInstalled;
+    }
   }
 };
 </script>
@@ -255,6 +271,9 @@ export default {
       </Tabbed>
     </template>
     <template #details>
+      <Banner v-if="showDegradedBanner" color="warning" class="mt-0">
+        The local agent should have the capability installed. Without the capability the default Grafana dashboards will be degraded.
+      </Banner>
       <CapabilityTable :capability-provider="loadCapabilities" :header-provider="headerProvider" :update-status-provider="updateStatus" />
     </template>
   </Backend>

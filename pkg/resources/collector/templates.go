@@ -239,7 +239,7 @@ service:
       processors: ["transform", "memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
-  {{ template "metrics-remotewrite-pipeline" .}}
+  {{ template "metrics-pipeline" .}}
 `
 )
 

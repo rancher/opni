@@ -32,6 +32,7 @@ func CompatOTELStruct(in *OTELSpec) *otel.OTELSpec {
 	out := &otel.OTELSpec{
 		AdditionalScrapeConfigs: make([]*otel.ScrapeConfig, len(in.AdditionalScrapeConfigs)),
 		HostMetrics:             in.HostMetrics,
+		UseOTLP:                 in.UseOTLP,
 	}
 	if in.Wal != nil {
 		out.Wal = &otel.WALConfig{

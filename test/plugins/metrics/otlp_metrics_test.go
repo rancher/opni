@@ -22,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -92,7 +91,7 @@ var _ = Describe("Agent - OTLP metrics test", Ordered, Label("integration"), fun
 					},
 				},
 				Grafana: &cortexops.GrafanaConfig{
-					Enabled: lo.ToPtr(false),
+					Enabled: false,
 				},
 			})
 			Expect(err).To(Succeed())

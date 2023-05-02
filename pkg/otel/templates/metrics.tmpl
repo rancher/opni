@@ -140,6 +140,16 @@ kubeletstats:
   {{- end -}}
 {{- end -}}
 
+{{- define "metrics-pipeline" -}}
+{{- if .Metrics.Enabled -}}
+{{- if and .Metrics.Spec .Metrics.Spec.UseOTLP -}}
+{{ template "metrics-otlp-pipeline" . }}
+{{- else -}}
+{{ template "metrics-remotewrite-pipeline" . }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "metrics-remotewrite-pipeline" -}}
 {{- if .Metrics.Enabled }}
     metrics/internal:
@@ -161,6 +171,29 @@ kubeletstats:
       exporters: [prometheusremotewrite]
 {{- end -}}
 {{- end -}}
+
+{{- define "metrics-otlp-pipeline" -}}
+{{- if .Metrics.Enabled }}
+    metrics/internal:
+      receivers:
+        - otlp
+      processors:
+      - memory_limiter
+      - batch
+      exporters: [otlphttp]
+    metrics/external:
+      receivers:
+      {{- range .MetricReceivers }}
+      - {{ . }}
+      {{- end }} 
+      processors: 
+      - memory_limiter
+      - batch
+      - filter/metrics
+      exporters: [otlphttp]
+{{- end -}}
+{{- end -}}
+
 
 {{- define "metrics-prometheus-processor" -}}
 {{- if.Metrics.Enabled -}}

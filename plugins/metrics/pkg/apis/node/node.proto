@@ -79,7 +79,16 @@ message PrometheusSpec {
 message OTELSpec {
   repeated ScrapeConfig additionalScrapeConfigs = 1;
   WALConfig wal = 2;
+  // When set to true uses daemon set kubelet metrics
+  // otherwise we expect users to have kube-state-metrics
+  // installed to collect kubelet metrics. 
+  //
+  // Cannot have this enabled and have kube-state-metrics
+  // 
+  // default: false
   optional bool hostMetrics = 3;
+  // when set to false uses agent remote-write
+  optional bool useOTLP = 4;
 }
 
 message WALConfig {

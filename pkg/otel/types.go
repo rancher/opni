@@ -55,6 +55,7 @@ type OTELSpec struct {
 	AdditionalScrapeConfigs []*ScrapeConfig `json:"additionalScrapeConfigs,omitempty"`
 	Wal                     *WALConfig      `json:"wal,omitempty"`
 	HostMetrics             *bool           `json:"hostMetrics,omitempty"`
+	UseOTLP                 *bool           `json:"useOTLP,omitempty"`
 }
 
 func (o *OTELSpec) DeepCopyInto(out *OTELSpec) {

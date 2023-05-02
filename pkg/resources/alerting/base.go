@@ -19,6 +19,7 @@ import (
 )
 
 const dataMountPath = "/var/lib"
+const alertingUser = "alerting"
 
 func alertingLabels() map[string]string {
 	return map[string]string{
@@ -54,24 +55,38 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	}
-	requiredPersistentClaims := []corev1.PersistentVolumeClaim{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "opni-alertmanager-data",
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteOnce,
+	requiredPersistentClaims := []corev1.PersistentVolumeClaim{}
+	if r.ac.Spec.Alertmanager.ApplicationSpec.OverridePersistentVolumeClaim != nil {
+		requiredPersistentClaims = append(
+			requiredPersistentClaims,
+			corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "opni-alertmanager-data",
 				},
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: util.Must(
-							resource.ParseQuantity(fmt.Sprintf("%dGi", 5)),
-						),
+				Spec: *r.ac.Spec.Alertmanager.ApplicationSpec.OverridePersistentVolumeClaim,
+			},
+		)
+	} else {
+		requiredPersistentClaims = append(
+			requiredPersistentClaims,
+			corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "opni-alertmanager-data",
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: util.Must(
+								resource.ParseQuantity(fmt.Sprintf("%dGi", 5)),
+							),
+						},
 					},
 				},
 			},
-		},
+		)
 	}
 	controllerService, controllerWorkers := r.newAlertingCluster(
 		shared.OperatorAlertingControllerServiceName,
@@ -177,7 +192,7 @@ func (r *Reconciler) newAlertingAlertManager(
 			},
 			{
 				Name:  "USER",
-				Value: "alerting",
+				Value: alertingUser,
 			},
 		},
 		Name:            "opni-alertmanager",
@@ -238,7 +253,7 @@ func (r *Reconciler) newAlertingSyncer(args []string) corev1.Container {
 			},
 			{
 				Name:  "USER",
-				Value: "syncer",
+				Value: alertingUser,
 			},
 		},
 

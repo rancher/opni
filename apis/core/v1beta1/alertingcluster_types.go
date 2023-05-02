@@ -37,17 +37,22 @@ type AlertManagerSpec struct {
 	ApplicationSpec AlertingApplicationSpec `json:"workloads,omitempty"`
 }
 
+type VolumeSpec struct {
+	corev1.Volume      `json:"volume,omitempty"`
+	corev1.VolumeMount `json:"volumeMounts,omitempty"`
+}
+
 type AlertingApplicationSpec struct {
-	Replicas             *int32                            `json:"replicas,omitempty"`
-	ExtraArgs            []string                          `json:"extraArgs,omitempty"`
-	ExtraVolumes         []corev1.Volume                   `json:"extraVolumes,omitempty"`
-	ExtraVolumeMounts    []corev1.VolumeMount              `json:"extraVolumeMounts,omitempty"`
-	ExtraEnvVars         []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
-	SidecarContainers    []corev1.Container                `json:"sidecarContainers,omitempty"`
-	ResourceRequirements *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
-	UpdateStrategy       *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	SecurityContext      *corev1.SecurityContext           `json:"securityContext,omitempty"`
-	Affinity             *corev1.Affinity                  `json:"affinity,omitempty"`
+	Replicas                      *int32                            `json:"replicas,omitempty"`
+	ExtraArgs                     []string                          `json:"extraArgs,omitempty"`
+	ExtraVolumeSpec               []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
+	ExtraEnvVars                  []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
+	SidecarContainers             []corev1.Container                `json:"sidecarContainers,omitempty"`
+	ResourceRequirements          *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
+	UpdateStrategy                *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	SecurityContext               *corev1.SecurityContext           `json:"securityContext,omitempty"`
+	OverridePersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"overridePersistentVolumeClaim,omitempty"`
+	Affinity                      *corev1.Affinity                  `json:"affinity,omitempty"`
 }
 
 type AlertingClusterStatus struct {

@@ -24,26 +24,26 @@ export default {
       headers:           [
         {
           name:          'status',
-          labelKey:      'tableHeaders.status',
+          labelKey:      'opni.tableHeaders.status',
           value:         'status',
           formatter:     'StatusBadge',
           width:     100
         },
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.name',
+          labelKey:      'opni.tableHeaders.name',
           value:         'nameDisplay',
           width:    250
         },
         {
           name:          'description',
-          labelKey:      'tableHeaders.description',
+          labelKey:      'opni.tableHeaders.description',
           value:         'description',
           width:    250
         },
         {
           name:      'type',
-          labelKey:  'tableHeaders.type',
+          labelKey:  'opni.tableHeaders.type',
           value:     'typeDisplay'
         },
       ]
@@ -122,6 +122,7 @@ export default {
       default-sort-by="expirationDate"
       key-field="id"
       group-by="clusterDisplay"
+      :rows-per-page="15"
     >
       <template #group-by="{group: thisGroup}">
         <div v-trim-whitespace class="group-tab">

@@ -7,7 +7,7 @@ import Loading from '@shell/components/Loading';
 export const LOG_HEADERS = [
   {
     name:      'collapse',
-    labelKey:  'tableHeaders.empty',
+    labelKey:  'opni.tableHeaders.empty',
     formatter: 'Collapse',
     value:     'timestamp',
     sort:      false,
@@ -15,7 +15,7 @@ export const LOG_HEADERS = [
   },
   {
     name:      'date',
-    labelKey:  'tableHeaders.date',
+    labelKey:  'opni.tableHeaders.date',
     formatter: 'Date',
     value:     'timestamp',
     sort:      false,
@@ -23,14 +23,14 @@ export const LOG_HEADERS = [
   },
   {
     name:          'namespace',
-    labelKey:      'tableHeaders.namespace',
+    labelKey:      'opni.tableHeaders.namespace',
     value:         'kubernetesNamespaceName',
     sort:          false,
     width:         '300px'
   },
   {
     name:          'podName',
-    labelKey:      'tableHeaders.podName',
+    labelKey:      'opni.tableHeaders.podName',
     value:         'kubernetesPodName',
     sort:          false
   }

@@ -18,17 +18,17 @@ export default {
       headers:             [
         {
           name:            'nameDisplay',
-          labelKey:        'tableHeaders.name',
+          labelKey:        'opni.tableHeaders.name',
           value:           'nameDisplay',
         },
         {
           name:            'type',
-          labelKey:        'tableHeaders.type',
+          labelKey:        'opni.tableHeaders.type',
           value:           'typeDisplay',
         },
         {
           name:            'description',
-          labelKey:        'tableHeaders.description',
+          labelKey:        'opni.tableHeaders.description',
           value:           'description'
         },
       ]
@@ -97,6 +97,7 @@ export default {
       :search="false"
       default-sort-by="expirationDate"
       key-field="id"
+      :rows-per-page="15"
     />
     <div v-else class="not-enabled">
       <h4>

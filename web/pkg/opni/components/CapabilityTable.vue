@@ -42,14 +42,14 @@ export default {
     const headers = [
       {
         name:          'status',
-        labelKey:      'tableHeaders.status',
+        labelKey:      'opni.tableHeaders.status',
         sort:          ['status.message'],
         value:         'status',
         formatter:     'StatusBadge'
       },
       {
         name:          'nameDisplay',
-        labelKey:      'tableHeaders.agentName',
+        labelKey:      'opni.tableHeaders.agentName',
         sort:          ['clusterNameDisplay'],
         value:         'clusterNameDisplay',
         formatter:     'TextWithClass',
@@ -152,13 +152,14 @@ export default {
       <div slot="body" class="p-10">
         <LoadingSpinner v-if="$fetchState.pending" />
         <SortableTable
-          v-else
+          :class="{none: $fetchState.pending}"
           :rows="capabilities"
           :headers="headers"
           :search="false"
           :sub-rows="true"
           default-sort-by="nameDisplay"
           key-field="id"
+          :rows-per-page="15"
         >
           <template #sub-row="{row, fullColspan}">
             <tr v-if="row.status.state === 'error' || row.status.state === 'warning'" class="sub-row">
@@ -177,6 +178,10 @@ export default {
 
 <style lang="scss" scoped>
 ::v-deep {
+  .none {
+    display: none;
+  }
+
   .main-row {
     border-top: 1px solid var(--sortable-table-top-divider);
   }

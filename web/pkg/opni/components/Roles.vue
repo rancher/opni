@@ -20,28 +20,28 @@ export default {
       headers:  [
         {
           name:      'nameDisplay',
-          labelKey:  'tableHeaders.name',
+          labelKey:  'opni.tableHeaders.name',
           sort:      ['nameDisplay'],
           value:     'nameDisplay',
           width:     undefined
         },
         {
           name:          'clusterNames',
-          labelKey:      'tableHeaders.clusters',
+          labelKey:      'opni.tableHeaders.clusters',
           sort:          ['clusterNames'],
           value:         'clusterNames',
           formatter:     'List'
         },
         {
           name:          'matchLabels',
-          labelKey:      'tableHeaders.matchLabels',
+          labelKey:      'opni.tableHeaders.matchLabels',
           sort:          ['matchLabels'],
           value:         'matchLabelsDisplay',
           formatter:     'ListBubbles'
         },
         {
           name:          'matchExpressions',
-          labelKey:      'tableHeaders.matchExpressions',
+          labelKey:      'opni.tableHeaders.matchExpressions',
           sort:          ['matchExpressions'],
           value:         'matchExpressionsDisplay',
           formatter:     'ListBubbles'
@@ -103,6 +103,7 @@ export default {
       :search="false"
       default-sort-by="expirationDate"
       key-field="id"
+      :rows-per-page="15"
     />
     <AddTokenDialog ref="dialog" @save="load" />
   </div>

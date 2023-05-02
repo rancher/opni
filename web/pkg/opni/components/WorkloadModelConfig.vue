@@ -45,14 +45,14 @@ export default {
       headers:          [
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.name',
+          labelKey:      'opni.tableHeaders.name',
           sort:          ['nameDisplay'],
           value:         'nameDisplay',
           width:         340,
         },
         {
           name:          'logs',
-          labelKey:      'tableHeaders.logs',
+          labelKey:      'opni.tableHeaders.logs',
           sort:          ['logs'],
           value:         'logs',
         },
@@ -359,6 +359,7 @@ export default {
         group-by="namespace"
         :default-sort-descending="true"
         no-rows-key="opni.workloadInsights.noRowsKey"
+        :rows-per-page="15"
         @selection="selection"
       >
         <template #header-right>
@@ -391,6 +392,7 @@ export default {
             :table-actions="false"
             group-by="namespace"
             :default-sort-descending="true"
+            :rows-per-page="15"
           />
         </div>
       </Flyout>

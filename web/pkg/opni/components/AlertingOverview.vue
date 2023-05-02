@@ -19,26 +19,26 @@ export default {
       headers:             [
         {
           name:          'status',
-          labelKey:      'tableHeaders.status',
+          labelKey:      'opni.tableHeaders.status',
           value:         'status',
           formatter:     'StatusBadge',
           width:     100
         },
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.name',
+          labelKey:      'opni.tableHeaders.name',
           value:         'nameDisplay',
           width:         undefined
         },
         {
           name:          'tags',
-          labelKey:      'tableHeaders.tags',
+          labelKey:      'opni.tableHeaders.tags',
           value:         'tags',
           formatter:     'ListBubbles'
         },
         {
           name:      'period',
-          labelKey:  'tableHeaders.period',
+          labelKey:  'opni.tableHeaders.period',
           value:     'period'
         },
       ]

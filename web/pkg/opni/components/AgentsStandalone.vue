@@ -35,14 +35,14 @@ export default {
       headers:                      [
         {
           name:          'status',
-          labelKey:      'tableHeaders.status',
+          labelKey:      'opni.tableHeaders.status',
           sort:          ['status.message'],
           value:         'status',
           formatter:     'StatusBadge'
         },
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.name',
+          labelKey:      'opni.tableHeaders.name',
           sort:          ['nameDisplay'],
           value:         'nameDisplay',
           formatter:     'TextWithClass',
@@ -60,7 +60,7 @@ export default {
         },
         {
           name:          'id',
-          labelKey:      'tableHeaders.id',
+          labelKey:      'opni.tableHeaders.id',
           sort:          ['id'],
           value:         'id',
           formatter:     'TextWithClass',

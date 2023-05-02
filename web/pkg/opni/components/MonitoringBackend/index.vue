@@ -117,14 +117,14 @@ export default {
       newHeaders.push(...[
         {
           name:      'numSeries',
-          labelKey:  'tableHeaders.numSeries',
+          labelKey:  'opni.tableHeaders.numSeries',
           sort:      ['numSeries'],
           value:     'numSeries',
           formatter: 'Number'
         },
         {
           name:          'sampleRate',
-          labelKey:      'tableHeaders.sampleRate',
+          labelKey:      'opni.tableHeaders.sampleRate',
           sort:          ['sampleRate'],
           value:         'sampleRate',
           formatter:     'Number',

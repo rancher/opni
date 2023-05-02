@@ -11,7 +11,7 @@ opni:
       namespace: Namespace
       pod: Pod
       workload: Workload
-  chart:
+    chart:
     areaOfInterest: Area of Interest
     labels:
       anomaly: Anomalous
@@ -61,6 +61,34 @@ opni:
           label: Match Labels
         matchExpressions:
           label: Match Expressions
+  tableHeaders:
+    agentName: Agent Name
+    capabilities: Capabilities
+    clusterId: ClusterId
+    clusters: Clusters
+    date: Date
+    description: Description
+    empty: ""
+    expiration: Expiration
+    id: Id
+    labels: Labels
+    local: Local
+    logs: Logs
+    matchExpressions: Match Expressions
+    matchLabels: Match Labels
+    name: Name
+    namespace: Namespace
+    numSeries: Number Series
+    period: Period
+    podName: Pod Name
+    role: Role
+    sampleRate: Sample Rate
+    status: Status
+    subjects: Subjects
+    tags: Tags
+    token: Token
+    type: Type
+    used: Used
   nav:
     aiOps: AIOps
     alertingBackend: Alerting
@@ -73,10 +101,12 @@ opni:
     roleBindings: Role Bindings
     tokens: Tokens
     slos: SLOs
+    logAnomaly: Log Anomaly
     loggingConfig: Logging
     monitoring: Monitoring
     management: Management
-    workloadModel: Workload Insights
+    pretrainedModels: Pretrained Models
+    workloadModel: Deployment Watchlist
     endpoints: Endpoints
     alarms: Alarms
     alertingOverview: Overview
@@ -85,35 +115,3 @@ opni:
   workloadVsControlPlaneChart:
     workload: Workload
     controlPlane: Control Plane
-
-
-tableHeaders:
-  capabilities: Capabilities
-  clusterName: Cluster Name
-  clusters: Clusters
-  date: Date
-  description: Description
-  empty: ""
-  expiration: Expiration
-  id: ID
-  labels: Labels
-  logs: Log Count
-  matchExpressions: Match Expressions
-  matchLabels: Match Labels
-  name: Name
-  namespace: Namespace
-  numSeries: Distinct Metrics
-  period: Period
-  podName: Pod Name
-  role: Role
-  sampleRate: Metrics Ingestion Rate
-  status: Status
-  subjects: Subjects
-  tags: Tags
-  token: Token
-  type: Type
-  used: Used
-
-
-
-  

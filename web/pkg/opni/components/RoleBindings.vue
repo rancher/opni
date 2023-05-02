@@ -19,21 +19,21 @@ export default {
       headers:      [
         {
           name:      'name',
-          labelKey:  'tableHeaders.name',
+          labelKey:  'opni.tableHeaders.name',
           sort:      ['name'],
           value:     'name',
           width:     undefined
         },
         {
           name:          'subjects',
-          labelKey:      'tableHeaders.subjects',
+          labelKey:      'opni.tableHeaders.subjects',
           sort:          ['subjects'],
           value:         'subjects',
           formatter:     'ListBubbles'
         },
         {
           name:          'role',
-          labelKey:      'tableHeaders.role',
+          labelKey:      'opni.tableHeaders.role',
           sort:          ['role'],
           value:         'role',
         }
@@ -89,6 +89,7 @@ export default {
       :search="false"
       default-sort-by="expirationDate"
       key-field="name"
+      :rows-per-page="15"
     />
     <AddTokenDialog ref="dialog" @save="load" />
   </div>

@@ -33,14 +33,14 @@ export default {
       headers:                      [
         {
           name:          'status',
-          labelKey:      'tableHeaders.status',
+          labelKey:      'opni.tableHeaders.status',
           sort:          ['status.message'],
           value:         'status',
           formatter:     'StatusBadge'
         },
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.name',
+          labelKey:      'opni.tableHeaders.name',
           sort:          ['nameDisplay'],
           value:         'nameDisplay',
           formatter:     'TextWithClass',
@@ -58,7 +58,7 @@ export default {
         },
         {
           name:          'id',
-          labelKey:      'tableHeaders.clusterId',
+          labelKey:      'opni.tableHeaders.clusterId',
           tooltip:       'Derived from kube-system namespace',
           sort:          ['id'],
           value:         'id',
@@ -77,7 +77,7 @@ export default {
         },
         {
           name:          'isLocal',
-          labelKey:      'tableHeaders.local',
+          labelKey:      'opni.tableHeaders.local',
           sort:          ['isLocal'],
           value:         'localIcon',
           formatter:     'Icon',
@@ -194,6 +194,7 @@ export default {
       default-sort-by="expirationDate"
       key-field="id"
       :sub-rows="true"
+      :rows-per-page="15"
     >
       <template #col:capabilities="{row}">
         <td>

@@ -20,7 +20,7 @@ export default {
       headers:  [
         {
           name:          'nameDisplay',
-          labelKey:      'tableHeaders.token',
+          labelKey:      'opni.tableHeaders.token',
           sort:          ['nameDisplay'],
           value:         'nameDisplay',
           width:         undefined,
@@ -28,21 +28,21 @@ export default {
         },
         {
           name:          'labels',
-          labelKey:      'tableHeaders.labels',
+          labelKey:      'opni.tableHeaders.labels',
           sort:          ['labels'],
           value:         'labels',
           formatter:     'ListBubbles'
         },
         {
           name:      'capabilities',
-          labelKey:  'tableHeaders.capabilities',
+          labelKey:  'opni.tableHeaders.capabilities',
           sort:      ['capabilities'],
           value:     'capabilities',
           formatter: 'ListBubbles'
         },
         {
           name:          'used',
-          labelKey:      'tableHeaders.used',
+          labelKey:      'opni.tableHeaders.used',
           sort:          ['used'],
           value:         'usedDisplay',
           formatter:     'TextWithClass',
@@ -54,7 +54,7 @@ export default {
         },
         {
           name:          'expirationDate',
-          labelKey:      'tableHeaders.expiration',
+          labelKey:      'opni.tableHeaders.expiration',
           sort:          ['expirationDate'],
           value:         'expirationDate',
           formatter:     'LiveExpirationDate',
@@ -123,6 +123,7 @@ export default {
       :search="false"
       default-sort-by="expirationDate"
       key-field="id"
+      :rows-per-page="15"
     />
     <AddTokenDialog ref="dialog" @save="load" />
   </div>

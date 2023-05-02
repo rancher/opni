@@ -36,7 +36,9 @@ baseConfig.configureWebpack = (config) => {
 };
 
 // Makes the public path relative so that the <base> element will affect the assets.
-baseConfig.publicPath = './';
+if (!isStandalone) {
+  baseConfig.publicPath = './';
+}
 
 // We need to add a custom script to the index in order to change how assets for the opni backendso we have to override the index.html
 if (isStandalone) {

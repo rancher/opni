@@ -63,7 +63,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfig) {
-	p.logger.With("nodeId", nodeId).Debug("metrics capability config updated")
+	lg := p.logger.With("nodeId", nodeId)
+	lg.Debug("metrics capability config updated")
 
 	// at this point, we know the config has been updated
 	currentlyRunning := (p.stopRuleStreamer != nil)
@@ -73,8 +74,12 @@ func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfi
 		ctx, ca := context.WithCancel(p.ctx)
 		p.stopRuleStreamer = ca
 		finders := []notifier.Finder[rules.RuleGroup]{}
-		for _, driver := range p.node.nodeDrivers {
+		for name, driver := range p.node.nodeDrivers {
+			if !cfg.Spec.RuleDiscoveryEnabled() {
+				continue
+			}
 			if f := driver.ConfigureRuleGroupFinder(cfg.Spec.Rules); f != nil {
+				lg.Infof("prometheus rule finder configured for driver %s", name)
 				finders = append(finders, f)
 			}
 		}

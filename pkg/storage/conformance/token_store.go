@@ -103,6 +103,22 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			list, err = ts.ListTokens(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(list).To(HaveLen(3))
+
+			check = func(tk *corev1.BootstrapToken) {
+				Expect(tk).NotTo(BeNil())
+				Expect(tk.Metadata.GetMaxUsages()).To(Equal(int64(1)))
+			}
+			tk, err = ts.CreateToken(context.Background(), time.Hour, storage.WithMaxUsages(1))
+			Expect(err).NotTo(HaveOccurred())
+			check(tk)
+
+			tk, err = ts.GetToken(context.Background(), tk.Reference())
+			Expect(err).NotTo(HaveOccurred())
+			check(tk)
+
+			list, err = ts.ListTokens(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(4))
 		})
 		When("deleting a token", func() {
 			When("the token exists", func() {
@@ -218,6 +234,31 @@ func TokenStoreTestSuite[T storage.TokenStore](
 				tk, err = ts.GetToken(context.Background(), tk.Reference())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(tk.GetMetadata().GetUsageCount()).To(Equal(int64(count)))
+			})
+		})
+		When("supplying a max usage count", func() {
+			It("should not be able to use the token more than the max usage count", func() {
+				tk, err := ts.CreateToken(context.Background(), time.Hour, storage.WithMaxUsages(1))
+				Expect(err).NotTo(HaveOccurred())
+
+				before, err := ts.ListTokens(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = ts.GetToken(context.Background(), tk.Reference())
+				Expect(err).NotTo(HaveOccurred())
+
+				tk, err = ts.UpdateToken(context.Background(), tk.Reference(),
+					storage.NewIncrementUsageCountMutator())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(tk.MaxUsageReached()).To(BeTrue())
+
+				after, err := ts.ListTokens(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(after).To(HaveLen(len(before) - 1))
+
+				_, err = ts.GetToken(context.Background(), tk.Reference())
+				Expect(err).To(MatchError(storage.ErrNotFound))
 			})
 		})
 	}

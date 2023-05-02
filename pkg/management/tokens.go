@@ -19,15 +19,11 @@ func (m *Server) CreateBootstrapToken(
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-
-	opts := []storage.TokenCreateOption{
+	token, err := m.coreDataSource.StorageBackend().CreateToken(ctx, req.Ttl.AsDuration(),
 		storage.WithLabels(req.GetLabels()),
 		storage.WithCapabilities(req.GetCapabilities()),
-	}
-	if req.GetOnetime() {
-		opts = append(opts, storage.WithOneTime())
-	}
-	token, err := m.coreDataSource.StorageBackend().CreateToken(ctx, req.Ttl.AsDuration(), opts...)
+		storage.WithMaxUsages(req.GetMaxUsages()),
+	)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -8,7 +8,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +26,7 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...s
 		UsageCount:   0,
 		Labels:       options.Labels,
 		Capabilities: options.Capabilities,
+		MaxUsages:    options.MaxUsages,
 	}
 	err := c.client.Create(ctx, &corev1beta1.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
@@ -70,10 +70,14 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1
 		}
 		return nil, err
 	}
+	if token.Spec.MaxUsageReached() {
+		go c.garbageCollectToken(token)
+		return nil, storage.ErrNotFound
+	}
 	patchTTL(token)
 	if token.Spec.Metadata.Ttl <= 0 {
 		go c.garbageCollectToken(token)
-		return nil, errors.NewNotFound(schema.GroupResource{
+		return nil, k8serrors.NewNotFound(schema.GroupResource{
 			Group:    "monitoring.opni.io",
 			Resource: "BootstrapToken",
 		}, token.GetName())
@@ -88,14 +92,18 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, er
 	if err != nil {
 		return nil, err
 	}
-	tokens := make([]*corev1.BootstrapToken, len(list.Items))
+	tokens := make([]*corev1.BootstrapToken, 0, len(list.Items))
 	for i, item := range list.Items {
+		if item.Spec.MaxUsageReached() {
+			go c.garbageCollectToken(&list.Items[i])
+			continue
+		}
 		patchTTL(&list.Items[i])
 		if item.Spec.Metadata.Ttl <= 0 {
 			go c.garbageCollectToken(&list.Items[i])
 			continue
 		}
-		tokens[i] = item.Spec
+		tokens = append(tokens, item.Spec)
 	}
 	return tokens, nil
 }
@@ -131,7 +139,7 @@ func (c *CRDStore) garbageCollectToken(token *corev1beta1.BootstrapToken) {
 		"token", token.GetName(),
 	).Debug("garbage-collecting expired token")
 	retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		return !errors.IsNotFound(err)
+		return !k8serrors.IsNotFound(err)
 	}, func() error {
 		return c.client.Delete(context.Background(), token)
 	})

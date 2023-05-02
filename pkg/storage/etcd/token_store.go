@@ -30,6 +30,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 		UsageCount:   0,
 		Labels:       options.Labels,
 		Capabilities: options.Capabilities,
+		MaxUsages:    options.MaxUsages,
 	}
 	data, err := protojson.Marshal(token)
 	if err != nil {
@@ -70,6 +71,15 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *corev1.Reference) erro
 
 func (e *EtcdStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
 	t, _, err := e.getToken(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the token has reached its max usage, delete it
+	if t.MaxUsageReached() {
+		go e.garbageCollectToken(t)
+		return nil, storage.ErrNotFound
+	}
 	return t, err
 }
 
@@ -97,16 +107,20 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
-	items := make([]*corev1.BootstrapToken, len(resp.Kvs))
-	for i, kv := range resp.Kvs {
+	items := make([]*corev1.BootstrapToken, 0, len(resp.Kvs))
+	for _, kv := range resp.Kvs {
 		token := &corev1.BootstrapToken{}
 		if err := protojson.Unmarshal(kv.Value, token); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal token: %w", err)
 		}
+		if token.MaxUsageReached() {
+			go e.garbageCollectToken(token)
+			continue
+		}
 		if err := e.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
 			return nil, err
 		}
-		items[i] = token
+		items = append(items, token)
 	}
 	return items, nil
 }
@@ -170,4 +184,28 @@ func (e *EtcdStore) addLeaseMetadata(
 		token.Metadata.Ttl = leaseResp.TTL
 	}
 	return nil
+}
+
+// garbageCollectToken performs a best-effort deletion of an expired token.
+func (e *EtcdStore) garbageCollectToken(token *corev1.BootstrapToken) {
+	e.Logger.With(
+		"token", token.GetTokenID(),
+	).Debug("garbage-collecting expired token")
+
+	if token.Metadata.LeaseID != 0 {
+		defer func(id int64) {
+			_, err := e.Client.Revoke(context.Background(), clientv3.LeaseID(id))
+			if err != nil {
+				e.Logger.Warnf("failed to revoke lease: %v", err)
+			}
+		}(token.Metadata.LeaseID)
+	}
+
+	_, err := e.Client.Delete(context.Background(), path.Join(e.Prefix, tokensKey, token.TokenID))
+	if err != nil {
+		e.Logger.With(
+			"token", token.TokenID,
+			"error", err,
+		).Warn("failed to garbage-collect expired token")
+	}
 }

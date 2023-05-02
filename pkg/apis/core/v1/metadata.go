@@ -68,6 +68,10 @@ func (t *BootstrapToken) SetResourceVersion(version string) {
 	t.Metadata.ResourceVersion = version
 }
 
+func (t *BootstrapToken) MaxUsageReached() bool {
+	return t.Metadata.GetMaxUsages() > 0 && t.Metadata.GetUsageCount() >= t.Metadata.GetMaxUsages()
+}
+
 func (c *Cluster) GetCapabilities() []*ClusterCapability {
 	return c.GetMetadata().GetCapabilities()
 }

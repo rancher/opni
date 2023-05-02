@@ -199,6 +199,7 @@ message CreateBootstrapTokenRequest {
   google.protobuf.Duration ttl = 1;
   map<string, string> labels = 2;
   repeated core.TokenCapability capabilities = 3;
+  int64 maxUsages = 4;
 }
 
 message CertsInfoResponse {

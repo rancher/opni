@@ -153,6 +153,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	if err := h.storage.CreateCluster(ctx, newCluster); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error creating cluster: %v", err))
 	}
+
 	_, err = h.storage.UpdateToken(ctx, token.Reference(),
 		storage.NewCompositeMutator(
 			storage.NewIncrementUsageCountMutator(),
@@ -161,6 +162,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error incrementing usage count: %v", err))
 	}
+
 	krStore := h.storage.KeyringStore("gateway", newCluster.Reference())
 	if err := krStore.Put(ctx, kr); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error storing keyring: %s", err))

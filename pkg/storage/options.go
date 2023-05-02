@@ -5,6 +5,7 @@ import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 type TokenCreateOptions struct {
 	Labels       map[string]string
 	Capabilities []*corev1.TokenCapability
+	MaxUsages    int64
 }
 
 func NewTokenCreateOptions() TokenCreateOptions {
@@ -31,6 +32,12 @@ func WithLabels(labels map[string]string) TokenCreateOption {
 func WithCapabilities(capabilities []*corev1.TokenCapability) TokenCreateOption {
 	return func(o *TokenCreateOptions) {
 		o.Capabilities = capabilities
+	}
+}
+
+func WithMaxUsages(usages int64) TokenCreateOption {
+	return func(o *TokenCreateOptions) {
+		o.MaxUsages = usages
 	}
 }
 

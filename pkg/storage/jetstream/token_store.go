@@ -26,6 +26,7 @@ func (s *JetStreamStore) CreateToken(_ context.Context, ttl time.Duration, opts 
 		UsageCount:   0,
 		Labels:       options.Labels,
 		Capabilities: options.Capabilities,
+		MaxUsages:    options.MaxUsages,
 	}
 	data, err := protojson.Marshal(token)
 	if err != nil {
@@ -84,6 +85,17 @@ func (s *JetStreamStore) UpdateToken(ctx context.Context, ref *corev1.Reference,
 			return nil, err
 		}
 		mutator(token)
+		if token.Metadata.UsageCount >= token.Metadata.MaxUsages && token.Metadata.MaxUsages > 0 {
+			s.logger.With(
+				"token", token.TokenID,
+			).Debug("delete token because it has reached max usage")
+			if err := s.kv.Tokens.Delete(token.TokenID); err != nil {
+				if !errors.Is(err, nats.ErrKeyNotFound) {
+					return nil, fmt.Errorf("failed to delete token: %w", err)
+				}
+			}
+			return token, nil
+		}
 		data, err := protojson.Marshal(token)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal token: %w", err)

@@ -27,3 +27,13 @@ func (e *AlreadyExistsError) Error() string {
 func (e *AlreadyExistsError) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, e.Error())
 }
+
+func IgnoreErrNotFound(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := err.(*NotFoundError); ok {
+		return nil
+	}
+	return err
+}

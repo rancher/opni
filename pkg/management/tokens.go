@@ -22,6 +22,7 @@ func (m *Server) CreateBootstrapToken(
 	token, err := m.coreDataSource.StorageBackend().CreateToken(ctx, req.Ttl.AsDuration(),
 		storage.WithLabels(req.GetLabels()),
 		storage.WithCapabilities(req.GetCapabilities()),
+		storage.WithMaxUsages(req.GetMaxUsages()),
 	)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

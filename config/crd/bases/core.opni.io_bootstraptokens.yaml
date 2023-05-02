@@ -48,6 +48,9 @@ spec:
                   leaseID:
                     format: int64
                     type: integer
+                  maxUsages:
+                    format: int64
+                    type: integer
                   resourceVersion:
                     type: string
                   ttl:

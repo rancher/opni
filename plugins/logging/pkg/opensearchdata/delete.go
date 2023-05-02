@@ -12,6 +12,9 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+// TODO: Tracking of external system task state should be generalized and moved
+// to the generic task controller
+
 func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc ...ReadyFunc) error {
 	m.WaitForInit()
 
@@ -35,7 +38,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 
 	if idExists {
 		entry, err := m.systemKV.Get().Get(ctx, &system.Key{
-			Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+			Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 		})
 		if err != nil {
 			return nil
@@ -48,7 +51,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	query, _ := sjson.Set("", `query.term.cluster_id`, id)
 	if createNewJob {
 		_, err := m.systemKV.Get().Put(ctx, &system.KeyValue{
-			Key:   fmt.Sprintf("%s%s", loggingPrefix, id),
+			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(pendingValue),
 		})
 		if err != nil {
@@ -69,7 +72,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		taskID := gjson.Get(respString, "task").String()
 		m.logger.Debugf("opensearch taskID is :%s", taskID)
 		_, err = m.systemKV.Get().Put(ctx, &system.KeyValue{
-			Key:   fmt.Sprintf("%s%s", loggingPrefix, id),
+			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(taskID),
 		})
 		if err != nil {
@@ -105,7 +108,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	}
 
 	value, err := m.systemKV.Get().Get(ctx, &system.Key{
-		Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+		Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 	})
 	if err != nil {
 		return DeleteError, err
@@ -135,16 +138,19 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteRunning, nil
 	}
 
+	var status DeleteStatus
 	if len(gjson.Get(body, "response.failures").Array()) > 0 {
-		return DeleteFinishedWithErrors, nil
+		status = DeleteFinishedWithErrors
+	} else {
+		status = DeleteFinished
 	}
 
 	_, err = m.systemKV.Get().Delete(ctx, &system.Key{
-		Key: fmt.Sprintf("%s%s", loggingPrefix, id),
+		Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 	})
 	if err != nil {
 		return DeleteError, err
 	}
 
-	return DeleteFinished, nil
+	return status, nil
 }

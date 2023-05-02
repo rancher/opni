@@ -27,7 +27,7 @@ func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 
 	m.adminInitStateRW.Lock()
 	_, err := m.systemKV.Get().Put(context.Background(), &system.KeyValue{
-		Key:   fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Key:   fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 		Value: []byte(initialAdminPending),
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ CREATE:
 
 	m.adminInitStateRW.Lock()
 	_, err = m.systemKV.Get().Put(context.Background(), &system.KeyValue{
-		Key:   fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Key:   fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 		Value: []byte(initialAdminCreated),
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func (m *Manager) shouldCreateInitialAdmin() bool {
 	}
 
 	adminState, err := m.systemKV.Get().Get(context.Background(), &system.Key{
-		Key: fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Key: fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 	})
 	if err != nil {
 		m.logger.Errorf("failed to check initial admin state: %v", err)
@@ -171,7 +171,7 @@ func (m *Manager) DeleteInitialAdminState() error {
 	defer m.adminInitStateRW.Unlock()
 
 	_, err := m.systemKV.Get().Delete(context.Background(), &system.Key{
-		Key: fmt.Sprintf("%s%s", loggingPrefix, initialAdminKey),
+		Key: fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 	})
 	return err
 }

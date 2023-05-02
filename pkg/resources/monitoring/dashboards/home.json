@@ -54,7 +54,9 @@
           },
           "custom": {
             "align": "center",
-            "displayMode": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
             "filterable": false,
             "inspect": false
           },
@@ -91,8 +93,11 @@
             },
             "properties": [
               {
-                "id": "custom.displayMode",
-                "value": "basic"
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge"
+                }
               },
               {
                 "id": "unit",
@@ -115,8 +120,11 @@
             },
             "properties": [
               {
-                "id": "custom.displayMode",
-                "value": "basic"
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge"
+                }
               },
               {
                 "id": "min",
@@ -154,8 +162,10 @@
                 "value": 110
               },
               {
-                "id": "custom.displayMode",
-                "value": "color-text"
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               },
               {
                 "id": "custom.align",
@@ -170,8 +180,10 @@
             },
             "properties": [
               {
-                "id": "custom.displayMode",
-                "value": "auto"
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
               },
               {
                 "id": "custom.width",
@@ -199,8 +211,10 @@
                 "value": 110
               },
               {
-                "id": "custom.displayMode",
-                "value": "color-text"
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               },
               {
                 "id": "color",
@@ -226,8 +240,11 @@
             },
             "properties": [
               {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
               },
               {
                 "id": "mappings",
@@ -286,8 +303,11 @@
                 ]
               },
               {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
               },
               {
                 "id": "custom.filterable",
@@ -322,8 +342,10 @@
                 "value": "left"
               },
               {
-                "id": "custom.displayMode",
-                "value": "color-text"
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               },
               {
                 "id": "color",
@@ -344,8 +366,11 @@
                 "value": "percentunit"
               },
               {
-                "id": "custom.displayMode",
-                "value": "basic"
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge"
+                }
               },
               {
                 "id": "min",
@@ -368,6 +393,7 @@
       "id": 4,
       "options": {
         "footer": {
+          "countRows": false,
           "enablePagination": false,
           "fields": [
             "Value #CPU Usage",
@@ -384,11 +410,11 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Cluster CPU Usage"
+            "displayName": "CPU Capacity"
           }
         ]
       },
-      "pluginVersion": "9.1.1",
+      "pluginVersion": "9.4.7",
       "targets": [
         {
           "datasource": {
@@ -579,6 +605,14 @@
               "cluster_id": "Cluster ID",
               "cluster_id 1": "Cluster ID",
               "friendly_name": "Cluster Name"
+            }
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!http_scheme|net_host|service_instance|service_name).*"
             }
           }
         }
@@ -865,7 +899,7 @@
           },
           "editorMode": "code",
           "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
-          "interval": "1m",
+          "interval": "2m",
           "legendFormat": "[Rx] {{friendly_name}}",
           "range": true,
           "refId": "Rx"
@@ -878,7 +912,7 @@
           "editorMode": "code",
           "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
           "hide": false,
-          "interval": "1m",
+          "interval": "2m",
           "legendFormat": "[Tx] {{friendly_name}}",
           "range": true,
           "refId": "Tx"
@@ -1133,6 +1167,7 @@
         "y": 16
       },
       "id": 19,
+      "interval": "1m",
       "links": [
         {
           "title": "Kubelet Details by Cluster",
@@ -1277,7 +1312,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "opni_agent_status_summary * on(__tenant_id__, instance) group_right(summary) group without(pod) (opni_cluster_info @ end())",
+          "expr": "group by(__tenant_id__, summary) (opni_agent_status_summary) * on(__tenant_id__)  group_left(friendly_name)  (opni_cluster_info @ end())",
           "format": "table",
           "instant": false,
           "legendFormat": "__auto",
@@ -1396,7 +1431,7 @@
           "editorMode": "code",
           "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
           "format": "time_series",
-          "interval": "1m",
+          "interval": "2m",
           "legendFormat": "{{friendly_name}}",
           "range": true,
           "refId": "Data"
@@ -1509,8 +1544,9 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "10s",
-  "schemaVersion": 37,
+  "refresh": "",
+  "revision": 1,
+  "schemaVersion": 38,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -1548,6 +1584,6 @@
   "timezone": "",
   "title": "Infrastructure Overview",
   "uid": "1e83e204be502391f69d3a826675d3df",
-  "version": 9,
+  "version": 18,
   "weekStart": ""
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	promcommon "github.com/prometheus/common/config"
 	promcfg "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/samber/lo"
@@ -11,28 +12,35 @@ import (
 	"gopkg.in/yaml.v2"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	// "k8s.io/apimachinery/pkg/runtime"
 )
 
 type podMonitorScrapeConfigRetriever struct {
 	client client.Client
 	logger *zap.SugaredLogger
+	// current namespace the collector is defined in.
+	// it should only discoverer secrets for TLS/auth in this namespace.
+	namespace string
+	discovery monitoringv1beta1.PrometheusDiscovery
 }
 
 func NewPodMonitorScrapeConfigRetriever(
 	logger *zap.SugaredLogger,
 	client client.Client,
+	namespace string,
+	discovery monitoringv1beta1.PrometheusDiscovery,
 ) ScrapeConfigRetriever {
 	return &podMonitorScrapeConfigRetriever{
-		client: client,
-
-		logger: logger,
+		client:    client,
+		namespace: namespace,
+		logger:    logger,
 	}
 }
 
@@ -40,27 +48,54 @@ func (p *podMonitorScrapeConfigRetriever) Name() string {
 	return "podMonitor"
 }
 
-func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
-	listOptions := &client.ListOptions{
-		Namespace: metav1.NamespaceAll,
-	}
+func (p *podMonitorScrapeConfigRetriever) resolvePodMonitor(ns []string) (*promoperatorv1.PodMonitorList, error) {
 	podMonitorList := &promoperatorv1.PodMonitorList{}
-	err := p.client.List(
-		context.TODO(),
-		podMonitorList,
-		listOptions,
-	)
+	if len(ns) == 0 {
+		listOptions := &client.ListOptions{
+			Namespace: metav1.NamespaceAll,
+		}
+		err := p.client.List(
+			context.TODO(),
+			podMonitorList,
+			listOptions,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return podMonitorList, nil
+	} else {
+		for _, n := range ns {
+			listOptions := &client.ListOptions{
+				Namespace: n,
+			}
+			err := p.client.List(
+				context.TODO(),
+				podMonitorList,
+				listOptions,
+			)
+			if err != nil {
+				p.logger.Warnf("failed to list pod monitors %s", err)
+				continue
+			}
+			podMonitorList.Items = append(podMonitorList.Items, podMonitorList.Items...)
+		}
+	}
+	return &promoperatorv1.PodMonitorList{}, nil
+}
+
+func (p *podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, retErr error) {
+	podMonitorList, err := p.resolvePodMonitor(p.discovery.NamespaceSelector)
 	if err != nil {
-		p.logger.Warnf("failed to list pod monitors %s", err)
 		return nil, err
 	}
 	pMons := lo.Associate(podMonitorList.Items, func(item *promoperatorv1.PodMonitor) (string, *promoperatorv1.PodMonitor) {
 		return item.ObjectMeta.Name + "-" + item.ObjectMeta.Namespace, item
 	})
 
-	// jobName -> scrapeConfig
+	// jobName -> scrapeConfigs
 	cfgMap := jobs{}
-	p.logger.Debugf("found %d pod monitors", len(pMons))
+	secretRes := []SecretResolutionConfig{}
+	p.logger.Infof("found %d pod monitors", len(pMons))
 	for _, pMon := range pMons {
 		lg := p.logger.With("podMonitor", pMon.Namespace+"-"+pMon.Name)
 		selectorMap, err := metav1.LabelSelectorAsMap(&pMon.Spec.Selector)
@@ -106,26 +141,35 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
 				podList.Items = append(podList.Items, pList.Items...)
 			}
 		}
-
+		numTargets := 0
 		for i, ep := range pMon.Spec.PodMetricsEndpoints {
-			lg := lg.With("podEndpoint", fmt.Sprintf("%s/%s", ep.Port, ep.Path))
-			targets := []string{}
+			targets := []target{}
 			for _, pod := range podList.Items {
 				podIP := pod.Status.PodIP
 				for _, container := range pod.Spec.Containers {
 					for _, port := range container.Ports {
 						if port.Name != "" && ep.Port != "" && port.Name == ep.Port {
-							targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
+							targets = append(targets,
+								target{
+									staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+									friendlyName:  p.generateFriendlyJobName(pMon, pod),
+								})
 						}
 						if ep.TargetPort != nil {
 							switch ep.TargetPort.Type {
 							case intstr.Int:
 								if port.ContainerPort == ep.TargetPort.IntVal {
-									targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
+									targets = append(targets, target{
+										staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+										friendlyName:  p.generateFriendlyJobName(pMon, pod),
+									})
 								}
 							case intstr.String:
 								if port.Name == ep.TargetPort.StrVal {
-									targets = append(targets, fmt.Sprintf("%s:%d", podIP, port.ContainerPort))
+									targets = append(targets, target{
+										staticAddress: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+										friendlyName:  p.generateFriendlyJobName(pMon, pod),
+									})
 								}
 							}
 						}
@@ -133,28 +177,42 @@ func (p podMonitorScrapeConfigRetriever) Yield() (cfg jobs, retErr error) {
 
 				}
 			}
-			lg.Debugf("found %v targets", targets)
+			numTargets += len(targets)
+			slices.SortFunc(targets, func(i, j target) bool {
+				return i.staticAddress < j.staticAddress
+			})
 			if len(targets) > 0 {
 				//de-dupe discovered targets
-				job, sCfg := generateStaticPodConfig(pMon, ep, i, targets)
+				job, sCfg, secrets := p.generateStaticPodConfig(pMon, ep, i, targets)
 				if _, ok := cfgMap[job]; !ok {
 					cfgMap[job] = sCfg
 				}
+				secretRes = append(secretRes, secrets...)
 			}
+
+		}
+		if numTargets == 0 {
+			lg.Warn("no targets found for pod monitor")
 		}
 	}
 
-	return cfgMap, nil
+	return &promCRDOperatorConfig{
+		jobs:    cfgMap,
+		secrets: secretRes,
+	}, nil
 }
 
-func generateStaticPodConfig(
+func (p *podMonitorScrapeConfigRetriever) generateStaticPodConfig(
 	m *promoperatorv1.PodMonitor,
 	ep promoperatorv1.PodMetricsEndpoint,
 	i int,
-	targets []string,
-) (key string, out yaml.MapSlice) {
+	targets []target,
+) (key string, out yaml.MapSlice, secretRes []SecretResolutionConfig) {
+	uid := fmt.Sprintf("podMonitor/%s/%s/%d", m.Namespace, m.Name, i)
 	cfg := promcfg.ScrapeConfig{
-		JobName:                 fmt.Sprintf("podMonitor/%s/%s/%d", m.Namespace, m.Name, i),
+		// note : we need to treat this as uuid, the job name will get relabelled to its target job name
+		// in the metric lifetime
+		JobName:                 uid,
 		ServiceDiscoveryConfigs: discovery.Configs{},
 		MetricsPath:             ep.Path,
 	}
@@ -180,7 +238,61 @@ func generateStaticPodConfig(
 		cfg.Scheme = "http"
 	}
 
-	// cfg.RelabelConfigs = append(cfg.RelabelConfigs, relabelServiceMonitor(m.Spec)...)
+	cfg.RelabelConfigs = append(cfg.RelabelConfigs, append(jobRelabelling(targets[0].friendlyName), generateRelabelConfig(ep.RelabelConfigs)...)...)
+	cfg.MetricRelabelConfigs = append(cfg.MetricRelabelConfigs, generateRelabelConfig(ep.MetricRelabelConfigs)...)
+
+	if ep.BearerTokenSecret.Name != "" {
+		bearerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ep.BearerTokenSecret.Name,
+				Namespace: m.Namespace,
+			},
+		}
+		err := p.client.Get(context.TODO(), types.NamespacedName{
+			Name:      ep.BearerTokenSecret.Name,
+			Namespace: m.Namespace,
+		}, bearerSecret)
+		if err == nil {
+			bearerSecretRes := SecretResolutionConfig{
+				TargetKey: ep.BearerTokenSecret.Key,
+				namespace: p.namespace,
+				Secret:    bearerSecret,
+			}
+			secretRes = append(secretRes, bearerSecretRes)
+			cfg.HTTPClientConfig.Authorization = &promcommon.Authorization{
+				Type:            "Bearer",
+				CredentialsFile: bearerSecretRes.Path(),
+			}
+		} else {
+			p.logger.Warnf("failed to get expected bearer token secret %s for pod monitor %s", ep.BearerTokenSecret.Name, m.Name)
+		}
+	}
+
+	if cfg.HTTPClientConfig.Authorization == nil {
+		if ep.Authorization != nil {
+			authorizationCfg, secrets := fromSafeAuthorization(
+				p.client,
+				ep.Authorization,
+				p.logger,
+				p.namespace,
+			)
+			secretRes = append(secretRes, secrets...)
+			cfg.HTTPClientConfig.Authorization = &authorizationCfg
+		}
+	}
+
+	if ep.TLSConfig != nil {
+		if !isEmpty(ep.TLSConfig.SafeTLSConfig) {
+			tlsCfg, secrets := fromSafeTlsConfig(
+				p.client,
+				ep.TLSConfig.SafeTLSConfig,
+				p.logger,
+				p.namespace,
+			)
+			secretRes = append(secretRes, secrets...)
+			cfg.HTTPClientConfig.TLSConfig = tlsCfg
+		}
+	}
 
 	bytes, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -206,5 +318,17 @@ func generateStaticPodConfig(
 		},
 	}
 	ret = append(ret, staticConfig)
-	return cfg.JobName, ret
+	return uid, ret, secretRes
+}
+
+func (p *podMonitorScrapeConfigRetriever) generateFriendlyJobName(
+	pm *promoperatorv1.PodMonitor,
+	pod corev1.Pod,
+) string {
+	if pm.Spec.JobLabel != "" {
+		if val, ok := pod.Labels[pm.Spec.JobLabel]; ok {
+			return val
+		}
+	}
+	return pod.Name
 }

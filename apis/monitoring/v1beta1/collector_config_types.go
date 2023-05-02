@@ -8,10 +8,7 @@ import (
 )
 
 type PrometheusDiscovery struct {
-	NamespaceSelector      []string
-	ServiceMonitorSelector []string
-	PodMonitorSelector     []string
-	ProbeSelector          []string
+	NamespaceSelector []string `json:"namespaceSelector,omitempty"`
 }
 
 type CollectorConfigSpec struct {

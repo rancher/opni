@@ -81,6 +81,8 @@ kubeletstats:
 {{- define "metrics-self-telemetry" -}}
 {{- if .Metrics.Enabled -}}
   telemetry:
+    logs:
+      level : "debug"
     metrics:
       address : "127.0.0.1:{{ .Metrics.ListenPort }}"
 {{- end -}}
@@ -162,7 +164,7 @@ kubeletstats:
 
 {{- define "metrics-prometheus-processor" -}}
 {{- if.Metrics.Enabled -}}
-  filter/metrics:
+  filter/metrics: #this is for dropping high cardinality metrics
     metrics:
       exclude:
         match_type: regexp

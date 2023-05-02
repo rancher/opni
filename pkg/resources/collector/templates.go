@@ -146,7 +146,7 @@ exporters:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 500
+    limit_mib: 250
     spike_limit_mib: 50
     check_interval: 1s
   k8sattributes:
@@ -210,8 +210,8 @@ processors:
     send_batch_size: 1000
     timeout: 15s
   memory_limiter:
-    limit_mib: 500
-    spike_limit_mib: 250
+    limit_mib: 1000
+    spike_limit_mib: 350 
     check_interval: 1s
   transform:
     log_statements:

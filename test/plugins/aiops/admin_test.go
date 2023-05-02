@@ -1,4 +1,4 @@
-package gateway_test
+package aiops_test
 
 import (
 	"context"
@@ -6,8 +6,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
+	log_anomaly2 "github.com/rancher/opni/plugins/aiops/pkg/features/log_anomaly"
 	. "github.com/rancher/opni/plugins/aiops/pkg/gateway"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -24,6 +26,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 	var (
 		namespace, version string
 		plugin             *AIOpsPlugin
+		logAnomaly         *log_anomaly2.LogAnomaly
 	)
 	BeforeEach(func() {
 		namespace = "test-ai"
@@ -48,27 +51,28 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 	JustBeforeEach(func() {
 		plugin = NewPlugin(
 			context.Background(),
-			WithNamespace(namespace),
-			WithVersion(version),
-			WithRestConfig(restConfig),
+			driverutil.NewOption("namespace", namespace),
+			driverutil.NewOption("version", version),
+			driverutil.NewOption("k8sClient", k8sClient),
 		)
+		logAnomaly = plugin.Features[0].(*log_anomaly2.LogAnomaly)
 	})
 
 	When("opnicluster does not exist", func() {
 		Specify("get should return 404", func() {
-			_, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+			_, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 			Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 		})
 		Specify("delete should error", func() {
-			_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+			_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 			Expect(err).To(HaveOccurred())
 		})
 		Specify("check upgrade should error", func() {
-			_, err := plugin.UpgradeAvailable(context.Background(), &emptypb.Empty{})
+			_, err := logAnomaly.UpgradeAvailable(context.Background(), &emptypb.Empty{})
 			Expect(err).To(HaveOccurred())
 		})
 		Specify("do upgrade should error", func() {
-			_, err := plugin.DoUpgrade(context.Background(), &emptypb.Empty{})
+			_, err := logAnomaly.DoUpgrade(context.Background(), &emptypb.Empty{})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -76,13 +80,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 			When("no options are specified", func() {
 				request := &admin.AISettings{}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 0))
@@ -100,16 +104,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(len(list.Items)).To(BeNumerically("==", 0))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -124,13 +128,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Controlplane: &admin.PretrainedModel{},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -155,16 +159,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					}))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -189,13 +193,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -225,16 +229,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					}))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -257,13 +261,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Rancher: &admin.PretrainedModel{},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -288,16 +292,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					}))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -322,13 +326,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -358,16 +362,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					}))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -390,13 +394,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Longhorn: &admin.PretrainedModel{},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -421,16 +425,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					}))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -453,13 +457,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					GpuSettings: &admin.GPUSettings{},
 				}
 				Specify("put should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create an opni cluster", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(cluster.Spec.S3).To(Equal(aiv1beta1.S3Spec{
@@ -471,16 +475,16 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(cluster.Spec.Services.Drain.Workload.Enabled).To(Equal(lo.ToPtr(true)))
 				})
 				Specify("get should return an equivalent settings object", func() {
-					resp, err := plugin.GetAISettings(context.Background(), &emptypb.Empty{})
+					resp, err := logAnomaly.GetAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := logAnomaly.DeleteAISettings(context.Background(), &emptypb.Empty{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Name:      OpniServicesName,
+							Name:      log_anomaly2.OpniServicesName,
 							Namespace: namespace,
 						}, &aiv1beta1.OpniCluster{})
 						if err == nil {
@@ -508,11 +512,11 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 			}
 		})
 		Specify("setup", func() {
-			_, err := plugin.PutAISettings(context.Background(), request)
+			_, err := logAnomaly.PutAISettings(context.Background(), request)
 			Expect(err).NotTo(HaveOccurred())
 			cluster := &aiv1beta1.OpniCluster{}
 			Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-				Name:      OpniServicesName,
+				Name:      log_anomaly2.OpniServicesName,
 				Namespace: namespace,
 			}, cluster)).Should(Succeed())
 			Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 1))
@@ -522,7 +526,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 		})
 		When("no new version is available", func() {
 			Specify("upgrade available should return false", func() {
-				resp, err := plugin.UpgradeAvailable(context.Background(), &emptypb.Empty{})
+				resp, err := logAnomaly.UpgradeAvailable(context.Background(), &emptypb.Empty{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.UpgradePending).NotTo(BeNil())
 				Expect(*resp.UpgradePending).To(BeFalse())
@@ -537,13 +541,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					request.Rancher = &admin.PretrainedModel{}
 				})
 				It("should succeed", func() {
-					_, err := plugin.PutAISettings(context.Background(), request)
+					_, err := logAnomaly.PutAISettings(context.Background(), request)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should update the opni cluster but not the version", func() {
 					cluster := &aiv1beta1.OpniCluster{}
 					Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-						Name:      OpniServicesName,
+						Name:      log_anomaly2.OpniServicesName,
 						Namespace: namespace,
 					}, cluster)).Should(Succeed())
 					Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(BeNumerically("==", 2))
@@ -556,17 +560,17 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 				})
 			})
 			Specify("upgrade available should return true", func() {
-				resp, err := plugin.UpgradeAvailable(context.Background(), &emptypb.Empty{})
+				resp, err := logAnomaly.UpgradeAvailable(context.Background(), &emptypb.Empty{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.UpgradePending).NotTo(BeNil())
 				Expect(*resp.UpgradePending).To(BeTrue())
 			})
 			Specify("upgrade should update the cluster", func() {
-				_, err := plugin.DoUpgrade(context.Background(), &emptypb.Empty{})
+				_, err := logAnomaly.DoUpgrade(context.Background(), &emptypb.Empty{})
 				Expect(err).NotTo(HaveOccurred())
 				cluster := &aiv1beta1.OpniCluster{}
 				Eventually(k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      OpniServicesName,
+					Name:      log_anomaly2.OpniServicesName,
 					Namespace: namespace,
 				}, cluster)).Should(Succeed())
 				Expect(cluster.Spec.Version).To(Equal("v0.9.2"))
@@ -577,13 +581,13 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 				version = "0.6.0"
 			})
 			Specify("upgrade available should be false", func() {
-				resp, err := plugin.UpgradeAvailable(context.Background(), &emptypb.Empty{})
+				resp, err := logAnomaly.UpgradeAvailable(context.Background(), &emptypb.Empty{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.UpgradePending).NotTo(BeNil())
 				Expect(*resp.UpgradePending).To(BeFalse())
 			})
 			Specify("upgrade should error", func() {
-				_, err := plugin.DoUpgrade(context.Background(), &emptypb.Empty{})
+				_, err := logAnomaly.DoUpgrade(context.Background(), &emptypb.Empty{})
 				Expect(err).To(HaveOccurred())
 			})
 		})

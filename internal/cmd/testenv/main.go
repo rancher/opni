@@ -35,6 +35,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -42,6 +43,8 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 
+	_ "github.com/rancher/opni/plugins/aiops/pkg/features/metric_anomaly"
+	_ "github.com/rancher/opni/plugins/aiops/test"
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
@@ -202,6 +205,7 @@ func main() {
 			testlog.Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (m) to install the metrics capability on all agents"))
 			testlog.Log.Info(chalk.Blue.Color("Press (u) to uninstall the metrics capability on all agents"))
+			testlog.Log.Info(chalk.Blue.Color("Press (y) to launch the metrics analysis server"))
 			testlog.Log.Info(chalk.Blue.Color("Press (g) to run a Grafana container"))
 			testlog.Log.Info(chalk.Blue.Color("Press (r) to configure sample rbac rules"))
 			testlog.Log.Info(chalk.Blue.Color("Press (p)(i) to open the pprof index page"))
@@ -278,37 +282,35 @@ func main() {
 				close(c)
 			})
 		case 'a', 'A':
-			go func() {
-				bt, err := client.CreateBootstrapToken(environment.Context(), &managementv1.CreateBootstrapTokenRequest{
-					Ttl: durationpb.New(1 * time.Minute),
-				})
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				token, err := tokens.FromBootstrapToken(bt)
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				certInfo, err := client.CertsInfo(environment.Context(), &emptypb.Empty{})
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
+			bt, err := client.CreateBootstrapToken(environment.Context(), &managementv1.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(1 * time.Minute),
+			})
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			token, err := tokens.FromBootstrapToken(bt)
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			certInfo, err := client.CertsInfo(environment.Context(), &emptypb.Empty{})
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
 
-				resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.GetPorts().TestEnvironment), "application/json",
-					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
-						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
-				if err != nil {
-					testlog.Log.Error(err)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					testlog.Log.Errorf("%s", resp.Status)
-					return
-				}
-			}()
+			resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.GetPorts().TestEnvironment), "application/json",
+				strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`,
+					token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
+			if err != nil {
+				testlog.Log.Error(err)
+				return
+			}
+			if resp.StatusCode != http.StatusOK {
+				testlog.Log.Errorf("%s", resp.Status)
+				return
+			}
 		case 'M':
 			capabilityMu.Lock()
 			go func() {
@@ -406,7 +408,6 @@ func main() {
 			testlog.Log.Info("'p' pressed, waiting for next key...")
 		case 'g':
 			if !startedGrafana {
-				environment.WriteGrafanaConfig()
 				environment.StartGrafana()
 				startedGrafana = true
 				testlog.Log.Info(chalk.Green.Color("Grafana started"))
@@ -445,6 +446,13 @@ func main() {
 					testlog.Log.Error(err)
 				}
 			}
+		case 'y':
+			go func() {
+				if err := environment.StartMetricAnalysisServer(); err != nil {
+					testlog.Log.With(zap.Error(err)).Error("Failed to start metric analysis server")
+				}
+				testlog.Log.Info("Started metric analysis server successfully")
+			}()
 		case 'h':
 			showHelp()
 		}

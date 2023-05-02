@@ -1,0 +1,8 @@
+pytest
+pytest-cov
+pytest-mock
+httpx
+# these are not included in the requirements.txt because they are included in Opni's base image
+requests
+torch==2.0.0
+torchvision==0.15.1

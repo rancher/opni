@@ -2223,6 +2223,8 @@ github.com/kralicky/protobuf-go v0.0.0-20230320172414-3920b92ef96f h1:+RY6TSuQ0a
 github.com/kralicky/protobuf-go v0.0.0-20230320172414-3920b92ef96f/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 github.com/kralicky/ragu v1.0.0-rc7 h1:btH691AyX3npK5G9jHTTDTPSnlC/kbULwZf0PQCLBFk=
 github.com/kralicky/ragu v1.0.0-rc7/go.mod h1:10zjXJpEuDTr5wCP/SFHPYnpF30EpSCr1Ij3FO/34vw=
+github.com/kralicky/ragu v1.0.9 h1:UtNk9MzrBuFihlxwQTDm3AUWv0Lnv39TsJ5L1P4H2Gk=
+github.com/kralicky/ragu v1.0.9/go.mod h1:10zjXJpEuDTr5wCP/SFHPYnpF30EpSCr1Ij3FO/34vw=
 github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105 h1:kXjWMmgEai6YOl0hGJpOnhHIMSLgo+Plbfw+gKCKABQ=
 github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105/go.mod h1:qp6R4XKeuJk2j8nHke4Y9rBEpc2HkCjXR/gssL3OpOU=
 github.com/kralicky/totem v1.1.15 h1:NyR9PV75k25D0onXmC67i6Zv0job4ZDQvtirGH0FFeU=

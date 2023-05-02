@@ -1,4 +1,4 @@
-package nats
+package k8snats
 
 import (
 	"context"

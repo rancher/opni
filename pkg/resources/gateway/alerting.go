@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/util/nats/k8snats"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/util/nats"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -325,7 +325,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 	}
 
-	_, _, natsVolumes := nats.ExternalNatsObjects(
+	_, _, natsVolumes := k8snats.ExternalNatsObjects(
 		r.ctx,
 		r.client,
 		types.NamespacedName{

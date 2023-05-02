@@ -1,0 +1,7 @@
+grpclib
+betterproto==2.0.0b5
+scipy
+scikit-learn
+opni-nats==0.1.0
+matplotlib
+uvicorn

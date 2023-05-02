@@ -1,0 +1,141 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/aiops/pkg/apis/metricai";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+
+package metricai;
+
+service MetricAI {
+    rpc CreateGrafanaDashboard(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            post: "/metricai/creategrafanadashboard/{id}"
+        };
+    }
+    rpc DeleteGrafanaDashboard(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletegrafanadashboard/{id}"
+        };
+    }
+
+    // use management.ListClusters instead
+    // list cluster_ids from Opni, return IDs of each downstream cluster
+    // rpc ListClusters(google.protobuf.Empty) returns(MetricAIIdList) {
+    //     option (google.api.http) = {
+    //         get: "/metricai/listclusters"
+    //     };
+    // }
+
+    // list namespaces of a cluster given cluster_id
+    rpc ListNamespaces(MetricAIId) returns(MetricAIIdList) {
+        option (google.api.http) = {
+            get: "/metricai/listnamespaces/{id}"
+        };
+    }
+
+    // list jobs created by user
+    rpc ListJobs(google.protobuf.Empty) returns(MetricAIIdList) {
+        option (google.api.http) = {
+            get: "/metricai/listjobs"
+        };
+    }
+
+    // list job runs of a given job_id
+    rpc ListJobRuns(MetricAIId) returns(MetricAIIdList) {
+        option (google.api.http) = {
+            get: "/metricai/listjobruns/{id}"
+        };
+    }
+
+    // create a new job
+    rpc CreateJob(MetricAICreateJobRequest) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            post: "/metricai/createjob/{clusterId}"
+            body: "*"
+        };
+    }
+
+    // run an existing job
+    rpc RunJob(MetricAIId) returns(MetricAIRunJobResponse) {
+        option (google.api.http) = {
+            post: "/metricai/runjob/{id}"
+        };
+    }
+
+    // delete a job
+    rpc DeleteJob(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletejob/{id}"
+        };
+    }
+
+    // delete a job run
+    rpc DeleteJobRun(MetricAIId) returns(MetricAIAPIResponse) {
+        option (google.api.http) = {
+            delete: "/metricai/deletejobrun/{id}"
+        };
+    }
+
+    // get the output of a job run
+    rpc GetJobRunResult(MetricAIId) returns(MetricAIJobRunResult) {
+        option (google.api.http) = {
+            get: "/metricai/getjobrunresult/{id}"
+        };
+    }
+
+    // get the metadata/info of a job
+    rpc GetJob(MetricAIId) returns(MetricAIJobStatus) {
+        option (google.api.http) = {
+            get: "/metricai/getjob/{id}"
+        };
+    }
+}
+
+message MetricAIJobStatus {
+    string clusterId = 1;
+    string jobCreateTime = 2;
+    string jobId = 3;
+    repeated string namespaces = 4;
+    string jobDescription = 5;
+}
+
+message MetricAIJobRunResult {
+    string jobId = 1;
+    string jobRunId = 2;
+    string jobRunResult = 3;
+    string jobRunCreateTime = 4;
+    string jobRunBaseTime = 5; // the actual timestamp to run metric anomaly detection. For now it's the same as CreeateTime
+    string status = 6;
+    string jobRunResultDetails = 7;
+}
+
+message MetricAIIdList {
+    repeated string items = 1;
+}
+
+message MetricAICreateJobRequest {
+    string clusterId = 1;
+    repeated string namespaces = 2;
+    string jobId = 3;
+    string jobDescription = 4;
+}
+
+message MetricAIId {
+    string id = 1;
+}
+
+
+message MetricAIAPIResponse {
+    string status = 1;
+    string submittedTime = 2;
+    string description = 3;
+}
+message MetricAIRunJobResponse {
+    string status = 1;
+    string submittedTime = 2;
+    string description = 3;
+    string jobRunId = 4;
+}
+

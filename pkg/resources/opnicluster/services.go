@@ -12,7 +12,7 @@ import (
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
-	"github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/pkg/util/nats/k8snats"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -427,7 +427,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	volumeMounts []corev1.VolumeMount,
 	volumes []corev1.Volume,
 ) {
-	newEnvVars, newVolumeMounts, newVolumes := nats.ExternalNatsObjects(
+	newEnvVars, newVolumeMounts, newVolumes := k8snats.ExternalNatsObjects(
 		r.ctx,
 		r.client,
 		types.NamespacedName{

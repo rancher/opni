@@ -372,7 +372,7 @@ export default {
         <template #title>
           <h4>There are <b>{{ selectionCount }}</b> deployments currently selected to be watched</h4>
           <div class="buttons">
-            <button class="btn role-secondary mr-10" @click="removeAll">
+            <button class="btn role-secondary mr-10" :disabled="status.status === 'training'" @click="removeAll">
               Clear Watchlist
             </button>
             <button v-tooltip="updateTooltip" class="btn role-primary" :disabled="!hasGpu || status.status === 'training' || (!hasListChanged && !failedTraining)" @click="train">

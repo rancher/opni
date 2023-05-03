@@ -5,6 +5,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openv1 "opensearch.opster.io/api/v1"
 )
 
 const (
@@ -43,16 +44,16 @@ type VolumeSpec struct {
 }
 
 type AlertingApplicationSpec struct {
-	Replicas                      *int32                            `json:"replicas,omitempty"`
-	ExtraArgs                     []string                          `json:"extraArgs,omitempty"`
-	ExtraVolumeSpec               []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
-	ExtraEnvVars                  []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
-	SidecarContainers             []corev1.Container                `json:"sidecarContainers,omitempty"`
-	ResourceRequirements          *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
-	UpdateStrategy                *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	SecurityContext               *corev1.SecurityContext           `json:"securityContext,omitempty"`
-	OverridePersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"overridePersistentVolumeClaim,omitempty"`
-	Affinity                      *corev1.Affinity                  `json:"affinity,omitempty"`
+	Replicas                  *int32                            `json:"replicas,omitempty"`
+	ExtraArgs                 []string                          `json:"extraArgs,omitempty"`
+	ExtraVolumeSpec           []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
+	ExtraEnvVars              []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
+	SidecarContainers         []corev1.Container                `json:"sidecarContainers,omitempty"`
+	ResourceRequirements      *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
+	UpdateStrategy            *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	SecurityContext           *corev1.SecurityContext           `json:"securityContext,omitempty"`
+	*openv1.PersistenceConfig `json:",inline"`
+	Affinity                  *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 type AlertingClusterStatus struct {

@@ -6,7 +6,7 @@
     "node": ">=12"
   },
   "dependencies": {
-    "@rancher/shell": "^0.3.5",
+    "@rancher/shell": "^0.3.6",
     "@types/lodash": "^4.14.194",
     "chart.js": "^3.9.1",
     "chartjs-plugin-annotation": "^2.0.1",

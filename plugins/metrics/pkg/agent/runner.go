@@ -216,15 +216,17 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
+			var pushErr error
 			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
 				promClient := remotewrite.AsPrometheusRemoteWriteClient(remoteWriteClient)
 				if _, err := promClient.Push(context.Background(), &writeRequest); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to push to remote write: %s", err))
-					return
+					pushErr = fmt.Errorf("failed to push to remote write: %w", err)
+					activeTask.AddLogEntry(zapcore.ErrorLevel, pushErr.Error())
 				}
-
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed %d bytes to remote write", writeRequest.Size()))
 			})
+			if pushErr != nil {
+				return pushErr
+			}
 
 			progress.Current = uint64(nextEnd - progressDelta)
 			activeTask.SetProgress(progress)

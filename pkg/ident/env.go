@@ -48,7 +48,7 @@ func (p *envProvider) UniqueIdentifier(_ context.Context) (string, error) {
 }
 
 func init() {
-	util.Must(RegisterProvider("env", func() Provider {
+	util.Must(RegisterProvider("env", func(...any) Provider {
 		return NewEnvProvider()
 	}))
 }

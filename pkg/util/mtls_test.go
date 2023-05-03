@@ -1,6 +1,7 @@
 package util_test
 
 import (
+	"crypto/x509"
 	"io/fs"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,8 +21,8 @@ var _ = Describe("mTLS Utils", Label("unit"), func() {
 		}
 		tlsConfig, err := util.LoadClientMTLSConfig(spec)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(tlsConfig.RootCAs.Subjects()).To(HaveLen(1))
-		Expect(tlsConfig.ClientCAs.Subjects()).To(HaveLen(1))
+		Expect(tlsConfig.RootCAs.Equal(x509.NewCertPool())).To(BeFalse())
+		Expect(tlsConfig.ClientCAs.Equal(x509.NewCertPool())).To(BeFalse())
 		Expect(tlsConfig.Certificates).To(HaveLen(1))
 	})
 	When("any of the certificates do not exist", func() {

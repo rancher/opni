@@ -1660,7 +1660,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 
 	errC := make(chan error, 2)
-	if err := ident.RegisterProvider(id, func() ident.Provider {
+	if err := ident.RegisterProvider(id, func(_ ...any) ident.Provider {
 		return mock_ident.NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {
 		if !errors.Is(err, ident.ErrProviderAlreadyExists) {

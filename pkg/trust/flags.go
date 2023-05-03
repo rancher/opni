@@ -53,11 +53,11 @@ func BuildConfigFromFlags(flags *pflag.FlagSet) (*StrategyConfig, error) {
 			if err != nil {
 				return nil, err
 			}
-			cert, err := util.ParsePEMEncodedCert(data)
+			certchain, err := util.ParsePEMEncodedCertChain(data)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 			}
-			certs = append(certs, cert)
+			certs = append(certs, certchain...)
 		}
 		return &StrategyConfig{
 			CACerts: &CACertsConfig{
@@ -67,11 +67,11 @@ func BuildConfigFromFlags(flags *pflag.FlagSet) (*StrategyConfig, error) {
 	case string(v1beta1.TrustStrategyInsecure):
 		if !flags.Lookup("confirm-insecure").Changed {
 			warning :=
-				"Use of the \"insecure\" trust strategy is highly discouraged, except for testing " +
+				"use of the \"insecure\" trust strategy is highly discouraged, except for testing " +
 					"purposes, or in an air-gapped environment. If you know the security risks " +
 					"associated with implicitly trusting the remote gateway server, or are in an " +
 					"environment where such risks do not apply, please re-run the command with the " +
-					"\"--confirm-insecure\" flag.\n"
+					"\"--confirm-insecure\" flag"
 			return nil, errors.New(warning)
 		}
 		return &StrategyConfig{

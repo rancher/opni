@@ -5,13 +5,10 @@
     <script>
         const url = window.location.href;
         const prefixRegex = /.*proxy\//gm;
-        if (prefixRegex.test(url)) {
-            const match = url.match(prefixRegex);
-
-            const base = document.createElement('base');
-            base.href = match[0];
-            document.getElementsByTagName('head')[0].prepend(base);
-        }
+        const base = document.createElement('base');
+        
+        base.href = prefixRegex.test(url) ? url.match(prefixRegex)[0] : '/';
+        document.getElementsByTagName('head')[0].prepend(base);
     </script>
 
     <meta charset="utf-8">

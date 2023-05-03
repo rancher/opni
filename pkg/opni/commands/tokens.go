@@ -24,6 +24,7 @@ func BuildTokensCmd() *cobra.Command {
 	tokensCmd.AddCommand(BuildTokensRevokeCmd())
 	tokensCmd.AddCommand(BuildTokensListCmd())
 	tokensCmd.AddCommand(BuildTokensGetCmd())
+	tokensCmd.AddCommand(BuildTokensCreateSupportCmd())
 	ConfigureManagementCommand(tokensCmd)
 	return tokensCmd
 }
@@ -60,6 +61,38 @@ func BuildTokensCreateCmd() *cobra.Command {
 	tokensCreateCmd.Flags().StringSliceVar(&labels, "labels", []string{}, "Labels which will be auto-applied to any clusters created with this token")
 	tokensCreateCmd.Flags().IntVar(&maxUsages, "max-usages", 0, "Maximum number of times this token can be used, the default is 0 which is unlimited")
 	return tokensCreateCmd
+}
+
+func BuildTokensCreateSupportCmd() *cobra.Command {
+	var ttl string
+	var username string
+	tokensCreateSupportCmd := &cobra.Command{
+		Use:   "create-support",
+		Short: "Create a bootstrap token for the support agent",
+		Run: func(cmd *cobra.Command, args []string) {
+			duration, err := time.ParseDuration(ttl)
+			if err != nil {
+				lg.Fatal(err)
+			}
+
+			labels := map[string]string{
+				corev1.NameLabel: username,
+			}
+			t, err := mgmtClient.CreateBootstrapToken(cmd.Context(),
+				&managementv1.CreateBootstrapTokenRequest{
+					Ttl:       durationpb.New(duration),
+					Labels:    labels,
+					MaxUsages: 1,
+				})
+			if err != nil {
+				lg.Fatal(err)
+			}
+			fmt.Println(cliutil.RenderBootstrapToken(t))
+		},
+	}
+	tokensCreateSupportCmd.Flags().StringVar(&ttl, "ttl", "168h", "Time to live")
+	tokensCreateSupportCmd.Flags().StringVar(&username, "username", "", "Username of the support agent")
+	return tokensCreateSupportCmd
 }
 
 func BuildTokensRevokeCmd() *cobra.Command {

@@ -43,8 +43,9 @@ var _ = Describe("Strategy", Label("unit"), func() {
 			Expect(tls.InsecureSkipVerify).To(BeFalse())
 			Expect(tls.VerifyConnection).To(BeNil())
 			Expect(tls.RootCAs).NotTo(BeNil())
-			Expect(tls.RootCAs.Subjects()).To(HaveLen(1))
-			Expect(tls.RootCAs.Subjects()[0]).To(Equal(cert.RawSubject))
+			comparePool := x509.NewCertPool()
+			comparePool.AddCert(cert)
+			Expect(tls.RootCAs.Equal(comparePool)).To(BeTrue())
 		})
 		It("should use the system cert pool if no CA certs are provided", func() {
 			conf := trust.StrategyConfig{
@@ -58,7 +59,7 @@ var _ = Describe("Strategy", Label("unit"), func() {
 			Expect(tls.VerifyConnection).To(BeNil())
 			systemCerts, err := x509.SystemCertPool()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(tls.RootCAs.Subjects()).To(Equal(systemCerts.Subjects()))
+			Expect(tls.RootCAs.Equal(systemCerts)).To(BeTrue())
 		})
 	})
 	When("configuring the insecure trust strategy", func() {
@@ -106,7 +107,9 @@ var _ = Describe("Strategy", Label("unit"), func() {
 		Expect(tls.InsecureSkipVerify).To(BeFalse())
 		Expect(tls.VerifyConnection).To(BeNil())
 		Expect(tls.RootCAs).NotTo(BeNil())
-		Expect(tls.RootCAs.Subjects()).To(Equal([][]byte{cert.RawSubject}))
+		comparePool := x509.NewCertPool()
+		comparePool.AddCert(cert)
+		Expect(tls.RootCAs.Equal(comparePool)).To(BeTrue())
 	})
 
 	It("should return the correct persistent key for the pkp strategy", func() {

@@ -136,7 +136,12 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 
 	tokenLabels := maps.Clone(bootstrapToken.GetMetadata().GetLabels())
-	delete(tokenLabels, corev1.NameLabel)
+
+	// if the token is not a one-time token, remove the name label
+	if bootstrapToken.GetMetadata().GetMaxUsages() != 1 {
+		delete(tokenLabels, corev1.NameLabel)
+	}
+
 	if tokenLabels == nil {
 		tokenLabels = map[string]string{}
 	}

@@ -185,10 +185,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer initCancel()
 
-	ip, err := ident.GetProvider(conf.Spec.IdentityProvider)
+	ipBuilder, err := ident.GetProviderBuilder(conf.Spec.IdentityProvider)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
+	ip := ipBuilder()
 	id, err := ip.UniqueIdentifier(initCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unique identifier: %w", err)

@@ -134,6 +134,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&controllers.CoreMonitoringReconciler{},
 		&controllers.LoggingDataPrepperReconciler{},
 		&controllers.LoggingLogAdapterReconciler{},
+		&controllers.CoreAlertingReconciler{},
 		&controllers.AIOpniClusterReconciler{
 			Opts: []opnicluster.ReconcilerOption{
 				opnicluster.WithContinueOnIndexError(),

@@ -81,7 +81,7 @@ func init() {
 }
 
 func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...driverutil.Option) {
-	priorityOrder := []string{"alerting-manager", "local-alerting", "test-environment", "noop"}
+	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
 			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")

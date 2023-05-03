@@ -92,7 +92,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	allResources = append(allResources, rbac...)
 	allResources = append(allResources, r.serviceMonitor())
 
-	allResources = append(allResources, r.alerting()...)
+	// allResources = append(allResources, r.alerting()...)
 
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()

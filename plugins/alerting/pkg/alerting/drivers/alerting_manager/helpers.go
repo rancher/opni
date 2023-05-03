@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *AlertingManager) newOpniGateway() *corev1beta1.Gateway {
+func (a *AlertingGatewayManager) newOpniGateway() *corev1beta1.Gateway {
 	return &corev1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      a.GatewayRef.Name,
@@ -23,20 +23,20 @@ func (a *AlertingManager) newOpniGateway() *corev1beta1.Gateway {
 	}
 }
 
-func (a *AlertingManager) newOpniControllerSet() *appsv1.StatefulSet {
+func newOpniControllerSet(ns string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
-			Namespace: a.GatewayRef.Namespace,
+			Namespace: ns,
 		},
 	}
 }
 
-func (a *AlertingManager) newOpniWorkerSet() *appsv1.StatefulSet {
+func newOpniWorkerSet(ns string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
-			Namespace: a.GatewayRef.Namespace,
+			Namespace: ns,
 		},
 	}
 }
@@ -48,9 +48,9 @@ func extractGatewayAlertingSpec(gw *corev1beta1.Gateway) *corev1beta1.AlertingSp
 
 type statusTuple lo.Tuple2[error, *appsv1.StatefulSet]
 
-func (a *AlertingManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*alertops.InstallStatus, error) {
-	cs := a.newOpniControllerSet()
-	ws := a.newOpniWorkerSet()
+func (a *AlertingGatewayManager) alertingControllerStatus(gw *corev1beta1.Gateway) (*alertops.InstallStatus, error) {
+	cs := newOpniControllerSet(a.GatewayRef.Namespace)
+	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
 
 	ctrlErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(cs), cs)
 	workErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(ws), ws)

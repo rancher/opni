@@ -183,7 +183,6 @@ export default {
       }
 
       await configureCluster(copy);
-      this.load();
     },
 
     bannerMessage(status) {

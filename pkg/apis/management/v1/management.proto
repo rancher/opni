@@ -17,179 +17,179 @@ package management;
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
     option (google.api.http) = {
-      post: "/management/tokens"
+      post: "/tokens"
       body: "*"
     };
   }
   rpc RevokeBootstrapToken(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/tokens/{id}"
+      delete: "/tokens/{id}"
     };
   }
   rpc ListBootstrapTokens(google.protobuf.Empty) returns (core.BootstrapTokenList) {
     option (google.api.http) = {
-      get: "/management/tokens"
+      get: "/tokens"
     };
   }
   rpc GetBootstrapToken(core.Reference) returns (core.BootstrapToken) {
     option (google.api.http) = {
-      get: "/management/tokens/{id}"
+      get: "/tokens/{id}"
     };
   }
   rpc ListClusters(ListClustersRequest) returns (core.ClusterList) {
     option (google.api.http) = {
-      get: "/management/clusters"
+      get: "/clusters"
     };
   }
   rpc WatchClusters(WatchClustersRequest) returns (stream WatchEvent) {
     option (google.api.http) = {
-      post: "/management/clusters/watch"
+      post: "/clusters/watch"
       body: "*"
     };
   }
   rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/clusters/{id}"
+      delete: "/clusters/{id}"
     };
   }
   rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse) {
     option (google.api.http) = {
-      get: "/management/certs"
+      get: "/certs"
     };
   }
   rpc GetCluster(core.Reference) returns (core.Cluster) {
     option (google.api.http) = {
-      get: "/management/clusters/{id}"
+      get: "/clusters/{id}"
     };
   }
   rpc GetClusterHealthStatus(core.Reference) returns (core.HealthStatus) {
     option (google.api.http) = {
-      get: "/management/clusters/{id}/health"
+      get: "/clusters/{id}/health"
     };
   }
   rpc WatchClusterHealthStatus(google.protobuf.Empty) returns (stream core.ClusterHealthStatus) {
     option (google.api.http) = {
-      post: "/management/clusters/health/watch"
+      post: "/clusters/health/watch"
       body: "*"
     };
   }
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
     option (google.api.http) = {
-      put: "/management/clusters/{cluster.id}"
+      put: "/clusters/{cluster.id}"
       body: "*"
     };
   }
   rpc CreateRole(core.Role) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/management/roles"
+      post: "/roles"
       body: "*"
     };
   }
   rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/roles/{id}"
+      delete: "/roles/{id}"
     };
   }
   rpc GetRole(core.Reference) returns (core.Role) {
     option (google.api.http) = {
-      get: "/management/roles/{id}"
+      get: "/roles/{id}"
     };
   }
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/management/rolebindings"
+      post: "/rolebindings"
       body: "*"
     };
   }
   rpc DeleteRoleBinding(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/rolebindings/{id}"
+      delete: "/rolebindings/{id}"
     };
   }
   rpc GetRoleBinding(core.Reference) returns (core.RoleBinding) {
     option (google.api.http) = {
-      get: "/management/rolebindings/{id}"
+      get: "/rolebindings/{id}"
     };
   }
   rpc ListRoles(google.protobuf.Empty) returns (core.RoleList) {
     option (google.api.http) = {
-      get: "/management/roles"
+      get: "/roles"
     };
   }
   rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList) {
     option (google.api.http) = {
-      get: "/management/rolebindings"
+      get: "/rolebindings"
     };
   }
   rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList) {
     option (google.api.http) = {
-      get: "/management/subjectaccess"
+      get: "/subjectaccess"
     };
   }
   rpc APIExtensions(google.protobuf.Empty) returns (APIExtensionInfoList) {
     option (google.api.http) = {
-      get: "/management/apiextensions"
+      get: "/apiextensions"
     };
   }
   rpc GetConfig(google.protobuf.Empty) returns (GatewayConfig) {
     option (google.api.http) = {
-      get: "/management/config"
+      get: "/config"
     };
   }
   rpc UpdateConfig(UpdateConfigRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/management/config"
+      put: "/config"
       body: "*"
     };
   }
   rpc ListCapabilities(google.protobuf.Empty) returns (CapabilityList) {
     option (google.api.http) = {
-      get: "/management/capabilities"
+      get: "/capabilities"
     };
   }
   // Deprecated: For agent v2, use InstallCapability instead.
   rpc CapabilityInstaller(CapabilityInstallerRequest) returns (CapabilityInstallerResponse) {
     option deprecated = true;
     option (google.api.http) = {
-      post: "/management/capabilities/{name}/installer"
+      post: "/capabilities/{name}/installer"
       body: "*"
     };
   }
   rpc InstallCapability(CapabilityInstallRequest) returns (capability.InstallResponse) {
     option (google.api.http) = {
-      post: "/management/clusters/{target.cluster.id}/capabilities/{name}/install"
+      post: "/clusters/{target.cluster.id}/capabilities/{name}/install"
       body: "*"
     };
   }
   rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/management/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
+      post: "/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
       body: "target"
     };
   }
   rpc CapabilityStatus(CapabilityStatusRequest) returns (capability.NodeCapabilityStatus) {
     option (google.api.http) = {
-      get: "/management/clusters/{cluster.id}/capabilities/{name}/status"
+      get: "/clusters/{cluster.id}/capabilities/{name}/status"
     };
   }
   rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {
     option (google.api.http) = {
-      get: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/status"
+      get: "/clusters/{cluster.id}/capabilities/{name}/uninstall/status"
     };
   }
   rpc CancelCapabilityUninstall(CapabilityUninstallCancelRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel"
+      post: "/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel"
     };
   }
   rpc GetDashboardSettings(google.protobuf.Empty) returns (DashboardSettings) {
     option (google.api.http) = {
-      get: "/management/dashboard/settings"
+      get: "/dashboard/settings"
     };
   }
   rpc UpdateDashboardSettings(DashboardSettings) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/management/dashboard/settings"
+      put: "/dashboard/settings"
       body: "*"
     };
   }

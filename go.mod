@@ -60,7 +60,7 @@ require (
 	github.com/klauspost/compress v1.16.3
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
-	github.com/kralicky/ragu v1.0.0-rc7
+	github.com/kralicky/ragu v1.0.8
 	github.com/kralicky/spellbook v0.0.0-20221019194951-505bc1a40105
 	github.com/kralicky/totem v1.1.15
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
@@ -111,6 +111,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/steveteuber/kubectl-graph v0.6.0
 	github.com/thanos-io/thanos v0.29.1-0.20230131102841-a3b6b10afb00
+	github.com/thediveo/enumflag/v2 v2.0.2
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
@@ -137,6 +138,7 @@ require (
 	golang.org/x/exp v0.0.0-20230418202329-0354be287a23
 	golang.org/x/mod v0.9.0
 	golang.org/x/sync v0.1.0
+	golang.org/x/term v0.6.0
 	golang.org/x/tools v0.7.0
 	gonum.org/v1/gonum v0.12.0
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
@@ -501,7 +503,6 @@ require (
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect

@@ -77,7 +77,7 @@ func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Em
 		Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
 		Storage: storage,
 		Grafana: &cortexops.GrafanaConfig{
-			Enabled:  &mc.Spec.Grafana.Enabled,
+			Enabled:  mc.Spec.Grafana.Enabled,
 			Hostname: mc.Spec.Grafana.Hostname,
 		},
 	}, nil
@@ -107,11 +107,8 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 
 	if conf.Grafana == nil {
 		conf.Grafana = &cortexops.GrafanaConfig{
-			Enabled: lo.ToPtr(true),
+			Enabled: true,
 		}
-	}
-	if conf.Grafana.Enabled == nil {
-		conf.Grafana.Enabled = lo.ToPtr(true)
 	}
 	if conf.Grafana.Hostname == "" {
 		conf.Grafana.Hostname = defaultGrafanaHostname
@@ -133,12 +130,13 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			cluster.Spec.Cortex.Storage.Filesystem.Directory == "" {
 			cluster.Spec.Cortex.Storage.Filesystem.Directory = "/data"
 		}
-		cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
+		cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled
 		cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 		cluster.Spec.Gateway = v1.LocalObjectReference{
 			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
+
 		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
 		return nil
 	}

@@ -185,7 +185,8 @@ spec:
                             type: string
                         type: object
                       backend:
-                        type: string
+                        format: int32
+                        type: integer
                       filesystem:
                         properties:
                           directory:

@@ -36,6 +36,8 @@ import (
 
 	// mage:import test
 	"github.com/rancher/opni/internal/mage/test"
+
+	"github.com/rancher/opni/internal/cli"
 )
 
 var Default = All
@@ -436,8 +438,10 @@ func init() {
 		)
 	}
 }
+
 func ProtobufGo() error {
-	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator},
+	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()},
+		"internal/cli/*.proto",
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)
@@ -532,3 +536,5 @@ func Lint() {
 	sh.RunV("golangci-lint", "cache", "clean")
 	sh.RunV("golangci-lint", "run")
 }
+
+func None() {}

@@ -17,7 +17,7 @@ import (
 
 var _ = BuildHttpTransportCaching(
 	caching.NewInternalHttpCacheTransport(
-		caching.NewInMemoryHttpTtlCache(5*1024*1024, time.Second*1),
+		caching.NewInMemoryHttpTtlCache(5*1024*1024, time.Millisecond*20),
 	),
 )
 
@@ -141,13 +141,23 @@ func BuildHttpTransportCaching(
 
 				var data testgrpc.ValueResponse
 				By("sending a request to increment the value")
-				resp, err := doIncrement("")
-				Expect(err).To(Succeed())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				var resp *http.Response
+				// allow retrying the first request if the server is not ready yet
+				Eventually(func() error {
+					var err error
+					resp, err = doIncrement("")
+					if err != nil {
+						return err
+					}
+					if resp.StatusCode != http.StatusOK {
+						return fmt.Errorf("expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+					}
+					return nil
+				}).Should(Succeed())
 				resp.Body.Close()
 
 				By("fetching the value with a default http.RoundTripper")
-				resp, err = getValueDefaultTransport("")
+				resp, err := getValueDefaultTransport("")
 				Expect(err).To(Succeed())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				err = json.NewDecoder(resp.Body).Decode(&data)
@@ -199,7 +209,7 @@ func BuildHttpTransportCaching(
 					Expect(err).To(Succeed())
 					defer resp.Body.Close()
 					return data.Value
-				}, time.Second*30, time.Second).Should(Equal(11))
+				}).Should(Equal(11))
 
 			})
 
@@ -241,7 +251,7 @@ func BuildHttpTransportCaching(
 					Expect(err).To(Succeed())
 					defer resp.Body.Close()
 					return data.Value
-				}, time.Second*30, time.Second).Should(Equal(16))
+				}).Should(Equal(16))
 			})
 		})
 	})

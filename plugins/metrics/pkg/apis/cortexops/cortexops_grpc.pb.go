@@ -30,9 +30,26 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
+	// Gets the current configuration of the managed Cortex cluster.
 	GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error)
+	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
+	// If the cluster is not installed, it will be configured and installed.
+	// Otherwise, the already-installed cluster will be reconfigured.
+	//
+	// Note: some fields may contain secrets. The placeholder value "***" can be used to
+	// keep an existing secret when updating the cluster configuration.
 	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Gets the current status of the managed Cortex cluster.
+	// The status includes the current install state, version, and metadata. If
+	// the cluster is in the process of being reconfigured or uninstalled, it will
+	// be reflected in the install state.
+	// No guarantees are made about the contents of the metadata field; its
+	// contents are strictly informational.
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	// Uninstalls the managed Cortex cluster.
+	// Implementation details including error handling and system state requirements
+	// are left to the cluster driver, and this API makes no guarantees about
+	// the state of the cluster after the call completes (regardless of success).
 	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -84,9 +101,26 @@ func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empt
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
+	// Gets the current configuration of the managed Cortex cluster.
 	GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error)
+	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
+	// If the cluster is not installed, it will be configured and installed.
+	// Otherwise, the already-installed cluster will be reconfigured.
+	//
+	// Note: some fields may contain secrets. The placeholder value "***" can be used to
+	// keep an existing secret when updating the cluster configuration.
 	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
+	// Gets the current status of the managed Cortex cluster.
+	// The status includes the current install state, version, and metadata. If
+	// the cluster is in the process of being reconfigured or uninstalled, it will
+	// be reflected in the install state.
+	// No guarantees are made about the contents of the metadata field; its
+	// contents are strictly informational.
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	// Uninstalls the managed Cortex cluster.
+	// Implementation details including error handling and system state requirements
+	// are left to the cluster driver, and this API makes no guarantees about
+	// the state of the cluster after the call completes (regardless of success).
 	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }

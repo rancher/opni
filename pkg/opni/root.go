@@ -2,13 +2,16 @@ package opni
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/commands"
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/ttacon/chalk"
+	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
 )
@@ -19,6 +22,8 @@ func BuildRootCmd() *cobra.Command {
 		Long:         chalk.ResetColor.Color(logger.AsciiLogo()),
 		SilenceUsage: true,
 	}
+
+	patchUsageTemplate(rootCmd)
 
 	rootCmd.AddGroup(commands.AllGroups...)
 	rootCmd.AddCommand(commands.AllCommands...)
@@ -39,4 +44,10 @@ func Execute() {
 	}
 	ca()
 	waitctx.Wait(ctx)
+}
+
+func patchUsageTemplate(cmd *cobra.Command) {
+	defaultUsageTemplate := cmd.UsageTemplate()
+	w, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	cmd.SetUsageTemplate(strings.ReplaceAll(defaultUsageTemplate, ".FlagUsages", fmt.Sprintf(".FlagUsagesWrapped %d", w)))
 }

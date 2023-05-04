@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	appsv1 "k8s.io/api/apps/v1"
@@ -69,6 +70,9 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 									Name:  "FOO",
 									Value: "BAR",
 								},
+							},
+							Storage: &v1.StorageSpec{
+								Backend: v1.Backend_filesystem,
 							},
 						},
 						Grafana: corev1beta1.GrafanaSpec{

@@ -20,6 +20,8 @@ enum Backend {
 
 message StorageSpec {
   // Name of the storage backend to use.
+  // +kubebuilder:validation:Schemaless
+  // +kubebuilder:validation:Type:=string
   Backend backend = 1;
   S3StorageSpec s3 = 2;
   GCSStorageSpec gcs = 3;

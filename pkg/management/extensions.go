@@ -527,7 +527,17 @@ func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 	case dpb.FieldDescriptorProto_TYPE_UINT32:
 		decoded, err = runtime.Uint32(v)
 	case dpb.FieldDescriptorProto_TYPE_ENUM:
-		decoded, err = runtime.Int32(v)
+		enumType := fd.GetEnumType()
+		if enumType == nil {
+			err = fmt.Errorf("unknown enum type for field %s", k)
+			break
+		}
+		vd := enumType.FindValueByName(v)
+		if vd == nil {
+			err = fmt.Errorf("enum %q does not have value %q", enumType.GetName(), v)
+			break
+		}
+		decoded = vd.GetNumber()
 	case dpb.FieldDescriptorProto_TYPE_SFIXED32:
 		decoded, err = runtime.Int32(v)
 	case dpb.FieldDescriptorProto_TYPE_SFIXED64:

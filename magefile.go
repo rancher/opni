@@ -128,38 +128,9 @@ func TestClean() error {
 
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
-		"crd:maxDescLen=0", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
+		"crd:maxDescLen=0,ignoreUnexportedFields=true", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
 	)
-	buf := new(bytes.Buffer)
-	cmd.Stderr = buf
-	err := cmd.Run()
-	if err != nil {
-		if ex, ok := err.(*exec.ExitError); ok {
-			if ex.ExitCode() != 1 {
-				return errors.New(buf.String())
-			}
-			bufStr := buf.String()
-			lines := strings.Split(bufStr, "\n")
-			for _, line := range lines {
-				if strings.TrimSpace(line) == "" {
-					continue
-				}
-				// ignore warnings that occur when running controller-gen on generated
-				// protobuf code, but can be ignored
-				if strings.Contains(line, "without JSON tag in type") ||
-					strings.Contains(line, "not all generators ran successfully") ||
-					strings.Contains(line, "for usage") ||
-					strings.Contains(line, "exit status 1") ||
-					strings.HasPrefix(line, "go:") {
-					continue
-				}
-				fmt.Fprintln(os.Stderr, "[controller-gen] "+line)
-				return err
-			}
-		}
-	}
-
-	return nil
+	return cmd.Run()
 }
 
 func CRDGen() error {

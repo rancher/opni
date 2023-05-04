@@ -4,17 +4,23 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/machinery"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -32,6 +38,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugGetConfigCmd())
 	debugCmd.AddCommand(BuildDebugEtcdctlCmd())
 	debugCmd.AddCommand(BuildDebugDashboardSettingsCmd())
+	debugCmd.AddCommand(BuildDebugImportAgentCmd())
 	ConfigureManagementCommand(debugCmd)
 	return debugCmd
 }
@@ -256,6 +263,82 @@ func BuildDebugDashboardSettingsUpdateCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&defaultTokenLabels, "global.default-token-labels", nil, "Default token labels (key-value pairs)")
 	cmd.Flags().StringSliceVar(&userSettings, "user", []string{}, "User settings (key-value pairs)")
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset settings to default values. If other flags are specified, they will be applied on top of the default values.")
+
+	return cmd
+}
+
+func BuildDebugImportAgentCmd() *cobra.Command {
+	var agentId, keyringFile string
+	cmd := &cobra.Command{
+		Use:   "import-agent",
+		Short: "Import a missing or deleted agent and keyring",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var keyringData []byte
+			var err error
+			if keyringFile == "-" {
+				keyringData, err = io.ReadAll(os.Stdin)
+			} else {
+				keyringData, err = os.ReadFile(keyringFile)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to read keyring: %w", err)
+			}
+			kr, err := keyring.Unmarshal(keyringData)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal keyring: %w", err)
+			}
+
+			resp, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return fmt.Errorf("failed to get config: %w", err)
+			}
+			objects, err := machinery.LoadDocuments(resp.Documents)
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+			var gatewayConf *v1beta1.GatewayConfig
+			ok := objects.Visit(func(gc *v1beta1.GatewayConfig) {
+				if gatewayConf == nil {
+					gatewayConf = gc
+				}
+			})
+			if !ok {
+				return fmt.Errorf("gateway config not found")
+			}
+
+			backend, err := machinery.ConfigureStorageBackend(cmd.Context(), &gatewayConf.Spec.Storage)
+			if err != nil {
+				return fmt.Errorf("failed to configure storage backend: %w", err)
+			}
+
+			_, err = backend.GetCluster(context.Background(), &corev1.Reference{Id: agentId})
+			if err == nil {
+				return fmt.Errorf("agent %q already exists", agentId)
+			} else if !errors.Is(err, storage.ErrNotFound) {
+				return fmt.Errorf("storage backend error: %w", err)
+			}
+
+			newCluster := &corev1.Cluster{
+				Id: agentId,
+			}
+			if err := backend.CreateCluster(context.Background(), newCluster); err != nil {
+				return fmt.Errorf("failed to create cluster: %w", err)
+			}
+
+			krStore := backend.KeyringStore("gateway", newCluster.Reference())
+			if err := krStore.Put(context.Background(), kr); err != nil {
+				return fmt.Errorf("failed to store keyring: %w", err)
+			}
+
+			cmd.Println("Agent and keyring imported successfully")
+
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&agentId, "id", "", "Agent ID")
+	cmd.Flags().StringVar(&keyringFile, "keyring", "", "Path to a keyring file")
+	cmd.MarkFlagRequired("id")
+	cmd.MarkFlagRequired("keyring")
 
 	return cmd
 }

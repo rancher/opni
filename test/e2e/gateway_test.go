@@ -62,7 +62,7 @@ var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 			docs, err := mgmtClient.GetConfig(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
-			objList, err := config.LoadObjects(docs.YAMLDocuments())
+			objList, err := machinery.LoadDocuments(resp.Documents)
 			Expect(err).NotTo(HaveOccurred())
 
 			foundConfig := objList.Visit(func(cfg *v1beta1.GatewayConfig) {

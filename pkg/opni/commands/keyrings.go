@@ -12,7 +12,6 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/logger"
@@ -55,7 +54,7 @@ func BuildKeyringsGetCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get config: %w", err)
 			}
-			objects, err := config.LoadObjects(resp.YAMLDocuments())
+			objects, err := machinery.LoadDocuments(resp.Documents)
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}

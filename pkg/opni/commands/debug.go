@@ -12,8 +12,8 @@ import (
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/machinery"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
@@ -121,7 +121,7 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			objects, err := config.LoadObjects(conf.YAMLDocuments())
+			objects, err := machinery.LoadDocuments(conf.Documents)
 			if err != nil {
 				return err
 			}

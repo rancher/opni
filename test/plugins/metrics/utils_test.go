@@ -3,6 +3,7 @@ package metrics_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +37,10 @@ func AssertTargetStatus(expected *remoteread.TargetStatus, actual *remoteread.Ta
 type mockRemoteReader struct {
 	Error     error
 	Responses []*prompb.ReadResponse
-	i         int
+
+	// Delay is the time.Duration to wait before returning the next response.
+	Delay time.Duration
+	i     int
 }
 
 func (reader *mockRemoteReader) Read(_ context.Context, _ string, _ *prompb.ReadRequest) (*prompb.ReadResponse, error) {
@@ -48,16 +52,32 @@ func (reader *mockRemoteReader) Read(_ context.Context, _ string, _ *prompb.Read
 		return nil, fmt.Errorf("all reader responses have alaredy been consumed")
 	}
 
+	time.Sleep(reader.Delay)
+
 	response := reader.Responses[reader.i]
 	reader.i++
 	return response, reader.Error
 }
 
 type mockRemoteWriteClient struct {
+	Error    error
 	Payloads []*cortexpb.WriteRequest
+
+	// Delay is the time.Duration to wait before returning.
+	Delay time.Duration
 }
 
-func (client *mockRemoteWriteClient) Push(_ context.Context, in *cortexpb.WriteRequest, _ ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
+func (client *mockRemoteWriteClient) Push(ctx context.Context, in *cortexpb.WriteRequest, _ ...grpc.CallOption) (*cortexpb.WriteResponse, error) {
+	if client.Error != nil {
+		return nil, client.Error
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(client.Delay):
+	}
+
 	client.Payloads = append(client.Payloads, in)
 	return &cortexpb.WriteResponse{}, nil
 }

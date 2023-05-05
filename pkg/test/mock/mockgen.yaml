@@ -1,0 +1,44 @@
+mocks:
+  - source: pkg/plugins/apis/apiextensions/apiextensions_grpc.pb.go
+    dest: pkg/test/mock/apiextensions/apiextensions.go
+    types:
+      - ManagementAPIExtensionServer
+  - source: pkg/apis/capability/v1/capability_grpc.pb.go
+    dest: pkg/test/mock/capability/backend.go
+    types:
+      - BackendClient
+  - source: pkg/test/testdata/plugins/ext/ext_grpc.pb.go
+    dest: pkg/test/mock/ext/ext.go
+    types:
+      - ManagementAPIExtensionServer
+  - import: google.golang.org/grpc
+    dest: pkg/test/mock/grpc/stream.go
+    types:
+      - ServerStream
+      - ClientStream
+  - source: pkg/ident/ident.go
+    dest: pkg/test/mock/ident/ident.go
+    types:
+      - Provider
+  # FIXME: github.com/golang/google/mock doesn't fully work with generic interfaces,
+  # For now need to manually fix some of the generated code
+  # Uncomment when https://github.com/golang/mock/issues/658 is fixed
+  # - source: pkg/util/notifier/types.go
+  #   dest: pkg/test/mock/notifier/notifier.go
+  #   types:
+  #     - UpdateNotifier
+  #     - Finder
+  #     - Clonable
+  - source: pkg/rbac/rbac.go
+    dest: pkg/test/mock/rbac/rbac.go
+    types:
+      - Provider
+  - source: pkg/storage/stores.go
+    dest: pkg/test/mock/storage/stores.go
+    types:
+      - TokenStore
+      - TenantStore
+  - source: pkg/util/streams/streams.go
+    dest: pkg/test/mock/streams/streams.go
+    types:
+      - Stream

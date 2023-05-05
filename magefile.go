@@ -10,10 +10,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"runtime"
 	"strings"
 	"time"
+
+	"github.com/magefile/mage/mg"
+	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
+	"github.com/samber/lo"
 
 	"github.com/kralicky/ragu"
 	_ "github.com/kralicky/ragu/compat"
@@ -27,16 +30,17 @@ import (
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
-	// mage:import
-	"github.com/kralicky/spellbook/testbin"
-	// mage:import dev
-	_ "github.com/rancher/opni/internal/mage/dev"
-	// mage:import charts
-	charts "github.com/rancher/charts-build-scripts/pkg/actions"
-	// mage:import test
-	"github.com/rancher/opni/internal/mage/test"
-	// mage:import codegen
-	"github.com/rancher/opni/internal/codegen"
+	// // mage:import
+	// "github.com/kralicky/spellbook/testbin"
+	// // mage:import dev
+	// _ "github.com/rancher/opni/internal/mage/dev"
+	// // mage:import charts
+	// charts "github.com/rancher/charts-build-scripts/pkg/actions"
+
+	// // mage:import test
+	// "github.com/rancher/opni/internal/mage/test"
+
+	"github.com/rancher/opni/internal/cli"
 )
 
 var Default = All
@@ -116,9 +120,9 @@ func GenerateCRD() {
 	mg.SerialDeps(CRDGen, ReplaceCRDText)
 }
 
-func Test() {
-	mg.Deps(TestClean, test.Test)
-}
+// func Test() {
+// 	mg.Deps(TestClean, test.Test)
+// }
 
 func TestClean() error {
 	// find and remove all test binaries and coverage files
@@ -279,9 +283,9 @@ func k8sModuleVersion() string {
 }
 
 func init() {
-	test.Deps = append(test.Deps, testbin.Testbin, Build) // TODO: fix this with magefiles directory
+	// test.Deps = append(test.Deps, testbin.Testbin, Build) // TODO: fix this with magefiles directory
 
-	k8sVersion := k8sModuleVersion()
+	// k8sVersion := k8sModuleVersion()
 
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
@@ -329,84 +333,84 @@ func init() {
 		},
 	}
 
-	ext := ".tar.gz"
-	if runtime.GOOS == "darwin" {
-		ext = ".zip"
-	}
-	testbin.Config.Binaries = []testbin.Binary{
-		{
-			Name:       "etcd",
-			Version:    "3.5.1",
-			URL:        "https://storage.googleapis.com/etcd/v{{.Version}}/etcd-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}" + ext,
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "prometheus",
-			Version:    "2.35.0",
-			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "promtool",
-			Version:    "2.35.0",
-			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "alertmanager",
-			Version:    "0.25.0",
-			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "amtool",
-			Version:    "0.24.0",
-			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "nats-server",
-			Version:    "2.9.3",
-			URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getJetstreamVersion,
-		},
-		{
-			Name:    "otelcol-custom",
-			Version: "0.1.2-rc2",
-			URL:     "https://github.com/rancher-sandbox/opni-otel-collector/releases/download/v{{.Version}}/otelcol-custom_{{.Version}}_{{.GOOS}}_{{.GOARCH}}.tar.gz",
-			GetVersion: func(_ string) string {
-				return "0.1.2-rc2"
-			},
-		},
-	}
-	if runtime.GOOS == "linux" {
-		testbin.Config.Binaries = append(testbin.Config.Binaries,
-			testbin.Binary{
-				Name:       "kube-apiserver",
-				Version:    k8sVersion,
-				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-apiserver",
-				GetVersion: getKubeVersion,
-			},
-			testbin.Binary{
-				Name:       "kube-controller-manager",
-				Version:    k8sVersion,
-				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-controller-manager",
-				GetVersion: getKubeVersion,
-			},
-			testbin.Binary{
-				Name:       "kubectl",
-				Version:    k8sVersion,
-				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kubectl",
-				GetVersion: getKubectlVersion,
-			},
-			testbin.Binary{
-				Name:       "node_exporter",
-				Version:    "1.4.0",
-				URL:        "https://github.com/prometheus/node_exporter/releases/download/v{{.Version}}/node_exporter-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-				GetVersion: func(string) string { return "1.4.0" },
-			},
-		)
-	}
+	// ext := ".tar.gz"
+	// if runtime.GOOS == "darwin" {
+	// 	ext = ".zip"
+	// }
+	// testbin.Config.Binaries = []testbin.Binary{
+	// 	{
+	// 		Name:       "etcd",
+	// 		Version:    "3.5.1",
+	// 		URL:        "https://storage.googleapis.com/etcd/v{{.Version}}/etcd-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}" + ext,
+	// 		GetVersion: getVersion,
+	// 	},
+	// 	{
+	// 		Name:       "prometheus",
+	// 		Version:    "2.35.0",
+	// 		URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 		GetVersion: getVersion,
+	// 	},
+	// 	{
+	// 		Name:       "promtool",
+	// 		Version:    "2.35.0",
+	// 		URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 		GetVersion: getVersion,
+	// 	},
+	// 	{
+	// 		Name:       "alertmanager",
+	// 		Version:    "0.25.0",
+	// 		URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 		GetVersion: getVersion,
+	// 	},
+	// 	{
+	// 		Name:       "amtool",
+	// 		Version:    "0.24.0",
+	// 		URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 		GetVersion: getVersion,
+	// 	},
+	// 	{
+	// 		Name:       "nats-server",
+	// 		Version:    "2.9.3",
+	// 		URL:        "https://github.com/nats-io/nats-server/releases/download/v{{.Version}}/nats-server-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 		GetVersion: getJetstreamVersion,
+	// 	},
+	// 	{
+	// 		Name:    "otelcol-custom",
+	// 		Version: "0.1.2-rc2",
+	// 		URL:     "https://github.com/rancher-sandbox/opni-otel-collector/releases/download/v{{.Version}}/otelcol-custom_{{.Version}}_{{.GOOS}}_{{.GOARCH}}.tar.gz",
+	// 		GetVersion: func(_ string) string {
+	// 			return "0.1.2-rc2"
+	// 		},
+	// 	},
+	// }
+	// if runtime.GOOS == "linux" {
+	// 	testbin.Config.Binaries = append(testbin.Config.Binaries,
+	// 		testbin.Binary{
+	// 			Name:       "kube-apiserver",
+	// 			Version:    k8sVersion,
+	// 			URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-apiserver",
+	// 			GetVersion: getKubeVersion,
+	// 		},
+	// 		testbin.Binary{
+	// 			Name:       "kube-controller-manager",
+	// 			Version:    k8sVersion,
+	// 			URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-controller-manager",
+	// 			GetVersion: getKubeVersion,
+	// 		},
+	// 		testbin.Binary{
+	// 			Name:       "kubectl",
+	// 			Version:    k8sVersion,
+	// 			URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kubectl",
+	// 			GetVersion: getKubectlVersion,
+	// 		},
+	// 		testbin.Binary{
+	// 			Name:       "node_exporter",
+	// 			Version:    "1.4.0",
+	// 			URL:        "https://github.com/prometheus/node_exporter/releases/download/v{{.Version}}/node_exporter-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+	// 			GetVersion: func(string) string { return "1.4.0" },
+	// 		},
+	// 	)
+	// }
 }
 
 // Can be used to "bootstrap" the cli generator when modifying cli.proto
@@ -436,11 +440,40 @@ func ProtobufGo() error {
 		return err
 	}
 	for _, file := range out {
+		// check if the dest file already exists
+		if genInfo, err := os.Stat(file.SourceRelPath); err == nil {
+			srcName := sourceProtoFilename(file.SourceRelPath)
+			if srcInfo, err := os.Stat(srcName); err == nil {
+				// if the existing generated file has a mod time equal to or newer
+				// than the source file, skip writing it
+				if !srcInfo.ModTime().After(genInfo.ModTime()) {
+					continue
+				}
+			}
+		}
+
 		if err := file.WriteToDisk(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func sourceProtoFilename(path string) string {
+	// /x/y/z.pb.go 				-> /x/y/z.proto
+	// /x/y/z.pb.gw.go 			-> /x/y/z.proto
+	// /x/y/z_grpc.pb.go 		-> /x/y/z.proto
+	// /x/y/z.swagger.json 	-> /x/y/z.proto
+	// /x/y/z.z.pb.go 			-> /x/y/z.z.proto
+
+	for {
+		switch ext := filepath.Ext(path); ext {
+		case ".pb", ".gw", ".swagger", ".json", ".go":
+			path = strings.TrimSuffix(path, ext)
+		default:
+			return strings.TrimSuffix(strings.TrimSuffix(path, "_grpc"), "_cli") + ".proto"
+		}
+	}
 }
 
 func ProtobufPython() error {
@@ -480,43 +513,45 @@ func Minimal() error {
 	return nil
 }
 
-func Charts() {
-	mg.SerialDeps(All, CRDGen, func() {
-		charts.Charts("opni")
-	}, func() {
-		charts.Charts("opni-agent")
-	})
-}
+// func Charts() {
+// 	mg.SerialDeps(All, CRDGen, func() {
+// 		charts.Charts("opni")
+// 	}, func() {
+// 		charts.Charts("opni-agent")
+// 	})
+// }
 
-func ChartsV(version string) error {
-	if strings.HasPrefix(version, "v") {
-		version = version[1:]
-	}
-	fmt.Println("Patching chart version to " + version)
-	for _, packageSpec := range []string{
-		"./packages/opni-agent/opni-agent/package.yaml",
-		"./packages/opni-agent/opni-agent/charts/Chart.yaml",
-		"./packages/opni/opni/package.yaml",
-		"./packages/opni/opni/charts/Chart.yaml",
-	} {
-		contents, err := os.ReadFile(packageSpec)
-		if err != nil {
-			return err
-		}
-		contents = regexp.MustCompile(`(?m)^(app)?([vV])ersion: .*$`).
-			ReplaceAll(contents, []byte(fmt.Sprintf("${1}${2}ersion: %s", version)))
+// func ChartsV(version string) error {
+// 	if strings.HasPrefix(version, "v") {
+// 		version = version[1:]
+// 	}
+// 	fmt.Println("Patching chart version to " + version)
+// 	for _, packageSpec := range []string{
+// 		"./packages/opni-agent/opni-agent/package.yaml",
+// 		"./packages/opni-agent/opni-agent/charts/Chart.yaml",
+// 		"./packages/opni/opni/package.yaml",
+// 		"./packages/opni/opni/charts/Chart.yaml",
+// 	} {
+// 		contents, err := os.ReadFile(packageSpec)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		contents = regexp.MustCompile(`(?m)^(app)?([vV])ersion: .*$`).
+// 			ReplaceAll(contents, []byte(fmt.Sprintf("${1}${2}ersion: %s", version)))
 
-		if err := os.WriteFile(packageSpec, contents, 0644); err != nil {
-			return err
-		}
-		fmt.Printf("%s => %s\n", packageSpec, version)
-	}
-	Charts()
-	return nil
-}
+// 		if err := os.WriteFile(packageSpec, contents, 0644); err != nil {
+// 			return err
+// 		}
+// 		fmt.Printf("%s => %s\n", packageSpec, version)
+// 	}
+// 	Charts()
+// 	return nil
+// }
 
 func BuildLinter() {
-	sh.Run(mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+	if run, _ := target.Glob("internal/linter/linter.so", "./internal/linter/*"); run {
+		sh.Run(mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+	}
 }
 func Lint() {
 	mg.Deps(BuildLinter)

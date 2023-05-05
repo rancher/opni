@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lestrrat-go/backoff/v2"
 	"github.com/prometheus/prometheus/prompb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -78,6 +79,10 @@ func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	return ""
 }
 
+func isRecoverable(err error) bool {
+	return strings.Contains("context cancelled", err.Error())
+}
+
 type TargetRunMetadata struct {
 	Target *remoteread.Target
 	Query  *remoteread.Query
@@ -131,6 +136,22 @@ type taskRunner struct {
 
 	remoteReaderMu sync.RWMutex
 	remoteReader   RemoteReader
+
+	backoffPolicy backoff.Policy
+
+	logger *zap.SugaredLogger
+}
+
+func newTaskRunner(logger *zap.SugaredLogger) *taskRunner {
+	return &taskRunner{
+		backoffPolicy: backoff.Exponential(
+			backoff.WithMaxRetries(0),
+			backoff.WithMinInterval(5*time.Second),
+			backoff.WithMaxInterval(5*time.Minute),
+			backoff.WithMultiplier(1.1),
+		),
+		logger: logger.Named("task-runner"),
+	}
 }
 
 func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -146,6 +167,32 @@ func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
 
 func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
 	return nil
+}
+
+func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequest) error {
+	expbackoff := tr.backoffPolicy.Start(ctx)
+
+	for {
+		select {
+		case <-expbackoff.Done():
+			return fmt.Errorf("failed to push data after exponential backoff")
+		case <-expbackoff.Next():
+			var err error
+
+			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
+				promClient := remotewrite.AsPrometheusRemoteWriteClient(remoteWriteClient)
+				_, err = promClient.Push(ctx, writeRequest)
+			})
+
+			if !isRecoverable(err) {
+				return fmt.Errorf("failed to push to remote write: %w", err)
+			}
+
+			tr.logger.With(
+				zap.Error(err),
+			).Error("failed to push to remote write, retrying...")
+		}
+	}
 }
 
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
@@ -216,16 +263,9 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			var pushErr error
-			tr.remoteWriteClient.Use(func(remoteWriteClient remotewrite.RemoteWriteClient) {
-				promClient := remotewrite.AsPrometheusRemoteWriteClient(remoteWriteClient)
-				if _, err := promClient.Push(context.Background(), &writeRequest); err != nil {
-					pushErr = fmt.Errorf("failed to push to remote write: %w", err)
-					activeTask.AddLogEntry(zapcore.ErrorLevel, pushErr.Error())
-				}
-			})
-			if pushErr != nil {
-				return pushErr
+			if err := tr.doPush(ctx, &writeRequest); err != nil {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+				return err
 			}
 
 			progress.Current = uint64(nextEnd - progressDelta)
@@ -262,8 +302,6 @@ type taskingTargetRunner struct {
 	runner   *taskRunner
 
 	controller *task.Controller
-
-	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 }
 
 func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
@@ -271,7 +309,7 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 		inner: make(map[string]*corev1.TaskStatus),
 	}
 
-	runner := &taskRunner{}
+	runner := newTaskRunner(logger)
 
 	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {
@@ -384,6 +422,9 @@ func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetSta
 }
 
 func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
+	runner.runnerMu.Lock()
+	defer runner.runnerMu.Unlock()
+
 	runner.runner.SetRemoteWriteClient(client)
 }
 

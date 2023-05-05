@@ -184,6 +184,10 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 				_, err = promClient.Push(ctx, writeRequest)
 			})
 
+			if err == nil {
+				return nil
+			}
+
 			if !isRecoverable(err) {
 				return fmt.Errorf("failed to push to remote write: %w", err)
 			}

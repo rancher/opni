@@ -19,8 +19,10 @@ package controllers_test
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"path"
 	"reflect"
@@ -536,6 +538,24 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 			fmt.Fprintln(GinkgoWriter, err)
 		}
 	}()
+	// wait for controller manager to be ready
+	Eventually(func() error {
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true, //nolint:gosec
+				},
+			},
+		}
+		resp, err := client.Get(fmt.Sprintf("https://127.0.0.1:%d/healthz", port))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("controller manager is not ready yet: %v", resp.Status)
+		}
+		return nil
+	}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 }
 
 func NewTestLogger() logr.Logger {

@@ -21,7 +21,7 @@ func (input *StorageSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 		Backend_gcs:        {"gcs"},
 		Backend_azure:      {"azure"},
 		Backend_swift:      {"swift"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "backend"), "."), "Name of the storage backend to use.")
+	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "backend"), "."), "Name of the storage backend to use.  +kubebuilder:validation:Schemaless  +kubebuilder:validation:Type:=string")
 	if input.S3 == nil {
 		input.S3 = &S3StorageSpec{}
 	}

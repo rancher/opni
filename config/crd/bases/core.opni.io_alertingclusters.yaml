@@ -29,6 +29,8 @@ spec:
             properties:
               alertmanager:
                 properties:
+                  deployConf:
+                    type: string
                   enable:
                     type: boolean
                   image:

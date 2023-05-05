@@ -32,7 +32,7 @@ type AlertManagerSpec struct {
 	Enable     bool                `json:"enable,omitempty"`
 	Image      *opnimeta.ImageSpec `json:"image,omitempty"`
 	LogLevel   string              `json:"logLevel,omitempty"`
-	DeployConf string
+	DeployConf string              `json:"deployConf,omitempty"`
 
 	// Overrides for out-of-the box alerting specs
 	ApplicationSpec AlertingApplicationSpec `json:"workloads,omitempty"`

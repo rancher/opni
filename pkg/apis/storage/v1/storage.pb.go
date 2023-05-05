@@ -83,6 +83,8 @@ type StorageSpec struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of the storage backend to use.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type:=string
 	Backend    Backend                `protobuf:"varint,1,opt,name=backend,proto3,enum=storage.Backend" json:"backend,omitempty"`
 	S3         *S3StorageSpec         `protobuf:"bytes,2,opt,name=s3,proto3" json:"s3,omitempty"`
 	Gcs        *GCSStorageSpec        `protobuf:"bytes,3,opt,name=gcs,proto3" json:"gcs,omitempty"`

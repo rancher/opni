@@ -3,17 +3,11 @@ package upgrader
 import (
 	"context"
 
-	"google.golang.org/grpc"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 )
 
 type AgentUpgrader interface {
-	UpgradeRequired(context.Context) (bool, error)
-	DoUpgrade(context.Context) error
-}
-
-type AgentImageUpgrader interface {
-	AgentUpgrader
-	CreateGatewayClient(conn grpc.ClientConnInterface)
+	SyncAgent(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error
 }
 
 var (

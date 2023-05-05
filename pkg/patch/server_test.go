@@ -40,8 +40,8 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 	tmpDir := "/tmp/test"
 	fsys.MkdirAll(tmpDir, 0755)
 
-	var srvManifestV1 *controlv1.PluginManifest
-	var srvManifestV2 *controlv1.PluginManifest
+	var srvManifestV1 *controlv1.UpdateManifest
+	var srvManifestV2 *controlv1.UpdateManifest
 
 	newServer := func() (*patch.FilesystemPluginSyncServer, error) {
 		return patch.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
@@ -73,12 +73,12 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(manifest.Items).To(HaveLen(2))
-			Expect(manifest.Items[0].Module).To(Equal(test1Module))
-			Expect(manifest.Items[1].Module).To(Equal(test2Module))
+			Expect(manifest.Items[0].Package).To(Equal(test1Module))
+			Expect(manifest.Items[1].Package).To(Equal(test2Module))
 			Expect(manifest.Items[0].Digest).To(Equal(v1Manifest.Items[0].Metadata.Digest))
 			Expect(manifest.Items[1].Digest).To(Equal(v1Manifest.Items[1].Metadata.Digest))
-			Expect(manifest.Items[0].Filename).To(Equal("plugin_test1"))
-			Expect(manifest.Items[1].Filename).To(Equal("plugin_test2"))
+			Expect(manifest.Items[0].Path).To(Equal("plugin_test1"))
+			Expect(manifest.Items[1].Path).To(Equal("plugin_test2"))
 
 			srvManifestV1 = manifest
 		})
@@ -110,12 +110,12 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(manifest.Items).To(HaveLen(2))
-			Expect(manifest.Items[0].Module).To(Equal(test1Module))
-			Expect(manifest.Items[1].Module).To(Equal(test2Module))
+			Expect(manifest.Items[0].Package).To(Equal(test1Module))
+			Expect(manifest.Items[1].Package).To(Equal(test2Module))
 			Expect(manifest.Items[0].Digest).To(Equal(v2Manifest.Items[0].Metadata.Digest))
 			Expect(manifest.Items[1].Digest).To(Equal(v2Manifest.Items[1].Metadata.Digest))
-			Expect(manifest.Items[0].Filename).To(Equal("plugin_test1"))
-			Expect(manifest.Items[1].Filename).To(Equal("plugin_test2"))
+			Expect(manifest.Items[0].Path).To(Equal("plugin_test1"))
+			Expect(manifest.Items[1].Path).To(Equal("plugin_test2"))
 
 			srvManifestV2 = manifest
 		})
@@ -149,14 +149,14 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 				Expect(patches.Items[0].Op).To(Equal(controlv1.PatchOp_Update))
 				Expect(patches.Items[0].OldDigest).To(Equal(srvManifestV1.Items[0].Digest))
 				Expect(patches.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
-				Expect(patches.Items[0].Filename).To(Equal(srvManifestV1.Items[0].Filename))
+				Expect(patches.Items[0].Filename).To(Equal(srvManifestV1.Items[0].Path))
 				Expect(patches.Items[0].Data).To(Equal(test1v1tov2Patch.Bytes()))
 
 				Expect(patches.Items[1].Module).To(Equal(test2Module))
 				Expect(patches.Items[1].Op).To(Equal(controlv1.PatchOp_Update))
 				Expect(patches.Items[1].OldDigest).To(Equal(srvManifestV1.Items[1].Digest))
 				Expect(patches.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
-				Expect(patches.Items[1].Filename).To(Equal(srvManifestV1.Items[1].Filename))
+				Expect(patches.Items[1].Filename).To(Equal(srvManifestV1.Items[1].Path))
 				Expect(patches.Items[1].Data).To(Equal(test2v1tov2Patch.Bytes()))
 
 				initialPatchResponse = patches
@@ -197,17 +197,17 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		})
 		When("the server is unable to provide patches for the request", func() {
 			It("should return a create op with the full plugin contents", func() {
-				results, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
-					Items: []*controlv1.PluginManifestEntry{
+				results, err := srv.SyncPluginManifest(context.Background(), &controlv1.UpdateManifest{
+					Items: []*controlv1.UpdateManifestEntry{
 						{
-							Module:   test1Module,
-							Digest:   "deadbeef",
-							Filename: "plugin_test1",
+							Package: test1Module,
+							Digest:  "deadbeef",
+							Path:    "plugin_test1",
 						},
 						{
-							Module:   test2Module,
-							Digest:   "deadbeef",
-							Filename: "plugin_test2",
+							Package: test2Module,
+							Digest:  "deadbeef",
+							Path:    "plugin_test2",
 						},
 					},
 				})
@@ -235,12 +235,12 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should return an error if it does not have the relevant patch", func() {
-					_, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
-						Items: []*controlv1.PluginManifestEntry{
+					_, err := srv.SyncPluginManifest(context.Background(), &controlv1.UpdateManifest{
+						Items: []*controlv1.UpdateManifestEntry{
 							{
-								Module:   test1Module,
-								Digest:   "deadbeef",
-								Filename: "plugin_test1",
+								Package: test1Module,
+								Digest:  "deadbeef",
+								Path:    "plugin_test1",
 							},
 						},
 					})
@@ -249,8 +249,8 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 				})
 
 				It("should return an internal error when issuing create operations", func() {
-					_, err := srv.SyncPluginManifest(context.Background(), &controlv1.PluginManifest{
-						Items: []*controlv1.PluginManifestEntry{},
+					_, err := srv.SyncPluginManifest(context.Background(), &controlv1.UpdateManifest{
+						Items: []*controlv1.UpdateManifestEntry{},
 					})
 					Expect(status.Code(err)).To(Equal(codes.Internal))
 					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("lost plugin in cache: %s", test1Module)))

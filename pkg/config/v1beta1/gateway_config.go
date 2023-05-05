@@ -18,20 +18,20 @@ type GatewayConfigSpec struct {
 	//+kubebuilder:default=":8086"
 	MetricsListenAddress string `json:"metricsListenAddress,omitempty"`
 	//+kubebuilder:default="localhost"
-	Hostname       string            `json:"hostname,omitempty"`
-	Metrics        MetricsSpec       `json:"metrics,omitempty"`
-	Management     ManagementSpec    `json:"management,omitempty"`
-	TrustedProxies []string          `json:"trustedProxies,omitempty"`
-	Cortex         CortexSpec        `json:"cortex,omitempty"`
-	AuthProvider   string            `json:"authProvider,omitempty"`
-	Storage        StorageSpec       `json:"storage,omitempty"`
-	Certs          CertsSpec         `json:"certs,omitempty"`
-	Plugins        PluginsSpec       `json:"plugins,omitempty"`
-	Alerting       AlertingSpec      `json:"alerting,omitempty"`
-	Profiling      ProfilingSpec     `json:"profiling,omitempty"`
-	Keyring        KeyringSpec       `json:"keyring,omitempty"`
-	ImageResolver  ImageResolverSpec `json:"imageResolver,omitempty"`
-	RateLimit      *RateLimitSpec    `json:"rateLimit,omitempty"`
+	Hostname              string                    `json:"hostname,omitempty"`
+	Metrics               MetricsSpec               `json:"metrics,omitempty"`
+	Management            ManagementSpec            `json:"management,omitempty"`
+	TrustedProxies        []string                  `json:"trustedProxies,omitempty"`
+	Cortex                CortexSpec                `json:"cortex,omitempty"`
+	AuthProvider          string                    `json:"authProvider,omitempty"`
+	Storage               StorageSpec               `json:"storage,omitempty"`
+	Certs                 CertsSpec                 `json:"certs,omitempty"`
+	Plugins               PluginsSpec               `json:"plugins,omitempty"`
+	Alerting              AlertingSpec              `json:"alerting,omitempty"`
+	Profiling             ProfilingSpec             `json:"profiling,omitempty"`
+	Keyring               KeyringSpec               `json:"keyring,omitempty"`
+	AgentManifestResolver AgentManifestResolverSpec `json:"imageResolver,omitempty"`
+	RateLimit             *RateLimitSpec            `json:"rateLimit,omitempty"`
 }
 
 type RateLimitSpec struct {
@@ -361,19 +361,18 @@ type CustomResourcesStorageSpec struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type ImageResolverType string
+type AgentManifestResolverType string
 
 const (
-	ImageResolverTypeDefault    ImageResolverType = "default"
-	ImageResolverTypeKubernetes ImageResolverType = "kubernetes"
+	AgentManifestResolverTypeNoop       AgentManifestResolverType = "noop"
+	AgentManifestResolverTypeKubernetes AgentManifestResolverType = "kubernetes"
 )
 
-type ImageResolverSpec struct {
-	Type              ImageResolverType            `json:"type,omitempty"`
-	Default           *DefaultImageResolverSpec    `json:"default,omitempty"`
-	Kubernetes        *KubernetesImageResolverSpec `json:"kubernetes,omitempty"`
-	ImageRepoOverride string                       `json:"imageRepoOverride,omitempty"`
-	ImageTagOverride  string                       `json:"imageTagOverride,omitempty"`
+type AgentManifestResolverSpec struct {
+	Type       AgentManifestResolverType    `json:"type,omitempty"`
+	Default    *DefaultImageResolverSpec    `json:"default,omitempty"`
+	Kubernetes *KubernetesImageResolverSpec `json:"kubernetes,omitempty"`
+	Packages   []string                     `json:"packages,omitempty"`
 }
 
 type DefaultImageResolverSpec struct{}

@@ -70,8 +70,9 @@ const (
 )
 
 type AgentUpgradeSpec struct {
-	Type       AgentUpgradeType       `json:"type,omitempty"`
-	Kubernetes *KubernetesUpgradeSpec `json:"kubernetes,omitempty"`
+	Type         AgentUpgradeType       `json:"type,omitempty"`
+	RepoOverride *string                `json:"repoOverride,omitempty"`
+	Kubernetes   *KubernetesUpgradeSpec `json:"kubernetes,omitempty"`
 }
 
 type KubernetesUpgradeSpec struct {

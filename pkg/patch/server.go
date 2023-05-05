@@ -25,15 +25,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ controlv1.PluginSyncServer = (*FilesystemPluginSyncServer)(nil)
+//var _ controlv1.UpdateSyncServer = (*FilesystemPluginSyncServer)(nil)
 
 type FilesystemPluginSyncServer struct {
-	controlv1.UnsafePluginSyncServer
+	controlv1.UnsafeUpdateSyncServer
 	SyncServerOptions
 	logger           *zap.SugaredLogger
 	config           v1beta1.PluginsSpec
 	loadMetadataOnce sync.Once
-	manifest         *controlv1.PluginManifest
+	manifest         *controlv1.UpdateManifest
 	patchCache       Cache
 }
 
@@ -105,7 +105,7 @@ func (f *FilesystemPluginSyncServer) RunGarbageCollection(ctx context.Context, s
 	if err != nil {
 		return err
 	}
-	digestsToKeep := f.getPluginManifest().DigestSet()
+	digestsToKeep := f.getUpdateManifest().DigestSet()
 	for _, cluster := range clusters.Items {
 		versions := cluster.GetMetadata().GetLastKnownConnectionDetails().GetPluginVersions()
 		for _, v := range versions {
@@ -127,14 +127,14 @@ func (f *FilesystemPluginSyncServer) RunGarbageCollection(ctx context.Context, s
 	return nil
 }
 
-func (f *FilesystemPluginSyncServer) getPluginManifest() *controlv1.PluginManifest {
-	f.loadMetadataOnce.Do(f.loadPluginManifest)
+func (f *FilesystemPluginSyncServer) getUpdateManifest() *controlv1.UpdateManifest {
+	f.loadMetadataOnce.Do(f.loadUpdateManifest)
 	return f.manifest
 }
 
-func (f *FilesystemPluginSyncServer) loadPluginManifest() {
+func (f *FilesystemPluginSyncServer) loadUpdateManifest() {
 	if f.manifest != nil {
-		panic("bug: tried to call loadPluginManifest twice")
+		panic("bug: tried to call loadUpdateManifest twice")
 	}
 	md, err := GetFilesystemPlugins(plugins.DiscoveryConfig{
 		Dir:        f.config.Dir,
@@ -154,13 +154,13 @@ func (f *FilesystemPluginSyncServer) loadPluginManifest() {
 
 func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	ctx context.Context,
-	theirManifest *controlv1.PluginManifest,
+	theirManifest *controlv1.UpdateManifest,
 ) (*controlv1.SyncResults, error) {
 	// on startup
 	if err := theirManifest.Validate(); err != nil {
 		return nil, err
 	}
-	ourManifest := f.getPluginManifest()
+	ourManifest := f.getUpdateManifest()
 	archive := LeftJoinOn(ourManifest, theirManifest)
 
 	errg, _ := errgroup.WithContext(ctx)
@@ -219,16 +219,16 @@ func (f *FilesystemPluginSyncServer) SyncPluginManifest(
 	}, nil
 }
 
-func (f *FilesystemPluginSyncServer) GetPluginManifest(_ context.Context, _ *emptypb.Empty) (*controlv1.PluginManifest, error) {
-	return f.getPluginManifest(), nil
+func (f *FilesystemPluginSyncServer) GetPluginManifest(_ context.Context, _ *emptypb.Empty) (*controlv1.UpdateManifest, error) {
+	return f.getUpdateManifest(), nil
 }
 
 type manifestMetadataKeyType struct{}
 
 var manifestMetadataKey = manifestMetadataKeyType{}
 
-func ManifestMetadataFromContext(ctx context.Context) (*controlv1.PluginManifest, bool) {
-	md, ok := ctx.Value(manifestMetadataKey).(*controlv1.PluginManifest)
+func ManifestMetadataFromContext(ctx context.Context) (*controlv1.UpdateManifest, bool) {
+	md, ok := ctx.Value(manifestMetadataKey).(*controlv1.UpdateManifest)
 	return md, ok
 }
 
@@ -242,7 +242,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 			values := md.Get(controlv1.ManifestDigestKey)
 			if len(values) > 0 {
 				digest := values[0]
-				if f.getPluginManifest().Digest() != digest {
+				if f.getUpdateManifest().Digest() != digest {
 					f.logger.With(
 						"id", id,
 					).Info("agent plugins are out of date; requesting update")
@@ -253,7 +253,7 @@ func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServer
 
 		return handler(srv, &streams.ServerStreamWithContext{
 			Stream: stream,
-			Ctx:    context.WithValue(stream.Context(), manifestMetadataKey, f.getPluginManifest()),
+			Ctx:    context.WithValue(stream.Context(), manifestMetadataKey, f.getUpdateManifest()),
 		})
 	}
 }

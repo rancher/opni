@@ -81,10 +81,10 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 					"/run/opni/keyring",
 				},
 			},
-			ImageResolver: cfgv1beta1.ImageResolverSpec{
-				Type:             cfgv1beta1.ImageResolverTypeKubernetes,
-				ImageTagOverride: r.gw.Spec.AgentImageTagOverride,
-				Kubernetes:       &cfgv1beta1.KubernetesImageResolverSpec{},
+			AgentManifestResolver: cfgv1beta1.AgentManifestResolverSpec{
+				Type:       cfgv1beta1.AgentManifestResolverTypeKubernetes,
+				Kubernetes: &cfgv1beta1.KubernetesImageResolverSpec{},
+				Packages:   []string{"agent", "client"},
 			},
 		},
 	}

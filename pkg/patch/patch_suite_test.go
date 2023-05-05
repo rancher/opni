@@ -144,18 +144,18 @@ var _ = BeforeSuite(func() {
 	v1Manifest = &controlv1.PluginArchive{
 		Items: []*controlv1.PluginArchiveEntry{
 			{
-				Metadata: &controlv1.PluginManifestEntry{
-					Module:   test1Module,
-					Filename: "test1",
-					Digest:   testBinaryDigests["test1"]["v1"],
+				Metadata: &controlv1.UpdateManifestEntry{
+					Package: test1Module,
+					Path:    "test1",
+					Digest:  testBinaryDigests["test1"]["v1"],
 				},
 				Data: testBinaries["test1"]["v1"],
 			},
 			{
-				Metadata: &controlv1.PluginManifestEntry{
-					Module:   test2Module,
-					Filename: "test2",
-					Digest:   testBinaryDigests["test2"]["v1"],
+				Metadata: &controlv1.UpdateManifestEntry{
+					Package: test2Module,
+					Path:    "test2",
+					Digest:  testBinaryDigests["test2"]["v1"],
 				},
 				Data: testBinaries["test2"]["v1"],
 			},
@@ -164,18 +164,18 @@ var _ = BeforeSuite(func() {
 	v2Manifest = &controlv1.PluginArchive{
 		Items: []*controlv1.PluginArchiveEntry{
 			{
-				Metadata: &controlv1.PluginManifestEntry{
-					Module:   test1Module,
-					Filename: "test1",
-					Digest:   testBinaryDigests["test1"]["v2"],
+				Metadata: &controlv1.UpdateManifestEntry{
+					Package: test1Module,
+					Path:    "test1",
+					Digest:  testBinaryDigests["test1"]["v2"],
 				},
 				Data: testBinaries["test1"]["v2"],
 			},
 			{
-				Metadata: &controlv1.PluginManifestEntry{
-					Module:   test2Module,
-					Filename: "test2",
-					Digest:   testBinaryDigests["test2"]["v2"],
+				Metadata: &controlv1.UpdateManifestEntry{
+					Package: test2Module,
+					Path:    "test2",
+					Digest:  testBinaryDigests["test2"]["v2"],
 				},
 				Data: testBinaries["test2"]["v2"],
 			},

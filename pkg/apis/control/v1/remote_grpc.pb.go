@@ -201,216 +201,163 @@ var HealthListener_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	PluginSync_SyncPluginManifest_FullMethodName = "/control.PluginSync/SyncPluginManifest"
-	PluginSync_GetPluginManifest_FullMethodName  = "/control.PluginSync/GetPluginManifest"
+	UpdateSync_SyncPluginManifest_FullMethodName = "/control.UpdateSync/SyncPluginManifest"
+	UpdateSync_GetPluginManifest_FullMethodName  = "/control.UpdateSync/GetPluginManifest"
+	UpdateSync_GetAgentManifest_FullMethodName   = "/control.UpdateSync/GetAgentManifest"
 )
 
-// PluginSyncClient is the client API for PluginSync service.
+// UpdateSyncClient is the client API for UpdateSync service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PluginSyncClient interface {
-	SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*SyncResults, error)
-	GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginManifest, error)
+type UpdateSyncClient interface {
+	SyncPluginManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error)
+	GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error)
+	GetAgentManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error)
 }
 
-type pluginSyncClient struct {
+type updateSyncClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewPluginSyncClient(cc grpc.ClientConnInterface) PluginSyncClient {
-	return &pluginSyncClient{cc}
+func NewUpdateSyncClient(cc grpc.ClientConnInterface) UpdateSyncClient {
+	return &updateSyncClient{cc}
 }
 
-func (c *pluginSyncClient) SyncPluginManifest(ctx context.Context, in *PluginManifest, opts ...grpc.CallOption) (*SyncResults, error) {
+func (c *updateSyncClient) SyncPluginManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error) {
 	out := new(SyncResults)
-	err := c.cc.Invoke(ctx, PluginSync_SyncPluginManifest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, UpdateSync_SyncPluginManifest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *pluginSyncClient) GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginManifest, error) {
-	out := new(PluginManifest)
-	err := c.cc.Invoke(ctx, PluginSync_GetPluginManifest_FullMethodName, in, out, opts...)
+func (c *updateSyncClient) GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error) {
+	out := new(UpdateManifest)
+	err := c.cc.Invoke(ctx, UpdateSync_GetPluginManifest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// PluginSyncServer is the server API for PluginSync service.
-// All implementations must embed UnimplementedPluginSyncServer
+func (c *updateSyncClient) GetAgentManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error) {
+	out := new(UpdateManifest)
+	err := c.cc.Invoke(ctx, UpdateSync_GetAgentManifest_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// UpdateSyncServer is the server API for UpdateSync service.
+// All implementations must embed UnimplementedUpdateSyncServer
 // for forward compatibility
-type PluginSyncServer interface {
-	SyncPluginManifest(context.Context, *PluginManifest) (*SyncResults, error)
-	GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error)
-	mustEmbedUnimplementedPluginSyncServer()
+type UpdateSyncServer interface {
+	SyncPluginManifest(context.Context, *UpdateManifest) (*SyncResults, error)
+	GetPluginManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error)
+	GetAgentManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error)
+	mustEmbedUnimplementedUpdateSyncServer()
 }
 
-// UnimplementedPluginSyncServer must be embedded to have forward compatible implementations.
-type UnimplementedPluginSyncServer struct {
+// UnimplementedUpdateSyncServer must be embedded to have forward compatible implementations.
+type UnimplementedUpdateSyncServer struct {
 }
 
-func (UnimplementedPluginSyncServer) SyncPluginManifest(context.Context, *PluginManifest) (*SyncResults, error) {
+func (UnimplementedUpdateSyncServer) SyncPluginManifest(context.Context, *UpdateManifest) (*SyncResults, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncPluginManifest not implemented")
 }
-func (UnimplementedPluginSyncServer) GetPluginManifest(context.Context, *emptypb.Empty) (*PluginManifest, error) {
+func (UnimplementedUpdateSyncServer) GetPluginManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifest not implemented")
 }
-func (UnimplementedPluginSyncServer) mustEmbedUnimplementedPluginSyncServer() {}
+func (UnimplementedUpdateSyncServer) GetAgentManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentManifest not implemented")
+}
+func (UnimplementedUpdateSyncServer) mustEmbedUnimplementedUpdateSyncServer() {}
 
-// UnsafePluginSyncServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PluginSyncServer will
+// UnsafeUpdateSyncServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UpdateSyncServer will
 // result in compilation errors.
-type UnsafePluginSyncServer interface {
-	mustEmbedUnimplementedPluginSyncServer()
+type UnsafeUpdateSyncServer interface {
+	mustEmbedUnimplementedUpdateSyncServer()
 }
 
-func RegisterPluginSyncServer(s grpc.ServiceRegistrar, srv PluginSyncServer) {
-	s.RegisterService(&PluginSync_ServiceDesc, srv)
+func RegisterUpdateSyncServer(s grpc.ServiceRegistrar, srv UpdateSyncServer) {
+	s.RegisterService(&UpdateSync_ServiceDesc, srv)
 }
 
-func _PluginSync_SyncPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PluginManifest)
+func _UpdateSync_SyncPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateManifest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginSyncServer).SyncPluginManifest(ctx, in)
+		return srv.(UpdateSyncServer).SyncPluginManifest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: PluginSync_SyncPluginManifest_FullMethodName,
+		FullMethod: UpdateSync_SyncPluginManifest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginSyncServer).SyncPluginManifest(ctx, req.(*PluginManifest))
+		return srv.(UpdateSyncServer).SyncPluginManifest(ctx, req.(*UpdateManifest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PluginSync_GetPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UpdateSync_GetPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginSyncServer).GetPluginManifest(ctx, in)
+		return srv.(UpdateSyncServer).GetPluginManifest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: PluginSync_GetPluginManifest_FullMethodName,
+		FullMethod: UpdateSync_GetPluginManifest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginSyncServer).GetPluginManifest(ctx, req.(*emptypb.Empty))
+		return srv.(UpdateSyncServer).GetPluginManifest(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// PluginSync_ServiceDesc is the grpc.ServiceDesc for PluginSync service.
+func _UpdateSync_GetAgentManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UpdateSyncServer).GetAgentManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UpdateSync_GetAgentManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UpdateSyncServer).GetAgentManifest(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// UpdateSync_ServiceDesc is the grpc.ServiceDesc for UpdateSync service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var PluginSync_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "control.PluginSync",
-	HandlerType: (*PluginSyncServer)(nil),
+var UpdateSync_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.UpdateSync",
+	HandlerType: (*UpdateSyncServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "SyncPluginManifest",
-			Handler:    _PluginSync_SyncPluginManifest_Handler,
+			Handler:    _UpdateSync_SyncPluginManifest_Handler,
 		},
 		{
 			MethodName: "GetPluginManifest",
-			Handler:    _PluginSync_GetPluginManifest_Handler,
+			Handler:    _UpdateSync_GetPluginManifest_Handler,
 		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
-}
-
-const (
-	ImageUpgrade_GetAgentImages_FullMethodName = "/control.ImageUpgrade/GetAgentImages"
-)
-
-// ImageUpgradeClient is the client API for ImageUpgrade service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ImageUpgradeClient interface {
-	GetAgentImages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentImages, error)
-}
-
-type imageUpgradeClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewImageUpgradeClient(cc grpc.ClientConnInterface) ImageUpgradeClient {
-	return &imageUpgradeClient{cc}
-}
-
-func (c *imageUpgradeClient) GetAgentImages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentImages, error) {
-	out := new(AgentImages)
-	err := c.cc.Invoke(ctx, ImageUpgrade_GetAgentImages_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// ImageUpgradeServer is the server API for ImageUpgrade service.
-// All implementations must embed UnimplementedImageUpgradeServer
-// for forward compatibility
-type ImageUpgradeServer interface {
-	GetAgentImages(context.Context, *emptypb.Empty) (*AgentImages, error)
-	mustEmbedUnimplementedImageUpgradeServer()
-}
-
-// UnimplementedImageUpgradeServer must be embedded to have forward compatible implementations.
-type UnimplementedImageUpgradeServer struct {
-}
-
-func (UnimplementedImageUpgradeServer) GetAgentImages(context.Context, *emptypb.Empty) (*AgentImages, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAgentImages not implemented")
-}
-func (UnimplementedImageUpgradeServer) mustEmbedUnimplementedImageUpgradeServer() {}
-
-// UnsafeImageUpgradeServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ImageUpgradeServer will
-// result in compilation errors.
-type UnsafeImageUpgradeServer interface {
-	mustEmbedUnimplementedImageUpgradeServer()
-}
-
-func RegisterImageUpgradeServer(s grpc.ServiceRegistrar, srv ImageUpgradeServer) {
-	s.RegisterService(&ImageUpgrade_ServiceDesc, srv)
-}
-
-func _ImageUpgrade_GetAgentImages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ImageUpgradeServer).GetAgentImages(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ImageUpgrade_GetAgentImages_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImageUpgradeServer).GetAgentImages(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// ImageUpgrade_ServiceDesc is the grpc.ServiceDesc for ImageUpgrade service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var ImageUpgrade_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "control.ImageUpgrade",
-	HandlerType: (*ImageUpgradeServer)(nil),
-	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetAgentImages",
-			Handler:    _ImageUpgrade_GetAgentImages_Handler,
+			MethodName: "GetAgentManifest",
+			Handler:    _UpdateSync_GetAgentManifest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

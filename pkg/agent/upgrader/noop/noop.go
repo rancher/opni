@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/agent/upgrader"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 )
 
 type noopAgentUpgrader struct{}
@@ -12,8 +13,8 @@ func NewNoopAgentUpgrader() *noopAgentUpgrader {
 	return &noopAgentUpgrader{}
 }
 
-func (n *noopAgentUpgrader) UpgradeRequired(_ context.Context) (bool, error) {
-	return false, nil
+func (n *noopAgentUpgrader) SyncAgent(_ context.Context, _ []*controlv1.UpdateManifestEntry) error {
+	return nil
 }
 
 func (n *noopAgentUpgrader) DoUpgrade(_ context.Context) error {

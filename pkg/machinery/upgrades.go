@@ -2,38 +2,31 @@ package machinery
 
 import (
 	"github.com/rancher/opni/pkg/agent/upgrader"
+	"github.com/rancher/opni/pkg/agentmanifest"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/imageresolver"
 )
 
-func ConfigureImageResolver(cfg *v1beta1.ImageResolverSpec) (*imageresolver.ImageResolver, error) {
+func ConfigureAgentManifestResolver(cfg *v1beta1.AgentManifestResolverSpec) (*agentmanifest.AgentManifestResolver, error) {
 	switch {
-	case cfg.ImageRepoOverride != "" && cfg.ImageTagOverride != "":
-		builder := imageresolver.GetImageResolverBuilder(v1beta1.ImageResolverTypeDefault)
-		driver, err := builder(cfg.ImageRepoOverride, cfg.ImageTagOverride)
+	case cfg.Type == v1beta1.AgentManifestResolverTypeKubernetes:
+		builder := agentmanifest.GetAgentManifestBuilder(v1beta1.AgentManifestResolverTypeKubernetes)
+		driver, err := builder(cfg.Kubernetes.ControlNamespace)
 		if err != nil {
 			return nil, err
 		}
-		return imageresolver.NewImageResolver(
+		return agentmanifest.NewAgentManifestResolver(
 			driver,
-		), nil
-	case cfg.Type == v1beta1.ImageResolverTypeKubernetes:
-		builder := imageresolver.GetImageResolverBuilder(v1beta1.ImageResolverTypeKubernetes)
-		driver, err := builder(cfg.Kubernetes.ControlNamespace, cfg.ImageTagOverride)
-		if err != nil {
-			return nil, err
-		}
-		return imageresolver.NewImageResolver(
-			driver,
+			agentmanifest.WithPackages(cfg.Packages...),
 		), nil
 	default:
-		builder := imageresolver.GetImageResolverBuilder(v1beta1.ImageResolverTypeDefault)
-		driver, err := builder(cfg.ImageRepoOverride, cfg.ImageTagOverride)
+		builder := agentmanifest.GetAgentManifestBuilder(v1beta1.AgentManifestResolverTypeNoop)
+		driver, err := builder()
 		if err != nil {
 			return nil, err
 		}
-		return imageresolver.NewImageResolver(
+		return agentmanifest.NewAgentManifestResolver(
 			driver,
+			agentmanifest.WithPackages(cfg.Packages...),
 		), nil
 	}
 }
@@ -43,7 +36,7 @@ func ConfigureAgentUpgrader(cfg *v1beta1.AgentUpgradeSpec) (upgrader.AgentUpgrad
 	case cfg.Type == v1beta1.AgentUpgradeKubernetes:
 		builder := upgrader.GetUpgraderBuilder(cfg.Type)
 		if cfg.Kubernetes != nil {
-			return builder(cfg.Kubernetes.Namespace)
+			return builder(cfg.Kubernetes.Namespace, cfg.RepoOverride)
 		}
 		return builder()
 	case cfg.Type == v1beta1.AgentUpgradeNoop:

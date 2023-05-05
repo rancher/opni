@@ -15,12 +15,12 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
+func LeftJoinOn(gateway, agent *controlv1.UpdateManifest) *controlv1.PatchList {
 	res := &controlv1.PatchList{}
-	ourPlugins := map[string]*controlv1.PluginManifestEntry{}
+	ourPlugins := map[string]*controlv1.UpdateManifestEntry{}
 	// if a plugin gets renamed we need to look up hashes
 	ourDigests := map[string]struct{}{}
-	theirPlugins := map[string]*controlv1.PluginManifestEntry{}
+	theirPlugins := map[string]*controlv1.UpdateManifestEntry{}
 	theirDigests := map[string]struct{}{}
 	for _, v := range gateway.Items {
 		ourDigests[v.GetDigest()] = struct{}{}
@@ -36,7 +36,7 @@ func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
 			res.Items = append(res.Items, &controlv1.PatchSpec{
 				Module:    ours.GetId(),
 				Op:        controlv1.PatchOp_Create,
-				Filename:  ours.GetFilename(),
+				Filename:  ours.GetPath(),
 				OldDigest: "",
 				NewDigest: ours.GetDigest(),
 			})
@@ -47,17 +47,17 @@ func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
 				res.Items = append(res.Items, &controlv1.PatchSpec{
 					Module:    ours.GetId(),
 					Op:        controlv1.PatchOp_Update,
-					Filename:  ours.GetFilename(),
+					Filename:  ours.GetPath(),
 					OldDigest: theirs.GetDigest(),
 					NewDigest: ours.GetDigest(),
 				})
-			} else if ours.GetFilename() != theirs.GetFilename() {
+			} else if ours.GetPath() != theirs.GetPath() {
 				// a plugin was renamed but the hash is the same
 				res.Items = append(res.Items, &controlv1.PatchSpec{
 					Module:    ours.GetId(),
 					Op:        controlv1.PatchOp_Rename,
-					Data:      []byte(ours.GetFilename()),
-					Filename:  theirs.GetFilename(),
+					Data:      []byte(ours.GetPath()),
+					Filename:  theirs.GetPath(),
 					OldDigest: theirs.GetDigest(),
 					NewDigest: ours.GetDigest(),
 				})
@@ -71,7 +71,7 @@ func LeftJoinOn(gateway, agent *controlv1.PluginManifest) *controlv1.PatchList {
 				res.Items = append(res.Items, &controlv1.PatchSpec{
 					Module:    theirs.GetId(),
 					Op:        controlv1.PatchOp_Remove,
-					Filename:  theirs.GetFilename(),
+					Filename:  theirs.GetPath(),
 					OldDigest: theirs.GetDigest(),
 					NewDigest: "",
 				})
@@ -125,10 +125,10 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 			}
 			sum := hex.EncodeToString(hash.Sum(nil))
 			res.Items[i] = &controlv1.PluginArchiveEntry{
-				Metadata: &controlv1.PluginManifestEntry{
-					Module:   md.Module,
-					Filename: filepath.Base(md.BinaryPath),
-					Digest:   sum,
+				Metadata: &controlv1.UpdateManifestEntry{
+					Package: md.Module,
+					Path:    filepath.Base(md.BinaryPath),
+					Digest:  sum,
 				},
 				Data: contents.Bytes(),
 			}

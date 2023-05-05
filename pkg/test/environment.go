@@ -80,7 +80,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	_ "github.com/rancher/opni/pkg/agent/upgrader/noop"
-	_ "github.com/rancher/opni/pkg/imageresolver/noop"
+	_ "github.com/rancher/opni/pkg/agentmanifest/noop"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )

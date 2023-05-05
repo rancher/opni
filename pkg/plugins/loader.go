@@ -216,7 +216,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 }
 
 type LoadOptions struct {
-	manifest      *controlv1.PluginManifest
+	manifest      *controlv1.UpdateManifest
 	clientOptions []ClientOption
 }
 
@@ -238,7 +238,7 @@ func WithClientOptions(clientOptions ...ClientOption) LoadOption {
 // that can be loaded, and verify plugin checksums before loading.
 // If this option is not provided, plugins will be loaded without any
 // restrictions or verification.
-func WithManifest(manifest *controlv1.PluginManifest) LoadOption {
+func WithManifest(manifest *controlv1.UpdateManifest) LoadOption {
 	return func(o *LoadOptions) {
 		o.manifest = manifest
 	}
@@ -258,7 +258,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	secureConfigs := make(map[string]*plugin.SecureConfig)
 	if verifyManifest {
 		for _, entry := range options.manifest.Items {
-			secureConfigs[entry.Module] = &plugin.SecureConfig{
+			secureConfigs[entry.Package] = &plugin.SecureConfig{
 				Checksum: entry.DigestBytes(),
 				Hash:     entry.DigestHash(),
 			}

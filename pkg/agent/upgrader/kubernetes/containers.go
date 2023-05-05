@@ -2,9 +2,11 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/types/known/emptypb"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,33 +42,67 @@ func (k *kubernetesAgentUpgrader) getControllerContainer(containers []corev1.Con
 	return nil
 }
 
-func (k *kubernetesAgentUpgrader) updateDeploymentImages(ctx context.Context, deploy *appsv1.Deployment) error {
-	if k.imageClient == nil {
-		return ErrGatewayClientNotSet
-	}
-
-	images, err := k.imageClient.GetAgentImages(ctx, &emptypb.Empty{})
-	if err != nil {
-		return err
-	}
-
+func (k *kubernetesAgentUpgrader) updateDeploymentImages(
+	ctx context.Context,
+	deploy *appsv1.Deployment,
+	entries []*controlv1.UpdateManifestEntry,
+) error {
 	containers := deploy.Spec.Template.Spec.Containers
+
+	agentImage := k.buildAgentImage(entries)
+	controllerImage := k.buildClientImage(entries)
+
+	if agentImage == "" {
+		agentImage = controllerImage
+	}
 
 	agent := k.getAgentContainer(containers)
 	if agent != nil {
-		agent.Image = images.AgentImage
+		agent.Image = agentImage
 		containers = replaceContainer(containers, agent)
 	}
 
 	controller := k.getControllerContainer(containers)
 	if controller != nil {
-		controller.Image = images.ControllerImage
+		controller.Image = controllerImage
 		containers = replaceContainer(containers, controller)
 	}
 
 	deploy.Spec.Template.Spec.Containers = containers
 
 	return nil
+}
+
+func (k *kubernetesAgentUpgrader) buildAgentImage(entries []*controlv1.UpdateManifestEntry) string {
+	agentEntry := getEntry(string(agentPackageAgent), entries)
+	if agentEntry == nil {
+		return ""
+	}
+	path := strings.TrimPrefix(agentEntry.GetPath(), "oci://")
+	path = k.maybeOverrideRepo(path)
+	return fmt.Sprintf("%s@%s", path, agentEntry.GetDigest())
+}
+
+func (k *kubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateManifestEntry) string {
+	agentEntry := getEntry(string(agentPackageClient), entries)
+	if agentEntry == nil {
+		return ""
+	}
+	path := strings.TrimPrefix(agentEntry.GetPath(), "oci://")
+	path = k.maybeOverrideRepo(path)
+	return fmt.Sprintf("%s@%s", path, agentEntry.GetDigest())
+}
+
+func (k *kubernetesAgentUpgrader) maybeOverrideRepo(path string) string {
+	if k.repoOverride != nil {
+		splitPath := strings.Split(path, "/")
+		if strings.Contains(splitPath[0], ".") {
+			path = strings.Replace(path, splitPath[0], *k.repoOverride, 1)
+		} else {
+			path = fmt.Sprintf("%s/%s", *k.repoOverride, path)
+		}
+	}
+	return path
 }
 
 func replaceContainer(containers []corev1.Container, container *corev1.Container) []corev1.Container {
@@ -76,4 +112,15 @@ func replaceContainer(containers []corev1.Container, container *corev1.Container
 		}
 	}
 	return containers
+}
+
+func getEntry(packageName string, entries []*controlv1.UpdateManifestEntry) *controlv1.UpdateManifestEntry {
+	for _, entry := range entries {
+		if entry.GetPackage() == packageName {
+			if strings.HasPrefix(entry.GetPath(), "oci://") {
+				return entry
+			}
+		}
+	}
+	return nil
 }

@@ -11,6 +11,7 @@ import (
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
 	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/update"
 	"github.com/spf13/afero"
 
 	"github.com/hashicorp/go-plugin"
@@ -200,7 +201,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	))
 
 	// set up plugin sync server
-	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
+	pluginServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
 		patch.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
 			if pm.ExtendedMetadata != nil {
 				// only sync plugins that have the agent mode set
@@ -215,16 +216,16 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create plugin sync server")
 	}
 
-	httpServer.metricsRegisterer.MustRegister(syncServer.Collectors()...)
+	httpServer.metricsRegisterer.MustRegister(pluginServer.Collectors()...)
 
-	if err := syncServer.RunGarbageCollection(ctx, storageBackend); err != nil {
+	if err := pluginServer.RunGarbageCollection(ctx, storageBackend); err != nil {
 		lg.With(
 			zap.Error(err),
 		).Error("failed to run garbage collection")
 	}
 
 	// set up image resolver service
-	imageResolverServer, err := machinery.ConfigureImageResolver(&conf.Spec.ImageResolver)
+	agentServer, err := machinery.ConfigureAgentManifestResolver(&conf.Spec.AgentManifestResolver)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -241,10 +242,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpc.ChainStreamInterceptor(
 			NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor(),
 			clusterAuth,
-			syncServer.StreamServerInterceptor(),
+			pluginServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),
 		),
 	)
+
+	syncServer := &update.UpdateServer{
+		PluginServer: pluginServer,
+		AgentServer:  agentServer,
+	}
 
 	// set up stream server
 	listener := health.NewListener()
@@ -260,9 +266,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
-	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 	corev1.RegisterPingerServer(streamSvc, &pinger{})
-	controlv1.RegisterImageUpgradeServer(grpcServer, imageResolverServer)
+	controlv1.RegisterUpdateSyncServer(grpcServer, syncServer)
 
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 

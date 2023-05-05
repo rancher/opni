@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -326,16 +327,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if a.unmanagedPluginLoader == nil {
-		var manifests *controlv1.PluginManifest
+		var manifests *controlv1.UpdateManifest
 		for ctx.Err() == nil {
 			var err error
-			// check for upgrades to the agent
-			err = a.maybeUpgradeAgent(ctx)
-			if err != nil {
-				return fmt.Errorf("error upgrading agent: %w", err)
-			}
-			// next upgrade plugins
-			manifests, err = a.syncPlugins(ctx)
+			// sync all updates
+			manifests, err = a.syncUpdates(ctx)
 			if err != nil {
 				switch status.Code(err) {
 				case codes.Unauthenticated:
@@ -514,10 +510,21 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, retErr error) {
+func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, retErr error) {
 	a.Logger.Info("attempting to sync plugins with gateway")
 
-	manifestClient := controlv1.NewPluginSyncClient(a.gatewayClient.ClientConn())
+	manifestClient := controlv1.NewUpdateSyncClient(a.gatewayClient.ClientConn())
+
+	// First sync the agent
+	agentManifest, err := manifestClient.GetAgentManifest(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	err = a.upgrader.SyncAgent(ctx, agentManifest.GetItems())
+	if err != nil {
+		return nil, err
+	}
+
 	// read local plugins on disk here
 	archive, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 		Dir:    a.config.Plugins.Dir,
@@ -543,22 +550,4 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.PluginManifest, r
 	}
 
 	return syncResp.DesiredState, nil
-}
-
-func (a *Agent) maybeUpgradeAgent(ctx context.Context) error {
-	a.Logger.Info("checking for agent upgrades")
-	if imageChecker, ok := a.upgrader.(upgrader.AgentImageUpgrader); ok {
-		imageChecker.CreateGatewayClient(a.gatewayClient.ClientConn())
-	}
-	required, err := a.upgrader.UpgradeRequired(ctx)
-	if err != nil {
-		return err
-	}
-
-	if required {
-		a.Logger.Info("upgrading agent")
-		return a.upgrader.DoUpgrade(ctx)
-	}
-
-	return nil
 }

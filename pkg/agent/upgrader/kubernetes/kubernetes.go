@@ -8,22 +8,27 @@ import (
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent/upgrader"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type AgentPackage string
+
+const (
+	agentPackageAgent  AgentPackage = "agent"
+	agentPackageClient AgentPackage = "client"
+)
+
 type kubernetesAgentUpgrader struct {
 	kubernetesAgentUpgraderOptions
-	k8sClient   client.Client
-	imageClient controlv1.ImageUpgradeClient
+	k8sClient client.Client
 }
 
 type kubernetesAgentUpgraderOptions struct {
-	restConfig *rest.Config
-	namespace  string
+	restConfig   *rest.Config
+	namespace    string
+	repoOverride *string
 }
 
 type kubernetesAgentUpgraderOption func(*kubernetesAgentUpgraderOptions)
@@ -37,6 +42,12 @@ func WithRestConfig(config *rest.Config) kubernetesAgentUpgraderOption {
 func WithNamespace(namespace string) kubernetesAgentUpgraderOption {
 	return func(o *kubernetesAgentUpgraderOptions) {
 		o.namespace = namespace
+	}
+}
+
+func WithRepoOverride(repo *string) kubernetesAgentUpgraderOption {
+	return func(o *kubernetesAgentUpgraderOptions) {
+		o.repoOverride = repo
 	}
 }
 
@@ -73,42 +84,56 @@ func NewKubernetesAgentUpgrader(opts ...kubernetesAgentUpgraderOption) (*kuberne
 	}, nil
 }
 
-func (k *kubernetesAgentUpgrader) UpgradeRequired(ctx context.Context) (bool, error) {
-	if k.imageClient == nil {
-		return false, ErrGatewayClientNotSet
-	}
-
-	images, err := k.imageClient.GetAgentImages(ctx, &emptypb.Empty{})
+func (k *kubernetesAgentUpgrader) SyncAgent(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
+	upgradeRequired, err := k.upgradeRequired(ctx, entries)
 	if err != nil {
-		return false, err
+		return err
 	}
 
+	if upgradeRequired {
+		return k.doUpgrade(ctx, entries)
+	}
+
+	return nil
+}
+
+func (k *kubernetesAgentUpgrader) upgradeRequired(
+	ctx context.Context,
+	entries []*controlv1.UpdateManifestEntry,
+) (bool, error) {
 	deploy, err := k.getAgentDeployment(ctx)
 	if err != nil {
 		return false, err
 	}
 
 	agent := k.getAgentContainer(deploy.Spec.Template.Spec.Containers)
+	agentDesired := k.buildAgentImage(entries)
 	controller := k.getControllerContainer(deploy.Spec.Template.Spec.Containers)
+	controllerDesired := k.buildClientImage(entries)
 
-	switch {
-	case agent != nil && agent.Image != images.AgentImage:
-		return true, nil
-	case controller != nil && controller.Image != images.ControllerImage:
-		return true, nil
-	default:
-		return false, nil
+	if agentDesired == "" {
+		agentDesired = controllerDesired
 	}
+
+	if agent.Image != agentDesired {
+		return true, nil
+	}
+
+	if controller.Image != controllerDesired {
+		return true, nil
+	}
+
+	return false, nil
 }
 
-func (k *kubernetesAgentUpgrader) DoUpgrade(ctx context.Context) error {
+func (k *kubernetesAgentUpgrader) doUpgrade(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		deploy, err := k.getAgentDeployment(ctx)
 		if err != nil {
 			return err
 		}
 
-		err = k.updateDeploymentImages(ctx, deploy)
+		err = k.updateDeploymentImages(ctx, deploy, entries)
 		if err != nil {
 			return nil
 		}
@@ -117,10 +142,6 @@ func (k *kubernetesAgentUpgrader) DoUpgrade(ctx context.Context) error {
 	})
 
 	return err
-}
-
-func (k *kubernetesAgentUpgrader) CreateGatewayClient(conn grpc.ClientConnInterface) {
-	k.imageClient = controlv1.NewImageUpgradeClient(conn)
 }
 
 func init() {
@@ -133,6 +154,8 @@ func init() {
 					opts = append(opts, WithRestConfig(v))
 				case string:
 					opts = append(opts, WithNamespace(v))
+				case *string:
+					opts = append(opts, WithRepoOverride(v))
 				default:
 					return nil, fmt.Errorf("unexpected argument: %v", arg)
 				}

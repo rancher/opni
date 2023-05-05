@@ -77,7 +77,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 			}
 
 			p.logger.With(
-				"plugin", item.Metadata.Filename,
+				"plugin", item.Metadata.Path,
 			).Warn("existing cached plugin is corrupted, overwriting")
 		}
 

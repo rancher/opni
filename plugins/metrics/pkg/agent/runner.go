@@ -188,6 +188,13 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 				return nil
 			}
 
+			// if task context is cancelled, return immediately
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+
 			if !isRecoverable(err) {
 				return fmt.Errorf("failed to push to remote write: %w", err)
 			}

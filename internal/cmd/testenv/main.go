@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -87,6 +88,9 @@ func main() {
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
 	}
 
+	var agentCancelMu sync.Mutex
+	var agentCancelFuncs []context.CancelFunc
+
 	randSrc := rand.New(rand.NewSource(agentIdSeed))
 	environment := &test.Environment{}
 	var iPort int
@@ -123,8 +127,12 @@ func main() {
 			if isLocalAgent {
 				startOpts = append(startOpts, test.WithLocalAgent())
 			}
+			agentCancelMu.Lock()
+			ctx, ca := context.WithCancel(context.Background())
+			agentCancelFuncs = append(agentCancelFuncs, ca)
+			agentCancelMu.Unlock()
 			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
-				append(startOpts, test.WithAgentVersion("v2"))...)
+				append(startOpts, test.WithAgentVersion("v2"), test.WithContext(ctx))...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
@@ -197,6 +205,7 @@ func main() {
 		}
 		if enableGateway {
 			testlog.Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+			testlog.Log.Info(chalk.Blue.Color("Press (s) to stop an agent"))
 			testlog.Log.Info(chalk.Blue.Color("Press (M) to configure the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (m) to install the metrics capability on all agents"))
@@ -276,7 +285,7 @@ func main() {
 				signal.Stop(c)
 				close(c)
 			})
-		case 'a', 'A':
+		case 'a':
 			go func() {
 				bt, err := client.CreateBootstrapToken(environment.Context(), &managementv1.CreateBootstrapTokenRequest{
 					Ttl: durationpb.New(1 * time.Minute),
@@ -307,6 +316,18 @@ func main() {
 					testlog.Log.Errorf("%s", resp.Status)
 					return
 				}
+			}()
+		case 's':
+			go func() {
+				agentCancelMu.Lock()
+				defer agentCancelMu.Unlock()
+				if len(agentCancelFuncs) == 0 {
+					testlog.Log.Error("No agents to stop")
+					return
+				}
+				testlog.Log.Infof("Stopping agent %d", agentCancelFuncs[0])
+				agentCancelFuncs[0]()
+				agentCancelFuncs = agentCancelFuncs[1:]
 			}()
 		case 'M':
 			capabilityMu.Lock()

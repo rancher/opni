@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/management"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	alertopsv2 "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/v2"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -36,6 +37,7 @@ type Plugin struct {
 	alertingv1.UnsafeAlertConditionsServer
 	alertingv1.UnsafeAlertEndpointsServer
 	alertingv1.UnsafeAlertNotificationsServer
+	alertopsv2.UnsafeAlertingAdminV2Server
 
 	Ctx    context.Context
 	Logger *zap.SugaredLogger

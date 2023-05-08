@@ -1,0 +1,115 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/v2";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
+import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/sidecar.proto";
+import "google/api/annotations.proto";
+import "github.com/rancher/opni/internal/cortex/config/alertmanager/multitenant_alertmanager.proto";
+
+package alerting.ops.v2;
+
+enum NotificationStore {
+  Memory = 0;
+}
+
+message ClusterConfiguration {
+  alertmanager.MultitenantAlertmanagerConfig cortex  = 1;
+  storage.StorageSpec storage = 2;
+  ResourceLimits limits = 3;
+  SyncSpec sync =4;
+  NotificationStorageSpec notifStorage = 5;
+  StreamConfig streamOverrides = 6;
+}
+
+message ResourceLimits {
+  string memory = 1;
+  string cpu = 2;
+  // only if filesystem backend is used
+  string disk = 3;
+}
+
+// Configures opni delegated sync configurations
+message SyncSpec {
+  google.protobuf.Duration syncInterval = 1;
+  google.protobuf.Duration forceSyncInterval = 2;
+}
+
+message NotificationStorageSpec {
+  NotificationStore backend = 1;
+}
+
+message StreamConfig {
+  map<string, StreamSpec> overrides =1;
+}
+
+message StreamSpec {
+  // true by default
+  bool durable = 1;
+  int32 replay = 2;
+  int64 aggregate = 3;
+  google.protobuf.Duration unaryScrape = 4;
+}
+
+
+
+
+// The AlertingAdmin service controls meta-operations for
+// deploying, connecting & configuring AlertManager in the upstream environment
+service AlertingAdminV2 {
+  rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
+    option (google.api.http) = {
+      get: "/configuration"
+    };
+  }
+  // Install/Uninstall the alerting cluster by setting enabled=true/false
+  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/configure"
+      body: "*"
+    };
+  }
+  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  }
+
+  rpc UninstallCluster(UninstallRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/uninstall"
+    };
+  }
+}
+
+service ConfigReconciler {
+  rpc ConnectRemoteSyncer(ConnectRequest) returns (stream SyncRequest) {}
+}
+
+message ConnectRequest{
+  string lifecycleUuid = 1;
+}
+
+message SyncRequest {
+  repeated alerting.PutConfigRequest items = 1;
+}
+
+message UninstallRequest {
+  bool deleteData = 1;
+}
+
+enum InstallState {
+    InstallUnknown = 0;
+    NotInstalled = 1;
+    InstallUpdating = 2;
+    Installed = 3;
+    Uninstalling = 4;
+  }
+
+message InstallStatus {
+    InstallState state = 1;
+    string version = 2;
+    map<string, string> metadata = 3;
+}
+

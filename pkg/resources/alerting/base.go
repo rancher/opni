@@ -10,79 +10,16 @@ import (
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const (
-	dataMountPath = "/var/lib"
-	alertingUser  = "alerting"
-	requiredData  = "opni-alertmanager-data"
-)
-
 func alertingLabels() map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/name": "opni-alerting",
 	}
-}
-
-// Similar to "opensearch.opster.io/pkg/builders"
-func (r *Reconciler) handlePVC(diskSize string) (pvc corev1.PersistentVolumeClaim, volumes []corev1.Volume) {
-	dataVolume := corev1.Volume{}
-
-	node := r.ac.Spec.Alertmanager.ApplicationSpec
-	if node.PersistenceConfig == nil || node.PersistenceConfig.PersistenceSource.PVC != nil {
-		mode := corev1.PersistentVolumeFilesystem
-		pvc = corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{Name: requiredData},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: func() []corev1.PersistentVolumeAccessMode {
-					if node.PersistenceConfig == nil {
-						return []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-					}
-					return node.PersistenceConfig.PersistenceSource.PVC.AccessModes
-				}(),
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse(diskSize),
-					},
-				},
-				StorageClassName: func() *string {
-					if node.PersistenceConfig == nil {
-						return nil
-					}
-					if node.PersistenceConfig.PVC.StorageClassName == "" {
-						return nil
-					}
-
-					return &node.PersistenceConfig.PVC.StorageClassName
-				}(),
-				VolumeMode: &mode,
-			},
-		}
-	}
-
-	if node.PersistenceConfig != nil {
-		dataVolume.Name = requiredData
-
-		if node.PersistenceConfig.PersistenceSource.HostPath != nil {
-			dataVolume.VolumeSource = corev1.VolumeSource{
-				HostPath: node.PersistenceConfig.PersistenceSource.HostPath,
-			}
-			volumes = append(volumes, dataVolume)
-		}
-
-		if node.PersistenceConfig.PersistenceSource.EmptyDir != nil {
-			dataVolume.VolumeSource = corev1.VolumeSource{
-				EmptyDir: node.PersistenceConfig.PersistenceSource.EmptyDir,
-			}
-			volumes = append(volumes, dataVolume)
-		}
-	}
-	return
 }
 
 func (r *Reconciler) alerting() []resources.Resource {

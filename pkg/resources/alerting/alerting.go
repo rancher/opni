@@ -60,7 +60,15 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	}
 
 	allResources := []resources.Resource{}
+	// vanilla alertmanager
 	allResources = append(allResources, r.alerting()...)
+
+	// cortex alertmanager
+	// cortexResources, err := r.cortex()
+	// if err != nil {
+	// return k8sutil.RequeueErr(err).Result()
+	// }
+	// allResources = append(allResources, cortexResources...)
 
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()

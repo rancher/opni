@@ -55,7 +55,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 		}
 	})
 
-	XContext("alerting configuration", func() {
+	Context("alerting configuration", func() {
 		When("using standalone mode", func() {
 			It("should create the alerting resources", func() {
 				cl := &corev1beta1.AlertingCluster{
@@ -217,7 +217,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 		})
 	})
 
-	Context("cortex alertmanager", func() {
+	XContext("cortex alertmanager", func() {
 		When("using standalone mode", func() {
 			It("should create the alerting resources", func() {
 				cl := &corev1beta1.AlertingCluster{
@@ -265,7 +265,6 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 					)),
 					HaveMatchingContainer(And(
 						HaveName("opni-alertmanager"),
-						// TODO : might need to add cluster port
 						HavePorts("web-port"),
 						HaveEnv("FOO", "BAR"),
 						HaveVolumeMounts("opni-alertmanager-data", "cortex-config"),
@@ -336,7 +335,6 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 					)),
 					HaveMatchingContainer(And(
 						HaveName("opni-alertmanager"),
-						// TODO : might need to add cluster port
 						HavePorts("web-port"),
 						HaveEnv("FOO", "BAR"),
 						HaveVolumeMounts("opni-alertmanager-data"),

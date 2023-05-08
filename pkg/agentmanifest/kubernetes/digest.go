@@ -2,10 +2,12 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/versions"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,6 +30,12 @@ func getMinimalDigest() string {
 		}
 		return string(digest)
 	}
+
+	// TODO: remove this once we have solved the problem getting at the digest of the minimal image
+	if versions.Version != "unversioned" {
+		return fmt.Sprintf("%s-minimal", versions.Version)
+	}
+
 	return ""
 }
 

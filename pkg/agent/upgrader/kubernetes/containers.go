@@ -80,7 +80,11 @@ func (k *kubernetesAgentUpgrader) buildAgentImage(entries []*controlv1.UpdateMan
 	}
 	path := strings.TrimPrefix(agentEntry.GetPath(), "oci://")
 	path = k.maybeOverrideRepo(path)
-	return fmt.Sprintf("%s@%s", path, agentEntry.GetDigest())
+	digest := agentEntry.GetDigest()
+	if strings.HasPrefix(digest, "sha256:") {
+		return fmt.Sprintf("%s@%s", path, digest)
+	}
+	return fmt.Sprintf("%s:%s", path, digest)
 }
 
 func (k *kubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateManifestEntry) string {
@@ -90,7 +94,11 @@ func (k *kubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateMa
 	}
 	path := strings.TrimPrefix(agentEntry.GetPath(), "oci://")
 	path = k.maybeOverrideRepo(path)
-	return fmt.Sprintf("%s@%s", path, agentEntry.GetDigest())
+	digest := agentEntry.GetDigest()
+	if strings.HasPrefix(digest, "sha256:") {
+		return fmt.Sprintf("%s@%s", path, digest)
+	}
+	return fmt.Sprintf("%s:%s", path, digest)
 }
 
 func (k *kubernetesAgentUpgrader) maybeOverrideRepo(path string) string {

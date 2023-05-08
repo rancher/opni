@@ -52,6 +52,18 @@ spec:
                     type: string
                   workloads:
                     properties:
+                      Persister:
+                        properties:
+                          persist_interval:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                        type: object
                       affinity:
                         properties:
                           nodeAffinity:
@@ -417,6 +429,141 @@ spec:
                                 type: array
                             type: object
                         type: object
+                      alertmanager_client:
+                        properties:
+                          TLS:
+                            properties:
+                              tls_ca_path:
+                                type: string
+                              tls_cert_path:
+                                type: string
+                              tls_insecure_skip_verify:
+                                type: boolean
+                              tls_key_path:
+                                type: string
+                              tls_server_name:
+                                type: string
+                            type: object
+                          grpc_compression:
+                            type: string
+                          remote_timeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          tls_enabled:
+                            type: boolean
+                        type: object
+                      auto_webhook_root:
+                        type: string
+                      azure:
+                        properties:
+                          containerName:
+                            type: string
+                          endpoint:
+                            type: string
+                          http:
+                            properties:
+                              expectContinueTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              idleConnTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              insecureSkipVerify:
+                                type: boolean
+                              maxConnsPerHost:
+                                format: int32
+                                type: integer
+                              maxIdleConns:
+                                format: int32
+                                type: integer
+                              maxIdleConnsPerHost:
+                                format: int32
+                                type: integer
+                              responseHeaderTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              tlsHandshakeTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                            type: object
+                          maxRetries:
+                            format: int32
+                            type: integer
+                          msiResource:
+                            type: string
+                          storageAccountKey:
+                            type: string
+                          storageAccountName:
+                            type: string
+                          userAssignedID:
+                            type: string
+                        type: object
+                      backend:
+                        type: string
+                      cluster:
+                        properties:
+                          gossip_interval:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          peer_timeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          push_pull_interval:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                        type: object
+                      disabled_tenants:
+                        items:
+                          type: string
+                        type: array
                       emptyDir:
                         properties:
                           medium:
@@ -428,6 +575,12 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         type: object
+                      enabled_tenants:
+                        items:
+                          type: string
+                        type: array
+                      external_url:
+                        type: string
                       extraArgs:
                         items:
                           type: string
@@ -1228,6 +1381,18 @@ spec:
                               type: object
                           type: object
                         type: array
+                      filesystem:
+                        properties:
+                          directory:
+                            type: string
+                        type: object
+                      gcs:
+                        properties:
+                          bucketName:
+                            type: string
+                          serviceAccount:
+                            type: string
+                        type: object
                       hostPath:
                         properties:
                           path:
@@ -1236,6 +1401,18 @@ spec:
                             type: string
                         required:
                         - path
+                        type: object
+                      max_recv_msg_size:
+                        format: int64
+                        type: integer
+                      poll_interval:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
                         type: object
                       pvc:
                         properties:
@@ -1278,6 +1455,100 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
+                      retention:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      retentionPeriod:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      s3:
+                        properties:
+                          accessKeyID:
+                            type: string
+                          bucketName:
+                            type: string
+                          endpoint:
+                            type: string
+                          http:
+                            properties:
+                              expectContinueTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              idleConnTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              insecureSkipVerify:
+                                type: boolean
+                              maxConnsPerHost:
+                                format: int32
+                                type: integer
+                              maxIdleConns:
+                                format: int32
+                                type: integer
+                              maxIdleConnsPerHost:
+                                format: int32
+                                type: integer
+                              responseHeaderTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              tlsHandshakeTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                            type: object
+                          insecure:
+                            type: boolean
+                          region:
+                            type: string
+                          secretAccessKey:
+                            type: string
+                          signatureVersion:
+                            type: string
+                          sse:
+                            properties:
+                              kmsEncryptionContext:
+                                type: string
+                              kmsKeyID:
+                                type: string
+                              type:
+                                type: string
                             type: object
                         type: object
                       securityContext:
@@ -1946,6 +2217,61 @@ spec:
                           - name
                           type: object
                         type: array
+                      swift:
+                        properties:
+                          authURL:
+                            type: string
+                          authVersion:
+                            format: int32
+                            type: integer
+                          connectTimeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          containerName:
+                            type: string
+                          domainID:
+                            type: string
+                          domainName:
+                            type: string
+                          maxRetries:
+                            format: int32
+                            type: integer
+                          password:
+                            type: string
+                          projectDomainID:
+                            type: string
+                          projectDomainName:
+                            type: string
+                          projectID:
+                            type: string
+                          projectName:
+                            type: string
+                          regionName:
+                            type: string
+                          requestTimeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          userDomainID:
+                            type: string
+                          userDomainName:
+                            type: string
+                          userID:
+                            type: string
+                          username:
+                            type: string
+                        type: object
                       updateStrategy:
                         properties:
                           rollingUpdate:

@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"github.com/rancher/opni/internal/cortex/config/alertmanager"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,16 +46,18 @@ type VolumeSpec struct {
 }
 
 type AlertingApplicationSpec struct {
-	Replicas                  *int32                            `json:"replicas,omitempty"`
-	ExtraArgs                 []string                          `json:"extraArgs,omitempty"`
-	ExtraVolumeSpec           []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
-	ExtraEnvVars              []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
-	SidecarContainers         []corev1.Container                `json:"sidecarContainers,omitempty"`
-	ResourceRequirements      *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
-	UpdateStrategy            *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	SecurityContext           *corev1.SecurityContext           `json:"securityContext,omitempty"`
-	*openv1.PersistenceConfig `json:",inline"`
-	Affinity                  *corev1.Affinity `json:"affinity,omitempty"`
+	Replicas                                    *int32                            `json:"replicas,omitempty"`
+	ExtraArgs                                   []string                          `json:"extraArgs,omitempty"`
+	ExtraVolumeSpec                             []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
+	ExtraEnvVars                                []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
+	SidecarContainers                           []corev1.Container                `json:"sidecarContainers,omitempty"`
+	ResourceRequirements                        *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
+	UpdateStrategy                              *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	SecurityContext                             *corev1.SecurityContext           `json:"securityContext,omitempty"`
+	*openv1.PersistenceConfig                   `json:",inline"`
+	Affinity                                    *corev1.Affinity `json:"affinity,omitempty"`
+	*alertmanager.MultitenantAlertmanagerConfig `json:"multitenantAlertmanagerConfig,inline"`
+	*storagev1.StorageSpec                      `json:"storageSpec,inline"`
 }
 
 type AlertingClusterStatus struct {

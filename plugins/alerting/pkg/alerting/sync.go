@@ -11,44 +11,44 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func (p *Plugin) reindex(ctx context.Context) error {
-	p.Logger.Debug("reindexing alert conditions")
-	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
-	if err != nil {
-		p.Logger.Errorf("failed to list alert conditions : %s", err)
-		return err
-	}
-	for _, cond := range conditions {
-		cond := cond
-		go func() {
-			_, err = p.setupCondition(p.Ctx, p.Logger, cond, cond.Id)
-			if err != nil {
-				p.Logger.Errorf("failed to setup alert condition %s: %s", cond.Id, err)
-			}
-		}()
+// func (p *Plugin) reindex(ctx context.Context) error {
+// 	p.Logger.Debug("reindexing alert conditions")
+// 	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
+// 	if err != nil {
+// 		p.Logger.Errorf("failed to list alert conditions : %s", err)
+// 		return err
+// 	}
+// 	for _, cond := range conditions {
+// 		cond := cond
+// 		go func() {
+// 			_, err = p.setupCondition(p.Ctx, p.Logger, cond, cond.Id)
+// 			if err != nil {
+// 				p.Logger.Errorf("failed to setup alert condition %s: %s", cond.Id, err)
+// 			}
+// 		}()
 
-	}
-	return nil
-}
+// 	}
+// 	return nil
+// }
 
-func (p *Plugin) teardown(ctx context.Context) error {
-	p.Logger.Debug("tearing down alert conditions")
-	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
-	if err != nil {
-		p.Logger.Errorf("failed to list alert conditions : %s", err)
-		return err
-	}
-	for _, cond := range conditions {
-		cond := cond
-		go func() {
-			err := p.deleteCondition(ctx, p.Logger, cond, cond.Id)
-			if err != nil {
-				p.Logger.Errorf("failed to teardown alert condition %s: %s", cond.Id, err)
-			}
-		}()
-	}
-	return nil
-}
+// func (p *Plugin) teardown(ctx context.Context) error {
+// 	p.Logger.Debug("tearing down alert conditions")
+// 	conditions, err := p.storageClientSet.Get().Conditions().List(ctx, opts.WithUnredacted())
+// 	if err != nil {
+// 		p.Logger.Errorf("failed to list alert conditions : %s", err)
+// 		return err
+// 	}
+// 	for _, cond := range conditions {
+// 		cond := cond
+// 		go func() {
+// 			err := p.deleteCondition(ctx, p.Logger, cond, cond.Id)
+// 			if err != nil {
+// 				p.Logger.Errorf("failed to teardown alert condition %s: %s", cond.Id, err)
+// 			}
+// 		}()
+// 	}
+// 	return nil
+// }
 
 func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())

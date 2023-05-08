@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -110,7 +111,9 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 			return
 		}
 		if status.State == alertops.InstallState_Installed {
-			p.reindex(p.Ctx)
+			for _, comp := range p.Components() {
+				comp.Sync(true)
+			}
 		}
 	}()
 	<-p.Ctx.Done()
@@ -144,17 +147,9 @@ func (p *Plugin) handleDriverNotifications() {
 		case incomingState := <-p.clusterNotifier:
 			evaluating := p.evaluating.Load()
 			shouldEvaluate := incomingState.A
-			if !evaluating && shouldEvaluate {
-				p.Logger.Debug("initiating alarm dependency reindex")
-				err := p.reindex(p.Ctx)
-				if err != nil {
-					p.Logger.With("err", err).Error("failed to reindex")
-				}
-			} else if evaluating && !shouldEvaluate {
-				p.Logger.Debug("initiating alarm dependency teardown")
-				err := p.teardown(p.Ctx)
-				if err != nil {
-					p.Logger.With("err", err).Error("failed to teardown")
+			if shouldEvaluate != evaluating {
+				for _, component := range p.Components() {
+					component.Sync(shouldEvaluate)
 				}
 			}
 			p.evaluating.Store(shouldEvaluate)
@@ -163,10 +158,10 @@ func (p *Plugin) handleDriverNotifications() {
 }
 
 func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx, NewAgentStream())
+	cw := p.newClusterWatcherHooks(p.Ctx, alarms.NewAgentStream())
 	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
 		func() { p.watchGlobalCluster(client, cw) },
-		func() { p.watchGlobalClusterHealthStatus(client, NewAgentStream()) },
+		func() { p.watchGlobalClusterHealthStatus(client, alarms.NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 
 	p.globalWatchers = management.NewConditionWatcher(

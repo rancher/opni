@@ -58,3 +58,10 @@ func (i *Initializer) checkInitCond() {
 		i.initCond = sync.NewCond(&sync.Mutex{})
 	})
 }
+
+type InitializerF interface {
+	InitOnce(f func())
+	Initialized() bool
+	WaitForInit()
+	WaitForInitContext(ctx context.Context) error
+}

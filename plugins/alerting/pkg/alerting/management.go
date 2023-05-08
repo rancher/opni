@@ -18,6 +18,7 @@ import (
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
@@ -103,7 +104,7 @@ func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ..
 // blocking
 func (p *Plugin) watchCortexClusterStatus() {
 	lg := p.Logger.With("watcher", "cortex-cluster-status")
-	err := natsutil.NewPersistentStream(p.js.Get(), NewCortexStatusStream())
+	err := natsutil.NewPersistentStream(p.js.Get(), alarms.NewCortexStatusStream())
 	if err != nil {
 		panic(err)
 	}
@@ -154,7 +155,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 				if err != nil {
 					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
 				}
-				_, err = p.js.Get().PublishAsync(NewCortexStatusSubject(), cortexStatusData)
+				_, err = p.js.Get().PublishAsync(alarms.NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
 					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
 				}
@@ -208,7 +209,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 	for _, cl := range cls.Items {
 		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
 		//make sure durable consumer is setup
-		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, NewAgentDurableReplayConsumer(cl.GetId()))
+		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, alarms.NewAgentDurableReplayConsumer(cl.GetId()))
 		if replayErr != nil {
 			panic(replayErr)
 		}
@@ -242,7 +243,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
 				continue
 			}
-			_, err = p.js.Get().PublishAsync(NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
+			_, err = p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
 			if err != nil {
 				p.Logger.Errorf("failed to publish cluster health status : %s", err)
 			}

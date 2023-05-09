@@ -7,18 +7,21 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 )
 
-type noopAgentUpgrader struct{}
-
-func NewNoopAgentUpgrader() *noopAgentUpgrader {
-	return &noopAgentUpgrader{}
+type NoopAgentUpgrader struct {
+	manifest *controlv1.UpdateManifestEntry
 }
 
-func (n *noopAgentUpgrader) SyncAgent(_ context.Context, _ []*controlv1.UpdateManifestEntry) error {
+func NewNoopAgentUpgrader() *NoopAgentUpgrader {
+	return &NoopAgentUpgrader{}
+}
+
+func (n *NoopAgentUpgrader) SyncAgent(_ context.Context, entries []*controlv1.UpdateManifestEntry) error {
+	n.manifest = entries[0]
 	return nil
 }
 
-func (n *noopAgentUpgrader) DoUpgrade(_ context.Context) error {
-	return nil
+func (n *NoopAgentUpgrader) GetManifest() *controlv1.UpdateManifestEntry {
+	return n.manifest
 }
 
 func init() {

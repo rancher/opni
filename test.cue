@@ -52,6 +52,10 @@ tests: ginkgo.#TestPlan & {
 			Packages: "./plugins/logging/pkg/gateway/..."
 			Build: CoverPkg: "github.com/rancher/opni/plugins/logging/pkg/gateway"
 		}
+		agentupgrader: ginkgo.#Run & {
+			Packages: "./pkg/agent/upgrader/..."
+			Build: CoverPkg: "github.com/rancher/opni/pkg/agent/upgrader/..."
+		}
 		plugins: ginkgo.#Run & {
 			Packages: "./test/plugins/..."
 			Build: CoverPkg: "github.com/rancher/opni/plugins/...,github.com/rancher/opni/pkg/plugins/...,github.com/rancher/opni/pkg/gateway"

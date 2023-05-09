@@ -20,7 +20,7 @@ const (
 	agentPackageClient AgentPackage = "client"
 )
 
-type kubernetesAgentUpgrader struct {
+type KubernetesAgentUpgrader struct {
 	kubernetesAgentUpgraderOptions
 	k8sClient client.Client
 }
@@ -57,7 +57,7 @@ func (o *kubernetesAgentUpgraderOptions) apply(opts ...kubernetesAgentUpgraderOp
 	}
 }
 
-func NewKubernetesAgentUpgrader(opts ...kubernetesAgentUpgraderOption) (*kubernetesAgentUpgrader, error) {
+func NewKubernetesAgentUpgrader(opts ...kubernetesAgentUpgraderOption) (*KubernetesAgentUpgrader, error) {
 	options := kubernetesAgentUpgraderOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}
@@ -78,13 +78,13 @@ func NewKubernetesAgentUpgrader(opts ...kubernetesAgentUpgraderOption) (*kuberne
 		return nil, err
 	}
 
-	return &kubernetesAgentUpgrader{
+	return &KubernetesAgentUpgrader{
 		kubernetesAgentUpgraderOptions: options,
 		k8sClient:                      k8sClient,
 	}, nil
 }
 
-func (k *kubernetesAgentUpgrader) SyncAgent(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
+func (k *KubernetesAgentUpgrader) SyncAgent(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
 	upgradeRequired, err := k.upgradeRequired(ctx, entries)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (k *kubernetesAgentUpgrader) SyncAgent(ctx context.Context, entries []*cont
 	return nil
 }
 
-func (k *kubernetesAgentUpgrader) upgradeRequired(
+func (k *KubernetesAgentUpgrader) upgradeRequired(
 	ctx context.Context,
 	entries []*controlv1.UpdateManifestEntry,
 ) (bool, error) {
@@ -115,18 +115,18 @@ func (k *kubernetesAgentUpgrader) upgradeRequired(
 		agentDesired = controllerDesired
 	}
 
-	if agent.Image != agentDesired {
+	if agentDesired != "" && agent.Image != agentDesired {
 		return true, nil
 	}
 
-	if controller.Image != controllerDesired {
+	if controllerDesired != "" && controller.Image != controllerDesired {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func (k *kubernetesAgentUpgrader) doUpgrade(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
+func (k *KubernetesAgentUpgrader) doUpgrade(ctx context.Context, entries []*controlv1.UpdateManifestEntry) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		deploy, err := k.getAgentDeployment(ctx)
 		if err != nil {

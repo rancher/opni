@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (k *kubernetesAgentUpgrader) getAgentDeployment(ctx context.Context) (*appsv1.Deployment, error) {
+func (k *KubernetesAgentUpgrader) getAgentDeployment(ctx context.Context) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
 	err := k.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      "opni-agent",
@@ -24,7 +24,7 @@ func (k *kubernetesAgentUpgrader) getAgentDeployment(ctx context.Context) (*apps
 	return deployment, nil
 }
 
-func (k *kubernetesAgentUpgrader) getAgentContainer(containers []corev1.Container) *corev1.Container {
+func (k *KubernetesAgentUpgrader) getAgentContainer(containers []corev1.Container) *corev1.Container {
 	for _, container := range containers {
 		if slices.Contains(container.Args, "agentv2") {
 			return &container
@@ -33,7 +33,7 @@ func (k *kubernetesAgentUpgrader) getAgentContainer(containers []corev1.Containe
 	return nil
 }
 
-func (k *kubernetesAgentUpgrader) getControllerContainer(containers []corev1.Container) *corev1.Container {
+func (k *KubernetesAgentUpgrader) getControllerContainer(containers []corev1.Container) *corev1.Container {
 	for _, container := range containers {
 		if slices.Contains(container.Args, "client") {
 			return &container
@@ -42,7 +42,7 @@ func (k *kubernetesAgentUpgrader) getControllerContainer(containers []corev1.Con
 	return nil
 }
 
-func (k *kubernetesAgentUpgrader) updateDeploymentImages(
+func (k *KubernetesAgentUpgrader) updateDeploymentImages(
 	ctx context.Context,
 	deploy *appsv1.Deployment,
 	entries []*controlv1.UpdateManifestEntry,
@@ -57,13 +57,13 @@ func (k *kubernetesAgentUpgrader) updateDeploymentImages(
 	}
 
 	agent := k.getAgentContainer(containers)
-	if agent != nil {
+	if agent != nil && agentImage != "" {
 		agent.Image = agentImage
 		containers = replaceContainer(containers, agent)
 	}
 
 	controller := k.getControllerContainer(containers)
-	if controller != nil {
+	if controller != nil && controllerImage != "" {
 		controller.Image = controllerImage
 		containers = replaceContainer(containers, controller)
 	}
@@ -73,7 +73,7 @@ func (k *kubernetesAgentUpgrader) updateDeploymentImages(
 	return nil
 }
 
-func (k *kubernetesAgentUpgrader) buildAgentImage(entries []*controlv1.UpdateManifestEntry) string {
+func (k *KubernetesAgentUpgrader) buildAgentImage(entries []*controlv1.UpdateManifestEntry) string {
 	agentEntry := getEntry(string(agentPackageAgent), entries)
 	if agentEntry == nil {
 		return ""
@@ -87,7 +87,7 @@ func (k *kubernetesAgentUpgrader) buildAgentImage(entries []*controlv1.UpdateMan
 	return fmt.Sprintf("%s:%s", path, digest)
 }
 
-func (k *kubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateManifestEntry) string {
+func (k *KubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateManifestEntry) string {
 	agentEntry := getEntry(string(agentPackageClient), entries)
 	if agentEntry == nil {
 		return ""
@@ -101,7 +101,7 @@ func (k *kubernetesAgentUpgrader) buildClientImage(entries []*controlv1.UpdateMa
 	return fmt.Sprintf("%s:%s", path, digest)
 }
 
-func (k *kubernetesAgentUpgrader) maybeOverrideRepo(path string) string {
+func (k *KubernetesAgentUpgrader) maybeOverrideRepo(path string) string {
 	if k.repoOverride != nil {
 		splitPath := strings.Split(path, "/")
 		if strings.Contains(splitPath[0], ".") {

@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 
 	"github.com/rancher/opni/pkg/management"
@@ -15,7 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -60,12 +58,8 @@ type Plugin struct {
 
 	// components       serverComponents
 	opsNode          *ops.AlertingOpsNode
-	msgNode          *messaging.MessagingNode
 	storageClientSet future.Future[storage.AlertingClientSet]
 
-	// FIXME: deprecate me
-	clusterOptionMu sync.RWMutex
-	clusterOptions  *shared.AlertingClusterOptions
 	clusterNotifier chan shared.AlertingClusterNotification
 	// signifies that the Alerting Cluster is running and we should
 	// be reconciling external dependencies in order to evaluate
@@ -95,7 +89,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		Logger: lg,
 
 		opsNode:          ops.NewAlertingOpsNode(ctx, clusterDriver, storageClientSet),
-		msgNode:          messaging.NewMessagingNode(),
 		storageClientSet: storageClientSet,
 
 		clusterNotifier: make(chan shared.AlertingClusterNotification),
@@ -166,10 +159,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+
 	// We omit the trigger server here since it should only be used internally
-
-	// TODO : iterate over server components and add them to the scheme
-
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(

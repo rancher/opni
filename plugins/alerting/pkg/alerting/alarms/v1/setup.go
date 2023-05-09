@@ -13,7 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func (p *AlarmServerComponent) setupCondition(
@@ -296,7 +296,7 @@ func (p *AlarmServerComponent) handlePrometheusQueryAlertCreation(ctx context.Co
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "user-query").Debugf("%s", string(out.Bytes()))
+	p.logger.With("Expr", "user-query").Debugf("%s", out.String())
 	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,

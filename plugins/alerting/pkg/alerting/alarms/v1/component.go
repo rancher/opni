@@ -94,7 +94,7 @@ func (a *AlarmServerComponent) Sync(enabled bool) error {
 	if err != nil {
 		return err
 	}
-	iErrGroup := &util.IErrGroup{}
+	iErrGroup := &util.MultiErrGroup{}
 	iErrGroup.Add(len(conds))
 	for _, cond := range conds {
 		cond := cond

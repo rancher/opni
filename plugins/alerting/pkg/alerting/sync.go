@@ -11,6 +11,13 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
+type InitializerF interface {
+	InitOnce(f func())
+	Initialized() bool
+	WaitForInit()
+	WaitForInitContext(ctx context.Context) error
+}
+
 func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {

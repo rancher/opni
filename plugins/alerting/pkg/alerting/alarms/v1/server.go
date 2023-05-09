@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/alitto/pond"
-	"github.com/gogo/status"
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -25,6 +24,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -300,7 +300,7 @@ func (a *AlarmServerComponent) CloneTo(ctx context.Context, req *alertingv1.Clon
 			return nil, validation.Errorf("cluster could not be found %s", ref)
 		}
 	}
-	iErrGroup := &util.IErrGroup{}
+	iErrGroup := &util.MultiErrGroup{}
 	iErrGroup.Add(len(req.ToClusters))
 	for _, ref := range req.ToClusters {
 		ref := ref // capture in closure

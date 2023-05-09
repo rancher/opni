@@ -19,6 +19,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
@@ -68,9 +69,7 @@ func (a *AlarmServerComponent) checkMetricsClusterStatus(
 			Reason: "cluster not found",
 		}
 	}
-	if len(lo.Filter(cluster.Metadata.Capabilities, func(cap *corev1.ClusterCapability, _ int) bool {
-		return cap.Name == wellknown.CapabilityMetrics
-	})) == 0 {
+	if !capabilities.Has(cluster, capabilities.Cluster(wellknown.CapabilityMetrics)) {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
 			Reason: "cluster does not have metrics capabilities installed",
@@ -114,13 +113,13 @@ func (a *AlarmServerComponent) loadStatusInfo(ctx context.Context) (*statusInfo,
 
 	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
-	eg, _ := errgroup.WithContext(ctxca)
+	eg, workCtx := errgroup.WithContext(ctxca)
 	status := &statusInfo{
 		mu: &sync.Mutex{},
 	}
 	eg.Go(
 		func() error {
-			info, err := a.loadCoreInfo(ctx)
+			info, err := a.loadCoreInfo(workCtx)
 			if err != nil {
 				return err
 			}
@@ -130,7 +129,7 @@ func (a *AlarmServerComponent) loadStatusInfo(ctx context.Context) (*statusInfo,
 	)
 	eg.Go(
 		func() error {
-			info, err := a.loadMetricsInfo(ctx)
+			info, err := a.loadMetricsInfo(workCtx)
 			if err != nil {
 				return err
 			}
@@ -140,7 +139,7 @@ func (a *AlarmServerComponent) loadStatusInfo(ctx context.Context) (*statusInfo,
 	)
 	eg.Go(
 		func() error {
-			info, err := a.loadAlertingInfo(ctx)
+			info, err := a.loadAlertingInfo(workCtx)
 			if err != nil {
 				return err
 			}

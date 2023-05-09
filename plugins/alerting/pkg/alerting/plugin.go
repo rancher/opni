@@ -31,7 +31,7 @@ import (
 )
 
 type ServerComponent interface {
-	util.InitializerF
+	InitializerF
 	SetConfig(config struct{})
 	// Reports if the state of the component is running
 	Status() struct{}
@@ -39,8 +39,6 @@ type ServerComponent interface {
 	// should implement this method to sync them
 	Sync(enabled bool) error
 }
-
-const AlertingLogCacheSize = 32
 
 func (p *Plugin) Components() []ServerComponent {
 	return []ServerComponent{

@@ -1,50 +1,51 @@
 package util
 
 import (
-	"fmt"
+	"errors"
 	"sort"
-	"strings"
 	"sync"
 )
 
-// IErrGroup
+// MultiErrGroup
 // Best effort to run all tasks, then combines all errors
-type IErrGroup struct {
+type MultiErrGroup struct {
 	errMu sync.Mutex
 	errs  []error
 	sync.WaitGroup
 }
 
-func (i *IErrGroup) Add(tasks int) {
+func (i *MultiErrGroup) Add(tasks int) {
 	i.WaitGroup.Add(tasks)
 }
 
-func (i *IErrGroup) Done() {
+func (i *MultiErrGroup) Done() {
 	i.WaitGroup.Done()
 }
 
-func (i *IErrGroup) Wait() {
+func (i *MultiErrGroup) Wait() {
 	i.WaitGroup.Wait()
 }
 
-func (i *IErrGroup) AddError(err error) {
+func (i *MultiErrGroup) AddError(err error) {
 	i.errMu.Lock()
 	defer i.errMu.Unlock()
 	i.errs = append(i.errs, err)
 }
 
-func (i *IErrGroup) Error() error {
+func (i *MultiErrGroup) Error() error {
 	if len(i.errs) == 0 {
 		return nil
 	}
 	duped := map[string]struct{}{}
-	resErr := []string{}
+	resErr := []error{}
 	for _, err := range i.errs {
 		if _, ok := duped[err.Error()]; !ok {
 			duped[err.Error()] = struct{}{}
-			resErr = append(resErr, err.Error())
+			resErr = append(resErr, err)
 		}
 	}
-	sort.Strings(resErr)
-	return fmt.Errorf(strings.Join(resErr, ","))
+	sort.Slice(resErr, func(i, j int) bool {
+		return resErr[i].Error() < resErr[j].Error()
+	})
+	return errors.Join(resErr...)
 }

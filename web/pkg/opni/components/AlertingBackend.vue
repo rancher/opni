@@ -74,7 +74,7 @@ export default {
       const config = await getClusterConfiguration();
 
       while ((await getClusterStatus()).state !== 'Installed') {
-        wait(3000);
+        delay(3000);
       }
 
       await configureCluster({

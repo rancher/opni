@@ -128,7 +128,11 @@ export default {
         this.$set(this, 'editing', false);
         this.$set(this, 'enabled', true);
         await this.loadStatus();
-        document.querySelector('main').scrollTop = 0;
+
+        if (document.querySelector('main')) {
+          document.querySelector('main').scrollTop = 0;
+          window.scrollTo({ top: 0 });
+        }
       }, cb);
     },
 

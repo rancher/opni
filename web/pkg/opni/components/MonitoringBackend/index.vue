@@ -6,7 +6,7 @@ import { cloneDeep } from 'lodash';
 import { Banner } from '@components/Banner';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
-import { getCapabilities } from '../../utils/requests/capability';
+import { getMetricCapabilities } from '../../utils/requests/capability';
 import { getClusterStats } from '../../utils/requests';
 import { configureCluster, uninstallCluster, getClusterStatus, getClusterConfig } from '../../utils/requests/monitoring';
 import Grafana from './Grafana';
@@ -106,7 +106,7 @@ export default {
     },
 
     async loadCapabilities(parent) {
-      this.capabilities = await getCapabilities('metrics', parent);
+      this.capabilities = await getMetricCapabilities(parent);
 
       return this.capabilities;
     },
@@ -129,6 +129,18 @@ export default {
           value:         'sampleRate',
           formatter:     'Number',
           formatterOpts: { suffix: '/s' }
+        },
+        {
+          name:          'provider',
+          labelKey:      'opni.tableHeaders.provider',
+          sort:          ['provider'],
+          value:         'provider',
+          formatter:     'TextWithClass',
+          formatterOpts: {
+            getClass(_, value) {
+              return value === '—' ? 'text-muted' : '';
+            }
+          }
         },
         {
           name:          'isLocal',

@@ -132,7 +132,10 @@ export default {
       try {
         this.$set(this, 'error', '');
         this.$set(this.status, 'status', 'training');
-        document.querySelector('main').scrollTop = 0;
+        if (document.querySelector('main')) {
+          document.querySelector('main').scrollTop = 0;
+          window.scrollTo({ top: 0 });
+        }
         await trainModel(this.workloadList);
         this.$set(this, 'lastParameters', await getModelTrainingParameters());
       } catch (err) {
@@ -194,7 +197,10 @@ export default {
         this.$set(this, 'lastParameters', {});
         this.$refs.table.clearSelection();
         this.$set(this.status, 'status', 'training');
-        document.querySelector('main').scrollTop = 0;
+        if (document.querySelector('main')) {
+          document.querySelector('main').scrollTop = 0;
+          window.scrollTo({ top: 0 });
+        }
         await trainModel(this.workloadList);
       } catch (err) {
         this.$set(this, 'error', exceptionToErrorsArray(err).join('; '));

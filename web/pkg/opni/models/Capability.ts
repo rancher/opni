@@ -115,7 +115,7 @@ export class Capability extends Resource {
   }
 
   get isInstalled() {
-    return this.cluster.capabilities.includes(this.type);
+    return this.cluster.capabilities?.includes(this.type);
   }
 
   get isLocal(): boolean {
@@ -161,7 +161,7 @@ export class Capability extends Resource {
     for (const i in this.capabilities) {
       try {
         const capability = this.capabilities[i] as (keyof CapabilityStatuses);
-        const capMeta = this.cluster.capabilitiesRaw.find(c => c.name === capability);
+        const capMeta = this.cluster.capabilitiesRaw?.find(c => c.name === capability);
 
         if (capMeta && !capMeta?.deletionTimestamp) {
           this.clearCapabilityStatus([capability]);
@@ -255,7 +255,7 @@ export class Capability extends Resource {
   }
 
   get isCapabilityUninstalling(): boolean {
-    const cap = this.cluster.capabilitiesRaw.find(c => c.name === this.type);
+    const cap = this.cluster.capabilitiesRaw?.find(c => c.name === this.type);
 
     return !!(cap?.deletionTimestamp);
   }

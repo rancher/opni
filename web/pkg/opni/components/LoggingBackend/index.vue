@@ -5,7 +5,7 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
-import { getCapabilities } from '../../utils/requests/capability';
+import { getLoggingCapabilities } from '../../utils/requests/capability';
 import {
   getOpensearchCluster, GetOpensearchStatus, createOrUpdateOpensearchCluster, doUpgrade, upgradeAvailable, Status, deleteOpensearchCluster
 } from '../../utils/requests/loggingv2';
@@ -134,7 +134,7 @@ export default {
     },
 
     async loadCapabilities(parent) {
-      return await getCapabilities('logs', parent);
+      return await getLoggingCapabilities(parent);
     },
 
     async isEnabled() {

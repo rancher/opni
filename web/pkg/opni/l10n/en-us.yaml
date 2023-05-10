@@ -81,6 +81,7 @@ opni:
     numSeries: Number Series
     period: Period
     podName: Pod Name
+    provider: Provider
     role: Role
     sampleRate: Sample Rate
     status: Status

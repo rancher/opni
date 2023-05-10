@@ -174,7 +174,7 @@ export class Cluster extends Resource {
   }
 
   get capabilities(): string[] {
-    return this.base.metadata.capabilities.map(capability => capability.name);
+    return this.base?.metadata?.capabilities?.map(capability => capability.name) || [];
   }
 
   get capabilitiesRaw() {

@@ -4,8 +4,17 @@ option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
 
 package core;
+
+service Pinger {
+  rpc Ping(google.protobuf.Empty) returns (PingResponse);
+}
+
+message PingResponse {
+  string message = 1;
+}
 
 message BootstrapToken {
   string tokenID = 1;

@@ -227,6 +227,9 @@ func (m *MetricsBackend) GetDefaultConfiguration(ctx context.Context, _ *emptypb
 
 func (m *MetricsBackend) GetNodeConfiguration(ctx context.Context, node *v1.Reference) (*node.MetricsCapabilitySpec, error) {
 	m.WaitForInit()
+	if _, err := m.MgmtClient.GetCluster(ctx, node); err != nil {
+		return nil, err
+	}
 	return m.getNodeSpecOrDefault(ctx, node.GetId())
 }
 
@@ -252,6 +255,9 @@ func (m *MetricsBackend) SetDefaultConfiguration(ctx context.Context, conf *node
 
 func (m *MetricsBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
+	if _, err := m.MgmtClient.GetCluster(ctx, req.Node); err != nil {
+		return nil, err
+	}
 	if req.Spec == nil {
 		if err := m.KV.NodeCapabilitySpecs.Delete(ctx, req.Node.GetId()); err != nil {
 			return nil, err

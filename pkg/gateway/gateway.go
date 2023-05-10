@@ -227,6 +227,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(
+			NewRateLimiterInterceptor(lg).StreamServerInterceptor(),
 			clusterAuth,
 			syncServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),
@@ -248,6 +249,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
+	corev1.RegisterPingerServer(streamSvc, &pinger{})
 
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 

@@ -85,7 +85,7 @@ Note: some fields may contain secrets. The placeholder value "***" can be used t
 keep an existing secret when updating the cluster configuration.
 
 HTTP handlers for this method:
-- post:"/configure"  body:"*"
+- post:"/configure" body:"*"
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

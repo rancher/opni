@@ -36,14 +36,37 @@ service Ext {
       }
     };
   }
-  rpc Baz(BazRequest) returns (google.protobuf.Empty) {
+  rpc Baz(BazRequest) returns (BazRequest) {
     option (google.api.http) = {
       post: "/baz"
+      body: "*"
+      additional_bindings {
+        post: "/baz/{paramMsg.paramBool}/{paramMsg.paramString}/{paramMsg.paramEnum}"
+        body: "*"
+      }
+      additional_bindings {
+        post: "/baz/{paramMsg.paramMsg.paramMsg.paramMsg.paramString}"
+        body: "*"
+      }
+    };
+  }
+  rpc Set(SetRequest) returns (SetRequest) {
+    option (google.api.http) = {
+      put: "/set/{node.id}"
       body: "*"
     };
   }
   rpc ServerStream(FooRequest) returns (stream FooResponse);
   rpc ClientStream(stream FooRequest) returns (FooResponse);
+}
+
+message Reference {
+  string id = 1;
+}
+
+message SetRequest {
+  Reference node = 1;
+  string value = 2;
 }
 
 service Ext2 {
@@ -83,4 +106,5 @@ message BazRequest {
   bytes paramBytes = 10;
   BazEnum paramEnum = 11;
   repeated string paramRepeatedString = 12;
+  BazRequest paramMsg = 13;
 }

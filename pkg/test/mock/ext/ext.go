@@ -12,7 +12,6 @@ import (
 	ext "github.com/rancher/opni/pkg/test/testdata/plugins/ext"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // MockExtClient is a mock of ExtClient interface.
@@ -59,14 +58,14 @@ func (mr *MockExtClientMockRecorder) Bar(ctx, in interface{}, opts ...interface{
 }
 
 // Baz mocks base method.
-func (m *MockExtClient) Baz(ctx context.Context, in *ext.BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *MockExtClient) Baz(ctx context.Context, in *ext.BazRequest, opts ...grpc.CallOption) (*ext.BazRequest, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Baz", varargs...)
-	ret0, _ := ret[0].(*emptypb.Empty)
+	ret0, _ := ret[0].(*ext.BazRequest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -136,6 +135,26 @@ func (mr *MockExtClientMockRecorder) ServerStream(ctx, in interface{}, opts ...i
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerStream", reflect.TypeOf((*MockExtClient)(nil).ServerStream), varargs...)
+}
+
+// Set mocks base method.
+func (m *MockExtClient) Set(ctx context.Context, in *ext.SetRequest, opts ...grpc.CallOption) (*ext.SetRequest, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Set", varargs...)
+	ret0, _ := ret[0].(*ext.SetRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Set indicates an expected call of Set.
+func (mr *MockExtClientMockRecorder) Set(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockExtClient)(nil).Set), varargs...)
 }
 
 // MockExt_ServerStreamClient is a mock of Ext_ServerStreamClient interface.
@@ -437,10 +456,10 @@ func (mr *MockExtServerMockRecorder) Bar(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Baz mocks base method.
-func (m *MockExtServer) Baz(arg0 context.Context, arg1 *ext.BazRequest) (*emptypb.Empty, error) {
+func (m *MockExtServer) Baz(arg0 context.Context, arg1 *ext.BazRequest) (*ext.BazRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Baz", arg0, arg1)
-	ret0, _ := ret[0].(*emptypb.Empty)
+	ret0, _ := ret[0].(*ext.BazRequest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -492,6 +511,21 @@ func (m *MockExtServer) ServerStream(arg0 *ext.FooRequest, arg1 ext.Ext_ServerSt
 func (mr *MockExtServerMockRecorder) ServerStream(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerStream", reflect.TypeOf((*MockExtServer)(nil).ServerStream), arg0, arg1)
+}
+
+// Set mocks base method.
+func (m *MockExtServer) Set(arg0 context.Context, arg1 *ext.SetRequest) (*ext.SetRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Set", arg0, arg1)
+	ret0, _ := ret[0].(*ext.SetRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Set indicates an expected call of Set.
+func (mr *MockExtServerMockRecorder) Set(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockExtServer)(nil).Set), arg0, arg1)
 }
 
 // mustEmbedUnimplementedExtServer mocks base method.

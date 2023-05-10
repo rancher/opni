@@ -49,15 +49,29 @@ func buildMainPackage(ctr *dagger.Container, opts buildOpts) *dagger.Container {
 	})
 }
 
-func (b *builder) build(pipeline *dagger.Container) *dagger.Container {
+func (b *builder) buildPackages(ctr *dagger.Container) *dagger.Container {
+	return ctr.
+		WithEnvVariable("CGO_ENABLED", "0").
+		WithExec([]string{"go", "build", "-v", "-buildmode=archive", "-trimpath", "-tags=noagentv1,nomsgpack", "./..."})
+}
+
+func (b *builder) build(mageBuild *dagger.Container, nodeBuild *dagger.Container) *dagger.Container {
 	// optimization: (todo: improve further)
 	// build the main opni binary first so that all shared packages are cached
 	// when plugins and the minimal binary are built
-	build := b.buildOpni(pipeline.Pipeline("build"))
-
+	build := b.buildPackages(mageBuild)
+	webDist := b.buildWeb(nodeBuild)
+	b.buildOpni(build.WithMountedDirectory(path.Join(b.workdir, "web/dist"), webDist))
 	b.buildOpniMinimal(build)
 	b.buildPlugins(build)
 	return build
+}
+
+func (b *builder) buildWeb(pipeline *dagger.Container) *dagger.Directory {
+	return pipeline.
+		WithExec([]string{"yarn", "install"}).
+		WithExec([]string{"yarn", "build"}).
+		Directory(path.Join(b.workdir, "web/dist"))
 }
 
 func (b *builder) buildOpni(pipeline *dagger.Container) *dagger.Container {
@@ -121,10 +135,13 @@ func (b *builder) buildPlugins(pipeline *dagger.Container) *dagger.Container {
 	// })
 	// ctr := pipeline.WithMountedDirectory(b.workdir, sources)
 
-	for _, entry := range b.pluginDirs {
-		entry := entry
+	for _, entry := range b.hostInfo.PluginDirs {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
 		// todo: how to make each plugin not depend on previous plugins in the list?
-		b.buildPlugin("./"+path.Join("plugins", entry), "./"+path.Join("bin/plugins/", "plugin_"+entry))(pipeline)
+		b.buildPlugin("./"+path.Join("plugins", name), "./"+path.Join("bin/plugins/", "plugin_"+name))(pipeline)
 	}
 	return pipeline
 }

@@ -37,13 +37,6 @@ func (b *builder) generateProto(pipeline *dagger.Container) *dagger.Directory {
 	return generatedFiles
 }
 
-type mocks struct {
-	Mocks []struct {
-		Source string `yaml:"source"`
-		Dest   string `yaml:"dest"`
-	} `yaml:"mocks"`
-}
-
 func (b *builder) generateMocks(pipeline *dagger.Container) *dagger.Directory {
 	// todo: only generate source files newer than the generated ones
 	sources := []string{
@@ -52,7 +45,7 @@ func (b *builder) generateMocks(pipeline *dagger.Container) *dagger.Directory {
 		"go.mod",
 		"go.sum",
 	}
-	for _, m := range b.mocksConfig.Mocks {
+	for _, m := range b.hostInfo.MockgenConfig.Mocks {
 		if m.Source == "" {
 			continue
 		}

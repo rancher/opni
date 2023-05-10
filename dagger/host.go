@@ -1,18 +1,30 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/mod/modfile"
+	"gopkg.in/yaml.v3"
 )
 
-type HostArtifactInfo struct {
-	BuildIDs map[string]string // filename:buildid, filenames start with './bin/'
+type HostInfo struct {
+	PluginDirs    []fs.DirEntry
+	MockgenConfig struct {
+		Mocks []struct {
+			Source string `yaml:"source"`
+			Dest   string `yaml:"dest"`
+		} `yaml:"mocks"`
+	}
+	BuildIDs map[string]string // filename:buildid, filenames start with 'bin/'
 }
 
-func getHostArtifactInfo() (info HostArtifactInfo) {
+func getHostInfo() (info HostInfo) {
+	info.BuildIDs = map[string]string{}
+
 	rootDir, ok := getRootDir()
 	if !ok {
 		return
@@ -20,27 +32,32 @@ func getHostArtifactInfo() (info HostArtifactInfo) {
 
 	// find all the binaries in the root dir
 	binDir := filepath.Join(rootDir, "bin")
-	if _, err := os.Stat(binDir); err != nil {
-		return
+	if _, err := os.Stat(binDir); err == nil {
+		filepath.WalkDir(binDir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			// trim the root path prefix
+			relPath, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return err
+			}
+			info.BuildIDs[relPath] = getBuildID(path)
+			return nil
+		})
 	}
 
-	info.BuildIDs = map[string]string{}
-
-	filepath.WalkDir(binDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		// trim the root path prefix
-		relPath, err := filepath.Rel(rootDir, path)
-		if err != nil {
-			return err
-		}
-		info.BuildIDs[relPath] = getBuildID(path)
-		return nil
-	})
+	mockConfig, err := os.ReadFile(filepath.Join(rootDir, "pkg/test/mock/mockgen.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	if err := yaml.Unmarshal([]byte(mockConfig), &info.MockgenConfig); err != nil {
+		panic(err)
+	}
+	info.PluginDirs, _ = os.ReadDir(filepath.Join(rootDir, "plugins"))
 
 	return
 }
@@ -70,5 +87,5 @@ func getBuildID(path string) string {
 	if err != nil {
 		panic(err)
 	}
-	return string(out)
+	return strings.TrimSpace(string(out))
 }

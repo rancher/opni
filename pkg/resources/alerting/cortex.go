@@ -256,7 +256,7 @@ func (r *Reconciler) cortexSet() []resources.Resource {
 	requiredPersistentClaims := []corev1.PersistentVolumeClaim{pvc}
 
 	// iterate over CRD configs
-	for _, vSpec := range r.ac.Spec.Alertmanager.ApplicationSpec.ExtraVolumeSpec {
+	for _, vSpec := range r.ac.Spec.Alertmanager.ApplicationSpec.ExtraVolumes {
 		requiredVolumes = append(requiredVolumes, vSpec.Volume)
 		requiredVolumeMounts = append(requiredVolumeMounts, vSpec.VolumeMount)
 	}

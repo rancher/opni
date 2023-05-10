@@ -67,8 +67,8 @@ func (in *AlertingApplicationSpec) DeepCopyInto(out *AlertingApplicationSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ExtraVolumeSpec != nil {
-		in, out := &in.ExtraVolumeSpec, &out.ExtraVolumeSpec
+	if in.ExtraVolumes != nil {
+		in, out := &in.ExtraVolumes, &out.ExtraVolumes
 		*out = make([]VolumeSpec, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

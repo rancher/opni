@@ -48,7 +48,7 @@ type VolumeSpec struct {
 type AlertingApplicationSpec struct {
 	Replicas                                    *int32                            `json:"replicas,omitempty"`
 	ExtraArgs                                   []string                          `json:"extraArgs,omitempty"`
-	ExtraVolumeSpec                             []VolumeSpec                      `json:"extraVolumeSpec,omitempty"`
+	ExtraVolumes                                []VolumeSpec                      `json:"extraVolumes,omitempty"`
 	ExtraEnvVars                                []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
 	SidecarContainers                           []corev1.Container                `json:"sidecarContainers,omitempty"`
 	ResourceRequirements                        *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`

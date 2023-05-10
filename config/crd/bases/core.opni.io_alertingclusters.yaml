@@ -649,7 +649,7 @@ spec:
                           - name
                           type: object
                         type: array
-                      extraVolumeSpec:
+                      extraVolumes:
                         items:
                           properties:
                             volume:

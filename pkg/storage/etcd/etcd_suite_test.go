@@ -6,9 +6,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	conformance "github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/test"
+	. "github.com/rancher/opni/pkg/test/conformance/storage"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util/future"
@@ -40,8 +40,8 @@ var _ = BeforeSuite(func() {
 	})
 })
 
-var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))
-var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), conformance.ClusterStoreTestSuite(store))
-var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), conformance.RBACStoreTestSuite(store))
-var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), conformance.KeyringStoreTestSuite(store))
-var _ = Describe("KV Store", Ordered, Label("integration", "slow"), conformance.KeyValueStoreTestSuite(store))
+var _ = Describe("Token Store", Ordered, Label("integration", "slow"), TokenStoreTestSuite(store))
+var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), ClusterStoreTestSuite(store))
+var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
+var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
+var _ = Describe("KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store))

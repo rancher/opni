@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
-	conformance "github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/crds"
+	. "github.com/rancher/opni/pkg/test/conformance/storage"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
@@ -43,6 +43,6 @@ var _ = BeforeSuite(func() {
 	})
 })
 
-var _ = Describe("Token Store", Ordered, Label("integration", "slow"), conformance.TokenStoreTestSuite(store))
-var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), conformance.RBACStoreTestSuite(store))
-var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), conformance.KeyringStoreTestSuite(store))
+var _ = Describe("Token Store", Ordered, Label("integration", "slow"), TokenStoreTestSuite(store))
+var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
+var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))

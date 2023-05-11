@@ -1,12 +1,15 @@
 package dashboard
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -14,6 +17,10 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/web"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -60,9 +67,14 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	lg.With(
 		"address", listener.Addr(),
 	).Info("ui server starting")
-
+	proxyTracer := otel.Tracer("dashboard-proxy")
+	webFsTracer := otel.Tracer("webfs")
 	router := gin.New()
-	router.Use(gin.Recovery(), logger.GinLogger(ws.logger))
+	router.Use(
+		gin.Recovery(),
+		logger.GinLogger(ws.logger),
+		otelgin.Middleware("opni-ui"),
+	)
 
 	// Static assets
 	sub, err := fs.Sub(web.DistFS, "dist")
@@ -73,6 +85,10 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	webfs := http.FS(sub)
 
 	router.NoRoute(func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		_, span := webFsTracer.Start(ctx, c.Request.URL.Path)
+		defer span.End()
 		path := c.Request.URL.Path
 		if path[0] == '/' {
 			path = path[1:]
@@ -95,12 +111,32 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		return err
 	}
 	router.Any("/opni-api/*any", gin.WrapH(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		_, span := proxyTracer.Start(
+			ctx,
+			r.URL.Path,
+			func() (tr []trace.SpanStartOption) {
+				for k, v := range r.Header {
+					tr = append(tr, trace.WithAttributes(attribute.String(k, strings.Join(v, ","))))
+
+				}
+				tr = append(tr, trace.WithAttributes(attribute.String("proxy-method", r.Method)))
+				tr = append(tr, trace.WithAttributes(attribute.String("proxy-url", mgmtUrl.String())))
+				return tr
+			}()...,
+		)
+
+		defer func() {
+			cancel()
+			span.End()
+		}()
+
 		// round-trip to the management API
 		// strip the prefix /opni-api/
 		u := *mgmtUrl
 		u.Path = r.URL.Path[len("/opni-api/"):]
 
-		req, err := http.NewRequest(r.Method, u.String(), r.Body)
+		req, err := http.NewRequestWithContext(ctx, r.Method, u.String(), r.Body)
 		if err != nil {
 			lg.With(
 				zap.Error(err),

@@ -3,11 +3,11 @@ package cortex
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"net/url"
 	"reflect"
 	"time"
 
+	"github.com/imdario/mergo"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/logging"
@@ -49,7 +49,6 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
-	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/relabel"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
@@ -212,16 +211,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
 	}
 
-	var retentionPeriod time.Duration
-	if d := r.mc.Spec.Cortex.Storage.GetRetentionPeriod(); d != nil {
-		duration := d.AsDuration()
-		if duration > 0 && duration < 2*time.Hour {
-			r.logger.Warn("Storage retention period is below the minimum required (2 hours); using default retention period (unlimited)")
-		} else {
-			retentionPeriod = duration
-		}
-	}
-
 	config := cortex.Config{
 		AuthEnabled: true,
 		TenantFederation: tenantfederation.Config{
@@ -349,7 +338,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
 			},
-			AtModifierEnabled:   true,
 			QueryStoreForLabels: true,
 		},
 		QueryRange: queryrange.Config{
@@ -386,20 +374,34 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		LimitsConfig: validation.Limits{
-			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),
-			IngestionRateStrategy:              "local",
-			IngestionRate:                      600000,
-			IngestionBurstSize:                 1000000,
-			MaxLocalSeriesPerUser:              math.MaxInt32,
-			MaxLocalSeriesPerMetric:            math.MaxInt32,
-			MaxLocalMetricsWithMetadataPerUser: math.MaxInt32,
-			MaxLocalMetadataPerMetric:          math.MaxInt32,
-			MaxGlobalSeriesPerUser:             math.MaxInt32,
-			MaxGlobalSeriesPerMetric:           math.MaxInt32,
+			// CompactorBlocksRetentionPeriod: model.Duration(retentionPeriod),
+			// IngestionRateStrategy:              "local",
+			// IngestionRate:                      600000,
+			// IngestionBurstSize:                 1000000,
+			// MaxLocalSeriesPerUser:              math.MaxInt32,
+			// MaxLocalSeriesPerMetric:            math.MaxInt32,
+			// MaxLocalMetricsWithMetadataPerUser: math.MaxInt32,
+			// MaxLocalMetadataPerMetric:          math.MaxInt32,
+			// MaxGlobalSeriesPerUser:             math.MaxInt32,
+			// MaxGlobalSeriesPerMetric:           math.MaxInt32,
 			MetricRelabelConfigs: []*relabel.Config{
 				metrics.OpniInternalLabelFilter(),
 			},
 		},
+	}
+
+	if err := mergo.Merge(&config.LimitsConfig, &r.mc.Spec.Cortex.Limits); err != nil {
+		return nil, fmt.Errorf("failed to merge limits config: %w", err)
+	}
+	if r.mc.Spec.Cortex.CompactorConfig != nil {
+		if err := mergo.Merge(&config.Compactor, r.mc.Spec.Cortex.CompactorConfig); err != nil {
+			return nil, fmt.Errorf("failed to merge compactor config: %w", err)
+		}
+	}
+	if r.mc.Spec.Cortex.QuerierConfig != nil {
+		if err := mergo.Merge(&config.Querier, r.mc.Spec.Cortex.QuerierConfig); err != nil {
+			return nil, fmt.Errorf("failed to merge querier config: %w", err)
+		}
 	}
 
 	buf := new(bytes.Buffer)

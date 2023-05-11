@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -113,12 +112,6 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	if conf.Grafana.Hostname == "" {
 		conf.Grafana.Hostname = defaultGrafanaHostname
 	}
-	if conf.Storage != nil && conf.Storage.RetentionPeriod != nil {
-		retention := conf.Storage.RetentionPeriod.AsDuration()
-		if retention > 0 && retention < 2*time.Hour {
-			return nil, fmt.Errorf("storage retention period must be at least 2 hours")
-		}
-	}
 
 	mutator := func(cluster *opnicorev1beta1.MonitoringCluster) error {
 		if err := conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
@@ -136,6 +129,19 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
+
+		if conf.Cortex.Limits != nil {
+			cluster.Spec.Cortex.Limits = conf.Cortex.Limits
+		}
+		if conf.Cortex.Compactor != nil {
+			cluster.Spec.Cortex.CompactorConfig = conf.Cortex.Compactor
+		}
+		if conf.Cortex.Querier != nil {
+			cluster.Spec.Cortex.QuerierConfig = conf.Cortex.Querier
+		}
+		if conf.Cortex.TenantLimits != nil {
+			cluster.Spec.Cortex.TenantLimits = conf.Cortex.TenantLimits
+		}
 
 		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())
 		return nil

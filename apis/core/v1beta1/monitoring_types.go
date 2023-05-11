@@ -2,6 +2,9 @@ package v1beta1
 
 import (
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+	"github.com/rancher/opni/internal/cortex/config/compactor"
+	"github.com/rancher/opni/internal/cortex/config/querier"
+	"github.com/rancher/opni/internal/cortex/config/validation"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
@@ -69,7 +72,11 @@ type CortexSpec struct {
 
 	// Overrides for specific workloads. If unset, all values have automatic
 	// defaults based on the deployment mode.
-	Workloads CortexWorkloadsSpec `json:"workloads,omitempty"`
+	Workloads       CortexWorkloadsSpec           `json:"workloads,omitempty"`
+	Limits          *validation.Limits            `json:"limits,omitempty"`
+	TenantLimits    map[string]*validation.Limits `json:"tenantLimits,omitempty"`
+	CompactorConfig *compactor.Config             `json:"compactorConfig,omitempty"`
+	QuerierConfig   *querier.Config               `json:"querierConfig,omitempty"`
 }
 
 type CortexWorkloadsSpec struct {

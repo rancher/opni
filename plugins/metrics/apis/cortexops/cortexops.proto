@@ -6,6 +6,9 @@ import "google/protobuf/duration.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
+import "github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto";
+import "github.com/rancher/opni/internal/cortex/config/querier/querier.proto";
 
 package cortexops;
 
@@ -125,96 +128,30 @@ message CortexWorkloadSpec {
 }
 
 message CortexConfig {
-  CompactorConfig compactor = 1;
-  QuerierConfig querier = 2;
-  DistributorConfig distributor = 3;
-  IngesterConfig ingester = 4;
+  validation.Limits limits = 1  [(cli.flag_set) = {
+    default: {
+      [type.googleapis.com/validation.Limits]: {
+        compactor_blocks_retention_period: { seconds: 2592000 } // 30 days
+        ingestion_rate: 600000
+        ingestion_rate_strategy: "local"
+        ingestion_burst_size: 1000000
+        max_series_per_user: 0
+        max_series_per_metric: 0
+        max_global_series_per_user: 0
+        max_global_series_per_metric: 0
+        max_metadata_per_user: 0
+        max_metadata_per_metric: 0
+        max_global_metadata_per_user: 0
+        max_global_metadata_per_metric: 0
+        max_fetched_series_per_query: 0
+      }
+    }
+  }];
+  map<string, validation.Limits> tenantLimits = 2 [(cli.flag).skip=true];
+  compactor.Config compactor = 3;
+  querier.Config querier = 4;
 }
 
-message CompactorConfig {
-  // List of compaction time ranges
-  repeated google.protobuf.Duration blockRanges = 1 [(cli.flag).default="2h,12h,24h"];
-  // The frequency at which the compaction runs
-  google.protobuf.Duration compactionInterval = 2 [(cli.flag).default="1h"];
-  // How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index
-  google.protobuf.Duration cleanupInterval = 3 [(cli.flag).default="15m"];
-  // Time before a block marked for deletion is deleted from the bucket
-  google.protobuf.Duration deletionDelay = 4 [(cli.flag).default="12h"];
-  // For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant
-  google.protobuf.Duration tenantCleanupDelay = 5 [(cli.flag).default="6h"];
-}
-
-message QuerierConfig {
-  // The timeout for a query
-  google.protobuf.Duration queryTimeout = 1 [(cli.flag).default="2m"];
-
-  // Maximum number of samples a single query can load into memory
-  int32 maxSamples = 2 [(cli.flag).default="50e6"];
-
-  // Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.
-  google.protobuf.Duration queryIngestersWithin = 3 [(cli.flag).default="0"];
-
-  // Maximum duration into the future you can query. 0 to disable
-  google.protobuf.Duration maxQueryIntoFuture = 4 [(cli.flag).default="10m"];
-
-  // The default evaluation interval or step size for subqueries
-  google.protobuf.Duration defaultEvaluationInterval = 5 [(cli.flag).default="1m"];
-
-  // The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store.
-  // When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated
-  // to ensure the query end is not more recent than 'now - query-store-after'.
-  google.protobuf.Duration queryStoreAfter = 6 [(cli.flag).default="0"];
-
-  // Time since the last sample after which a time series is considered stale and ignored by expression evaluations
-  google.protobuf.Duration lookbackDelta = 7 [(cli.flag).default="5m"];
-
-  // When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from
-  // the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'.
-  // The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'.
-  // If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).
-  google.protobuf.Duration shuffleShardingIngestersLookbackPeriod = 8 [(cli.flag).default="0"];
-
-  // The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable
-  int32 maxFetchedSeriesPerQuery = 9 [(cli.flag).default="0"];
-}
-
-
-message DistributorConfig {
-  // Per-user ingestion rate limit in samples per second.
-  double ingestionRate = 1 [(cli.flag).default="600000"];
-
-  // Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).
-  string ingestionRateStrategy = 2 [(cli.flag).default="local"];
-
-  // Per-user allowed ingestion burst size (in number of samples).
-  int32 ingestionBurstSize = 3 [(cli.flag).default="1000000"];
-}
-
-message IngesterConfig {
-  // The maximum number of active series per user, per ingester. 0 to disable.
-  int32 maxLocalSeriesPerUser = 1 [(cli.flag).default="0"];
-
-  // The maximum number of active series per metric name, per ingester. 0 to disable.
-  int32 maxLocalSeriesPerMetric = 2 [(cli.flag).default="0"];
-
-  // The maximum number of active series per user, across the cluster before replication. 0 to disable.
-  int32 maxGlobalSeriesPerUser = 3 [(cli.flag).default="0"];
-
-  // The maximum number of active series per metric name, across the cluster before replication. 0 to disable.
-  int32 maxGlobalSeriesPerMetric = 4 [(cli.flag).default="0"];
-
-  // The maximum number of active metrics with metadata per user, per ingester. 0 to disable.
-  int32 maxLocalMetricsWithMetadataPerUser = 5 [(cli.flag).default="0"];
-
-  // The maximum number of metadata per metric, per ingester. 0 to disable.
-  int32 maxLocalMetadataPerMetric = 6 [(cli.flag).default="0"];
-
-  // The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.
-  int32 maxGlobalMetricsWithMetadataPerUser = 7 [(cli.flag).default="0"];
-
-  // The maximum number of metadata per metric, across the cluster. 0 to disable.
-  int32 maxGlobalMetadataPerMetric = 8 [(cli.flag).default="0"];
-}
 
 message GrafanaConfig {
   // Whether to deploy a managed Grafana instance.

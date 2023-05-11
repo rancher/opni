@@ -29,6 +29,116 @@ spec:
             properties:
               cortex:
                 properties:
+                  compactorConfig:
+                    properties:
+                      block_deletion_marks_migration_enabled:
+                        type: boolean
+                      block_files_concurrency:
+                        format: int32
+                        type: integer
+                      block_ranges:
+                        items:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        type: array
+                      block_sync_concurrency:
+                        format: int32
+                        type: integer
+                      block_visit_marker_file_update_interval:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      block_visit_marker_timeout:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      blocks_fetch_concurrency:
+                        format: int32
+                        type: integer
+                      cleanup_concurrency:
+                        format: int32
+                        type: integer
+                      cleanup_interval:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      compaction_concurrency:
+                        format: int32
+                        type: integer
+                      compaction_interval:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      compaction_retries:
+                        format: int32
+                        type: integer
+                      consistency_delay:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      deletion_delay:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      disabled_tenants:
+                        items:
+                          type: string
+                        type: array
+                      enabled_tenants:
+                        items:
+                          type: string
+                        type: array
+                      meta_sync_concurrency:
+                        format: int32
+                        type: integer
+                      skip_blocks_with_out_of_order_chunks_enabled:
+                        type: boolean
+                      tenant_cleanup_delay:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
                   deploymentMode:
                     type: string
                   enabled:
@@ -112,8 +222,328 @@ spec:
                           x-kubernetes-map-type: atomic
                         type: array
                     type: object
+                  limits:
+                    properties:
+                      accept_ha_samples:
+                        type: boolean
+                      alertmanager_max_alerts_count:
+                        format: int32
+                        type: integer
+                      alertmanager_max_alerts_size_bytes:
+                        format: int32
+                        type: integer
+                      alertmanager_max_config_size_bytes:
+                        format: int32
+                        type: integer
+                      alertmanager_max_dispatcher_aggregation_groups:
+                        format: int32
+                        type: integer
+                      alertmanager_max_template_size_bytes:
+                        format: int32
+                        type: integer
+                      alertmanager_max_templates_count:
+                        format: int32
+                        type: integer
+                      alertmanager_notification_rate_limit:
+                        type: number
+                      alertmanager_notification_rate_limit_per_integration:
+                        additionalProperties:
+                          type: number
+                        type: object
+                      alertmanager_receivers_firewall_block_cidr_networks:
+                        items:
+                          type: string
+                        type: array
+                      alertmanager_receivers_firewall_block_private_addresses:
+                        type: boolean
+                      compactor_blocks_retention_period:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      compactor_tenant_shard_size:
+                        format: int32
+                        type: integer
+                      creation_grace_period:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      drop_labels:
+                        items:
+                          type: string
+                        type: array
+                      enforce_metadata_metric_name:
+                        type: boolean
+                      enforce_metric_name:
+                        type: boolean
+                      ha_cluster_label:
+                        type: string
+                      ha_max_clusters:
+                        format: int32
+                        type: integer
+                      ha_replica_label:
+                        type: string
+                      ingestion_burst_size:
+                        format: int32
+                        type: integer
+                      ingestion_rate:
+                        type: number
+                      ingestion_rate_strategy:
+                        type: string
+                      ingestion_tenant_shard_size:
+                        format: int32
+                        type: integer
+                      max_cache_freshness:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      max_exemplars:
+                        format: int32
+                        type: integer
+                      max_fetched_chunk_bytes_per_query:
+                        format: int32
+                        type: integer
+                      max_fetched_chunks_per_query:
+                        format: int32
+                        type: integer
+                      max_fetched_data_bytes_per_query:
+                        format: int32
+                        type: integer
+                      max_fetched_series_per_query:
+                        format: int32
+                        type: integer
+                      max_global_metadata_per_metric:
+                        format: int32
+                        type: integer
+                      max_global_metadata_per_user:
+                        format: int32
+                        type: integer
+                      max_global_series_per_metric:
+                        format: int32
+                        type: integer
+                      max_global_series_per_user:
+                        format: int32
+                        type: integer
+                      max_label_name_length:
+                        format: int32
+                        type: integer
+                      max_label_names_per_series:
+                        format: int32
+                        type: integer
+                      max_label_value_length:
+                        format: int32
+                        type: integer
+                      max_labels_size_bytes:
+                        format: int32
+                        type: integer
+                      max_metadata_length:
+                        format: int32
+                        type: integer
+                      max_metadata_per_metric:
+                        format: int32
+                        type: integer
+                      max_metadata_per_user:
+                        format: int32
+                        type: integer
+                      max_outstanding_requests_per_tenant:
+                        format: int32
+                        type: integer
+                      max_queriers_per_tenant:
+                        format: int32
+                        type: integer
+                      max_query_length:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      max_query_lookback:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      max_query_parallelism:
+                        format: int32
+                        type: integer
+                      max_series_per_metric:
+                        format: int32
+                        type: integer
+                      max_series_per_query:
+                        format: int32
+                        type: integer
+                      max_series_per_user:
+                        format: int32
+                        type: integer
+                      metric_relabel_configs:
+                        items:
+                          properties:
+                            action:
+                              type: string
+                            modulus:
+                              format: int64
+                              type: integer
+                            regex:
+                              type: string
+                            replacement:
+                              type: string
+                            separator:
+                              type: string
+                            source_labels:
+                              items:
+                                type: string
+                              type: array
+                            target_label:
+                              type: string
+                          type: object
+                        type: array
+                      reject_old_samples:
+                        type: boolean
+                      reject_old_samples_max_age:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      ruler_evaluation_delay_duration:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      ruler_max_rule_groups_per_tenant:
+                        format: int32
+                        type: integer
+                      ruler_max_rules_per_rule_group:
+                        format: int32
+                        type: integer
+                      ruler_tenant_shard_size:
+                        format: int32
+                        type: integer
+                      s3_sse_kms_encryption_context:
+                        type: string
+                      s3_sse_kms_key_id:
+                        type: string
+                      s3_sse_type:
+                        type: string
+                      store_gateway_tenant_shard_size:
+                        format: int32
+                        type: integer
+                    type: object
                   logLevel:
                     type: string
+                  querierConfig:
+                    properties:
+                      batch_iterators:
+                        type: boolean
+                      default_evaluation_interval:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      ingester_metadata_streaming:
+                        type: boolean
+                      ingester_streaming:
+                        type: boolean
+                      iterators:
+                        type: boolean
+                      lookback_delta:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      max_concurrent:
+                        format: int32
+                        type: integer
+                      max_query_into_future:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      max_samples:
+                        format: int32
+                        type: integer
+                      per_step_stats_enabled:
+                        type: boolean
+                      query_ingesters_within:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      query_store_after:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      query_store_for_labels_enabled:
+                        type: boolean
+                      shuffle_sharding_ingesters_lookback_period:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                      thanos_engine:
+                        type: boolean
+                      timeout:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
                   storage:
                     properties:
                       azure:
@@ -197,15 +627,6 @@ spec:
                             type: string
                           serviceAccount:
                             type: string
-                        type: object
-                      retentionPeriod:
-                        properties:
-                          nanos:
-                            format: int32
-                            type: integer
-                          seconds:
-                            format: int64
-                            type: integer
                         type: object
                       s3:
                         properties:
@@ -338,6 +759,242 @@ spec:
                           username:
                             type: string
                         type: object
+                    type: object
+                  tenantLimits:
+                    additionalProperties:
+                      properties:
+                        accept_ha_samples:
+                          type: boolean
+                        alertmanager_max_alerts_count:
+                          format: int32
+                          type: integer
+                        alertmanager_max_alerts_size_bytes:
+                          format: int32
+                          type: integer
+                        alertmanager_max_config_size_bytes:
+                          format: int32
+                          type: integer
+                        alertmanager_max_dispatcher_aggregation_groups:
+                          format: int32
+                          type: integer
+                        alertmanager_max_template_size_bytes:
+                          format: int32
+                          type: integer
+                        alertmanager_max_templates_count:
+                          format: int32
+                          type: integer
+                        alertmanager_notification_rate_limit:
+                          type: number
+                        alertmanager_notification_rate_limit_per_integration:
+                          additionalProperties:
+                            type: number
+                          type: object
+                        alertmanager_receivers_firewall_block_cidr_networks:
+                          items:
+                            type: string
+                          type: array
+                        alertmanager_receivers_firewall_block_private_addresses:
+                          type: boolean
+                        compactor_blocks_retention_period:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        compactor_tenant_shard_size:
+                          format: int32
+                          type: integer
+                        creation_grace_period:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        drop_labels:
+                          items:
+                            type: string
+                          type: array
+                        enforce_metadata_metric_name:
+                          type: boolean
+                        enforce_metric_name:
+                          type: boolean
+                        ha_cluster_label:
+                          type: string
+                        ha_max_clusters:
+                          format: int32
+                          type: integer
+                        ha_replica_label:
+                          type: string
+                        ingestion_burst_size:
+                          format: int32
+                          type: integer
+                        ingestion_rate:
+                          type: number
+                        ingestion_rate_strategy:
+                          type: string
+                        ingestion_tenant_shard_size:
+                          format: int32
+                          type: integer
+                        max_cache_freshness:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        max_exemplars:
+                          format: int32
+                          type: integer
+                        max_fetched_chunk_bytes_per_query:
+                          format: int32
+                          type: integer
+                        max_fetched_chunks_per_query:
+                          format: int32
+                          type: integer
+                        max_fetched_data_bytes_per_query:
+                          format: int32
+                          type: integer
+                        max_fetched_series_per_query:
+                          format: int32
+                          type: integer
+                        max_global_metadata_per_metric:
+                          format: int32
+                          type: integer
+                        max_global_metadata_per_user:
+                          format: int32
+                          type: integer
+                        max_global_series_per_metric:
+                          format: int32
+                          type: integer
+                        max_global_series_per_user:
+                          format: int32
+                          type: integer
+                        max_label_name_length:
+                          format: int32
+                          type: integer
+                        max_label_names_per_series:
+                          format: int32
+                          type: integer
+                        max_label_value_length:
+                          format: int32
+                          type: integer
+                        max_labels_size_bytes:
+                          format: int32
+                          type: integer
+                        max_metadata_length:
+                          format: int32
+                          type: integer
+                        max_metadata_per_metric:
+                          format: int32
+                          type: integer
+                        max_metadata_per_user:
+                          format: int32
+                          type: integer
+                        max_outstanding_requests_per_tenant:
+                          format: int32
+                          type: integer
+                        max_queriers_per_tenant:
+                          format: int32
+                          type: integer
+                        max_query_length:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        max_query_lookback:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        max_query_parallelism:
+                          format: int32
+                          type: integer
+                        max_series_per_metric:
+                          format: int32
+                          type: integer
+                        max_series_per_query:
+                          format: int32
+                          type: integer
+                        max_series_per_user:
+                          format: int32
+                          type: integer
+                        metric_relabel_configs:
+                          items:
+                            properties:
+                              action:
+                                type: string
+                              modulus:
+                                format: int64
+                                type: integer
+                              regex:
+                                type: string
+                              replacement:
+                                type: string
+                              separator:
+                                type: string
+                              source_labels:
+                                items:
+                                  type: string
+                                type: array
+                              target_label:
+                                type: string
+                            type: object
+                          type: array
+                        reject_old_samples:
+                          type: boolean
+                        reject_old_samples_max_age:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        ruler_evaluation_delay_duration:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
+                        ruler_max_rule_groups_per_tenant:
+                          format: int32
+                          type: integer
+                        ruler_max_rules_per_rule_group:
+                          format: int32
+                          type: integer
+                        ruler_tenant_shard_size:
+                          format: int32
+                          type: integer
+                        s3_sse_kms_encryption_context:
+                          type: string
+                        s3_sse_kms_key_id:
+                          type: string
+                        s3_sse_type:
+                          type: string
+                        store_gateway_tenant_shard_size:
+                          format: int32
+                          type: integer
+                      type: object
                     type: object
                   workloads:
                     properties:

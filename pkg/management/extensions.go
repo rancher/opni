@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -67,7 +66,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 	lg := m.logger
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
+		reflectClient := grpcreflect.NewClientAuto(ctx, cc)
 		sds, err := p.Descriptors(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(

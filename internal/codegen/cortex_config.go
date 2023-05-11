@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/cortexproject/cortex/pkg/compactor"
+	"github.com/cortexproject/cortex/pkg/querier"
+	"github.com/cortexproject/cortex/pkg/util/validation"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
 	"github.com/jhump/protoreflect/desc/protoprint"
@@ -17,6 +19,23 @@ import (
 )
 
 func GenCortexConfig() error {
+	if err := generate[validation.Limits]("github.com/rancher/opni/internal/cortex/config/validation/limits.proto"); err != nil {
+		return err
+	}
+	if err := generate[compactor.Config]("github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto"); err != nil {
+		return err
+	}
+	if err := generate[querier.Config]("github.com/rancher/opni/internal/cortex/config/querier/querier.proto",
+		func(rf reflect.StructField) bool {
+			if rf.Name == "StoreGatewayAddresses" || rf.Name == "StoreGatewayClient" {
+				return true
+			}
+			return false
+		},
+	); err != nil {
+		return err
+	}
+
 	return nil
 }
 

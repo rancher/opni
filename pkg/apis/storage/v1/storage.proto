@@ -28,9 +28,6 @@ message StorageSpec {
   AzureStorageSpec azure = 4;
   SwiftStorageSpec swift = 5;
   FilesystemStorageSpec filesystem = 6;
-
-	// Retention period for persisted data. If 0, data will be retained indefinitely.
-	google.protobuf.Duration retentionPeriod = 7;
 }
 
 message S3StorageSpec {

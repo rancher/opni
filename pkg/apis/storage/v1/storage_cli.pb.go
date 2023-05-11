@@ -42,7 +42,6 @@ func (in *StorageSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Filesystem = &FilesystemStorageSpec{}
 	}
 	fs.AddFlagSet(in.Filesystem.FlagSet(append(prefix, "filesystem")...))
-	fs.Var(flagutil.DurationpbValue(0, &in.RetentionPeriod), strings.Join(append(prefix, "retention-period"), "."), "Retention period for persisted data. If 0, data will be retained indefinitely.")
 	return fs
 }
 

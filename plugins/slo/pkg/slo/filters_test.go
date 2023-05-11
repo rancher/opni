@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 

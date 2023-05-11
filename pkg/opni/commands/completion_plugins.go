@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )

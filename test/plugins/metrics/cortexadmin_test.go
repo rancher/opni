@@ -10,6 +10,8 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/tidwall/gjson"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,8 +21,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"

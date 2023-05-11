@@ -3,8 +3,8 @@ package gateway
 import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
+	"github.com/rancher/opni/plugins/topology/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/stream"
 )
 
 func (p *Plugin) StreamServers() []streamext.Server {

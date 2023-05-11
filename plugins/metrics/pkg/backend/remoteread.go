@@ -6,10 +6,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rancher/opni/pkg/apis/core/v1"
-	v12 "github.com/rancher/opni/pkg/apis/stream/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -199,7 +199,7 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 		return nil, fmt.Errorf("target '%s/%s' does not exist", request.Meta.ClusterId, request.Meta.Name)
 	}
 
-	newStatus, err := m.Delegate.WithTarget(&v1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
+	newStatus, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "target not found") {
@@ -242,7 +242,7 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 
 	request.Target = target
 
-	_, err := m.Delegate.WithTarget(&v1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
@@ -271,7 +271,7 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 		return nil, fmt.Errorf("encountered nil delegate")
 	}
 
-	_, err := m.Delegate.WithTarget(&v1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
+	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
 
 	if err != nil {
 		m.Logger.With(
@@ -295,9 +295,9 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 
 func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
 	m.WaitForInit()
-	response, err := m.Delegate.WithBroadcastSelector(&v1.ClusterSelector{
+	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
 		ClusterIDs: request.ClusterIds,
-	}, func(reply interface{}, responses *v12.BroadcastReplyList) error {
+	}, func(reply interface{}, responses *streamv1.BroadcastReplyList) error {
 		discoveryReply := reply.(*remoteread.DiscoveryResponse)
 		discoveryReply.Entries = make([]*remoteread.DiscoveryEntry, 0)
 

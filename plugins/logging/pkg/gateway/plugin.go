@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/apis/opensearch"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -30,8 +32,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"

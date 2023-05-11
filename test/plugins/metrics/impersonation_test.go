@@ -22,8 +22,8 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

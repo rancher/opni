@@ -10,8 +10,8 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/topology/graph"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
+	"github.com/rancher/opni/plugins/topology/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/stream"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 

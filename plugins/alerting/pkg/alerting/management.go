@@ -9,6 +9,7 @@ import (
 
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -20,7 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

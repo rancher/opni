@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/node"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"

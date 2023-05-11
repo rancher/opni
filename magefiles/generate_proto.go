@@ -10,7 +10,7 @@ import (
 	"github.com/kralicky/ragu/pkg/plugins/python"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/target"
-	"github.com/rancher/opni/internal/cli"
+	"github.com/rancher/opni/internal/codegen/cli"
 )
 
 func ProtobufGo() error {

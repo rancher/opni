@@ -10,8 +10,8 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

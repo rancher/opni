@@ -7,9 +7,9 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc"
 )

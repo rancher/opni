@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/golang/mock/gomock"
-	"github.com/rancher/opni/pkg/apis/capability/v1"
-	v12 "github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/grpc"
@@ -50,7 +50,7 @@ func NewTestCapabilityBackend(
 		Install(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, req *v1.InstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
-				storage.NewAddCapabilityMutator[*v12.Cluster](capabilities.Cluster("test")),
+				storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")),
 			)
 			if err != nil {
 				return nil, err
@@ -62,7 +62,7 @@ func NewTestCapabilityBackend(
 		Uninstall(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, req *v1.UninstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
-				storage.NewRemoveCapabilityMutator[*v12.Cluster](capabilities.Cluster("test")))
+				storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")))
 			if err != nil {
 				return nil, err
 			}
@@ -71,7 +71,7 @@ func NewTestCapabilityBackend(
 		AnyTimes()
 	client.EXPECT().
 		UninstallStatus(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *v12.Reference, _ ...grpc.CallOption) (*v12.TaskStatus, error) {
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference, _ ...grpc.CallOption) (*corev1.TaskStatus, error) {
 			c, err := capBackend.Storage.GetCluster(ctx, ref)
 			if err != nil {
 				return nil, err
@@ -79,18 +79,18 @@ func NewTestCapabilityBackend(
 			for _, cap := range c.GetCapabilities() {
 				if cap.Name == "test" {
 					if cap.DeletionTimestamp != nil {
-						return &v12.TaskStatus{
-							State: v12.TaskState_Running,
+						return &corev1.TaskStatus{
+							State: corev1.TaskState_Running,
 						}, nil
 					} else {
-						return &v12.TaskStatus{
-							State: v12.TaskState_Unknown,
+						return &corev1.TaskStatus{
+							State: corev1.TaskState_Unknown,
 						}, nil
 					}
 				}
 			}
-			return &v12.TaskStatus{
-				State: v12.TaskState_Completed,
+			return &corev1.TaskStatus{
+				State: corev1.TaskState_Completed,
 			}, nil
 		}).
 		AnyTimes()

@@ -3,13 +3,13 @@ package agent
 import (
 	"context"
 	"sync"
-
 	"sync/atomic"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/util/push"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 )
 
 type HttpServer struct {

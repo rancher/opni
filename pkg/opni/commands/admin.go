@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/araddon/dateparse"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
@@ -22,7 +23,6 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"

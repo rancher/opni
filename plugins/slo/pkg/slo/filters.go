@@ -8,8 +8,8 @@ import (
 	"regexp"
 
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

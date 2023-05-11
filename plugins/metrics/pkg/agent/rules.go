@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"

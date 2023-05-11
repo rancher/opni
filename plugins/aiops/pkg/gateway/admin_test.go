@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
+	"github.com/rancher/opni/plugins/aiops/apis/admin"
 	. "github.com/rancher/opni/plugins/aiops/pkg/gateway"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"

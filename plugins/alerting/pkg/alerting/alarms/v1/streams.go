@@ -16,7 +16,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"

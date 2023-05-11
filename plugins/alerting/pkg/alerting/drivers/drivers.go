@@ -6,7 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 )
 
 type ClusterDriver interface {

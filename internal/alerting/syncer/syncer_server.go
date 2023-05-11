@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops" //nolint:opni
+	"github.com/rancher/opni/plugins/alerting/apis/alertops" //nolint:opni
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"

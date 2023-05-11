@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/node"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/agent/drivers"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"

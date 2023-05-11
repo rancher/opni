@@ -12,9 +12,9 @@ import (
 	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )

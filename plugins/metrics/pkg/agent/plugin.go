@@ -12,8 +12,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 )
 

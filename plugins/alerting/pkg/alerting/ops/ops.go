@@ -11,8 +11,8 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

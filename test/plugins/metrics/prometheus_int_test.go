@@ -10,6 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -19,7 +20,6 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 )
 
 //#region Test Setup

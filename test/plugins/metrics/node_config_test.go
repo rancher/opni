@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

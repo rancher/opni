@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management/kubernetes_manager"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"

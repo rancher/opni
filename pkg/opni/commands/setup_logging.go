@@ -3,7 +3,7 @@
 package commands
 
 import (
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/spf13/cobra"
 )
 

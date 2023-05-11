@@ -5,9 +5,11 @@ import (
 	"sync"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,8 +28,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )

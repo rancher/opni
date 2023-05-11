@@ -3,7 +3,7 @@
 package commands
 
 import (
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/spf13/cobra"
 )
 

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

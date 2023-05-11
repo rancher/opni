@@ -4,9 +4,9 @@ package commands
 
 import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/spf13/cobra"
 )
 

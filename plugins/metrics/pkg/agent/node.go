@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"github.com/samber/lo"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"

@@ -7,7 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"go.uber.org/zap"
 )
 

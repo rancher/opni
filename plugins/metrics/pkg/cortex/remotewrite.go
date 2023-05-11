@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 	"github.com/weaveworks/common/user"
 	"go.opentelemetry.io/otel"

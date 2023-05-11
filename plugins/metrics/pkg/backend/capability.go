@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

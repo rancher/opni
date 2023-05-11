@@ -175,7 +175,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 	for {
 		select {
 		case <-expbackoff.Done():
-			return fmt.Errorf("failed to push data after exponential backoff")
+			return ctx.Err()
 		case <-expbackoff.Next():
 			var err error
 
@@ -191,7 +191,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 			// if task context is cancelled, return immediately
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			default:
 			}
 

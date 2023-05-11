@@ -519,7 +519,11 @@ func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 			subMsg = dynamic.NewMessage(msg)
 			containingMsg.SetField(fd, subMsg)
 		} else {
-			subMsg = fld.(*dynamic.Message)
+			var ok bool
+			subMsg, ok = fld.(*dynamic.Message)
+			if !ok {
+				panic("bug: request is not a *dynamic.Message")
+			}
 		}
 		containingMsg = subMsg
 	}

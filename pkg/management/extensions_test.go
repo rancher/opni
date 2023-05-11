@@ -13,11 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -75,8 +77,14 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			AnyTimes()
 		extSrv.EXPECT().
 			Baz(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, req *ext.BazRequest) (*emptypb.Empty, error) {
-				return &emptypb.Empty{}, nil
+			DoAndReturn(func(_ context.Context, req *ext.BazRequest) (*ext.BazRequest, error) {
+				return req, nil
+			}).
+			AnyTimes()
+		extSrv.EXPECT().
+			Set(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *ext.SetRequest) (*ext.SetRequest, error) {
+				return req, nil
 			}).
 			AnyTimes()
 		extSrv.EXPECT().
@@ -199,9 +207,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].ServiceDesc.Method[0].GetName()).To(Equal("Foo"))
 		Expect(extensions.Items[0].ServiceDesc.Method[1].GetName()).To(Equal("Bar"))
 		Expect(extensions.Items[0].ServiceDesc.Method[2].GetName()).To(Equal("Baz"))
-		Expect(extensions.Items[0].ServiceDesc.Method[3].GetName()).To(Equal("ServerStream"))
-		Expect(extensions.Items[0].ServiceDesc.Method[4].GetName()).To(Equal("ClientStream"))
-		Expect(extensions.Items[0].Rules).To(HaveLen(8))
+		Expect(extensions.Items[0].ServiceDesc.Method[3].GetName()).To(Equal("Set"))
+		Expect(extensions.Items[0].ServiceDesc.Method[4].GetName()).To(Equal("ServerStream"))
+		Expect(extensions.Items[0].ServiceDesc.Method[5].GetName()).To(Equal("ClientStream"))
+		Expect(extensions.Items[0].Rules).To(HaveLen(11))
 		Expect(extensions.Items[0].Rules[0].Http.GetPost()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[0].Http.GetBody()).To(Equal("request"))
 		Expect(extensions.Items[0].Rules[1].Http.GetGet()).To(Equal("/foo"))
@@ -214,6 +223,9 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].Rules[5].Http.GetBody()).To(Equal("param3"))
 		Expect(extensions.Items[0].Rules[6].Http.GetGet()).To(Equal("/bar/{param1}/{param2}/{param3}"))
 		Expect(extensions.Items[0].Rules[7].Http.GetPost()).To(Equal("/baz"))
+		Expect(extensions.Items[0].Rules[8].Http.GetPost()).To(Equal("/baz/{paramMsg.paramBool}/{paramMsg.paramString}/{paramMsg.paramEnum}"))
+		Expect(extensions.Items[0].Rules[9].Http.GetPost()).To(Equal("/baz/{paramMsg.paramMsg.paramMsg.paramMsg.paramString}"))
+		Expect(extensions.Items[0].Rules[10].Http.GetPut()).To(Equal("/set/{node.id}"))
 
 	})
 	It("should forward gRPC calls to the plugin", func() {
@@ -275,30 +287,91 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			resp.Body.Close()
 			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
 
+			{
+				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz/true/asdf/BAR", "application/json", nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				body, err = io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				resp.Body.Close()
+				var bazReq ext.BazRequest
+				Expect(protojson.Unmarshal(body, &bazReq)).To(Succeed())
+				Expect(&bazReq).To(testutil.ProtoEqual(&ext.BazRequest{
+					ParamMsg: &ext.BazRequest{
+						ParamBool:   true,
+						ParamString: "asdf",
+						ParamEnum:   ext.BazRequest_BAR,
+					},
+				}))
+			}
+
+			{
+				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz/testing", "application/json", nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				body, err = io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				resp.Body.Close()
+				var bazReq ext.BazRequest
+				Expect(protojson.Unmarshal(body, &bazReq)).To(Succeed())
+				Expect(&bazReq).To(testutil.ProtoEqual(&ext.BazRequest{
+					ParamMsg: &ext.BazRequest{
+						ParamMsg: &ext.BazRequest{
+							ParamMsg: &ext.BazRequest{
+								ParamMsg: &ext.BazRequest{
+									ParamString: "testing",
+								},
+							},
+						},
+					},
+				}))
+			}
+
+			{
+				req, err := http.NewRequest(http.MethodPut, tv.httpEndpoint+"/Ext/set/testing1", strings.NewReader(`{"value": "value1"}`))
+				Expect(err).NotTo(HaveOccurred())
+				resp, err = http.DefaultClient.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				body, err = io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				resp.Body.Close()
+				var setReq ext.SetRequest
+				Expect(protojson.Unmarshal(body, &setReq)).To(Succeed())
+				Expect(&setReq).To(testutil.ProtoEqual(&ext.SetRequest{
+					Node: &ext.Reference{
+						Id: "testing1",
+					},
+					Value: "value1",
+				}))
+			}
+
 			By("testing error messages and response codes")
-			badRequests := []struct {
+			requests := []struct {
+				path  string
 				param string
 				value string
 				err   any
 			}{
-				{"paramInt64", `true`, `failed to unmarshal request body: bad input: expecting number ; instead got true`},
-				{"paramBool", `"asdf"`, `failed to unmarshal request body: bad input: expecting boolean ; instead got asdf`},
-				{"paramString", `123`, `failed to unmarshal request body: bad input: expecting string ; instead got 123`},
-				{"paramBytes", `false`, `failed to unmarshal request body: bad input: expecting string ; instead got false`},
-				{"paramRepeatedString", `[1, 2]`, `failed to unmarshal request body: bad input: expecting string ; instead got 1`},
-				{"paramFloat64", `"a"`, `failed to unmarshal request body: strconv.ParseFloat: parsing "a": invalid syntax`},
-				{"paramEnum", `"1.5"`, `failed to unmarshal request body: enum "ext.BazRequest.BazEnum" does not have value named "1.5"`},
-				{"paramInt64", "1.5", `failed to unmarshal request body: strconv.ParseInt: parsing "1.5": invalid syntax`},
-				{"paramBool", `"true"`, nil},
-				{"paramString", `"asdf"`, nil},
-				{"paramBytes", `"asdf"`, nil},
-				{"paramRepeatedString", `["a", "b"]`, nil},
-				{"paramFloat64", "1.5", nil},
-				{"paramEnum", `"BAR"`, nil},
-				{"paramInt64", "1", nil},
+				{"/Ext/baz", "paramInt64", `true`, `failed to unmarshal request body: bad input: expecting number ; instead got true`},
+				{"/Ext/baz", "paramBool", `"asdf"`, `failed to unmarshal request body: bad input: expecting boolean ; instead got asdf`},
+				{"/Ext/baz", "paramString", `123`, `failed to unmarshal request body: bad input: expecting string ; instead got 123`},
+				{"/Ext/baz", "paramBytes", `false`, `failed to unmarshal request body: bad input: expecting string ; instead got false`},
+				{"/Ext/baz", "paramRepeatedString", `[1, 2]`, `failed to unmarshal request body: bad input: expecting string ; instead got 1`},
+				{"/Ext/baz", "paramFloat64", `"a"`, `failed to unmarshal request body: strconv.ParseFloat: parsing "a": invalid syntax`},
+				{"/Ext/baz", "paramEnum", `"1.5"`, `failed to unmarshal request body: enum "ext.BazRequest.BazEnum" does not have value named "1.5"`},
+				{"/Ext/baz", "paramInt64", "1.5", `failed to unmarshal request body: strconv.ParseInt: parsing "1.5": invalid syntax`},
+				{"/Ext/baz", "paramBool", `"true"`, nil},
+				{"/Ext/baz", "paramString", `"asdf"`, nil},
+				{"/Ext/baz", "paramBytes", `"asdf"`, nil},
+				{"/Ext/baz", "paramRepeatedString", `["a", "b"]`, nil},
+				{"/Ext/baz", "paramFloat64", "1.5", nil},
+				{"/Ext/baz", "paramEnum", `"BAR"`, nil},
+				{"/Ext/baz/true/asdf/BAR", "paramInt64", "1", nil},
+				{"/Ext/baz/testing", "paramInt64", "1", nil},
 			}
-			for _, req := range badRequests {
-				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz",
+			for _, req := range requests {
+				resp, err = http.Post(tv.httpEndpoint+req.path,
 					"application/json", strings.NewReader(fmt.Sprintf(`{%q: %s}`, req.param, req.value)))
 				Expect(err).NotTo(HaveOccurred())
 				body, err = io.ReadAll(resp.Body)

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"reflect"
 	"strings"
 
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -493,10 +494,43 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 }
 
 func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
-	fd := reqMsg.FindFieldDescriptorByJSONName(k)
-	if fd == nil {
-		return fmt.Errorf("message %q does not have field %q", reqMsg.GetMessageDescriptor().GetName(), k)
+	fieldPaths := strings.Split(k, ".")
+	if len(fieldPaths) == 0 {
+		return fmt.Errorf("field path %q is invalid", k)
 	}
+	var fd *desc.FieldDescriptor
+	containingMsg := reqMsg
+	for i, fp := range fieldPaths {
+		fd = containingMsg.FindFieldDescriptorByJSONName(fp)
+		if fd == nil {
+			return fmt.Errorf("field path %q is invalid: message %q does not have field %q", k, containingMsg.GetMessageDescriptor().GetName(), fp)
+		}
+		// each field path must be a message, except for the last one
+		if fd.GetType() != dpb.FieldDescriptorProto_TYPE_MESSAGE {
+			if i == len(fieldPaths)-1 {
+				fd = containingMsg.FindFieldDescriptorByJSONName(fp)
+				break
+			}
+			return fmt.Errorf("field path %q is invalid: %q is not a message", k, fd.GetFullyQualifiedName())
+		}
+		msg := fd.GetMessageType()
+		var subMsg *dynamic.Message
+		if fld := containingMsg.GetField(fd); reflect.ValueOf(fld).IsNil() {
+			subMsg = dynamic.NewMessage(msg)
+			containingMsg.SetField(fd, subMsg)
+		} else {
+			var ok bool
+			subMsg, ok = fld.(*dynamic.Message)
+			if !ok {
+				panic("bug: request is not a *dynamic.Message")
+			}
+		}
+		containingMsg = subMsg
+	}
+	if fd == nil {
+		return fmt.Errorf("field path %q is invalid", k)
+	}
+
 	var decoded any
 	var err error
 	switch fd.GetType() {
@@ -551,7 +585,7 @@ func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 		shortTypeName := strings.ToLower(strings.TrimPrefix(fd.GetType().String(), "TYPE_"))
 		return fmt.Errorf("failed to decode value for field %q: could not convert %q to type %s: %w", k, v, shortTypeName, err)
 	}
-	if err := reqMsg.TrySetField(fd, decoded); err != nil {
+	if err := containingMsg.TrySetField(fd, decoded); err != nil {
 		return fmt.Errorf("failed to set field %q to value %q: %w", k, v, err)
 	}
 	return nil

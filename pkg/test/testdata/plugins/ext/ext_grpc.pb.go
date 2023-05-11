@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -23,6 +22,7 @@ const (
 	Ext_Foo_FullMethodName          = "/ext.Ext/Foo"
 	Ext_Bar_FullMethodName          = "/ext.Ext/Bar"
 	Ext_Baz_FullMethodName          = "/ext.Ext/Baz"
+	Ext_Set_FullMethodName          = "/ext.Ext/Set"
 	Ext_ServerStream_FullMethodName = "/ext.Ext/ServerStream"
 	Ext_ClientStream_FullMethodName = "/ext.Ext/ClientStream"
 )
@@ -33,7 +33,8 @@ const (
 type ExtClient interface {
 	Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error)
 	Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOption) (*BarResponse, error)
-	Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*BazRequest, error)
+	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetRequest, error)
 	ServerStream(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (Ext_ServerStreamClient, error)
 	ClientStream(ctx context.Context, opts ...grpc.CallOption) (Ext_ClientStreamClient, error)
 }
@@ -64,9 +65,18 @@ func (c *extClient) Bar(ctx context.Context, in *BarRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
-func (c *extClient) Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *extClient) Baz(ctx context.Context, in *BazRequest, opts ...grpc.CallOption) (*BazRequest, error) {
+	out := new(BazRequest)
 	err := c.cc.Invoke(ctx, Ext_Baz_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *extClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetRequest, error) {
+	out := new(SetRequest)
+	err := c.cc.Invoke(ctx, Ext_Set_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +155,8 @@ func (x *extClientStreamClient) CloseAndRecv() (*FooResponse, error) {
 type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
 	Bar(context.Context, *BarRequest) (*BarResponse, error)
-	Baz(context.Context, *BazRequest) (*emptypb.Empty, error)
+	Baz(context.Context, *BazRequest) (*BazRequest, error)
+	Set(context.Context, *SetRequest) (*SetRequest, error)
 	ServerStream(*FooRequest, Ext_ServerStreamServer) error
 	ClientStream(Ext_ClientStreamServer) error
 	mustEmbedUnimplementedExtServer()
@@ -161,8 +172,11 @@ func (UnimplementedExtServer) Foo(context.Context, *FooRequest) (*FooResponse, e
 func (UnimplementedExtServer) Bar(context.Context, *BarRequest) (*BarResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Bar not implemented")
 }
-func (UnimplementedExtServer) Baz(context.Context, *BazRequest) (*emptypb.Empty, error) {
+func (UnimplementedExtServer) Baz(context.Context, *BazRequest) (*BazRequest, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Baz not implemented")
+}
+func (UnimplementedExtServer) Set(context.Context, *SetRequest) (*SetRequest, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
 func (UnimplementedExtServer) ServerStream(*FooRequest, Ext_ServerStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method ServerStream not implemented")
@@ -237,6 +251,24 @@ func _Ext_Baz_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ext_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExtServer).Set(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Ext_Set_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExtServer).Set(ctx, req.(*SetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Ext_ServerStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(FooRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -302,6 +334,10 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Baz",
 			Handler:    _Ext_Baz_Handler,
+		},
+		{
+			MethodName: "Set",
+			Handler:    _Ext_Set_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

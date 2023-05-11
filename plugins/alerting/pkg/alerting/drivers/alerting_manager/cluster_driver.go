@@ -37,6 +37,18 @@ type AlertingClusterManager struct {
 var _ drivers.ClusterDriver = (*AlertingClusterManager)(nil)
 var _ alertops.AlertingAdminServer = (*AlertingClusterManager)(nil)
 
+var defaultConfig = &alertops.ClusterConfiguration{
+	NumReplicas:             1,
+	ClusterSettleTimeout:    "1m0s",
+	ClusterPushPullInterval: "200ms",
+	ClusterGossipInterval:   "1m0s",
+	ResourceLimits: &alertops.ResourceLimitSpec{
+		Storage: "5Gi",
+		Cpu:     "500m",
+		Memory:  "200Mi",
+	},
+}
+
 func NewAlertingClusterManager(options AlertingDriverOptions) (*AlertingClusterManager, error) {
 	if options.K8sClient == nil {
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
@@ -122,6 +134,9 @@ func (a *AlertingClusterManager) InstallCluster(ctx context.Context, empty *empt
 func (a *AlertingClusterManager) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	existing := a.newAlertingClusterCrd()
 	if err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return defaultConfig, nil
+		}
 		return nil, err
 	}
 	clusterPushPull := "200ms"

@@ -2,7 +2,7 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/storage/v1";
 
 import "google/protobuf/duration.proto";
-import "github.com/rancher/opni/internal/cli/cli.proto";
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 
 package storage;
 

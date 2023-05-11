@@ -1,7 +1,7 @@
 package cortexops
 
 import (
-	"github.com/rancher/opni/internal/cli"
+	"github.com/rancher/opni/internal/codegen/cli"
 	"github.com/ttacon/chalk"
 )
 

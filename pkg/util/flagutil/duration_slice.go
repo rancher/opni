@@ -9,6 +9,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
+// Adapted from pflag/duration_slice.go
+
 type durationSliceValue struct {
 	value   *[]*durationpb.Duration
 	changed bool

@@ -122,7 +122,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	swiftSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetSwift())
 
 	storageConfig := bucket.Config{
-		Backend: string(r.mc.Spec.Cortex.Storage.GetBackend()),
+		Backend: r.mc.Spec.Cortex.Storage.GetBackend().String(),
 		S3: s3.Config{
 			Endpoint:   s3Spec.GetEndpoint(),
 			Region:     s3Spec.GetRegion(),

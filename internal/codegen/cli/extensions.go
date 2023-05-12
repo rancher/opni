@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -61,5 +63,21 @@ func (f *FlagSetOptions) ForEachDefault(fieldMessage *protogen.Message, fn func(
 	}
 	dm := dynamicpb.NewMessage(fieldMessage.Desc)
 	f.Default.UnmarshalTo(dm)
-	dm.Range(fn)
+	orderedRange(dm, fn)
+}
+
+func orderedRange(dm *dynamicpb.Message, fn func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool) {
+	ordered := []lo.Tuple2[protoreflect.FieldDescriptor, protoreflect.Value]{}
+	dm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		ordered = append(ordered, lo.T2(fd, v))
+		return true
+	})
+	slices.SortFunc(ordered, func(a, b lo.Tuple2[protoreflect.FieldDescriptor, protoreflect.Value]) bool {
+		return a.A.Number() < b.A.Number()
+	})
+	for _, t := range ordered {
+		if !fn(t.A, t.B) {
+			return
+		}
+	}
 }

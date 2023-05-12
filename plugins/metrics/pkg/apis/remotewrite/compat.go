@@ -4,10 +4,15 @@ import (
 	"context"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/kralicky/ragu/compat"
 	"github.com/prometheus/prometheus/prompb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func init() {
+	compat.LoadGogoFileDescriptor("cortex.proto", compat.WithRename("github.com/cortexproject/cortex/pkg/cortexpb/cortex.proto"))
+}
 
 type PrometheusRemoteWriteClient interface {
 	Push(ctx context.Context, in *prompb.WriteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)

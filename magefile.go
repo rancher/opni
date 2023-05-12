@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magefile/mage/mg"
-	"github.com/magefile/mage/sh"
-	"github.com/samber/lo"
-
 	"github.com/kralicky/ragu"
 	_ "github.com/kralicky/ragu/compat"
 	"github.com/kralicky/ragu/pkg/plugins/golang"
 	"github.com/kralicky/ragu/pkg/plugins/golang/grpc"
 	"github.com/kralicky/ragu/pkg/plugins/python"
+	"github.com/magefile/mage/mg"
+	"github.com/magefile/mage/sh"
+	"github.com/rancher/opni/internal/codegen/cli"
+	"github.com/samber/lo"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -33,11 +33,10 @@ import (
 	_ "github.com/rancher/opni/internal/mage/dev"
 	// mage:import charts
 	charts "github.com/rancher/charts-build-scripts/pkg/actions"
-
 	// mage:import test
 	"github.com/rancher/opni/internal/mage/test"
-
-	"github.com/rancher/opni/internal/cli"
+	// mage:import codegen
+	"github.com/rancher/opni/internal/codegen"
 )
 
 var Default = All
@@ -128,7 +127,7 @@ func TestClean() error {
 
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
-		"crd:maxDescLen=0,ignoreUnexportedFields=true", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
+		"crd:maxDescLen=0,ignoreUnexportedFields=true,allowDangerousTypes=true", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
 	)
 	return cmd.Run()
 }
@@ -410,9 +409,26 @@ func init() {
 	}
 }
 
-func ProtobufGo() error {
+// Can be used to "bootstrap" the cli generator when modifying cli.proto
+func ProtobufCLI() error {
 	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()},
-		"internal/cli/*.proto",
+		"internal/codegen/cli/*.proto",
+	)
+	if err != nil {
+		return err
+	}
+	for _, file := range out {
+		if err := file.WriteToDisk(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ProtobufGo() error {
+	mg.Deps(codegen.GenCortexConfig)
+	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()},
+		"internal/**/*.proto",
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)

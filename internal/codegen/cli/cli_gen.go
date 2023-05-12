@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/iancoleman/strcase"
+	"github.com/rancher/opni/pkg/util/flagutil"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -66,7 +67,8 @@ var (
 	_io        = protogen.GoImportPath("io")
 	_os        = protogen.GoImportPath("os")
 	_strings   = protogen.GoImportPath("strings")
-	_cli       = protogen.GoImportPath("github.com/rancher/opni/internal/cli")
+	_cli       = protogen.GoImportPath("github.com/rancher/opni/internal/codegen/cli")
+	_proto     = protogen.GoImportPath("google.golang.org/protobuf/proto")
 	_protojson = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
 	_cobra     = protogen.GoImportPath("github.com/spf13/cobra")
 	_pflag     = protogen.GoImportPath("github.com/spf13/pflag")
@@ -120,6 +122,10 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 			fs.buf.g.Unskip()
 			io.Copy(fs.buf.g, &fs.buf.buf)
 		}
+	}
+
+	if opts.GenerateDeepcopy {
+		cg.generateDeepcopyFunctions(gen, file, g)
 	}
 	return g
 }
@@ -236,7 +242,7 @@ func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File
 	writers.PrintCmdBuilderSignature(method.GoName, service.GoName, g)
 	isEmpty := method.Input.Desc.FullName() == "google.protobuf.Empty"
 	if !isEmpty {
-		g.P("input := &", g.QualifiedGoIdent(method.Input.GoIdent), "{}")
+		g.P("in := &", g.QualifiedGoIdent(method.Input.GoIdent), "{}")
 	}
 	methodOptions := method.Desc.Options().(*descriptorpb.MethodOptions)
 	leadingComments := formatComments(method.Comments)
@@ -285,7 +291,7 @@ func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File
 	// Generate flags for input fields recursively
 	if !isEmpty {
 		flagSet := cg.generateFlagSet(g, method.Input)
-		g.P("cmd.Flags().AddFlagSet(input.FlagSet())")
+		g.P("cmd.Flags().AddFlagSet(in.FlagSet())")
 
 		cg.generateFlagCompletionFuncs(g, flagSet)
 	}
@@ -333,6 +339,10 @@ var stringToMapValueTypeDefaults = map[protoreflect.Kind]fieldTypeDefaults{
 	protoreflect.Sfixed64Kind: {"nil", "StringToInt64Var"},
 	protoreflect.Uint64Kind:   {"nil", "StringToInt64Var"},
 	protoreflect.Fixed64Kind:  {"nil", "StringToInt64Var"},
+}
+
+var typeHints = map[string]string{
+	"ipNet": "IPNetValue", // type:flagutil.F
 }
 
 var specialCaseReplacements = map[string]string{
@@ -406,7 +416,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 	}
 	{
 		g := fs.buf
-		g.P("func (input *", message.GoIdent.GoName, ") FlagSet(prefix ...string) *", _pflag.Ident("FlagSet"), " {")
+		g.P("func (in *", message.GoIdent.GoName, ") FlagSet(prefix ...string) *", _pflag.Ident("FlagSet"), " {")
 		g.P("fs := ", _pflag.Ident("NewFlagSet("), "\""+message.GoIdent.GoName+"\"", ", ", _pflag.Ident("ExitOnError"), ")")
 		g.P("fs.SortFlags = true")
 
@@ -416,22 +426,27 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 				continue
 			}
 
-			kebabName := strcase.ToKebab(field.GoName)
-			if replacement, ok := specialCaseReplacements[kebabName]; ok {
-				kebabName = replacement
-			}
-			comment := string(field.Comments.Leading)
-			comment = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(comment, "//", ""), "\n", " "))
+			kebabName := formatKebab(field.GoName)
+			commentLines := formatComments(field.Comments)
+			comment := strings.Join(commentLines, " ")
 
 			var hasCustomDefault bool
 			var defaultValue any
 
 			flagOpts := FlagOptions{}
 			applyOptions(field.Desc, &flagOpts)
+			if flagOpts.Skip {
+				continue
+			}
+
 			if flagOpts.Default != "" {
 				hasCustomDefault = true
 				if field.Desc.Kind() == protoreflect.StringKind {
-					defaultValue = fmt.Sprintf("%q", flagOpts.Default)
+					if field.Desc.IsList() {
+						defaultValue = unparseStringSlice(flagOpts.Default)
+					} else {
+						defaultValue = fmt.Sprintf("%q", strings.Trim(flagOpts.Default, `"`))
+					}
 				} else {
 					defaultValue = flagOpts.Default
 				}
@@ -451,21 +466,53 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 			}
 
 			defaults, ok := defaultsForType[field.Desc.Kind()]
-			if !ok {
-				if field.Desc.IsMap() {
-					if field.Desc.MapKey().Kind() == protoreflect.StringKind {
-						defaults, ok = stringToMapValueTypeDefaults[field.Desc.MapValue().Kind()]
+			if !ok && field.Desc.IsMap() && field.Desc.MapKey().Kind() == protoreflect.StringKind {
+				// support for map[string]float64 which is missing from pflag
+				if defaults, ok = stringToMapValueTypeDefaults[field.Desc.MapValue().Kind()]; !ok {
+					switch field.Desc.MapValue().Kind() {
+					case protoreflect.DoubleKind:
+						if defaultValue == nil {
+							defaultValue = "nil"
+						}
+						// todo: this might not work
+						if str, ok := defaultValue.(string); ok && strings.HasPrefix(str, "{") {
+							defaultValue = "map[string]float64" + str
+						}
+						g.P(`fs.Var(`, _flagutil.Ident("StringToFloat64Value"), `(`, defaultValue, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+					default:
+						panic(fmt.Sprintf("unimplemented: map[string]%s", field.Desc.MapValue().Kind()))
 					}
+					continue
 				}
 			}
+
+			if flagOpts.TypeOverride != "" {
+				flagUtilValue, ok := typeHints[flagOpts.TypeOverride]
+				if !ok {
+					panic("unknown type override: " + flagOpts.TypeOverride)
+				}
+				if field.Desc.IsList() {
+					flagUtilValue = strings.Replace(flagUtilValue, "Value", "SliceValue", 1)
+				}
+				if defaultValue == nil {
+					if field.Desc.IsList() {
+						defaultValue = "nil"
+					} else {
+						defaultValue = `""`
+					}
+				}
+				g.P(`fs.Var(`, _flagutil.Ident(flagUtilValue), `(`, defaultValue, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				continue
+			}
+
 			if ok {
 				if field.Desc.HasPresence() {
 					switch field.Desc.Kind() {
 					case protoreflect.BoolKind:
-						g.P(`fs.Var(`, _flagutil.Ident("BoolPtrValue"), `(&input.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						g.P(`fs.Var(`, _flagutil.Ident("BoolPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 						continue
 					default:
-						panic("unimplemented pointer-to-value type for: " + field.Desc.Kind().String())
+						panic("unimplemented: *" + field.Desc.Kind().String())
 					}
 				}
 				if !hasCustomDefault {
@@ -482,13 +529,13 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					defaultValue = `""`
 				}
 
-				g.P(`fs.`, flagsFunction, `(&input.`, field.GoName, `, `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, defaultValue, `,`, fmt.Sprintf("%q", comment), `)`)
+				g.P(`fs.`, flagsFunction, `(&in.`, field.GoName, `, `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, defaultValue, `,`, fmt.Sprintf("%q", comment), `)`)
 				continue
 			}
 
 			switch field.Desc.Kind() {
 			case protoreflect.EnumKind:
-				g.P(`fs.Var(`, _enumflag.Ident("New"), `(&input.`, field.GoName, `, "`, field.Enum.Desc.Name(), `", map[`+g.QualifiedGoIdent(field.Enum.GoIdent)+`][]string{`)
+				g.P(`fs.Var(`, _enumflag.Ident("New"), `(&in.`, field.GoName, `, "`, field.Enum.Desc.Name(), `", map[`+g.QualifiedGoIdent(field.Enum.GoIdent)+`][]string{`)
 				for _, v := range field.Enum.Values {
 					g.P(g.QualifiedGoIdent(v.GoIdent), `: {`, fmt.Sprintf("%q", string(v.Desc.Name())), `},`)
 				}
@@ -509,15 +556,20 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 				}
 				// Add flag sets for nested messages
 				if !field.Desc.IsList() {
-					g.P("if input.", field.GoName, " == nil {")
-					g.P(" input.", field.GoName, " = &", field.Message.GoIdent, "{}")
+					g.P("if in.", field.GoName, " == nil {")
+					g.P(" in.", field.GoName, " = &", field.Message.GoIdent, "{}")
 					g.P("}")
-					g.P("fs.AddFlagSet(input.", field.GoName, `.FlagSet(append(prefix,"`, kebabName, `")...))`)
+					g.P("fs.AddFlagSet(in.", field.GoName, `.FlagSet(append(prefix,"`, kebabName, `")...))`)
 					flagSetOpts := FlagSetOptions{}
 					applyOptions(field.Desc, &flagSetOpts)
 
 					flagSetOpts.ForEachDefault(field.Message, func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-						g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, fd.Name(), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+						fdOpts := FlagOptions{}
+						applyOptions(fd, &fdOpts)
+						if fdOpts.Skip {
+							return true
+						}
+						g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
 						return true
 					})
 
@@ -546,40 +598,53 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	}
 
 	g.P()
-	g.P("func (input *", fs.receiver.GoIdent, ") RedactSecrets() {")
-	g.P("if input == nil {")
+	g.P("func (in *", fs.receiver.GoIdent, ") RedactSecrets() {")
+	g.P("if in == nil {")
 	g.P(" return")
 	g.P("}")
 	for _, field := range fs.secretFields {
-		g.P("if input.", field.GoName, " != \"\" {")
-		g.P(" input.", field.GoName, " = \"***\"")
+		g.P("if in.", field.GoName, " != \"\" {")
+		g.P(" in.", field.GoName, " = \"***\"")
 		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {
-		g.P("input.", dep.GoName, ".RedactSecrets()")
+		g.P("in.", dep.GoName, ".RedactSecrets()")
 	}
 	g.P("}")
 
 	g.P()
-	g.P("func (input *", fs.receiver.GoIdent, ") UnredactSecrets(unredacted *", fs.receiver.GoIdent, ") error {")
-	g.P("if input == nil {")
+	g.P("func (in *", fs.receiver.GoIdent, ") UnredactSecrets(unredacted *", fs.receiver.GoIdent, ") error {")
+	g.P("if in == nil {")
 	g.P(" return nil")
 	g.P("}")
 	for _, field := range fs.secretFields {
-		g.P("if input.", field.GoName, " == \"***\" {")
+		g.P("if in.", field.GoName, " == \"***\" {")
 		g.P(" if unredacted.Get", field.GoName, "() == \"\" {")
 		g.P(`  return `, _errors.Ident("New"), `("cannot unredact: missing value for secret field: `, field.GoName, `")`)
 		g.P(" }")
-		g.P(" input.", field.GoName, " = unredacted.", field.GoName)
+		g.P(" in.", field.GoName, " = unredacted.", field.GoName)
 		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {
-		g.P("if err := input.", dep.GoName, ".UnredactSecrets(unredacted.Get", dep.GoName, "()); err != nil {")
+		g.P("if err := in.", dep.GoName, ".UnredactSecrets(unredacted.Get", dep.GoName, "()); err != nil {")
 		g.P(" return err")
 		g.P("}")
 	}
 	g.P("return nil")
 	g.P("}")
+}
+
+func (cg *Generator) generateDeepcopyFunctions(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+	for _, msg := range file.Messages {
+		g.P()
+		g.P("func (in *", msg.GoIdent, ") DeepCopyInto(out *", msg.GoIdent, ") {")
+		g.P(_proto.Ident("Merge"), "(in, out)")
+		g.P("}")
+		g.P()
+		g.P("func (in *", msg.GoIdent, ") DeepCopy() *", msg.GoIdent, " {")
+		g.P(" return ", _proto.Ident("Clone"), "(in).(*", msg.GoIdent, ")")
+		g.P("}")
+	}
 }
 
 var customFieldGenerators = map[string]func(g *buffer, field *protogen.Field, defaultValue any, flagName, usage string){
@@ -601,13 +666,13 @@ var customFieldGenerators = map[string]func(g *buffer, field *protogen.Field, de
 		case []any:
 			values = defaultValue
 		}
-		g.P(`fs.Var(`, _flagutil.Ident(identName), `(`, values, `, &input.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
+		g.P(`fs.Var(`, _flagutil.Ident(identName), `(`, values, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
 	},
 	"google.protobuf.Timestamp": func(g *buffer, field *protogen.Field, defaultValue any, flagName, usage string) {
 		if defaultValue == "" {
 			defaultValue = `"now"`
 		}
-		g.P(`fs.Var(`, _flagutil.Ident("TimestamppbValue"), `(`, defaultValue, `, &input.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
+		g.P(`fs.Var(`, _flagutil.Ident("TimestamppbValue"), `(`, defaultValue, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
 	},
 }
 
@@ -630,6 +695,20 @@ func (cg *Generator) generateFlagCompletionFuncs(g *protogen.GeneratedFile, fs *
 	}
 }
 
+func formatKebab[T ~string](name T) string {
+	kebabName := strcase.ToKebab(string(name))
+	for orig, replacement := range specialCaseReplacements {
+		if kebabName == orig {
+			kebabName = replacement
+		} else if strings.Contains(kebabName, orig+"-") {
+			kebabName = strings.ReplaceAll(kebabName, orig+"-", replacement+"-")
+		} else if strings.Contains(kebabName, "-"+orig) {
+			kebabName = strings.ReplaceAll(kebabName, "-"+orig, "-"+replacement)
+		}
+	}
+	return kebabName
+}
+
 // converts a duration string (e.g. "1h", "15m", 2h30m) into the equivalent go syntax
 // string (e.g. "1*time.Hour", "15*time.Minute", "2*time.Hour+30*time.Minute")
 func unparseDuration(durationStr string) (tokens []any) {
@@ -638,7 +717,7 @@ func unparseDuration(durationStr string) (tokens []any) {
 		return
 	}
 
-	duration, err := time.ParseDuration(durationStr)
+	duration, err := flagutil.ParseDurationWithExtendedUnits(durationStr)
 	if err != nil {
 		panic(fmt.Sprintf("invalid duration %q: %v", durationStr, err))
 	}
@@ -691,10 +770,26 @@ func unparseDurationList(commaSeparatedDurations string) (tokens []any) {
 	return append(tokens, "}")
 }
 
+func unparseStringSlice(commaSeparatedStrings string) (tokens []any) {
+	tokens = append(tokens, "[]string{")
+	commaSeparatedStrings = strings.Trim(commaSeparatedStrings, "[]")
+	for _, s := range strings.Split(commaSeparatedStrings, ",") {
+		if s == "" {
+			continue
+		}
+		tokens = append(tokens, strconv.Quote(s), ",")
+	}
+	return append(tokens, "}")
+}
+
 func formatComments(comments protogen.CommentSet) (leadingComments []string) {
-	leadingComments = strings.Split(strings.TrimSuffix(comments.Leading.String(), "\n"), "\n")
-	for i, c := range leadingComments {
-		leadingComments[i] = strings.TrimLeft(c, " /")
+	lines := strings.Split(strings.TrimSuffix(comments.Leading.String(), "\n"), "\n")
+	for _, line := range lines {
+		line := strings.TrimRight(strings.TrimLeft(line, " /"), " ")
+		if strings.HasPrefix(line, "+") {
+			continue // skip directives
+		}
+		leadingComments = append(leadingComments, line)
 	}
 	return
 }
@@ -713,7 +808,7 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 	if requestIsEmpty {
 		rpcCall = append(rpcCall, "(cmd.Context(), &", _emptypb.Ident("Empty"), "{})")
 	} else {
-		rpcCall = append(rpcCall, "(cmd.Context(), input)")
+		rpcCall = append(rpcCall, "(cmd.Context(), in)")
 	}
 
 	g.P(append([]any{responseVarName, ", err := client.", method.GoName}, rpcCall...)...)

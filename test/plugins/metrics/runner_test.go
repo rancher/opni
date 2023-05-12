@@ -2,6 +2,7 @@ package metrics_test
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -88,7 +89,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 		}))
 	})
 
-	When("target status are not running", func() {
+	When("target status is not running", func() {
 		It("cannot get status", func() {
 			status, err := runner.GetStatus("test")
 			AssertTargetStatus(&remoteread.TargetStatus{
@@ -206,6 +207,56 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
+		})
+	})
+
+	When("target is stopped during push", func() {
+		It("should be marked as stopped", func() {
+			// new reader with the longest possible delay
+			runner.SetRemoteReaderClient(newRespondingReader())
+			runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
+				return &mockRemoteWriteClient{
+					Delay: math.MaxInt64,
+				}
+			}))
+
+			err := runner.Start(target, query)
+			Expect(err).NotTo(HaveOccurred())
+
+			var status *remoteread.TargetStatus
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.State
+			}).Should(Equal(remoteread.TargetState_Running))
+
+			err = runner.Stop(target.Meta.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			// status dosn't update immediately so we need to extend the defualt timeout
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.State
+			}).Should(Equal(remoteread.TargetState_Canceled))
+		})
+	})
+
+	When("target pushes with unrecoverable error", func() {
+		It("should fail", func() {
+			runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
+				return &mockRemoteWriteClient{
+					Error: fmt.Errorf("context canceled"),
+				}
+			}))
+			runner.SetRemoteReaderClient(newRespondingReader())
+
+			err := runner.Start(target, query)
+			Expect(err).NotTo(HaveOccurred())
+
+			var status *remoteread.TargetStatus
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.State
+			}).Should(Equal(remoteread.TargetState_Failed))
 		})
 	})
 })

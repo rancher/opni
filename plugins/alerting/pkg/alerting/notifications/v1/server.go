@@ -1,4 +1,4 @@
-package alerting
+package notifications
 
 import (
 	"context"
@@ -37,21 +37,22 @@ func init() {
 	resolveContext = time.Microsecond * time.Duration((math.Round(float64(maxDur.Microseconds()) * 1.2)))
 }
 
-// --- Trigger ---
-func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
+var _ (alertingv1.AlertNotificationsServer) = (*NotificationServerComponent)(nil)
+
+func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	lg := p.Logger.With("Handler", "TriggerAlerts")
+	lg := n.logger.With("Handler", "TriggerAlerts")
 	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
 	lg.Debugf("Received alert annotations : %s", req.Annotations)
 
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
+	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -87,17 +88,17 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlert
 	return &alertingv1.TriggerAlertsResponse{}, nil
 }
 
-func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
-	lg := p.Logger.With("Handler", "ResolveAlerts")
+func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
+	lg := n.logger.With("Handler", "ResolveAlerts")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
+	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +133,7 @@ func (p *Plugin) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlert
 	return &alertingv1.ResolveAlertsResponse{}, nil
 }
 
-func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
+func (n *NotificationServerComponent) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -142,12 +143,12 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 		req.Properties[alertingv1.NotificationPropertyDedupeKey] = util.HashStrings([]string{req.Title, req.Body})
 	}
 
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := p.opsNode.GetAvailableEndpoint(ctx, &options)
+	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +156,7 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	apiNode := backend.NewAlertManagerPostAlertClient(
 		ctx,
 		availableEndpoint,
-		backend.WithLogger(p.Logger),
+		backend.WithLogger(n.logger),
 		backend.WithExpectClosure(backend.NewExpectStatusOk()),
 		backend.WithPostNotificationBody(
 			routingLabels[alertingv1.NotificationPropertyOpniUuid],
@@ -167,19 +168,19 @@ func (p *Plugin) PushNotification(ctx context.Context, req *alertingv1.Notificat
 	return &emptypb.Empty{}, apiNode.DoRequest()
 }
 
-func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
+func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// FIXME: the messages returned by this endpoint will not always be consistent
 	// within the HA vanilla AlertManager,
 	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	availableEndpoint, err := n.opsNode.Get().GetAvailableCacheEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +189,7 @@ func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNoti
 	apiNode := backend.NewListNotificationMessagesClient(
 		ctx,
 		availableEndpoint,
-		backend.WithLogger(p.Logger),
+		backend.WithLogger(n.logger),
 		backend.WithExpectClosure(func(incoming *http.Response) error {
 			defer incoming.Body.Close()
 			if incoming.StatusCode != http.StatusOK {
@@ -209,26 +210,24 @@ func (p *Plugin) ListNotifications(ctx context.Context, req *alertingv1.ListNoti
 	return resp, nil
 }
 
-func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := p.opsNode.GetRuntimeOptions(ctx)
+	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// FIXME: the messages returned by this endpoint will not always be consistent
 	// within the HA vanilla AlertManager,
 	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := p.opsNode.GetAvailableCacheEndpoint(ctx, &options)
+	availableEndpoint, err := n.opsNode.Get().GetAvailableCacheEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
 
-	cond, err := p.GetAlertCondition(ctx, &corev1.Reference{
-		Id: req.ConditionId,
-	})
+	cond, err := n.conditionStorage.Get().Get(ctx, req.ConditionId)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +241,7 @@ func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlar
 	apiNode := backend.NewListAlarmMessagesClient(
 		ctx,
 		availableEndpoint,
-		backend.WithLogger(p.Logger),
+		backend.WithLogger(n.logger),
 		backend.WithExpectClosure(func(incoming *http.Response) error {
 			defer incoming.Body.Close()
 			if incoming.StatusCode != http.StatusOK {
@@ -262,24 +261,24 @@ func (p *Plugin) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlar
 	return resp, nil
 }
 
-func (p *Plugin) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {
-	cond, err := p.ListAlertConditions(ctx, &alertingv1.ListAlertConditionRequest{})
+func (n *NotificationServerComponent) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {
+	conds, err := n.conditionStorage.Get().List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	relationships := map[string]*corev1.ReferenceList{}
-	for _, c := range cond.Items {
-		if c.AlertCondition.AttachedEndpoints != nil && len(c.AlertCondition.AttachedEndpoints.Items) > 0 {
+	for _, c := range conds {
+		if c.AttachedEndpoints != nil && len(c.AttachedEndpoints.Items) > 0 {
 			refs := &corev1.ReferenceList{
 				Items: lo.Map(
-					c.AlertCondition.AttachedEndpoints.Items,
+					c.AttachedEndpoints.Items,
 					func(endp *alertingv1.AttachedEndpoint, _ int) *corev1.Reference {
 						return &corev1.Reference{
 							Id: endp.EndpointId,
 						}
 					}),
 			}
-			relationships[c.Id.Id] = refs
+			relationships[c.Id] = refs
 		}
 	}
 	return &alertingv1.ListRoutingRelationshipsResponse{

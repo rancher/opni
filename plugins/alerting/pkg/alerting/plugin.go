@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 
 	"github.com/rancher/opni/pkg/management"
@@ -13,7 +12,9 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/messaging"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -29,23 +30,34 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 )
 
-const AlertingLogCacheSize = 32
+type ServerComponent interface {
+	InitializerF
+	SetConfig(config struct{})
+	// Reports if the state of the component is running
+	Status() struct{}
+	// Server components that manage independent dependencies
+	// should implement this method to sync them
+	Sync(enabled bool) error
+}
+
+func (p *Plugin) Components() []ServerComponent {
+	return []ServerComponent{
+		p.NotificationServerComponent,
+		p.EndpointServerComponent,
+		p.AlarmServerComponent,
+	}
+}
 
 type Plugin struct {
 	system.UnimplementedSystemPluginClient
-	alertingv1.UnsafeAlertConditionsServer
-	alertingv1.UnsafeAlertEndpointsServer
-	alertingv1.UnsafeAlertNotificationsServer
 
 	Ctx    context.Context
 	Logger *zap.SugaredLogger
 
+	// components       serverComponents
 	opsNode          *ops.AlertingOpsNode
-	msgNode          *messaging.MessagingNode
 	storageClientSet future.Future[storage.AlertingClientSet]
 
-	clusterOptionMu sync.RWMutex
-	clusterOptions  *shared.AlertingClusterOptions
 	clusterNotifier chan shared.AlertingClusterNotification
 	// signifies that the Alerting Cluster is running and we should
 	// be reconciling external dependencies in order to evaluate
@@ -58,6 +70,10 @@ type Plugin struct {
 	natsConn        future.Future[*nats.Conn]
 	js              future.Future[nats.JetStreamContext]
 	globalWatchers  management.ConditionWatcher
+
+	*notifications.NotificationServerComponent
+	*endpoints.EndpointServerComponent
+	*alarms.AlarmServerComponent
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -71,7 +87,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		Logger: lg,
 
 		opsNode:          ops.NewAlertingOpsNode(ctx, clusterDriver, storageClientSet),
-		msgNode:          messaging.NewMessagingNode(),
 		storageClientSet: storageClientSet,
 
 		clusterNotifier: make(chan shared.AlertingClusterNotification),
@@ -83,6 +98,54 @@ func NewPlugin(ctx context.Context) *Plugin {
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
 	}
+	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
+		p.Logger.With("component", "notifications"),
+	)
+	p.EndpointServerComponent = endpoints.NewEndpointServerComponent(
+		p.Ctx,
+		p.Logger.With("component", "endpoints"),
+		p.NotificationServerComponent,
+	)
+	p.AlarmServerComponent = alarms.NewAlarmServerComponent(
+		p.Ctx,
+		p.Logger.With("component", "alarms"),
+		p.NotificationServerComponent,
+	)
+
+	future.Wait1(p.storageClientSet, func(s storage.AlertingClientSet) {
+		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
+			ConditionStorage: s.Conditions(),
+			OpsNode:          p.opsNode,
+		})
+
+		p.EndpointServerComponent.Initialize(endpoints.EndpointServerConfiguration{
+			ConditionStorage: s.Conditions(),
+			OpsNode:          p.opsNode,
+			EndpointStorage:  s.Endpoints(),
+			RouterStorage:    s.Routers(),
+		})
+	})
+
+	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
+		func(
+			js nats.JetStreamContext,
+			s storage.AlertingClientSet,
+			mgmtClient managementv1.ManagementClient,
+			adminClient cortexadmin.CortexAdminClient,
+			cortexOpsClient cortexops.CortexOpsClient) {
+			p.AlarmServerComponent.Initialize(alarms.AlarmServerConfiguration{
+				ConditionStorage: s.Conditions(),
+				IncidentStorage:  s.Incidents(),
+				StateStorage:     s.States(),
+				RouterStorage:    s.Routers(),
+				OpsNode:          p.opsNode,
+				MgmtClient:       mgmtClient,
+				AdminClient:      adminClient,
+				CortexOpsClient:  cortexOpsClient,
+				Js:               js,
+			})
+		})
+
 	return p
 }
 
@@ -94,20 +157,21 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+
 	// We omit the trigger server here since it should only be used internally
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(
 				&alertingv1.AlertConditions_ServiceDesc,
-				p,
+				p.AlarmServerComponent,
 			),
 			util.PackService(
 				&alertingv1.AlertEndpoints_ServiceDesc,
-				p,
+				p.EndpointServerComponent,
 			),
 			util.PackService(
 				&alertingv1.AlertNotifications_ServiceDesc,
-				p,
+				p.NotificationServerComponent,
 			),
 			util.PackService(
 				&alertops.AlertingAdmin_ServiceDesc,

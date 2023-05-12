@@ -1,4 +1,4 @@
-package alerting
+package alarms
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 
 func handleChoicesByType(
 	ctx context.Context,
-	p *Plugin,
+	p *AlarmServerComponent,
 	req *alertingv1.AlertDetailChoicesRequest,
 ) (*alertingv1.ListAlertTypeDetails, error) {
 	switch req.GetAlertType() {
@@ -98,7 +98,7 @@ func clusterHasNodeExporterMetrics(ctx context.Context, adminClient cortexadmin.
 	return len(*v) > 0
 }
 
-func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+func (p *AlarmServerComponent) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
@@ -125,7 +125,7 @@ func (p *Plugin) fetchAgentInfo(ctx context.Context) (*alertingv1.ListAlertTypeD
 	}, nil
 }
 
-func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+func (p *AlarmServerComponent) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	ctxCa, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	mgmtClient, err := p.mgmtClient.GetContext(ctxCa)
@@ -155,8 +155,8 @@ func (p *Plugin) fetchDownstreamCapabilityInfo(ctx context.Context) (*alertingv1
 	}, nil
 }
 
-func (p *Plugin) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchKubeStateInfo")
+func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.logger.With("handler", "fetchKubeStateInfo")
 	resKubeState := &alertingv1.ListAlertConditionKubeState{
 		Clusters: map[string]*alertingv1.KubeObjectGroups{},
 		States:   shared.KubeStates,
@@ -266,8 +266,8 @@ type clusterCpuSaturation struct {
 	cpuNodeGroup *alertingv1.CpuNodeGroup
 }
 
-func (p *Plugin) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchCPUSaturationInfo")
+func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.logger.With("handler", "fetchCPUSaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{},
@@ -388,8 +388,8 @@ type clusterMemorySaturation struct {
 	memoryNodeGroup *alertingv1.MemoryNodeGroup
 }
 
-func (p *Plugin) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
+func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.logger.With("handler", "fetchMemorySaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{})
@@ -514,8 +514,8 @@ type clusterFilesystemSaturation struct {
 	filesystemGroup *alertingv1.FilesystemNodeGroup
 }
 
-func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.Logger.With("handler", "fetchMemorySaturationInfo")
+func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+	lg := p.logger.With("handler", "fetchMemorySaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{},
@@ -650,7 +650,7 @@ func (p *Plugin) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAle
 	}, nil
 }
 
-func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+func (p *AlarmServerComponent) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	ctxca, ca := context.WithTimeout(ctx, time.Second*30)
 	defer ca()
 
@@ -684,7 +684,7 @@ func (p *Plugin) fetchPrometheusQueryInfo(ctx context.Context) (*alertingv1.List
 
 }
 
-func (p *Plugin) fetchMonitoringBackendInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
+func (p *AlarmServerComponent) fetchMonitoringBackendInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
 	ctxca, ca := context.WithTimeout(ctx, time.Second*3)
 	defer ca()
 	cortexOps, err := p.cortexOpsClient.GetContext(ctxca)

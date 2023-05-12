@@ -1,4 +1,4 @@
-package messaging
+package alarms
 
 import (
 	"context"
@@ -12,18 +12,19 @@ type EvaluatorContext struct {
 	running atomic.Bool
 }
 
-type MessagingNode struct {
+type Runner struct {
 	// conditionId -> subsriber pull context cancel func
 	systemConditionUpdateListeners map[string]EvaluatorContext
 	systemConditionMu              sync.Mutex
 }
 
-func NewMessagingNode() *MessagingNode {
-	return &MessagingNode{
+func NewRunner() *Runner {
+	return &Runner{
 		systemConditionUpdateListeners: make(map[string]EvaluatorContext),
 	}
 }
-func (n *MessagingNode) AddSystemConfigListener(conditionId string, eCtx EvaluatorContext) {
+
+func (n *Runner) AddSystemConfigListener(conditionId string, eCtx EvaluatorContext) {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
 	if oldContext, ok := n.systemConditionUpdateListeners[conditionId]; ok {
@@ -38,7 +39,7 @@ func (n *MessagingNode) AddSystemConfigListener(conditionId string, eCtx Evaluat
 	}()
 }
 
-func (n *MessagingNode) RemoveConfigListener(conditionId string) {
+func (n *Runner) RemoveConfigListener(conditionId string) {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
 	if oldContext, ok := n.systemConditionUpdateListeners[conditionId]; ok {
@@ -47,7 +48,7 @@ func (n *MessagingNode) RemoveConfigListener(conditionId string) {
 	delete(n.systemConditionUpdateListeners, conditionId)
 }
 
-func (n *MessagingNode) IsRunning(conditionId string) bool {
+func (n *Runner) IsRunning(conditionId string) bool {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
 	eCtx, ok := n.systemConditionUpdateListeners[conditionId]

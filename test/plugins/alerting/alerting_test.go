@@ -324,7 +324,7 @@ func BuildAlertingClusterIntegrationTests(
 								return err
 							}
 							if status.State != alertingv1.AlertConditionState_Ok {
-								return fmt.Errorf("condition %s is not OK, instead in state %s", cond.AlertCondition.Name, status.State.String())
+								return fmt.Errorf("condition %s is not OK, instead in state %s, %s", cond.AlertCondition.Name, status.State.String(), status.Reason)
 							}
 						}
 						return nil

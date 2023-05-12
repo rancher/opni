@@ -316,7 +316,48 @@ func newHandler(
 				status.Errorf(codes.InvalidArgument, err.Error()))
 			return
 		} else if len(body) > 0 {
-			if err := reqMsg.UnmarshalMergeJSON(body); err != nil {
+			var err error
+			bodyFieldPath := rule.GetHttp().GetBody()
+			if bodyFieldPath == "" {
+				bodyFieldPath = "*"
+			}
+			if bodyFieldPath == "*" {
+				err = reqMsg.UnmarshalMergeJSON(body)
+			} else {
+				// unmarshal the request into a specific field
+				fd := reqMsg.FindFieldDescriptorByJSONName(bodyFieldPath)
+				if fd == nil {
+					runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+						status.Errorf(codes.InvalidArgument, "unknown field %q", bodyFieldPath))
+					return
+				}
+				if fd.GetType() == dpb.FieldDescriptorProto_TYPE_MESSAGE {
+					bodyField := reqMsg.GetField(fd)
+					var dynamicBodyField *dynamic.Message
+					if reflect.ValueOf(bodyField).IsNil() {
+						dynamicBodyField = dynamic.NewMessage(fd.GetMessageType())
+						reqMsg.SetField(fd, dynamicBodyField)
+					} else {
+						var ok bool
+						dynamicBodyField, ok = bodyField.(*dynamic.Message)
+						if !ok {
+							panic("bug: request is not a *dynamic.Message")
+						}
+					}
+					err = dynamicBodyField.UnmarshalMergeJSON(body)
+				} else {
+					if err := decodeAndSetField(reqMsg, bodyFieldPath, string(body)); err != nil {
+						if _, ok := status.FromError(err); ok {
+							runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+						} else {
+							runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+								status.Errorf(codes.InvalidArgument, "failed to decode body field %q: %v", bodyFieldPath, err))
+						}
+						return
+					}
+				}
+			}
+			if err != nil {
 				lg.With(
 					zap.Error(err),
 					zap.String("body", string(body)),
@@ -552,10 +593,8 @@ func decodeAndSetField(reqMsg *dynamic.Message, k, v string) error {
 		decoded, err = runtime.Bool(v)
 	case dpb.FieldDescriptorProto_TYPE_STRING:
 		decoded, err = runtime.String(v)
-	case dpb.FieldDescriptorProto_TYPE_GROUP:
-		return fmt.Errorf("field %s is of type group, which is not supported", k)
-	case dpb.FieldDescriptorProto_TYPE_MESSAGE:
-		return fmt.Errorf("field %s is of type message, which is not supported", k)
+	case dpb.FieldDescriptorProto_TYPE_GROUP, dpb.FieldDescriptorProto_TYPE_MESSAGE:
+		return status.Errorf(codes.Unimplemented, "field %s of type %s is not supported", k, fd.GetType().String())
 	case dpb.FieldDescriptorProto_TYPE_BYTES:
 		decoded, err = runtime.Bytes(v)
 	case dpb.FieldDescriptorProto_TYPE_UINT32:

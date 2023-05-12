@@ -54,6 +54,11 @@ service Ext {
     option (google.api.http) = {
       put: "/set/{node.id}"
       body: "*"
+
+      additional_bindings {
+        put: "/set/example/{node.id}"
+        body: "example"
+      }
     };
   }
   rpc ServerStream(FooRequest) returns (stream FooResponse);
@@ -67,6 +72,11 @@ message Reference {
 message SetRequest {
   Reference node = 1;
   string value = 2;
+  ExampleValue example = 3;
+}
+
+message ExampleValue {
+  string value = 1;
 }
 
 service Ext2 {

@@ -3,9 +3,8 @@ package backend
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -23,7 +22,7 @@ func (m *MetricsBackend) GetClusterConfiguration(ctx context.Context, in *emptyp
 func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	defer m.requestNodeSync(ctx, &v1.Reference{})
+	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.ConfigureCluster(ctx, in)
 }
 
@@ -36,7 +35,7 @@ func (m *MetricsBackend) GetClusterStatus(ctx context.Context, in *emptypb.Empty
 func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	clusters, err := m.StorageBackend.ListClusters(ctx, &v1.LabelSelector{}, v1.MatchOptions_Default)
+	clusters, err := m.StorageBackend.ListClusters(ctx, &corev1.LabelSelector{}, corev1.MatchOptions_Default)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +46,8 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 		}
 	}
 	if len(clustersWithCapability) > 0 {
-		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("metrics capability is still installed on the following clusters: %s", strings.Join(clustersWithCapability, ", ")))
+		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("There are %d agents sending metrics to the Opni monitoring backend. Uninstall the capability on all agents before attempting to uninstall the Opni monitoring backend.", len(clustersWithCapability)))
 	}
-	defer m.requestNodeSync(ctx, &v1.Reference{})
+	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.UninstallCluster(ctx, in)
 }

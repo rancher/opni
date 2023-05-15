@@ -110,7 +110,7 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	g.P()
 
 	anyServices := len(file.Services) > 0
-	cg.generateServices(&opts, gen, file, g)
+	cg.generateServices(&opts, file, g)
 	if !anyServices {
 		g.Skip()
 	}
@@ -125,21 +125,21 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	}
 
 	if opts.GenerateDeepcopy {
-		cg.generateDeepcopyFunctions(gen, file, g)
+		cg.generateDeepcopyFunctions(file, g)
 	}
 	return g
 }
 
-func (cg *Generator) generateServices(opts *GeneratorOptions, gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.File, g *protogen.GeneratedFile) {
 	svcCtx := serviceGenWriters{}
 	switch opts.ClientDependencyInjection {
 	case ClientDependencyInjectionStrategy_InjectIntoContext:
-		generateContextInjectionFunctions(gen, file, g)
+		generateContextInjectionFunctions(file, g)
 		svcCtx = serviceGenWriters{
 			PrintAddCmd: func(method *protogen.Method, g *protogen.GeneratedFile) {
 				g.P("cmd.AddCommand(Build", method.GoName, "Cmd())")
 			},
-			PrintCmdBuilderSignature: func(methodName, svcName string, g *protogen.GeneratedFile) {
+			PrintCmdBuilderSignature: func(methodName, _ string, g *protogen.GeneratedFile) {
 				g.P("func Build", methodName, "Cmd() *", _cobra.Ident("Command"), " {")
 			},
 			PrintObtainClient: func(service *protogen.Service, g *protogen.GeneratedFile) {
@@ -164,10 +164,10 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, gen *protogen.Plug
 	}
 	g.P()
 	for _, service := range file.Services {
-		cg.generateServiceTopLevelCmd(gen, file, service, g, svcCtx)
+		cg.generateServiceTopLevelCmd(service, g, svcCtx)
 		g.P()
 		for _, method := range service.Methods {
-			cg.generateMethodCmd(gen, file, service, method, g, svcCtx)
+			cg.generateMethodCmd(service, method, g, svcCtx)
 			g.P()
 		}
 	}
@@ -179,7 +179,7 @@ type serviceGenWriters struct {
 	PrintObtainClient        func(service *protogen.Service, g *protogen.GeneratedFile)
 }
 
-func generateContextInjectionFunctions(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func generateContextInjectionFunctions(file *protogen.File, g *protogen.GeneratedFile) {
 	for _, service := range file.Services {
 		g.P("type contextKey_", service.GoName, "_type struct{}")
 		g.P("var contextKey_", service.GoName, " contextKey_", service.GoName, "_type")
@@ -196,7 +196,7 @@ func generateContextInjectionFunctions(gen *protogen.Plugin, file *protogen.File
 	}
 }
 
-func (cg *Generator) generateServiceTopLevelCmd(gen *protogen.Plugin, file *protogen.File, service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
 	leadingComments := formatComments(service.Comments)
 
 	opts := CommandGroupOptions{
@@ -238,7 +238,7 @@ func (cg *Generator) generateServiceTopLevelCmd(gen *protogen.Plugin, file *prot
 	g.P("}")
 }
 
-func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File, service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
 	writers.PrintCmdBuilderSignature(method.GoName, service.GoName, g)
 	isEmpty := method.Input.Desc.FullName() == "google.protobuf.Empty"
 	if !isEmpty {
@@ -653,7 +653,7 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P("}")
 }
 
-func (cg *Generator) generateDeepcopyFunctions(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func (cg *Generator) generateDeepcopyFunctions(file *protogen.File, g *protogen.GeneratedFile) {
 	for _, msg := range file.Messages {
 		g.P()
 		g.P("func (in *", msg.GoIdent, ") DeepCopyInto(out *", msg.GoIdent, ") {")

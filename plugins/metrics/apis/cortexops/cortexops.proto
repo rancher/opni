@@ -13,6 +13,7 @@ option (cli.generator) = {
   generate: true
 };
 
+
 // The CortexOps service contains setup and configuration lifecycle actions for the managed Cortex cluster.
 service CortexOps {
   option (cli.command_group) = {

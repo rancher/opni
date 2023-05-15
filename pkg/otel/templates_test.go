@@ -152,7 +152,7 @@ var _ = Describe("Otel config templates integration", Label("integration"), Orde
 	var configBytes = []byte{}
 	var t *template.Template
 
-	debug := func(fileName string, content []byte) {
+	debug := func(fileName string, _ []byte) {
 		if _, ok := os.LookupEnv("DEBUG_OTEL"); ok {
 			err := os.WriteFile(fileName+".yaml", configBytes, 0644)
 			Expect(err).To(BeNil())

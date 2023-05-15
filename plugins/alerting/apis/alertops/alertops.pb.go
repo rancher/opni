@@ -7,15 +7,14 @@
 package alertops
 
 import (
-	"reflect"
-	"sync"
-
 	v1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	_ "github.com/rancher/opni/pkg/apis/storage/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
-	"google.golang.org/protobuf/types/known/emptypb"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -226,8 +225,8 @@ type InstallStatus struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	State   InstallState `protobuf:"varint,1,opt,name=state,proto3,enum=alerting.ops.InstallState" json:"state,omitempty"`
-	Version string       `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	State    InstallState      `protobuf:"varint,1,opt,name=state,proto3,enum=alerting.ops.InstallState" json:"state,omitempty"`
+	Version  string            `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	Metadata map[string]string `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

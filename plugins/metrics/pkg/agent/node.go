@@ -62,25 +62,25 @@ type MetricsNode struct {
 }
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
-	node := &MetricsNode{
+	mn := &MetricsNode{
 		logger:       lg,
 		conditions:   ct,
 		targetRunner: NewTargetRunner(lg),
 	}
-	node.conditions.AddListener(node.sendHealthUpdate)
-	node.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
+	mn.conditions.AddListener(mn.sendHealthUpdate)
+	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 
 	// FIXME: this is a hack, update the old sync code to use delegates instead
-	node.conditions.AddListener(func(key string) {
-		if key == CondNodeDriver {
-			node.logger.Info("forcing sync due to node driver status change")
+	mn.conditions.AddListener(func(key string) {
+		if key == node.CondNodeDriver {
+			mn.logger.Info("forcing sync due to node driver status change")
 			go func() {
-				node.doSync(context.TODO())
+				mn.doSync(context.TODO())
 			}()
 		}
 	})
 
-	return node
+	return mn
 }
 
 func (m *MetricsNode) sendHealthUpdate() {
@@ -304,7 +304,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 // requires identityClientMu to be held (either R or W)
 func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
-	id, err := m.identityClient.Whoami(context.Background(), &emptypb.Empty{})
+	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
 		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
 		return err

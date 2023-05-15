@@ -1,6 +1,7 @@
-package main
+package targets
 
 import (
+	"context"
 	"os"
 	"strings"
 	"sync"
@@ -24,7 +25,10 @@ type Mock struct {
 	Types  []string `yaml:"types"`
 }
 
-func Mockgen() error {
+func (Generate) Mocks(ctx context.Context) error {
+	_, tr := Tracer.Start(ctx, "target.generate.mocks")
+	defer tr.End()
+
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	mu := sync.Mutex{}
@@ -54,7 +58,9 @@ func Mockgen() error {
 				panic("invalid mock config: either Source or Import must be set")
 			}
 			args = append(args, strings.Join(mock.Types, ","))
-			err := sh.RunV(mg.GoCmd(), args...)
+			err := sh.RunWithV(map[string]string{
+				"CGO_ENABLED": "0",
+			}, mg.GoCmd(), args...)
 			if err != nil {
 				mu.Lock()
 				errs = append(errs, err)

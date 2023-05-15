@@ -7,16 +7,15 @@
 package remoteread
 
 import (
-	"reflect"
-	"sync"
-
 	_ "github.com/rancher/opni/pkg/apis/core/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	_ "google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -951,8 +950,8 @@ type LabelMatcher struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type LabelMatcher_Type `protobuf:"varint,1,opt,name=type,proto3,enum=remoteread.LabelMatcher_Type" json:"type,omitempty"`
-	Name string            `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Type  LabelMatcher_Type `protobuf:"varint,1,opt,name=type,proto3,enum=remoteread.LabelMatcher_Type" json:"type,omitempty"`
+	Name  string            `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Value string            `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 }
 

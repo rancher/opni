@@ -127,9 +127,9 @@ message AlertCondition {
   AttachedEndpoints attachedEndpoints = 6;
 
   // the following are read-only for consumers of the API
-  
+
   SilenceInfo silence = 7;// Set & Unset via the silence API
-  // the object id 
+  // the object id
   google.protobuf.Timestamp lastUpdated = 8;
   string id = 9;
   // Explicit field where the golden signal is set
@@ -280,7 +280,7 @@ message Cores {
 message ListAlertConditionCPUSaturation {
 // clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
   map<string, CpuNodeGroup> clusters = 1;
-  // cpu state, one of : 
+  // cpu state, one of :
   // "user": The time spent in userland
   // "system": The time spent in the kernel
   // "iowait": Time spent waiting for I/O
@@ -359,7 +359,7 @@ message AlertConditionDownstreamCapability{
 }
 
 message ListAlertConditionDownstreamCapability{
-  map<string, CapabilityState> clusters = 1; 
+  map<string, CapabilityState> clusters = 1;
 }
 
 message CapabilityState{
@@ -461,7 +461,7 @@ message AlertStatusResponse {
 
 
 enum TimelineType {
-  // do not show, backend error 
+  // do not show, backend error
   Timeline_Unknown = 0;
   // red
   Timeline_Alerting = 1;
@@ -472,7 +472,7 @@ enum TimelineType {
 // query for status timeline page
 message TimelineRequest {
   google.protobuf.Duration lookbackWindow = 1;
-  int64 limit = 2; 
+  int64 limit = 2;
   ListAlertConditionRequest filters = 3;
 }
 

@@ -7,14 +7,13 @@
 package node
 
 import (
-	"reflect"
-	"sync"
-
 	_ "github.com/rancher/opni/pkg/apis/capability/v1"
 	_ "github.com/rancher/opni/pkg/config/v1beta1"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	_ "google.golang.org/protobuf/types/known/emptypb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (

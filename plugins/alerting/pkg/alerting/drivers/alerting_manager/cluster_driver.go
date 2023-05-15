@@ -80,7 +80,7 @@ func (a *AlertingClusterManager) newAlertingClusterCrd() *corev1beta1.AlertingCl
 	}
 }
 
-func (a *AlertingClusterManager) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (a *AlertingClusterManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	lg := a.Logger.With("action", "install-cluster")
 	mutator := func(cl *corev1beta1.AlertingCluster) {
 		cl.Spec.Alertmanager.Enable = true
@@ -132,7 +132,7 @@ func (a *AlertingClusterManager) InstallCluster(ctx context.Context, empty *empt
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingClusterManager) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
+func (a *AlertingClusterManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	existing := a.newAlertingClusterCrd()
 	if err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -240,8 +240,8 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingClusterManager) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (status *alertops.InstallStatus, retErr error) {
-	status, err := a.controllerStatus()
+func (a *AlertingClusterManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (status *alertops.InstallStatus, retErr error) {
+	status, err := a.controllerStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -249,9 +249,9 @@ func (a *AlertingClusterManager) GetClusterStatus(ctx context.Context, empty *em
 	return status, nil
 }
 
-func (a *AlertingClusterManager) controllerStatus() (*alertops.InstallStatus, error) {
+func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertops.InstallStatus, error) {
 	existing := a.newAlertingClusterCrd()
-	if err := a.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(existing), existing); err != nil {
+	if err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return &alertops.InstallStatus{
 				State: alertops.InstallState_NotInstalled,
@@ -264,8 +264,8 @@ func (a *AlertingClusterManager) controllerStatus() (*alertops.InstallStatus, er
 	cs := newOpniControllerSet(a.GatewayRef.Namespace)
 	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
 
-	ctrlErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(cs), cs)
-	workErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(ws), ws)
+	ctrlErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(cs), cs)
+	workErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(ws), ws)
 	replicas := lo.FromPtrOr(existing.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	if existing.Spec.Alertmanager.Enable {
 		expectedSets := []statusTuple{{A: ctrlErr, B: cs}}
@@ -315,7 +315,7 @@ func (a *AlertingClusterManager) controllerStatus() (*alertops.InstallStatus, er
 	}, nil
 }
 
-func (a *AlertingClusterManager) UninstallCluster(ctx context.Context, request *alertops.UninstallRequest) (*emptypb.Empty, error) {
+func (a *AlertingClusterManager) UninstallCluster(ctx context.Context, _ *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	cl := a.newAlertingClusterCrd()
 	if err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(cl), cl); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -341,7 +341,7 @@ func (a *AlertingClusterManager) notify(status *alertops.InstallStatus) {
 	}
 }
 
-func (a *AlertingClusterManager) ShouldDisableNode(reference *corev1.Reference) error {
+func (a *AlertingClusterManager) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
 }
 

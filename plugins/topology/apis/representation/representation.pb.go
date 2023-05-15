@@ -7,14 +7,13 @@
 package representation
 
 import (
-	"reflect"
-	"sync"
-
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	_ "google.golang.org/protobuf/types/known/emptypb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -76,8 +75,8 @@ type TopologyGraph struct {
 	unknownFields protoimpl.UnknownFields
 
 	Id   *v1.Reference `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Data []byte    `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	Repr GraphRepr `protobuf:"varint,3,opt,name=repr,proto3,enum=representation.GraphRepr" json:"repr,omitempty"`
+	Data []byte        `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Repr GraphRepr     `protobuf:"varint,3,opt,name=repr,proto3,enum=representation.GraphRepr" json:"repr,omitempty"`
 }
 
 func (x *TopologyGraph) Reset() {

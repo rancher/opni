@@ -110,12 +110,12 @@ func (in *OTELSpec) DeepCopyInto(out *OTELSpec) {
 	}
 }
 
-func (o *OTELSpec) DeepCopy() *OTELSpec {
-	if o == nil {
+func (in *OTELSpec) DeepCopy() *OTELSpec {
+	if in == nil {
 		return nil
 	}
 	out := new(OTELSpec)
-	o.DeepCopyInto(out)
+	in.DeepCopyInto(out)
 	return out
 }
 
@@ -128,12 +128,12 @@ func (in *ScrapeConfig) DeepCopyInto(out *ScrapeConfig) {
 	}
 }
 
-func (s *ScrapeConfig) DeepCopy() *ScrapeConfig {
-	if s == nil {
+func (in *ScrapeConfig) DeepCopy() *ScrapeConfig {
+	if in == nil {
 		return nil
 	}
 	out := new(ScrapeConfig)
-	s.DeepCopyInto(out)
+	in.DeepCopyInto(out)
 	return out
 }
 
@@ -144,12 +144,12 @@ func (in *WALConfig) DeepCopyInto(out *WALConfig) {
 	}
 }
 
-func (w *WALConfig) DeepCopy() *WALConfig {
-	if w == nil {
+func (in *WALConfig) DeepCopy() *WALConfig {
+	if in == nil {
 		return nil
 	}
 	out := new(WALConfig)
-	w.DeepCopyInto(out)
+	in.DeepCopyInto(out)
 	return out
 }
 

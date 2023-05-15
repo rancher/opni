@@ -41,6 +41,7 @@ func NewPodMonitorScrapeConfigRetriever(
 		client:    client,
 		namespace: namespace,
 		logger:    logger,
+		discovery: discovery,
 	}
 }
 

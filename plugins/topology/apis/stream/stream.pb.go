@@ -7,13 +7,12 @@
 package stream
 
 import (
-	"reflect"
-	"sync"
-
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
-	"google.golang.org/protobuf/types/known/emptypb"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -123,8 +122,8 @@ type TopologyGraph struct {
 	unknownFields protoimpl.UnknownFields
 
 	ClusterId *v1.Reference `protobuf:"bytes,1,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
-	Data []byte    `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	Repr GraphRepr `protobuf:"varint,3,opt,name=repr,proto3,enum=stream.topology.GraphRepr" json:"repr,omitempty"`
+	Data      []byte        `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Repr      GraphRepr     `protobuf:"varint,3,opt,name=repr,proto3,enum=stream.topology.GraphRepr" json:"repr,omitempty"`
 }
 
 func (x *TopologyGraph) Reset() {

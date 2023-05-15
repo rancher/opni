@@ -7,14 +7,13 @@
 package loggingadmin
 
 import (
-	"reflect"
-	"sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
-	"google.golang.org/protobuf/types/known/emptypb"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	v1 "k8s.io/api/core/v1"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -301,13 +300,13 @@ type OpensearchNodeDetails struct {
 	Name               string            `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
 	Replicas           *int32            `protobuf:"varint,2,opt,name=Replicas,proto3,oneof" json:"Replicas,omitempty"`
 	DiskSize           string            `protobuf:"bytes,3,opt,name=DiskSize,proto3" json:"DiskSize,omitempty"`
-	MemoryLimit        string           `protobuf:"bytes,4,opt,name=MemoryLimit,proto3" json:"MemoryLimit,omitempty"`
-	CPUResources       *CPUResource     `protobuf:"bytes,5,opt,name=CPUResources,proto3,oneof" json:"CPUResources,omitempty"`
-	EnableAntiAffinity *bool            `protobuf:"varint,6,opt,name=EnableAntiAffinity,proto3,oneof" json:"EnableAntiAffinity,omitempty"`
+	MemoryLimit        string            `protobuf:"bytes,4,opt,name=MemoryLimit,proto3" json:"MemoryLimit,omitempty"`
+	CPUResources       *CPUResource      `protobuf:"bytes,5,opt,name=CPUResources,proto3,oneof" json:"CPUResources,omitempty"`
+	EnableAntiAffinity *bool             `protobuf:"varint,6,opt,name=EnableAntiAffinity,proto3,oneof" json:"EnableAntiAffinity,omitempty"`
 	NodeSelector       map[string]string `protobuf:"bytes,7,rep,name=NodeSelector,proto3" json:"NodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Tolerations        []*v1.Toleration  `protobuf:"bytes,8,rep,name=Tolerations,proto3" json:"Tolerations,omitempty"`
-	Roles              []string         `protobuf:"bytes,9,rep,name=Roles,proto3" json:"Roles,omitempty"`
-	Persistence        *DataPersistence `protobuf:"bytes,10,opt,name=Persistence,proto3,oneof" json:"Persistence,omitempty"`
+	Roles              []string          `protobuf:"bytes,9,rep,name=Roles,proto3" json:"Roles,omitempty"`
+	Persistence        *DataPersistence  `protobuf:"bytes,10,opt,name=Persistence,proto3,oneof" json:"Persistence,omitempty"`
 }
 
 func (x *OpensearchNodeDetails) Reset() {
@@ -741,12 +740,12 @@ type DataDetails struct {
 
 	Replicas           *int32            `protobuf:"varint,1,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
 	DiskSize           string            `protobuf:"bytes,2,opt,name=diskSize,proto3" json:"diskSize,omitempty"`
-	MemoryLimit        string           `protobuf:"bytes,3,opt,name=memoryLimit,proto3" json:"memoryLimit,omitempty"`
-	CpuResources       *CPUResource     `protobuf:"bytes,4,opt,name=cpuResources,proto3,oneof" json:"cpuResources,omitempty"`
-	EnableAntiAffinity *bool            `protobuf:"varint,5,opt,name=enableAntiAffinity,proto3,oneof" json:"enableAntiAffinity,omitempty"`
+	MemoryLimit        string            `protobuf:"bytes,3,opt,name=memoryLimit,proto3" json:"memoryLimit,omitempty"`
+	CpuResources       *CPUResource      `protobuf:"bytes,4,opt,name=cpuResources,proto3,oneof" json:"cpuResources,omitempty"`
+	EnableAntiAffinity *bool             `protobuf:"varint,5,opt,name=enableAntiAffinity,proto3,oneof" json:"enableAntiAffinity,omitempty"`
 	NodeSelector       map[string]string `protobuf:"bytes,6,rep,name=nodeSelector,proto3" json:"nodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Tolerations        []*v1.Toleration `protobuf:"bytes,7,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
-	Persistence        *DataPersistence `protobuf:"bytes,8,opt,name=persistence,proto3,oneof" json:"persistence,omitempty"`
+	Tolerations        []*v1.Toleration  `protobuf:"bytes,7,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Persistence        *DataPersistence  `protobuf:"bytes,8,opt,name=persistence,proto3,oneof" json:"persistence,omitempty"`
 }
 
 func (x *DataDetails) Reset() {
@@ -843,9 +842,9 @@ type IngestDetails struct {
 	unknownFields protoimpl.UnknownFields
 
 	Replicas           *int32            `protobuf:"varint,1,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
-	MemoryLimit        string       `protobuf:"bytes,2,opt,name=memoryLimit,proto3" json:"memoryLimit,omitempty"`
-	CpuResources       *CPUResource `protobuf:"bytes,3,opt,name=cpuResources,proto3,oneof" json:"cpuResources,omitempty"`
-	EnableAntiAffinity *bool        `protobuf:"varint,4,opt,name=enableAntiAffinity,proto3,oneof" json:"enableAntiAffinity,omitempty"`
+	MemoryLimit        string            `protobuf:"bytes,2,opt,name=memoryLimit,proto3" json:"memoryLimit,omitempty"`
+	CpuResources       *CPUResource      `protobuf:"bytes,3,opt,name=cpuResources,proto3,oneof" json:"cpuResources,omitempty"`
+	EnableAntiAffinity *bool             `protobuf:"varint,4,opt,name=enableAntiAffinity,proto3,oneof" json:"enableAntiAffinity,omitempty"`
 	NodeSelector       map[string]string `protobuf:"bytes,5,rep,name=nodeSelector,proto3" json:"nodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Tolerations        []*v1.Toleration  `protobuf:"bytes,6,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 }
@@ -931,8 +930,8 @@ type ControlplaneDetails struct {
 
 	Replicas     *int32            `protobuf:"varint,1,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
 	NodeSelector map[string]string `protobuf:"bytes,2,rep,name=nodeSelector,proto3" json:"nodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Tolerations  []*v1.Toleration `protobuf:"bytes,3,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
-	Persistence  *DataPersistence `protobuf:"bytes,4,opt,name=persistence,proto3,oneof" json:"persistence,omitempty"`
+	Tolerations  []*v1.Toleration  `protobuf:"bytes,3,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Persistence  *DataPersistence  `protobuf:"bytes,4,opt,name=persistence,proto3,oneof" json:"persistence,omitempty"`
 }
 
 func (x *ControlplaneDetails) Reset() {

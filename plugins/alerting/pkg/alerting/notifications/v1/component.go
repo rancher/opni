@@ -44,10 +44,10 @@ func (n *NotificationServerComponent) Status() struct{} {
 	return struct{}{}
 }
 
-func (e *NotificationServerComponent) SetConfig(conf struct{}) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.clusterConfiguration = conf
+func (n *NotificationServerComponent) SetConfig(conf struct{}) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.clusterConfiguration = conf
 }
 
 func (n *NotificationServerComponent) Sync(_ bool) error {

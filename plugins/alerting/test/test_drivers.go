@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -28,15 +29,35 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )
 
+func init() {
+	routing.DefaultConfig = routing.Config{
+		GlobalConfig: routing.GlobalConfig{
+			GroupWait:      lo.ToPtr(model.Duration(1 * time.Second)),
+			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+		},
+		SubtreeConfig: routing.SubtreeConfig{
+			GroupWait:      lo.ToPtr(model.Duration(1 * time.Second)),
+			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+		},
+		FinalizerConfig: routing.FinalizerConfig{
+			InitialDelay:       time.Second * 1,
+			ThrottlingDuration: time.Minute * 1,
+			RepeatInterval:     time.Hour * 5,
+		},
+		NotificationConfg: routing.NotificationConfg{},
+	}
+}
+
 type TestEnvAlertingClusterDriverOptions struct {
-	AlertingOptions *shared.AlertingClusterOptions            `option:"alertingOptions"`
-	Subscribers     []chan shared.AlertingClusterNotification `option:"subscribers"`
+	AlertingOptions *shared.AlertingClusterOptions `option:"alertingOptions"`
+	Subscribers     []chan []client.AlertingPeer   `option:"subscribers"`
 }
 
 type TestEnvAlertingClusterDriver struct {
@@ -52,8 +73,9 @@ type TestEnvAlertingClusterDriver struct {
 	*alertops.ClusterConfiguration
 
 	alertops.UnsafeAlertingAdminServer
+	client.Client
 
-	subscribers []chan shared.AlertingClusterNotification
+	subscribers []chan []client.AlertingPeer
 }
 
 var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
@@ -130,11 +152,17 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 	}
 	l.ClusterConfiguration = configuration
 
+	peers := []client.AlertingPeer{}
+	for _, inst := range l.managedInstances {
+		peers = append(peers, client.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://localhost:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
+		})
+	}
+	l.Client.SetKnownPeers(peers)
+
 	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: true,
-			B: l.AlertingClusterOptions,
-		}
+		subscriber <- peers
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -147,13 +175,15 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 	}
 	l.stateMu.RLock()
 	defer l.stateMu.RUnlock()
-	for _, replica := range l.managedInstances {
-		apiNode := backend.NewAlertManagerReadyClient(ctx, fmt.Sprintf("127.0.0.1:%d", replica.AlertManagerPort))
-		if err := apiNode.DoRequest(); err != nil {
-			return &alertops.InstallStatus{
-				State: alertops.InstallState_InstallUpdating,
-			}, nil
-		}
+	if l.Client == nil {
+		return &alertops.InstallStatus{
+			State: alertops.InstallState_NotInstalled,
+		}, nil
+	}
+	if err := l.Client.Ready(ctx); err != nil {
+		return &alertops.InstallStatus{
+			State: alertops.InstallState_InstallUpdating,
+		}, nil
 	}
 
 	return &alertops.InstallStatus{
@@ -176,6 +206,24 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 			l.managedInstances,
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
+	}
+	l.Client = client.NewClient(
+		nil,
+		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].AlertManagerPort),
+		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort),
+	)
+
+	peers := []client.AlertingPeer{}
+	for _, inst := range l.managedInstances {
+		peers = append(peers, client.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://localhost:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
+		})
+	}
+	l.Client.SetKnownPeers(peers)
+
+	for _, subscriber := range l.subscribers {
+		subscriber <- peers
 	}
 
 	l.enabled.Store(true)
@@ -200,13 +248,6 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	if err != nil {
 		panic(err)
 	}
-
-	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: true,
-			B: l.AlertingClusterOptions,
-		}
-	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -219,10 +260,7 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 	l.managedInstances = []AlertingServerUnit{}
 	l.enabled.Store(false)
 	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: false,
-			B: nil,
-		}
+		subscriber <- []client.AlertingPeer{}
 	}
 	return &emptypb.Empty{}, nil
 }

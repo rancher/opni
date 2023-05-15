@@ -583,26 +583,44 @@ func (e *Environment) startJetstream() {
 	lg.Info("Jetstream started")
 }
 
+type AlertManagerPorts struct {
+	ApiPort      int
+	ClusterPort  int
+	EmbeddedPort int
+}
+
 func (e *Environment) StartEmbeddedAlertManager(
 	ctx context.Context,
 	configFilePath string,
 	opniPort *int,
-) (webPort int) {
+	peers ...string,
+) (ports AlertManagerPorts) {
+	storagePath := path.Join(e.tempDir, "alertmanager_data", uuid.New().String())
+	if err := os.MkdirAll(storagePath, 0700); err != nil {
+		panic(err)
+	}
 	amBin := path.Join(e.TestBin, "../../bin/opni")
-	ports := freeport.GetFreePorts(2)
-	webPort = ports[0]
+	fPorts := freeport.GetFreePorts(2)
+	ports.ApiPort = fPorts[0]
+	ports.ClusterPort = fPorts[1]
+	ports.EmbeddedPort = lo.FromPtrOr(opniPort, 3000)
 	defaultArgs := []string{
 		"alerting-server",
 		"alertmanager",
 		fmt.Sprintf("--config.file=%s", configFilePath),
-		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--cluster.listen-address=:%d", ports[1]),
-
-		"--storage.path=/tmp/data",
+		fmt.Sprintf("--web.listen-address=:%d", ports.ApiPort),
+		fmt.Sprintf("--cluster.listen-address=:%d", ports.ClusterPort),
+		fmt.Sprintf("--storage.path=%s", storagePath),
+		"--cluster.pushpull-interval=5s",
+		"--cluster.peer-timeout=3s",
+		"--cluster.gossip-interval=200ms",
 		"--log.level=debug",
 	}
 	if opniPort != nil {
 		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))
+	}
+	for _, peer := range peers {
+		defaultArgs = append(defaultArgs, fmt.Sprintf("--cluster.peer=%s", peer))
 	}
 	cmd := exec.CommandContext(ctx, amBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
@@ -614,7 +632,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 	}
 	e.Logger.Info("Waiting for alertmanager to start...")
 	for e.ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", ports.ApiPort))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -623,7 +641,10 @@ func (e *Environment) StartEmbeddedAlertManager(
 		}
 		time.Sleep(time.Second)
 	}
-	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", ports[0]), "opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).Info("AlertManager started")
+	e.Logger.With(
+		"address", fmt.Sprintf("http://localhost:%d", ports.ApiPort),
+		"opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).
+		Info("AlertManager started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		cmd, _ := session.G()
@@ -631,7 +652,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 			cmd.Signal(os.Signal(syscall.SIGTERM))
 		}
 	})
-	return webPort
+	return
 }
 
 func (e *Environment) startEtcd() {

@@ -4,12 +4,14 @@ import (
 	"context"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
 
@@ -19,8 +21,8 @@ type EndpointServerComponent struct {
 	ctx context.Context
 	util.Initializer
 
-	mu                   sync.Mutex
-	clusterConfiguration struct{}
+	mu sync.Mutex
+	server.Config
 
 	notifications *notifications.NotificationServerComponent
 
@@ -31,6 +33,8 @@ type EndpointServerComponent struct {
 	routerStorage    future.Future[storage.RouterStorage]
 	opsNode          future.Future[*ops.AlertingOpsNode]
 }
+
+var _ server.ServerComponent = (*EndpointServerComponent)(nil)
 
 func NewEndpointServerComponent(
 	ctx context.Context,
@@ -55,18 +59,32 @@ type EndpointServerConfiguration struct {
 	OpsNode *ops.AlertingOpsNode
 }
 
-func (e *EndpointServerComponent) Status() struct{} {
-	return struct{}{}
+func (e *EndpointServerComponent) Status() server.Status {
+	return server.Status{
+		Running: e.Initialized(),
+	}
 }
 
-func (e *EndpointServerComponent) SetConfig(conf struct{}) {
+func (e *EndpointServerComponent) Ready() bool {
+	return e.Initialized()
+}
+
+func (e *EndpointServerComponent) Healthy() bool {
+	return e.Initialized()
+}
+
+func (e *EndpointServerComponent) SetConfig(conf server.Config) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.clusterConfiguration = conf
+	e.Config = conf
 }
 
 func (e *EndpointServerComponent) Sync(_ bool) error {
 	return nil
+}
+
+func (e *EndpointServerComponent) Collectors() []prometheus.Collector {
+	return []prometheus.Collector{}
 }
 
 func (e *EndpointServerComponent) Initialize(conf EndpointServerConfiguration) {

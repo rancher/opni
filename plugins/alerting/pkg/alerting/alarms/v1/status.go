@@ -2,9 +2,6 @@ package alarms
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -12,7 +9,6 @@ import (
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	promClient "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -183,55 +179,59 @@ func (a *AlarmServerComponent) loadAlertingInfo(ctx context.Context) (*alertingI
 		return nil, err
 	}
 
-	options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	// FIXME: the alert status returned by this endpoint
 	// will not always be consistent within the HA vanilla AlertManager,
 	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
+	// availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	ags, err := a.Config.Client.ListAlerts(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
+	// 	ctx,
+	// 	availableEndpoint,
+	// 	backend.WithExpectClosure(func(resp *http.Response) error {
+	// 		if resp.StatusCode != http.StatusOK {
+	// 			return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	// 		}
 
-	respAlertGroup := []backend.GettableAlert{}
-	apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
-		ctx,
-		availableEndpoint,
-		backend.WithExpectClosure(func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-			}
+	// 		return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
+	// 	}))
+	// err = apiNodeGetAlerts.DoRequest()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if respAlertGroup == nil {
+	// 	return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
+	// }
 
-			return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
-		}))
-	err = apiNodeGetAlerts.DoRequest()
-	if err != nil {
-		return nil, err
-	}
-	if respAlertGroup == nil {
-		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
-	}
-
-	respReceiver := []backend.Receiver{}
-	apiNodeGetReceivers := backend.NewAlertManagerReceiversClient(
-		ctx,
-		availableEndpoint,
-		backend.WithExpectClosure(func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-			}
-			return json.NewDecoder(resp.Body).Decode(&respReceiver)
-		}))
-	err = apiNodeGetReceivers.DoRequest()
-	if err != nil {
-		return nil, err
-	}
-	if respReceiver == nil {
-		return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
-	}
-	allReceiverNames := lo.Map(respReceiver, func(r backend.Receiver, _ int) string {
+	// respReceiver := []backend.Receiver{}
+	// apiNodeGetReceivers := backend.NewAlertManagerReceiversClient(
+	// 	ctx,
+	// 	availableEndpoint,
+	// 	backend.WithExpectClosure(func(resp *http.Response) error {
+	// 		if resp.StatusCode != http.StatusOK {
+	// 			return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	// 		}
+	// 		return json.NewDecoder(resp.Body).Decode(&respReceiver)
+	// 	}))
+	// err = apiNodeGetReceivers.DoRequest()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if respReceiver == nil {
+	// 	return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
+	// }
+	respReceiver, err := a.Client.ListReceivers(ctx)
+	allReceiverNames := lo.Map(respReceiver, func(r models.Receiver, _ int) string {
 		if r.Name == nil {
 			return ""
 		}
@@ -239,7 +239,7 @@ func (a *AlarmServerComponent) loadAlertingInfo(ctx context.Context) (*alertingI
 	})
 	return &alertingInfo{
 		router:          router,
-		alertGroup:      respAlertGroup,
+		alertGroup:      ags,
 		loadedReceivers: allReceiverNames,
 	}, nil
 }
@@ -330,7 +330,7 @@ type metricsInfo struct {
 
 type alertingInfo struct {
 	router          routing.OpniRouting
-	alertGroup      []backend.GettableAlert
+	alertGroup      models.AlertGroups
 	loadedReceivers []string
 }
 
@@ -365,42 +365,44 @@ func statusFromAlertGroup(
 	alertInfo *alertingInfo,
 ) *alertingv1.AlertStatusResponse {
 	matchers := alertInfo.router.HasLabels(cond.Id)
-	alertGroup := alertInfo.alertGroup
+	alertGroups := alertInfo.alertGroup
 	if len(matchers) == 0 {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "alarm dependencies are updating",
 		}
 	}
-	for _, alert := range alertGroup {
-		// must match all matchers from the router spec to the alert's labels
-		if !lo.EveryBy(matchers, func(m *labels.Matcher) bool {
-			for labelName, label := range alert.Labels {
-				if m.Name == labelName && m.Matches(label) {
-					return true
+	for _, group := range alertGroups {
+		for _, alert := range group.Alerts {
+			// must match all matchers from the router spec to the alert's labels
+			if !lo.EveryBy(matchers, func(m *labels.Matcher) bool {
+				for labelName, label := range alert.Labels {
+					if m.Name == labelName && m.Matches(label) {
+						return true
+					}
 				}
+				return false
+			}) {
+				continue // these are not the alerts you are looking for
 			}
-			return false
-		}) {
-			continue // these are not the alerts you are looking for
-		}
-		switch *alert.Status.State {
-		case models.AlertStatusStateSuppressed:
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_Silenced,
-			}
-		case models.AlertStatusStateActive:
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_Firing,
-			}
-		case models.AlertStatusStateUnprocessed:
-			// in our case unprocessed means it has arrived for firing
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_Firing,
-			}
-		default:
-			return &alertingv1.AlertStatusResponse{
-				State: alertingv1.AlertConditionState_Ok,
+			switch *alert.Status.State {
+			case models.AlertStatusStateSuppressed:
+				return &alertingv1.AlertStatusResponse{
+					State: alertingv1.AlertConditionState_Silenced,
+				}
+			case models.AlertStatusStateActive:
+				return &alertingv1.AlertStatusResponse{
+					State: alertingv1.AlertConditionState_Firing,
+				}
+			case models.AlertStatusStateUnprocessed:
+				// in our case unprocessed means it has arrived for firing
+				return &alertingv1.AlertStatusResponse{
+					State: alertingv1.AlertConditionState_Firing,
+				}
+			default:
+				return &alertingv1.AlertStatusResponse{
+					State: alertingv1.AlertConditionState_Ok,
+				}
 			}
 		}
 	}

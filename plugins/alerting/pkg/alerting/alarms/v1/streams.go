@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/fingerprint"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -26,6 +26,12 @@ import (
 func fallbackInterval(evalInterval time.Duration) *timestamppb.Timestamp {
 	return timestamppb.New(time.Now().Add(-evalInterval))
 }
+
+var (
+	DisconnectStreamEvaluateInterval = time.Second * 10
+	CapabilityStreamEvaluateInterval = time.Second * 10
+	CortexStreamEvaluateInterval     = time.Second * 30
+)
 
 func NewAgentStream() *nats.StreamConfig {
 	return &nats.StreamConfig{
@@ -88,7 +94,7 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Second * 10,
+			evaluateInterval: DisconnectStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: disconnect.GetTimeout().AsDuration(),
 		},
@@ -171,7 +177,7 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Second * 10,
+			evaluateInterval: CapabilityStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: capability.GetFor().AsDuration(),
 		},
@@ -380,7 +386,7 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Minute,
+			evaluateInterval: CortexStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: cortex.GetFor().AsDuration(),
 		},
@@ -501,7 +507,7 @@ type InternalConditionEvaluator[T proto.Message] struct {
 	*internalConditionStorage
 	*internalConditionState
 	*internalConditionHooks[T]
-	fingerprint string
+	fingerprint fingerprint.Fingerprint
 }
 
 // infinite & blocking : must be run in a goroutine
@@ -578,7 +584,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration { // then we must fire an alert
 					if !c.IsFiring() {
-						c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
+						c.fingerprint = fingerprint.Default()
 						c.SetFiring(true)
 						err = c.UpdateState(c.evaluationCtx, &alertingv1.CachedState{
 							Healthy:   lastKnownState.Healthy,
@@ -588,16 +594,16 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						if err != nil {
 							c.lg.Error(err)
 						}
-						err = c.incidentStorage.OpenInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
+						err = c.incidentStorage.OpenInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 						if err != nil {
 							c.lg.Error(err)
 						}
 					}
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
 					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 					}, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 					})
 				}
 			} else if lastKnownState.Healthy && c.IsFiring() &&
@@ -605,14 +611,14 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				lastKnownState.Timestamp.AsTime().Add(-c.evaluateInterval).Before(time.Now()) {
 				c.lg.Debugf("condition %s is now healthy again after having fired", c.conditionName)
 				c.SetFiring(false)
-				err = c.incidentStorage.CloseInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
+				err = c.incidentStorage.CloseInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 				if err != nil {
 					c.lg.Error(err)
 				}
 				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 				}, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 				})
 				c.fingerprint = ""
 			}

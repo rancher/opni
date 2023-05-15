@@ -127,15 +127,6 @@ func (a *AlertingGatewayManager) ConfigureCluster(ctx context.Context, conf *ale
 	return &emptypb.Empty{}, retryErr
 }
 
-func (a *AlertingGatewayManager) notify(status *alertops.InstallStatus) {
-	for _, subscriber := range a.Subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: status.State == alertops.InstallState_Installed || status.State == alertops.InstallState_InstallUpdating,
-			B: nil,
-		}
-	}
-}
-
 func (a *AlertingGatewayManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	existing := a.newOpniGateway()
 	err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
@@ -146,7 +137,6 @@ func (a *AlertingGatewayManager) GetClusterStatus(ctx context.Context, _ *emptyp
 	if err != nil {
 		return nil, err
 	}
-	a.notify(status)
 	return status, nil
 }
 
@@ -182,18 +172,6 @@ func (a *AlertingGatewayManager) InstallCluster(ctx context.Context, _ *emptypb.
 		return nil, retryErr
 	}
 
-	// broadcast install hooks
-	a.notify(&alertops.InstallStatus{
-		State: alertops.InstallState_InstallUpdating,
-	})
-
-	for _, subscriber := range a.Subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: true,
-			B: nil,
-		}
-	}
-
 	return &emptypb.Empty{}, nil
 }
 
@@ -211,10 +189,6 @@ func (a *AlertingGatewayManager) UninstallCluster(ctx context.Context, _ *alerto
 	if retryErr != nil {
 		return nil, retryErr
 	}
-	// broadcast uninstall hooks
-	a.notify(&alertops.InstallStatus{
-		State: alertops.InstallState_Uninstalling,
-	})
 
 	return &emptypb.Empty{}, nil
 }

@@ -2,14 +2,11 @@ package alarms
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"net/http"
 	"time"
 
 	"github.com/alitto/pond"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -338,15 +335,7 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
 	existing, err := a.conditionStorage.Get().Get(ctx, req.ConditionId.Id)
-	if err != nil {
-		return nil, err
-	}
-	availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -360,26 +349,27 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 			return nil, shared.WithInternalServerErrorf("failed to deactivate existing silence : %s", err)
 		}
 	}
-	respSilence := &backend.PostSilencesResponse{}
-	postSilenceNode := backend.NewAlertManagerPostSilenceClient(
-		ctx,
-		availableEndpoint,
-		backend.WithLogger(a.logger),
-		backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
-		backend.WithExpectClosure(func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("failed to create silence : %s", resp.Status)
-			}
-			return json.NewDecoder(resp.Body).Decode(respSilence)
-		}))
-	err = postSilenceNode.DoRequest()
-	if err != nil {
-		a.logger.Errorf("failed to post silence : %s", err)
-		return nil, err
-	}
+	newId, err := a.Client.PostSilence(ctx, req.ConditionId.Id, req.Duration.AsDuration(), silenceID)
+	// respSilence := &backend.PostSilencesResponse{}
+	// postSilenceNode := backend.NewAlertManagerPostSilenceClient(
+	// 	ctx,
+	// 	availableEndpoint,
+	// 	backend.WithLogger(a.logger),
+	// 	backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
+	// 	backend.WithExpectClosure(func(resp *http.Response) error {
+	// 		if resp.StatusCode != http.StatusOK {
+	// 			return fmt.Errorf("failed to create silence : %s", resp.Status)
+	// 		}
+	// 		return json.NewDecoder(resp.Body).Decode(respSilence)
+	// 	}))
+	// err = postSilenceNode.DoRequest()
+	// if err != nil {
+	// 	a.logger.Errorf("failed to post silence : %s", err)
+	// 	return nil, err
+	// }
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = &alertingv1.SilenceInfo{ // not exact, but the difference will be negligible
-		SilenceId: respSilence.GetSilenceId(),
+		SilenceId: newId,
 		StartsAt:  timestamppb.Now(),
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
@@ -394,10 +384,10 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 	if err := ref.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
@@ -405,21 +395,25 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", ref.Id)
 	}
-	availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	if err != nil {
+	// availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	if err := a.Client.DeleteSilence(ctx, existing.Silence.SilenceId); err != nil {
 		return nil, err
 	}
-	apiNode := backend.NewAlertManagerDeleteSilenceClient(
-		ctx,
-		availableEndpoint,
-		existing.Silence.SilenceId,
-		backend.WithLogger(a.logger),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()))
-	err = apiNode.DoRequest()
-	if err != nil {
-		a.logger.Errorf("failed to delete silence : %s", err)
-		return nil, err
-	}
+
+	// apiNode := backend.NewAlertManagerDeleteSilenceClient(
+	// 	ctx,
+	// 	availableEndpoint,
+	// 	existing.Silence.SilenceId,
+	// 	backend.WithLogger(a.logger),
+	// 	backend.WithExpectClosure(backend.NewExpectStatusOk()))
+	// err = apiNode.DoRequest()
+	// if err != nil {
+	// 	a.logger.Errorf("failed to delete silence : %s", err)
+	// 	return nil, err
+	// }
 
 	// update existing proto with the silence info
 	newCondition := util.ProtoClone(existing)

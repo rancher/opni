@@ -2,23 +2,25 @@ package alerting
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/storage"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
+	"github.com/rancher/opni/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -30,18 +32,8 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 )
 
-type ServerComponent interface {
-	InitializerF
-	SetConfig(config struct{})
-	// Reports if the state of the component is running
-	Status() struct{}
-	// Server components that manage independent dependencies
-	// should implement this method to sync them
-	Sync(enabled bool) error
-}
-
-func (p *Plugin) Components() []ServerComponent {
-	return []ServerComponent{
+func (p *Plugin) Components() []server.ServerComponent {
+	return []server.ServerComponent{
 		p.NotificationServerComponent,
 		p.EndpointServerComponent,
 		p.AlarmServerComponent,
@@ -58,11 +50,8 @@ type Plugin struct {
 	opsNode          *ops.AlertingOpsNode
 	storageClientSet future.Future[storage.AlertingClientSet]
 
-	clusterNotifier chan shared.AlertingClusterNotification
-	// signifies that the Alerting Cluster is running and we should
-	// be reconciling external dependencies in order to evaluate
-	// alerts
-	evaluating *atomic.Bool
+	client.Client
+	clusterNotifier chan []client.AlertingPeer
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -71,17 +60,25 @@ type Plugin struct {
 	js              future.Future[nats.JetStreamContext]
 	globalWatchers  management.ConditionWatcher
 
+	collector.CollectorServer
+
 	*notifications.NotificationServerComponent
 	*endpoints.EndpointServerComponent
 	*alarms.AlarmServerComponent
 }
 
+var _ alertingv1.AlertEndpointsServer = (*Plugin)(nil)
+var _ alertingv1.AlertConditionsServer = (*Plugin)(nil)
+var _ alertingv1.AlertNotificationsServer = (*notifications.NotificationServerComponent)(nil)
+
+// FIXME: no idea
+// var _ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
+
 func NewPlugin(ctx context.Context) *Plugin {
+	collector := collector.NewCollectorServer()
 	lg := logger.NewPluginLogger().Named("alerting")
 	clusterDriver := future.New[drivers.ClusterDriver]()
 	storageClientSet := future.New[storage.AlertingClientSet]()
-	defaultEvaluationState := &atomic.Bool{}
-	defaultEvaluationState.Store(false)
 	p := &Plugin{
 		Ctx:    ctx,
 		Logger: lg,
@@ -89,15 +86,23 @@ func NewPlugin(ctx context.Context) *Plugin {
 		opsNode:          ops.NewAlertingOpsNode(ctx, clusterDriver, storageClientSet),
 		storageClientSet: storageClientSet,
 
-		clusterNotifier: make(chan shared.AlertingClusterNotification),
-		evaluating:      defaultEvaluationState,
+		clusterNotifier: make(chan []client.AlertingPeer),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
+
+		CollectorServer: collector,
+
+		Client: client.NewClient(
+			nil,
+			"http://opni-alerting:9093",
+			"http://opni-alerting:3000",
+		),
 	}
+	p.CollectorServer.MustRegister(p.collectors()...)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
 		p.Logger.With("component", "notifications"),
 	)
@@ -124,6 +129,20 @@ func NewPlugin(ctx context.Context) *Plugin {
 			EndpointStorage:  s.Endpoints(),
 			RouterStorage:    s.Routers(),
 		})
+
+		serverCfg := server.Config{
+			Client: p.Client,
+		}
+		p.NotificationServerComponent.SetConfig(
+			serverCfg,
+		)
+
+		p.EndpointServerComponent.SetConfig(
+			serverCfg,
+		)
+
+		p.CollectorServer.MustRegister(p.NotificationServerComponent.Collectors()...)
+		p.CollectorServer.MustRegister(p.EndpointServerComponent.Collectors()...)
 	})
 
 	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
@@ -144,21 +163,25 @@ func NewPlugin(ctx context.Context) *Plugin {
 				CortexOpsClient:  cortexOpsClient,
 				Js:               js,
 			})
-		})
 
+			serverCfg := server.Config{
+				Client: p.Client,
+			}
+
+			p.AlarmServerComponent.SetConfig(
+				serverCfg,
+			)
+
+			p.CollectorServer.MustRegister(p.AlarmServerComponent.Collectors()...)
+		})
 	return p
 }
-
-var _ alertingv1.AlertEndpointsServer = (*Plugin)(nil)
-var _ alertingv1.AlertConditionsServer = (*Plugin)(nil)
-var _ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-
-	// We omit the trigger server here since it should only be used internally
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(
@@ -183,5 +206,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 		),
 	)
+	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

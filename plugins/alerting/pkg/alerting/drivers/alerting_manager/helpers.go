@@ -35,7 +35,7 @@ func newOpniControllerSet(ns string) *appsv1.StatefulSet {
 func newOpniWorkerSet(ns string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
+			Name:      shared.OperatorAlertingClusterNodeServiceName,
 			Namespace: ns,
 		},
 	}

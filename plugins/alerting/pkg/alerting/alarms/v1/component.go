@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"go.uber.org/zap"
@@ -23,8 +25,8 @@ type AlarmServerComponent struct {
 	util.Initializer
 	ctx context.Context
 
-	mu                   sync.Mutex
-	clusterConfiguration struct{}
+	mu sync.Mutex
+	server.Config
 
 	logger *zap.SugaredLogger
 
@@ -79,14 +81,30 @@ type AlarmServerConfiguration struct {
 	CortexOpsClient cortexops.CortexOpsClient
 }
 
-func (a *AlarmServerComponent) Status() struct{} {
-	return struct{}{}
+var _ server.ServerComponent = (*AlarmServerComponent)(nil)
+
+func (a *AlarmServerComponent) Status() server.Status {
+	return server.Status{
+		Running: a.Initialized(),
+	}
 }
 
-func (a *AlarmServerComponent) SetConfig(conf struct{}) {
+func (a *AlarmServerComponent) Ready() bool {
+	return a.Initialized()
+}
+
+func (a *AlarmServerComponent) Healthy() bool {
+	return a.Initialized()
+}
+
+func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.clusterConfiguration = conf
+	a.Config = conf
+}
+
+func (a *AlarmServerComponent) Collectors() []prometheus.Collector {
+	return []prometheus.Collector{}
 }
 
 func (a *AlarmServerComponent) Sync(enabled bool) error {

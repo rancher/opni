@@ -9,6 +9,7 @@ import (
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -236,7 +237,7 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 		lg.Errorf("%s", retryErr)
 		return nil, retryErr
 	}
-	a.notify(&alertops.InstallStatus{State: alertops.InstallState_InstallUpdating})
+	a.notify(int(conf.NumReplicas))
 	return &emptypb.Empty{}, nil
 }
 
@@ -245,7 +246,6 @@ func (a *AlertingClusterManager) GetClusterStatus(ctx context.Context, _ *emptyp
 	if err != nil {
 		return nil, err
 	}
-	a.notify(status)
 	return status, nil
 }
 
@@ -261,17 +261,13 @@ func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertop
 		return nil, err
 	}
 
-	cs := newOpniControllerSet(a.GatewayRef.Namespace)
 	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
 
 	ctrlErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(cs), cs)
 	workErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(ws), ws)
 	replicas := lo.FromPtrOr(existing.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	if existing.Spec.Alertmanager.Enable {
-		expectedSets := []statusTuple{{A: ctrlErr, B: cs}}
-		if replicas > 1 {
-			expectedSets = append(expectedSets, statusTuple{A: workErr, B: ws})
-		}
+		expectedSets := []statusTuple{{A: workErr, B: ws}}
 		for _, status := range expectedSets {
 			if status.A != nil {
 				if k8serrors.IsNotFound(status.A) {
@@ -301,13 +297,13 @@ func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertop
 		}, nil
 	}
 
-	if ctrlErr != nil && workErr != nil {
-		if k8serrors.IsNotFound(ctrlErr) && k8serrors.IsNotFound(workErr) {
+	if workErr != nil {
+		if k8serrors.IsNotFound(workErr) {
 			return &alertops.InstallStatus{
 				State: alertops.InstallState_NotInstalled,
 			}, nil
 		}
-		return nil, fmt.Errorf("failed to get opni alerting controller status %w", ctrlErr)
+		return nil, fmt.Errorf("failed to get opni alerting controller status %w", workErr)
 	}
 
 	return &alertops.InstallStatus{
@@ -328,16 +324,13 @@ func (a *AlertingClusterManager) UninstallCluster(ctx context.Context, _ *alerto
 	if err != nil {
 		return nil, err
 	}
-	a.notify(&alertops.InstallStatus{State: alertops.InstallState_Uninstalling})
+	a.notify(0)
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingClusterManager) notify(status *alertops.InstallStatus) {
-	for _, subscriber := range a.Subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: status.State == alertops.InstallState_Installed || status.State == alertops.InstallState_InstallUpdating,
-			B: nil,
-		}
+func (a *AlertingClusterManager) notify(replicas int) {
+	for _, sub := range a.Subscribers {
+		sub <- listPeers(replicas)
 	}
 }
 
@@ -355,6 +348,17 @@ func (a *AlertingClusterManager) GetRuntimeOptions() shared.AlertingClusterOptio
 		ControllerClusterPort: 9094,
 		OpniPort:              3000,
 	}
+}
+
+func listPeers(replicas int) []alertingClient.AlertingPeer {
+	peers := []alertingClient.AlertingPeer{}
+	for i := 0; i < replicas; i++ {
+		peers = append(peers, alertingClient.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+		})
+	}
+	return peers
 }
 
 func init() {

@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/clients"
 
@@ -33,15 +33,17 @@ import (
 )
 
 type AlertManagerSyncerV1 struct {
+	util.Initializer
 	alertingv1.UnsafeSyncerServer
-	lg *zap.SugaredLogger
 
-	uuid               string
-	serverConfig       *alertingv1.SyncerConfig
-	lastSynced         *timestamppb.Timestamp
+	lg           *zap.SugaredLogger
+	uuid         string
+	serverConfig *alertingv1.SyncerConfig
+	lastSynced   *timestamppb.Timestamp
+
+	alertingClient     client.Client
 	gatewayClient      alertops.ConfigReconcilerClient
 	remoteSyncerClient alertops.ConfigReconciler_ConnectRemoteSyncerClient
-	util.Initializer
 }
 
 var _ alertingv1.SyncerServer = &AlertManagerSyncerV1{}
@@ -72,6 +74,11 @@ func (a *AlertManagerSyncerV1) Initialize(
 ) {
 	var gatewayCc *grpc.ClientConn
 	a.InitOnce(func() {
+		a.alertingClient = client.NewClient(
+			nil,
+			a.serverConfig.AlertmanagerAddress,
+			a.serverConfig.HookListenAddress,
+		)
 		gatewayClient, err := clients.FromExtension(
 			ctx,
 			mgmtClient,
@@ -170,7 +177,6 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 // func (a *AlertManagerSyncerV1) processMsg
 
 func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *alertingv1.PutConfigRequest) (*emptypb.Empty, error) {
-	a.lg.With("syncer-id", a.uuid).Debug("put config request received")
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not ready")
 	}
@@ -181,14 +187,35 @@ func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *al
 	if err := os.WriteFile(a.serverConfig.AlertmanagerConfigPath, incomingConfig.GetConfig(), 0644); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to write config to file: %s", err))
 	}
-	apiNode := backend.NewAlertManagerReloadClient(
-		ctx,
-		a.serverConfig.AlertmanagerAddress,
-		backend.WithDefaultRetrier(),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
+	lg := a.lg.With("syncer-id", a.uuid)
+	lg.Debug("put config request received")
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(5),
+		backoffv2.WithMinInterval(1*time.Second),
+		backoffv2.WithMaxInterval(5*time.Minute),
+		backoffv2.WithMultiplier(1.5),
 	)
-	a.lg.With("key", incomingConfig.Key).Debug("config reloaded")
-	return &emptypb.Empty{}, apiNode.DoRequest()
+	b := retrier.Start(ctx)
+	success := false
+	for backoffv2.Continue(b) {
+		err := a.alertingClient.Ready(ctx)
+		if err != nil {
+			lg.Warnf("alerting client not yet ready: %s", err)
+			continue
+		}
+
+		err = a.alertingClient.Reload(ctx)
+		if err == nil {
+			success = true
+			break
+		}
+	}
+	if !success {
+		return nil, status.Error(codes.Internal, "failed to reload alertmanager config")
+	}
+	lg.Debug("config reloaded")
+	return &emptypb.Empty{}, nil
 }
 
 func (a *AlertManagerSyncerV1) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {

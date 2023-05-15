@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -133,7 +134,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("alerting cluster install state is %s", status.State.String())
 						}
 						return nil
-					}, time.Second*30, time.Second*5).Should(Succeed())
+					}, time.Second*5, time.Millisecond*200).Should(Succeed())
 				})
 
 				It("should apply the configuration configuration", func() {
@@ -153,7 +154,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("alerting cluster install state is %s", status.State.String())
 						}
 						return nil
-					}, time.Second*30, time.Second*5).Should(Succeed())
+					}, time.Second*5, time.Millisecond*200).Should(Succeed())
 
 					Eventually(func() error {
 						getConf, err := alertClusterClient.GetClusterConfiguration(env.Context(), &emptypb.Empty{})
@@ -161,7 +162,22 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("cluster config not equal : not applied")
 						}
 						return err
-					}, time.Minute*30, time.Second*5)
+					}, time.Second*5, time.Millisecond*200)
+				})
+
+				Specify("the alerting plugin components should be running and healthy", func() {
+					alertingReadinessProbe := fmt.Sprintf("http://%s/plugin_alerting/ready", env.GatewayConfig().Spec.HTTPListenAddress)
+					alertingHealthProbe := fmt.Sprintf("http://%s/plugin_alerting/healthy", env.GatewayConfig().Spec.HTTPListenAddress)
+
+					Eventually(func() error {
+						if _, err := http.Get(alertingReadinessProbe); err != nil {
+							return err
+						}
+						if _, err := http.Get(alertingHealthProbe); err != nil {
+							return err
+						}
+						return nil
+					}).Should(Succeed())
 				})
 
 				It("should be able to create some endpoints", func() {
@@ -179,9 +195,16 @@ func BuildAlertingClusterIntegrationTests(
 
 				It("should create some default conditions when bootstrapping agents", func() {
 					By("expecting to have no initial conditions")
-					condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
-					Expect(err).To(Succeed())
-					Expect(condList.Items).To(HaveLen(0))
+					Eventually(func() error {
+						condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
+						if err != nil {
+							return err
+						}
+						if len(condList.Items) != 0 {
+							return fmt.Errorf("expected 0 conditions, got %d", len(condList.Items))
+						}
+						return nil
+					}, time.Minute, time.Millisecond*200).Should(Succeed())
 
 					By(fmt.Sprintf("bootstrapping %d agents", numAgents))
 					certsInfo, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})
@@ -219,7 +242,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("expected %d conditions, got %d", numAgents*2, len(condList.Items))
 						}
 						return nil
-					}, time.Second*30, time.Second*5).Should(Succeed())
+					}, time.Second*5, time.Millisecond*200).Should(Succeed())
 				})
 
 				It("shoud list conditions by given filters", func() {
@@ -288,7 +311,6 @@ func BuildAlertingClusterIntegrationTests(
 									Body:  "agent %s is disconnected",
 								},
 							}
-							cond.AlertCondition.AlertType.GetSystem().Timeout = durationpb.New(time.Second * 30)
 							_, err = alertConditionsClient.UpdateAlertCondition(env.Context(), &alertingv1.UpdateAlertConditionRequest{
 								Id:          cond.GetId(),
 								UpdateAlert: cond.AlertCondition,
@@ -328,8 +350,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*90, time.Second*20).Should(Succeed())
-
+					}, time.Second*10, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
@@ -390,7 +411,7 @@ func BuildAlertingClusterIntegrationTests(
 
 						}
 						return nil
-					}, 90*time.Second, 5*time.Second).Should(Succeed())
+					}, 5*time.Second, 200*time.Millisecond).Should(Succeed())
 
 					By("verifying the physical servers have received the disconnect messages")
 					Eventually(func() error {
@@ -426,7 +447,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Minute*2, time.Second*15).Should(Succeed())
+					}, time.Second*10, time.Millisecond*200).Should(Succeed())
 
 					By("verifying the notification servers have not received any alarm disconnect messages")
 					Eventually(func() error {
@@ -436,7 +457,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*30, time.Second*7)
+					}, time.Second*5, time.Second*1)
 				})
 
 				It("should be able to batch list status and filter by status", func() {
@@ -486,7 +507,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Minute*2, time.Second*30)
+					}, time.Second*5, time.Second)
 				})
 
 				It("should be able to list opni messages", func() {
@@ -499,7 +520,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("expected to find at least one notification, got 0")
 						}
 						return nil
-					}, time.Minute*2, time.Second*15).Should(BeNil())
+					}, time.Second*15, time.Second).Should(BeNil())
 
 					By("verifying we enforce limits")
 					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{
@@ -586,7 +607,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Minute*1, time.Second*15)
+					}, time.Second*15, time.Second)
 				})
 
 				It("should force update/delete alert endpoints involved in conditions", func() {

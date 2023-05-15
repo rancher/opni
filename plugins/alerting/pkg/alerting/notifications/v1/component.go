@@ -3,11 +3,13 @@ package notifications
 import (
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
 
@@ -16,14 +18,16 @@ type NotificationServerComponent struct {
 
 	util.Initializer
 
-	mu                   sync.Mutex
-	clusterConfiguration struct{}
+	mu sync.Mutex
+	server.Config
 
 	logger *zap.SugaredLogger
 
 	opsNode          future.Future[*ops.AlertingOpsNode]
 	conditionStorage future.Future[storage.ConditionStorage]
 }
+
+var _ server.ServerComponent = (*NotificationServerComponent)(nil)
 
 func NewNotificationServerComponent(
 	logger *zap.SugaredLogger,
@@ -40,14 +44,28 @@ type NotificationServerConfiguration struct {
 	OpsNode *ops.AlertingOpsNode
 }
 
-func (n *NotificationServerComponent) Status() struct{} {
-	return struct{}{}
+func (n *NotificationServerComponent) Status() server.Status {
+	return server.Status{
+		Running: n.Initialized(),
+	}
 }
 
-func (n *NotificationServerComponent) SetConfig(conf struct{}) {
+func (n *NotificationServerComponent) Ready() bool {
+	return n.Initialized()
+}
+
+func (n *NotificationServerComponent) Healthy() bool {
+	return n.Initialized()
+}
+
+func (n *NotificationServerComponent) SetConfig(conf server.Config) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.clusterConfiguration = conf
+	n.Config = conf
+}
+
+func (n *NotificationServerComponent) Collectors() []prometheus.Collector {
+	return []prometheus.Collector{}
 }
 
 func (n *NotificationServerComponent) Sync(_ bool) error {

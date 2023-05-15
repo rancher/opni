@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 
 	"github.com/nats-io/nats.go"
+	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -22,6 +24,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -56,10 +61,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureAlertManagerConfiguration(p.Ctx,
+		p.configureDriver(p.Ctx,
 			driverutil.NewOption("alertingOptions", opt),
 			driverutil.NewOption("logger", p.Logger.Named("alerting-manager")),
-			driverutil.NewOption("subscribers", []chan shared.AlertingClusterNotification{p.clusterNotifier}),
+			driverutil.NewOption("subscribers", []chan []alertingClient.AlertingPeer{p.clusterNotifier}),
 		)
 	})
 	go p.handleDriverNotifications()
@@ -112,6 +117,19 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 			for _, comp := range p.Components() {
 				comp.Sync(true)
 			}
+			conf, err := p.opsNode.GetClusterConfiguration(p.Ctx, &emptypb.Empty{})
+			if err != nil {
+				p.Logger.With("err", err).Error("failed to get cluster configuration")
+				return
+			}
+			peers := listPeers(int(conf.GetNumReplicas()))
+			p.Logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.Client.SetKnownPeers(peers)
+			for _, comp := range p.Components() {
+				comp.SetConfig(server.Config{
+					Client: p.Client,
+				})
+			}
 		}
 	}()
 	<-p.Ctx.Done()
@@ -138,15 +156,15 @@ func (p *Plugin) handleDriverNotifications() {
 		case <-p.Ctx.Done():
 			p.Logger.Info("shutting down cluster driver update handler")
 			return
-		case incomingState := <-p.clusterNotifier:
-			evaluating := p.evaluating.Load()
-			shouldEvaluate := incomingState.A
-			if shouldEvaluate != evaluating {
-				for _, component := range p.Components() {
-					component.Sync(shouldEvaluate)
-				}
+		case knownPeers := <-p.clusterNotifier:
+			p.Logger.Infof("updating known peers : %v", knownPeers)
+			p.Client.SetKnownPeers(knownPeers)
+			serverCfg := server.Config{
+				Client: p.Client,
 			}
-			p.evaluating.Store(shouldEvaluate)
+			for _, comp := range p.Components() {
+				comp.SetConfig(serverCfg)
+			}
 		}
 	}
 }
@@ -163,4 +181,15 @@ func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
 		cortexBackendStatus,
 	)
 	p.globalWatchers.WatchEvents()
+}
+
+func listPeers(replicas int) []alertingClient.AlertingPeer {
+	peers := []alertingClient.AlertingPeer{}
+	for i := 0; i < replicas; i++ {
+		peers = append(peers, alertingClient.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+		})
+	}
+	return peers
 }

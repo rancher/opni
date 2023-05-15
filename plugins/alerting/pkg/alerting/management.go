@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -17,8 +20,6 @@ import (
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 	metricsnode "github.com/rancher/opni/plugins/metrics/apis/node"
 
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"go.uber.org/zap"
@@ -85,7 +86,7 @@ func init() {
 	})
 }
 
-func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ...driverutil.Option) {
+func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option) {
 	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
@@ -103,6 +104,10 @@ func (p *Plugin) configureAlertManagerConfiguration(ctx context.Context, opts ..
 			break
 		}
 	}
+}
+
+func (p *Plugin) collectors() []prometheus.Collector {
+	return []prometheus.Collector{}
 }
 
 // blocking

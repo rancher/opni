@@ -7,15 +7,14 @@
 package cortexadmin
 
 import (
-	"reflect"
-	"sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1953,9 +1952,9 @@ type Rule struct {
 	Duration    float64           `protobuf:"fixed64,4,opt,name=duration,proto3" json:"duration,omitempty"`
 	Labels      map[string]string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Annotations map[string]string `protobuf:"bytes,6,rep,name=annotations,proto3" json:"annotations,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Health      string   `protobuf:"bytes,7,opt,name=health,proto3" json:"health,omitempty"`
-	Alerts      []*Alert `protobuf:"bytes,8,rep,name=alerts,proto3" json:"alerts,omitempty"`
-	LastError   string   `protobuf:"bytes,9,opt,name=lastError,proto3" json:"lastError,omitempty"`
+	Health      string            `protobuf:"bytes,7,opt,name=health,proto3" json:"health,omitempty"`
+	Alerts      []*Alert          `protobuf:"bytes,8,rep,name=alerts,proto3" json:"alerts,omitempty"`
+	LastError   string            `protobuf:"bytes,9,opt,name=lastError,proto3" json:"lastError,omitempty"`
 	Type        string            `protobuf:"bytes,10,opt,name=type,proto3" json:"type,omitempty"`
 	// Note : string instead of timestamp to preserve compatibility with native prometheus api return value
 	LastEvaluation string  `protobuf:"bytes,11,opt,name=lastEvaluation,proto3" json:"lastEvaluation,omitempty"`

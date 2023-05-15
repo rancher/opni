@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	println("foo")
 	m := plugins.Main{
 		Modes: meta.ModeSet{
 			meta.ModeGateway: alerting.Scheme,

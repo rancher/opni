@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -38,8 +39,8 @@ func (s *RuleStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient
 }
 
 func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finder notifier.Finder[rules.RuleGroup]) error {
-	s.conditions.Set(CondRuleSync, health.StatusPending, "")
-	defer s.conditions.Clear(CondRuleSync)
+	s.conditions.Set(node.CondRuleSync, health.StatusPending, "")
+	defer s.conditions.Clear(node.CondRuleSync)
 
 	lg := s.logger
 	updateC, err := s.streamRuleGroupUpdates(ctx, config, finder)
@@ -81,7 +82,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 						ca()
 					}
 					if err != nil {
-						s.conditions.Set(CondRuleSync, health.StatusFailure, err.Error())
+						s.conditions.Set(node.CondRuleSync, health.StatusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),
@@ -97,7 +98,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 						}
 					}
 				}
-				s.conditions.Clear(CondRuleSync, fmt.Sprintf("successfully sent %d alert rules to gateway", len(docs)))
+				s.conditions.Clear(node.CondRuleSync, fmt.Sprintf("successfully sent %d alert rules to gateway", len(docs)))
 				break
 			}
 		}

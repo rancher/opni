@@ -1,4 +1,4 @@
-package agent
+package node
 
 const (
 	CondRemoteWrite = "Remote Write"

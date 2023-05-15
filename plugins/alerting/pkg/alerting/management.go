@@ -15,7 +15,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent"
+	metricsnode "github.com/rancher/opni/plugins/metrics/apis/node"
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
@@ -58,11 +58,11 @@ func init() {
 		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
 	RegisterCapabilityStatus(
 		wellknown.CapabilityMetrics,
-		agent.CondRemoteWrite,
+		metricsnode.CondRemoteWrite,
 		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
 	RegisterCapabilityStatus(
 		wellknown.CapabilityMetrics,
-		agent.CondRuleSync,
+		metricsnode.CondRuleSync,
 		[]health.ConditionStatus{
 			health.StatusPending,
 			health.StatusFailure})

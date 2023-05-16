@@ -8,7 +8,6 @@ import (
 
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -169,7 +168,10 @@ func (r *Reconciler) aggregatorConfigMap(curCfg otel.AggregatorConfig) (resource
 	config := buffer.Bytes()
 	configStr := string(config)
 	cm.Data[aggregatorKey] = configStr
-	configHash := fmt.Sprintf("%d", util.HashString(configStr))
+
+	hash := sha256.New()
+	hash.Write(config)
+	configHash := hex.EncodeToString(hash.Sum(nil))
 
 	if r.collector.Spec.IsEmpty() {
 		return resources.Absent(cm), ""

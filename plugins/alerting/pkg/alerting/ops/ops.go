@@ -61,8 +61,8 @@ func NewAlertingOpsNode(
 	storageClientSet future.Future[storage.AlertingClientSet],
 	opts ...AlertingOpsNodeOption) *AlertingOpsNode {
 	options := AlertingOpsNodeOptions{
-		driverTimeout:  60 * time.Second,
-		storageTimeout: 5 * time.Second,
+		driverTimeout:  1 * time.Second,
+		storageTimeout: 1 * time.Second,
 	}
 	options.apply(opts...)
 	if options.logger == nil {

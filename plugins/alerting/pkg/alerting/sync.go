@@ -92,14 +92,14 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 }
 
 func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
-	items, err := p.ListAlertConditions(p.Ctx, &alertingv1.ListAlertConditionRequest{})
+	items, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
 	if err != nil {
 		p.Logger.Errorf("failed to list alert conditions : %s", err)
 		return err
 	}
 	healthExists := false
-	for _, item := range items.Items {
-		if s := item.GetAlertCondition().GetAlertType().GetDownstreamCapability(); s != nil {
+	for _, item := range items {
+		if s := item.GetAlertType().GetDownstreamCapability(); s != nil {
 			if s.GetClusterId().Id == clusterId {
 				healthExists = true
 				break

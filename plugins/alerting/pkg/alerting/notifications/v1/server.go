@@ -16,6 +16,8 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -40,6 +42,9 @@ func init() {
 var _ (alertingv1.AlertNotificationsServer) = (*NotificationServerComponent)(nil)
 
 func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -89,6 +94,9 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 }
 
 func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	lg := n.logger.With("Handler", "ResolveAlerts")
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -134,6 +142,9 @@ func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *al
 }
 
 func (n *NotificationServerComponent) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -169,6 +180,9 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 }
 
 func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -211,6 +225,9 @@ func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req
 }
 
 func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	req.Sanitize()
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -262,6 +279,9 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 }
 
 func (n *NotificationServerComponent) ListRoutingRelationships(ctx context.Context, _ *emptypb.Empty) (*alertingv1.ListRoutingRelationshipsResponse, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
 	conds, err := n.conditionStorage.Get().List(ctx)
 	if err != nil {
 		return nil, err

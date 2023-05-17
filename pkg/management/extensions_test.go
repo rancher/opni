@@ -210,7 +210,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].ServiceDesc.Method[3].GetName()).To(Equal("Set"))
 		Expect(extensions.Items[0].ServiceDesc.Method[4].GetName()).To(Equal("ServerStream"))
 		Expect(extensions.Items[0].ServiceDesc.Method[5].GetName()).To(Equal("ClientStream"))
-		Expect(extensions.Items[0].Rules).To(HaveLen(11))
+		Expect(extensions.Items[0].Rules).To(HaveLen(12))
 		Expect(extensions.Items[0].Rules[0].Http.GetPost()).To(Equal("/foo"))
 		Expect(extensions.Items[0].Rules[0].Http.GetBody()).To(Equal("request"))
 		Expect(extensions.Items[0].Rules[1].Http.GetGet()).To(Equal("/foo"))
@@ -226,6 +226,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].Rules[8].Http.GetPost()).To(Equal("/baz/{paramMsg.paramBool}/{paramMsg.paramString}/{paramMsg.paramEnum}"))
 		Expect(extensions.Items[0].Rules[9].Http.GetPost()).To(Equal("/baz/{paramMsg.paramMsg.paramMsg.paramMsg.paramString}"))
 		Expect(extensions.Items[0].Rules[10].Http.GetPut()).To(Equal("/set/{node.id}"))
+		Expect(extensions.Items[0].Rules[11].Http.GetPut()).To(Equal("/set/example/{node.id}"))
 
 	})
 	It("should forward gRPC calls to the plugin", func() {
@@ -246,7 +247,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		tries := 10 // need to wait a bit for the server to become ready
 		for {
 			resp, err := http.Post(tv.httpEndpoint+"/Ext/foo",
-				"application/json", strings.NewReader(`{"request": "hello"}`))
+				"application/json", strings.NewReader("hello"))
 			if (err != nil || resp.StatusCode != 200) && tries > 0 {
 				tries--
 				time.Sleep(100 * time.Millisecond)
@@ -265,7 +266,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		tries := 10 // need to wait a bit for the server to become ready
 		for {
 			resp, err := http.Post(tv.httpEndpoint+"/Ext/bar/a/b",
-				"application/json", strings.NewReader(`{"param3": "c"}`))
+				"application/json", strings.NewReader("c"))
 			if (err != nil || resp.StatusCode != 200) && tries > 0 {
 				tries--
 				time.Sleep(100 * time.Millisecond)
@@ -343,6 +344,27 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 						Id: "testing1",
 					},
 					Value: "value1",
+				}))
+			}
+
+			{
+				req, err := http.NewRequest(http.MethodPut, tv.httpEndpoint+"/Ext/set/example/testing1", strings.NewReader(`{"value": "value1"}`))
+				Expect(err).NotTo(HaveOccurred())
+				resp, err = http.DefaultClient.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				body, err = io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				resp.Body.Close()
+				var setReq ext.SetRequest
+				Expect(protojson.Unmarshal(body, &setReq)).To(Succeed())
+				Expect(&setReq).To(testutil.ProtoEqual(&ext.SetRequest{
+					Node: &ext.Reference{
+						Id: "testing1",
+					},
+					Example: &ext.ExampleValue{
+						Value: "value1",
+					},
 				}))
 			}
 

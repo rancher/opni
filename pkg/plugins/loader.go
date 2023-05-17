@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -250,7 +249,7 @@ func WithManifest(manifest *controlv1.UpdateManifest) LoadOption {
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, opts ...LoadOption) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, pluginDir string, scheme meta.Scheme, opts ...LoadOption) {
 	options := LoadOptions{}
 	options.apply(opts...)
 
@@ -270,7 +269,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	wg := &sync.WaitGroup{}
 
 	dc := DiscoveryConfig{
-		Dir:    conf.Dir,
+		Dir:    pluginDir,
 		Logger: p.logger,
 	}
 	plugins := dc.Discover()

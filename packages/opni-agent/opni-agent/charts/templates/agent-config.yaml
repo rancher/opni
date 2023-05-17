@@ -16,15 +16,17 @@ stringData:
       trustStrategy: pkp
       storage:
         type: customResources
-      plugins:
-        dir: /var/lib/opni-agent/plugins
+      pluginDir: /var/lib/opni-agent/plugins
       keyring:
         ephemeralKeyDirs:
           - /run/opni-agent/keyring
-      upgrader:
+      upgrade:
         type: kubernetes
         kubernetes:
           namespace: {{ .Release.Namespace }}
+      pluginUpgrade:
+        type: binary
+        binary: {}
       bootstrap:
         {{- if .Values.bootstrapInCluster.enabled }}
         inClusterManagementAddress: {{ .Values.bootstrapInCluster.managementAddress }}

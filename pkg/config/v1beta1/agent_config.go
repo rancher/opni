@@ -33,13 +33,14 @@ type AgentConfigSpec struct {
 	// gateway server. Defaults to "pkp".
 	TrustStrategy TrustStrategyKind `json:"trustStrategy,omitempty"`
 	// Configuration for agent keyring storage.
-	Storage   StorageSpec      `json:"storage,omitempty"`
-	Rules     *RulesSpec       `json:"rules,omitempty"`
-	Bootstrap *BootstrapSpec   `json:"bootstrap,omitempty"`
-	LogLevel  string           `json:"logLevel,omitempty"`
-	Plugins   PluginsSpec      `json:"plugins,omitempty"`
-	Keyring   KeyringSpec      `json:"keyring,omitempty"`
-	Upgrader  AgentUpgradeSpec `json:"upgrader,omitempty"`
+	Storage       StorageSpec       `json:"storage,omitempty"`
+	Rules         *RulesSpec        `json:"rules,omitempty"`
+	Bootstrap     *BootstrapSpec    `json:"bootstrap,omitempty"`
+	LogLevel      string            `json:"logLevel,omitempty"`
+	PluginDir     string            `json:"pluginDir,omitempty"`
+	Keyring       KeyringSpec       `json:"keyring,omitempty"`
+	Upgrade       AgentUpgradeSpec  `json:"upgrade,omitempty"`
+	PluginUpgrade PluginUpgradeSpec `json:"pluginUpgrade,omitempty"`
 }
 
 type BootstrapSpec struct {
@@ -69,15 +70,29 @@ const (
 	AgentUpgradeKubernetes AgentUpgradeType = "kubernetes"
 )
 
+type PluginUpgradeType string
+
+const (
+	PluginUpgradeNoop   PluginUpgradeType = "noop"
+	PluginUpgradeBinary PluginUpgradeType = "binary"
+)
+
 type AgentUpgradeSpec struct {
-	Type         AgentUpgradeType       `json:"type,omitempty"`
-	RepoOverride *string                `json:"repoOverride,omitempty"`
-	Kubernetes   *KubernetesUpgradeSpec `json:"kubernetes,omitempty"`
+	Type       AgentUpgradeType       `json:"type,omitempty"`
+	Kubernetes *KubernetesUpgradeSpec `json:"kubernetes,omitempty"`
+}
+
+type PluginUpgradeSpec struct {
+	Type   PluginUpgradeType  `json:"type,omitempty"`
+	Binary *BinaryUpgradeSpec `json:"binary,omitempty"`
 }
 
 type KubernetesUpgradeSpec struct {
-	Namespace string `json:"namespace,omitempty"`
+	Namespace    string  `json:"namespace,omitempty"`
+	RepoOverride *string `json:"repoOverride,omitempty"`
 }
+
+type BinaryUpgradeSpec struct{}
 
 func (s *AgentConfigSpec) ContainsBootstrapCredentials() bool {
 	if s.Bootstrap == nil {

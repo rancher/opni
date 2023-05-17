@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/rancher/opni/pkg/agent/upgrader"
 	"github.com/rancher/opni/pkg/ident/identserver"
-	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/update"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -75,7 +74,8 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
-	upgrader         upgrader.AgentUpgrader
+	pluginSyncer     update.SyncHandler
+	agentSyncer      update.SyncHandler
 
 	healthzMu *sync.Mutex
 	healthz   *uint32
@@ -185,10 +185,19 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		setupPluginRoutes(lg, routerMutex, router, cfg, md, []string{"/healthz", "/metrics"})
 	}))
 
-	upgrader, err := machinery.ConfigureAgentUpgrader(&conf.Spec.Upgrader)
+	pluginUpgrader, err := machinery.ConfigurePluginUpgrader(
+		conf.Spec.PluginUpgrade,
+		conf.Spec.PluginDir,
+		lg.Named("plugin-upgrader"),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure upgrader: %w", err)
+		return nil, fmt.Errorf("failed to configure plugin syncer: %w", err)
 	}
+
+	upgrader, err := machinery.ConfigureAgentUpgrader(
+		&conf.Spec.Upgrade,
+		lg.Named("agent-upgrader"),
+	)
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer initCancel()
@@ -316,7 +325,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		keyringStore:     ks,
 		trust:            trust,
 		gatewayClient:    gatewayClient,
-		upgrader:         upgrader,
+		pluginSyncer:     pluginUpgrader,
+		agentSyncer:      upgrader,
 
 		healthzMu: healthzMu,
 		healthz:   healthz,
@@ -370,6 +380,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		ctx = metadata.AppendToOutgoingContext(ctx,
 			controlv1.ManifestDigestKey, manifests.Digest(),
 			controlv1.AgentBuildInfoKey, string(buildInfoData),
+			controlv1.UpdateStrategyKey, a.pluginSyncer.Strategy(),
 		)
 
 		done := make(chan struct{})
@@ -378,7 +389,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			close(done)
 		}))
 
-		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme,
+		a.pluginLoader.LoadPlugins(ctx, a.config.PluginDir, plugins.AgentScheme,
 			plugins.WithManifest(manifests),
 		)
 
@@ -516,35 +527,46 @@ func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, r
 	manifestClient := controlv1.NewUpdateSyncClient(a.gatewayClient.ClientConn())
 
 	// First sync the agent
-	agentManifest, err := manifestClient.GetAgentManifest(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	err = a.upgrader.SyncAgent(ctx, agentManifest.GetItems())
+	manifest, err := a.agentSyncer.GetCurrentManifest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// read local plugins on disk here
-	archive, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
-		Dir:    a.config.Plugins.Dir,
-		Logger: a.Logger,
-	})
+	// validate the manifest
+	updateType, err := update.GetType(manifest.GetItems())
+	if err != nil {
+		return nil, err
+	}
+	if updateType != urn.Agent {
+		panic("bug: agent manifest is not of type agent")
+	}
+
+	syncResp, err := manifestClient.SyncManifest(ctx, manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	syncResp, err := manifestClient.SyncPluginManifest(ctx, archive.ToManifest(), grpc.UseCompressor("zstd"))
+	manifest, err = a.pluginSyncer.GetCurrentManifest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate the manifest
+	updateType, err = update.GetType(manifest.GetItems())
+	if err != nil {
+		return nil, err
+	}
+	if updateType != urn.Plugin {
+		panic("bug: plugin manifest is not of type plugin")
+	}
+
+	syncResp, err = manifestClient.SyncManifest(ctx, manifest, grpc.UseCompressor("zstd"))
 	if err != nil {
 		return nil, err
 	}
 	a.Logger.Info("received patch manifest from gateway")
 
-	patchClient, err := patch.NewPatchClient(a.config.Plugins, a.Logger)
-	if err != nil {
-		return nil, err
-	}
-	err = patchClient.Patch(syncResp.RequiredPatches)
+	err = a.pluginSyncer.HandleSyncResults(ctx, syncResp)
 	if err != nil {
 		return nil, err
 	}

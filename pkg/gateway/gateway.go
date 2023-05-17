@@ -10,8 +10,9 @@ import (
 	"github.com/rancher/opni/pkg/auth/challenges"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
-	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/update"
+	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
+	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/spf13/afero"
 
 	"github.com/hashicorp/go-plugin"
@@ -200,9 +201,12 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		challenges.If(session.ShouldEnableIncoming).Then(sessionAttrChallenge),
 	))
 
+	//set up update server
+	updateServer := update.NewUpdateServer()
+
 	// set up plugin sync server
-	pluginServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
-		patch.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
+	binarySyncServer, err := patchserver.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
+		patchserver.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
 			if pm.ExtendedMetadata != nil {
 				// only sync plugins that have the agent mode set
 				return slices.Contains(pm.ExtendedMetadata.ModeList.Modes, meta.ModeAgent)
@@ -216,21 +220,24 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create plugin sync server")
 	}
 
-	httpServer.metricsRegisterer.MustRegister(pluginServer.Collectors()...)
-
-	if err := pluginServer.RunGarbageCollection(ctx, storageBackend); err != nil {
+	if err := binarySyncServer.RunGarbageCollection(ctx, storageBackend); err != nil {
 		lg.With(
 			zap.Error(err),
 		).Error("failed to run garbage collection")
 	}
 
-	// set up image resolver service
-	agentServer, err := machinery.ConfigureAgentManifestResolver(&conf.Spec.AgentManifestResolver)
+	updateServer.RegisterUpdateHandler(binarySyncServer.Strategy(), binarySyncServer)
+
+	kubernetesSyncServer, err := k8sserver.NewKubernetesSyncServer(conf.Spec.AgentUpgrades.Kubernetes)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Panic("failed to create image resolver server")
+		).Panic("failed to create kubernetes agent sync server")
 	}
+	updateServer.RegisterUpdateHandler(kubernetesSyncServer.Strategy(), kubernetesSyncServer)
+
+	httpServer.metricsRegisterer.MustRegister(updateServer.Collectors()...)
+
 	// set up grpc server
 	rateLimitOpts := []ratelimiterOption{}
 	if conf.Spec.RateLimit != nil {
@@ -242,15 +249,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpc.ChainStreamInterceptor(
 			NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor(),
 			clusterAuth,
-			pluginServer.StreamServerInterceptor(),
+			updateServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),
 		),
 	)
-
-	syncServer := &update.UpdateServer{
-		PluginServer: pluginServer,
-		AgentServer:  agentServer,
-	}
 
 	// set up stream server
 	listener := health.NewListener()
@@ -267,7 +269,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 	corev1.RegisterPingerServer(streamSvc, &pinger{})
-	controlv1.RegisterUpdateSyncServer(grpcServer, syncServer)
+	controlv1.RegisterUpdateSyncServer(grpcServer, updateServer)
 
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 

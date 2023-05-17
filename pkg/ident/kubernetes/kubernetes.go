@@ -38,7 +38,11 @@ func NewKubernetesProvider(opts ...KubernetesIdentOption) ident.Provider {
 	options := KubernetesIdentOptions{}
 	options.apply(opts...)
 	if options.restConfig == nil {
-		options.restConfig = util.Must(rest.InClusterConfig())
+		restConfig, err := rest.InClusterConfig()
+		if err != nil {
+			panic(err)
+		}
+		options.restConfig = restConfig
 	}
 
 	scheme := runtime.NewScheme()

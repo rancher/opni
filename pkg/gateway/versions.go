@@ -4,8 +4,8 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/patch"
 	"github.com/rancher/opni/pkg/storage"
+	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -28,7 +28,7 @@ func NewLastKnownDetailsApplier(storageBackend storage.ClusterStore) func(srv in
 			lkcd.Address = p.Addr.String()
 		}
 
-		mmd, ok := patch.ManifestMetadataFromContext(ss.Context())
+		mmd, ok := patchserver.ManifestMetadataFromContext(ss.Context())
 		if ok {
 			lkcd.PluginVersions = mmd.PluginDigests()
 		}

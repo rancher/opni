@@ -63,14 +63,15 @@ func (l *PatchList) Sort() {
 		if a.GetOp() != b.GetOp() {
 			return a.GetOp() < b.GetOp()
 		}
-		if a.GetModule() != b.GetModule() {
-			return a.GetModule() < b.GetModule()
+		if a.GetPackage() != b.GetPackage() {
+			return a.GetPackage() < b.GetPackage()
 		}
-		return a.GetFilename() < b.GetFilename()
+		return a.GetPath() < b.GetPath()
 	})
 }
 
 const (
+	UpdateStrategyKey = "update-strategy"
 	ManifestDigestKey = "manifest-digest"
 	AgentBuildInfoKey = "agent-build-info"
 )

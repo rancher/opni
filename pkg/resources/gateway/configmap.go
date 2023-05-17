@@ -36,11 +36,13 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 		Spec: cfgv1beta1.GatewayConfigSpec{
 			Plugins: cfgv1beta1.PluginsSpec{
 				Dir: "/var/lib/opni/plugins",
-				Cache: cfgv1beta1.CacheSpec{
-					PatchEngine: cfgv1beta1.PatchEngineBsdiff,
-					Backend:     cfgv1beta1.CacheBackendFilesystem,
-					Filesystem: cfgv1beta1.FilesystemCacheSpec{
-						Dir: "/var/lib/opni/plugin-cache",
+				Binary: cfgv1beta1.BinaryPluginsSpec{
+					Cache: cfgv1beta1.CacheSpec{
+						PatchEngine: cfgv1beta1.PatchEngineBsdiff,
+						Backend:     cfgv1beta1.CacheBackendFilesystem,
+						Filesystem: cfgv1beta1.FilesystemCacheSpec{
+							Dir: "/var/lib/opni/plugin-cache",
+						},
 					},
 				},
 			},
@@ -81,10 +83,10 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 					"/run/opni/keyring",
 				},
 			},
-			AgentManifestResolver: cfgv1beta1.AgentManifestResolverSpec{
-				Type:       cfgv1beta1.AgentManifestResolverTypeKubernetes,
-				Kubernetes: &cfgv1beta1.KubernetesImageResolverSpec{},
-				Packages:   []string{"agent", "client"},
+			AgentUpgrades: cfgv1beta1.AgentUpgradesSpec{
+				Kubernetes: cfgv1beta1.KubernetesAgentUpgradeSpec{
+					ImageResolver: cfgv1beta1.ImageResolverKubernetes,
+				},
 			},
 		},
 	}

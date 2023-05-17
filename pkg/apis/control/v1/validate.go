@@ -34,10 +34,10 @@ func (m *UpdateManifestEntry) Validate() error {
 		return validation.Error("digest is required for plugin manifest entries")
 	}
 	if m.Path == "" {
-		return validation.Error("Filename is required for plugin manifest entries")
+		return validation.Error("Path is required for plugin manifest entries")
 	}
 	if m.Package == "" {
-		return validation.Error("Module is required for plugin manifest entries")
+		return validation.Error("Package is required for plugin manifest entries")
 	}
 	return nil
 }
@@ -52,10 +52,10 @@ func (m *UpdateManifest) Validate() error {
 }
 
 func (a *PatchSpec) Validate() error {
-	if a.GetFilename() == "" {
+	if a.GetPath() == "" {
 		return validation.Error("filename must be set")
 	}
-	if a.GetModule() == "" {
+	if a.GetPackage() == "" {
 		return validation.Error("module must be set")
 	}
 	switch a.GetOp() {

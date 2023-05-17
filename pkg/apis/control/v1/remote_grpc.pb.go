@@ -201,18 +201,14 @@ var HealthListener_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	UpdateSync_SyncPluginManifest_FullMethodName = "/control.UpdateSync/SyncPluginManifest"
-	UpdateSync_GetPluginManifest_FullMethodName  = "/control.UpdateSync/GetPluginManifest"
-	UpdateSync_GetAgentManifest_FullMethodName   = "/control.UpdateSync/GetAgentManifest"
+	UpdateSync_SyncManifest_FullMethodName = "/control.UpdateSync/SyncManifest"
 )
 
 // UpdateSyncClient is the client API for UpdateSync service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type UpdateSyncClient interface {
-	SyncPluginManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error)
-	GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error)
-	GetAgentManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error)
+	SyncManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error)
 }
 
 type updateSyncClient struct {
@@ -223,27 +219,9 @@ func NewUpdateSyncClient(cc grpc.ClientConnInterface) UpdateSyncClient {
 	return &updateSyncClient{cc}
 }
 
-func (c *updateSyncClient) SyncPluginManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error) {
+func (c *updateSyncClient) SyncManifest(ctx context.Context, in *UpdateManifest, opts ...grpc.CallOption) (*SyncResults, error) {
 	out := new(SyncResults)
-	err := c.cc.Invoke(ctx, UpdateSync_SyncPluginManifest_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *updateSyncClient) GetPluginManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error) {
-	out := new(UpdateManifest)
-	err := c.cc.Invoke(ctx, UpdateSync_GetPluginManifest_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *updateSyncClient) GetAgentManifest(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpdateManifest, error) {
-	out := new(UpdateManifest)
-	err := c.cc.Invoke(ctx, UpdateSync_GetAgentManifest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, UpdateSync_SyncManifest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +232,7 @@ func (c *updateSyncClient) GetAgentManifest(ctx context.Context, in *emptypb.Emp
 // All implementations must embed UnimplementedUpdateSyncServer
 // for forward compatibility
 type UpdateSyncServer interface {
-	SyncPluginManifest(context.Context, *UpdateManifest) (*SyncResults, error)
-	GetPluginManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error)
-	GetAgentManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error)
+	SyncManifest(context.Context, *UpdateManifest) (*SyncResults, error)
 	mustEmbedUnimplementedUpdateSyncServer()
 }
 
@@ -264,14 +240,8 @@ type UpdateSyncServer interface {
 type UnimplementedUpdateSyncServer struct {
 }
 
-func (UnimplementedUpdateSyncServer) SyncPluginManifest(context.Context, *UpdateManifest) (*SyncResults, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SyncPluginManifest not implemented")
-}
-func (UnimplementedUpdateSyncServer) GetPluginManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifest not implemented")
-}
-func (UnimplementedUpdateSyncServer) GetAgentManifest(context.Context, *emptypb.Empty) (*UpdateManifest, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAgentManifest not implemented")
+func (UnimplementedUpdateSyncServer) SyncManifest(context.Context, *UpdateManifest) (*SyncResults, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncManifest not implemented")
 }
 func (UnimplementedUpdateSyncServer) mustEmbedUnimplementedUpdateSyncServer() {}
 
@@ -286,56 +256,20 @@ func RegisterUpdateSyncServer(s grpc.ServiceRegistrar, srv UpdateSyncServer) {
 	s.RegisterService(&UpdateSync_ServiceDesc, srv)
 }
 
-func _UpdateSync_SyncPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UpdateSync_SyncManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateManifest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UpdateSyncServer).SyncPluginManifest(ctx, in)
+		return srv.(UpdateSyncServer).SyncManifest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UpdateSync_SyncPluginManifest_FullMethodName,
+		FullMethod: UpdateSync_SyncManifest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UpdateSyncServer).SyncPluginManifest(ctx, req.(*UpdateManifest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _UpdateSync_GetPluginManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UpdateSyncServer).GetPluginManifest(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UpdateSync_GetPluginManifest_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UpdateSyncServer).GetPluginManifest(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _UpdateSync_GetAgentManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UpdateSyncServer).GetAgentManifest(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UpdateSync_GetAgentManifest_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UpdateSyncServer).GetAgentManifest(ctx, req.(*emptypb.Empty))
+		return srv.(UpdateSyncServer).SyncManifest(ctx, req.(*UpdateManifest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -348,16 +282,8 @@ var UpdateSync_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*UpdateSyncServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SyncPluginManifest",
-			Handler:    _UpdateSync_SyncPluginManifest_Handler,
-		},
-		{
-			MethodName: "GetPluginManifest",
-			Handler:    _UpdateSync_GetPluginManifest_Handler,
-		},
-		{
-			MethodName: "GetAgentManifest",
-			Handler:    _UpdateSync_GetAgentManifest_Handler,
+			MethodName: "SyncManifest",
+			Handler:    _UpdateSync_SyncManifest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

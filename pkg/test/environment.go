@@ -79,10 +79,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
-	_ "github.com/rancher/opni/pkg/agent/upgrader/noop"
-	_ "github.com/rancher/opni/pkg/agentmanifest/noop"
+	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
+	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
 var collectorWriteSync sync.Mutex
@@ -1334,11 +1334,13 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				ServingKeyData:  servingKeyData,
 			},
 			Plugins: v1beta1.PluginsSpec{
-				Cache: v1beta1.CacheSpec{
-					Backend:     v1beta1.CacheBackendFilesystem,
-					PatchEngine: v1beta1.PatchEngineBsdiff,
-					Filesystem: v1beta1.FilesystemCacheSpec{
-						Dir: e.tempDir + "/cache",
+				Binary: v1beta1.BinaryPluginsSpec{
+					Cache: v1beta1.CacheSpec{
+						Backend:     v1beta1.CacheBackendFilesystem,
+						PatchEngine: v1beta1.PatchEngineBsdiff,
+						Filesystem: v1beta1.FilesystemCacheSpec{
+							Dir: e.tempDir + "/cache",
+						},
 					},
 				},
 			},

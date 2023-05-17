@@ -28,13 +28,14 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 
-	_ "github.com/rancher/opni/pkg/agent/upgrader/kubernetes"
-	_ "github.com/rancher/opni/pkg/agent/upgrader/noop"
 	_ "github.com/rancher/opni/pkg/ident/kubernetes"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
 	_ "github.com/rancher/opni/pkg/storage/crds"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
+	_ "github.com/rancher/opni/pkg/update/kubernetes"
+	_ "github.com/rancher/opni/pkg/update/noop"
+	_ "github.com/rancher/opni/pkg/update/patch"
 )
 
 func BuildAgentV2Cmd() *cobra.Command {

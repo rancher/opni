@@ -16,9 +16,7 @@ service HealthListener {
 }
 
 service UpdateSync {
-  rpc SyncPluginManifest(UpdateManifest) returns (SyncResults);
-  rpc GetPluginManifest(google.protobuf.Empty) returns (UpdateManifest);
-  rpc GetAgentManifest(google.protobuf.Empty) returns (UpdateManifest);
+  rpc SyncManifest(UpdateManifest) returns (SyncResults);
 }
 
 enum PatchOp {
@@ -61,10 +59,10 @@ message PluginArchive {
 // opPath should be empty when op == PatchRename
 // bytes should be empty when op == PatchRemove
 message PatchSpec {
-  string module = 1;
+  string package = 1;
   PatchOp op = 2;
   bytes data = 3;
-  string filename = 4;
+  string path = 4;
   string oldDigest = 5;
   string newDigest = 6;
 }

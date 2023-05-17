@@ -1,49 +1,49 @@
 package machinery
 
 import (
-	"github.com/rancher/opni/pkg/agent/upgrader"
-	"github.com/rancher/opni/pkg/agentmanifest"
+	"errors"
+
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/oci"
+	"github.com/rancher/opni/pkg/update"
+	"go.uber.org/zap"
 )
 
-func ConfigureAgentManifestResolver(cfg *v1beta1.AgentManifestResolverSpec) (*agentmanifest.AgentManifestResolver, error) {
-	switch {
-	case cfg.Type == v1beta1.AgentManifestResolverTypeKubernetes:
-		builder := agentmanifest.GetAgentManifestBuilder(v1beta1.AgentManifestResolverTypeKubernetes)
-		driver, err := builder(cfg.Kubernetes.ControlNamespace)
-		if err != nil {
-			return nil, err
-		}
-		return agentmanifest.NewAgentManifestResolver(
-			driver,
-			agentmanifest.WithPackages(cfg.Packages...),
-		), nil
+func ConfigurePluginUpgrader(cfg v1beta1.PluginUpgradeSpec, pluginDir string, lg *zap.SugaredLogger) (update.SyncHandler, error) {
+	switch cfg.Type {
+	case v1beta1.PluginUpgradeBinary:
+		builder := update.GetPluginSyncHandlerBuilder(cfg.Type)
+		return builder(pluginDir, lg)
 	default:
-		builder := agentmanifest.GetAgentManifestBuilder(v1beta1.AgentManifestResolverTypeNoop)
-		driver, err := builder()
-		if err != nil {
-			return nil, err
-		}
-		return agentmanifest.NewAgentManifestResolver(
-			driver,
-			agentmanifest.WithPackages(cfg.Packages...),
-		), nil
+		builder := update.GetPluginSyncHandlerBuilder("noop")
+		return builder()
 	}
 }
 
-func ConfigureAgentUpgrader(cfg *v1beta1.AgentUpgradeSpec) (upgrader.AgentUpgrader, error) {
+func ConfigureAgentUpgrader(cfg *v1beta1.AgentUpgradeSpec, lg *zap.SugaredLogger) (update.SyncHandler, error) {
 	switch {
 	case cfg.Type == v1beta1.AgentUpgradeKubernetes:
-		builder := upgrader.GetUpgraderBuilder(cfg.Type)
+		builder := update.GetAgentSyncHandlerBuilder(cfg.Type)
 		if cfg.Kubernetes != nil {
-			return builder(cfg.Kubernetes.Namespace, cfg.RepoOverride)
+			return builder(lg, cfg.Kubernetes.Namespace, cfg.Kubernetes.RepoOverride)
 		}
-		return builder()
+		return builder(lg)
 	case cfg.Type == v1beta1.AgentUpgradeNoop:
-		builder := upgrader.GetUpgraderBuilder(cfg.Type)
+		builder := update.GetAgentSyncHandlerBuilder(cfg.Type)
 		return builder()
 	default:
-		builder := upgrader.GetUpgraderBuilder("noop")
+		builder := update.GetAgentSyncHandlerBuilder("noop")
 		return builder()
 	}
+}
+
+func ConfigureOCIFetcher(providerType string, args ...any) (oci.Fetcher, error) {
+	if providerType == "" {
+		providerType = "noop"
+	}
+	builder := oci.GetFetcherBuilder(providerType)
+	if builder == nil {
+		return nil, errors.New("oci provider not found")
+	}
+	return builder(args...)
 }

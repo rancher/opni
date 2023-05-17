@@ -18,20 +18,20 @@ type GatewayConfigSpec struct {
 	//+kubebuilder:default=":8086"
 	MetricsListenAddress string `json:"metricsListenAddress,omitempty"`
 	//+kubebuilder:default="localhost"
-	Hostname              string                    `json:"hostname,omitempty"`
-	Metrics               MetricsSpec               `json:"metrics,omitempty"`
-	Management            ManagementSpec            `json:"management,omitempty"`
-	TrustedProxies        []string                  `json:"trustedProxies,omitempty"`
-	Cortex                CortexSpec                `json:"cortex,omitempty"`
-	AuthProvider          string                    `json:"authProvider,omitempty"`
-	Storage               StorageSpec               `json:"storage,omitempty"`
-	Certs                 CertsSpec                 `json:"certs,omitempty"`
-	Plugins               PluginsSpec               `json:"plugins,omitempty"`
-	Alerting              AlertingSpec              `json:"alerting,omitempty"`
-	Profiling             ProfilingSpec             `json:"profiling,omitempty"`
-	Keyring               KeyringSpec               `json:"keyring,omitempty"`
-	AgentManifestResolver AgentManifestResolverSpec `json:"imageResolver,omitempty"`
-	RateLimit             *RateLimitSpec            `json:"rateLimit,omitempty"`
+	Hostname       string            `json:"hostname,omitempty"`
+	Metrics        MetricsSpec       `json:"metrics,omitempty"`
+	Management     ManagementSpec    `json:"management,omitempty"`
+	TrustedProxies []string          `json:"trustedProxies,omitempty"`
+	Cortex         CortexSpec        `json:"cortex,omitempty"`
+	AuthProvider   string            `json:"authProvider,omitempty"`
+	Storage        StorageSpec       `json:"storage,omitempty"`
+	Certs          CertsSpec         `json:"certs,omitempty"`
+	Plugins        PluginsSpec       `json:"plugins,omitempty"`
+	Alerting       AlertingSpec      `json:"alerting,omitempty"`
+	Profiling      ProfilingSpec     `json:"profiling,omitempty"`
+	Keyring        KeyringSpec       `json:"keyring,omitempty"`
+	AgentUpgrades  AgentUpgradesSpec `json:"agentUpgrades,omitempty"`
+	RateLimit      *RateLimitSpec    `json:"rateLimit,omitempty"`
 }
 
 type RateLimitSpec struct {
@@ -225,11 +225,15 @@ const (
 	PatchEngineBsdiff PatchEngine = "bsdiff"
 )
 
-type PluginsSpec struct {
-	// Directory to search for plugins
-	Dir string `json:"dir,omitempty"`
+type BinaryPluginsSpec struct {
 	// Options for caching plugins
 	Cache CacheSpec `json:"cache,omitempty"`
+}
+
+type PluginsSpec struct {
+	// Directory to search for plugins
+	Dir    string            `json:"dir,omitempty"`
+	Binary BinaryPluginsSpec `json:"binary,omitempty"`
 }
 
 type CacheSpec struct {
@@ -313,14 +317,14 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Plugins.Dir == "" {
 		s.Plugins.Dir = "/var/lib/opni/plugins"
 	}
-	if s.Plugins.Cache.PatchEngine == "" {
-		s.Plugins.Cache.PatchEngine = PatchEngineBsdiff
+	if s.Plugins.Binary.Cache.PatchEngine == "" {
+		s.Plugins.Binary.Cache.PatchEngine = PatchEngineBsdiff
 	}
-	if s.Plugins.Cache.Backend == "" {
-		s.Plugins.Cache.Backend = CacheBackendFilesystem
+	if s.Plugins.Binary.Cache.Backend == "" {
+		s.Plugins.Binary.Cache.Backend = CacheBackendFilesystem
 	}
-	if s.Plugins.Cache.Filesystem.Dir == "" {
-		s.Plugins.Cache.Filesystem.Dir = "/var/lib/opni/plugin-cache"
+	if s.Plugins.Binary.Cache.Filesystem.Dir == "" {
+		s.Plugins.Binary.Cache.Filesystem.Dir = "/var/lib/opni/plugin-cache"
 	}
 }
 
@@ -361,21 +365,28 @@ type CustomResourcesStorageSpec struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type AgentManifestResolverType string
+type ImageResolverType string
 
 const (
-	AgentManifestResolverTypeNoop       AgentManifestResolverType = "noop"
-	AgentManifestResolverTypeKubernetes AgentManifestResolverType = "kubernetes"
+	ImageResolverNoop       ImageResolverType = "noop"
+	ImageResolverKubernetes ImageResolverType = "kubernetes"
 )
 
-type AgentManifestResolverSpec struct {
-	Type       AgentManifestResolverType    `json:"type,omitempty"`
-	Default    *DefaultImageResolverSpec    `json:"default,omitempty"`
-	Kubernetes *KubernetesImageResolverSpec `json:"kubernetes,omitempty"`
-	Packages   []string                     `json:"packages,omitempty"`
+type AgentUpgradesSpec struct {
+	Kubernetes KubernetesAgentUpgradeSpec `json:"kubernetes,omitempty"`
 }
 
-type DefaultImageResolverSpec struct{}
+type KubernetesAgentUpgradeSpec struct {
+	ImageResolver ImageResolverType `json:"imageResolver,omitempty"`
+}
+
+type AgentImageSpec struct {
+	Type       ImageResolverType            `json:"type,omitempty"`
+	Noop       *NoopImageResolverSpec       `json:"noop,omitempty"`
+	Kubernetes *KubernetesImageResolverSpec `json:"kubernetes,omitempty"`
+}
+
+type NoopImageResolverSpec struct{}
 
 type KubernetesImageResolverSpec struct {
 	ControlNamespace string `json:"controlNamespace,omitempty"`

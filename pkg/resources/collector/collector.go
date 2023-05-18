@@ -52,7 +52,6 @@ func NewReconciler(
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
-
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
@@ -87,6 +86,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	var resourceList []resources.Resource
 
 	config, configHash := r.agentConfigMap()
+	r.logger.Debugf("agent config hash %s", configHash)
 	resourceList = append(resourceList, config)
 	resourceList = append(resourceList, r.daemonSet(configHash))
 
@@ -95,7 +95,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	r.logger.Debugf("metrics config : %v", metricsConfig.Spec)
 	aggCfg := r.getAggregatorConfig(lo.FromPtr(metricsConfig)) // generate aggregator struct
 	config, configHash = r.aggregatorConfigMap(aggCfg)         // generate aggregator configmap
-
+	r.logger.Debugf("aggregator config hash %s", configHash)
 	resourceList = append(resourceList, r.metricsTlsAssets(tlsSecrets))
 	resourceList = append(resourceList, config)
 	resourceList = append(resourceList, r.deployment(configHash))

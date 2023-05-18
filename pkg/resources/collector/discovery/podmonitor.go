@@ -112,7 +112,7 @@ func (p *podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, r
 			}
 			err = p.client.List(context.TODO(), pList, listOptions)
 			if err != nil {
-				p.logger.Warnf("failed to select pods for pod monitor %s", selectorMap)
+				lg.Warnf("failed to select pods for pod monitor %s", selectorMap)
 				continue
 			}
 			podList.Items = append(podList.Items, pList.Items...)
@@ -179,7 +179,7 @@ func (p *podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, r
 			}
 			numTargets += len(targets)
 			slices.SortFunc(targets, func(i, j target) bool {
-				return i.staticAddress < j.staticAddress
+				return i.Less(j)
 			})
 			if len(targets) > 0 {
 				//de-dupe discovered targets

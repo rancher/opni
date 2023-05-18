@@ -14,6 +14,8 @@ import (
 	lop "github.com/samber/lo/parallel"
 
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -22,6 +24,9 @@ import (
 var _ alertingv1.AlertEndpointsServer = (*EndpointServerComponent)(nil)
 
 func (e *EndpointServerComponent) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertEndpoint) (*corev1.Reference, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -37,6 +42,9 @@ func (e *EndpointServerComponent) CreateAlertEndpoint(ctx context.Context, req *
 }
 
 func (e *EndpointServerComponent) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertEndpoint, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	endp, err := e.endpointStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
@@ -45,6 +53,9 @@ func (e *EndpointServerComponent) GetAlertEndpoint(ctx context.Context, ref *cor
 }
 
 func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	if err := unredactSecrets(ctx, e.endpointStorage.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
@@ -52,7 +63,6 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 		return nil, err
 	}
 
-	// TODO : this won't be possible in this server component
 	resp, err := e.notifications.ListRoutingRelationships(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
@@ -71,6 +81,9 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 }
 
 func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.DeleteAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	existing, err := e.GetAlertEndpoint(ctx, req.Id)
 	if err != nil {
 		return nil, err
@@ -92,7 +105,6 @@ func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *
 		return nil, err
 	}
 
-	// TODO : this isn't available in this server component
 	lop.ForEach(refList.Items, func(condRef *corev1.Reference, _ int) {
 		// delete endpoint metadata from each condition
 		cond, err := e.conditionStorage.Get().Get(ctx, condRef.Id)
@@ -112,6 +124,9 @@ func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *
 	return refList, nil
 }
 func (e *EndpointServerComponent) ToggleNotifications(ctx context.Context, req *alertingv1.ToggleRequest) (*emptypb.Empty, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -136,6 +151,9 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 	ctx context.Context,
 	req *alertingv1.ListAlertEndpointsRequest,
 ) (*alertingv1.AlertEndpointList, error) {
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -160,7 +178,9 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 }
 
 func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAlertEndpointRequest) (*alertingv1.TestAlertEndpointResponse, error) {
-	// lg := p.Logger.With("Handler", "TestAlertEndpoint")
+	if !e.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
+	}
 	if req.Endpoint == nil {
 		return nil, validation.Error("Endpoint must be set")
 	}
@@ -200,7 +220,6 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 	if err := router.SetNamespaceSpec("test", ephemeralId, createImpl); err != nil {
 		return nil, err
 	}
-	// TODO : this won't be possible from this server component
 	go func() { // create, trigger, delete
 		ctx := e.ctx
 		e.opsNode.Get().SendManualSyncRequest(ctx, []string{shared.SingleConfigId}, e.routerStorage.Get())

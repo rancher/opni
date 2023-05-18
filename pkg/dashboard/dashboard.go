@@ -141,7 +141,7 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to create request")
-			rw.WriteHeader(500)
+			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		req.Header = r.Header
@@ -150,7 +150,11 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to round-trip management api request")
-			rw.WriteHeader(500)
+			if errors.Is(err, ctx.Err()) {
+				rw.WriteHeader(http.StatusGatewayTimeout)
+				return
+			}
+			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()

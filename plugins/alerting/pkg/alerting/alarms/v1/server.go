@@ -57,10 +57,16 @@ func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *al
 }
 
 func (a *AlarmServerComponent) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	return a.conditionStorage.Get().Get(ctx, ref.Id)
 }
 
 func (a *AlarmServerComponent) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -136,6 +142,9 @@ func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *co
 }
 
 func (a *AlarmServerComponent) ListAlertConditionChoices(ctx context.Context, req *alertingv1.AlertDetailChoicesRequest) (*alertingv1.ListAlertTypeDetails, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -143,6 +152,9 @@ func (a *AlarmServerComponent) ListAlertConditionChoices(ctx context.Context, re
 }
 
 func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	lg := a.logger.With("handler", "AlertConditionStatus")
 
 	// required info
@@ -185,6 +197,9 @@ func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *co
 }
 
 func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context, req *alertingv1.ListStatusRequest) (*alertingv1.ListStatusResponse, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	allConds, err := a.conditionStorage.Get().List(ctx)
 	if err != nil {
 		return nil, err
@@ -417,6 +432,9 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 }
 
 func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.TimelineRequest) (*alertingv1.TimelineResponse, error) {
+	if !a.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
+	}
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}

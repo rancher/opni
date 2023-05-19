@@ -1,7 +1,8 @@
 <script>
 import Loading from '@shell/components/Loading';
 import dayjs from 'dayjs';
-import { getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus } from '../utils/requests/alerts';
+import { TimelineType } from '../models/alerting/Condition';
+import { getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState } from '../utils/requests/alerts';
 import { getClusters } from '../utils/requests/management';
 
 export default {
@@ -48,7 +49,7 @@ export default {
   methods: {
     async load() {
       const status = (await getClusterStatus()).state;
-      const isAlertingEnabled = status === 'Installed';
+      const isAlertingEnabled = status === InstallState.Installed;
 
       this.$set(this, 'isAlertingEnabled', isAlertingEnabled);
 
@@ -75,7 +76,7 @@ export default {
             name:      condition.nameDisplay.replace(/\(.*\)/g, ''),
             clusterId: condition.clusterId || DEFAULT_CLUSTER_ID,
             events:    (value?.windows || [])
-              .filter(w => w.type !== 'Timeline_Unknown')
+              .filter(w => w.type !== TimelineType.Timeline_Unknown)
               .map(w => ({
                 start:       now.diff(dayjs(w.start), 'h', true),
                 end:         now.diff(dayjs(w.end), 'h', true),
@@ -129,7 +130,7 @@ export default {
     },
 
     computeTooltip(event) {
-      if (event.type === 'Timeline_Silenced') {
+      if (event.type === TimelineType.Timeline_Unknown) {
         return 'Silenced Event';
       }
 

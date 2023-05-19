@@ -4,7 +4,7 @@ import { isEmpty } from 'lodash';
 import SortableTable from '@shell/components/SortableTable';
 import { getClusters } from '../utils/requests/management';
 import { getClusterStats } from '../utils/requests';
-import { getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
+import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getLoggingCluster } from '../utils/requests/logging';
 import CapabilityButton from './CapabilityButton';
 import EditClusterDialog from './dialogs/EditClusterDialog';
@@ -128,7 +128,7 @@ export default {
       try {
         const [monitoringStatus, loggingStatus] = await Promise.all([getMonitoringBackendStatus(), getLoggingCluster()]);
 
-        this.$set(this, 'isMonitoringBackendInstalled', monitoringStatus.state !== 'NotInstalled');
+        this.$set(this, 'isMonitoringBackendInstalled', monitoringStatus.state !== InstallState.NotInstalled);
         this.$set(this, 'isLoggingBackendInstalled', !isEmpty(loggingStatus));
       } catch (ex) {
         this.$set(this, 'isMonitoringBackendInstalled', false);

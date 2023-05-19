@@ -1,6 +1,7 @@
 import { deleteCluster, getCluster } from '../utils/requests/management';
 import { LABEL_KEYS, Status } from './shared';
 import { Resource } from './Resource';
+import { TaskState } from './Capability';
 
 export interface ClusterResponse {
   id: string;
@@ -59,7 +60,7 @@ export interface CapabilityStatusTransitionResponse {
 }
 
 export interface CapabilityStatusResponse {
-  state: string;
+  state: TaskState;
   progress: null;
   metadata: 'string';
   logs: CapabilityStatusLogResponse[];

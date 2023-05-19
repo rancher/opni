@@ -43,24 +43,32 @@ export interface FilesystemStorageSpec {
     directory: string;
 }
 
+export enum StorageBackend {
+  Filesystem = 0,
+  S3 = 1,
+  GCS = 2,
+  Azure = 3,
+  Swift = 4,
+}
+
 export interface StorageSpec {
-    backend: string;
+    backend: StorageBackend;
     s3?: S3StorageSpec;
     filesystem?: FilesystemStorageSpec;
 }
 
 export interface ClusterConfiguration {
     mode: DeploymentMode;
-    storage: StorageSpec;
-    grafana: GrafanaConfig;
+    storage?: StorageSpec;
+    grafana?: GrafanaConfig;
 }
 
 export enum InstallState {
-    Unknown = 0, // eslint-disable-line no-unused-vars
-    NotInstalled = 1, // eslint-disable-line no-unused-vars
-    Updating = 2, // eslint-disable-line no-unused-vars
-    Installed = 3, // eslint-disable-line no-unused-vars
-    Uninstalling = 4, // eslint-disable-line no-unused-vars
+    Unknown = 0,
+    NotInstalled = 1,
+    Updating = 2,
+    Installed = 3,
+    Uninstalling = 4,
 }
 
 export interface InstallStatus {

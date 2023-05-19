@@ -1,7 +1,7 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
-import { getClusterStatus, getAlertEndpoints } from '../utils/requests/alerts';
+import { InstallState, getClusterStatus, getAlertEndpoints } from '../utils/requests/alerts';
 
 export default {
   components: { Loading, SortableTable },
@@ -63,7 +63,7 @@ export default {
         this.loading = true;
 
         const status = (await getClusterStatus()).state;
-        const isAlertingEnabled = status === 'Installed';
+        const isAlertingEnabled = status === InstallState.Installed;
 
         this.$set(this, 'isAlertingEnabled', isAlertingEnabled);
 

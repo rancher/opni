@@ -62,7 +62,7 @@ export interface ControlplaneDetails {
 
 export interface OpensearchClusterV2 {
   externalURL: string;
-  dataNodes: DataDetails;
+  dataNodes?: DataDetails;
   ingestNodes?: IngestDetails;
   controlplaneNodes?: ControlplaneDetails;
   dashboards?: DashboardsDetails;

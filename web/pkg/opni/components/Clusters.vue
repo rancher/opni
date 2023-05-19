@@ -3,7 +3,7 @@ import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
 import { Banner } from '@components/Banner';
 import { isEmpty } from 'lodash';
-import { getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
+import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getOpensearchCluster } from '../utils/requests/loggingv2';
 import { getClusters } from '../utils/requests/management';
 import { getClusterStats } from '../utils/requests';
@@ -148,7 +148,7 @@ export default {
       try {
         const [monitoringStatus, loggingStatus] = await Promise.all([getMonitoringBackendStatus(), getOpensearchCluster()]);
 
-        this.$set(this, 'isMonitoringBackendInstalled', monitoringStatus.state !== 'NotInstalled');
+        this.$set(this, 'isMonitoringBackendInstalled', monitoringStatus.state !== InstallState.NotInstalled);
         this.$set(this, 'isLoggingBackendInstalled', !isEmpty(loggingStatus));
       } catch (ex) {
         this.$set(this, 'isMonitoringBackendInstalled', false);

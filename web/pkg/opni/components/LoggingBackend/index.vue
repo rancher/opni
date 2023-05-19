@@ -140,7 +140,7 @@ export default {
     async isEnabled() {
       const cluster = await getOpensearchCluster();
 
-      return !isEmpty(cluster);
+      return cluster && cluster.dataNodes;
     },
 
     async isUpgradeAvailable() {
@@ -185,6 +185,11 @@ export default {
     async load() {
       try {
         const cluster = await getOpensearchCluster();
+
+        if (!cluster.dataNodes) {
+          delete cluster.dataNodes;
+        }
+
         const config = { ...this.config, ...cluster };
 
         config.ingestNodes.enabled = !!cluster.ingestNodes;

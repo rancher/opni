@@ -3,6 +3,7 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { Checkbox } from '@components/Form/Checkbox';
 import UnitInput from '@shell/components/form/UnitInput';
+import { DeploymentMode, StorageBackend } from '../../utils/requests/monitoring';
 
 export const SECONDS_IN_DAY = 86400;
 
@@ -19,7 +20,7 @@ export default {
   },
 
   created() {
-    if (!this.value.storage.s3.endpoint) {
+    if (!this.value.storage.s3?.endpoint) {
       this.updateEndpoint();
     }
   },
@@ -68,22 +69,24 @@ export default {
         { label: 'SSE-KMS', value: 'SSE-KMS' },
         { label: 'SSE-S3', value: 'SSE-S3' },
       ],
-      SECONDS_IN_DAY
+      SECONDS_IN_DAY,
+      StorageBackend,
+      DeploymentMode,
     };
   },
 
   computed: {
     storageOptions() {
       // only enable filesystem in standalone mode (0)
-      if (this.value.mode === 0) {
+      if (this.value.mode === DeploymentMode.AllInOne) {
         return [
-          { label: 'Filesystem', value: 'filesystem' },
-          { label: 'S3', value: 's3' }
+          { label: 'Filesystem', value: StorageBackend.Filesystem },
+          { label: 'S3', value: StorageBackend.S3 }
         ];
       }
 
       return [
-        { label: 'S3', value: 's3' }
+        { label: 'S3', value: StorageBackend.S3 }
       ];
     },
 
@@ -137,6 +140,7 @@ export default {
       }
     },
   },
+
   methods: {
     updateEndpoint() {
       const endpoints = {
@@ -168,27 +172,26 @@ export default {
         'us-gov-west-1':  's3.us-gov-west-1.amazonaws.com',
       };
 
-      if (this.value.storage.s3.region) {
+      if (this.value.storage.s3?.region) {
         return this.$set(this.value.storage.s3, 'endpoint', `${ endpoints[this.value.storage.s3.region] }`);
       }
     },
-  },
+    watch: {
+      storageOptions() {
+        const vals = this.storageOptions.map(so => so.value);
 
-  watch: {
-    storageOptions() {
-      const vals = this.storageOptions.map(so => so.value);
-
-      if (!vals.includes(this.value.storage.backend)) {
-        this.$set(this.value.storage, 'backend', vals[0]);
+        if (!vals.includes(this.value.storage.backend)) {
+          this.$set(this.value.storage, 'backend', vals[0]);
+        }
       }
-    }
+    },
   }
 };
 </script>
 <template>
   <div class="m-0">
     <div>
-      <div class="row" :class="{border: value.storage.backend === 's3'}">
+      <div class="row" :class="{ border: value.storage.backend === StorageBackend.S3 }">
         <div class="col span-6">
           <LabeledSelect v-model="value.storage.backend" :options="storageOptions" label="Storage Type" />
         </div>
@@ -196,7 +199,7 @@ export default {
           <UnitInput v-model="s3RetentionPeriod" class="retention-period" label="Data Retention Period" suffix="days" tooltip="A value of 0 will retain data indefinitely" />
         </div>
       </div>
-      <div v-if="value.storage.backend === 's3'" class="mt-15">
+      <div v-if="value.storage.backend === StorageBackend.S3" class="mt-15">
         <h3>Target</h3>
         <div class="row mb-10">
           <div class="col span-6">

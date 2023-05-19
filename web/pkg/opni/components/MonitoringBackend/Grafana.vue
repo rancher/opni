@@ -12,7 +12,7 @@ export default {
     },
 
     status: {
-      type:     String,
+      type:     Number,
       required: true
     }
   },

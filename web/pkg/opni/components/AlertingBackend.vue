@@ -1,7 +1,7 @@
 <script>
-import RadioGroup from '@components/Form/Radio/RadioGroup';
+import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
-  getClusterConfiguration, configureCluster, getClusterStatus, installCluster, uninstallCluster
+  InstallState, getClusterConfiguration, configureCluster, getClusterStatus, installCluster, uninstallCluster
 } from '../utils/requests/alerts';
 import { delay } from '../utils/time';
 import Backend from './Backend';
@@ -9,13 +9,13 @@ import Backend from './Backend';
 export async function isEnabled() {
   const status = (await getClusterStatus()).state;
 
-  return status !== 'NotInstalled';
+  return status !== InstallState.NotInstalled;
 }
 
 export default {
   components: {
     Backend,
-    RadioGroup,
+    LabeledSelect,
   },
 
   async fetch() {
@@ -67,14 +67,14 @@ export default {
     async save() {
       const status = (await getClusterStatus()).state;
 
-      if (status === 'NotInstalled') {
+      if (status === InstallState.NotInstalled) {
         await installCluster();
       }
 
       const config = await getClusterConfiguration();
 
-      while ((await getClusterStatus()).state !== 'Installed') {
-        delay(3000);
+      while ((await getClusterStatus()).state !== InstallState.Installed) {
+        await delay(3000);
       }
 
       await configureCluster({
@@ -84,11 +84,11 @@ export default {
     },
     bannerMessage(status) {
       switch (status) {
-      case 'InstallUpdating':
+      case InstallState.InstallUpdating:
         return `Alerting is currently updating on the cluster. You can't make changes right now.`;
-      case 'Uninstalling':
+      case InstallState.Uninstalling:
         return `Alerting is currently uninstalling from the cluster . You can't make changes right now.`;
-      case 'Installed':
+      case InstallState.Installed:
         return `Alerting is currently installed on the cluster.`;
       default:
         return `Alerting is currently in an unknown state on the cluster. You can't make changes right now.`;
@@ -97,10 +97,10 @@ export default {
 
     bannerState(status) {
       switch (status) {
-      case 'InstallUpdating':
-      case 'Uninstalling':
+      case InstallState.InstallUpdating:
+      case InstallState.Uninstalling:
         return 'warning';
-      case 'Installed':
+      case InstallState.Installed:
         return `success`;
       default:
         return `error`;
@@ -119,7 +119,7 @@ export default {
       try {
         const status = (await getClusterStatus()).state;
 
-        if (status === 'NotInstalled') {
+        if (status === InstallState.NotInstalled) {
           return null;
         }
 
@@ -146,12 +146,7 @@ export default {
     <template #editing>
       <div class="row mb-20">
         <div class="col span-12">
-          <RadioGroup
-            v-model="config.numReplicas"
-            name="mode"
-            label="Mode"
-            :options="modes"
-          />
+          <LabeledSelect v-model="config.numReplicas" :options="modes" label="Mode" />
         </div>
       </div>
     </template>

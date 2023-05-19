@@ -1,7 +1,7 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
-import { getClusterStatus, getAlertConditionsWithStatus } from '../utils/requests/alerts';
+import { InstallState, getClusterStatus, getAlertConditionsWithStatus } from '../utils/requests/alerts';
 import { getClusters } from '../utils/requests/management';
 import CloneToClustersDialog from './dialogs/CloneToClustersDialog';
 
@@ -78,7 +78,7 @@ export default {
         this.loading = true;
 
         const status = (await getClusterStatus()).state;
-        const isAlertingEnabled = status === 'Installed';
+        const isAlertingEnabled = status === InstallState.Installed;
 
         this.$set(this, 'isAlertingEnabled', isAlertingEnabled);
 

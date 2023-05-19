@@ -136,13 +136,13 @@ export class Capability extends Resource {
   async updateCabilityLogs(): Promise<void> {
     const logs: CapabilityLog[] = [];
 
-    function getState(state: string): CapabilityStatusState {
+    function getState(state: TaskState) {
       switch (state) {
-      case 'Completed':
+      case TaskState.Completed:
         return null;
-      case 'Running':
-      case 'Pending':
-      case 'Canceled':
+      case TaskState.Running:
+      case TaskState.Pending:
+      case TaskState.Canceled:
         return 'warning';
       default:
         return 'error';
@@ -240,8 +240,8 @@ export class Capability extends Resource {
       const result = await installCapabilityV2(this.type, this.cluster.id);
 
       Vue.set(this.capabilityStatus, this.type, {
-        state:   status.toLowerCase(),
-        message: status === 'Success' ? 'Installed' : `Installation problem: ${ result.message }`,
+        state:   CapabilityStatusState[result.status].toLowerCase(),
+        message: result.status === CapabilityStatusState.Success ? 'Installed' : `Installation problem: ${ result.message }`,
       });
 
       await this.updateCapabilities();

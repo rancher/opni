@@ -66,7 +66,7 @@ export interface ClusterStats {
 
 export interface CapabilityStatuses {
   metrics?: CapabilityStatus;
-  logging?: CapabilityStatus;
+  logs?: CapabilityStatus;
 }
 export class Capability extends Resource {
   private type: keyof CapabilityStatuses;

@@ -8,7 +8,7 @@ export async function getLoggingCapabilities(vue: any): Promise<Capability[]> {
 
   (await clusters).forEach(c => setNodeConfiguration(c.id, 'Prometheus'));
 
-  return (await clusters).map(c => new Capability('logging', c, vue));
+  return (await clusters).map(c => new Capability('logs', c, vue));
 }
 
 export async function getMetricCapabilities(vue: any): Promise<Capability[]> {

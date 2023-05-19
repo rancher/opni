@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import { NodeCapabilityStatus } from 'models/Capability';
 import { TokensResponse, Token } from '../../models/Token';
 import {
   Cluster, ClustersResponse, HealthResponse, CapabilityStatusResponse, ClusterResponse
@@ -69,6 +70,10 @@ export async function getCapabilityInstaller(capability: string, token: string, 
     token,
     pin,
   })).data.command;
+}
+
+export async function getCapabilityStatus(clusterId: string, capability: string, vue: any): Promise<NodeCapabilityStatus> {
+  return (await axios.get<NodeCapabilityStatus>(`opni-api/Management/clusters/${ clusterId }/capabilities/${ capability }/status`)).data;
 }
 
 export async function createToken(ttlInSeconds: string, name: string | null, capabilities: any[]) {

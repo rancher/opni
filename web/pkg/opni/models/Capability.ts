@@ -1,5 +1,5 @@
 import Vue from 'vue';
-import { installCapabilityV2, uninstallCapabilityStatus } from '../utils/requests/management';
+import { getCapabilityStatus, installCapabilityV2, uninstallCapabilityStatus } from '../utils/requests/management';
 import { exceptionToErrorsArray } from '../utils/error';
 import { Cluster } from './Cluster';
 import { Resource } from './Resource';
@@ -20,17 +20,39 @@ export interface CapabilityStatusTransitionResponse {
   timestamp: string;
 }
 
+export enum CapabilityStatusState {
+  Unknown = 0,
+  Success = 1,
+  Warning = 2,
+  Error = 3,
+}
+
 export interface CapabilityStatusResponse {
-  state: string;
+  state: CapabilityStatusState;
   progress: null;
   metadata: 'string';
   logs: CapabilityStatusLogResponse[];
   transitions: CapabilityStatusTransitionResponse[];
 }
 
-export type CapabilityStatusState = 'info' | 'success' | 'warning' | 'error' | null;
+export enum TaskState {
+  Unknown = 0,
+  Pending = 1,
+  Running = 2,
+  Completed = 3,
+  Failed = 4,
+  Canceled = 6,
+}
+
+export interface NodeCapabilityStatus {
+  enabled: boolean;
+  lastSync?: string;
+  conditions?: string[];
+}
+
 export interface CapabilityStatus {
-  state: CapabilityStatusState;
+  state: string;
+  shortMessage: string;
   message: string;
 }
 
@@ -77,40 +99,9 @@ export class Capability extends Resource {
   get status() {
     const status = this.capabilityStatus[this.type];
 
-    if (status?.message) {
-      const state = status.state || 'info';
-
-      if (status.message.includes('Delaying uninstall')) {
-        return {
-          state,
-          shortMessage: 'Delaying uninstall',
-          message:      status.message
-        };
-      }
-
-      return {
-        state,
-        shortMessage: state === 'error' ? 'Error' : status.message,
-        message:      status.message
-      };
-    }
-
-    if (this.isCapabilityInstalled) {
-      const message = 'Installed';
-
-      return {
-        state:        'success',
-        shortMessage: message,
-        message
-      };
-    }
-
-    const message = 'Not-installed';
-
-    return {
-      state:        'info',
-      shortMessage: message,
-      message
+    return status || {
+      state:        'error',
+      shortMessage: 'Not Installed',
     };
   }
 
@@ -163,19 +154,41 @@ export class Capability extends Resource {
         const capability = this.capabilities[i] as (keyof CapabilityStatuses);
         const capMeta = this.cluster.capabilitiesRaw?.find(c => c.name === capability);
 
-        if (capMeta && !capMeta?.deletionTimestamp) {
-          this.clearCapabilityStatus([capability]);
+        if (!capMeta) {
           continue;
         }
-        const log = await uninstallCapabilityStatus(this.cluster.id, capability, this.vue);
-        const pending = log.state === 'Pending' || log.state === 'Running' || (this.capabilityStatus[capability] as any )?.pending || false;
-        const state = getState(log.state);
 
-        Vue.set(this.capabilityStatus, capability, {
-          state,
-          message: state === null ? '' : (log.logs || []).reverse()[0]?.msg,
-          pending
-        });
+        if (!capMeta.deletionTimestamp) {
+          const apiStatus = await getCapabilityStatus(this.cluster.id, capability, this.vue);
+
+          if (apiStatus.conditions?.length === 0) {
+            Vue.set(this.capabilityStatus, capability, {
+              state:   'success',
+              message: 'Installed',
+            });
+          } else if (!apiStatus.enabled) {
+            Vue.set(this.capabilityStatus, capability, {
+              state:   'warning',
+              message: 'Disabled',
+            });
+          } else {
+            Vue.set(this.capabilityStatus, capability, {
+              state:        'warning',
+              shortMessage: 'Degraded',
+              message:      apiStatus.conditions?.join(', '),
+            });
+          }
+        } else {
+          const log = await uninstallCapabilityStatus(this.cluster.id, capability, this.vue);
+          const pending = log.state === TaskState.Pending || log.state === TaskState.Running || (this.capabilityStatus[capability] as any )?.pending || false;
+          const state = getState(log.state);
+
+          Vue.set(this.capabilityStatus, capability, {
+            state,
+            message: state === null ? '' : (log.logs || []).reverse()[0]?.msg,
+            pending
+          });
+        }
       } catch (ex) { }
     }
 
@@ -223,20 +236,15 @@ export class Capability extends Resource {
   }
 
   async install() {
-    Vue.set(this.capabilityStatus, this.type, {
-      state:   null,
-      message: 'Installing',
-    });
-
     try {
       const result = await installCapabilityV2(this.type, this.cluster.id);
-      const statusRaw = result.status;
-      const status = statusRaw === 'Unknown' ? 'Error' : statusRaw;
 
       Vue.set(this.capabilityStatus, this.type, {
         state:   status.toLowerCase(),
         message: status === 'Success' ? 'Installed' : `Installation problem: ${ result.message }`,
       });
+
+      await this.updateCapabilities();
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
         state:   'error',

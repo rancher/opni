@@ -95,7 +95,7 @@ export class Cluster extends Resource {
     this.capLogs = [];
   }
 
-  get status(): Status {
+  get status() {
     if (!this.healthBase.status.connected) {
       return {
         state:   'error',
@@ -105,8 +105,9 @@ export class Cluster extends Resource {
 
     if (!this.healthBase.health.ready) {
       return {
-        state:   'warning',
-        message: this.healthBase.health.conditions.join(', ')
+        state:        'warning',
+        shortMessage: 'Degraded',
+        message:      this.healthBase.health.conditions.join(', ')
       };
     }
 

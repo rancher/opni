@@ -1,6 +1,7 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
+import { Banner } from '@components/Banner';
 import { isEmpty } from 'lodash';
 import { getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getOpensearchCluster } from '../utils/requests/loggingv2';
@@ -17,6 +18,7 @@ export default {
     EditClusterDialog,
     Loading,
     SortableTable,
+    Banner,
   },
   async fetch() {
     await this.load();
@@ -203,6 +205,11 @@ export default {
         </td>
       </template>
       <template #sub-row="{row, fullColspan}">
+        <tr v-if="row.status.state === 'error' || row.status.state === 'warning'" class="sub-row">
+          <td :colspan="fullColspan">
+            <Banner class="sub-banner m-0" :label="row.status.message" :color="row.status.state" />
+          </td>
+        </tr>
         <tr v-if="row.displayLabels.length > 0" class="sub-row">
           <td :colspan="fullColspan" class="cluster-status">
             Labels:

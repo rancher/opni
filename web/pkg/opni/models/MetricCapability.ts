@@ -36,6 +36,20 @@ export class MetricCapability extends Capability {
     ];
   }
 
+  get status() {
+    const st = super.status;
+
+    if (st.state === 'info' && this.isLocal && !this.isInstalled) {
+      return {
+        state:        'warning',
+        shortMessage: st.shortMessage,
+        message:      'The local agent should have the capability installed. Without it, some of the default Grafana dashboards may be degraded.'
+      };
+    }
+
+    return st;
+  }
+
   usePrometheus() {
     setNodeConfiguration(this.id, 'Prometheus');
     Vue.set(this, 'providerRaw', 'Prometheus');

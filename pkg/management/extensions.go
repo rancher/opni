@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/golang/protobuf/jsonpb"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
@@ -273,6 +274,7 @@ func newHandler(
 	lg := logger.New().Named("apiext")
 	return func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		lg := lg.With(
+			"svc", svcDesc.GetName(),
 			"method", rule.Method.GetName(),
 			"path", path,
 		)
@@ -361,7 +363,7 @@ func newHandler(
 				lg.With(
 					zap.Error(err),
 					zap.String("body", string(body)),
-				).Error("failed to unmarshal request body")
+				).Errorf("failed to unmarshal request body into %q", bodyFieldPath)
 				// special case here, make empty string errors more obvious
 				if strings.HasSuffix(err.Error(), "named ") { // note the trailing space
 					err = fmt.Errorf("%w(empty)", err)
@@ -379,7 +381,7 @@ func newHandler(
 		if err != nil {
 			lg.With(
 				zap.Error(err),
-			).Error("rpc error")
+			).Debug("rpc error")
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
@@ -391,7 +393,10 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.Internal, "internal error: bad response message: %v", err))
 		}
-		jsonData, err := d.MarshalJSON()
+		jsonData, err := d.MarshalJSONPB(&jsonpb.Marshaler{
+			EmitDefaults: true,
+			EnumsAsInts:  true,
+		})
 		if err != nil {
 			lg.With(
 				zap.Error(err),

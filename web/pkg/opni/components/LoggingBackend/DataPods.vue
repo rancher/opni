@@ -41,7 +41,7 @@ export default {
   <div>
     <div class="row border-bottom mb-10">
       <div class="col span-6">
-        <UnitInput v-model="value.replicas" label="Replicas" :suffix="false" />
+        <UnitInput v-model="value.replicas" label="Replicas" base-unit="" />
       </div>
       <div class="col span-6 middle">
         <Checkbox v-model="value.enableAntiAffinity" label="Spread across nodes" />

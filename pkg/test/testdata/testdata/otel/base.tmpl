@@ -2,9 +2,8 @@
 receivers:
   otlp:
     protocols:
-      grpc: 
+      grpc:
         endpoint : "{{ .AggregatorAddress }}"
-      http: {}
   {{ template "metrics-self-receiver" . }}
   {{ template "metrics-prometheus-receiver" . }}
   {{ template "metrics-prometheus-discoverer" . }}
@@ -37,6 +36,15 @@ service:
   {{template "metrics-self-telemetry" . }}
   pipelines:
   {{template "metrics-remotewrite-pipeline" . }}
+  {{- if .HealthCheckAddress }}
+  extensions: [health_check]
+  {{- end }}
+{{- if .HealthCheckAddress }}
+extensions:
+  health_check:
+    endpoint: "{{ .HealthCheckAddress }}"
+    path: "/healthz"
+{{- end }}
 {{- end -}}
 
 {{- define "node-receivers" -}}

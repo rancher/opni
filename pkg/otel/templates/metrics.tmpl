@@ -6,7 +6,7 @@ prometheus/self:
         - job_name: 'otel-collector'
           scrape_interval: 15s
           static_configs:
-            - targets: ['0.0.0.0:{{ .Metrics.ListenPort }}']
+            - targets: ['127.0.0.1:{{ .Metrics.ListenPort }}']
 {{ template "metrics-nodehost-receiver" . }}
 {{- end -}}
 {{- end -}}
@@ -19,7 +19,7 @@ hostmetrics:
   scrapers:
     cpu: {}
     disk: {}
-    load: {}      
+    load: {}
     processes: {}
     filesystem:
       exclude_fs_types:
@@ -82,7 +82,7 @@ kubeletstats:
 {{- if .Metrics.Enabled -}}
   telemetry:
     logs:
-      level : "debug"
+      level : {{ or .Metrics.LogLevel "debug" }}
     metrics:
       address : "127.0.0.1:{{ .Metrics.ListenPort }}"
 {{- end -}}
@@ -134,7 +134,7 @@ kubeletstats:
       truncate_frequency : {{ protoDurToString .Metrics.Spec.Wal.TruncateFrequency }}
     {{- end }}
     resource_to_telemetry_conversion:
-      enabled: true 
+      enabled: true
     tls:
       insecure: true
   {{- end -}}
@@ -153,8 +153,8 @@ kubeletstats:
       receivers:
       {{- range .MetricReceivers }}
       - {{ . }}
-      {{- end }} 
-      processors: 
+      {{- end }}
+      processors:
       - memory_limiter
       - batch
       - filter/metrics

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
@@ -41,6 +42,7 @@ type LoggingConfig struct {
 
 type MetricsConfig struct {
 	Enabled             bool
+	LogLevel            string
 	ListenPort          int
 	RemoteWriteEndpoint string
 	WALDir              string
@@ -55,12 +57,6 @@ type OTELSpec struct {
 	HostMetrics             *bool           `json:"hostMetrics,omitempty"`
 }
 
-func (o *OTELSpec) DeepCopyInto(out *OTELSpec) {
-	out.HostMetrics = o.HostMetrics
-	out.AdditionalScrapeConfigs = o.AdditionalScrapeConfigs
-	out.Wal = o.Wal
-}
-
 type ScrapeConfig struct {
 	JobName        string   `json:"jobName,omitempty"`
 	Targets        []string `json:"targets,omitempty"`
@@ -71,6 +67,88 @@ type WALConfig struct {
 	Enabled           bool                 `json:"enabled,omitempty"`
 	BufferSize        int64                `json:"bufferSize,omitempty"`
 	TruncateFrequency *durationpb.Duration `json:"truncateFrequency,omitempty"`
+}
+
+func (in *MetricsConfig) DeepCopyInto(out *MetricsConfig) {
+	*out = *in
+	if in.Spec != nil {
+		in, out := &in.Spec, &out.Spec
+		*out = new(OTELSpec)
+		(*in).DeepCopyInto(*out)
+	}
+}
+
+func (in *MetricsConfig) DeepCopy() *MetricsConfig {
+	if in == nil {
+		return nil
+	}
+	out := new(MetricsConfig)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *OTELSpec) DeepCopyInto(out *OTELSpec) {
+	*out = *in
+	if in.AdditionalScrapeConfigs != nil {
+		in, out := &in.AdditionalScrapeConfigs, &out.AdditionalScrapeConfigs
+		*out = make([]*ScrapeConfig, len(*in))
+		for i := range *in {
+			(*out)[i] = (*in)[i].DeepCopy()
+		}
+	}
+	if in.Wal != nil {
+		in, out := &in.Wal, &out.Wal
+		*out = new(WALConfig)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.HostMetrics != nil {
+		in, out := &in.HostMetrics, &out.HostMetrics
+		*out = new(bool)
+		**out = **in
+	}
+}
+
+func (o *OTELSpec) DeepCopy() *OTELSpec {
+	if o == nil {
+		return nil
+	}
+	out := new(OTELSpec)
+	o.DeepCopyInto(out)
+	return out
+}
+
+func (in *ScrapeConfig) DeepCopyInto(out *ScrapeConfig) {
+	*out = *in
+	if in.Targets != nil {
+		in, out := &in.Targets, &out.Targets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+}
+
+func (s *ScrapeConfig) DeepCopy() *ScrapeConfig {
+	if s == nil {
+		return nil
+	}
+	out := new(ScrapeConfig)
+	s.DeepCopyInto(out)
+	return out
+}
+
+func (in *WALConfig) DeepCopyInto(out *WALConfig) {
+	*out = *in
+	if in.TruncateFrequency != nil {
+		out.TruncateFrequency = util.ProtoClone(in.TruncateFrequency)
+	}
+}
+
+func (w *WALConfig) DeepCopy() *WALConfig {
+	if w == nil {
+		return nil
+	}
+	out := new(WALConfig)
+	w.DeepCopyInto(out)
+	return out
 }
 
 func (d NodeConfig) MetricReceivers() []string {

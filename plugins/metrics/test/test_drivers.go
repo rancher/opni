@@ -59,9 +59,14 @@ func init() {
 		return NewTestEnvMetricsClusterDriver(env), nil
 	})
 
-	metrics_agent_drivers.NodeDrivers.Register("test-environment", func(ctx context.Context, _ ...driverutil.Option) (metrics_agent_drivers.MetricsNodeDriver, error) {
+	metrics_agent_drivers.NodeDrivers.Register("test-environment-prometheus", func(ctx context.Context, _ ...driverutil.Option) (metrics_agent_drivers.MetricsNodeDriver, error) {
 		env := test.EnvFromContext(ctx)
-		return NewTestEnvMetricsNodeDriver(env), nil
+		return NewTestEnvPrometheusNodeDriver(env), nil
+	})
+
+	metrics_agent_drivers.NodeDrivers.Register("test-environment-otel", func(ctx context.Context, _ ...driverutil.Option) (metrics_agent_drivers.MetricsNodeDriver, error) {
+		env := test.EnvFromContext(ctx)
+		return NewTestEnvOtelNodeDriver(env), nil
 	})
 }
 
@@ -78,14 +83,6 @@ type TestEnvMetricsClusterDriver struct {
 }
 
 func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
-	go func() {
-		client := node.NewNodeConfigurationClient(env.ManagementClientConn())
-		client.SetDefaultConfiguration(context.Background(), &node.MetricsCapabilitySpec{
-			Prometheus: &node.PrometheusSpec{
-				DeploymentStrategy: "testEnvironment",
-			},
-		})
-	}()
 	return &TestEnvMetricsClusterDriver{
 		Env:           env,
 		Configuration: &cortexops.ClusterConfiguration{},
@@ -93,8 +90,14 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 	}
 }
 
-func NewTestEnvMetricsNodeDriver(env *test.Environment) *TestEnvMetricsNodeDriver {
-	return &TestEnvMetricsNodeDriver{
+func NewTestEnvPrometheusNodeDriver(env *test.Environment) *TestEnvPrometheusNodeDriver {
+	return &TestEnvPrometheusNodeDriver{
+		env: env,
+	}
+}
+
+func NewTestEnvOtelNodeDriver(env *test.Environment) *TestEnvOtelNodeDriver {
+	return &TestEnvOtelNodeDriver{
 		env: env,
 	}
 }
@@ -123,11 +126,15 @@ func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) error
 func (d *TestEnvMetricsClusterDriver) GetClusterConfiguration(context.Context, *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.state == cortexops.InstallState_NotInstalled {
+		return nil, status.Error(codes.NotFound, "Cortex cluster is not installed")
+	}
 	return d.Configuration, nil
 }
 
 func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
 
 	switch d.state {
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Installed:
@@ -146,8 +153,6 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 	d.cortexCtx = ctx
 	d.cortexCancel = ca
 	d.Configuration = conf
-
-	d.lock.Unlock()
 
 	go func() {
 		if oldCancel != nil {
@@ -176,6 +181,7 @@ func (d *TestEnvMetricsClusterDriver) GetClusterStatus(context.Context, *emptypb
 
 func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	d.lock.Lock()
+	defer d.lock.Unlock()
 
 	switch d.state {
 	case cortexops.InstallState_NotInstalled:
@@ -190,11 +196,11 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 
 	oldCtx, oldCancel := d.cortexCtx, d.cortexCancel
 
-	d.lock.Unlock()
-
 	go func() {
-		oldCancel()
-		waitctx.Wait(oldCtx)
+		if oldCancel != nil {
+			oldCancel()
+			waitctx.Wait(oldCtx)
+		}
 		d.lock.Lock()
 		defer d.lock.Unlock()
 		d.cortexCtx = nil
@@ -205,7 +211,7 @@ func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb
 	return &emptypb.Empty{}, nil
 }
 
-type TestEnvMetricsNodeDriver struct {
+type TestEnvPrometheusNodeDriver struct {
 	env *test.Environment
 
 	prometheusMu     sync.Mutex
@@ -213,35 +219,45 @@ type TestEnvMetricsNodeDriver struct {
 	prometheusCancel context.CancelFunc
 }
 
-func (d *TestEnvMetricsNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
+func (d *TestEnvPrometheusNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
 	if config.GetDiscovery().GetFilesystem() != nil {
 		return rules.NewFilesystemRuleFinder(config.Discovery.Filesystem)
 	}
 	return nil
 }
 
-var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvMetricsNodeDriver)(nil)
+var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvPrometheusNodeDriver)(nil)
 
 // ConfigureNode implements drivers.MetricsNodeDriver
-func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) {
-	lg := d.env.Logger.With("node", nodeId)
+func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+	lg := d.env.Logger.With(
+		"node", nodeId,
+		"driver", "prometheus",
+	)
 	lg.Debug("configuring node")
 
 	d.prometheusMu.Lock()
 	defer d.prometheusMu.Unlock()
 
 	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "testEnvironment"
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus() != nil
 
 	if exists && !shouldExist {
 		lg.Info("stopping prometheus")
 		d.prometheusCancel()
+		waitctx.Wait(d.prometheusCtx)
 		d.prometheusCancel = nil
 		d.prometheusCtx = nil
 	} else if !exists && shouldExist {
 		lg.Info("starting prometheus")
-		ctx, ca := context.WithCancel(d.env.Context())
-		d.env.StartPrometheusContext(ctx, nodeId)
+		ctx, ca := context.WithCancel(context.TODO())
+		ctx = waitctx.FromContext(ctx)
+		_, err := d.env.StartPrometheusContext(ctx, nodeId)
+		if err != nil {
+			lg.With("err", err).Error("failed to start prometheus")
+			ca()
+			return err
+		}
 		d.prometheusCtx = ctx
 		d.prometheusCancel = ca
 	} else if exists && shouldExist {
@@ -249,9 +265,75 @@ func (d *TestEnvMetricsNodeDriver) ConfigureNode(nodeId string, conf *node.Metri
 	} else {
 		lg.Debug("nothing to do (already stopped)")
 	}
+
+	return nil
 }
 
 // DiscoverPrometheuses implements drivers.MetricsNodeDriver
-func (*TestEnvMetricsNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
+func (*TestEnvPrometheusNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
 	return nil, nil
 }
+
+type TestEnvOtelNodeDriver struct {
+	env *test.Environment
+
+	otelMu     sync.Mutex
+	otelCtx    context.Context
+	otelCancel context.CancelFunc
+}
+
+// ConfigureNode implements drivers.MetricsNodeDriver.
+func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+	lg := d.env.Logger.With(
+		"node", nodeId,
+		"driver", "otel",
+	)
+	lg.Debug("configuring node")
+
+	d.otelMu.Lock()
+	defer d.otelMu.Unlock()
+
+	exists := d.otelCtx != nil && d.otelCancel != nil
+	shouldExist := conf.Enabled && conf.GetSpec().GetOtel() != nil
+
+	if exists && !shouldExist {
+		lg.Info("stopping otel")
+		d.otelCancel()
+		waitctx.Wait(d.otelCtx)
+		d.otelCancel = nil
+		d.otelCtx = nil
+	} else if !exists && shouldExist {
+		lg.Info("starting otel")
+		ctx, ca := context.WithCancel(context.TODO())
+		ctx = waitctx.FromContext(ctx)
+		err := d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
+		if err != nil {
+			lg.With("err", err).Error("failed to configure otel collector")
+			ca()
+			return fmt.Errorf("failed to configure otel collector: %w", err)
+		}
+		d.otelCtx = ctx
+		d.otelCancel = ca
+	} else if exists && shouldExist {
+		lg.Debug("nothing to do (already running)")
+	} else {
+		lg.Debug("nothing to do (already stopped)")
+	}
+
+	return nil
+}
+
+// ConfigureRuleGroupFinder implements drivers.MetricsNodeDriver.
+func (*TestEnvOtelNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
+	if config.GetDiscovery().GetFilesystem() != nil {
+		return rules.NewFilesystemRuleFinder(config.Discovery.Filesystem)
+	}
+	return nil
+}
+
+// DiscoverPrometheuses implements drivers.MetricsNodeDriver.
+func (*TestEnvOtelNodeDriver) DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error) {
+	return nil, nil
+}
+
+var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvOtelNodeDriver)(nil)

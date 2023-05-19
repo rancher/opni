@@ -73,6 +73,12 @@ func OpensearchMockTransport() http.RoundTripper {
 		httpmock.NewStringResponder(200, ""),
 	)
 
+	transport.RegisterResponder(
+		http.MethodGet,
+		fmt.Sprintf("%s/_plugins/_security/api/internalusers/opni", OpensearchURL),
+		httpmock.NewStringResponder(200, ""),
+	)
+
 	return transport
 }
 

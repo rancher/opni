@@ -49,3 +49,13 @@ func (i *MultiErrGroup) Error() error {
 	})
 	return errors.Join(resErr...)
 }
+
+func (i *MultiErrGroup) Go(fn func() error) {
+	i.Add(1)
+	go func() {
+		defer i.Done()
+		if err := fn(); err != nil {
+			i.AddError(err)
+		}
+	}()
+}

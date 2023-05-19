@@ -149,6 +149,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	}
 
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
+	status.Conditions = req.GetCurrentConfig().GetConditions()
 	status.LastSync = timestamppb.Now()
 	m.Logger.With(
 		"id", id,
@@ -174,8 +175,10 @@ var (
 				PrometheusRules: &v1beta1.PrometheusRulesSpec{},
 			},
 		},
-		Prometheus: &node.PrometheusSpec{
-			DeploymentStrategy: "externalPromOperator",
+		Driver: &node.MetricsCapabilitySpec_Prometheus{
+			Prometheus: &node.PrometheusSpec{
+				DeploymentStrategy: "externalPromOperator",
+			},
 		},
 	}
 )
@@ -209,7 +212,15 @@ func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*
 
 // the calling function must have exclusive ownership of both old and new
 func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
-	if cmp.Equal(old, new, protocmp.Transform()) {
+	oldIgnoreConditions := util.ProtoClone(old)
+	if oldIgnoreConditions != nil {
+		oldIgnoreConditions.Conditions = nil
+	}
+	newIgnoreConditions := util.ProtoClone(new)
+	if newIgnoreConditions != nil {
+		newIgnoreConditions.Conditions = nil
+	}
+	if cmp.Equal(oldIgnoreConditions, newIgnoreConditions, protocmp.Transform()) {
 		return &node.SyncResponse{
 			ConfigStatus: node.ConfigStatus_UpToDate,
 		}

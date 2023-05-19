@@ -70,7 +70,8 @@ func NewOTELDriver(options OTELNodeDriverOptions) (*OTELNodeDriver, error) {
 	}, nil
 }
 
-func (o *OTELNodeDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityConfig) {
+func (o *OTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+	lg := o.Logger.With("nodeId", nodeId)
 	if o.state.GetRunning() {
 		o.state.Cancel()
 	}
@@ -94,13 +95,13 @@ func (o *OTELNodeDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityCon
 BACKOFF:
 	for backoff.Continue(b) {
 		for _, obj := range objList {
-			o.Logger.Debugf(
+			lg.Debugf(
 				"object : %s, should exist : %t",
 				client.ObjectKeyFromObject(obj.A).String(),
 				obj.B,
 			)
-			if err := reconcilerutil.ReconcileObject(o.Logger, o.K8sClient, o.Namespace, obj); err != nil {
-				o.Logger.With(
+			if err := reconcilerutil.ReconcileObject(lg, o.K8sClient, o.Namespace, obj); err != nil {
+				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
 					zap.Error(err),
 				).Error("error reconciling object")
@@ -112,18 +113,21 @@ BACKOFF:
 	}
 
 	if !success {
-		o.Logger.Error("timed out reconciling objects")
+		lg.Error("timed out reconciling objects")
+		return fmt.Errorf("timed out reconciling objects")
 	} else {
-		o.Logger.Info("objects reconciled successfully")
+		lg.Info("objects reconciled successfully")
 	}
-	o.Logger.Info("starting collector reconcile...")
+	lg.Info("starting collector reconcile...")
 	if err := o.reconcileCollector(deployOTEL); err != nil {
-		o.Logger.With(
+		lg.With(
 			"object", "opni collector",
 			zap.Error(err),
 		).Error("error reconciling object")
+		return err
 	}
-	o.Logger.Info("collector reconcile complete")
+	lg.Info("collector reconcile complete")
+	return nil
 }
 
 // no-op

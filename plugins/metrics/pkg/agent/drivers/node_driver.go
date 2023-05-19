@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -12,30 +13,24 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 )
 
+type MetricsNodeConfigurator interface {
+	ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error
+}
+
 type MetricsNodeDriver interface {
-	ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig)
+	MetricsNodeConfigurator
 	DiscoverPrometheuses(context.Context, string) ([]*remoteread.DiscoveryEntry, error)
 	ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup]
 }
 
 var NodeDrivers = driverutil.NewDriverCache[MetricsNodeDriver]()
 
-type ConfigureNodeArgs struct {
+type ConfigurationError struct {
 	NodeId string
-	Config *node.MetricsCapabilityConfig
+	Cfg    *node.MetricsCapabilityConfig
+	Err    error
 }
 
-func NewListenerFunc(ctx context.Context, fn func(nodeId string, cfg *node.MetricsCapabilityConfig)) chan<- ConfigureNodeArgs {
-	listenerC := make(chan ConfigureNodeArgs, 1)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case args := <-listenerC:
-				fn(args.NodeId, args.Config)
-			}
-		}
-	}()
-	return listenerC
+func (e *ConfigurationError) Error() string {
+	return fmt.Errorf("error configuring node %s: %w", e.NodeId, e.Err).Error()
 }

@@ -103,4 +103,5 @@ message InstallerTemplateResponse {
 message NodeCapabilityStatus {
   bool enabled = 1;
   google.protobuf.Timestamp lastSync = 2;
+  repeated string conditions = 3;
 }

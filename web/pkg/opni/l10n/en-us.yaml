@@ -78,12 +78,12 @@ opni:
     matchLabels: Match Labels
     name: Name
     namespace: Namespace
-    numSeries: Number Series
+    numSeries: Series Count
     period: Period
     podName: Pod Name
     provider: Provider
     role: Role
-    sampleRate: Sample Rate
+    sampleRate: Sample Ingest Rate
     status: Status
     subjects: Subjects
     tags: Tags

@@ -57,7 +57,8 @@ module.exports = {
     'no-eval':                           'warn',
     'no-trailing-spaces':                'warn',
     'no-undef':                          'warn',
-    'no-unused-vars':                    'warn',
+    'no-unused-vars':                    'off',
+    '@typescript-eslint/no-unused-vars': 'warn',
     'no-whitespace-before-property':     'warn',
     'object-curly-spacing':              ['warn', 'always'],
     'object-property-newline':           'warn',
@@ -149,24 +150,24 @@ module.exports = {
       }
     ],
 
+    'vue/multi-word-component-names': 'off',
     // FIXME: The following is disabled due to new linter and old JS code. These should all be enabled and underlying issues fixed
     'vue/order-in-components':              'off',
-    'vue/no-lone-template':                 'off',
-    'vue/v-slot-style':                     'off',
-    'vue/component-tags-order':             'off',
+    // 'vue/no-lone-template':                 'off',
+    // 'vue/v-slot-style':                     'off',
+    // 'vue/component-tags-order':             'off',
     'vue/no-mutating-props':                'off',
-    '@typescript-eslint/no-unused-vars':    'off',
-    'array-callback-return':                'off',
+    // 'array-callback-return':                'off',
   },
   overrides: [
     {
       files: ['*.js'],
       rules: {
         // FIXME: The following is disabled due to new linter and old JS code. These should all be enabled and underlying issues fixed
-        'prefer-regex-literals':                'off',
-        'vue/component-definition-name-casing': 'off',
-        'no-unreachable-loop':                  'off',
-        'computed-property-spacing':            'off',
+        // 'prefer-regex-literals':                'off',
+        // 'vue/component-definition-name-casing': 'off',
+        // 'no-unreachable-loop':                  'off',
+        // 'computed-property-spacing':            'off',
       }
     }
   ]

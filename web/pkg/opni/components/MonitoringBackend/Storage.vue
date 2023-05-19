@@ -196,7 +196,13 @@ export default {
           <LabeledSelect v-model="value.storage.backend" :options="storageOptions" label="Storage Type" />
         </div>
         <div class="col span-6">
-          <UnitInput v-model="s3RetentionPeriod" class="retention-period" label="Data Retention Period" suffix="days" tooltip="A value of 0 will retain data indefinitely" />
+          <UnitInput
+            v-model="s3RetentionPeriod"
+            class="retention-period"
+            label="Data Retention Period"
+            suffix="days"
+            tooltip="A value of 0 will retain data indefinitely"
+          />
         </div>
       </div>
       <div v-if="value.storage.backend === StorageBackend.S3" class="mt-15">
@@ -223,12 +229,21 @@ export default {
             <LabeledInput v-model="value.storage.s3.accessKeyID" label="Access Key ID" :required="true" />
           </div>
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.secretAccessKey" label="Secret Access Key" :required="true" type="password" />
+            <LabeledInput
+              v-model="value.storage.s3.secretAccessKey"
+              label="Secret Access Key"
+              :required="true"
+              type="password"
+            />
           </div>
         </div>
         <div class="row mb-10">
           <div class="col span-6">
-            <LabeledSelect v-model="value.storage.s3.signatureVersion" :options="signatureVersionOptions" label="Signature Version" />
+            <LabeledSelect
+              v-model="value.storage.s3.signatureVersion"
+              :options="signatureVersionOptions"
+              label="Signature Version"
+            />
           </div>
         </div>
         <h3>Server Side Encryption</h3>
@@ -242,7 +257,11 @@ export default {
             <LabeledInput v-model="value.storage.s3.sse.kmsKeyID" label="KMS Key Id" :required="true" />
           </div>
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.sse.kmsEncryptionContext" label="KMS Encryption Context" :required="true" />
+            <LabeledInput
+              v-model="value.storage.s3.sse.kmsEncryptionContext"
+              label="KMS Encryption Context"
+              :required="true"
+            />
           </div>
         </div>
         <h3>Connection</h3>
@@ -251,18 +270,33 @@ export default {
             <UnitInput v-model="s3IdleConnTimeout" label="Idle Connection Timeout" placeholder="e.g. 30, 60" suffix="s" />
           </div>
           <div class="col span-6">
-            <UnitInput v-model="s3ResponseHeaderTimeout" label="Response Header Timeout" placeholder="e.g. 30, 60" suffix="s" />
+            <UnitInput
+              v-model="s3ResponseHeaderTimeout"
+              label="Response Header Timeout"
+              placeholder="e.g. 30, 60"
+              suffix="s"
+            />
           </div>
         </div>
         <div class="row mb-10">
           <div class="col span-4">
-            <UnitInput v-model="s3TlsHandshakeTimeout" label="TLS Handshake Timeout" placeholder="e.g. 30, 60" suffix="s" />
+            <UnitInput
+              v-model="s3TlsHandshakeTimeout"
+              label="TLS Handshake Timeout"
+              placeholder="e.g. 30, 60"
+              suffix="s"
+            />
           </div>
           <div class="col span-3 middle">
             <Checkbox v-model="value.storage.s3.http.insecureSkipVerify" label="Insecure Skip Verify" />
           </div>
           <div class="col span-5">
-            <UnitInput v-model="s3ExpectContinueTimeout" label="Expect Continue Timeout" placeholder="e.g. 30, 60" suffix="s" />
+            <UnitInput
+              v-model="s3ExpectContinueTimeout"
+              label="Expect Continue Timeout"
+              placeholder="e.g. 30, 60"
+              suffix="s"
+            />
           </div>
         </div>
         <div class="row mb-10">
@@ -270,7 +304,11 @@ export default {
             <UnitInput v-model="value.storage.s3.http.maxIdleConns" label="Max Idle Connections" suffix="" />
           </div>
           <div class="col span-4">
-            <UnitInput v-model="value.storage.s3.http.maxIdleConnsPerHost" label="Max Idle Connections Per Host" suffix="" />
+            <UnitInput
+              v-model="value.storage.s3.http.maxIdleConnsPerHost"
+              label="Max Idle Connections Per Host"
+              suffix=""
+            />
           </div>
           <div class="col span-4">
             <UnitInput v-model="value.storage.s3.http.maxConnsPerHost" label="Max Connections Per Host" suffix="" />
@@ -282,7 +320,6 @@ export default {
 </template>
 
 <style lang="scss" scoped>
-
 header {
   width: 100%;
   display: flex;

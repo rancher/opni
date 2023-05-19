@@ -66,14 +66,14 @@ export default {
             limit:   ''
           },
           enableAntiAffinity: false,
-          nodeSelector:       { },
+          nodeSelector:       {},
           tolerations:        [],
         },
 
         controlplaneNodes: {
           enabled:      false,
           replicas:     '1',
-          nodeSelector: { },
+          nodeSelector: {},
           tolerations:  [],
           persistence:  {
             enabled:      false,
@@ -81,7 +81,7 @@ export default {
           },
         },
 
-        dashboards:    {
+        dashboards: {
           enabled: true, replicas: '1', resources: { limits: { memory: '1024Mi' }, requests: { cpu: '3m' } }
         },
 
@@ -195,7 +195,7 @@ export default {
         config.ingestNodes.enabled = !!cluster.ingestNodes;
         config.controlplaneNodes.enabled = !!cluster.controlplaneNodes;
 
-        this.$set(this, 'config', config );
+        this.$set(this, 'config', config);
         this.$set(this, 'storageClassOptions', await getStorageClassOptions());
       } catch (ex) {}
     }
@@ -214,20 +214,45 @@ export default {
     <template #editing>
       <div class="row mb-20">
         <div class="col span-12">
-          <LabeledInput v-model="config.dataRetention" label="Data Retention" placeholder="e.g. 7d, 30d, 6m" :required="true" />
+          <LabeledInput
+            v-model="config.dataRetention"
+            label="Data Retention"
+            placeholder="e.g. 7d, 30d, 6m"
+            :required="true"
+          />
         </div>
       </div>
       <Tabbed :side-tabs="true">
-        <Tab :weight="4" name="data-pods" label="Primary Pods" tooltip="Primary Pods are responsible for storing the data and running search and indexing operations.">
+        <Tab
+          :weight="4"
+          name="data-pods"
+          label="Primary Pods"
+          tooltip="Primary Pods are responsible for storing the data and running search and indexing operations."
+        >
           <DataPods v-model="config.dataNodes" :storage-class-options="storageClassOptions" />
         </Tab>
-        <Tab :weight="3" name="ingest-pods" label="Ingest Pods" tooltip="Ingest Pods are responsible for running the Opni ingest plugins, as well as indexing data.">
+        <Tab
+          :weight="3"
+          name="ingest-pods"
+          label="Ingest Pods"
+          tooltip="Ingest Pods are responsible for running the Opni ingest plugins, as well as indexing data."
+        >
           <IngestPods v-model="config.ingestNodes" />
         </Tab>
-        <Tab :weight="2" name="controlplane-pods" label="Controlplane Pods" tooltip="Controlplane Pods are responsible for maintaining cluster metadata.">
+        <Tab
+          :weight="2"
+          name="controlplane-pods"
+          label="Controlplane Pods"
+          tooltip="Controlplane Pods are responsible for maintaining cluster metadata."
+        >
           <ControlplanePods v-model="config.controlplaneNodes" :storage-class-options="storageClassOptions" />
         </Tab>
-        <Tab :weight="1" name="dashboard" label="Dashboard" tooltip="This is responsible for running the OpenSearch Dashboard UI.">
+        <Tab
+          :weight="1"
+          name="dashboard"
+          label="Dashboard"
+          tooltip="This is responsible for running the OpenSearch Dashboard UI."
+        >
           <Dashboard v-model="config.dashboards" />
         </Tab>
       </Tabbed>

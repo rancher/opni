@@ -26,10 +26,10 @@ export default {
 
   data() {
     return {
-      interval:                   null,
-      loading:                    false,
-      statsInterval:              null,
-      modes:                      [
+      interval:      null,
+      loading:       false,
+      statsInterval: null,
+      modes:         [
         {
           label:   'Standalone',
           value:   1,
@@ -41,7 +41,7 @@ export default {
           tooltip: 'This will deploy multiple instances of AlertManager in order to improve resilliency.'
         },
       ],
-      status:     '',
+      status: '',
       config: {
         numReplicas:    1,
         resourceLimits: {
@@ -153,5 +153,4 @@ export default {
   </Backend>
 </template>
 
-<style lang="scss" scoped>
-</style>
+<style lang="scss" scoped></style>

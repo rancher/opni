@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2018",
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Node",
     "lib": [
@@ -28,10 +28,9 @@
     "typeRoots": [
       "./node_modules",
       "./node_modules/@rancher/shell/types"
-    ],    
+    ],
     "types": [
       "@types/node",
-      "@nuxt/types",
       "cypress",
       "rancher",
       "shell"

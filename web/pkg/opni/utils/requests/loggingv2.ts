@@ -83,15 +83,10 @@ export interface StatusResponse {
 }
 
 export enum Status {
-  // eslint-disable-next-line no-unused-vars
   ClusterStatusPending = 1,
-  // eslint-disable-next-line no-unused-vars
   ClusterStatusGreen,
-  // eslint-disable-next-line no-unused-vars
   ClusterStatusYellow,
-  // eslint-disable-next-line no-unused-vars
   ClusterStatusRed,
-  // eslint-disable-next-line no-unused-vars
   ClusterStatusError
 }
 

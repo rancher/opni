@@ -27,7 +27,7 @@ export interface HealthResponse {
 }
 
 export interface ClustersResponse {
-    items: ClusterResponse[];
+  items: ClusterResponse[];
 }
 
 export interface ClusterStats {

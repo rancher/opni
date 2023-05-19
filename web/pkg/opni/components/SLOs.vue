@@ -143,14 +143,14 @@ export default {
     </SortableTable>
     <div v-else-if="!isAlertingEnabled" class="not-enabled">
       <h4>
-        Alerting must be enabled to use SLOs. <n-link :to="{name: 'alerting-backend'}">
+        Alerting must be enabled to use SLOs. <n-link :to="{name: 'alerting'}">
           Click here
         </n-link> to enable alerting.
       </h4>
     </div>
     <div v-else class="not-enabled">
       <h4>
-        At least one cluster must have Monitoring installed to use SLOs. <n-link :to="{name: 'clusters'}">
+        At least one cluster must have Monitoring installed to use SLOs. <n-link :to="{name: 'monitoring'}">
           Click here
         </n-link> to enable Monitoring.
       </h4>

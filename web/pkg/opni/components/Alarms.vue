@@ -132,7 +132,7 @@ export default {
     </SortableTable>
     <div v-else class="not-enabled">
       <h4>
-        Alerting must be enabled to use Alarms. <n-link :to="{name: 'alerting-backend'}">
+        Alerting must be enabled to use Alarms. <n-link :to="{name: 'alerting'}">
           Click here
         </n-link> to enable alerting.
       </h4>

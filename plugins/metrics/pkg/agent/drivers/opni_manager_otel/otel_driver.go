@@ -159,18 +159,31 @@ func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
 			Name: otel.CollectorName,
 		},
 	}
+
 	err := o.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)
-	if client.IgnoreNotFound(err) != nil {
+	var collectorExists bool
+	if err == nil {
+		collectorExists = true
+	} else if !k8serrors.IsNotFound(err) {
 		return err
 	}
-	if k8serrors.IsNotFound(err) && shouldExist {
+
+	switch {
+	case collectorExists && !shouldExist:
+		o.Logger.Debug("collector exists and should not exist, deleting")
+		return o.K8sClient.Delete(context.TODO(), coll)
+	case !collectorExists && shouldExist:
+		o.Logger.Debug("collector does not exist and should exist, creating")
 		coll = o.buildEmptyCollector()
 		coll.Spec.MetricsConfig = &corev1.LocalObjectReference{
 			Name: otel.MetricsCrdName,
 		}
-		o.Logger.Debug("creating collector with metrics config")
 		return o.K8sClient.Create(context.TODO(), coll)
+	case !collectorExists && !shouldExist:
+		o.Logger.Debug("collector does not exist and should not exist, skipping")
+		return nil
 	}
+
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		o.Logger.Debug("updating collector with metrics config")
 		err := o.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)

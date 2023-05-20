@@ -100,8 +100,8 @@ export class Capability extends Resource {
     const status = this.capabilityStatus[this.type];
 
     return status || {
-      state:        'error',
-      shortMessage: 'Not Installed',
+      state:   'info',
+      message: 'Not Installed',
     };
   }
 

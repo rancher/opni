@@ -22,6 +22,11 @@ type CollectorSpec struct {
 	SystemNamespace    string                       `json:"systemNamespace,omitempty"`
 	LoggingConfig      *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
 	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
+	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
+}
+
+type ConfigReloaderSpec struct {
+	opnimeta.ImageSpec `json:",inline,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector

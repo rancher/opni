@@ -21,12 +21,17 @@ const (
 	receiversKey       = "receivers.yaml"
 	mainKey            = "config.yaml"
 	aggregatorKey      = "aggregator.yaml"
-	collectorImageRepo = "ghcr.io/rancher-sandbox"
-	collectorImage     = "opni-otel-collector"
+	collectorImageRepo = "ghcr.io"
+	collectorImage     = "rancher-sandbox/opni-otel-collector"
 	collectorVersion   = "v0.1.2-0.74.0"
-	otlpGRPCPort       = int32(4317)
-	rke2AgentLogDir    = "/var/lib/rancher/rke2/agent/logs/"
-	machineID          = "/etc/machine-id"
+	reloaderImage      = "rancher-sandbox/config-reloader"
+	reloaderVersion    = "v0.1.0"
+	otelColBinaryName  = "otelcol-custom"
+	otelConfigDir      = "/etc/otel"
+
+	otlpGRPCPort    = int32(4317)
+	rke2AgentLogDir = "/var/lib/rancher/rke2/agent/logs/"
+	machineID       = "/etc/machine-id"
 )
 
 var (
@@ -87,7 +92,6 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 			return
 		}
 		retData = append(retData, data...)
-		retReceivers = append(retReceivers)
 	}
 	return
 }
@@ -181,12 +185,12 @@ func (r *Reconciler) aggregatorConfigMap(curCfg otel.AggregatorConfig) (resource
 	return resources.Present(cm), configHash
 }
 
-func (r *Reconciler) daemonSet(configHash string) resources.Resource {
+func (r *Reconciler) daemonSet() resources.Resource {
 	imageSpec := r.imageSpec()
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "collector-config",
-			MountPath: "/etc/otel",
+			MountPath: otelConfigDir,
 		},
 	}
 	volumes := []corev1.Volume{
@@ -242,16 +246,16 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 						resources.PartOfLabel:   "opni",
 						resources.InstanceLabel: r.collector.Name,
 					},
-					Annotations: map[string]string{
-						resources.OpniConfigHash: configHash,
-					},
 				},
 				Spec: corev1.PodSpec{
+					ShareProcessNamespace: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
 							Name: "otel-collector",
 							Command: []string{
-								"/otelcol-custom",
+								fmt.Sprintf("/%s", otelColBinaryName),
+							},
+							Args: []string{
 								fmt.Sprintf("--config=/etc/otel/%s", mainKey),
 							},
 							Image:           *imageSpec.Image,
@@ -282,6 +286,7 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 							},
 							VolumeMounts: volumeMounts,
 						},
+						r.configReloaderContainer(volumeMounts),
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
 					Volumes:          volumes,
@@ -316,11 +321,11 @@ func (r *Reconciler) daemonSet(configHash string) resources.Resource {
 	return resources.Present(ds)
 }
 
-func (r *Reconciler) deployment(configHash string) resources.Resource {
+func (r *Reconciler) deployment() resources.Resource {
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "collector-config",
-			MountPath: "/etc/otel",
+			MountPath: otelConfigDir,
 		},
 	}
 	volumes := []corev1.Volume{
@@ -368,11 +373,9 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 						resources.PartOfLabel:   "opni",
 						resources.InstanceLabel: r.collector.Name,
 					},
-					Annotations: map[string]string{
-						resources.OpniConfigHash: configHash,
-					},
 				},
 				Spec: corev1.PodSpec{
+					ShareProcessNamespace: lo.ToPtr(true),
 					Containers: []corev1.Container{
 						{
 							Name: "otel-collector",
@@ -412,6 +415,7 @@ func (r *Reconciler) deployment(configHash string) resources.Resource {
 								},
 							},
 						},
+						r.configReloaderContainer(volumeMounts),
 					},
 					ImagePullSecrets:   imageSpec.ImagePullSecrets,
 					Volumes:            volumes,
@@ -461,11 +465,48 @@ func (r *Reconciler) service() resources.Resource {
 	return resources.Present(svc)
 }
 
+func (r *Reconciler) configReloaderContainer(mounts []corev1.VolumeMount) corev1.Container {
+	reloaderImageSpec := r.configReloaderImageSpec()
+	return corev1.Container{
+		Name:            "config-reloader",
+		Image:           *reloaderImageSpec.Image,
+		ImagePullPolicy: reloaderImageSpec.GetImagePullPolicy(),
+		Args: []string{
+			"-volume-dir",
+			otelConfigDir,
+			"-process",
+			otelColBinaryName,
+		},
+		SecurityContext: &corev1.SecurityContext{
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"SYS_PTRACE",
+				},
+			},
+		},
+		VolumeMounts: mounts,
+	}
+}
+
 func (r *Reconciler) imageSpec() opnimeta.ImageSpec {
 	return opnimeta.ImageResolver{
 		Version:       collectorVersion,
 		ImageName:     collectorImage,
 		DefaultRepo:   collectorImageRepo,
 		ImageOverride: &r.collector.Spec.ImageSpec,
+	}.Resolve()
+}
+
+func (r *Reconciler) configReloaderImageSpec() opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
+		Version:     reloaderVersion,
+		ImageName:   reloaderImage,
+		DefaultRepo: collectorImageRepo,
+		ImageOverride: func() *opnimeta.ImageSpec {
+			if r.collector.Spec.ConfigReloader != nil {
+				return &r.collector.Spec.ConfigReloader.ImageSpec
+			}
+			return nil
+		}(),
 	}.Resolve()
 }

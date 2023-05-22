@@ -1,12 +1,5 @@
 {{- define "metrics-node-receivers" -}}
 {{- if .Metrics.Enabled -}}
-prometheus/self:
-    config:
-      scrape_configs:
-        - job_name: 'otel-collector'
-          scrape_interval: 15s
-          static_configs:
-            - targets: ['127.0.0.1:{{ .Metrics.ListenPort }}']
 {{ template "metrics-nodehost-receiver" . }}
 {{- end -}}
 {{- end -}}
@@ -81,10 +74,8 @@ kubeletstats:
 {{- define "metrics-self-telemetry" -}}
 {{- if .Metrics.Enabled -}}
   telemetry:
-    logs:
-      level : {{ or .Metrics.LogLevel "debug" }}
     metrics:
-      address : "127.0.0.1:{{ .Metrics.ListenPort }}"
+      level: none
 {{- end -}}
 {{- end -}}
 

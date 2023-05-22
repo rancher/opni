@@ -25,7 +25,7 @@ const (
 	collectorImage     = "rancher-sandbox/opni-otel-collector"
 	collectorVersion   = "v0.1.2-0.74.0"
 	reloaderImage      = "rancher-sandbox/config-reloader"
-	reloaderVersion    = "v0.1.0"
+	reloaderVersion    = "v0.1.2"
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"
 
@@ -286,7 +286,7 @@ func (r *Reconciler) daemonSet() resources.Resource {
 							},
 							VolumeMounts: volumeMounts,
 						},
-						r.configReloaderContainer(volumeMounts),
+						r.configReloaderContainer(volumeMounts, true),
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
 					Volumes:          volumes,
@@ -415,7 +415,7 @@ func (r *Reconciler) deployment() resources.Resource {
 								},
 							},
 						},
-						r.configReloaderContainer(volumeMounts),
+						r.configReloaderContainer(volumeMounts, false),
 					},
 					ImagePullSecrets:   imageSpec.ImagePullSecrets,
 					Volumes:            volumes,
@@ -465,7 +465,7 @@ func (r *Reconciler) service() resources.Resource {
 	return resources.Present(svc)
 }
 
-func (r *Reconciler) configReloaderContainer(mounts []corev1.VolumeMount) corev1.Container {
+func (r *Reconciler) configReloaderContainer(mounts []corev1.VolumeMount, runAsRoot bool) corev1.Container {
 	reloaderImageSpec := r.configReloaderImageSpec()
 	return corev1.Container{
 		Name:            "config-reloader",
@@ -477,13 +477,20 @@ func (r *Reconciler) configReloaderContainer(mounts []corev1.VolumeMount) corev1
 			"-process",
 			otelColBinaryName,
 		},
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{
-					"SYS_PTRACE",
+		SecurityContext: func() *corev1.SecurityContext {
+			ctx := &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{
+						"SYS_PTRACE",
+					},
 				},
-			},
-		},
+				RunAsUser: lo.ToPtr[int64](10001),
+			}
+			if runAsRoot {
+				ctx.RunAsUser = lo.ToPtr[int64](0)
+			}
+			return ctx
+		}(),
 		VolumeMounts: mounts,
 	}
 }

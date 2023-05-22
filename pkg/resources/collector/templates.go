@@ -197,7 +197,6 @@ receivers:
     protocols:
       grpc: {}
       http: {}
-  {{ template "metrics-self-receiver" . }}
   {{ template "metrics-prometheus-receiver" . }}
   {{ template "metrics-prometheus-discoverer" . }}
 {{- if .LogsEnabled }}

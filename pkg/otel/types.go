@@ -154,7 +154,6 @@ func (w *WALConfig) DeepCopy() *WALConfig {
 func (d NodeConfig) MetricReceivers() []string {
 	res := []string{}
 	if d.Metrics.Enabled {
-		res = append(res, "prometheus/self")
 		if lo.FromPtrOr(d.Metrics.Spec.HostMetrics, false) {
 			res = append(res, "hostmetrics")
 			if d.Containerized {
@@ -168,7 +167,6 @@ func (d NodeConfig) MetricReceivers() []string {
 func (o AggregatorConfig) MetricReceivers() []string {
 	res := []string{}
 	if o.Metrics.Enabled {
-		res = append(res, "prometheus/self")
 		if len(o.Metrics.Spec.AdditionalScrapeConfigs) > 0 {
 			res = append(res, "prometheus/additional")
 		}

@@ -241,8 +241,8 @@ export class Capability extends Resource {
 
       Vue.set(this.capabilityStatus, this.type, {
         state:   CapabilityStatusState[result.status].toLowerCase(),
-        shortMessage: 'Error',
-        message: result.status === CapabilityStatusState.Success ? 'Installed' : `Installation problem: ${ result.message }`,
+        shortMessage: result.status === CapabilityStatusState.Success ? 'Installed' : CapabilityStatusState[result.status],
+        message: result.message,
       });
 
       await this.updateCapabilities();

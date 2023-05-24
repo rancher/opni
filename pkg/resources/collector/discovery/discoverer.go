@@ -39,6 +39,14 @@ type target struct {
 	friendlyName  string
 }
 
+func (t target) Less(other target) bool {
+	// handles the case where we have services manageing different ports on the same sets of pods for example
+	if t.staticAddress == other.staticAddress {
+		return t.friendlyName < other.friendlyName
+	}
+	return t.staticAddress < other.staticAddress
+}
+
 type PrometheusDiscovery struct {
 	logger     *zap.SugaredLogger
 	retrievers []ScrapeConfigRetriever

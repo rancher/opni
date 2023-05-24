@@ -52,7 +52,6 @@ func NewReconciler(
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
-
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
@@ -86,19 +85,18 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var resourceList []resources.Resource
 
-	config, configHash := r.agentConfigMap()
+	config, _ := r.agentConfigMap()
 	resourceList = append(resourceList, config)
-	resourceList = append(resourceList, r.daemonSet(configHash))
+	resourceList = append(resourceList, r.daemonSet())
 
 	// check metrics service discovery
 	metricsConfig, tlsSecrets := r.withPrometheusCrdDiscovery(r.getMetricsConfig()) // check metrics SD
 	r.logger.Debugf("metrics config : %v", metricsConfig.Spec)
 	aggCfg := r.getAggregatorConfig(lo.FromPtr(metricsConfig)) // generate aggregator struct
-	config, configHash = r.aggregatorConfigMap(aggCfg)         // generate aggregator configmap
-
+	config, _ = r.aggregatorConfigMap(aggCfg)                  // generate aggregator configmap
 	resourceList = append(resourceList, r.metricsTlsAssets(tlsSecrets))
 	resourceList = append(resourceList, config)
-	resourceList = append(resourceList, r.deployment(configHash))
+	resourceList = append(resourceList, r.deployment())
 	resourceList = append(resourceList, r.service())
 
 	for _, factory := range resourceList {

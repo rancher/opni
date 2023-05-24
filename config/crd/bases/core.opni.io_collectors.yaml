@@ -29,6 +29,21 @@ spec:
             properties:
               agentEndpoint:
                 type: string
+              configReloader:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    type: string
+                  imagePullSecrets:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                type: object
               image:
                 type: string
               imagePullPolicy:

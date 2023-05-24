@@ -70,14 +70,16 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1beta1.Collector{}).
 		Watches(&source.Kind{Type: &opnimonitoringv1beta1.CollectorConfig{}}, requestMapper).
 		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
-		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, requestMapper).
-		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, requestMapper).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, requestMapper).
-		Watches(&source.Kind{Type: &corev1.Service{}}, requestMapper).
+		// for metrics, the we want to watch changes to the spec of objects that drive discovery
+		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).

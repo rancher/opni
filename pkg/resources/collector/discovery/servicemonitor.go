@@ -272,7 +272,6 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 		lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
 		return
 	}
-	lg.Debugf("found %d pods matching service", len(podList.Items))
 	// deref pods
 	for _, pod := range podList.Items {
 		for _, container := range pod.Spec.Containers {
@@ -381,23 +380,38 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 			lg.Warnf("failed to select services for service monitor %s: %s", svcMon.Spec.Selector, err)
 			continue
 		}
-		for _, svc := range svcList.Items {
-			for i, ep := range svcMon.Spec.Endpoints {
+		// in the case of multiple services here, we need to dedupe static targets that are pointed
+		// to by the multiple services
+		for i, ep := range svcMon.Spec.Endpoints {
+			dedupedTargets := map[string]target{}
+			for _, svc := range svcList.Items {
 				targets := s.resolveServiceTargets(*svcMon, svc, ep)
 				numTargets += len(targets)
 				slices.SortFunc(targets, func(i, j target) bool {
-					return i.staticAddress < j.staticAddress
+					return i.Less(j)
 				})
-				if len(targets) > 0 {
-					job, sCfg, secrets := s.generateStaticServiceConfig(svcMon, ep, i, targets)
-					if _, ok := cfgMap[job]; !ok {
-						cfgMap[job] = sCfg
+				for _, t := range targets {
+					if target, ok := dedupedTargets[t.staticAddress]; !ok {
+						dedupedTargets[t.staticAddress] = t
+					} else {
+						if t.Less(target) {
+							dedupedTargets[t.staticAddress] = t
+						}
 					}
-					secretRes = append(secretRes, secrets...)
 				}
+			} // end of target discovery
+			if len(dedupedTargets) > 0 {
+				generatedTargets := lo.Values(dedupedTargets)
+				slices.SortFunc(generatedTargets, func(i, j target) bool {
+					return i.Less(j)
+				})
+				job, sCfg, secrets := s.generateStaticServiceConfig(svcMon, ep, i, generatedTargets)
+				if _, ok := cfgMap[job]; !ok {
+					cfgMap[job] = sCfg
+				}
+				secretRes = append(secretRes, secrets...)
 			}
 		}
-
 		if numTargets == 0 {
 			lg.Warn("no scrape targets found for service monitor")
 		}

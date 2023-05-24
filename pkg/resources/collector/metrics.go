@@ -7,7 +7,6 @@ import (
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/resources/collector/discovery"
 	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -81,10 +80,10 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 func (r *Reconciler) withPrometheusCrdDiscovery(
 	config *otel.MetricsConfig) (
 	*otel.MetricsConfig,
-	[]discovery.SecretResolutionConfig,
+	[]promdiscover.SecretResolutionConfig,
 ) {
 	if r.PrometheusDiscovery == nil {
-		return config, []discovery.SecretResolutionConfig{}
+		return config, []promdiscover.SecretResolutionConfig{}
 	}
 	discStr, secrets, err := r.discoveredScrapeCfg(config)
 	if err != nil {
@@ -98,17 +97,17 @@ func (r *Reconciler) discoveredScrapeCfg(
 	cfg *otel.MetricsConfig, // TODO : eventually this config will drive selector config for SD
 ) (
 	retCfg string,
-	secrets []discovery.SecretResolutionConfig,
+	secrets []promdiscover.SecretResolutionConfig,
 	retErr error,
 ) {
 	cfgs, secrets, err := r.PrometheusDiscovery.YieldScrapeConfigs()
 	if err != nil || len(cfgs) == 0 {
-		return "", []discovery.SecretResolutionConfig{}, err
+		return "", []promdiscover.SecretResolutionConfig{}, err
 	}
 	return otel.PromCfgToString(cfgs), secrets, nil
 }
 
-func (r *Reconciler) metricsTlsAssets(sec []discovery.SecretResolutionConfig) resources.Resource {
+func (r *Reconciler) metricsTlsAssets(sec []promdiscover.SecretResolutionConfig) resources.Resource {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tlsSecretName,
@@ -157,7 +156,7 @@ func (r *Reconciler) aggregatorMetricVolumes() (retVolumeMounts []corev1.VolumeM
 		},
 		corev1.VolumeMount{
 			Name:      fmt.Sprintf("%s-volume", tlsSecretName),
-			MountPath: fmt.Sprintf(discovery.TlsAssetMountPath),
+			MountPath: fmt.Sprintf(promdiscover.TlsAssetMountPath),
 		},
 	)
 

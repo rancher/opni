@@ -134,7 +134,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	}
 	clusterId := cluster.StreamAuthorizedID(ctx)
 
-	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
+	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.SyncRules",
 		trace.WithAttributes(attribute.String("clusterId", clusterId)))
 	defer span.End()
 

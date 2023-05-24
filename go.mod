@@ -98,7 +98,7 @@ require (
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.32.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.2
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
-	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.24.2
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.28.0
 	github.com/pulumi/pulumi-random/sdk/v4 v4.12.0
 	github.com/pulumi/pulumi/sdk/v3 v3.68.0
 	github.com/qmuntal/stateless v1.6.3

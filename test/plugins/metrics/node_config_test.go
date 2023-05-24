@@ -2,7 +2,6 @@ package metrics_test
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -126,9 +125,6 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 			var err error
 			defaultConfig, err = nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
-			if defaultConfig.Prometheus.DeploymentStrategy != "testEnvironment" {
-				return errors.New("waiting for test environment config to be applied")
-			}
 			return nil
 		}).Should(Succeed())
 
@@ -151,8 +147,10 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	When("changing the default config", func() {
 		It("should return the new config for all nodes", func() {
 			newConfig := &node.MetricsCapabilitySpec{
-				Prometheus: &node.PrometheusSpec{
-					Image: "foo",
+				Driver: &node.MetricsCapabilitySpec_Prometheus{
+					Prometheus: &node.PrometheusSpec{
+						Image: "foo",
+					},
 				},
 			}
 
@@ -177,8 +175,10 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	When("setting a config for a node", func() {
 		It("should return the new config for that node", func() {
 			newConfig := &node.MetricsCapabilitySpec{
-				Prometheus: &node.PrometheusSpec{
-					Image: "bar",
+				Driver: &node.MetricsCapabilitySpec_Prometheus{
+					Prometheus: &node.PrometheusSpec{
+						Image: "bar",
+					},
 				},
 			}
 
@@ -263,8 +263,10 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 			}, "metrics", "agent1", "!agent2")
 
 			newConfig := &node.MetricsCapabilitySpec{
-				Prometheus: &node.PrometheusSpec{
-					Image: "foo",
+				Driver: &node.MetricsCapabilitySpec_Prometheus{
+					Prometheus: &node.PrometheusSpec{
+						Image: "foo",
+					},
 				},
 			}
 			verifySync(func() {

@@ -239,7 +239,6 @@ func main() {
 	}
 
 	var capabilityMu sync.Mutex
-	var startedGrafana bool
 
 	var pPressed bool
 	handleKey := func(rn rune) {
@@ -422,14 +421,9 @@ func main() {
 			pPressed = true
 			testlog.Log.Info("'p' pressed, waiting for next key...")
 		case 'g':
-			if !startedGrafana {
-				environment.WriteGrafanaConfig()
-				environment.StartGrafana()
-				startedGrafana = true
-				testlog.Log.Info(chalk.Green.Color("Grafana started"))
-			} else {
-				testlog.Log.Error("Grafana already started")
-			}
+			environment.WriteGrafanaConfig()
+			environment.StartGrafana()
+			testlog.Log.Info(chalk.Green.Color("Grafana started"))
 		case 'r':
 			clusters, err := client.ListClusters(environment.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {

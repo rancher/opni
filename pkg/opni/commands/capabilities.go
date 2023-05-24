@@ -215,7 +215,23 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 					}
 					return
 				}
+				stat, err := mgmtClient.CapabilityStatus(cmd.Context(), &managementv1.CapabilityStatusRequest{
+					Name:    cap.Name,
+					Cluster: cluster.Reference(),
+				})
 				fmt.Println(chalk.Green.Color("Installed"))
+				if err != nil {
+					fmt.Printf("Error looking up capability status: %s", chalk.Red.Color(err.Error()))
+				} else {
+					fmt.Printf("Enabled: %t\n", stat.Enabled)
+					fmt.Printf("Last Sync: %s\n", stat.LastSync.AsTime().Format(time.RFC3339))
+					if len(stat.Conditions) > 0 {
+						fmt.Println("Conditions:")
+						for _, cond := range stat.Conditions {
+							fmt.Println("  " + chalk.Yellow.Color(cond))
+						}
+					}
+				}
 				return
 			}
 			fmt.Println(chalk.Red.Color("Not installed"))

@@ -65,8 +65,10 @@ message MetricsCapabilityConfig {
 
 message MetricsCapabilitySpec {
   config.v1beta1.RulesSpec rules = 1;
-  PrometheusSpec prometheus = 2;
-  OTELSpec otel = 3;
+  oneof driver {
+    PrometheusSpec prometheus = 2;
+    OTELSpec otel = 3;
+  }
 }
 
 message PrometheusSpec {

@@ -62,7 +62,8 @@ func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*
 	return driver, nil
 }
 
-func (d *ExternalPromOperatorDriver) ConfigureNode(_ string, conf *node.MetricsCapabilityConfig) {
+func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+	lg := d.Logger.With("nodeId", nodeId)
 	if d.state.GetRunning() {
 		d.state.Cancel()
 	}
@@ -101,9 +102,9 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(_ string, conf *node.MetricsC
 BACKOFF:
 	for backoff.Continue(b) {
 		for _, obj := range objList {
-			d.Logger.Debugf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B)
-			if err := reconcilerutil.ReconcileObject(d.Logger, d.K8sClient, d.Namespace, obj); err != nil {
-				d.Logger.With(
+			lg.Debugf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B)
+			if err := reconcilerutil.ReconcileObject(lg, d.K8sClient, d.Namespace, obj); err != nil {
+				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
 					zap.Error(err),
 				).Error("error reconciling object")
@@ -115,10 +116,11 @@ BACKOFF:
 	}
 
 	if !success {
-		d.Logger.Error("timed out reconciling objects")
-	} else {
-		d.Logger.Info("objects reconciled successfully")
+		lg.Error("timed out reconciling objects")
+		return fmt.Errorf("timed out reconciling objects")
 	}
+	lg.Info("objects reconciled successfully")
+	return nil
 }
 
 func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) *monitoringcoreosv1.Prometheus {

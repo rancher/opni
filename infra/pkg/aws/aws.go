@@ -205,14 +205,6 @@ func (p *provisioner) buildS3Resources(ctx *Context, conf resources.MainClusterC
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	_, err = s3.NewBucketAclV2(ctx, "s3-bucket-acl", &s3.BucketAclV2Args{
-		Bucket: s3Bucket.ID(),
-		Acl:    String("private"),
-	}, Parent(s3Bucket))
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
 	return &s3Resources{
 		Bucket: s3Bucket,
 	}, nil

@@ -745,9 +745,8 @@ type PrometheusJob struct {
 }
 
 type prometheusTemplateOptions struct {
-	ListenPort         int
-	OpniAgentAddress   string
-	GatewayMetricsPort int
+	ListenPort       int
+	OpniAgentAddress string
 	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
 	Jobs []PrometheusJob
 }
@@ -770,13 +769,13 @@ func (e *Environment) SetPrometheusNodeConfigOverride(agentId string, override *
 	e.nodeConfigOverrides[agentId] = override
 }
 
-func (e *Environment) StartPrometheus(opniAgentId string, override ...*OverridePrometheusConfig) int {
+func (e *Environment) StartPrometheus(opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
 	return e.StartPrometheusContext(e.ctx, opniAgentId, override...)
 }
 
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) int {
+func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
 	if len(override) == 0 {
 		e.nodeConfigOverridesMu.Lock()
 		if v, ok := e.nodeConfigOverrides[opniAgentId]; ok {
@@ -792,7 +791,7 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 
 	configTemplate = string(testdata.TestData("prometheus/config.yaml"))
 	if len(override) > 1 {
-		panic("Too many overrides, only one is allowed")
+		return 0, errors.New("Too many overrides, only one is allowed")
 	}
 	if len(override) == 1 && override[0] != nil {
 		configTemplate = override[0].configContents
@@ -800,14 +799,14 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 	}
 	t, err := template.New("").Parse(configTemplate)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
 	os.MkdirAll(promDir, 0755)
 
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	agent := e.GetAgent(opniAgentId)
@@ -820,7 +819,7 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		OpniAgentAddress: agent.Agent.ListenAddress(),
 		Jobs:             jobs,
 	}); err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	configFile.Close()
@@ -838,26 +837,34 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(err)
+			return 0, err
 		}
 	}
 	lg.Info("Waiting for prometheus to start...")
-	for ctx.Err() == nil {
+	var ready bool
+	for i := 0; i < 40; i++ {
+		if ctx.Err() != nil {
+			break
+		}
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
+				ready = true
 				break
 			}
 		}
-		time.Sleep(time.Second)
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !ready {
+		return 0, errors.New("timed out waiting for prometheus to start")
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		session.Wait()
 	})
-	return port
+	return port, nil
 }
 
 type TestNodeConfig struct {
@@ -884,11 +891,12 @@ func (t TestNodeConfig) MetricReceivers() []string {
 }
 
 type TestAggregatorConfig struct {
-	AggregatorAddress string
-	AgentEndpoint     string
-	LogsEnabled       bool
-	Metrics           otel.MetricsConfig
-	Containerized     bool
+	AggregatorAddress  string
+	HealthCheckAddress string
+	AgentEndpoint      string
+	LogsEnabled        bool
+	Metrics            otel.MetricsConfig
+	Containerized      bool
 }
 
 func (t TestAggregatorConfig) MetricReceivers() []string {
@@ -905,36 +913,55 @@ func (t TestAggregatorConfig) MetricReceivers() []string {
 	return res
 }
 
-func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) {
+func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) error {
 	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
 	os.MkdirAll(otelDir, 0755)
 
 	receiverFile, err := os.Create(path.Join(otelDir, "receiver.yaml"))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	configFile, err := os.Create(path.Join(otelDir, "config.yaml"))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	aggregatorFile, err := os.Create(path.Join(otelDir, "aggregator.yaml"))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	agent := e.GetAgent(opniAgentId)
 	if agent.Agent == nil {
 		panic("test bug: agent not found")
 	}
-	aggregatorOTLP := fmt.Sprintf("localhost:%d", freeport.GetFreePort())
+
+	ports := freeport.GetFreePorts(4)
+	aggregatorOTLP := fmt.Sprintf("127.0.0.1:%d", ports[0])
+
+	e.nodeConfigOverridesMu.Lock()
+	agentOverrides, ok := e.nodeConfigOverrides[opniAgentId]
+	e.nodeConfigOverridesMu.Unlock()
+
+	if ok {
+		spec = spec.DeepCopy()
+		for _, job := range agentOverrides.jobs {
+			spec.AdditionalScrapeConfigs = append(spec.AdditionalScrapeConfigs, &otel.ScrapeConfig{
+				JobName:        job.JobName,
+				Targets:        []string{fmt.Sprintf("127.0.0.1:%d", job.ScrapePort)},
+				ScrapeInterval: "15s",
+			})
+		}
+	}
 
 	aggregatorCfg := TestAggregatorConfig{
-		AggregatorAddress: aggregatorOTLP,
-		AgentEndpoint:     agent.Agent.ListenAddress(),
+		AggregatorAddress:  aggregatorOTLP,
+		HealthCheckAddress: fmt.Sprintf("127.0.0.1:%d", ports[1]),
+		AgentEndpoint:      agent.Agent.ListenAddress(),
 		Metrics: otel.MetricsConfig{
 			Enabled:             true,
-			ListenPort:          freeport.GetFreePort(),
+			LogLevel:            "error",
+			ListenPort:          ports[2],
 			RemoteWriteEndpoint: fmt.Sprintf("http://%s/api/agent/push", agent.Agent.ListenAddress()),
 			DiscoveredScrapeCfg: "",
 			Spec:                spec,
@@ -944,7 +971,7 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 	t := util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/base.tmpl"))
 	aggregatorTmpl := util.Must(t.Parse(`{{template "aggregator-config" .}}`))
 	if err := aggregatorTmpl.Execute(aggregatorFile, aggregatorCfg); err != nil {
-		panic(err)
+		return err
 	}
 	// the pattern we use in production is node -> aggregator -> agent
 	nodeCfg := TestNodeConfig{
@@ -953,7 +980,8 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 		ReceiverFile:      fmt.Sprintf("%s/receiver.yaml", otelDir),
 		Metrics: otel.MetricsConfig{
 			Enabled:             true,
-			ListenPort:          freeport.GetFreePort(),
+			LogLevel:            "error",
+			ListenPort:          ports[3],
 			RemoteWriteEndpoint: fmt.Sprintf("%s/api/agent/push", agent.Agent.ListenAddress()),
 			DiscoveredScrapeCfg: "",
 			Spec:                spec,
@@ -962,12 +990,12 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 	}
 	receiverTmpl := util.Must(t.Parse(`{{template "node-receivers" .}}`))
 	if err := receiverTmpl.Execute(receiverFile, nodeCfg); err != nil {
-		panic(err)
+		return err
 	}
 	receiverFile.Close()
 	mainTmpl := util.Must(t.Parse(`{{template "node-config" .}}`))
 	if err := mainTmpl.Execute(configFile, nodeCfg); err != nil {
-		panic(err)
+		return err
 	}
 	configFile.Close()
 	otelColBin := path.Join(e.TestBin, "otelcol-custom")
@@ -977,36 +1005,58 @@ func (e *Environment) StartOTELCollectorContext(parentCtx waitctx.PermissiveCont
 	aggregatorArgs := []string{
 		fmt.Sprintf("--config=%s", path.Join(otelDir, "aggregator.yaml")),
 	}
-	nodeCmd := exec.CommandContext(parentCtx, otelColBin, nodeArgs...)
+	e.Logger.Infof("launching process: `%s %s`", otelColBin, strings.Join(nodeArgs, " "))
+	nodeCmd := exec.CommandContext(ctx, otelColBin, nodeArgs...)
+	plugins.ConfigureSysProcAttr(nodeCmd)
 	nodeCmd.Cancel = func() error {
 		return nodeCmd.Process.Signal(syscall.SIGINT)
 	}
 	nodeSession, err := testutil.StartCmd(nodeCmd)
 	if err != nil {
-		if !errors.Is(parentCtx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
+		return err
 	}
-	aggregatorCmd := exec.CommandContext(parentCtx, otelColBin, aggregatorArgs...)
+	e.Logger.Infof("launching process: `%s %s`", otelColBin, strings.Join(aggregatorArgs, " "))
+	aggregatorCmd := exec.CommandContext(ctx, otelColBin, aggregatorArgs...)
+	plugins.ConfigureSysProcAttr(aggregatorCmd)
 	aggregatorCmd.Cancel = func() error {
 		return aggregatorCmd.Process.Signal(syscall.SIGINT)
 	}
 	aggregatorSession, err := testutil.StartCmd(aggregatorCmd)
 	if err != nil {
-		if !errors.Is(parentCtx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
+		return err
 	}
 
+	// wait for aggregator health to be ok
+
+	e.Logger.Info("Waiting for collector to start...")
+	var ready bool
+	for i := 0; i < 40; i++ {
+		if ctx.Err() != nil {
+			break
+		}
+		resp, err := http.Get(fmt.Sprintf("http://%s/healthz", aggregatorCfg.HealthCheckAddress))
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				ready = true
+				break
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !ready {
+		e.Logger.Error("timed out waiting for collector to start")
+		return fmt.Errorf("timed out waiting for collector to start")
+	}
+	e.Logger.Info("collector started")
+
 	go func() {
-		<-parentCtx.Done()
+		<-ctx.Done()
 		aggregatorSession.Wait()
 		nodeSession.Wait()
 	}()
+
+	return nil
 }
 
 // Starts a server that exposes Prometheus metrics
@@ -1267,9 +1317,9 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			GRPCListenAddress:    fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
-				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
-				WebListenAddress:  fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementWeb),
+				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
+				HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.ManagementHTTP),
+				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
@@ -1406,7 +1456,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	}, options.dialOptions...)
 
 	c, err := clients.NewManagementClient(e.ctx,
-		clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		clients.WithAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
 		clients.WithDialOptions(
 			dialOpts...,
 		),
@@ -1420,7 +1470,7 @@ func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	cc, err := grpc.DialContext(e.ctx, fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC),
+	cc, err := grpc.DialContext(e.ctx, fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -1435,7 +1485,7 @@ func (e *Environment) NewAlertEndpointsClient() alertingv1.AlertEndpointsClient 
 		e.Logger.Panic("gateway disabled")
 	}
 	c, err := alertingv1.NewEndpointsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
 		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
 	if err != nil {
 		panic(err)
@@ -1448,7 +1498,7 @@ func (e *Environment) NewAlertConditionsClient() alertingv1.AlertConditionsClien
 		e.Logger.Panic("gateway disabled")
 	}
 	c, err := alertingv1.NewConditionsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
 		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
 	if err != nil {
 		panic(err)
@@ -1461,7 +1511,7 @@ func (e *Environment) NewAlertNotificationsClient() alertingv1.AlertNotification
 		e.Logger.Panic("gateway disabled")
 	}
 	c, err := alertingv1.NewNotificationsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
 		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
 	if err != nil {
 		panic(err)
@@ -1889,6 +1939,7 @@ func (e *Environment) StartGrafana(extraDockerArgs ...string) {
 				"run",
 				"-q",
 				"--rm",
+				"--name=opni-testenv-grafana",
 				"-v", fmt.Sprintf("%s/provisioning:/etc/grafana/provisioning", baseDir),
 				"-v", fmt.Sprintf("%s/dashboards:/dashboards", baseDir),
 				"-p", "3000:3000",

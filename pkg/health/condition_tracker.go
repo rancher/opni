@@ -43,8 +43,9 @@ func ConditionStatusStrToEnum(status string) (ConditionStatus, error) {
 }
 
 const (
-	CondConfigSync = "config Sync"
+	CondConfigSync = "Config Sync"
 	CondBackend    = "Backend"
+	CondNodeDriver = "Node Driver"
 )
 
 type ConditionTracker interface {
@@ -56,7 +57,7 @@ type ConditionTracker interface {
 	// Adds a listener that will be called whenever any condition is changed.
 	// The listener will be called in a separate goroutine. Ensure that the
 	// listener does not itself set or clear any conditions.
-	AddListener(listener func())
+	AddListener(listener any)
 }
 
 func NewDefaultConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
@@ -74,7 +75,7 @@ type defaultConditionTracker struct {
 	modTime    *atomic.Time
 
 	listenersMu sync.Mutex
-	listeners   []func()
+	listeners   []func(key string, value *ConditionStatus, reason string)
 }
 
 func (ct *defaultConditionTracker) Set(key string, value ConditionStatus, reason string) {
@@ -91,7 +92,7 @@ func (ct *defaultConditionTracker) Set(key string, value ConditionStatus, reason
 		lg.Info("condition set")
 		ct.conditions.Store(key, value)
 		ct.modTime.Store(time.Now())
-		ct.notifyListeners()
+		ct.notifyListeners(key, &value, reason)
 	}
 }
 
@@ -107,7 +108,7 @@ func (ct *defaultConditionTracker) Clear(key string, reason ...string) {
 		lg.With(
 			"previous", v,
 		).Info("condition cleared")
-		ct.notifyListeners()
+		ct.notifyListeners(key, nil, "")
 	}
 }
 
@@ -124,16 +125,33 @@ func (ct *defaultConditionTracker) LastModified() time.Time {
 	return ct.modTime.Load()
 }
 
-func (ct *defaultConditionTracker) AddListener(listener func()) {
+func (ct *defaultConditionTracker) AddListener(listener any) {
 	ct.listenersMu.Lock()
 	defer ct.listenersMu.Unlock()
-	ct.listeners = append(ct.listeners, listener)
+	switch listener := listener.(type) {
+	case func():
+		ct.listeners = append(ct.listeners, func(_ string, _ *ConditionStatus, _ string) {
+			listener()
+		})
+	case func(string):
+		ct.listeners = append(ct.listeners, func(key string, _ *ConditionStatus, _ string) {
+			listener(key)
+		})
+	case func(string, *ConditionStatus):
+		ct.listeners = append(ct.listeners, func(key string, value *ConditionStatus, _ string) {
+			listener(key, value)
+		})
+	case func(string, *ConditionStatus, string):
+		ct.listeners = append(ct.listeners, listener)
+	default:
+		panic(fmt.Sprintf("unsupported listener type %T", listener))
+	}
 }
 
-func (ct *defaultConditionTracker) notifyListeners() {
+func (ct *defaultConditionTracker) notifyListeners(key string, value *ConditionStatus, reason string) {
 	ct.listenersMu.Lock()
 	defer ct.listenersMu.Unlock()
 	for _, listener := range ct.listeners {
-		go listener()
+		go listener(key, value, reason)
 	}
 }

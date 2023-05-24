@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"time"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -73,29 +72,6 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		return &capabilityv1.InstallResponse{
 			Status:  capabilityv1.InstallResponseStatus_Warning,
 			Message: warningErr.Error(),
-		}, nil
-	}
-
-	addCtx, _ := context.WithTimeout(ctx, time.Minute*5)
-	if err := b.waitForOpensearchClient(addCtx); err != nil {
-		return &capabilityv1.InstallResponse{
-			Status:  capabilityv1.InstallResponseStatus_Error,
-			Message: err.Error(),
-		}, nil
-	}
-
-	cluster, err := b.MgmtClient.GetCluster(addCtx, req.Cluster)
-	if err != nil {
-		return &capabilityv1.InstallResponse{
-			Status:  capabilityv1.InstallResponseStatus_Error,
-			Message: err.Error(),
-		}, nil
-	}
-
-	if err := b.OpensearchManager.AddClusterMetadata(addCtx, cluster); err != nil {
-		return &capabilityv1.InstallResponse{
-			Status:  capabilityv1.InstallResponseStatus_Error,
-			Message: err.Error(),
 		}, nil
 	}
 

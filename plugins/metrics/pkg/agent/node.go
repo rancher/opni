@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
@@ -53,7 +54,7 @@ type MetricsNode struct {
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
 
-	listeners  []chan<- drivers.ConfigureNodeArgs
+	listeners  []drivers.MetricsNodeConfigurator
 	conditions health.ConditionTracker
 
 	nodeDriverMu sync.RWMutex
@@ -68,6 +69,17 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 	}
 	node.conditions.AddListener(node.sendHealthUpdate)
 	node.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
+
+	// FIXME: this is a hack, update the old sync code to use delegates instead
+	node.conditions.AddListener(func(key string) {
+		if key == CondNodeDriver {
+			node.logger.Info("forcing sync due to node driver status change")
+			go func() {
+				node.doSync(context.TODO())
+			}()
+		}
+	})
+
 	return node
 }
 
@@ -93,7 +105,7 @@ func (m *MetricsNode) sendHealthUpdate() {
 	}
 }
 
-func (m *MetricsNode) AddConfigListener(ch chan<- drivers.ConfigureNodeArgs) {
+func (m *MetricsNode) AddConfigListener(ch drivers.MetricsNodeConfigurator) {
 	m.listeners = append(m.listeners, ch)
 }
 
@@ -161,7 +173,11 @@ func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emp
 	}
 
 	defer func() {
-		go m.doSync(context.Background())
+		ctx, ca := context.WithTimeout(context.Background(), 10*time.Second)
+		go func() {
+			defer ca()
+			m.doSync(ctx)
+		}()
 	}()
 
 	return &emptypb.Empty{}, nil
@@ -270,46 +286,62 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 		m.conditions.Set(health.CondConfigSync, health.StatusFailure, err.Error())
 		return
 	}
+	m.conditions.Clear(health.CondConfigSync)
 
 	switch syncResp.ConfigStatus {
 	case node.ConfigStatus_UpToDate:
 		m.logger.Info("metrics node config is up to date")
 	case node.ConfigStatus_NeedsUpdate:
 		m.logger.Info("updating metrics node config")
-		m.updateConfig(syncResp.UpdatedConfig)
+		if err := m.updateConfig(ctx, syncResp.UpdatedConfig); err != nil {
+			m.conditions.Set(health.CondNodeDriver, health.StatusFailure, err.Error())
+			return
+		} else {
+			m.conditions.Clear(health.CondNodeDriver)
+		}
 	}
-
-	m.conditions.Clear(health.CondConfigSync)
 }
 
 // requires identityClientMu to be held (either R or W)
-func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {
+func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
 	id, err := m.identityClient.Whoami(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
-		return
+		return err
 	}
 
-	m.configMu.Lock()
-	m.config = config
-	if !m.config.Enabled && len(m.config.Conditions) > 0 {
-		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(m.config.Conditions, ", "))
+	if !m.configMu.TryLock() {
+		m.logger.Debug("waiting on a previous config update to finish...")
+		m.configMu.Lock()
+	}
+	defer m.configMu.Unlock()
+	if !config.Enabled && len(config.Conditions) > 0 {
+		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(config.Conditions, ", "))
 	} else {
 		m.conditions.Clear(health.CondBackend)
 	}
-	m.configMu.Unlock()
 
-	for _, ch := range m.listeners {
-		clone := util.ProtoClone(config)
-		args := drivers.ConfigureNodeArgs{
-			NodeId: id.GetId(),
-			Config: clone,
-		}
-		select {
-		case ch <- args:
-		default:
-			m.logger.Warn("slow config update listener detected")
-			ch <- args
-		}
+	var eg util.MultiErrGroup
+	for _, cfg := range m.listeners {
+		cfg := cfg
+		eg.Go(func() error {
+			return cfg.ConfigureNode(id.Id, config)
+		})
 	}
+
+	eg.Wait()
+
+	// TODO: this should ideally only be done if eg.Error() is nil, however
+	// there is a risk of an infinite sync loop since we have to manually
+	// re-sync when the driver status changes (see note in NewMetricsNode)
+	// Once we replace the sync manager with delegates, we can safely return
+	// errors from Sync and avoid the status condition workaround.
+	m.config = config
+
+	if err := eg.Error(); err != nil {
+		m.config.Conditions = append(config.Conditions, err.Error())
+		m.logger.With(zap.Error(err)).Error("node configuration error")
+		return err
+	}
+	return nil
 }

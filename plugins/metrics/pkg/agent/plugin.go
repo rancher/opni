@@ -54,15 +54,15 @@ func NewPlugin(ctx context.Context) *Plugin {
 			).Warn("failed to initialize node driver")
 			continue
 		}
-		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, driver.ConfigureNode))
+		p.node.AddConfigListener(driver)
 		p.node.AddNodeDriver(driver)
 	}
 
-	p.node.AddConfigListener(drivers.NewListenerFunc(ctx, p.onConfigUpdated))
+	p.node.AddConfigListener(p)
 	return p
 }
 
-func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfig) {
+func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityConfig) error {
 	lg := p.logger.With("nodeId", nodeId)
 	lg.Debug("metrics capability config updated")
 
@@ -105,6 +105,8 @@ func (p *Plugin) onConfigUpdated(nodeId string, cfg *node.MetricsCapabilityConfi
 	case !currentlyRunning && !shouldRun:
 		p.logger.Debug("rule sync is disabled")
 	}
+
+	return nil
 }
 
 func Scheme(ctx context.Context) meta.Scheme {

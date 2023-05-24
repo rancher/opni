@@ -3,7 +3,7 @@ import { IPlugin } from '@shell/core/types';
 import axios from 'axios';
 import { NAVIGATION } from './router.js';
 import { flattenNavigation } from './utils/navigation';
-import './styles/themes/_light.scss';
+import './styles/app.scss';
 import { isStandalone } from './utils/standalone';
 
 // Init the package

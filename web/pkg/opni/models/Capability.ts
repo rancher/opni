@@ -241,6 +241,7 @@ export class Capability extends Resource {
 
       Vue.set(this.capabilityStatus, this.type, {
         state:   CapabilityStatusState[result.status].toLowerCase(),
+        shortMessage: 'Error',
         message: result.status === CapabilityStatusState.Success ? 'Installed' : `Installation problem: ${ result.message }`,
       });
 
@@ -248,6 +249,7 @@ export class Capability extends Resource {
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
         state:   'error',
+        shortMessage: 'Error',
         message: exceptionToErrorsArray(ex).join('; '),
       });
     }

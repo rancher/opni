@@ -42,7 +42,7 @@ export class MetricCapability extends Capability {
     if (st.state === 'info' && this.isLocal && !this.isInstalled) {
       return {
         state:        'warning',
-        shortMessage: st.shortMessage,
+        shortMessage: 'Degraded',
         message:      'The local agent should have the capability installed. Without it, some of the default Grafana dashboards may be degraded.'
       };
     }

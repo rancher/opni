@@ -38,7 +38,7 @@ export default {
         {
           label:   'Highly Available',
           value:   3,
-          tooltip: 'This will deploy multiple instances of AlertManager in order to improve resilliency.'
+          tooltip: 'This will deploy multiple instances of AlertManager in order to improve resiliency.'
         },
       ],
       status: '',

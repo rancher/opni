@@ -64,7 +64,7 @@ opni:
   tableHeaders:
     agentName: Agent Name
     capabilities: Capabilities
-    clusterId: ClusterId
+    clusterId: Cluster ID
     clusters: Clusters
     date: Date
     description: Description

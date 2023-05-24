@@ -280,7 +280,7 @@ export default {
       case 'no model trained':
         return 'You must add deployments to the watchlist before workload insights will be available.';
       case 'training failed':
-        return 'A failure occured while updating the watchlist. You can try updating the watchlist again.';
+        return 'A failure occurred while updating the watchlist. You can try updating the watchlist again.';
       default:
         return '';
       }

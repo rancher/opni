@@ -59,7 +59,7 @@ export default {
         <div class="row">
           <div class="col span-12">
             <Banner color="warning">
-              You can't delete a cluster while capbabilities are installed. This cluster currently has {{ capabilities.join(' and ') }} installed. You can uninstall the capabilities <a href="#" @click="uninstall">here</a>.
+              You can't delete a cluster while capabilities are installed. This cluster currently has {{ capabilities.join(' and ') }} installed. You can uninstall the capabilities <a href="#" @click="uninstall">here</a>.
             </Banner>
           </div>
         </div>

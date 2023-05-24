@@ -11,7 +11,7 @@ const CONSTS = {
   TYPE,
   ENUM:        AlertType.DOWNSTREAM_CAPABILTIY,
   TYPE_OPTION: {
-    label: 'Downstream Capabiltiy',
+    label: 'Downstream Capability',
     value: TYPE
   },
   DEFAULT_CONFIG: {

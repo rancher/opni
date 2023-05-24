@@ -170,7 +170,7 @@ export default {
         }
 
         if (this.config.storage.s3.bucketName === '') {
-          throw new Error('Bucketname is required');
+          throw new Error('Bucket Name is required');
         }
 
         if (this.config.storage.s3.secretAccessKey === '') {

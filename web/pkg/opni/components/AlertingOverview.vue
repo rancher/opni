@@ -203,7 +203,7 @@ export default {
       <tbody v-if="!hasTimelines">
         <tr class="no-data">
           <td colspan="14">
-            No events have occured in the last 24 hours
+            No events have occurred in the last 24 hours
           </td>
         </tr>
       </tbody>

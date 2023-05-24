@@ -95,11 +95,11 @@ require (
 	github.com/prometheus/exporter-toolkit v0.8.3-0.20230301215441-f90ef47c2033
 	github.com/prometheus/procfs v0.9.0
 	github.com/prometheus/prometheus v0.41.0
-	github.com/pulumi/pulumi-aws/sdk/v5 v5.32.0
+	github.com/pulumi/pulumi-aws/sdk/v5 v5.41.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.2
-	github.com/pulumi/pulumi-eks/sdk v1.0.1
-	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.24.2
-	github.com/pulumi/pulumi-random/sdk/v4 v4.12.0
+	github.com/pulumi/pulumi-eks/sdk v1.0.2
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.28.0
+	github.com/pulumi/pulumi-random/sdk/v4 v4.13.2
 	github.com/pulumi/pulumi/sdk/v3 v3.68.0
 	github.com/qmuntal/stateless v1.6.3
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000

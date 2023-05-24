@@ -16,7 +16,7 @@ import (
 	docker.#Build & {
 		steps: [
 			docker.#Pull & {
-				source: "pulumi/pulumi:3.49.0"
+				source: "pulumi/pulumi:3.68.0"
 			},
 			for p in plugins {
 				docker.#Run & {

@@ -44,8 +44,8 @@ func RegisterAgentSyncHandlerBuilder(strategy string, builder SyncHandlerBuilder
 }
 
 func RegisterPluginSyncHandlerBuilder(strategy string, builder SyncHandlerBuilder) {
-	agentSyncMu.Lock()
-	defer agentSyncMu.Unlock()
+	pluginSyncMu.Lock()
+	defer pluginSyncMu.Unlock()
 	pluginSyncHandlerBuilders[strategy] = builder
 }
 
@@ -56,8 +56,8 @@ func GetAgentSyncHandlerBuilder[T ~string](strategy T) SyncHandlerBuilder {
 }
 
 func GetPluginSyncHandlerBuilder[T ~string](strategy T) SyncHandlerBuilder {
-	agentSyncMu.Lock()
-	defer agentSyncMu.Unlock()
+	pluginSyncMu.Lock()
+	defer pluginSyncMu.Unlock()
 	return pluginSyncHandlerBuilders[string(strategy)]
 }
 

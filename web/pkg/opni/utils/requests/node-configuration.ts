@@ -19,5 +19,5 @@ const PROMETHEUS_CONFIG = {
 
 const OTEL_CONFIG = {
   rules:  { discovery: { prometheusRules: {} } },
-  otel:  { hostMetrics: false }
+  otel:  { hostMetrics: true }
 };

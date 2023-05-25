@@ -13,6 +13,8 @@ import (
 	"github.com/rancher/opni/pkg/urn"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -97,16 +99,22 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 	}
 
 	// calculate agent manifest entry
-	entries = append(entries, makeEntry(
-		getAgentContainer(agentDeploy.Spec.Template.Spec.Containers),
-		"minimal",
-	))
+	container := getAgentContainer(agentDeploy.Spec.Template.Spec.Containers)
+	if container != nil {
+		entries = append(entries, makeEntry(
+			getAgentContainer(agentDeploy.Spec.Template.Spec.Containers),
+			kubernetes.AgentComponent,
+		))
+	}
 
 	// calculate controller manifest entry
-	entries = append(entries, makeEntry(
-		getControllerContainer(agentDeploy.Spec.Template.Spec.Containers),
-		"opni",
-	))
+	container = getControllerContainer(agentDeploy.Spec.Template.Spec.Containers)
+	if container != nil {
+		entries = append(entries, makeEntry(
+			getControllerContainer(agentDeploy.Spec.Template.Spec.Containers),
+			kubernetes.ControllerComponent,
+		))
+	}
 
 	return &controlv1.UpdateManifest{
 		Items: entries,
@@ -114,6 +122,15 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 }
 
 func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results *controlv1.SyncResults) error {
+	updateType, err := update.GetType(results.GetDesiredState().GetItems())
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	if updateType != urn.Agent {
+		return status.Errorf(codes.Unimplemented, "client can only handle agent updates")
+	}
+
 	agentDeploy, err := k.getAgentDeployment(ctx)
 	containers := agentDeploy.Spec.Template.Spec.Containers
 	if err != nil {
@@ -203,8 +220,8 @@ func getControllerContainer(containers []corev1.Container) *corev1.Container {
 	return nil
 }
 
-func makeEntry(container *corev1.Container, packageType string) *controlv1.UpdateManifestEntry {
-	entryURN := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, packageType)
+func makeEntry(container *corev1.Container, packageType kubernetes.ComponentType) *controlv1.UpdateManifestEntry {
+	entryURN := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, string(packageType))
 	image := oci.Parse(container.Image)
 	return &controlv1.UpdateManifestEntry{
 		Package: entryURN.String(),

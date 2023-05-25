@@ -93,7 +93,7 @@ require (
 	github.com/prometheus/common v0.41.0
 	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.8.3-0.20230301215441-f90ef47c2033
-	github.com/prometheus/procfs v0.9.0
+	github.com/prometheus/procfs v0.10.0
 	github.com/prometheus/prometheus v0.41.0
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.41.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.2
@@ -137,7 +137,7 @@ require (
 	golang.org/x/crypto v0.7.0
 	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
 	golang.org/x/mod v0.10.0
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.2.0
 	golang.org/x/term v0.8.0
 	golang.org/x/tools v0.7.0
 	gonum.org/v1/gonum v0.12.0

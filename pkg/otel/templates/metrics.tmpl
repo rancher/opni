@@ -60,7 +60,7 @@ kubeletstats:
 {{- end -}}
 
 {{- define "metrics-node-pipeline" -}}
-{{ if .Metrics.Enabled }}
+{{ if (and .Metrics.Enabled .MetricReceivers) }}
     metrics:
       receivers:
       {{- range .MetricReceivers }}
@@ -68,7 +68,7 @@ kubeletstats:
       {{- end }}
       processors: [memory_limiter, resourcedetection/system]
       exporters: [otlp]
-{{- end -}}
+{{- end }}
 {{- end -}}
 
 {{- define "metrics-self-telemetry" -}}
@@ -140,6 +140,7 @@ kubeletstats:
       - memory_limiter
       - batch
       exporters: [prometheusremotewrite]
+  {{- if .MetricReceivers }}
     metrics/external:
       receivers:
       {{- range .MetricReceivers }}
@@ -150,6 +151,7 @@ kubeletstats:
       - batch
       - filter/metrics
       exporters: [prometheusremotewrite]
+  {{- end }}
 {{- end -}}
 {{- end -}}
 

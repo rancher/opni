@@ -68,14 +68,19 @@ func NewKubernetesResolveImageDriver(
 }
 
 func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType oci.ImageType) (oci.Image, error) {
+	var image oci.Image
 	switch imageType {
 	case oci.ImageTypeOpni:
-		return d.getOpniImage(ctx), nil
+		image = d.getOpniImage(ctx)
 	case oci.ImageTypeMinimal:
-		return d.getMinimalImage(ctx), nil
+		image = d.getMinimalImage(ctx)
 	default:
 		return oci.Image{}, ErrUnsupportedImageType
 	}
+	if image.Repository == "" {
+		return oci.Image{}, ErrImageNotFound
+	}
+	return image, nil
 }
 
 func (d *kubernetesResolveImageDriver) getOpniImage(ctx context.Context) oci.Image {

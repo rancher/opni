@@ -94,7 +94,7 @@ func (k *kubernetesSyncServer) calculateAgentUpdate(
 	for _, item := range manifest.GetItems() {
 		image, err := k.imageForEntry(ctx, item)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
 		patch, entry := patchForImage(item, image)
 		patches = append(patches, patch)

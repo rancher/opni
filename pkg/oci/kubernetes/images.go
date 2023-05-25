@@ -20,7 +20,7 @@ const (
 
 var retryBackoff = wait.Backoff{
 	Steps:    4,
-	Duration: 5 * time.Second,
+	Duration: 500 * time.Millisecond,
 	Factor:   2.0,
 	Jitter:   0.1,
 }

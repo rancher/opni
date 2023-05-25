@@ -22,7 +22,7 @@ import (
 
 func TestPatch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Patch Suite")
+	RunSpecs(t, "Patch Client Suite")
 }
 
 var (

@@ -228,7 +228,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	updateServer.RegisterUpdateHandler(binarySyncServer.Strategy(), binarySyncServer)
 
-	kubernetesSyncServer, err := k8sserver.NewKubernetesSyncServer(conf.Spec.AgentUpgrades.Kubernetes)
+	kubernetesSyncServer, err := k8sserver.NewKubernetesSyncServer(conf.Spec.AgentUpgrades.Kubernetes, lg)
 	if err != nil {
 		lg.With(
 			zap.Error(err),

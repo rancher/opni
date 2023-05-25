@@ -73,6 +73,10 @@ func (i Image) Path() string {
 	return i.String()
 }
 
+func (i Image) Empty() bool {
+	return i.Repository == ""
+}
+
 var (
 	fetcherBuilderCache = map[string]func(...any) (Fetcher, error){}
 	fetcherCacheMutex   = sync.Mutex{}

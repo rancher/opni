@@ -16,7 +16,7 @@ func (d *noopOCIFetcher) GetImage(_ context.Context, _ oci.ImageType) (oci.Image
 	return oci.Image{
 		Registry:   "example.io",
 		Repository: "opni-noop",
-		Digest:     "thisisadigest",
+		Digest:     "sha256:123456789",
 	}, nil
 }
 

@@ -1,7 +1,8 @@
-package kubernetes
+package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -12,12 +13,14 @@ import (
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/kubernetes"
 	opniurn "github.com/rancher/opni/pkg/urn"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type kubernetesSyncServer struct {
 	imageFetcher oci.Fetcher
+	lg           *zap.SugaredLogger
 }
 
 type kubernetesOptions struct {
@@ -38,7 +41,11 @@ func WithNamespace(namespace string) kubernetesOption {
 	}
 }
 
-func NewKubernetesSyncServer(conf v1beta1.KubernetesAgentUpgradeSpec, opts ...kubernetesOption) (*kubernetesSyncServer, error) {
+func NewKubernetesSyncServer(
+	conf v1beta1.KubernetesAgentUpgradeSpec,
+	lg *zap.SugaredLogger,
+	opts ...kubernetesOption,
+) (*kubernetesSyncServer, error) {
 	options := kubernetesOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}
@@ -51,6 +58,7 @@ func NewKubernetesSyncServer(conf v1beta1.KubernetesAgentUpgradeSpec, opts ...ku
 
 	return &kubernetesSyncServer{
 		imageFetcher: imageFetcher,
+		lg:           lg,
 	}, nil
 }
 
@@ -96,6 +104,9 @@ func (k *kubernetesSyncServer) calculateAgentUpdate(
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
+		if image.Empty() {
+			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no image found for %s", item.GetPackage()))
+		}
 		patch, entry := patchForImage(item, image)
 		patches = append(patches, patch)
 		entries = append(entries, entry)
@@ -121,7 +132,13 @@ func (k *kubernetesSyncServer) imageForEntry(
 
 	component := kubernetes.ComponentType(urn.Component)
 
-	return k.imageFetcher.GetImage(ctx, kubernetes.ComponentImageMap[component])
+	imageType, ok := kubernetes.ComponentImageMap[component]
+	if !ok {
+		k.lg.Warnf("no image found for component %s", component)
+		return oci.Image{}, nil
+	}
+
+	return k.imageFetcher.GetImage(ctx, imageType)
 }
 
 func patchForImage(
@@ -145,7 +162,7 @@ func patchForImage(
 	}
 	newEntry := &controlv1.UpdateManifestEntry{
 		Package: entry.GetPackage(),
-		Path:    newImage.String(),
+		Path:    newImage.Path(),
 		Digest:  image.Digest,
 	}
 	return &controlv1.PatchSpec{
@@ -153,6 +170,6 @@ func patchForImage(
 		OldDigest: entry.GetDigest(),
 		NewDigest: image.Digest,
 		Package:   entry.GetPackage(),
-		Path:      image.Path(),
+		Path:      newImage.Path(),
 	}, newEntry
 }

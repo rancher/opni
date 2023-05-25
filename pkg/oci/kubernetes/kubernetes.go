@@ -77,7 +77,7 @@ func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType o
 	default:
 		return oci.Image{}, ErrUnsupportedImageType
 	}
-	if image.Repository == "" {
+	if image.Empty() {
 		return oci.Image{}, ErrImageNotFound
 	}
 	return image, nil

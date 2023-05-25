@@ -54,7 +54,7 @@ export default {
     display: flex;
     flex-direction: column;
 
-    position: absolute;
+    position: fixed;
     left: 230px;
     right: 0;
     bottom: 0;

@@ -30,6 +30,9 @@ var opniGatewayJson []byte
 //go:embed dashboards/home.json
 var homeDashboardJson []byte
 
+//go:embed dashboards/opni-service-latency.json
+var serviceLatencyDashboardJson []byte
+
 //go:embed slo/slo_grafana_overview.json
 var sloOverviewDashboard []byte
 
@@ -93,6 +96,16 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			Spec: grafanav1alpha1.GrafanaDashboardSpec{
 				Json:               string(homeDashboardJson),
 				UseAsHomeDashboard: true,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-service-latency.json",
+				Namespace: r.mc.Namespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: string(serviceLatencyDashboardJson),
 			},
 		},
 		{

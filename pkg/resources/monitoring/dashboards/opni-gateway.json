@@ -106,7 +106,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": false,
-          "expr": "sum by(cluster_id) (rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])) * on(cluster_id) group_left(friendly_name) (opni_cluster_info @ end() or opni_monitoring_cluster_info @ end())",
+          "expr": "sum by(__tenant_id__) (rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])) * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
           "instant": false,
           "interval": "",
           "legendFormat": "{{friendly_name}}",
@@ -769,6 +769,6 @@
   "timezone": "",
   "title": "Opni Gateway",
   "uid": "DKa1Akynk",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

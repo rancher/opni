@@ -169,9 +169,6 @@ func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
 	}
 
 	switch {
-	case collectorExists && !shouldExist:
-		o.Logger.Debug("collector exists and should not exist, deleting")
-		return o.K8sClient.Delete(context.TODO(), coll)
 	case !collectorExists && shouldExist:
 		o.Logger.Debug("collector does not exist and should exist, creating")
 		coll = o.buildEmptyCollector()

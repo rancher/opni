@@ -33,9 +33,9 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/crds"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
-	_ "github.com/rancher/opni/pkg/update/kubernetes"
+	_ "github.com/rancher/opni/pkg/update/kubernetes/client"
 	_ "github.com/rancher/opni/pkg/update/noop"
-	_ "github.com/rancher/opni/pkg/update/patch"
+	_ "github.com/rancher/opni/pkg/update/patch/client"
 )
 
 func BuildAgentV2Cmd() *cobra.Command {

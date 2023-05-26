@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/patch"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
@@ -230,7 +231,18 @@ func (pc *patchClient) GetCurrentManifest(ctx context.Context) (*controlv1.Updat
 	if err != nil {
 		return nil, err
 	}
-	return archive.ToManifest(), nil
+	manifest := archive.ToManifest()
+	// if there are no items in the manifest add a placeholder
+	if len(manifest.GetItems()) == 0 {
+		packageURN := urn.NewOpniURN(urn.Plugin, patch.UpdateStrategy, "placeholder")
+		manifest.Items = append(manifest.Items, &controlv1.UpdateManifestEntry{
+			Package: packageURN.String(),
+			Path:    "placeholder",
+			Digest:  "placeholder",
+		})
+	}
+
+	return manifest, nil
 }
 
 func (pc *patchClient) HandleSyncResults(_ context.Context, sync *controlv1.SyncResults) error {

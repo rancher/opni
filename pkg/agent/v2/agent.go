@@ -533,15 +533,22 @@ func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, r
 	}
 
 	// validate the manifest
-	updateType, err := update.GetType(manifest.GetItems())
-	if err != nil {
-		return nil, err
-	}
-	if updateType != urn.Agent {
-		panic("bug: agent manifest is not of type agent")
+	if len(manifest.GetItems()) > 0 {
+		updateType, err := update.GetType(manifest.GetItems())
+		if err != nil {
+			return nil, err
+		}
+		if updateType != urn.Agent {
+			panic("bug: agent manifest is not of type agent")
+		}
 	}
 
 	syncResp, err := manifestClient.SyncManifest(ctx, manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	err = a.agentSyncer.HandleSyncResults(ctx, syncResp)
 	if err != nil {
 		return nil, err
 	}
@@ -552,12 +559,14 @@ func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, r
 	}
 
 	// validate the manifest
-	updateType, err = update.GetType(manifest.GetItems())
-	if err != nil {
-		return nil, err
-	}
-	if updateType != urn.Plugin {
-		panic("bug: plugin manifest is not of type plugin")
+	if len(manifest.GetItems()) > 0 {
+		updateType, err := update.GetType(manifest.GetItems())
+		if err != nil {
+			return nil, err
+		}
+		if updateType != urn.Plugin {
+			panic("bug: plugin manifest is not of type plugin")
+		}
 	}
 
 	syncResp, err = manifestClient.SyncManifest(ctx, manifest, grpc.UseCompressor("zstd"))

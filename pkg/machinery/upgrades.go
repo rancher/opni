@@ -13,6 +13,9 @@ func ConfigurePluginUpgrader(cfg v1beta1.PluginUpgradeSpec, pluginDir string, lg
 	switch cfg.Type {
 	case v1beta1.PluginUpgradeBinary:
 		builder := update.GetPluginSyncHandlerBuilder(cfg.Type)
+		if builder == nil {
+			return nil, errors.New("plugin provider not found")
+		}
 		return builder(pluginDir, lg)
 	default:
 		builder := update.GetPluginSyncHandlerBuilder("noop")

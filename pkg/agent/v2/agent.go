@@ -230,6 +230,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 
 	if shouldBootstrap {
+		if options.bootstrapper == nil {
+			return nil, fmt.Errorf("bootstrap is required, but no bootstrap configuration was provided")
+		}
 		kr, err = options.bootstrapper.Bootstrap(initCtx, ip)
 		if err != nil {
 			return nil, fmt.Errorf("error during bootstrap: %w", err)

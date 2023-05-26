@@ -1,5 +1,5 @@
 url: https://github.com/prometheus-community/helm-charts.git
 subdirectory: charts/kube-prometheus-stack
-commit: d6626103a370c7ec43e0a41e30744c433d2ed55a
-version: 35.0.3
+commit: 68fed06f23d769f10ccc9db9a5dea593285eaa79
+version: 44.4.1
 doNotRelease: true

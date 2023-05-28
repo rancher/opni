@@ -324,5 +324,28 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 		})
 	})
 
+	When("an agent starts up with no bootstrap configuration", func() {
+		id := "test-cluster-4"
+		When("it does not have an existing keyring", func() {
+			It("should fail to start", func() {
+				_, errC := environment.StartAgent(id, nil, nil)
+				Eventually(errC).Should(Receive(MatchError("bootstrap is required, but no bootstrap configuration was provided")))
+			})
+		})
+		When("it has an existing keyring", func() {
+			It("should start successfully", func() {
+				ctx, ca := context.WithCancel(waitctx.Background())
+				_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
+				Eventually(errC).Should(Receive(BeNil()))
+
+				ca()
+				waitctx.Wait(ctx)
+
+				_, errC = environment.StartAgent(id, nil, nil)
+				Eventually(errC).Should(Receive(BeNil()))
+			})
+		})
+	})
+
 	//#endregion
 })

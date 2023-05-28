@@ -1725,30 +1725,19 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		"version", options.version,
 	).Info("starting agent")
 
-	publicKeyPins := []*pkp.PublicKeyPin{}
-	for _, pin := range pins {
-		d, err := pkp.DecodePin(pin)
+	var bootstrapper bootstrap.Bootstrapper
+	if token != nil && len(pins) > 0 {
+		bt, err := tokens.FromBootstrapToken(token)
 		if err != nil {
 			errC <- err
 			return 0, errC
 		}
-		publicKeyPins = append(publicKeyPins, d)
-	}
-	bt, err := tokens.FromBootstrapToken(token)
-	if err != nil {
-		errC <- err
-		return 0, errC
-	}
-	var a agent.AgentInterface
-	mu := &sync.Mutex{}
-	waitctx.Permissive.Go(options.ctx, func() {
-		mu.Lock()
 		publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
 		for i, pin := range pins {
 			d, err := pkp.DecodePin(pin)
 			if err != nil {
 				errC <- err
-				return
+				return 0, errC
 			}
 			publicKeyPins[i] = d
 		}
@@ -1760,32 +1749,40 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		strategy, err := conf.Build()
 		if err != nil {
 			errC <- err
-			return
+			return 0, errC
 		}
+		bootstrapper = &bootstrap.ClientConfigV2{
+			Token:         bt,
+			Endpoint:      gatewayAddress,
+			TrustStrategy: strategy,
+		}
+	}
+	var a agent.AgentInterface
+	mu := &sync.Mutex{}
+	waitctx.Permissive.Go(options.ctx, func() {
+		mu.Lock()
 		switch options.version {
 		case "v2":
+			var err error
 			ctx, cancel := context.WithCancel(options.ctx)
 			pl := plugins.NewPluginLoader()
 			a, err = agentv2.New(ctx, agentConfig,
-				agentv2.WithBootstrapper(&bootstrap.ClientConfigV2{
-					Token:         bt,
-					Endpoint:      gatewayAddress,
-					TrustStrategy: strategy,
-				}),
+				agentv2.WithBootstrapper(bootstrapper),
 				agentv2.WithUnmanagedPluginLoader(pl),
 			)
+			if err != nil {
+				testlog.Log.With(zap.Error(err)).Error("failed to start agent")
+				errC <- err
+				cancel()
+				mu.Unlock()
+				return
+			}
 			LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel
 			agentListMu.Unlock()
 		default:
 			errC <- fmt.Errorf("unknown agent version %q (expected \"v2\")", options.version)
-			return
-		}
-		if err != nil {
-			testlog.Log.With(zap.Error(err)).Error("failed to start agent")
-			errC <- err
-			mu.Unlock()
 			return
 		}
 		e.runningAgentsMu.Lock()

@@ -79,11 +79,14 @@ func BuildAgentV2Cmd() *cobra.Command {
 				agentlg.Fatal("no agent config found in config file")
 			}
 
-			bootstrapper, err := configureBootstrapV2(agentConfig, agentlg)
-			if err != nil {
-				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to configure bootstrap")
+			var bootstrapper bootstrap.Bootstrapper
+			if agentConfig.Spec.ContainsBootstrapCredentials() {
+				bootstrapper, err = configureBootstrapV2(agentConfig, agentlg)
+				if err != nil {
+					agentlg.With(
+						zap.Error(err),
+					).Fatal("failed to configure bootstrap")
+				}
 			}
 
 			p, err := agentv2.New(ctx, agentConfig,

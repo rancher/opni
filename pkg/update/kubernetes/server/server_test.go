@@ -176,7 +176,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}()).To(BeTrue())
 			})
 		})
-		When("one digest does not match, but the registry is different", func() {
+		When("one digest does not match and the registry is different", func() {
 			JustBeforeEach(func() {
 				manifest = &controlv1.UpdateManifest{
 					Items: []*controlv1.UpdateManifestEntry{
@@ -193,7 +193,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 					},
 				}
 			})
-			It("should return one change update with the registry unchanged", func() {
+			It("should return one change update with the registry changed", func() {
 				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(desiredManifest).NotTo(Equal(manifest))
@@ -205,7 +205,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
-						Expect(patch.GetPath()).To(Equal("opni.io/opni-noop"))
+						Expect(patch.GetPath()).To(Equal("example.io/opni-noop"))
 						Expect(patch.GetNewDigest()).To(Equal("sha256:123456789"))
 						Expect(patch.GetOldDigest()).To(Equal("latest"))
 					}

@@ -156,13 +156,9 @@ func patchForImage(
 			Op:      controlv1.PatchOp_None,
 		}, entry
 	}
-	newImage := oci.Image{
-		Registry:   existingImage.Registry,
-		Repository: image.Repository,
-	}
 	newEntry := &controlv1.UpdateManifestEntry{
 		Package: entry.GetPackage(),
-		Path:    newImage.Path(),
+		Path:    image.Path(),
 		Digest:  image.Digest,
 	}
 	return &controlv1.PatchSpec{
@@ -170,6 +166,6 @@ func patchForImage(
 		OldDigest: entry.GetDigest(),
 		NewDigest: image.Digest,
 		Package:   entry.GetPackage(),
-		Path:      newImage.Path(),
+		Path:      image.Path(),
 	}, newEntry
 }

@@ -263,11 +263,13 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 		"service", svc.Namespace+"-"+svc.Name,
 	)
 	podList := &corev1.PodList{}
-	listOptions := &client.ListOptions{
-		Namespace:     svc.Namespace,
-		LabelSelector: labels.SelectorFromSet(svc.Labels),
-	}
-	err := s.client.List(context.TODO(), podList, listOptions)
+
+	err := s.client.List(
+		context.TODO(),
+		podList,
+		client.InNamespace(svc.Namespace),
+		client.MatchingLabels(svc.Spec.Selector),
+	)
 	if err != nil {
 		lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
 		return
@@ -309,7 +311,10 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 	if len(targets) == 0 { // try to find using endpoints
 		lg.Info("no matching pods for service monitor, trying direct endpoint loookup")
 		endpointList := &corev1.EndpointsList{}
-		err := s.client.List(context.TODO(), endpointList, listOptions)
+		err := s.client.List(context.TODO(), endpointList,
+			client.InNamespace(svc.Namespace),
+			client.MatchingLabels(svc.Labels),
+		)
 		if err != nil {
 			lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
 			return

@@ -68,6 +68,13 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 		return reconcileRequestsForCollector(collectorList.Items, obj.GetName())
 	})
+	watchAllRequestMapper := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		var collectorList corev1beta1.CollectorList
+		if err := mgr.GetCache().List(context.Background(), &collectorList); err != nil {
+			return nil
+		}
+		return reconcileRequestsForAllCollectors(collectorList.Items)
+	})
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 
@@ -76,10 +83,10 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &opnimonitoringv1beta1.CollectorConfig{}}, requestMapper).
 		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
 		// for metrics, the we want to watch changes to the spec of objects that drive discovery
-		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, &handler.EnqueueRequestForObject{}).
-		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, &handler.EnqueueRequestForObject{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, watchAllRequestMapper).
+		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, watchAllRequestMapper).
+		Watches(&source.Kind{Type: &corev1.Service{}}, watchAllRequestMapper).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, watchAllRequestMapper).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).
@@ -105,6 +112,18 @@ func reconcileRequestsForCollector(collectors []corev1beta1.Collector, name stri
 				},
 			})
 		}
+	}
+	return
+}
+
+func reconcileRequestsForAllCollectors(collectors []corev1beta1.Collector) (reqs []reconcile.Request) {
+	for _, c := range collectors {
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: c.Namespace,
+				Name:      c.Name,
+			},
+		})
 	}
 	return
 }

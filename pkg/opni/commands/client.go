@@ -119,6 +119,8 @@ func BuildClientCmd() *cobra.Command {
 			opnicorev1beta1.KeyringCRD,
 			monitoringv1beta1.ServiceMonitorCRD,
 			monitoringv1beta1.PodMonitorCRD,
+			// Need to include Prometheus CRD for deletes even if we're not using prometheus
+			monitoringv1beta1.PrometheusCRD,
 		} {
 			crd, err := crdFunc()
 			if err != nil {

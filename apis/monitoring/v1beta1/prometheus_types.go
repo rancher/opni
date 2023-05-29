@@ -31,3 +31,16 @@ func PodMonitorCRD() (*crd.CRD, error) {
 		Schema:     schema,
 	}, nil
 }
+
+func PrometheusCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(promoperatorv1.Prometheus{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:        promoperatorv1.SchemeGroupVersion.WithKind("Prometheus"),
+		PluralName: "prometheuses",
+		Status:     true,
+		Schema:     schema,
+	}, nil
+}

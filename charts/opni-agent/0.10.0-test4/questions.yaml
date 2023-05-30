@@ -1,0 +1,21 @@
+questions:
+- variable: friendlyName
+  label: Cluster Name
+  type: string
+- variable: token
+  label: Bootstrap Token
+  type: string
+  required: true
+- variable: pin
+  label: Certificate Pin
+  type: string
+  required: true
+- variable: address
+  label: Gateway URL
+  type: string
+  required: true
+  valid_chars: 'http(s)?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+- variable: kube-prometheus-stack.enabled
+  label: Install Prometheus Operator
+  default: "true"
+  type: boolean

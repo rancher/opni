@@ -9,7 +9,7 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc3
-    created: "2023-05-30T15:05:19.044973917+12:00"
+    created: "2023-05-31T10:33:16.359612931+12:00"
     dependencies:
     - condition: opni-agent.kube-prometheus-stack.enabled
       name: kube-prometheus-stack
@@ -21,7 +21,7 @@ entries:
       name: opni-prometheus-crd
       repository: file://./charts/opni-prometheus-crd
     description: Multi Cluster Observability with AIOps
-    digest: 9fff7981802fbdbf2976efc2bc9333a61386a8ba3725535f6d21e1d0a3510f42
+    digest: 82eaf1d71b31555f5eb5e230bdaa23759eb97e27e41569923c909191d39984bf
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -230,6 +230,25 @@ entries:
     - assets/opni/opni-0.10.0-dev1.tgz
     version: 0.10.0-dev1
   opni-agent:
+  - annotations:
+      catalog.cattle.io/display-name: Opni Agent
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-system
+      catalog.rancher.io/release-name: opni-agent
+    apiVersion: v2
+    appVersion: 0.10.0-rc3
+    created: "2023-05-31T10:34:34.176512032+12:00"
+    dependencies:
+    - condition: kube-prometheus-stack.enabled
+      name: kube-prometheus-stack
+      repository: file://./charts/kube-prometheus-stack
+    description: Opni Agent
+    digest: 61b2a2f8b374e00eb87c8a7fef47b42dbb4bd8d61fdb99ac034254891b498708
+    name: opni-agent
+    type: application
+    urls:
+    - assets/opni-agent/opni-agent-0.10.0-test4.tgz
+    version: 0.10.0-test4
   - annotations:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux

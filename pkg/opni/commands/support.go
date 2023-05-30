@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/AlecAivazis/survey/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/config"
@@ -20,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -149,9 +151,8 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			agentConfig.Spec.UserID = userid
 			agentConfig.Spec.GatewayAddress = endpoint
 			agentConfig.Spec.AuthData.Token = ""
-			agentConfig.Spec.AuthData.KeyringData = keyringData
 
-			err = supportagent.PersistConfig(configFile, agentConfig)
+			err = supportagent.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -183,7 +184,7 @@ func BuildSupportPingCmd() *cobra.Command {
 
 			config := supportagent.MustLoadConfig(configFile, agentlg)
 
-			gatewayClient, err := supportagent.GatewayClientFromConfig(ctx, config)
+			gatewayClient, err := supportagent.GatewayClientFromConfig(ctx, config, getRetrievePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -242,6 +243,38 @@ func configureSupportAgentBootstrap(
 		TrustStrategy: strategy,
 		Endpoint:      endpoint,
 	}, nil
+}
+
+func getStorePassword(_ string) (string, error) {
+	password := ""
+	prompt := &survey.Password{
+		Message: chalk.Yellow.Color("Please enter the password to store the keyring with"),
+	}
+	err := survey.AskOne(
+		prompt,
+		&password,
+		survey.WithValidator(survey.Required),
+	)
+	if err != nil {
+		return "", err
+	}
+	return password, nil
+}
+
+func getRetrievePassword(_ string) (string, error) {
+	password := ""
+	prompt := &survey.Password{
+		Message: chalk.Yellow.Color("Please enter the password to fetch the keyring with"),
+	}
+	err := survey.AskOne(
+		prompt,
+		&password,
+		survey.WithValidator(survey.Required),
+	)
+	if err != nil {
+		return "", err
+	}
+	return password, nil
 }
 
 func init() {

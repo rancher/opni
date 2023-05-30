@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	keystore "github.com/99designs/keyring"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
@@ -22,6 +23,10 @@ import (
 const (
 	dirPermissions  = os.FileMode(0700)
 	filePermissions = os.FileMode(0600)
+
+	serviceName = "opni-support"
+	keystoreKey = "keyring"
+	defaultFile = "keyring"
 )
 
 func MustLoadConfig(configFile string, lg logger.ExtendedSugaredLogger) *v1beta1.SupportAgentConfig {
@@ -64,7 +69,12 @@ func MustLoadConfig(configFile string, lg logger.ExtendedSugaredLogger) *v1beta1
 	return agentConfig
 }
 
-func PersistConfig(configFile string, config *v1beta1.SupportAgentConfig) error {
+func PersistConfig(
+	configFile string,
+	config *v1beta1.SupportAgentConfig,
+	data []byte,
+	storePwdFunc keystore.PromptFunc,
+) error {
 	if config == nil {
 		return ErrNoConfig
 	}
@@ -76,6 +86,12 @@ func PersistConfig(configFile string, config *v1beta1.SupportAgentConfig) error 
 		configFile = filepath.Join(home, ".opni", "support.yaml")
 		ensureDirExists(configFile)
 	}
+
+	err := storeKeyRingData(data, storePwdFunc)
+	if err != nil {
+		return err
+	}
+
 	content, err := yaml.Marshal(config)
 	if err != nil {
 		return err
@@ -95,11 +111,21 @@ func PersistConfig(configFile string, config *v1beta1.SupportAgentConfig) error 
 	return f.Sync()
 }
 
-func GatewayClientFromConfig(ctx context.Context, config *v1beta1.SupportAgentConfig) (clients.GatewayClient, error) {
+func GatewayClientFromConfig(
+	ctx context.Context,
+	config *v1beta1.SupportAgentConfig,
+	pwdFunc keystore.PromptFunc,
+) (clients.GatewayClient, error) {
 	if config == nil {
 		return nil, ErrNoConfig
 	}
-	kr, err := keyring.Unmarshal(config.Spec.AuthData.KeyringData)
+
+	krData, err := openKeyRingData(pwdFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	kr, err := keyring.Unmarshal(krData)
 	if err != nil {
 		return nil, err
 	}
@@ -127,4 +153,64 @@ func GatewayClientFromConfig(ctx context.Context, config *v1beta1.SupportAgentCo
 
 func ensureDirExists(path string) error {
 	return os.MkdirAll(filepath.Dir(path), os.ModeDir|dirPermissions)
+}
+
+func openKeyRingData(pwdFunc keystore.PromptFunc) ([]byte, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return []byte{}, err
+	}
+
+	keyringFile := filepath.Join(home, ".opni")
+
+	config := keystore.Config{
+		AllowedBackends: []keystore.BackendType{
+			keystore.FileBackend,
+		},
+		ServiceName:      serviceName,
+		FileDir:          keyringFile,
+		FilePasswordFunc: pwdFunc,
+	}
+
+	kr, err := keystore.Open(config)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	item, err := kr.Get(keystoreKey)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return item.Data, nil
+}
+
+func storeKeyRingData(data []byte, storePwdFunc keystore.PromptFunc) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	keyringFile := filepath.Join(home, ".opni")
+	ensureDirExists(keyringFile)
+
+	config := keystore.Config{
+		AllowedBackends: []keystore.BackendType{
+			keystore.FileBackend,
+		},
+		ServiceName:      serviceName,
+		FileDir:          keyringFile,
+		FilePasswordFunc: storePwdFunc,
+	}
+
+	kr, err := keystore.Open(config)
+	if err != nil {
+		return err
+	}
+
+	keyringItem := keystore.Item{
+		Key:  keystoreKey,
+		Data: data,
+	}
+	return kr.Set(keyringItem)
 }

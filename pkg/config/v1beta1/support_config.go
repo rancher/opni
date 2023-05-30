@@ -20,7 +20,6 @@ type SupportAgentConfigSpec struct {
 }
 
 type AuthDataSpec struct {
-	KeyringData   []byte            `json:"keyringData,omitempty"`
 	Pins          []string          `json:"pins,omitempty"`
 	CAPath        string            `json:"caFilePath,omitempty"`
 	Token         string            `json:"token,omitempty"`

@@ -845,7 +845,7 @@ func (r *Reconciler) dataStorage() (*corev1.Volume, *corev1.PersistentVolumeClai
 						corev1.ResourceStorage: r.natsCluster.Spec.JetStream.FileStorage.Size,
 					},
 				},
-				StorageClassName: &pvc.StorageClassName,
+				StorageClassName: pvc.StorageClassName,
 				VolumeMode:       lo.ToPtr(corev1.PersistentVolumeFilesystem),
 			},
 		}

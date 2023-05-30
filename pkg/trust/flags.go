@@ -53,11 +53,11 @@ func BuildConfigFromFlags(flags *pflag.FlagSet) (*StrategyConfig, error) {
 			if err != nil {
 				return nil, err
 			}
-			certchain, err := util.ParsePEMEncodedCertChain(data)
+			cert, err := util.ParsePEMEncodedCert(data)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 			}
-			certs = append(certs, certchain...)
+			certs = append(certs, cert)
 		}
 		return &StrategyConfig{
 			CACerts: &CACertsConfig{

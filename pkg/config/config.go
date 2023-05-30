@@ -87,9 +87,6 @@ func FindConfig() (string, error) {
 		".",
 		"/etc/opni",
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		pathsToSearch = append(pathsToSearch, filepath.Join(home, ".opni"))
-	}
 
 	filenamesToSearch := []string{
 		"gateway.yaml",
@@ -101,9 +98,6 @@ func FindConfig() (string, error) {
 		"config.yaml",
 		"config.yml",
 		"config.json",
-		"support.yaml",
-		"support.yml",
-		"support.json",
 	}
 
 	for _, path := range pathsToSearch {

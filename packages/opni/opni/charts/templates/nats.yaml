@@ -10,6 +10,8 @@ spec:
     enabled: true
     memoryStorageSize: 1Gi
     fileStorage:
-      emptyDir: {}
+      pvc:
+        accessModes:
+          - ReadWriteOnce
       enabled: true
       size: 5Gi

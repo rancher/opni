@@ -1,3 +1,6 @@
+{{- if not (or (eq .Values.persistence.mode "pvc") (eq .Values.persistence.mode "hostPath")) }}
+{{- fail "persistence mode must be pvc or hostPath" }}
+{{- end }}
 {{- $minimalVersionTag := printf "v%s-minimal" .Chart.AppVersion }}
 {{- $versionTag := printf "v%s" .Chart.AppVersion }}
 apiVersion: apps/v1
@@ -160,9 +163,35 @@ spec:
                 path: config.yaml
             defaultMode: 256
         - name: plugins
+        {{- if eq .Values.persistence.mode "hostPath" }}
           hostPath:
             path: {{ default "/var/lib/opni/plugins" .Values.persistence.hostDirectoryPath }}
             type: DirectoryOrCreate
+        {{- if eq .Values.persistence.mode "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ include "opni-agent.fullname" . }}-plugins
+        {{- end }}
+        {{- if -}}
       {{- if .Values.volumes }}
         {{- toYaml .Values.volumes | nindent 8 }}
       {{- end }}
+{{- if eq .Values.persistence.mode "pvc" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "opni-agent.fullname" . }}-plugins
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
+spec:
+  accessModes:
+  - ReadWriteOnce
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: 2Gi
+{{- end }}

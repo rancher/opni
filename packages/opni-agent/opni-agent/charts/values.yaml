@@ -79,7 +79,9 @@ pin: ""
 address: ""
 
 # v2 only
-persistence: {}
+persistence:
+  # mode must be one of: hostPath, pvc
+  mode: hostPath
   # hostDirectoryPath: /var/lib/opni/plugins
 
 

@@ -81,6 +81,7 @@ opni-agent:
 global:
   cattle:
     systemDefaultRegistry: ""
+  storageClass: ""
 
 kube-prometheus-stack:
   grafana:

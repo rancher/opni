@@ -15,6 +15,7 @@ import (
 	_ "github.com/rancher/opni/pkg/ident/supportagent"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/supportagent"
+	supportagentconfig "github.com/rancher/opni/pkg/supportagent/config"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
@@ -24,6 +25,7 @@ import (
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -36,6 +38,7 @@ func BuildSupportCmd() *cobra.Command {
 
 	supportCmd.AddCommand(BuildSupportBootstrapCmd())
 	supportCmd.AddCommand(BuildSupportPingCmd())
+	supportCmd.AddCommand(BuildSupportShipCmd())
 	return supportCmd
 }
 
@@ -152,7 +155,7 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			agentConfig.Spec.GatewayAddress = endpoint
 			agentConfig.Spec.AuthData.Token = ""
 
-			err = supportagent.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
+			err = supportagentconfig.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -182,9 +185,9 @@ func BuildSupportPingCmd() *cobra.Command {
 
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
 
-			config := supportagent.MustLoadConfig(configFile, agentlg)
+			config := supportagentconfig.MustLoadConfig(configFile, agentlg)
 
-			gatewayClient, err := supportagent.GatewayClientFromConfig(ctx, config, getRetrievePassword)
+			gatewayClient, err := supportagentconfig.GatewayClientFromConfig(ctx, config, getRetrievePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -212,6 +215,88 @@ func BuildSupportPingCmd() *cobra.Command {
 	pingCmd.Flags().StringVar(&logLevel, "log-level", "info", "log level")
 
 	return pingCmd
+}
+
+func BuildSupportShipCmd() *cobra.Command {
+	const (
+		nodeNameKey   = "node_name"
+		caseNumberKey = "case_number"
+	)
+	var configFile, logLevel, caseNumber, nodeName string
+
+	shipCmd := &cobra.Command{
+		Use:   "ship",
+		Short: "Ship support logs to Opni",
+		ValidArgs: []string{
+			string(RKE),
+			string(K3S),
+			string(RKE2),
+		},
+		PreRunE: validateShipArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
+			defer ca()
+
+			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+
+			config := supportagentconfig.MustLoadConfig(configFile, agentlg)
+
+			gatewayClient, err := supportagentconfig.GatewayClientFromConfig(ctx, config, getRetrievePassword)
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Fatal("failed to get gateway client")
+			}
+
+			cc, futureErr := gatewayClient.Connect(ctx)
+			if futureErr.IsSet() {
+				agentlg.With(
+					zap.Error(futureErr.Get()),
+				).Fatal("failed to connect to gateway")
+			}
+
+			if cc == nil {
+				agentlg.With(
+					zap.Error(futureErr.Get()),
+				).Fatal("failed to connect to gateway")
+			}
+
+			md := metadata.New(map[string]string{
+				supportagent.AttributeValuesKey: "",
+			})
+			md.Set(supportagent.AttributeValuesKey,
+				caseNumberKey, caseNumber,
+				nodeNameKey, nodeName,
+			)
+
+			ctx = metadata.NewOutgoingContext(ctx, md)
+
+			switch Distribution(args[0]) {
+			case RKE:
+				shipRKELogs(ctx, cc, agentlg.Zap())
+			case K3S:
+				shipK3sLogs(ctx, cc, agentlg.Zap())
+			case RKE2:
+				shipRKE2Logs(ctx, cc, agentlg.Zap())
+			default:
+				agentlg.Error("invalid cluster type, must be one of rke, k3s, or rke2")
+			}
+		},
+	}
+
+	shipCmd.Flags().StringVar(&configFile, "config", "", "path to config file")
+	shipCmd.Flags().StringVar(&logLevel, "log-level", "info", "log level")
+	shipCmd.Flags().StringVar(&caseNumber, "case-number", "", "case number to attach to logs")
+	shipCmd.Flags().StringVar(&nodeName, "node-name", "", "node name to attach to logs")
+
+	return shipCmd
+}
+
+func validateShipArgs(cmd *cobra.Command, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("must specify a cluster type")
+	}
+	return nil
 }
 
 func configureSupportAgentBootstrap(

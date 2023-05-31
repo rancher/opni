@@ -86,7 +86,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.61.0
 	github.com/prometheus/alertmanager v0.25.1-0.20230505130626-263ca5c9438e
 	github.com/prometheus/client_golang v1.15.1
-	github.com/prometheus/common v0.42.0
+	github.com/prometheus/common v0.43.0
 	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.10.0
 	github.com/prometheus/procfs v0.9.0
@@ -258,7 +258,7 @@ require (
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/docker/cli v23.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v23.0.4+incompatible // indirect
+	github.com/docker/docker v23.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
@@ -469,6 +469,7 @@ require (
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/nunnatsa/ginkgolinter v0.12.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/observiq/ctimefmt v1.0.0 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
@@ -577,6 +578,13 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.7 // indirect
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/collector v0.78.2 // indirect
+	go.opentelemetry.io/collector/component v0.78.2 // indirect
+	go.opentelemetry.io/collector/confmap v0.78.2 // indirect
+	go.opentelemetry.io/collector/consumer v0.78.2 // indirect
+	go.opentelemetry.io/collector/exporter v0.78.2 // indirect
+	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0012 // indirect
+	go.opentelemetry.io/collector/receiver v0.78.2 // indirect
 	go.opentelemetry.io/contrib/propagators/aws v1.17.0 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.17.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.17.0 // indirect

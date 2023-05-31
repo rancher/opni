@@ -275,20 +275,12 @@ export interface UpdateAlertConditionRequest {
 export enum AlertConditionState {
   UNSPECIFIED = 0, // eslint-disable-line no-unused-vars, camelcase
   OK = 1, // eslint-disable-line no-unused-vars, camelcase
-  FIRING = 2, // eslint-disable-line no-unused-vars, camelcase
-  SILENCED = 3, // eslint-disable-line no-unused-vars, camelcase
-  INVALIDATED = 4, // eslint-disable-line no-unused-vars, camelcase
-  PENDING = 5, // eslint-disable-line no-unused-vars, camelcase
-}
+  PENDING = 2, // eslint-disable-line no-unused-vars, camelcase
+  FIRING = 3, // eslint-disable-line no-unused-vars, camelcase
+  SILENCED = 4, // eslint-disable-line no-unused-vars, camelcase
+  INVALIDATED = 5, // eslint-disable-line no-unused-vars, camelcase
 
-export const alertConditionStateMapping = {
-  Unspecified: 0,
-  Ok:          1,
-  Firing:      2,
-  Silenced:    3,
-  Invalidated: 4,
-  Pending:     5,
-};
+}
 
 export interface AlertStatusResponse {
   state: AlertConditionState;
@@ -401,9 +393,7 @@ export class Condition extends Resource {
       },
     };
 
-    const enumeration = (alertConditionStateMapping as any)[this.base.status.state] as any;
-
-    const status = { ...mapping[enumeration] || mapping[AlertConditionState.UNSPECIFIED] };
+    const status = { ...mapping[this.base.status.state] || mapping[AlertConditionState.UNSPECIFIED] };
 
     status.longMessage = this.base.status.reason;
 

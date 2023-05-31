@@ -55,6 +55,7 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 		},
 		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
+		LogLevel:      r.collector.Spec.LogLevel,
 	}
 }
 
@@ -66,6 +67,7 @@ func (r *Reconciler) getAggregatorConfig(
 		Metrics:       metricsCfg,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
+		LogLevel:      r.collector.Spec.LogLevel,
 	}
 }
 

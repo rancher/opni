@@ -177,7 +177,11 @@ processors:
       - key: component
     {{ template "metrics-system-processor" . }}
 service:
-  {{ template "metrics-self-telemetry" .}}
+  telemetry:
+    logs:
+      level: {{ .LogLevel }}
+    metrics:
+      level: none
   pipelines:
   {{- if .Logs.Enabled }}
     logs:
@@ -230,7 +234,11 @@ exporters:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}
 service:
-  {{ template "metrics-self-telemetry" .}}
+  telemetry:
+    logs:
+      level: {{ .LogLevel }}
+    metrics:
+      level: none
   pipelines:
   {{- if .LogsEnabled }}
     logs:

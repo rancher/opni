@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -35,20 +36,20 @@ const (
 	ClusterStatusError
 )
 
-func ClusterStatusDescription(s ClusterStatus) string {
+func ClusterStatusDescription(s ClusterStatus, extraInfo ...string) string {
 	switch s {
 	case ClusterStatusPending:
-		return "Opensearch cluster is initializing"
+		return fmt.Sprintf("Opensearch cluster is initializing. %s", strings.Join(extraInfo, ", "))
 	case ClusterStatusGreen:
-		return "Opensearch cluster is green"
+		return fmt.Sprintf("Opensearch cluster is green. %s", strings.Join(extraInfo, ", "))
 	case ClusterStatusYellow:
-		return "Opensearch cluster is yellow"
+		return fmt.Sprintf("Opensearch cluster is yellow. %s", strings.Join(extraInfo, ", "))
 	case ClusterStatusRed:
-		return "Opensearch cluster is red"
+		return fmt.Sprintf("Opensearch cluster is red. %s", strings.Join(extraInfo, ", "))
 	case ClusterStatusError:
-		return "Error fetching status from Opensearch cluster"
+		return fmt.Sprintf("Error fetching status from cluster. %s", strings.Join(extraInfo, ", "))
 	default:
-		return "unknown status"
+		return fmt.Sprintf("Unknown status. %s", strings.Join(extraInfo, ", "))
 	}
 }
 
@@ -186,6 +187,11 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 		status = ClusterStatusRed
 	case opensearchdata.ClusterStatusError:
 		status = ClusterStatusError
+	case opensearchdata.ClusterStatusNoClient:
+		return &loggingadmin.StatusResponse{
+			Status:  int32(ClusterStatusPending),
+			Details: ClusterStatusDescription(ClusterStatusPending, "Waiting for Opensearch client to be initialized"),
+		}, nil
 	}
 
 	return &loggingadmin.StatusResponse{

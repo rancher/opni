@@ -86,3 +86,9 @@ func (c *AsyncOpensearchClient) Lock() {
 func (c *AsyncOpensearchClient) Unlock() {
 	c.rw.RUnlock()
 }
+
+func (c *AsyncOpensearchClient) IsInitialized() bool {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.initialized
+}

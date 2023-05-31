@@ -37,6 +37,7 @@ const (
 	ClusterStatusYellow
 	ClusterStatusRed
 	ClusterStatusError
+	ClusterStatusNoClient
 )
 
 type Manager struct {

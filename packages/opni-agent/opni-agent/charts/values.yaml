@@ -110,3 +110,4 @@ kube-prometheus-stack:
 global:
   cattle:
     systemDefaultRegistry: ""
+  storageClass: ""

@@ -5,7 +5,7 @@ annotations:
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.10.0-rc3
+appVersion: 0.10.0-rc4
 dependencies:
 - condition: opni-agent.kube-prometheus-stack.enabled
   name: kube-prometheus-stack

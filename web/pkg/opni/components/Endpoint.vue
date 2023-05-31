@@ -104,16 +104,18 @@ export default {
 
     createConfig() {
       return {
-        name: this.config.name, description: this.config.description, [this.type]: this.config.endpoint[this.type]
+        name: this.config.name, description: this.config.description, [this.type]: this.config.endpoint[this.type], id: this.$route.params.id
       };
     },
 
-    async testEndpoint() {
+    async testEndpoint(buttonCallback) {
       try {
         await testAlertEndpoint({ endpoint: this.createConfig() });
         this.$set(this, 'error', '');
+        buttonCallback(true);
       } catch (err) {
         this.$set(this, 'error', exceptionToErrorsArray(err).join('; '));
+        buttonCallback(false);
       }
     }
   },
@@ -208,9 +210,16 @@ export default {
       <button class="btn btn-secondary mr-10" @click="cancel">
         Cancel
       </button>
-      <button class="btn btn-info mr-10" @click="testEndpoint">
-        Test Endpoint
-      </button>
+      <AsyncButton
+        class="mr-10"
+        mode="edit"
+        success-label="Test Succeeded"
+        action-label="Test Endpoint"
+        waiting-label="Testing Endpoint"
+        error-label="Test Failed"
+        action-color="btn-secondary"
+        @click="testEndpoint"
+      />
       <AsyncButton mode="edit" @click="save" />
     </div>
     <Banner

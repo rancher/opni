@@ -51,7 +51,7 @@ func BuildGetClusterConfigurationCmd() *cobra.Command {
 		Short: "Gets the current configuration of the managed Cortex cluster.",
 		Long: `
 HTTP handlers for this method:
-- get:"/configuration"
+- GET /configuration
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -85,7 +85,7 @@ Note: some fields may contain secrets. The placeholder value "***" can be used t
 keep an existing secret when updating the cluster configuration.
 
 HTTP handlers for this method:
-- post:"/configure" body:"*"
+- POST /configure
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -124,7 +124,7 @@ No guarantees are made about the contents of the metadata field; its
 contents are strictly informational.
 
 HTTP handlers for this method:
-- get:"/status"
+- GET /status
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -155,7 +155,7 @@ are left to the cluster driver, and this API makes no guarantees about
 the state of the cluster after the call completes (regardless of success).
 
 HTTP handlers for this method:
-- post:"/uninstall"
+- POST /uninstall
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

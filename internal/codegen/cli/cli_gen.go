@@ -268,11 +268,30 @@ func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File
 				g.P()
 			}
 			g.P("HTTP handlers for this method:")
-			additionalBindings := httpExt.GetAdditionalBindings()
-			httpExt.AdditionalBindings = nil
-			g.P("- ", httpExt.String())
-			for _, rule := range additionalBindings {
-				g.P("- ", rule.String())
+			bindings := append([]*annotations.HttpRule{httpExt}, httpExt.GetAdditionalBindings()...)
+			for _, httpExt := range bindings {
+				var httpMethod, path string
+				switch pattern := httpExt.Pattern.(type) {
+				case *annotations.HttpRule_Get:
+					httpMethod = "GET"
+					path = pattern.Get
+				case *annotations.HttpRule_Post:
+					httpMethod = "POST"
+					path = pattern.Post
+				case *annotations.HttpRule_Put:
+					httpMethod = "PUT"
+					path = pattern.Put
+				case *annotations.HttpRule_Delete:
+					httpMethod = "DELETE"
+					path = pattern.Delete
+				case *annotations.HttpRule_Patch:
+					httpMethod = "PATCH"
+					path = pattern.Patch
+				case *annotations.HttpRule_Custom:
+					httpMethod = strings.ToUpper(httpExt.GetCustom().Kind)
+					path = httpExt.GetCustom().Path
+				}
+				g.P(fmt.Sprintf("- %s %s", httpMethod, path))
 			}
 		}
 		g.P("`[1:],")

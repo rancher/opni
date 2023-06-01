@@ -167,6 +167,7 @@ spec:
           hostPath:
             path: {{ default "/var/lib/opni/plugins" .Values.persistence.hostDirectoryPath }}
             type: DirectoryOrCreate
+        {{- end }}
         {{- if eq .Values.persistence.mode "pvc" }}
           persistentVolumeClaim:
             claimName: {{ include "opni-agent.fullname" . }}-plugins

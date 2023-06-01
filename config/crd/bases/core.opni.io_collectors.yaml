@@ -56,6 +56,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              logLevel:
+                type: string
               loggingConfig:
                 properties:
                   name:

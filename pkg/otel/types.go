@@ -26,6 +26,7 @@ type NodeConfig struct {
 	Logs          LoggingConfig
 	Metrics       MetricsConfig
 	Containerized bool
+	LogLevel      string
 }
 
 type AggregatorConfig struct {
@@ -33,6 +34,7 @@ type AggregatorConfig struct {
 	LogsEnabled   bool
 	Metrics       MetricsConfig
 	Containerized bool
+	LogLevel      string
 }
 
 type LoggingConfig struct {

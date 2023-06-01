@@ -71,14 +71,6 @@ kubeletstats:
 {{- end }}
 {{- end -}}
 
-{{- define "metrics-self-telemetry" -}}
-{{- if .Metrics.Enabled -}}
-  telemetry:
-    metrics:
-      level: none
-{{- end -}}
-{{- end -}}
-
 {{- define "metrics-self-receiver" -}}
 {{- if .Metrics.Enabled -}}
   prometheus/self:

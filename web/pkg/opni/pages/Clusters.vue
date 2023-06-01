@@ -7,7 +7,7 @@ export default {
   components: { Clusters, Main },
   layout:     choosePageLayout(),
   head() {
-    return { title: 'Opni - Clusters' };
+    return { title: 'Opni - Agents' };
   }
 };
 </script>

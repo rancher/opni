@@ -194,6 +194,7 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 					Key: "prometheus.yaml",
 				},
 			},
+			EvaluationInterval: "30s",
 		},
 	}
 }

@@ -2,11 +2,13 @@
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
-import ArrayListSelect from '@shell/components/form/ArrayListSelect';
 import { Checkbox } from '@components/Form/Checkbox';
 import TextAreaAutoGrow from '@components/Form/TextArea/TextAreaAutoGrow';
+import Loading from '@shell/components/Loading';
+import { Banner } from '@components/Banner';
 import { Severity } from '../models/alerting/Condition';
 import { getAlertEndpoints } from '../utils/requests/alerts';
+import ArrayListSelect from './RancherOverride/ArrayListSelect';
 
 export function createDefaultAttachedEndpoints() {
   return {
@@ -23,9 +25,11 @@ export function createDefaultAttachedEndpoints() {
 export default {
   components: {
     ArrayListSelect,
+    Banner,
     Checkbox,
     LabeledInput,
     LabeledSelect,
+    Loading,
     TextAreaAutoGrow,
     UnitInput,
   },
@@ -95,6 +99,7 @@ export default {
       },
 
       set(value) {
+        console.log('seeeti', value);
         this.$emit('input', { ...this.value, items: value.map(v => ({ endpointId: v })) });
       }
     },
@@ -135,10 +140,16 @@ export default {
 };
 </script>
 <template>
-  <div class="attached-endpoints">
+  <Loading v-if="$fetchState.pending" />
+  <div v-else class="attached-endpoints">
     <div class="row mt-10">
       <div class="col span-12">
-        <ArrayListSelect v-model="attachedEndpoints" add-label="Add Endpoint" :options="options.endpointOptions" />
+        <ArrayListSelect v-if="options.endpointOptions.length > 0" v-model="attachedEndpoints" add-label="Add Endpoint" :options="options.endpointOptions" />
+        <Banner v-else color="info">
+          You must have an <n-link :to="{name: 'endpoints'}">
+            endpoint
+          </n-link> if you'd like to modify message options.
+        </Banner>
       </div>
     </div>
     <div v-if="showMessageOptions">

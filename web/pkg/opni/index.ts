@@ -1,6 +1,7 @@
 import { importTypes } from '@rancher/auto-import';
 import { IPlugin } from '@shell/core/types';
 import axios from 'axios';
+import PromptRemove from '@shell/components/PromptRemove.vue';
 import { NAVIGATION } from './router.js';
 import { flattenNavigation } from './utils/navigation';
 import './styles/app.scss';
@@ -23,6 +24,9 @@ export default function(plugin: IPlugin, context: any) {
     }, (error: any) => {
       return Promise.reject(error);
     });
+
+    // In standalone this method wouldn't work because we don't have an active product. This allows us to continue using the PromptRemove component in standalone.
+    (PromptRemove as any).methods.refreshSpoofedTypes = () => {};
   }
 
   plugin.addProduct(require('./product'));

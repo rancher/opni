@@ -24,4 +24,8 @@ export class Resource {
   public remove() {
     this.vue.$emit('remove');
   }
+
+  public currentRouter() {
+    return {};
+  }
 }

@@ -72,9 +72,11 @@ processors:
       statements:
       - merge_maps(attributes, body, "upsert") where attributes["filename"] == nil
       - set(attributes["COMM"], attributes["_COMM"])
+      - delete_matching_keys(attributes, "^_.*")
+    - context: resource
+      statements:
       - set(attributes["log_type"], "controlplane") where attributes["k8s.pod.labels.tier"] == "control-plane"
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
-      - delete_matching_keys(attributes, "^_.*")
 exporters:
   opensearch:
     endpoints: [ "{{ .Endpoint }}" ]

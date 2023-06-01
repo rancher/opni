@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -23,7 +24,10 @@ import (
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -117,6 +121,18 @@ func BuildClientCmd() *cobra.Command {
 			loggingv1beta1.ClusterFlowCRD,
 			loggingv1beta1.LogAdapterCRD,
 			opnicorev1beta1.KeyringCRD,
+		} {
+			crd, err := crdFunc()
+			if err != nil {
+				setupLog.Error(err, "failed to create crd")
+				return err
+			}
+			crds = append(crds, *crd)
+		}
+
+		// Only create prometheus crds if they don't already exist
+		client := mgr.GetClient()
+		for _, crdFunc := range []crdFunc{
 			monitoringv1beta1.ServiceMonitorCRD,
 			monitoringv1beta1.PodMonitorCRD,
 			// Need to include Prometheus CRD for deletes even if we're not using prometheus
@@ -127,8 +143,19 @@ func BuildClientCmd() *cobra.Command {
 				setupLog.Error(err, "failed to create crd")
 				return err
 			}
-			crds = append(crds, *crd)
+			name := strings.ToLower(crd.PluralName + "." + crd.GVK.Group)
+			k8sCRD := &apiextv1.CustomResourceDefinition{}
+			err = client.Get(signalCtx, types.NamespacedName{Name: name}, k8sCRD)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					crds = append(crds, *crd)
+				} else {
+					setupLog.Error(err, "failed to get crd")
+					return err
+				}
+			}
 		}
+
 		err = crdFactory.BatchCreateCRDs(signalCtx, crds...).BatchWait()
 		if err != nil {
 			setupLog.Error(err, "failed to apply crds")

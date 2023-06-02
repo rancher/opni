@@ -27,9 +27,10 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 			},
 			Endpoints: []monitoringv1.Endpoint{
 				{
-					TargetPort: lo.ToPtr(intstr.FromInt(8086)),
-					Path:       "/metrics",
-					Scheme:     "http",
+					TargetPort:  lo.ToPtr(intstr.FromInt(8086)),
+					Path:        "/metrics",
+					Scheme:      "http",
+					HonorLabels: true,
 				},
 			},
 		},

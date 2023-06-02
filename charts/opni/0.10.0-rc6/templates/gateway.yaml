@@ -1,0 +1,43 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: core.opni.io/v1beta1
+kind: Gateway
+metadata:
+  name: opni-gateway
+  namespace: {{ include "opni.namespace" . }}
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+spec:
+  alerting:
+    enabled:  {{ .Values.gateway.alerting.enabled }}
+  hostname: {{ .Values.gateway.hostname }}
+  serviceType: {{ .Values.gateway.serviceType }}
+  {{- if .Values.gateway.storageType }}
+  storageType: {{ .Values.gateway.storageType }}
+  {{- end }}
+  natsCluster:
+    name: opni
+  {{- with .Values.gateway.serviceAnnotations }}
+  serviceAnnotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.gateway.auth }}
+  auth:
+    {{ toYaml . | nindent 4 }}
+  {{- end}}
+  {{- with .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.gateway.extraVolumeMounts }}
+  extraVolumeMounts:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

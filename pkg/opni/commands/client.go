@@ -24,10 +24,9 @@ import (
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -131,7 +130,6 @@ func BuildClientCmd() *cobra.Command {
 		}
 
 		// Only create prometheus crds if they don't already exist
-		client := mgr.GetClient()
 		for _, crdFunc := range []crdFunc{
 			monitoringv1beta1.ServiceMonitorCRD,
 			monitoringv1beta1.PodMonitorCRD,
@@ -144,8 +142,7 @@ func BuildClientCmd() *cobra.Command {
 				return err
 			}
 			name := strings.ToLower(crd.PluralName + "." + crd.GVK.Group)
-			k8sCRD := &apiextv1.CustomResourceDefinition{}
-			err = client.Get(signalCtx, types.NamespacedName{Name: name}, k8sCRD)
+			_, err = crdFactory.CRDClient.ApiextensionsV1().CustomResourceDefinitions().Get(signalCtx, name, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					crds = append(crds, *crd)

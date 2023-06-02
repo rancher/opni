@@ -31,6 +31,20 @@
         "name": "Opni Deployment Updates",
         "textFormat": "The Opni Gateway deployment has been modified; agents may need to reconnect.",
         "titleFormat": "Gateway Updated"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "P0BEE70D62F42845E"
+        },
+        "enable": true,
+        "expr": "(node_boot_time_seconds * 1000) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
+        "hide": true,
+        "iconColor": "green",
+        "name": "Node Reboots",
+        "textFormat": "Node {{instance}} in cluster {{friendly_name}} rebooted.",
+        "titleFormat": "Node Reboot",
+        "useValueForTime": "on"
       }
     ]
   },
@@ -483,7 +497,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(__tenant_id__) (node:node_num_cpu:sum)",
+          "expr": "sum by(__tenant_id__) (instance:node_num_cpu:sum)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1087,7 +1101,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) group without(pod, instance) (opni_cluster_info @ end())",
+          "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
           "format": "time_series",
           "interval": "1m",
           "legendFormat": "{{friendly_name}}",
@@ -1535,7 +1549,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"__tenant_id__\", \"$1\", \"user\", \"(.*)\")  * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
+          "expr": "label_replace(sum by(user) (cortex_bucket_blocks_count), \"__tenant_id__\", \"$1\", \"user\", \"(.*)\")  * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{friendly_name}}",
@@ -1547,7 +1561,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "",
+  "refresh": "10s",
   "revision": 1,
   "schemaVersion": 38,
   "style": "dark",
@@ -1587,6 +1601,6 @@
   "timezone": "",
   "title": "Infrastructure Overview",
   "uid": "1e83e204be502391f69d3a826675d3df",
-  "version": 19,
+  "version": 20,
   "weekStart": ""
 }

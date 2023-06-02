@@ -110,9 +110,9 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "(\n  sum by(method, exported_service, __tenant_id__) (rate(opni_gateway_stream_remote_service_latency_sum{__tenant_id__=\"$cluster\"}[$__rate_interval]))\n  /\n  sum by(method, exported_service, __tenant_id__) (rate(opni_gateway_stream_remote_service_latency_count{__tenant_id__=\"$cluster\"}[$__rate_interval]))\n)\n* on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())\n",
+          "expr": "(\n  sum by(__tenant_id__, method, service) (opni_gateway_stream_remote_service_latency_sum{__tenant_id__=\"$cluster\"})\n  /\n  sum by(__tenant_id__, method, service) (opni_gateway_stream_remote_service_latency_count{__tenant_id__=\"$cluster\"})\n)\n* on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())\n",
           "hide": false,
-          "legendFormat": "{{exported_service}}/{{method}}",
+          "legendFormat": "{{service}}/{{method}}",
           "range": true,
           "refId": "A"
         }
@@ -210,9 +210,9 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "expr": "sum by(method, exported_service, handler, __tenant_id__) (rate(opni_gateway_stream_local_service_latency_sum{exported_service!~\"^totem.*\", __tenant_id__=\"$cluster\"}[$__rate_interval])) / sum by(method, exported_service, handler, __tenant_id__) (rate(opni_gateway_stream_local_service_latency_count{exported_service!~\"^totem.*\", __tenant_id__=\"$cluster\"}[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
+          "expr": "(\n    sum by(method, service, handler, __tenant_id__) (opni_gateway_stream_local_service_latency_sum{service!~\"^totem.*\", __tenant_id__=\"$cluster\"}) \n    / \n    sum by(method, service, handler, __tenant_id__) (opni_gateway_stream_local_service_latency_count{service!~\"^totem.*\", __tenant_id__=\"$cluster\"})\n) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
           "hide": false,
-          "legendFormat": "{{exported_service}}/{{method}}",
+          "legendFormat": "{{service}}/{{method}}",
           "range": true,
           "refId": "A"
         }
@@ -237,6 +237,10 @@
           "value": [
             "$__all"
           ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "P0BEE70D62F42845E"
         },
         "definition": "query_result(opni_cluster_info)",
         "hide": 0,
@@ -265,6 +269,6 @@
   "timezone": "",
   "title": "Opni Service Latency",
   "uid": "ef8dd192-9051-4dfb-91a1-408509fa1167",
-  "version": 8,
+  "version": 9,
   "weekStart": ""
 }

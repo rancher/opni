@@ -1,0 +1,39 @@
+{{- if .Values.gateway.enabled }}
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-post-install
+  namespace: {{ include "opni.namespace" . }}
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "opni.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: opni-manager
+      containers:
+      - name: wait-for-service
+        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - opni
+        args:
+        - hooks
+        - wait-for-resource
+        - "--namespace={{ include "opni.namespace" . }}"
+        - --version=v1beta1
+        - --group=core.opni.io
+        - --resource=gateways
+        - --jsonpath={.status.endpoints}
+{{- if eq .Values.gateway.serviceType "LoadBalancer" }}
+        - --jsonpath={.status.loadBalancer}
+{{- end }}
+        - opni-gateway
+{{- end }}

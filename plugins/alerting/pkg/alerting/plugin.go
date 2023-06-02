@@ -19,7 +19,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 
@@ -41,17 +40,20 @@ func (p *Plugin) Components() []server.ServerComponent {
 }
 
 type Plugin struct {
+	alertops.UnsafeAlertingAdminServer
+	alertops.ConfigReconcilerServer
 	system.UnimplementedSystemPluginClient
 
-	Ctx    context.Context
-	Logger *zap.SugaredLogger
+	ctx    context.Context
+	logger *zap.SugaredLogger
 
 	// components       serverComponents
-	opsNode          *ops.AlertingOpsNode
 	storageClientSet future.Future[storage.AlertingClientSet]
 
 	client.Client
 	clusterNotifier chan []client.AlertingPeer
+	clusterDriver   future.Future[drivers.ClusterDriver]
+	syncConfig      SyncConfig
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -77,16 +79,16 @@ var _ alertingv1.AlertNotificationsServer = (*notifications.NotificationServerCo
 func NewPlugin(ctx context.Context) *Plugin {
 	collector := collector.NewCollectorServer()
 	lg := logger.NewPluginLogger().Named("alerting")
-	clusterDriver := future.New[drivers.ClusterDriver]()
 	storageClientSet := future.New[storage.AlertingClientSet]()
 	p := &Plugin{
-		Ctx:    ctx,
-		Logger: lg,
+		ctx:    ctx,
+		logger: lg,
 
-		opsNode:          ops.NewAlertingOpsNode(ctx, clusterDriver, storageClientSet),
 		storageClientSet: storageClientSet,
 
 		clusterNotifier: make(chan []client.AlertingPeer),
+		clusterDriver:   future.New[drivers.ClusterDriver](),
+		syncConfig:      NewSyncConfig(),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
@@ -104,30 +106,29 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 	p.CollectorServer.MustRegister(p.collectors()...)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
-		p.Logger.With("component", "notifications"),
+		p.logger.With("component", "notifications"),
 	)
 	p.EndpointServerComponent = endpoints.NewEndpointServerComponent(
-		p.Ctx,
-		p.Logger.With("component", "endpoints"),
+		p.ctx,
+		p.logger.With("component", "endpoints"),
 		p.NotificationServerComponent,
 	)
 	p.AlarmServerComponent = alarms.NewAlarmServerComponent(
-		p.Ctx,
-		p.Logger.With("component", "alarms"),
+		p.ctx,
+		p.logger.With("component", "alarms"),
 		p.NotificationServerComponent,
 	)
 
 	future.Wait1(p.storageClientSet, func(s storage.AlertingClientSet) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
-			OpsNode:          p.opsNode,
 		})
 
 		p.EndpointServerComponent.Initialize(endpoints.EndpointServerConfiguration{
 			ConditionStorage: s.Conditions(),
-			OpsNode:          p.opsNode,
 			EndpointStorage:  s.Endpoints(),
 			RouterStorage:    s.Routers(),
+			ManualSync:       p.SendManualSyncRequest,
 		})
 
 		serverCfg := server.Config{
@@ -157,7 +158,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 				IncidentStorage:  s.Incidents(),
 				StateStorage:     s.States(),
 				RouterStorage:    s.Routers(),
-				OpsNode:          p.opsNode,
 				MgmtClient:       mgmtClient,
 				AdminClient:      adminClient,
 				CortexOpsClient:  cortexOpsClient,
@@ -198,11 +198,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 			util.PackService(
 				&alertops.AlertingAdmin_ServiceDesc,
-				p.opsNode,
+				p,
 			),
 			util.PackService(
 				&alertops.ConfigReconciler_ServiceDesc,
-				p.opsNode,
+				p,
 			),
 		),
 	)

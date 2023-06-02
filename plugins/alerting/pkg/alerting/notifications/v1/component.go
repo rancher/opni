@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"context"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -8,7 +9,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
@@ -23,7 +23,6 @@ type NotificationServerComponent struct {
 
 	logger *zap.SugaredLogger
 
-	opsNode          future.Future[*ops.AlertingOpsNode]
 	conditionStorage future.Future[storage.ConditionStorage]
 }
 
@@ -34,14 +33,16 @@ func NewNotificationServerComponent(
 ) *NotificationServerComponent {
 	return &NotificationServerComponent{
 		logger:           logger,
-		opsNode:          future.New[*ops.AlertingOpsNode](),
 		conditionStorage: future.New[storage.ConditionStorage](),
 	}
 }
 
 type NotificationServerConfiguration struct {
 	storage.ConditionStorage
-	OpsNode *ops.AlertingOpsNode
+}
+
+func (n *NotificationServerComponent) Name() string {
+	return "notification"
 }
 
 func (n *NotificationServerComponent) Status() server.Status {
@@ -68,13 +69,12 @@ func (n *NotificationServerComponent) Collectors() []prometheus.Collector {
 	return []prometheus.Collector{}
 }
 
-func (n *NotificationServerComponent) Sync(_ bool) error {
+func (n *NotificationServerComponent) Sync(_ context.Context, _ bool) error {
 	return nil
 }
 
 func (n *NotificationServerComponent) Initialize(conf NotificationServerConfiguration) {
 	n.InitOnce(func() {
 		n.conditionStorage.Set(conf.ConditionStorage)
-		n.opsNode.Set(conf.OpsNode)
 	})
 }

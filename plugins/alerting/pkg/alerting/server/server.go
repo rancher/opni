@@ -16,12 +16,13 @@ type InitializerF interface {
 
 type ServerComponent interface {
 	InitializerF
-
 	ComponentStatus
+	Name() string
+
 	SetConfig(config Config)
 	// Server components that manage independent dependencies
 	// should implement this method to sync them
-	Sync(enabled bool) error
+	Sync(ctx context.Context, shouldSync bool) error
 }
 
 type Config struct {

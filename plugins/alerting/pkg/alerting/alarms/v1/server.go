@@ -16,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
-	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -30,7 +29,7 @@ import (
 var _ alertingv1.AlertConditionsServer = (*AlarmServerComponent)(nil)
 
 func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
-	lg := a.logger.With("Handler", "CreateAlertCondition")
+	// lg := a.logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -40,16 +39,16 @@ func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *al
 	if err := a.conditionStorage.Get().Put(ctx, newId, req); err != nil {
 		return nil, err
 	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &corev1.Reference{Id: newId}, nil
-	}
-	if _, err := a.setupCondition(ctx, lg, req, newId); err != nil {
-		return nil, err
-	}
+	// status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if status.State != alertops.InstallState_Installed {
+	// 	return &corev1.Reference{Id: newId}, nil
+	// }
+	// if _, err := a.setupCondition(ctx, lg, req, newId); err != nil {
+	// 	return nil, err
+	// }
 	return &corev1.Reference{Id: newId}, nil
 }
 
@@ -98,21 +97,21 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 	if err := a.conditionStorage.Get().Put(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &emptypb.Empty{}, nil
-	}
-	if _, err := a.setupCondition(ctx, lg, req.UpdateAlert, req.Id.Id); err != nil {
-		return nil, err
-	}
+	// status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if status.State != alertops.InstallState_Installed {
+	// 	return &emptypb.Empty{}, nil
+	// }
+	// if _, err := a.setupCondition(ctx, lg, req.UpdateAlert, req.Id.Id); err != nil {
+	// 	return nil, err
+	// }
 	return &emptypb.Empty{}, nil
 }
 
 func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	lg := a.logger.With("Handler", "DeleteAlertCondition")
+	// lg := a.logger.With("Handler", "DeleteAlertCondition")
 	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
@@ -125,16 +124,16 @@ func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *co
 	if err := a.conditionStorage.Get().Delete(ctx, ref.Id); err != nil {
 		return nil, err
 	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &emptypb.Empty{}, nil
-	}
-	if err := a.deleteCondition(ctx, lg, existing, ref.Id); err != nil {
-		return nil, err
-	}
+	// status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if status.State != alertops.InstallState_Installed {
+	// 	return &emptypb.Empty{}, nil
+	// }
+	// if err := a.deleteCondition(ctx, lg, existing, ref.Id); err != nil {
+	// 	return nil, err
+	// }
 	return &emptypb.Empty{}, nil
 }
 

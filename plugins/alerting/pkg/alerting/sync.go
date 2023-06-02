@@ -106,9 +106,9 @@ var (
 )
 
 func (p *Plugin) createDefaultDisconnect(clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
 	if err != nil {
-		p.Logger.Errorf("failed to list alert conditions : %s", err)
+		p.logger.Errorf("failed to list alert conditions : %s", err)
 		return err
 	}
 	disconnectExists := false
@@ -123,14 +123,14 @@ func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 	if disconnectExists {
 		return nil
 	}
-	_, err = p.CreateAlertCondition(p.Ctx, DefaultDisconnectAlarm(clusterId))
+	_, err = p.CreateAlertCondition(p.ctx, DefaultDisconnectAlarm(clusterId))
 	if err != nil {
-		p.Logger.Warnf(
+		p.logger.Warnf(
 			"could not create a downstream agent disconnect condition  on cluster creation for cluster %s",
 			clusterId,
 		)
 	} else {
-		p.Logger.Debugf(
+		p.logger.Debugf(
 			"downstream agent disconnect condition on cluster creation for cluster %s is now active",
 			clusterId,
 		)
@@ -139,9 +139,9 @@ func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 }
 
 func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
 	if err != nil {
-		p.Logger.Errorf("failed to list conditions from storage : %s", err)
+		p.logger.Errorf("failed to list conditions from storage : %s", err)
 	}
 	var wg sync.WaitGroup
 	for _, cond := range conditions {
@@ -155,7 +155,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 						Id: cond.Id,
 					})
 					if err != nil {
-						p.Logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
+						p.logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
 					}
 				}()
 			}
@@ -166,9 +166,9 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 }
 
 func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
-	items, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
+	items, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
 	if err != nil {
-		p.Logger.Errorf("failed to list alert conditions : %s", err)
+		p.logger.Errorf("failed to list alert conditions : %s", err)
 		return err
 	}
 	healthExists := false
@@ -185,14 +185,14 @@ func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
 		return nil
 	}
 
-	_, err = p.CreateAlertCondition(p.Ctx, DefaultCapabilityHealthAlarm(clusterId))
+	_, err = p.CreateAlertCondition(p.ctx, DefaultCapabilityHealthAlarm(clusterId))
 	if err != nil {
-		p.Logger.Warnf(
+		p.logger.Warnf(
 			"could not create a default downstream capability health condition on cluster creation for cluster %s",
 			clusterId,
 		)
 	} else {
-		p.Logger.Debugf(
+		p.logger.Debugf(
 			"downstream agent disconnect condition on cluster creation for cluster %s is now active",
 			clusterId,
 		)
@@ -201,9 +201,9 @@ func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
 }
 
 func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.Ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
 	if err != nil {
-		p.Logger.Errorf("failed to list conditions from storage : %s", err)
+		p.logger.Errorf("failed to list conditions from storage : %s", err)
 	}
 	var wg sync.WaitGroup
 	for _, cond := range conditions {
@@ -217,7 +217,7 @@ func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId st
 						Id: cond.Id,
 					})
 					if err != nil {
-						p.Logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
+						p.logger.Errorf("failed to delete condition %s : %s", cond.Id, err)
 					}
 				}()
 			}

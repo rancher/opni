@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
@@ -25,13 +24,13 @@ type EndpointServerComponent struct {
 	server.Config
 
 	notifications *notifications.NotificationServerComponent
+	ManualSync    func(ctx context.Context, routerKeys []string, routers storage.RouterStorage)
 
 	logger *zap.SugaredLogger
 
 	endpointStorage  future.Future[storage.EndpointStorage]
 	conditionStorage future.Future[storage.ConditionStorage]
 	routerStorage    future.Future[storage.RouterStorage]
-	opsNode          future.Future[*ops.AlertingOpsNode]
 }
 
 var _ server.ServerComponent = (*EndpointServerComponent)(nil)
@@ -48,7 +47,6 @@ func NewEndpointServerComponent(
 		endpointStorage:  future.New[storage.EndpointStorage](),
 		conditionStorage: future.New[storage.ConditionStorage](),
 		routerStorage:    future.New[storage.RouterStorage](),
-		opsNode:          future.New[*ops.AlertingOpsNode](),
 	}
 }
 
@@ -56,7 +54,12 @@ type EndpointServerConfiguration struct {
 	storage.EndpointStorage
 	storage.ConditionStorage
 	storage.RouterStorage
-	OpsNode *ops.AlertingOpsNode
+
+	ManualSync func(ctx context.Context, routerKeys []string, routers storage.RouterStorage)
+}
+
+func (e *EndpointServerComponent) Name() string {
+	return "endpoint"
 }
 
 func (e *EndpointServerComponent) Status() server.Status {
@@ -79,7 +82,7 @@ func (e *EndpointServerComponent) SetConfig(conf server.Config) {
 	e.Config = conf
 }
 
-func (e *EndpointServerComponent) Sync(_ bool) error {
+func (e *EndpointServerComponent) Sync(_ context.Context, _ bool) error {
 	return nil
 }
 
@@ -92,7 +95,6 @@ func (e *EndpointServerComponent) Initialize(conf EndpointServerConfiguration) {
 		e.endpointStorage.Set(conf.EndpointStorage)
 		e.conditionStorage.Set(conf.ConditionStorage)
 		e.routerStorage.Set(conf.RouterStorage)
-		e.opsNode.Set(conf.OpsNode)
-		// e.notifications.Set(conf.notifications)
+		e.ManualSync = conf.ManualSync
 	})
 }

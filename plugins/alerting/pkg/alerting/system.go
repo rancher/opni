@@ -37,14 +37,14 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(),
 		&emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.Logger.With(
+		p.logger.With(
 			"err", err,
 		).Error("Failed to get mgmnt config")
 		os.Exit(1)
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.Logger.With(
+		p.logger.With(
 			"err", err,
 		).Error("failed to load config")
 		os.Exit(1)
@@ -61,15 +61,16 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureDriver(p.Ctx,
+		p.configureDriver(p.ctx,
 			driverutil.NewOption("alertingOptions", opt),
-			driverutil.NewOption("logger", p.Logger.Named("alerting-manager")),
+			driverutil.NewOption("logger", p.logger.Named("alerting-manager")),
 			driverutil.NewOption("subscribers", []chan []alertingClient.AlertingPeer{p.clusterNotifier}),
 		)
 	})
 	go p.handleDriverNotifications()
+	go p.runSync()
 	p.useWatchers(client)
-	<-p.Ctx.Done()
+	<-p.ctx.Done()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -79,20 +80,20 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 		err error
 	)
 	nc, err = natsutil.AcquireNATSConnection(
-		p.Ctx,
-		natsutil.WithLogger(p.Logger),
+		p.ctx,
+		natsutil.WithLogger(p.logger),
 		natsutil.WithNatsOptions([]nats.Option{
 			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
 				if s != nil {
-					p.Logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
+					p.logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
 				} else {
-					p.Logger.Warn("nats : async error outside subscription")
+					p.logger.Warn("nats : async error outside subscription")
 				}
 			}),
 		}),
 	)
 	if err != nil {
-		p.Logger.With("err", err).Error("fatal error connecting to NATs")
+		p.logger.With("err", err).Error("fatal error connecting to NATs")
 	}
 	p.natsConn.Set(nc)
 	mgr, err := p.natsConn.Get().JetStream()
@@ -104,26 +105,26 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 	p.storageClientSet.Set(b.NewClientSet())
 	// spawn a reindexing task
 	go func() {
-		err := p.storageClientSet.Get().ForceSync(p.Ctx)
+		err := p.storageClientSet.Get().ForceSync(p.ctx)
 		if err != nil {
 			panic(err)
 		}
-		status, err := p.opsNode.GetClusterStatus(p.Ctx, &emptypb.Empty{})
+		clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
 		if err != nil {
-			p.Logger.With("err", err).Error("failed to get cluster status")
+			p.logger.With("err", err).Error("failed to get cluster status")
 			return
 		}
-		if status.State == alertops.InstallState_Installed {
+		if clStatus.State == alertops.InstallState_Installed || clStatus.State == alertops.InstallState_InstallUpdating {
 			for _, comp := range p.Components() {
-				comp.Sync(true)
+				comp.Sync(p.ctx, true)
 			}
-			conf, err := p.opsNode.GetClusterConfiguration(p.Ctx, &emptypb.Empty{})
+			conf, err := p.GetClusterConfiguration(p.ctx, &emptypb.Empty{})
 			if err != nil {
-				p.Logger.With("err", err).Error("failed to get cluster configuration")
+				p.logger.With("err", err).Error("failed to get cluster configuration")
 				return
 			}
 			peers := listPeers(int(conf.GetNumReplicas()))
-			p.Logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.logger.Infof("reindexing known alerting peers to : %v", peers)
 			p.Client.SetKnownPeers(peers)
 			for _, comp := range p.Components() {
 				comp.SetConfig(server.Config{
@@ -132,7 +133,7 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 			}
 		}
 	}()
-	<-p.Ctx.Done()
+	<-p.ctx.Done()
 }
 
 func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
@@ -153,11 +154,11 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 func (p *Plugin) handleDriverNotifications() {
 	for {
 		select {
-		case <-p.Ctx.Done():
-			p.Logger.Info("shutting down cluster driver update handler")
+		case <-p.ctx.Done():
+			p.logger.Info("shutting down cluster driver update handler")
 			return
 		case knownPeers := <-p.clusterNotifier:
-			p.Logger.Infof("updating known peers : %v", knownPeers)
+			p.logger.Infof("updating known peers : %v", knownPeers)
 			p.Client.SetKnownPeers(knownPeers)
 			serverCfg := server.Config{
 				Client: p.Client,
@@ -170,8 +171,9 @@ func (p *Plugin) handleDriverNotifications() {
 }
 
 func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx, alarms.NewAgentStream())
-	clusterCrud, clusterHealthStatus, cortexBackendStatus := func() { p.watchGlobalCluster(client, cw) },
+	cw := p.newClusterWatcherHooks(p.ctx, alarms.NewAgentStream())
+	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
+		func() { p.watchGlobalCluster(client, cw) },
 		func() { p.watchGlobalClusterHealthStatus(client, alarms.NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 

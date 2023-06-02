@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -52,8 +51,8 @@ func init() {
 		}
 	}
 
-	ops.SyncInterval = time.Second * 5
-	ops.ForceSyncInterval = time.Second * 60
+	alerting.SyncInterval = time.Second * 5
+	alerting.ForceSyncInterval = time.Second * 60
 
 	alarms.DisconnectStreamEvaluateInterval = time.Second * 1
 	alarms.CapabilityStreamEvaluateInterval = time.Second * 1

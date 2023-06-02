@@ -90,17 +90,16 @@ func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option)
 	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
-			p.Logger.With(zap.String("driver", name)).Info("using cluster driver")
+			p.logger.With(zap.String("driver", name)).Info("using cluster driver")
 			driver, err := builder(ctx, opts...)
 			if err != nil {
-				p.Logger.With(
+				p.logger.With(
 					"driver", name,
 					zap.Error(err),
 				).Error("failed to initialize cluster driver")
 				return
 			}
-
-			p.opsNode.ClusterDriver.Set(driver)
+			p.clusterDriver.Set(driver)
 			break
 		}
 	}
@@ -112,7 +111,7 @@ func (p *Plugin) collectors() []prometheus.Collector {
 
 // blocking
 func (p *Plugin) watchCortexClusterStatus() {
-	lg := p.Logger.With("watcher", "cortex-cluster-status")
+	lg := p.logger.With("watcher", "cortex-cluster-status")
 	err := natsutil.NewPersistentStream(p.js.Get(), alarms.NewCortexStatusStream())
 	if err != nil {
 		panic(err)
@@ -120,7 +119,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 	// acquire cortex client
 	var adminClient cortexadmin.CortexAdminClient
 	for {
-		ctxca, ca := context.WithTimeout(p.Ctx, 5*time.Second)
+		ctxca, ca := context.WithTimeout(p.ctx, 5*time.Second)
 		acquiredClient, err := p.adminClient.GetContext(ctxca)
 		ca()
 		if err != nil {
@@ -135,11 +134,11 @@ func (p *Plugin) watchCortexClusterStatus() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-p.Ctx.Done():
+		case <-p.ctx.Done():
 			lg.Debug("closing cortex cluster status watcher...")
 			return
 		case <-ticker.C:
-			ccStatus, err := adminClient.GetCortexStatus(p.Ctx, &emptypb.Empty{})
+			ccStatus, err := adminClient.GetCortexStatus(p.ctx, &emptypb.Empty{})
 			if err != nil {
 				if e, ok := status.FromError(err); ok {
 					switch e.Code() {
@@ -162,11 +161,11 @@ func (p *Plugin) watchCortexClusterStatus() {
 			go func() {
 				cortexStatusData, err := json.Marshal(ccStatus)
 				if err != nil {
-					p.Logger.Errorf("failed to marshal cortex cluster status: %s", err)
+					p.logger.Errorf("failed to marshal cortex cluster status: %s", err)
 				}
 				_, err = p.js.Get().PublishAsync(alarms.NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
-					p.Logger.Errorf("failed to publish cortex cluster status : %s", err)
+					p.logger.Errorf("failed to publish cortex cluster status : %s", err)
 				}
 			}()
 		}
@@ -178,19 +177,19 @@ func (p *Plugin) watchGlobalCluster(
 	client managementv1.ManagementClient,
 	watcher *management.ManagementWatcherHooks[*managementv1.WatchEvent],
 ) {
-	clusterClient, err := client.WatchClusters(p.Ctx, &managementv1.WatchClustersRequest{})
+	clusterClient, err := client.WatchClusters(p.ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
-		p.Logger.Error("failed to watch clusters, exiting...")
+		p.logger.Error("failed to watch clusters, exiting...")
 		os.Exit(1)
 	}
 	for {
 		select {
-		case <-p.Ctx.Done():
+		case <-p.ctx.Done():
 			return
 		default:
 			event, err := clusterClient.Recv()
 			if err != nil {
-				p.Logger.Errorf("failed to receive cluster event : %s", err)
+				p.logger.Errorf("failed to receive cluster event : %s", err)
 				continue
 			}
 			watcher.HandleEvent(event)
@@ -261,15 +260,15 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 	if err != nil {
 		panic(err)
 	}
-	clusterStatusClient, err := client.WatchClusterHealthStatus(p.Ctx, &emptypb.Empty{})
+	clusterStatusClient, err := client.WatchClusterHealthStatus(p.ctx, &emptypb.Empty{})
 	if err != nil {
-		p.Logger.Error("failed to watch cluster health status, exiting...")
+		p.logger.Error("failed to watch cluster health status, exiting...")
 		os.Exit(1)
 	}
 	// on startup always send a manual read in case the gateway was down when the agent status changed
-	cls, err := client.ListClusters(p.Ctx, &managementv1.ListClustersRequest{})
+	cls, err := client.ListClusters(p.ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
-		p.Logger.Error("failed to list clusters, exiting...")
+		p.logger.Error("failed to list clusters, exiting...")
 		os.Exit(1)
 	}
 	for _, cl := range cls.Items {
@@ -289,22 +288,22 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 	}
 	for {
 		select {
-		case <-p.Ctx.Done():
+		case <-p.ctx.Done():
 			return
 		default:
 			clusterStatus, err := clusterStatusClient.Recv()
 			if err != nil {
-				p.Logger.Warn("failed to receive cluster health status from grpc stream, retrying...")
+				p.logger.Warn("failed to receive cluster health status from grpc stream, retrying...")
 				continue
 			}
 			clusterStatusData, err := json.Marshal(clusterStatus)
 			if err != nil {
-				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
+				p.logger.Errorf("failed to marshal cluster health status: %s", err)
 				continue
 			}
 			_, err = p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
 			if err != nil {
-				p.Logger.Errorf("failed to publish cluster health status : %s", err)
+				p.logger.Errorf("failed to publish cluster health status : %s", err)
 			}
 		}
 	}

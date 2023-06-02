@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -39,8 +38,7 @@ type AlarmServerComponent struct {
 
 	routerStorage future.Future[storage.RouterStorage]
 
-	opsNode future.Future[*ops.AlertingOpsNode]
-	js      future.Future[nats.JetStreamContext]
+	js future.Future[nats.JetStreamContext]
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -61,7 +59,6 @@ func NewAlarmServerComponent(
 		incidentStorage:  future.New[storage.IncidentStorage](),
 		stateStorage:     future.New[storage.StateStorage](),
 		routerStorage:    future.New[storage.RouterStorage](),
-		opsNode:          future.New[*ops.AlertingOpsNode](),
 		js:               future.New[nats.JetStreamContext](),
 		mgmtClient:       future.New[managementv1.ManagementClient](),
 		adminClient:      future.New[cortexadmin.CortexAdminClient](),
@@ -74,7 +71,6 @@ type AlarmServerConfiguration struct {
 	storage.IncidentStorage
 	storage.StateStorage
 	storage.RouterStorage
-	OpsNode         *ops.AlertingOpsNode
 	Js              nats.JetStreamContext
 	MgmtClient      managementv1.ManagementClient
 	AdminClient     cortexadmin.CortexAdminClient
@@ -82,6 +78,10 @@ type AlarmServerConfiguration struct {
 }
 
 var _ server.ServerComponent = (*AlarmServerComponent)(nil)
+
+func (a *AlarmServerComponent) Name() string {
+	return "alarm"
+}
 
 func (a *AlarmServerComponent) Status() server.Status {
 	return server.Status{
@@ -107,7 +107,7 @@ func (a *AlarmServerComponent) Collectors() []prometheus.Collector {
 	return []prometheus.Collector{}
 }
 
-func (a *AlarmServerComponent) Sync(enabled bool) error {
+func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
 	conds, err := a.conditionStorage.Get().List(a.ctx)
 	if err != nil {
 		return err
@@ -118,12 +118,12 @@ func (a *AlarmServerComponent) Sync(enabled bool) error {
 		cond := cond
 		go func() {
 			defer iErrGroup.Done()
-			if enabled {
-				if _, err := a.setupCondition(a.ctx, a.logger, cond, cond.Id); err != nil {
+			if shouldSync {
+				if _, err := a.setupCondition(ctx, a.logger, cond, cond.Id); err != nil {
 					iErrGroup.AddError(err)
 				}
 			} else {
-				if err := a.deleteCondition(a.ctx, a.logger, cond, cond.Id); err != nil {
+				if err := a.deleteCondition(ctx, a.logger, cond, cond.Id); err != nil {
 					iErrGroup.AddError(err)
 				}
 			}
@@ -138,7 +138,6 @@ func (a *AlarmServerComponent) Sync(enabled bool) error {
 
 func (a *AlarmServerComponent) Initialize(conf AlarmServerConfiguration) {
 	a.InitOnce(func() {
-		a.opsNode.Set(conf.OpsNode)
 		a.mgmtClient.Set(conf.MgmtClient)
 		a.adminClient.Set(conf.AdminClient)
 		a.js.Set(conf.Js)

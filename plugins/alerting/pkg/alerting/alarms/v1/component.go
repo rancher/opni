@@ -11,6 +11,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -104,7 +105,10 @@ func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 }
 
 func (a *AlarmServerComponent) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{}
+	return []prometheus.Collector{
+		metrics.AlarmActivationCounter,
+		metrics.AlarmActivationFailureCounter,
+	}
 }
 
 func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
@@ -112,25 +116,36 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error 
 	if err != nil {
 		return err
 	}
-	iErrGroup := &util.MultiErrGroup{}
-	iErrGroup.Add(len(conds))
+	eg := &util.MultiErrGroup{}
 	for _, cond := range conds {
 		cond := cond
-		go func() {
-			defer iErrGroup.Done()
-			if shouldSync {
-				if _, err := a.setupCondition(ctx, a.logger, cond, cond.Id); err != nil {
-					iErrGroup.AddError(err)
-				}
-			} else {
-				if err := a.deleteCondition(ctx, a.logger, cond, cond.Id); err != nil {
-					iErrGroup.AddError(err)
-				}
+		if shouldSync {
+			counterLabels := []string{
+				cond.GetClusterId().Id,
+				cond.GetName(),
+				cond.DatasourceName(),
+				cond.GetId(),
 			}
-		}()
+			eg.Go(func() error {
+				defer metrics.AlarmActivationCounter.WithLabelValues(
+					counterLabels...,
+				).Inc()
+				_, err := a.activateCondition(ctx, cond, cond.Id)
+				if err != nil {
+					metrics.AlarmActivationFailureCounter.WithLabelValues(
+						counterLabels...,
+					)
+				}
+				return err
+			})
+		} else {
+			eg.Go(func() error {
+				return a.teardownCondition(ctx, a.logger, cond, cond.Id)
+			})
+		}
 	}
-	iErrGroup.Wait()
-	if err := iErrGroup.Error(); err != nil {
+	eg.Wait()
+	if err := eg.Error(); err != nil {
 		return err
 	}
 	return nil

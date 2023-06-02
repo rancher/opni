@@ -62,6 +62,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/slo/query"
+	debug_exec "github.com/rancher/opni/pkg/test/exec"
 	"github.com/rancher/opni/pkg/test/freeport"
 	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	"github.com/rancher/opni/pkg/test/testdata"
@@ -85,9 +86,11 @@ import (
 	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
-var collectorWriteSync sync.Mutex
-var agentList = make(map[string]context.CancelFunc)
-var agentListMu sync.Mutex
+var (
+	collectorWriteSync sync.Mutex
+	agentList          = make(map[string]context.CancelFunc)
+	agentListMu        sync.Mutex
+)
 
 type ServicePorts struct {
 	Etcd             int `env:"ETCD_PORT"`
@@ -158,6 +161,7 @@ type Environment struct {
 	once   sync.Once
 
 	tempDir        string
+	certDir        string
 	ports          ServicePorts
 	localAgentOnce sync.Once
 
@@ -699,9 +703,11 @@ func (e *Environment) startEtcd() {
 }
 
 type cortexTemplateOptions struct {
-	HttpListenPort int
-	GrpcListenPort int
-	StorageDir     string
+	HttpListenPort           int
+	GrpcListenPort           int
+	StorageDir               string
+	AlertmanagerProxyAddress string
+	CertDir                  string
 }
 
 func (e *Environment) StartCortex(ctx context.Context) {
@@ -713,18 +719,25 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		panic(err)
 	}
 	if err := t.Execute(configFile, cortexTemplateOptions{
-		HttpListenPort: e.ports.CortexHTTP,
-		GrpcListenPort: e.ports.CortexGRPC,
-		StorageDir:     path.Join(e.tempDir, "cortex"),
+		HttpListenPort:           e.ports.CortexHTTP,
+		GrpcListenPort:           e.ports.CortexGRPC,
+		StorageDir:               path.Join(e.tempDir, "cortex"),
+		AlertmanagerProxyAddress: "https://127.0.0.1:8080/plugin_alerting/alertmanager",
+		CertDir:                  e.certDir,
 	}); err != nil {
 		panic(err)
 	}
 	configFile.Close()
-	cortexBin := filepath.Join(e.TestBin, "../../bin/opni")
+	bin := filepath.Join(e.TestBin, "../../bin/opni")
 	defaultArgs := []string{
-		"cortex", fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
+		"cortex", fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
-	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
+	var cmd *exec.Cmd
+	if os.Getenv("DEBUG_PROCESSES") != "" {
+		cmd = debug_exec.DebugCommandContext(ctx, bin, defaultArgs...)
+	} else {
+		cmd = exec.CommandContext(ctx, bin, defaultArgs...)
+	}
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
@@ -1193,7 +1206,6 @@ func (e *Environment) StartMockKubernetesMetricServer() (port int) {
 
 	reg.MustRegister(kubeMetricsIsDefined)
 
-	//mux.HandleFunc("/setKubePodState", setPhaseHandler)
 	mux.HandleFunc("/set", setObjHandler)
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		Registry: reg,
@@ -1334,6 +1346,24 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := testdata.TestData("root_ca.crt")
 	servingCertData := testdata.TestData("localhost.crt")
 	servingKeyData := testdata.TestData("localhost.key")
+	e.certDir = path.Join(e.tempDir, "gateway/certs")
+	err := os.MkdirAll(e.certDir, 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "root_ca.crt"), caCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "localhost.crt"), servingCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "localhost.key"), servingKeyData, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1426,10 +1456,8 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 					panic("unknown storage backend")
 				}),
 			Alerting: v1beta1.AlertingSpec{
-				//Endpoints:                 []string{"opni-alerting:9093"},
-				ConfigMap: "alertmanager-config",
-				Namespace: "default",
-				//StatefulSetName:           "opni-alerting-internal",
+				ConfigMap:             "alertmanager-config",
+				Namespace:             "default",
 				WorkerNodeService:     "opni-alerting",
 				WorkerStatefulSet:     "opni-alerting-internal",
 				WorkerPort:            9093,
@@ -1560,6 +1588,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	}
 	return c
 }
+
 func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")

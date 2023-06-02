@@ -35,8 +35,10 @@ type AlertingClusterManager struct {
 	alertops.UnsafeAlertingAdminServer
 }
 
-var _ drivers.ClusterDriver = (*AlertingClusterManager)(nil)
-var _ alertops.AlertingAdminServer = (*AlertingClusterManager)(nil)
+var (
+	_ drivers.ClusterDriver        = (*AlertingClusterManager)(nil)
+	_ alertops.AlertingAdminServer = (*AlertingClusterManager)(nil)
+)
 
 var defaultConfig = &alertops.ClusterConfiguration{
 	NumReplicas:             1,
@@ -194,7 +196,6 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 			args = append(args, fmt.Sprintf("--cluster.pushpull-interval=%s", conf.ClusterPushPullInterval))
 		} else {
 			args = append(args, fmt.Sprintf("--cluster.pushpull-interval=%s", "1m0s"))
-
 		}
 		if conf.ClusterSettleTimeout != "" {
 			args = append(args, fmt.Sprintf("--cluster.settle-timeout=%s", conf.ClusterSettleTimeout))
@@ -256,7 +257,6 @@ func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertop
 			return &alertops.InstallStatus{
 				State: alertops.InstallState_NotInstalled,
 			}, nil
-
 		}
 		return nil, err
 	}

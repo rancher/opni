@@ -67,7 +67,7 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
 
-	err := n.Client.PostAlarm(
+	err := n.Client.AlertClient().PostAlarm(
 		ctx,
 		client.AlertObject{
 			Id:          req.ConditionId.Id,
@@ -104,7 +104,7 @@ func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *al
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
 
-	err := n.Client.ResolveAlert(ctx, client.AlertObject{
+	err := n.Client.AlertClient().ResolveAlert(ctx, client.AlertObject{
 		Id:          req.ConditionId.Id,
 		Labels:      req.Labels,
 		Annotations: req.Annotations,
@@ -127,7 +127,7 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 	}
 
 	routingLabels := req.GetRoutingLabels()
-	err := n.Client.PostNotification(
+	err := n.Client.AlertClient().PostNotification(
 		ctx,
 		client.AlertObject{
 			Id:          lo.ValueOr(routingLabels, alertingv1.NotificationPropertyOpniUuid, uuid.New().String()),
@@ -147,7 +147,7 @@ func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req
 		return nil, err
 	}
 
-	resp, err := n.Client.ListNotificationMessages(ctx, req)
+	resp, err := n.Client.QueryClient().ListNotificationMessages(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 	}
 	req.End = timestamppb.New(req.End.AsTime().Add(consistencyInterval.AsDuration()))
 
-	resp, err := n.Client.ListAlarmMessages(ctx, req)
+	resp, err := n.Client.QueryClient().ListAlarmMessages(ctx, req)
 	if err != nil {
 		return nil, err
 	}

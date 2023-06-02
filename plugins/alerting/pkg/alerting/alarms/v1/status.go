@@ -71,12 +71,6 @@ func (a *AlarmServerComponent) checkMetricsClusterStatus(
 			Reason: "cluster does not have metrics capabilities installed",
 		}
 	}
-	if !cond.GetLastUpdated().AsTime().Before(time.Now().Add(-(60 * time.Second))) {
-		return &alertingv1.AlertStatusResponse{
-			State:  alertingv1.AlertConditionState_Pending,
-			Reason: "alarm metric dependencies are updating",
-		}
-	}
 	if status := evaluatePrometheusRuleHealth(metricsInfo.cortexRules, cond.GetId()); status != nil {
 		return status
 	}
@@ -105,8 +99,6 @@ func (a *AlarmServerComponent) checkInternalClusterStatus(clusterId, conditionId
 }
 
 func (a *AlarmServerComponent) loadStatusInfo(ctx context.Context) (*statusInfo, error) {
-	// lg := p.Logger.With("request", "loadStatusInfo")
-
 	ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 	defer ca()
 	eg, workCtx := errgroup.WithContext(ctxca)
@@ -178,59 +170,14 @@ func (a *AlarmServerComponent) loadAlertingInfo(ctx context.Context) (*alertingI
 	if err != nil {
 		return nil, err
 	}
-
-	// options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// FIXME: the alert status returned by this endpoint
-	// will not always be consistent within the HA vanilla AlertManager,
-	// move this logic to cortex AlertManager member set when applicable
-	// availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	ags, err := a.Config.Client.ListAlerts(ctx)
+	ags, err := a.Client.AlertClient().ListAlerts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
-	// 	ctx,
-	// 	availableEndpoint,
-	// 	backend.WithExpectClosure(func(resp *http.Response) error {
-	// 		if resp.StatusCode != http.StatusOK {
-	// 			return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	// 		}
-
-	// 		return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
-	// 	}))
-	// err = apiNodeGetAlerts.DoRequest()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if respAlertGroup == nil {
-	// 	return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
-	// }
-
-	// respReceiver := []backend.Receiver{}
-	// apiNodeGetReceivers := backend.NewAlertManagerReceiversClient(
-	// 	ctx,
-	// 	availableEndpoint,
-	// 	backend.WithExpectClosure(func(resp *http.Response) error {
-	// 		if resp.StatusCode != http.StatusOK {
-	// 			return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	// 		}
-	// 		return json.NewDecoder(resp.Body).Decode(&respReceiver)
-	// 	}))
-	// err = apiNodeGetReceivers.DoRequest()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if respReceiver == nil {
-	// 	return nil, shared.WithInternalServerError("cannot parse response body into expected api struct")
-	// }
-	respReceiver, err := a.Client.ListReceivers(ctx)
+	respReceiver, err := a.Client.ConfigClient().ListReceivers(ctx)
+	if err != nil {
+		return nil, err
+	}
 	allReceiverNames := lo.Map(respReceiver, func(r models.Receiver, _ int) string {
 		if r.Name == nil {
 			return ""
@@ -352,7 +299,7 @@ func statusFromLoadedReceivers(
 	if len(matchers) != 0 && len(matchingReceivers) != len(requiredReceivers) {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
-			Reason: "alarm dependencies are updating",
+			Reason: "configuration updates are scheduled activation",
 		}
 	}
 	return &alertingv1.AlertStatusResponse{
@@ -369,7 +316,7 @@ func statusFromAlertGroup(
 	if len(matchers) == 0 {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
-			Reason: "alarm dependencies are updating",
+			Reason: "configuration updates are scheduled for activation",
 		}
 	}
 	for _, group := range alertGroups {
@@ -415,7 +362,7 @@ func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *
 	if ruleList == nil {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
-			Reason: "cannot read rule state(s) from metrics backend",
+			Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
 		}
 	}
 
@@ -424,7 +371,7 @@ func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *
 			if len(group.GetRules()) == 0 {
 				return &alertingv1.AlertStatusResponse{
 					State:  alertingv1.AlertConditionState_Pending,
-					Reason: "alarm metric dependencies are updating",
+					Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
 				}
 			}
 			healthList := lo.Map(group.GetRules(), func(rule *cortexadmin.Rule, _ int) string {
@@ -436,13 +383,13 @@ func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *
 			if _, ok := health[promClient.RuleHealthBad]; ok {
 				return &alertingv1.AlertStatusResponse{
 					State:  alertingv1.AlertConditionState_Invalidated,
-					Reason: "one ore more metric dependencies are unhealthy",
+					Reason: "one or more metric dependencies are unable to be evaluated",
 				}
 			}
 			if _, ok := health[promClient.RuleHealthUnknown]; ok {
 				return &alertingv1.AlertStatusResponse{
 					State:  alertingv1.AlertConditionState_Pending,
-					Reason: "alarm metric dependencies are updating",
+					Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
 				}
 			}
 		}

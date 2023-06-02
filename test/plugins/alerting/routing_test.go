@@ -41,9 +41,9 @@ func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
 	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
-		var alertingClient client.Client
-		var alertingClient2 client.Client
-		var alertingClient3 client.Client
+		var alertingClient client.AlertingClient
+		var alertingClient2 client.AlertingClient
+		var alertingClient3 client.AlertingClient
 		When("setting namespace specs on the routing tree", func() {
 			step := "initial"
 			var router routing.OpniRouting
@@ -145,7 +145,7 @@ func BuildRoutingLogicTest(
 				defer ca()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					err := alertingClient.PostAlarm(context.TODO(), client.AlertObject{
+					err := alertingClient.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
 						Id: spec.id,
 						Labels: map[string]string{
 							ns: spec.id,
@@ -180,7 +180,7 @@ func BuildRoutingLogicTest(
 				defer ca2()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					err := alertingClient2.PostAlarm(context.TODO(), client.AlertObject{
+					err := alertingClient2.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
 						Id: spec.id,
 						Labels: map[string]string{
 							ns: spec.id,
@@ -219,7 +219,7 @@ func BuildRoutingLogicTest(
 				)
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					err := alertingClient3.PostAlarm(context.TODO(), client.AlertObject{
+					err := alertingClient3.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
 						Id: spec.id,
 						Labels: map[string]string{
 							ns: spec.id,

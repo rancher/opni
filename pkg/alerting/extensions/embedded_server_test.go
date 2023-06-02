@@ -38,7 +38,7 @@ func BuildEmbeddedServerNotificationTests(
 ) bool {
 	var webPort int
 	var opniPort int
-	var alertingClient client.Client
+	var alertingClient client.AlertingClient
 	sendMsg := func(client *http.Client, msg config.WebhookMessage, opniPort int) {
 		content, err := json.Marshal(msg)
 		Expect(err).NotTo(HaveOccurred())
@@ -54,7 +54,7 @@ func BuildEmbeddedServerNotificationTests(
 		fmt.Sprintf("http://localhost:%d", opniPort),
 	)
 	sendMsgAlertManager := func(ctx context.Context, labels, annotations map[string]string, alertManagerPort int) {
-		err := alertingClient.PostNotification(context.TODO(), client.AlertObject{
+		err := alertingClient.AlertClient().PostNotification(context.TODO(), client.AlertObject{
 			Id:          labels[alertingv1.NotificationPropertyOpniUuid],
 			Labels:      labels,
 			Annotations: annotations,
@@ -372,7 +372,7 @@ func BuildEmbeddedServerNotificationTests(
 		It("should handle fingerprints when correlating alarm incident windows to messages", func() {
 			By("verifying the alerting cluster has received unique alerts for each unique fingerprint")
 			Eventually(func() error {
-				ags, err := alertingClient.ListAlerts(context.TODO())
+				ags, err := alertingClient.AlertClient().ListAlerts(context.TODO())
 				Expect(err).To(BeNil())
 				foundFingerprints := map[string]struct{}{}
 				for _, ag := range ags {

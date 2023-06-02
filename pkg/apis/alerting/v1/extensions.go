@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -9,12 +11,15 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const UpstreamClusterId = "UPSTREAM_CLUSTER_ID"
-const EndpointTagNotifications = "notifications"
+const (
+	UpstreamClusterId        = "UPSTREAM_CLUSTER_ID"
+	EndpointTagNotifications = "notifications"
+)
 
 // Note these properties have to conform to the AlertManager label naming convention
 // https://prometheus.io/docs/alerting/latest/configuration/#labelname
@@ -124,6 +129,22 @@ func (n *Notification) Namespace() string {
 	return NotificationPropertySeverity
 }
 
+func (a *AlertCondition) Hash() (string, error) {
+	marshaler := proto.MarshalOptions{
+		Deterministic: true,
+	}
+	md := a.GetMetadata()
+	a.Metadata = nil
+	data, err := marshaler.Marshal(a)
+	a.Metadata = md
+	if err != nil {
+		return "", nil
+	}
+	hash := sha256.New()
+	hash.Write(data)
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
 func (a *AlertCondition) Sanitize() {}
 
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
@@ -154,6 +175,16 @@ func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
 
 func (a *AlertCondition) GetRoutingGoldenSignal() string {
 	return a.GetGoldenSignal().String()
+}
+
+func (a *AlertCondition) DatasourceName() string {
+	if IsInternalCondition(a) {
+		return "alerting"
+	}
+	if IsMetricsCondition(a) {
+		return "metrics"
+	}
+	return "unknown"
 }
 
 func (a *AlertCondition) header() string {
@@ -330,7 +361,7 @@ func (i *IncidentIntervals) Prune(ttl time.Duration) {
 			// if we know it ends before the known universe
 			if interval.End != nil {
 				tEnd := interval.End.AsTime()
-				if tEnd.Before(now.Add(-ttl)) { //check if we should prune it
+				if tEnd.Before(now.Add(-ttl)) { // check if we should prune it
 					pruneIdx++
 				} else { // prune the start of the interval to before the ttl
 					interval.Start = timestamppb.New(now.Add(-ttl).Add(time.Minute))
@@ -397,6 +428,7 @@ func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId stri
 	}
 	return involvedConditions
 }
+
 func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool {
 	return func(item *AlertCondition, _ int) bool {
 		if len(l.Clusters) != 0 {

@@ -1,7 +1,11 @@
 package client_test
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -17,6 +21,13 @@ import (
 	"github.com/prometheus/alertmanager/pkg/labels"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
+
+func opniAlerts(ag alertmanagerv2.AlertGroups) alertmanagerv2.AlertGroups {
+	return lo.Filter(ag, func(item *alertmanagerv2.AlertGroup, _ int) bool {
+		_, ok := item.Labels["opni_uuid"]
+		return ok
+	})
+}
 
 func BuildStatusClientTestSuite(
 	name string,
@@ -114,11 +125,13 @@ func BuildAlertAndQuerierClientTestSuite(
 			sl = silenceBuilder()
 		})
 		When("Using the alert client", func() {
-			It("should intially report an empty list of alerts", func() {
+			It("should intially report an empty list of opni alerts", func() {
 				ag, err := cl.ListAlerts(env.Context())
 				Expect(err).To(Succeed())
 				Expect(ag).NotTo(BeNil())
-				Expect(ag).To(HaveLen(0))
+
+				opniAlerts := opniAlerts(ag)
+				Expect(opniAlerts).To(HaveLen(0))
 			})
 
 			It("Should be able to post an alarm", func() {
@@ -140,13 +153,14 @@ func BuildAlertAndQuerierClientTestSuite(
 					if ag == nil {
 						return fmt.Errorf("ag is nil")
 					}
-					if len(ag) != 1 {
-						return fmt.Errorf("length of ag is not 1")
+					opniAlerts := opniAlerts(ag)
+					if len(opniAlerts) != 1 {
+						return fmt.Errorf("length of opniAlerts is not 1")
 					}
-					if len(ag[0].Alerts) != 1 {
-						return fmt.Errorf("ag[0].Alerts is not of length 1")
+					if len(opniAlerts[0].Alerts) != 1 {
+						return fmt.Errorf("opniAlerts[0].Alerts is not of length 1")
 					}
-					if ag[0].Alerts[0].Labels["opni_uuid"] != "test" {
+					if opniAlerts[0].Alerts[0].Labels["opni_uuid"] != "test" {
 						return fmt.Errorf("opni_uuid label is not test")
 					}
 					return nil
@@ -254,6 +268,7 @@ func BuildAlertAndQuerierClientTestSuite(
 					nil,
 				)
 				Expect(err).To(Succeed())
+				Expect(silenceId).NotTo(BeEmpty())
 
 				// check silence list
 				silences, err := sl.ListSilences(env.Context())
@@ -343,7 +358,6 @@ func BuildAlertAndQuerierClientTestSuite(
 				}, time.Second*15, time.Second*5).Should(Succeed())
 			})
 		})
-
 	})
 }
 
@@ -365,18 +379,94 @@ func BuildControlClientTestSuite(
 	})
 }
 
+func BuildProxyClientTestSuite(
+	name string,
+	clBuilder func() client.ProxyClient,
+) bool {
+	return Describe(fmt.Sprintf("proxy client : %s", name), Ordered, Label("integration"), func() {
+		var cl client.ProxyClient
+		BeforeAll(func() {
+			cl = clBuilder()
+		})
+		When("Using the Proxy client", func() {
+			It("should be able to list alerts", func() {
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts", nil)
+				Expect(err).To(Succeed())
+				resp, err := cl.Handle(context.TODO(), req)
+				Expect(err).To(Succeed())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				defer resp.Body.Close()
+
+				res := alertmanagerv2.GettableAlerts{}
+				err = json.NewDecoder(resp.Body).Decode(&res)
+				Expect(err).To(Succeed())
+			})
+
+			It("should be able to post alerts", func() {
+				ts := time.Now()
+				reqBody := []*alertmanagerv2.PostableAlert{
+					{
+						Annotations: map[string]string{},
+						StartsAt:    client.ToOpenApiTime(ts),
+						EndsAt:      client.ToOpenApiTime(ts.Add(time.Minute * 5)),
+						Alert: alertmanagerv2.Alert{
+							Labels: map[string]string{
+								"manual_test": "true",
+							},
+						},
+					},
+				}
+				var data bytes.Buffer
+				err := json.NewEncoder(&data).Encode(reqBody)
+				Expect(err).To(Succeed())
+				req, err := http.NewRequest(http.MethodPost, "http://localhost:5000/api/v2/alerts", bytes.NewReader(data.Bytes()))
+				Expect(err).To(Succeed())
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
+				resp, err := cl.Handle(context.TODO(), req)
+				Expect(err).To(Succeed())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			})
+
+			It("should be able to list the newly create alert", func() {
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts", nil)
+				Expect(err).To(Succeed())
+				resp, err := cl.Handle(context.TODO(), req)
+				Expect(err).To(Succeed())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				defer resp.Body.Close()
+
+				res := alertmanagerv2.GettableAlerts{}
+				err = json.NewDecoder(resp.Body).Decode(&res)
+				Expect(err).To(Succeed())
+				Expect(len(res)).To(BeNumerically(">", 0))
+
+				proxiedAlerts := lo.Filter(res, func(item *alertmanagerv2.GettableAlert, _ int) bool {
+					_, ok := item.Alert.Labels["manual_test"]
+					return ok
+				})
+
+				Expect(len(proxiedAlerts)).To(BeNumerically(">", 0))
+			})
+
+			It("should be able to list alert groups", func() {
+			})
+		})
+	})
+}
+
 func init() {
 	BuildStatusClientTestSuite(
 		"standalone alertmanager",
 		func() client.StatusClient {
-			return cl
+			return cl.StatusClient()
 		},
 	)
 
 	BuilderMemberlistClientTestSuite(
 		"standalone alertmanager",
 		func() client.MemberlistClient {
-			return cl
+			return cl.MemberlistClient()
 		},
 		1,
 	)
@@ -384,41 +474,48 @@ func init() {
 	BuildConfigClientTestSuite(
 		"standalone alertmanager",
 		func() client.ConfigClient {
-			return cl
+			return cl.ConfigClient()
 		},
 	)
 
 	BuildAlertAndQuerierClientTestSuite(
 		"standalone alertmanager",
 		func() client.AlertClient {
-			return cl
+			return cl.AlertClient()
 		},
 		func() client.SilenceClient {
-			return cl
+			return cl.SilenceClient()
 		},
 		func() client.QueryClient {
-			return cl
+			return cl.QueryClient()
 		},
 	)
 
 	BuildControlClientTestSuite(
 		"standalone alertmanager",
 		func() client.ControlClient {
-			return cl
+			return cl.ControlClient()
+		},
+	)
+
+	BuildProxyClientTestSuite(
+		"standalone alertmanager",
+		func() client.ProxyClient {
+			return cl.ProxyClient()
 		},
 	)
 
 	BuildStatusClientTestSuite(
 		"ha alertmanager",
 		func() client.StatusClient {
-			return clHA
+			return clHA.StatusClient()
 		},
 	)
 
 	BuilderMemberlistClientTestSuite(
 		"ha alertmanager",
 		func() client.MemberlistClient {
-			return clHA
+			return clHA.MemberlistClient()
 		},
 		3,
 	)
@@ -426,26 +523,33 @@ func init() {
 	BuildConfigClientTestSuite(
 		"ha alertmanager",
 		func() client.ConfigClient {
-			return clHA
+			return clHA.ConfigClient()
 		},
 	)
 
 	BuildAlertAndQuerierClientTestSuite(
 		"ha alertmanager",
 		func() client.AlertClient {
-			return clHA
+			return clHA.AlertClient()
 		},
 		func() client.SilenceClient {
-			return clHA
+			return clHA.SilenceClient()
 		},
 		func() client.QueryClient {
-			return clHA
+			return clHA.QueryClient()
 		},
 	)
 	BuildControlClientTestSuite(
 		"ha alertmanager",
 		func() client.ControlClient {
-			return clHA
+			return clHA.ControlClient()
+		},
+	)
+
+	BuildProxyClientTestSuite(
+		"ha proxy client",
+		func() client.ProxyClient {
+			return clHA.ProxyClient()
 		},
 	)
 }

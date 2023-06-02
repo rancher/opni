@@ -73,13 +73,15 @@ type TestEnvAlertingClusterDriver struct {
 	*alertops.ClusterConfiguration
 
 	alertops.UnsafeAlertingAdminServer
-	client.Client
+	client.AlertingClient
 
 	subscribers []chan []client.AlertingPeer
 }
 
-var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
-var _ alertops.AlertingAdminServer = (*TestEnvAlertingClusterDriver)(nil)
+var (
+	_ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
+	_ alertops.AlertingAdminServer   = (*TestEnvAlertingClusterDriver)(nil)
+)
 
 func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlertingClusterDriverOptions) *TestEnvAlertingClusterDriver {
 	dir := env.GenerateNewTempDirectory("alertmanager-config")
@@ -159,7 +161,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
 		})
 	}
-	l.Client.SetKnownPeers(peers)
+	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 
 	for _, subscriber := range l.subscribers {
 		subscriber <- peers
@@ -175,12 +177,12 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 	}
 	l.stateMu.RLock()
 	defer l.stateMu.RUnlock()
-	if l.Client == nil {
+	if l.AlertingClient == nil {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_NotInstalled,
 		}, nil
 	}
-	if err := l.Client.Ready(ctx); err != nil {
+	if err := l.AlertingClient.StatusClient().Ready(ctx); err != nil {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_InstallUpdating,
 		}, nil
@@ -207,7 +209,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
 	}
-	l.Client = client.NewClient(
+	l.AlertingClient = client.NewClient(
 		nil,
 		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].AlertManagerPort),
 		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort),
@@ -220,7 +222,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
 		})
 	}
-	l.Client.SetKnownPeers(peers)
+	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 
 	for _, subscriber := range l.subscribers {
 		subscriber <- peers

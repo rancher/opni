@@ -16,9 +16,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var env *test.Environment
-var cl client.Client
-var clHA client.Client
+var (
+	env  *test.Environment
+	cl   client.AlertingClient
+	clHA client.AlertingClient
+)
 
 func TestClient(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -83,7 +85,7 @@ var _ = BeforeSuite(func() {
 		fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
 	)
 
-	clHA.SetKnownPeers([]client.AlertingPeer{
+	clHA.MemberlistClient().SetKnownPeers([]client.AlertingPeer{
 		{
 			ApiAddress:      fmt.Sprintf("http://localhost:%d", haPorts.ApiPort),
 			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", haPorts.EmbeddedPort),

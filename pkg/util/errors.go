@@ -8,6 +8,21 @@ import (
 
 // MultiErrGroup
 // Best effort to run all tasks, then combines all errors
+//
+// Example:
+//
+//		var eg util.MutliErrGroup{}
+//
+//		tasks := []func() error{/* */}
+//		for _, task := range tasks {
+//		 eg.Go(func() error {
+//		    return task()
+//		 }
+//		}
+//		eg.Wait()
+//		if err := eg.Error(); err != nil {
+//		 // handle error
+//	}
 type MultiErrGroup struct {
 	errMu sync.Mutex
 	errs  []error

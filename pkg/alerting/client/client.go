@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,7 +48,7 @@ func (a *AlertObject) Validate() error {
 // A typical HA setup of prometheus operator assumes that alert sources
 // (in particular Prometheus), triggers api calls to all known peers
 // and alert status & deduplication will be handled by its memberlisted nflog.
-type client struct {
+type Client struct {
 	*http.Client
 
 	peerMu     sync.RWMutex
@@ -62,14 +60,14 @@ type client struct {
 	querierAddress string
 }
 
-var _ Client = (*client)(nil)
+var _ AlertingClient = (*Client)(nil)
 
 func NewClient(
 	httpClient *http.Client,
 	alertmanagerAddress string,
 	querierAddress string,
-) *client {
-	c := &client{
+) *Client {
+	c := &Client{
 		Client:              http.DefaultClient,
 		alertmanagerAddress: alertmanagerAddress,
 		querierAddress:      querierAddress,
@@ -87,19 +85,20 @@ func NewClient(
 // and alert status & deduplication will be handled by its memberlisted nflog.
 //
 // In our alerting client abstraction
-type Client interface {
-	MemberlistClient
-	ControlClient
-	StatusClient
-	ConfigClient
-	AlertClient
-	QueryClient
-	SilenceClient
-	ProxyClient
+type AlertingClient interface {
+	ConfigureHttp(mutateFn func(*http.Client))
+	MemberlistClient() MemberlistClient
+	ControlClient() ControlClient
+	StatusClient() StatusClient
+	ConfigClient() ConfigClient
+	AlertClient() AlertClient
+	QueryClient() QueryClient
+	SilenceClient() SilenceClient
+	ProxyClient() ProxyClient
 }
 
 type ProxyClient interface {
-	ProxyRequest(ctx context.Context, req *http.Request) (*http.Response, error)
+	Handle(ctx context.Context, req *http.Request) (*http.Response, error)
 }
 
 type ControlClient interface {
@@ -150,7 +149,43 @@ type SilenceClient interface {
 	) error
 }
 
-func (c *client) Reload(ctx context.Context) error {
+func (c *Client) ConfigureHttp(mutateFn func(*http.Client)) {
+	mutateFn(c.Client)
+}
+
+func (c *Client) MemberlistClient() MemberlistClient {
+	return c
+}
+
+func (c *Client) ControlClient() ControlClient {
+	return c
+}
+
+func (c *Client) StatusClient() StatusClient {
+	return c
+}
+
+func (c *Client) ConfigClient() ConfigClient {
+	return c
+}
+
+func (c *Client) AlertClient() AlertClient {
+	return c
+}
+
+func (c *Client) QueryClient() QueryClient {
+	return c
+}
+
+func (c *Client) SilenceClient() SilenceClient {
+	return c
+}
+
+func (c *Client) ProxyClient() ProxyClient {
+	return c
+}
+
+func (c *Client) Reload(ctx context.Context) error {
 	addrs := c.MemberPeers()
 	for _, addr := range addrs {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/-/reload", addr.ApiAddress), nil)
@@ -168,26 +203,28 @@ func (c *client) Reload(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) ProxyRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (c *Client) Handle(ctx context.Context, req *http.Request) (*http.Response, error) {
 	addrs := c.MemberPeers()
 	incomingPath := req.URL.Path
-	newPath := strings.TrimPrefix("/plugin_alerting/alertmanager", incomingPath)
-
 	for _, addr := range addrs {
-		newReq, err := http.NewRequestWithContext(ctx, req.Method, path.Join(addr.ApiAddress, newPath), req.Body)
+		newReq, err := http.NewRequestWithContext(ctx, req.Method, fmt.Sprintf("%s%s", addr.ApiAddress, incomingPath), req.Body)
 		if err != nil {
 			return nil, err
 		}
+		newReq.Header = req.Header
 		resp, err := c.Client.Do(newReq)
 		if err != nil {
-			return nil, err
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			continue
 		}
 		return resp, nil
 	}
-	return nil, fmt.Errorf("no available endpoints for proxying")
+	return nil, fmt.Errorf("request could not be successfully proxied to downstream peers")
 }
 
-func (c *client) MemberPeers() []AlertingPeer {
+func (c *Client) MemberPeers() []AlertingPeer {
 	c.peerMu.RLock()
 	defer c.peerMu.RUnlock()
 	if len(c.knownPeers) == 0 {
@@ -201,13 +238,13 @@ func (c *client) MemberPeers() []AlertingPeer {
 	return c.knownPeers
 }
 
-func (c *client) SetKnownPeers(peers []AlertingPeer) {
+func (c *Client) SetKnownPeers(peers []AlertingPeer) {
 	c.peerMu.Lock()
 	defer c.peerMu.Unlock()
 	c.knownPeers = peers
 }
 
-func (c *client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatus, error) {
+func (c *Client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatus, error) {
 	addrs := c.MemberPeers()
 	res := []alertmanagerv2.AlertmanagerStatus{}
 	errors := []error{}
@@ -244,7 +281,7 @@ func (c *client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatu
 	return res, multierr.Combine(errors...)
 }
 
-func (c *client) Ready(ctx context.Context) error {
+func (c *Client) Ready(ctx context.Context) error {
 	addrs := c.MemberPeers()
 	for _, addr := range addrs {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/-/ready", addr.ApiAddress), nil)
@@ -262,7 +299,7 @@ func (c *client) Ready(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) GetReceiver(ctx context.Context, id string) (alertmanagerv2.Receiver, error) {
+func (c *Client) GetReceiver(ctx context.Context, id string) (alertmanagerv2.Receiver, error) {
 	resp, err := c.ListReceivers(ctx)
 	if err != nil {
 		return alertmanagerv2.Receiver{}, err
@@ -278,18 +315,18 @@ func (c *client) GetReceiver(ctx context.Context, id string) (alertmanagerv2.Rec
 	return alertmanagerv2.Receiver{}, fmt.Errorf("receiver not found")
 }
 
-func (c *client) ListReceivers(ctx context.Context) (recvs []alertmanagerv2.Receiver, err error) {
+func (c *Client) ListReceivers(ctx context.Context) (recvs []alertmanagerv2.Receiver, err error) {
 	addrs := c.MemberPeers()
 	resolvedReceivers := 0
 	errors := []error{}
 	mappedReceivers := map[string]lo.Tuple2[int, alertmanagerv2.Receiver]{}
-
 	for _, addr := range addrs {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v2/receivers", addr.ApiAddress), nil)
 		if err != nil {
 			return recvs, err
 		}
 		req.Header.Set("Accept", "application/json")
+
 		resp, err := c.Client.Do(req)
 		if err != nil {
 			errors = append(errors, err)
@@ -311,7 +348,7 @@ func (c *client) ListReceivers(ctx context.Context) (recvs []alertmanagerv2.Rece
 				mappedReceivers[*r.Name] = lo.Tuple2[int, alertmanagerv2.Receiver]{A: mappedReceivers[*r.Name].A + 1, B: r}
 			}
 		}
-		resolvedReceivers += 1
+		resolvedReceivers++
 	}
 	if resolvedReceivers == 0 {
 		return nil, multierr.Combine(errors...)
@@ -323,10 +360,9 @@ func (c *client) ListReceivers(ctx context.Context) (recvs []alertmanagerv2.Rece
 	return lo.MapToSlice(positiveResults, func(k string, v lo.Tuple2[int, alertmanagerv2.Receiver]) alertmanagerv2.Receiver {
 		return v.B
 	}), nil
-
 }
 
-func (c *client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, error) {
+func (c *Client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, error) {
 	addrs := c.MemberPeers()
 	n := len(addrs)
 	res := alertmanagerv2.AlertGroups{}
@@ -348,13 +384,13 @@ func (c *client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, er
 		req.Header.Set("Accept", "application/json")
 		resp, err := c.Client.Do(req)
 		if err != nil {
-			n -= 1
+			n--
 			errors = append(errors, err)
 			continue
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			n -= 1
+			n--
 			errors = append(errors, fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 			continue
 		}
@@ -402,7 +438,7 @@ func matcherMatchesLabels(matcher *labels.Matcher, labels map[string]string) boo
 	return false
 }
 
-func (c *client) GetAlert(ctx context.Context, matchLabels []*labels.Matcher) (alertmanagerv2.GettableAlerts, error) {
+func (c *Client) GetAlert(ctx context.Context, matchLabels []*labels.Matcher) (alertmanagerv2.GettableAlerts, error) {
 	alertGroups, err := c.ListAlerts(ctx)
 	if err != nil {
 		return alertmanagerv2.GettableAlerts{}, err
@@ -418,11 +454,11 @@ func (c *client) GetAlert(ctx context.Context, matchLabels []*labels.Matcher) (a
 	return res, nil
 }
 
-func toOpenApiTime(t time.Time) strfmt.DateTime {
+func ToOpenApiTime(t time.Time) strfmt.DateTime {
 	return strfmt.DateTime(t)
 }
 
-func (c *client) PostAlarm(
+func (c *Client) PostAlarm(
 	ctx context.Context,
 	alarm AlertObject,
 ) error {
@@ -445,7 +481,7 @@ func (c *client) PostAlarm(
 		var b bytes.Buffer
 		if err := json.NewEncoder(&b).Encode(alertmanagerv2.PostableAlerts{
 			{
-				StartsAt:    toOpenApiTime(time.Now()),
+				StartsAt:    ToOpenApiTime(time.Now()),
 				Annotations: alarm.Annotations,
 				Alert: alertmanagerv2.Alert{
 					Labels: alarm.Labels,
@@ -481,7 +517,7 @@ func (c *client) PostAlarm(
 	return nil
 }
 
-func (c *client) PostNotification(
+func (c *Client) PostNotification(
 	ctx context.Context,
 	notification AlertObject,
 ) error {
@@ -502,8 +538,8 @@ func (c *client) PostNotification(
 	for _, addr := range addrs {
 		if err := json.NewEncoder(&b).Encode(alertmanagerv2.PostableAlerts{
 			{
-				StartsAt:    toOpenApiTime(t),
-				EndsAt:      toOpenApiTime(t.Add(2 * time.Minute)),
+				StartsAt:    ToOpenApiTime(t),
+				EndsAt:      ToOpenApiTime(t.Add(2 * time.Minute)),
 				Annotations: notification.Annotations,
 				Alert: alertmanagerv2.Alert{
 					Labels: notification.Labels,
@@ -532,7 +568,7 @@ func (c *client) PostNotification(
 			errors = append(errors, fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 			continue
 		}
-		notifiedInstances += 1
+		notifiedInstances++
 	}
 	if notifiedInstances == 0 {
 		return multierr.Combine(errors...)
@@ -540,7 +576,7 @@ func (c *client) PostNotification(
 	return nil
 }
 
-func (c *client) ResolveAlert(ctx context.Context, alertObject AlertObject) error {
+func (c *Client) ResolveAlert(ctx context.Context, alertObject AlertObject) error {
 	if alertObject.Id == "" {
 		return validation.Error("id is required")
 	}
@@ -554,7 +590,7 @@ func (c *client) ResolveAlert(ctx context.Context, alertObject AlertObject) erro
 	t := time.Now()
 	for _, addr := range addrs {
 		if err := json.NewEncoder(&b).Encode(alertmanagerv2.PostableAlert{
-			EndsAt:      toOpenApiTime(t.Add(-2 * time.Minute)),
+			EndsAt:      ToOpenApiTime(t.Add(-2 * time.Minute)),
 			Annotations: alertObject.Annotations,
 			Alert: alertmanagerv2.Alert{
 				Labels: alertObject.Labels,
@@ -581,7 +617,7 @@ func (c *client) ResolveAlert(ctx context.Context, alertObject AlertObject) erro
 			errors = append(errors, fmt.Errorf("unexpected status code: %d", resp.StatusCode))
 			continue
 		}
-		resolvedInstances += 1
+		resolvedInstances++
 	}
 	if resolvedInstances == 0 {
 		return multierr.Combine(errors...)
@@ -589,7 +625,7 @@ func (c *client) ResolveAlert(ctx context.Context, alertObject AlertObject) erro
 	return nil
 }
 
-func (c *client) ListSilences(ctx context.Context) (alertmanagerv2.GettableSilences, error) {
+func (c *Client) ListSilences(ctx context.Context) (alertmanagerv2.GettableSilences, error) {
 	addrs := c.MemberPeers()
 	errors := []error{}
 	resolvedSilences := 0
@@ -630,7 +666,7 @@ func (c *client) ListSilences(ctx context.Context) (alertmanagerv2.GettableSilen
 				mappedSilences[*s.ID] = lo.Tuple2[int, *alertmanagerv2.GettableSilence]{A: mappedSilences[*s.ID].A + 1, B: s}
 			}
 		}
-		resolvedSilences += 1
+		resolvedSilences++
 	}
 	if resolvedSilences == 0 {
 		return nil, multierr.Combine(errors...)
@@ -677,7 +713,7 @@ func matcherMatchesSilenceMatchers(label alertmanagerv2.Matcher, matcher *labels
 	return false
 }
 
-func (c *client) GetSilence(ctx context.Context, matchers labels.Matchers) (alertmanagerv2.GettableSilences, error) {
+func (c *Client) GetSilence(ctx context.Context, matchers labels.Matchers) (alertmanagerv2.GettableSilences, error) {
 	if len(matchers) == 0 {
 		return nil, validation.Error("matchers are required")
 	}
@@ -702,21 +738,19 @@ type postSilenceResponse struct {
 	SilenceID string `json:"silenceId"`
 }
 
-func (c *client) PostSilence(ctx context.Context, alertingObjectId string, dur time.Duration, incomingSilenceId *string) (silenceId string, err error) {
+func (c *Client) PostSilence(ctx context.Context, alertingObjectId string, dur time.Duration, incomingSilenceId *string) (silenceId string, err error) {
 	addrs := c.MemberPeers()
 	var b bytes.Buffer
 	t := time.Now()
-	errors := []error{}
-	silencedAlerts := len(addrs)
-	var response postSilenceResponse
-	for _, addr := range addrs {
-		silence := alertmanagerv2.PostableSilence{
+	reqs := make([]*http.Request, len(addrs))
+	for i, addr := range addrs {
+		reqBody := alertmanagerv2.PostableSilence{
 			ID: lo.FromPtrOr(incomingSilenceId, ""),
 			Silence: alertmanagerv2.Silence{
 				Comment:   lo.ToPtr("Silence created by Opni Admin"),
 				CreatedBy: lo.ToPtr("Opni admin"),
-				StartsAt:  lo.ToPtr(toOpenApiTime(t)),
-				EndsAt:    lo.ToPtr(toOpenApiTime(t.Add(dur))),
+				StartsAt:  lo.ToPtr(ToOpenApiTime(t)),
+				EndsAt:    lo.ToPtr(ToOpenApiTime(t.Add(dur))),
 				Matchers: alertmanagerv2.Matchers{
 					{
 						IsEqual: lo.ToPtr(true),
@@ -727,9 +761,8 @@ func (c *client) PostSilence(ctx context.Context, alertingObjectId string, dur t
 				},
 			},
 		}
-		if err := json.NewEncoder(&b).Encode(silence); err != nil {
-			errors = append(errors, err)
-			continue
+		if err := json.NewEncoder(&b).Encode(reqBody); err != nil {
+			return "", err
 		}
 		req, err := http.NewRequestWithContext(
 			ctx,
@@ -738,34 +771,20 @@ func (c *client) PostSilence(ctx context.Context, alertingObjectId string, dur t
 			bytes.NewReader(b.Bytes()),
 		)
 		if err != nil {
-			errors = append(errors, err)
-			continue
+			return "", err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.Client.Do(req)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		if resp.StatusCode != http.StatusOK {
-			errors = append(errors, fmt.Errorf("unexpected status code: %d", resp.StatusCode))
-			continue
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			errors = append(errors, err)
-			continue
-		}
-		silencedAlerts += 1
-		break // silences only need to reach one instance since they are a stateful object
+		reqs[i] = req
 	}
-	if silencedAlerts == 0 {
-		return "", multierr.Combine(errors...)
+	silenceResp, err := AtMostOne[postSilenceResponse](ctx, c.Client, reqs)
+	if err != nil {
+		return "", err
 	}
-	return response.SilenceID, nil
+	return silenceResp.SilenceID, nil
 }
 
-func (c *client) DeleteSilence(ctx context.Context, silenceId string) error {
+func (c *Client) DeleteSilence(ctx context.Context, silenceId string) error {
 	addrs := c.MemberPeers()
 	errors := []error{}
 	for _, addr := range addrs {
@@ -793,7 +812,7 @@ func (c *client) DeleteSilence(ctx context.Context, silenceId string) error {
 	return multierr.Combine(errors...)
 }
 
-func (c *client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
+func (c *Client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.ListAlarmMessageRequest) (*alertingv1.ListMessageResponse, error) {
 	listReq.Sanitize()
 	if err := listReq.Validate(); err != nil {
 		return nil, err
@@ -822,7 +841,7 @@ func (c *client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			n -= 1 // instance is unavailable
+			n-- // instance is unavailable
 			continue
 		}
 		var listResp alertingv1.ListMessageResponse
@@ -832,10 +851,10 @@ func (c *client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 		for _, msg := range listResp.Items {
 			var id string
 			if msg.Notification == nil {
-				continue //FIXME: warn
+				continue
 			}
 			if _, ok := msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]; !ok {
-				continue //FIXME: warn
+				continue
 			}
 			id = msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]
 			if curMsg, ok := mappedMsgs[id]; !ok {
@@ -859,7 +878,7 @@ func (c *client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 	}, nil
 }
 
-func (c *client) ListNotificationMessages(
+func (c *Client) ListNotificationMessages(
 	ctx context.Context,
 	listReq *alertingv1.ListNotificationRequest,
 ) (*alertingv1.ListMessageResponse, error) {
@@ -891,7 +910,7 @@ func (c *client) ListNotificationMessages(
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			n -= 1 // instance is unavailable
+			n-- // instance is unavailable
 			continue
 		}
 		var listResp alertingv1.ListMessageResponse
@@ -901,10 +920,10 @@ func (c *client) ListNotificationMessages(
 		for _, msg := range listResp.Items {
 			var id string
 			if msg.Notification == nil {
-				continue //FIXME: warn
+				continue
 			}
 			if _, ok := msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]; !ok {
-				continue //FIXME: warn
+				continue
 			}
 			id = msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]
 			if curMsg, ok := mappedMsgs[id]; !ok {

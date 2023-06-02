@@ -22,6 +22,7 @@ import (
 
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -106,7 +107,11 @@ func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option)
 }
 
 func (p *Plugin) collectors() []prometheus.Collector {
-	return []prometheus.Collector{}
+	return []prometheus.Collector{
+		metrics.SyncCycleCounter,
+		metrics.SyncCycleFailedCounter,
+		metrics.SyncCycleProcessLatency,
+	}
 }
 
 // blocking

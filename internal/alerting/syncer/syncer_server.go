@@ -41,7 +41,7 @@ type AlertManagerSyncerV1 struct {
 	serverConfig *alertingv1.SyncerConfig
 	lastSynced   *timestamppb.Timestamp
 
-	alertingClient     client.Client
+	alertingClient     client.AlertingClient
 	gatewayClient      alertops.ConfigReconcilerClient
 	remoteSyncerClient alertops.ConfigReconciler_ConnectRemoteSyncerClient
 }
@@ -92,7 +92,6 @@ func (a *AlertManagerSyncerV1) Initialize(
 		a.gatewayClient = gatewayClient
 		a.lg.Debug("acquired gateway alerting client")
 		a.connect(ctx)
-
 	})
 	go a.recvMsgs(ctx, gatewayCc)
 }
@@ -156,7 +155,6 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 						// need to setup a new stream subscription
 						break
 					}
-
 				} else if err != nil {
 					// need to setup a new stream subscription
 					a.lg.Errorf("failed to receive sync config message: %s", err)
@@ -180,14 +178,15 @@ func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *al
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not ready")
 	}
+	lg := a.lg.With("syncer-id", a.uuid, "config-path", a.serverConfig.AlertmanagerConfigPath)
 	var c *config.Config
 	if err := yaml.Unmarshal(incomingConfig.Config, &c); err != nil {
+		lg.Errorf("failed to unmarshal config: %s", err)
 		return nil, validation.Errorf("improperly formatted config : %s", err)
 	}
 	if err := os.WriteFile(a.serverConfig.AlertmanagerConfigPath, incomingConfig.GetConfig(), 0644); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to write config to file: %s", err))
 	}
-	lg := a.lg.With("syncer-id", a.uuid)
 	lg.Debug("put config request received")
 
 	retrier := backoffv2.Exponential(
@@ -199,13 +198,13 @@ func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *al
 	b := retrier.Start(ctx)
 	success := false
 	for backoffv2.Continue(b) {
-		err := a.alertingClient.Ready(ctx)
+		err := a.alertingClient.StatusClient().Ready(ctx)
 		if err != nil {
 			lg.Warnf("alerting client not yet ready: %s", err)
 			continue
 		}
 
-		err = a.alertingClient.Reload(ctx)
+		err = a.alertingClient.ControlClient().Reload(ctx)
 		if err == nil {
 			success = true
 			break

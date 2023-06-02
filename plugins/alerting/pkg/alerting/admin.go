@@ -3,17 +3,14 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"path"
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
-	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,34 +23,46 @@ var (
 	ForceSyncInterval = time.Minute * 15
 )
 
-type SyncConfig struct {
-	syncPusher      chan *alertops.SyncRequest
+type SyncController struct {
+	syncPushers     map[string]chan *alertops.SyncRequest
 	syncMu          *sync.RWMutex
 	heartbeatTicker *time.Ticker
 	forceSyncTicker *time.Ticker
 }
 
-func NewSyncConfig() SyncConfig {
-	return SyncConfig{
-		syncPusher:      make(chan *alertops.SyncRequest),
+func (s *SyncController) AddSyncPusher(LifecycleUuid string, pusher chan *alertops.SyncRequest) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	s.syncPushers[LifecycleUuid] = pusher
+}
+
+func (s *SyncController) RemoveSyncPusher(LifecycleUuid string) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	delete(s.syncPushers, LifecycleUuid)
+}
+
+func (s *SyncController) PushSyncReq(req *alertops.SyncRequest) {
+	for _, syncers := range s.syncPushers {
+		syncers <- req
+	}
+}
+
+func NewSyncController() SyncController {
+	return SyncController{
+		syncPushers:     map[string]chan *alertops.SyncRequest{},
 		syncMu:          &sync.RWMutex{},
 		heartbeatTicker: time.NewTicker(SyncInterval),
 		forceSyncTicker: time.NewTicker(ForceSyncInterval),
 	}
 }
 
-type Syncer interface {
-	alertops.ConfigReconcilerServer
-	SendManualSyncRequest()
-	CollectAndReconcile()
-	Sync()
-	ForceSync()
-}
+var (
+	_ alertops.ConfigReconcilerServer = (*Plugin)(nil)
+	_ alertops.AlertingAdminServer    = (*Plugin)(nil)
+)
 
-var _ alertops.ConfigReconcilerServer = (*Plugin)(nil)
-var _ alertops.AlertingAdminServer = (*Plugin)(nil)
-
-func (p *Plugin) GetClusterConfiguration(ctx context.Context, empty *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
+func (p *Plugin) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*alertops.ClusterConfiguration, error) {
 	ctxTimeout, ca := context.WithTimeout(ctx, 1*time.Second)
 	defer ca()
 	clDriver, err := p.clusterDriver.GetContext(ctxTimeout)
@@ -73,7 +82,7 @@ func (p *Plugin) ConfigureCluster(ctx context.Context, configuration *alertops.C
 	return driver.ConfigureCluster(ctx, configuration)
 }
 
-func (p *Plugin) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*alertops.InstallStatus, error) {
+func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
 	ctxTimeout, ca := context.WithTimeout(ctx, 1*time.Second)
 	defer ca()
 	clDriver, err := p.clusterDriver.GetContext(ctxTimeout)
@@ -97,7 +106,7 @@ func (p *Plugin) GetClusterStatus(ctx context.Context, empty *emptypb.Empty) (*a
 	return retStatus, nil
 }
 
-func (p *Plugin) InstallCluster(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+func (p *Plugin) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	driver, err := p.clusterDriver.GetContext(ctxTimeout)
@@ -137,16 +146,15 @@ func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerSer
 	if err != nil {
 		return status.Error(codes.Internal, "failed to list router keys")
 	}
-	lg.Infof("connected remote syncer")
-
-	lg.Debug("performing initial sync")
+	lg.Infof("connected remote syncer, performaing initial sync...")
 	syncReq := p.constructSyncRequest(p.ctx, routerKeys, storageClientSet.Routers())
 	err = syncerServer.Send(syncReq)
 	if err != nil {
 		lg.Error("failed to send initial sync")
 	}
 	lg.Debug("finished performing intial sync")
-
+	syncChan := make(chan *alertops.SyncRequest)
+	p.syncController.AddSyncPusher(request.LifecycleUuid, syncChan)
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -155,7 +163,7 @@ func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerSer
 		case <-syncerServer.Context().Done():
 			lg.Debug("exiting syncer loop, remote syncer shutting down")
 			return nil
-		case syncReq := <-p.syncConfig.syncPusher:
+		case syncReq := <-syncChan:
 			err := syncerServer.Send(syncReq)
 			if err != nil {
 				lg.Errorf("could not send sync request to remote syncer %s", err)
@@ -200,13 +208,13 @@ func (p *Plugin) constructSyncRequest(
 	return syncReq
 }
 
-func (p *Plugin) doSync(ctx context.Context, shouldSync bool) error {
+func (p *Plugin) doConfigSync(ctx context.Context, shouldSync bool) error {
 	if !shouldSync {
 		return nil
 	}
 	lg := p.logger.With("method", "doSync")
-	p.syncConfig.syncMu.Lock()
-	defer p.syncConfig.syncMu.Unlock()
+	p.syncController.syncMu.Lock()
+	defer p.syncController.syncMu.Unlock()
 	ctxTimeout, ca := context.WithTimeout(ctx, 5*time.Second)
 	defer ca()
 	clientSet, err := p.storageClientSet.GetContext(ctxTimeout)
@@ -214,11 +222,7 @@ func (p *Plugin) doSync(ctx context.Context, shouldSync bool) error {
 		lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 		return err
 	}
-	routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
-		util.Must(
-			url.Parse(path.Join("http://localhost:3000", shared.AlertingDefaultHookName)),
-		),
-	))
+	routerKeys, err := clientSet.Sync(ctx)
 	if err != nil {
 		lg.Errorf("failed to sync configuration in alerting clientset %s", err)
 		return err
@@ -226,18 +230,18 @@ func (p *Plugin) doSync(ctx context.Context, shouldSync bool) error {
 	if len(routerKeys) > 0 {
 		lg.Debug("sync change detected, pushing sync request to remote syncers")
 		syncReq := p.constructSyncRequest(ctx, routerKeys, clientSet.Routers())
-		p.syncConfig.syncPusher <- syncReq
+		p.syncController.PushSyncReq(syncReq)
 	}
 	return nil
 }
 
-func (p *Plugin) doForceSync(ctx context.Context, shouldSync bool) error {
+func (p *Plugin) doConfigForceSync(ctx context.Context, shouldSync bool) error {
 	if !shouldSync {
 		return nil
 	}
 	lg := p.logger.With("method", "doForceSync")
-	p.syncConfig.syncMu.Lock()
-	defer p.syncConfig.syncMu.Unlock()
+	p.syncController.syncMu.Lock()
+	defer p.syncController.syncMu.Unlock()
 	ctxTimeout, ca := context.WithTimeout(ctx, 5*time.Second)
 	defer ca()
 	clientSet, err := p.storageClientSet.GetContext(ctxTimeout)
@@ -245,11 +249,7 @@ func (p *Plugin) doForceSync(ctx context.Context, shouldSync bool) error {
 		lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 		return err
 	}
-	if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
-		util.Must(
-			url.Parse(path.Join("http://localhost:3000", shared.AlertingDefaultHookName)),
-		),
-	)); err != nil {
+	if err := clientSet.ForceSync(ctx); err != nil {
 		lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
 		return err
 	}
@@ -260,20 +260,52 @@ func (p *Plugin) doForceSync(ctx context.Context, shouldSync bool) error {
 		return err
 	}
 	syncReq := p.constructSyncRequest(p.ctx, routerKeys, routers)
-	p.syncConfig.syncPusher <- syncReq
+	p.syncController.PushSyncReq(syncReq)
 	return nil
 }
 
 type syncTask func(ctx context.Context, shouldSync bool) error
 
+func (p *Plugin) runSyncTasks(tasks []syncTask) (retErr error) {
+	lg := p.logger.With("action", "runSyncTasks")
+	start := time.Now()
+	defer func() {
+		if retErr != nil {
+			metrics.SyncCycleFailedCounter.Inc()
+		}
+		metrics.SyncCycleCounter.Inc()
+		duration := time.Since(start).Milliseconds()
+		metrics.SyncCycleProcessLatency.Observe(float64(duration))
+	}()
+	clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
+	if err != nil {
+		lg.Warnf("skipping periodic sync due to status error: %s", err)
+		retErr = err
+		return
+	}
+	shouldSync := clStatus.State == alertops.InstallState_Installed
+	lg.Info("Running periodic sync for alerting")
+	var eg util.MultiErrGroup
+	for _, task := range tasks {
+		task := task
+		eg.Go(func() error {
+			return task(p.ctx, shouldSync)
+		})
+	}
+	eg.Wait()
+	if err := eg.Error(); err != nil {
+		retErr = err
+	}
+	return
+}
+
 func (p *Plugin) runSync() {
-	lg := p.logger.With("method", "runPeriodicSync")
-	ticker := p.syncConfig.heartbeatTicker
-	longTicker := p.syncConfig.forceSyncTicker
+	ticker := p.syncController.heartbeatTicker
+	longTicker := p.syncController.forceSyncTicker
 	defer ticker.Stop()
 	defer longTicker.Stop()
-	syncTasks := []syncTask{p.doSync}
-	forceSyncTasks := []syncTask{p.doForceSync}
+	syncTasks := []syncTask{p.doConfigSync}
+	forceSyncTasks := []syncTask{p.doConfigForceSync}
 	for _, comp := range p.Components() {
 		syncTasks = append(syncTasks, comp.Sync)
 		forceSyncTasks = append(forceSyncTasks, comp.Sync)
@@ -281,48 +313,12 @@ func (p *Plugin) runSync() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			lg.Debug("exiting main sync loop")
+			p.logger.Info("exiting main sync loop")
 			return
 		case <-ticker.C:
-			clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
-			if err != nil {
-				lg.Warnf("skipping periodic sync due to status error: %s", err)
-				continue
-			}
-			shouldSync := clStatus.State == alertops.InstallState_Installed
-			lg.Info("Running periodic sync for alerting")
-			var eg util.MultiErrGroup
-			eg.Add(len(forceSyncTasks))
-			for _, task := range forceSyncTasks {
-				task := task
-				eg.Go(func() error {
-					return task(p.ctx, shouldSync)
-				})
-			}
-			eg.Wait()
-			if err := eg.Error(); err != nil {
-				lg.Errorf("force sync request failed %s", err)
-			}
+			p.runSyncTasks(syncTasks)
 		case <-longTicker.C:
-			lg.Info("Running long periodic sync for alerting")
-			clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
-			if err != nil {
-				lg.Warnf("skipping periodic sync due to status error: %s", err)
-				continue
-			}
-			shouldSync := clStatus.State == alertops.InstallState_Installed
-			var eg util.MultiErrGroup
-			eg.Add(len(forceSyncTasks))
-			for _, task := range forceSyncTasks {
-				task := task
-				eg.Go(func() error {
-					return task(p.ctx, shouldSync)
-				})
-			}
-			eg.Wait()
-			if err := eg.Error(); err != nil {
-				lg.Errorf("force sync request failed %s", err)
-			}
+			p.runSyncTasks(forceSyncTasks)
 		}
 	}
 }
@@ -332,11 +328,29 @@ func (p *Plugin) SendManualSyncRequest(
 	routerKeys []string,
 	routers storage.RouterStorage,
 ) {
-	p.syncConfig.syncMu.Lock()
-	defer p.syncConfig.syncMu.Unlock()
+	p.syncController.syncMu.Lock()
+	defer p.syncController.syncMu.Unlock()
 
 	lg := p.logger.With("method", "sendManualSyncRequest")
 	syncReq := p.constructSyncRequest(ctx, routerKeys, routers)
-	p.syncConfig.syncPusher <- syncReq
+	p.syncController.PushSyncReq(syncReq)
 	lg.Debug("sent manual sync request")
+}
+
+func (p *Plugin) ready() error {
+	for _, comp := range p.Components() {
+		if !comp.Ready() {
+			return fmt.Errorf("alerting server component '%s' is not intialized yet", comp.Name())
+		}
+	}
+	return nil
+}
+
+func (p *Plugin) healthy() error {
+	for _, comp := range p.Components() {
+		if !comp.Healthy() {
+			return fmt.Errorf("alerting server component '%s' is not intialized yet", comp.Name())
+		}
+	}
+	return nil
 }

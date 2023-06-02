@@ -26,7 +26,7 @@ type ServerComponent interface {
 }
 
 type Config struct {
-	Client client.Client
+	Client client.AlertingClient
 }
 
 type ComponentStatus interface {

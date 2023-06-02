@@ -366,9 +366,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+			AlertmanagerURL:          "http://opni-internal:8080/plugin_alerting/alertmanager",
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
+			Notifier: ruler.NotifierConfig{
+				TLS: tlsClientConfig,
+			},
 			Ring: ruler.RingConfig{
 				KVStore: kvConfig,
 			},

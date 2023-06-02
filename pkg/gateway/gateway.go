@@ -382,5 +382,6 @@ func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, 
 		MinVersion:   tls.VersionTLS12,
 		RootCAs:      caPool,
 		Certificates: []tls.Certificate{*servingCertBundle},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}, servingCertBundle.PrivateKey.(crypto.Signer), nil
 }

@@ -2,7 +2,9 @@ package alerting
 
 import (
 	"context"
+	"crypto/tls"
 
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
@@ -50,10 +52,10 @@ type Plugin struct {
 	// components       serverComponents
 	storageClientSet future.Future[storage.AlertingClientSet]
 
-	client.Client
+	client.AlertingClient
 	clusterNotifier chan []client.AlertingPeer
 	clusterDriver   future.Future[drivers.ClusterDriver]
-	syncConfig      SyncConfig
+	syncController  SyncController
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
@@ -62,19 +64,23 @@ type Plugin struct {
 	js              future.Future[nats.JetStreamContext]
 	globalWatchers  management.ConditionWatcher
 
+	gatewayConfig   future.Future[*v1beta1.GatewayConfig]
+	cortexTLSConfig future.Future[*tls.Config]
+
 	collector.CollectorServer
 
 	*notifications.NotificationServerComponent
 	*endpoints.EndpointServerComponent
 	*alarms.AlarmServerComponent
+
+	httpProxy *HttpApiServer
 }
 
-var _ alertingv1.AlertEndpointsServer = (*Plugin)(nil)
-var _ alertingv1.AlertConditionsServer = (*Plugin)(nil)
-var _ alertingv1.AlertNotificationsServer = (*notifications.NotificationServerComponent)(nil)
-
-// FIXME: no idea
-// var _ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
+var (
+	_ alertingv1.AlertEndpointsServer     = (*Plugin)(nil)
+	_ alertingv1.AlertConditionsServer    = (*Plugin)(nil)
+	_ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
+)
 
 func NewPlugin(ctx context.Context) *Plugin {
 	collector := collector.NewCollectorServer()
@@ -88,7 +94,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 		clusterNotifier: make(chan []client.AlertingPeer),
 		clusterDriver:   future.New[drivers.ClusterDriver](),
-		syncConfig:      NewSyncConfig(),
+		syncController:  NewSyncController(),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
@@ -96,14 +102,23 @@ func NewPlugin(ctx context.Context) *Plugin {
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
 
+		cortexTLSConfig: future.New[*tls.Config](),
+		gatewayConfig:   future.New[*v1beta1.GatewayConfig](),
+
 		CollectorServer: collector,
 
-		Client: client.NewClient(
+		AlertingClient: client.NewClient(
 			nil,
 			"http://opni-alerting:9093",
 			"http://opni-alerting:3000",
 		),
 	}
+	p.httpProxy = NewHttpApiServer(
+		lg.With("component", "http-proxy"),
+		p.AlertingClient,
+		p.ready,
+		p.healthy,
+	)
 	p.CollectorServer.MustRegister(p.collectors()...)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
 		p.logger.With("component", "notifications"),
@@ -132,7 +147,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		})
 
 		serverCfg := server.Config{
-			Client: p.Client,
+			Client: p.AlertingClient,
 		}
 		p.NotificationServerComponent.SetConfig(
 			serverCfg,
@@ -152,7 +167,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 			s storage.AlertingClientSet,
 			mgmtClient managementv1.ManagementClient,
 			adminClient cortexadmin.CortexAdminClient,
-			cortexOpsClient cortexops.CortexOpsClient) {
+			cortexOpsClient cortexops.CortexOpsClient,
+		) {
 			p.AlarmServerComponent.Initialize(alarms.AlarmServerConfiguration{
 				ConditionStorage: s.Conditions(),
 				IncidentStorage:  s.Incidents(),
@@ -165,13 +181,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 
 			serverCfg := server.Config{
-				Client: p.Client,
+				Client: p.AlertingClient,
 			}
 
 			p.AlarmServerComponent.SetConfig(
 				serverCfg,
 			)
-
 			p.CollectorServer.MustRegister(p.AlarmServerComponent.Collectors()...)
 		})
 	return p
@@ -181,7 +196,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpProxy))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(

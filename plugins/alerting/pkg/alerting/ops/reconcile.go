@@ -111,7 +111,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 					return
 				}
-				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),
@@ -154,7 +154,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 					return
 				}
-				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),

@@ -8,12 +8,14 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"go.uber.org/multierr"
 )
 
 func AtMostOne[Resp any](ctx context.Context, client *http.Client, reqs []*http.Request) (*Resp, error) {
 	var retErr error
 	for _, req := range reqs {
 		var workingResp Resp
+		req = req.WithContext(ctx)
 		resp, err := client.Do(req)
 		if err != nil {
 			retErr = err
@@ -49,6 +51,7 @@ func AtLeastOne[Resp any](ctx context.Context, client *http.Client, reqs []*http
 	}
 	for _, req := range reqs {
 		req := req
+		req = req.WithContext(ctx)
 		go func() {
 			var r Resp
 			resp, err := client.Do(req)
@@ -81,11 +84,12 @@ func MergePartial[Resp any](
 	ctx context.Context,
 	client *http.Client,
 	reqs []*http.Request,
-	mergeFn func(cum *Resp, next *Resp) (out *Resp),
-) (*Resp, error) {
-	var agg *Resp
-	var retErr error
-	ch := make(chan lo.Tuple2[*Resp, error], len(reqs))
+	mergeFn func(cum Resp, next Resp) (out Resp),
+) (Resp, error) {
+	var agg Resp
+	retErrs := []error{}
+	ch := make(chan lo.Tuple2[Resp, error], len(reqs))
+	numSuccess := 0
 	go func() {
 		defer close(ch)
 
@@ -93,25 +97,25 @@ func MergePartial[Resp any](
 		wg.Add(len(reqs))
 		for _, req := range reqs {
 			req := req
+			req = req.WithContext(ctx)
 			go func() {
 				defer wg.Done()
 				var r Resp
 				resp, err := client.Do(req)
 				if err != nil {
-					ch <- lo.Tuple2[*Resp, error]{A: nil, B: err}
+					ch <- lo.Tuple2[Resp, error]{A: r, B: err}
 					return
 				}
 				defer resp.Body.Close()
 				if resp.StatusCode != http.StatusOK {
-					ch <- lo.Tuple2[*Resp, error]{A: nil, B: fmt.Errorf("unexpected status code %d", resp.StatusCode)}
+					ch <- lo.Tuple2[Resp, error]{A: r, B: fmt.Errorf("unexpected status code %d", resp.StatusCode)}
 					return
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-					ch <- lo.Tuple2[*Resp, error]{A: nil, B: err}
+					ch <- lo.Tuple2[Resp, error]{A: r, B: err}
 					return
 				}
-
-				ch <- lo.Tuple2[*Resp, error]{A: &r, B: nil}
+				ch <- lo.Tuple2[Resp, error]{A: r, B: nil}
 			}()
 		}
 		wg.Wait()
@@ -121,17 +125,18 @@ func MergePartial[Resp any](
 		select {
 		case resp, ok := <-ch:
 			if resp.B != nil {
-				retErr = resp.B
+				retErrs = append(retErrs, resp.B)
 			} else {
-				if agg == nil {
+				if numSuccess == 0 {
 					agg = resp.A
 				} else {
 					agg = mergeFn(agg, resp.A)
 				}
+				numSuccess++
 			}
 			if !ok {
-				if agg == nil {
-					return nil, retErr
+				if numSuccess == 0 {
+					return agg, multierr.Combine(retErrs...)
 				}
 				return agg, nil
 			}
@@ -154,6 +159,7 @@ func MergeStrict[Resp any](
 		wg.Add(len(reqs))
 		for _, req := range reqs {
 			req := req
+			req = req.WithContext(ctx)
 			go func() {
 				defer wg.Done()
 				var r Resp

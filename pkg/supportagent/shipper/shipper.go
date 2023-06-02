@@ -9,5 +9,5 @@ import (
 type Shipper interface {
 	// Publish will publish each token in a scanner to a destination
 	// any batch processing should be handled by the shipper
-	Publish(context.Context, bufio.Scanner) error
+	Publish(context.Context, *bufio.Scanner) error
 }

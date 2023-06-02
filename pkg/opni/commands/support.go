@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/ident"
 	_ "github.com/rancher/opni/pkg/ident/supportagent"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/supportagent"
+	supportagentconfig "github.com/rancher/opni/pkg/supportagent/config"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
@@ -152,7 +152,7 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			agentConfig.Spec.GatewayAddress = endpoint
 			agentConfig.Spec.AuthData.Token = ""
 
-			err = supportagent.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
+			err = supportagentconfig.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -182,9 +182,9 @@ func BuildSupportPingCmd() *cobra.Command {
 
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
 
-			config := supportagent.MustLoadConfig(configFile, agentlg)
+			config := supportagentconfig.MustLoadConfig(configFile, agentlg)
 
-			gatewayClient, err := supportagent.GatewayClientFromConfig(ctx, config, getRetrievePassword)
+			gatewayClient, err := supportagentconfig.GatewayClientFromConfig(ctx, config, getRetrievePassword)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),

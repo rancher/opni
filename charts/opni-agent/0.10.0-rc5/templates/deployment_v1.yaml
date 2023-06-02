@@ -1,0 +1,124 @@
+{{- if or (eq .Values.agent.version "v1") .Values.logging.enabled }}
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opni-agent.fullname" . }}
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "opni-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "opni-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: opni-agent
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: agent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - agent
+          {{- if .Values.metrics.enabled }}
+            - --metrics
+          {{- end }}
+          {{- if .Values.logging.enabled }}
+            - --logging
+          {{- if .Values.events.enabled }}
+            - --events
+          {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.metrics.enabled | ternary "8080" "8081" }}
+              protocol: TCP
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+          {{- if .Values.metrics.enabled }}
+            - name: config
+              mountPath: /etc/opni
+          {{- end }}
+          {{- if .Values.logging.enabled }}
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{- if .Values.metrics.enabled }}
+        - name: config
+          secret:
+            secretName: agent-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+            defaultMode: 256
+      {{- end }}
+      {{- if .Values.logging.enabled }}
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: webhook-server-cert
+    {{- end }}
+{{- end }}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -883,6 +884,20 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 }
 
 func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
+	if name == "" {
+		resp, err := r.osClient.Indices.DeleteByID(r.ctx, index, id)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			return nil
+		}
+		if resp.IsError() {
+			return fmt.Errorf("failed to delete metadata doc: %s", resp.String())
+		}
+		return nil
+	}
 	mdDoc := types.ClusterMetadataDocUpdate{
 		Name: name,
 	}

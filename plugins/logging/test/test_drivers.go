@@ -97,6 +97,7 @@ func (d *MockManagementDriver) GetStorageClasses(context.Context) ([]string, err
 }
 
 type clusterStatus struct {
+	friendlyName string
 	enabled      bool
 	lastSyncTime time.Time
 }
@@ -134,6 +135,17 @@ func (d *MockBackendDriver) StoreCluster(_ context.Context, req *corev1.Referenc
 	d.clusters[req.GetId()] = clusterStatus{
 		enabled: true,
 	}
+	return nil
+}
+
+func (d *MockBackendDriver) StoreClusterMetadata(_ context.Context, id, name string) error {
+	cluster, ok := d.clusters[id]
+	if !ok {
+		return fmt.Errorf("cluster not found")
+	}
+
+	cluster.friendlyName = name
+	d.clusters[id] = cluster
 	return nil
 }
 

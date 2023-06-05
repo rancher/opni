@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -19,7 +18,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func (b *LoggingBackend) Status(ctx context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
+func (b *LoggingBackend) Status(ctx context.Context, req *opnicorev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
 	b.WaitForInit()
 
 	b.nodeStatusMu.RLock()

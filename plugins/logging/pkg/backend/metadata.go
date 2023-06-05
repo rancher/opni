@@ -9,7 +9,6 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"go.uber.org/zap"
 )
 
@@ -58,11 +57,7 @@ func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *manag
 		"newName", newName,
 	).Debug("cluster was renamed")
 
-	updateDoc := types.ClusterMetadataDocUpdate{
-		Name: newName,
-	}
-
-	if err := b.OpensearchManager.UpdateClusterMetadata(ctx, event.Cluster.Reference(), updateDoc); err != nil {
+	if err := b.ClusterDriver.StoreClusterMetadata(ctx, event.Cluster.GetId(), newName); err != nil {
 		b.Logger.With(
 			zap.Error(err),
 			"cluster", event.Cluster.Id,
@@ -98,4 +93,18 @@ outer:
 			b.watcher.HandleEvent(event)
 		}
 	}
+}
+
+func (b *LoggingBackend) reconcileClusterMetadata(ctx context.Context, clusters []*opnicorev1.Cluster) (retErr error) {
+	for _, cluster := range clusters {
+		err := b.ClusterDriver.StoreClusterMetadata(ctx, cluster.GetId(), cluster.Metadata.Labels[opnicorev1.NameLabel])
+		if err != nil {
+			b.Logger.With(
+				zap.Error(err),
+				"cluster", cluster.Id,
+			).Warn("could not update cluster metadata")
+			retErr = err
+		}
+	}
+	return
 }

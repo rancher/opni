@@ -120,6 +120,37 @@ func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.
 	return nil
 }
 
+func (d *KubernetesManagerDriver) StoreClusterMetadata(ctx context.Context, id, name string) error {
+	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
+	if err := d.K8sClient.List(
+		ctx,
+		loggingClusterList,
+		client.InNamespace(d.Namespace),
+		client.MatchingLabels{resources.OpniClusterID: id},
+	); err != nil {
+		return errors.ErrListingClustersFaled(err)
+	}
+
+	if len(loggingClusterList.Items) != 1 {
+		return errors.ErrInvalidList
+	}
+
+	cluster := &loggingClusterList.Items[0]
+
+	if cluster.Spec.FriendlyName == name {
+		return nil
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+		if err != nil {
+			return err
+		}
+		cluster.Spec.FriendlyName = name
+		return d.K8sClient.Update(ctx, cluster)
+	})
+}
+
 func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context, id string) error {
 	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
 	if err := d.K8sClient.List(

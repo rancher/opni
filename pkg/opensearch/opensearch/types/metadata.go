@@ -12,7 +12,8 @@ type ClusterMetadataDoc struct {
 }
 
 type MetadataUpdate struct {
-	Document ClusterMetadataDocUpdate `json:"doc,omitempty"`
+	Document         ClusterMetadataDocUpdate `json:"doc,omitempty"`
+	DocumentAsUpsert *bool                    `json:"doc_as_upsert,omitempty"`
 }
 
 type ClusterMetadataDocResponse struct {

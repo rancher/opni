@@ -881,3 +881,25 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 
 	return nil
 }
+
+func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
+	mdDoc := types.ClusterMetadataDocUpdate{
+		Name: name,
+	}
+
+	upsertRequest := types.MetadataUpdate{
+		Document:         mdDoc,
+		DocumentAsUpsert: lo.ToPtr(true),
+	}
+
+	resp, err := r.osClient.Indices.UpdateDocument(r.ctx, index, id, opensearchutil.NewJSONReader(upsertRequest))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to upsert metadata doc: %s", resp.String())
+	}
+
+	return nil
+}

@@ -250,9 +250,6 @@ var (
 		Description: "Opni preprocessing ingest pipeline",
 		Processors: []opensearchtypes.Processor{
 			{
-				OpniLoggingProcessor: &opensearchtypes.OpniProcessorConfig{},
-			},
-			{
 				OpniPreProcessor: &opensearchtypes.OpniProcessorConfig{},
 			},
 		},

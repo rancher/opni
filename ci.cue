@@ -554,18 +554,7 @@ dagger.#Plan & {
 								"-s",
 								"install",
 								"-b",
-								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(_pluginVersion)/opnipreprocessing.zip",
-							]
-						}
-					},
-					docker.#Run & {
-						command: {
-							name: "opensearch-plugin"
-							args: [
-								"-s",
-								"install",
-								"-b",
-								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/v\(client.env.PLUGIN_VERSION)/opnijsondetector.zip",
+								"https://github.com/rancher/opni-ingest-plugin/releases/download/v\(_pluginVersion)/opnipreprocessing.zip",
 							]
 						}
 					},

@@ -885,18 +885,7 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 
 func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
 	if name == "" {
-		resp, err := r.osClient.Indices.DeleteByID(r.ctx, index, id)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusNotFound {
-			return nil
-		}
-		if resp.IsError() {
-			return fmt.Errorf("failed to delete metadata doc: %s", resp.String())
-		}
-		return nil
+		return r.DeleteClusterMetadata(id, index)
 	}
 	mdDoc := types.ClusterMetadataDocUpdate{
 		Name: name,
@@ -916,5 +905,20 @@ func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
 		return fmt.Errorf("failed to upsert metadata doc: %s", resp.String())
 	}
 
+	return nil
+}
+
+func (r *Reconciler) DeleteClusterMetadata(id, index string) error {
+	resp, err := r.osClient.Indices.DeleteByID(r.ctx, index, id)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete metadata doc: %s", resp.String())
+	}
 	return nil
 }

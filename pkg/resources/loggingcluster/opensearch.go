@@ -117,6 +117,14 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		if err != nil {
 			return err
 		}
+
+		err = osReconciler.DeleteClusterMetadata(
+			r.loggingCluster.Labels[resources.OpniClusterID],
+			resources.ClusterMetadataIndexName,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {

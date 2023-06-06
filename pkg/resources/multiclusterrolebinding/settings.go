@@ -26,8 +26,6 @@ const (
 	kibanaDashboardVersionDocID = "latest"
 	kibanaDashboardVersion      = "v0.5.4"
 	kibanaDashboardVersionIndex = "opni-dashboard-version"
-
-	ClusterMetadataIndexName = "opni-cluster-metadata"
 )
 
 var (

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -879,5 +880,45 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 		return fmt.Errorf("failed to update index settings: %s", resp.String())
 	}
 
+	return nil
+}
+
+func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
+	if name == "" {
+		return r.DeleteClusterMetadata(id, index)
+	}
+	mdDoc := types.ClusterMetadataDocUpdate{
+		Name: name,
+	}
+
+	upsertRequest := types.MetadataUpdate{
+		Document:         mdDoc,
+		DocumentAsUpsert: lo.ToPtr(true),
+	}
+
+	resp, err := r.osClient.Indices.UpdateDocument(r.ctx, index, id, opensearchutil.NewJSONReader(upsertRequest))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to upsert metadata doc: %s", resp.String())
+	}
+
+	return nil
+}
+
+func (r *Reconciler) DeleteClusterMetadata(id, index string) error {
+	resp, err := r.osClient.Indices.DeleteByID(r.ctx, index, id)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete metadata doc: %s", resp.String())
+	}
 	return nil
 }

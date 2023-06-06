@@ -19,8 +19,6 @@ import (
 var (
 	ErrorMissingUserSecret = errors.New("user secret not set")
 
-	indexUser = opensearchtypes.UserSpec{}
-
 	clusterReadRole = opensearchtypes.RoleSpec{
 		RoleName: "cluster_read",
 		ClusterPermissions: []string{
@@ -40,13 +38,9 @@ var (
 	}
 )
 
-func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
-	clusterReadRole.RoleName = r.loggingCluster.Name
-	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(
-		`{"term":{"cluster_id": "%s"}}`,
-		r.loggingCluster.Labels[resources.OpniClusterID],
-	)
-
+func (r *Reconciler) ReconcileOpensearchObjects(
+	opensearchCluster *opensearchv1.OpenSearchCluster,
+) (retResult *reconcile.Result, retErr error) {
 	certMgr := certs.NewCertMgrOpensearchCertManager(
 		r.ctx,
 		certs.WithNamespace(opensearchCluster.Namespace),
@@ -64,10 +58,37 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 		return
 	}
 
-	retErr = reconciler.MaybeCreateRole(clusterReadRole)
-	if retErr != nil {
+	retResult, retErr = r.reconcileOpensearchUsers(reconciler)
+	if retErr != nil || retResult != nil {
 		return
 	}
+
+	retResult, retErr = r.reconcileFriendlyName(reconciler)
+	if retErr != nil || retResult != nil {
+		return
+	}
+
+	return
+}
+
+func (r *Reconciler) reconcileOpensearchUsers(reconciler *opensearch.Reconciler) (retResult *reconcile.Result, retErr error) {
+	clusterReadRole.RoleName = r.loggingCluster.Name
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(
+		`{"term":{"cluster_id": "%s"}}`,
+		r.loggingCluster.Labels[resources.OpniClusterID],
+	)
+
+	retErr = reconciler.MaybeCreateRole(clusterReadRole)
+
+	return
+}
+
+func (r *Reconciler) reconcileFriendlyName(reconciler *opensearch.Reconciler) (retResult *reconcile.Result, retErr error) {
+	retErr = reconciler.UpsertClusterMetadata(
+		r.loggingCluster.Labels[resources.OpniClusterID],
+		r.loggingCluster.Spec.FriendlyName,
+		resources.ClusterMetadataIndexName,
+	)
 
 	return
 }
@@ -93,6 +114,14 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		}
 
 		err = osReconciler.MaybeDeleteRole(cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		err = osReconciler.DeleteClusterMetadata(
+			r.loggingCluster.Labels[resources.OpniClusterID],
+			resources.ClusterMetadataIndexName,
+		)
 		if err != nil {
 			return err
 		}

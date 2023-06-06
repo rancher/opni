@@ -195,6 +195,21 @@ func (a *IndicesAPI) DeleteIndices(ctx context.Context, names []string) (*Respon
 	return (*Response)(res), err
 }
 
+func (a *IndicesAPI) DeleteByID(ctx context.Context, index, id string) (*Response, error) {
+	method := http.MethodDelete
+	path := generateDocumentPath(index, id)
+
+	req, err := http.NewRequest(method, path.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
+
 func (a *IndicesAPI) AsyncDeleteByQuery(ctx context.Context, indices []string, body io.Reader) (*Response, error) {
 	method := http.MethodPost
 	path := generateDeleteByQueryPath(indices)

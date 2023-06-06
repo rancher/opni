@@ -113,7 +113,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	default:
 		_, ok := r.loggingCluster.Labels[resources.OpniClusterID]
 		if ok {
-			retResult, retErr = r.ReconcileOpensearchUsers(opensearchCluster)
+			retResult, retErr = r.ReconcileOpensearchObjects(opensearchCluster)
 			if retErr != nil {
 				return
 			}

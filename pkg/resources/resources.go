@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	InternalIndexingUser = "opni-indexer"
+	InternalIndexingUser     = "opni-indexer"
+	ClusterMetadataIndexName = "opni-cluster-metadata"
 )
 
 // ComponentReconciler reconciler interface

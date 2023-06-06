@@ -136,7 +136,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	retErr = reconciler.MaybeCreateIndex(ClusterMetadataIndexName, clusterMetadataIndexSettings)
+	retErr = reconciler.MaybeCreateIndex(resources.ClusterMetadataIndexName, clusterMetadataIndexSettings)
 	if retErr != nil {
 		return
 	}

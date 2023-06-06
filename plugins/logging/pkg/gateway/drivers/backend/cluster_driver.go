@@ -20,6 +20,7 @@ const (
 type ClusterDriver interface {
 	GetInstallStatus(context.Context) InstallState
 	StoreCluster(context.Context, *corev1.Reference) error
+	StoreClusterMetadata(context.Context, string, string) error
 	DeleteCluster(context.Context, string) error
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)

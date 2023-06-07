@@ -4,7 +4,7 @@ Alerting Integration with OpenSearch
 
 ## Summary:
 
-Allow end-users to specify OpenSearch queries as an alarm type in Opni-Alerting
+Allow end-users to be alerted on opensearch data as an alarm type in Opni-Alerting
 
 ## Use case:
 
@@ -98,7 +98,10 @@ Alerting uses `LoadMonitor` to create the OpenSearch dependencies required to ac
 
 `LoadDestination` wraps the [create destination api](https://opensearch.org/docs/2.4/observing-your-data/alerting/api/#create-destination)
 
-### OpenSearch Query Alarm
+### OpenSearch Query Alarm(s)
+
+We should implement a base proto message for generic opensearch monitor queries.
+This should not be exposed to end users in the UI. Eventually, we may be able to proxy opensearch query builders in the UI for easily building these.
 
 ```proto
 message AlertConditionOpensearchQuery{
@@ -137,20 +140,53 @@ The logic for creating & translating these fields will go into `pkg/alerting/dri
 For this to opensearch alarm to work we also need to accept open search alerts via an API, to forward them to alertmanager:
 
 ```proto
-service TriggerAlerts {
+service NotificationService {
   // ...
 
-  rpc TriggerWithHook(google.protobuf.Any) returns (google.protobuf.Empty) {}
+  rpc ProxyOpenSearchTrigger(google.protobuf.Any) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      post : "/opensearch/alarms"
+    }
+  }
 }
 ```
 
-the `TriggerWithHook` api parses the `opensearch webhook destination` message JSON contents inside the API, and posts the information to the AlertManager cluster.
+the `ProxyOpenSearchTrigger` api parses the `opensearch webhook destination` message JSON contents inside the API, and posts the information to the AlertManager cluster.
+
+#### Log Anomaly Count Alarm
+
+An easy to use template for the base alert condition that alerts the user when the log anomaly count is breached based on their configuration `AlertConditionOpenSearchQuery`
+
+```proto
+message AlertConditionLogAnomalyCount{
+  core.Reference clusterId = 1;
+  google.protobuf.Duration interval = 2;
+  uint64 count = 3;
+  // ...
+  // open to extension for resource filters
+}
+```
+
+#### Log Keyword Count Alarm
+
+An easy to use template for the base alert condition that alerts the user when the keyword count they specify is breached `AlertConditonOpenSearchQuery`
+
+```proto
+message AlertConditionLogKeywordCount {
+  core.Reference clusterId = 1;
+  google.protobuf.Duration interval = 2;
+  uint64 count = 3;
+  repeated string keywordsRe = 4;
+  // ...
+  // open to extension for resource filters
+}
+```
 
 ### Alerting Gateway plugin miscellaneous changes
 
 - Embed the `LoggingAdminV2` client in the alerting gateway plugin in the existing `func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface)`
 
-- `AlertConditionStatus` & `ListStatusAlertCondition` APIs should return `Invalidated` state for Opensearch alarms if the associated monitor doesn't exist in Opensearch. The `Reason` field on the returned state can include more details.
+- `AlertConditionStatus` & `ListStatusAlertCondition` APIs should return `Pending` state for Opensearch alarms if the associated monitor doesn't exist in Opensearch. The `Reason` field on the returned state can include more details.
 
 - `AlertConditionStatus` & `ListStatusAlertCondition` APIs need to also get the state from the Monitors using `MonitorStatus`, with the following mappings `OpenSearch -> OpniAlerting`:
 
@@ -159,9 +195,14 @@ the `TriggerWithHook` api parses the `opensearch webhook destination` message JS
   - `Active` ----> `Firing`
   - `Error`/`Deleted` ----> `Invalidated` (when something is deleted through a source other than opni alerting, or something is severely wrong). The `Reason` field should specify additional details
 
-- The alerting push stream responsible for pushing updates to dependencies also needs to act on some opensearch data:
-  - it needs to ensure that the appropriate `webhook opensearch destination` always exists and all opensearch alarms point to that destination id
-  - read silence metadata on opensearch alarms and apply `SilenceMonitor` until the `end` timestamp in the silence metadata
+#### Sync loop
+
+alerting sync loop needs to handle some additional sync tasks
+
+- if logging is enabled, check the opni-alerting webhook that points `ProxyOpenSearchTrigger` always exists
+
+- if an opensearch monitor is acknowledged, but not silenced, silence it in opni-alerting
+- if a logging alarm condition is silenced, but not acknowledged in opensearch, acknowledge it
 
 ### UI/UX
 

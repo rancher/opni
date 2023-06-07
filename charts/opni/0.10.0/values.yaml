@@ -1,0 +1,92 @@
+replicaCount: 1
+
+image:
+  repository: rancher/opni
+  pullPolicy: Always
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+volumes: []
+volumeMounts: []
+
+disableUsage: false
+
+gateway:
+  enabled: true
+  # Service type for the external gateway APIs
+  serviceType: LoadBalancer
+  # Gateway hostname (required if gateway.enabled is true)
+  hostname: ""
+  # Auth provider config (required if gateway.enabled is true)
+  auth:
+    # Noauth provider:
+    provider: noauth
+
+    # Openid provider:
+    # provider: openid
+    # openid:
+    #   {} # see docs
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraVolumeMounts: []
+  serviceAnnotations: {}
+
+  # Alerting
+  alerting:
+    enabled: false
+  s3:
+    internal: {}
+
+opni-prometheus-crd:
+  enabled: false # set to false if `opni-agent.kube-prometheus-stack.enabled` is true
+
+opni-agent:
+  enabled: true
+  address: opni
+  fullnameOverride: opni-agent
+  bootstrapInCluster:
+    enabled: true
+    managementAddress: opni-internal:11090
+  volumeMounts:
+    - name: local-agent-key
+      mountPath: /run/opni-agent/keyring/session-attribute.json
+      subPath: session-attribute.json
+      readOnly: true
+  volumes:
+    - name: local-agent-key
+      secret:
+        secretName: opni-local-agent-key
+        defaultMode: 256
+        items:
+          - key: session-attribute.json
+            path: session-attribute.json
+  agent:
+    version: v2
+  kube-prometheus-stack:
+    enabled: true
+  disableUsage: false
+
+global:
+  cattle:
+    systemDefaultRegistry: ""
+  storageClass: ""
+
+kube-prometheus-stack:
+  grafana:
+    enabled: false # disable the default Grafana deployment
+  prometheus:
+    enabled: false # disable the default Prometheus deployment
+  alertmanager:
+    enabled: false # disable the default Alertmanager deployment

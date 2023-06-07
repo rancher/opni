@@ -1,0 +1,34 @@
+annotations:
+  catalog.cattle.io/auto-install: opni-crd=match
+  catalog.cattle.io/display-name: Opni
+  catalog.cattle.io/os: linux
+  catalog.rancher.io/namespace: opni-cluster-system
+  catalog.rancher.io/release-name: opni
+apiVersion: v2
+appVersion: 0.10.0
+dependencies:
+- condition: opni-agent.kube-prometheus-stack.enabled
+  name: kube-prometheus-stack
+  repository: file://./charts/kube-prometheus-stack
+- condition: opni-agent.enabled
+  name: opni-agent
+  repository: file://./charts/opni-agent
+- condition: opni-prometheus-crd.enabled
+  name: opni-prometheus-crd
+  repository: file://./charts/opni-prometheus-crd
+description: Multi Cluster Observability with AIOps
+icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
+keywords:
+- opni
+- monitoring
+- logging
+- rancher
+- observability
+maintainers:
+- email: joe.kralicky@suse.com
+  name: Joe Kralicky
+- email: dan.bason@suse.com
+  name: Dan Bason
+name: opni
+type: application
+version: 0.10.0

@@ -60,11 +60,6 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 		}, b.updateClusterMetadata)
 
 		go func() {
-			if err := b.waitForOpensearchClient(context.Background()); err != nil {
-				b.Logger.With(zap.Error(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
-				return
-			}
-
 			clusters, err := b.MgmtClient.ListClusters(context.Background(), &managementv1.ListClustersRequest{})
 			if err != nil {
 				b.Logger.With(

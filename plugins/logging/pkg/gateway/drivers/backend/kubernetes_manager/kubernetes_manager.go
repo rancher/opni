@@ -85,7 +85,7 @@ func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) backend.
 	return backend.Installed
 }
 
-func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference) error {
+func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference, friendlyName string) error {
 	labels := map[string]string{
 		resources.OpniClusterID: req.GetId(),
 	}
@@ -111,6 +111,7 @@ func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.
 		},
 		Spec: opnicorev1beta1.LoggingClusterSpec{
 			OpensearchClusterRef: d.OpensearchCluster,
+			FriendlyName:         friendlyName,
 		},
 	}
 

@@ -131,9 +131,10 @@ func (d *MockBackendDriver) GetInstallStatus(_ context.Context) backenddriver.In
 	}
 }
 
-func (d *MockBackendDriver) StoreCluster(_ context.Context, req *corev1.Reference) error {
+func (d *MockBackendDriver) StoreCluster(_ context.Context, req *corev1.Reference, friendlyName string) error {
 	d.clusters[req.GetId()] = clusterStatus{
-		enabled: true,
+		enabled:      true,
+		friendlyName: friendlyName,
 	}
 	return nil
 }

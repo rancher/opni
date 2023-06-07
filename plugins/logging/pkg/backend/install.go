@@ -49,7 +49,14 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
-	if err := b.ClusterDriver.StoreCluster(ctx, req.GetCluster()); err != nil {
+	cluster, err := b.StorageBackend.GetCluster(ctx, req.GetCluster())
+	if err != nil {
+		return nil, err
+	}
+
+	name := cluster.GetMetadata().GetLabels()[opnicorev1.NameLabel]
+
+	if err := b.ClusterDriver.StoreCluster(ctx, req.GetCluster(), name); err != nil {
 		if !req.IgnoreWarnings {
 			return &capabilityv1.InstallResponse{
 				Status:  capabilityv1.InstallResponseStatus_Error,
@@ -59,7 +66,7 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
-	_, err := b.StorageBackend.UpdateCluster(ctx, req.Cluster,
+	_, err = b.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)),
 	)
 	if err != nil {

@@ -19,7 +19,7 @@ const (
 
 type ClusterDriver interface {
 	GetInstallStatus(context.Context) InstallState
-	StoreCluster(context.Context, *corev1.Reference) error
+	StoreCluster(context.Context, *corev1.Reference, string) error
 	StoreClusterMetadata(context.Context, string, string) error
 	DeleteCluster(context.Context, string) error
 	SetClusterStatus(context.Context, string, bool) error

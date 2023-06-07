@@ -7,6 +7,5 @@ import (
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
 	_ "github.com/magefile/mage"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
-	_ "go.opentelemetry.io/collector/cmd/builder"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 )

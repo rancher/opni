@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni/dagger/config"
 	"github.com/rancher/opni/dagger/helm"
 	"github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 )
 
 type Builder struct {
@@ -37,8 +38,10 @@ type Builder struct {
 func main() {
 	var configs []string
 	var showConfig bool
+	var outputFormat string
 	pflag.StringSliceVar(&configs, "config", nil, "Path to one or more config files")
 	pflag.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
+	pflag.StringVar(&outputFormat, "output-format", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
 	configFlagSet := config.BuildFlagSet(reflect.TypeOf(config.BuilderConfig{}))
 	pflag.CommandLine.SortFlags = false
 	pflag.CommandLine.AddFlagSet(configFlagSet)
@@ -71,6 +74,21 @@ func main() {
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
 
 	// Load from environment
+
+	// First load from some known environment variables as defaults
+	for _, sc := range config.SpecialCaseEnvVars(client) {
+		str, ok := os.LookupEnv(sc.EnvVar)
+		if !ok {
+			continue
+		}
+		for _, key := range sc.Keys {
+			val := sc.Converter(key, str)
+			fmt.Printf("[config] setting %s=<secret> from env %s\n", key, sc.EnvVar)
+			k.Set(key, val)
+		}
+	}
+
+	// Then load from standard environment variables (these take priority)
 	must(k.Load(env.ProviderWithValue("CI_", ".", func(envvar string, val string) (string, any) {
 		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(envvar, "CI_")), "_", ".")
 		if strings.Contains(key, "secret") {
@@ -91,7 +109,7 @@ func main() {
 			Result:           &builderConfig,
 		},
 	}); err != nil {
-		printConfig(k)
+		printConfig(k, outputFormat)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -106,13 +124,13 @@ func main() {
 		msg = strings.ReplaceAll(msg, `BuilderConfig.`, "")
 		fmt.Fprintln(os.Stderr, msg)
 		if showConfig {
-			printConfig(k)
+			printConfig(k, outputFormat)
 			os.Exit(1)
 		}
 	}
 
 	if showConfig {
-		printConfig(k)
+		printConfig(k, outputFormat)
 		os.Exit(0)
 	}
 
@@ -131,6 +149,7 @@ func main() {
 				"cmd/",
 				"config/",
 				"controllers/",
+				"images/",
 				"internal/alerting/",
 				"internal/bench/",
 				"internal/codegen/",
@@ -164,6 +183,17 @@ func main() {
 }
 
 func (b *Builder) run(ctx context.Context) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return b.runInTreeBuilds(ctx)
+	})
+	eg.Go(func() error {
+		return b.runOutOfTreeBuilds(ctx)
+	})
+	return eg.Wait()
+}
+
+func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	goBase := b.goBase()
 	nodeBase := b.nodeBase()
 	alpineBase := b.alpineBase()
@@ -171,8 +201,10 @@ func (b *Builder) run(ctx context.Context) error {
 	goBuild := goBase.
 		Pipeline("Go Build").
 		WithMountedDirectory(b.workdir, b.sources).
+		WithEnvVariable("CGO_ENABLED", "1").
+		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
-		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`})
+		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"})
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
@@ -236,52 +268,99 @@ func (b *Builder) run(ctx context.Context) error {
 		WithExec(mage("charts")).
 		WithoutEnvVariable("MAGE_SYMLINK_CACHED_BINARY")
 
+	// export and push artifacts
+
+	var eg errgroup.Group
+
 	if b.Charts.Git.Export {
-		charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
-		charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
+		eg.Go(func() error {
+			charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
+			charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
+			return nil
+		})
 	}
 
 	if b.Charts.Git.Push {
-		if err := helm.PublishToChartsRepo(ctx, b.client, helm.PublishOpts{
-			Target:         b.Charts.Git,
-			BuildContainer: charts,
-			Caches:         b.caches,
-		}); err != nil {
-			return fmt.Errorf("publishing helm charts: %w", err)
-		}
+		eg.Go(func() error {
+			return helm.PublishToChartsRepo(ctx, b.client, helm.PublishOpts{
+				Target:         b.Charts.Git,
+				BuildContainer: charts,
+				Caches:         b.caches,
+			})
+		})
 	}
 
-	if b.Charts.OCI.Push {
-		if err := helm.Push(ctx, b.client, helm.PushOpts{
-			Target: b.Charts.OCI,
-			Dir:    charts.Directory(filepath.Join(b.workdir, "assets")),
-			Charts: []string{"opni/opni-0.10.0-rc4.tgz"},
-		}); err != nil {
-			return fmt.Errorf("pushing helm chart images: %w", err)
-		}
+	if len(b.Charts.OCI.Push) > 0 {
+		eg.Go(func() error {
+			return helm.Push(ctx, b.client, helm.PushOpts{
+				Target: b.Charts.OCI,
+				Dir:    charts.Directory(filepath.Join(b.workdir, "assets")),
+				Charts: b.Charts.OCI.Push,
+			})
+		})
 	}
 
-	var minimalRef string
-	if b.Images.OpniMinimal.Push {
-		var err error
-		minimalRef, err = minimalImage.
-			WithRegistryAuth(b.Images.OpniMinimal.RegistryAuth()).
-			Publish(ctx, b.Images.OpniMinimal.Ref())
+	eg.Go(func() error {
+		var minimalRef string
+		if b.Images.OpniMinimal.Push {
+			var err error
+			minimalRef, err = minimalImage.
+				WithRegistryAuth(b.Images.OpniMinimal.RegistryAuth()).
+				Publish(ctx, b.Images.OpniMinimal.Ref())
+			if err != nil {
+				return fmt.Errorf("failed to publish image: %w", err)
+			}
+			fmt.Println("published image:", minimalRef)
+		}
+
+		if b.Images.Opni.Push {
+			if minimalRef != "" {
+				fullImage = fullImage.
+					WithEnvVariable("OPNI_MINIMAL_IMAGE_REF", minimalRef).
+					WithLabel("opni.io.minimal-image-ref", minimalRef)
+			}
+			ref, err := fullImage.
+				WithRegistryAuth(b.Images.Opni.RegistryAuth()).
+				Publish(ctx, b.Images.Opni.Ref())
+			if err != nil {
+				return fmt.Errorf("failed to publish image: %w", err)
+			}
+			fmt.Println("published image:", ref)
+		}
+
+		return nil
+	})
+
+	return eg.Wait()
+}
+
+func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
+	opensearchDashboards := b.BuildOpensearchDashboardsImage()
+	opensearch := b.BuildOpensearchImage()
+	updateSvc := b.BuildOpensearchUpdateServiceImage()
+
+	if b.Images.Opensearch.Dashboards.Push {
+		ref, err := opensearchDashboards.
+			WithRegistryAuth(b.Images.Opensearch.Dashboards.RegistryAuth()).
+			Publish(ctx, b.Images.Opensearch.Dashboards.Ref())
 		if err != nil {
 			return fmt.Errorf("failed to publish image: %w", err)
 		}
-		fmt.Println("published image:", minimalRef)
+		fmt.Println("published image:", ref)
 	}
-
-	if b.Images.Opni.Push {
-		if minimalRef != "" {
-			fullImage = fullImage.
-				WithEnvVariable("OPNI_MINIMAL_IMAGE_REF", minimalRef).
-				WithLabel("opni.io.minimal-image-ref", minimalRef)
+	if b.Images.Opensearch.Opensearch.Push {
+		ref, err := opensearch.
+			WithRegistryAuth(b.Images.Opensearch.Opensearch.RegistryAuth()).
+			Publish(ctx, b.Images.Opensearch.Opensearch.Ref())
+		if err != nil {
+			return fmt.Errorf("failed to publish image: %w", err)
 		}
-		ref, err := fullImage.
-			WithRegistryAuth(b.Images.Opni.RegistryAuth()).
-			Publish(ctx, b.Images.Opni.Ref())
+		fmt.Println("published image:", ref)
+	}
+	if b.Images.Opensearch.UpdateService.Push {
+		ref, err := updateSvc.
+			WithRegistryAuth(b.Images.Opensearch.UpdateService.RegistryAuth()).
+			Publish(ctx, b.Images.Opensearch.UpdateService.Ref())
 		if err != nil {
 			return fmt.Errorf("failed to publish image: %w", err)
 		}

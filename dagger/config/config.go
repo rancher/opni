@@ -6,8 +6,57 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
+	"github.com/mitchellh/copystructure"
 	"github.com/spf13/pflag"
 )
+
+type SpecialCaseEnv struct {
+	EnvVar    string
+	Keys      []string
+	Converter func(k, v string) any
+}
+
+func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
+	fn := func(k, v string) any {
+		return client.SetSecret(k, v)
+	}
+
+	return []SpecialCaseEnv{
+		{
+			EnvVar: "DOCKER_USERNAME",
+			Keys: []string{
+				"images.opni.auth.username",
+				"images.minimal.auth.username",
+				"images.opensearch.opensearch.auth.username",
+				"images.opensearch.dashboards.auth.username",
+				"images.opensearch.update-service.auth.username",
+				"charts.oci.auth.username",
+			},
+			Converter: func(_, v string) any {
+				return v
+			},
+		},
+		{
+			EnvVar: "DOCKER_PASSWORD",
+			Keys: []string{
+				"images.opni.auth.secret",
+				"images.minimal.auth.secret",
+				"images.opensearch.opensearch.auth.secret",
+				"images.opensearch.dashboards.auth.secret",
+				"images.opensearch.update-service.auth.secret",
+				"charts.oci.auth.secret",
+			},
+			Converter: fn,
+		},
+		{
+			EnvVar: "GH_TOKEN",
+			Keys: []string{
+				"charts.git.auth.secret",
+			},
+			Converter: fn,
+		},
+	}
+}
 
 type BuilderConfig struct {
 	Images ImagesConfig `koanf:"images"`
@@ -16,8 +65,9 @@ type BuilderConfig struct {
 }
 
 type ImagesConfig struct {
-	Opni        ImageTarget `koanf:"opni"`
-	OpniMinimal ImageTarget `koanf:"minimal"`
+	Opni        ImageTarget      `koanf:"opni"`
+	OpniMinimal ImageTarget      `koanf:"minimal"`
+	Opensearch  OpensearchConfig `koanf:"opensearch"`
 }
 
 type ImageTarget struct {
@@ -40,9 +90,9 @@ type ChartsConfig struct {
 }
 
 type OCIChartTarget struct {
-	Push bool       `koanf:"push"`
-	Repo string     `koanf:"repo" validate:"required_if=Push true"`
-	Auth AuthConfig `koanf:"auth" validate:"required_if=Push true"`
+	Push []string   `koanf:"push"`
+	Repo string     `koanf:"repo" validate:"required_with=Push"`
+	Auth AuthConfig `koanf:"auth" validate:"required_with=Push"`
 }
 
 type ChartTarget struct {
@@ -51,6 +101,18 @@ type ChartTarget struct {
 	Repo   string     `koanf:"repo" validate:"required_if=Push true"`
 	Branch string     `koanf:"branch" validate:"required_if=Push true"`
 	Auth   AuthConfig `koanf:"auth" validate:"required_if=Push true"`
+}
+
+type OpensearchConfig struct {
+	Opensearch    ImageTarget `koanf:"opensearch"`
+	Dashboards    ImageTarget `koanf:"dashboards"`
+	UpdateService ImageTarget `koanf:"update-service"`
+
+	Build struct {
+		DashboardsVersion string `koanf:"dashboards-version" validate:"required_with=Opensearch Dashboards"`
+		OpensearchVersion string `koanf:"opensearch-version" validate:"required_with=Opensearch"`
+		PluginVersion     string `koanf:"plugin-version" validate:"required_with=Opensearch Dashboards"`
+	} `koanf:"build"`
 }
 
 func BuildFlagSet(t reflect.Type, prefix ...string) *pflag.FlagSet {
@@ -68,6 +130,13 @@ func BuildFlagSet(t reflect.Type, prefix ...string) *pflag.FlagSet {
 		switch kind := field.Type.Kind(); kind {
 		case reflect.String:
 			fs.String(flagName, "", tagValue)
+		case reflect.Slice:
+			switch elemKind := field.Type.Elem().Kind(); elemKind {
+			case reflect.String:
+				fs.StringSlice(flagName, nil, tagValue)
+			default:
+				panic("unimplemented: []" + elemKind.String())
+			}
 		case reflect.Bool:
 			fs.Bool(flagName, false, tagValue)
 		case reflect.Struct:
@@ -102,4 +171,10 @@ type Caches struct {
 	Mage        func() (string, *dagger.CacheVolume)
 	Yarn        func() (string, *dagger.CacheVolume)
 	NodeModules func() (string, *dagger.CacheVolume)
+}
+
+func init() {
+	copystructure.Copiers[reflect.TypeOf(dagger.Secret{})] = func(v any) (any, error) {
+		return v, nil
+	}
 }

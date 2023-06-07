@@ -1,16 +1,18 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"dagger.io/dagger"
+	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/v2"
+	"github.com/rancher/opni/dagger/config"
 	"github.com/rancher/opni/dagger/images"
-	"golang.org/x/sync/errgroup"
 )
 
 func (b *Builder) bin(paths ...string) string {
@@ -69,18 +71,6 @@ func yarn[S string | []string](target S, opts ...dagger.ContainerWithExecOpts) (
 	return args, opts[0]
 }
 
-func sync(ctx context.Context, eg *errgroup.Group, pipelines ...*dagger.Container) {
-	for _, pipeline := range pipelines {
-		pipeline := pipeline
-		eg.Go(func() error {
-			if _, err := pipeline.Sync(ctx); err != nil {
-				return err
-			}
-			return nil
-		})
-	}
-}
-
 func must(err error) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -88,17 +78,59 @@ func must(err error) {
 	}
 }
 
-func printConfig(k *koanf.Koanf) {
+func printConfig(k *koanf.Koanf, outputFormat string) {
+	var data []byte
+	var err error
+	if outputFormat != "table" {
+		k = k.Copy()
+		for _, key := range k.Keys() {
+			if strings.Contains(key, "secret") {
+				k.Delete(key)
+			}
+		}
+	}
+	switch outputFormat {
+	case "table":
+		printConfigTable(k)
+		return
+	case "json":
+		data, err = k.Marshal(json.Parser())
+	case "yaml":
+		data, err = k.Marshal(yaml.Parser())
+	case "toml":
+		data, err = k.Marshal(toml.Parser())
+	default:
+		fmt.Fprintf(os.Stderr, "unknown output format: %s\n", outputFormat)
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error marshaling config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(string(data))
+}
+
+func printConfigTable(k *koanf.Koanf) {
 	keys := k.Keys()
 	values := k.All()
 	valueTypes := make(map[string]string)
 	envVars := make(map[string]string)
 	var longestKey, longestType, longestValue, longestEnv int
+	specialCaseEnvs := config.SpecialCaseEnvVars(nil)
 	for _, key := range keys {
 		if len(key) > longestKey {
 			longestKey = len(key)
 		}
 		env := fmt.Sprintf("CI_%s", strings.ToUpper(strings.ReplaceAll(key, ".", "_")))
+	OUTER:
+		for _, sc := range specialCaseEnvs {
+			for _, k := range sc.Keys {
+				if k == key {
+					env = fmt.Sprintf("%s, %s", env, sc.EnvVar)
+					break OUTER
+				}
+			}
+		}
 		if len(env) > longestEnv {
 			longestEnv = len(env)
 		}
@@ -110,7 +142,7 @@ func printConfig(k *koanf.Koanf) {
 			if value != nil {
 				values[key] = "<secret>"
 			} else {
-				values[key] = "<secret> (unset)"
+				values[key] = ""
 			}
 			continue
 		}
@@ -139,5 +171,4 @@ func printConfig(k *koanf.Koanf) {
 
 	// print the footer
 	fmt.Printf("%s-+-%s-+-%s-+-%s\n", strings.Repeat("-", longestKey), strings.Repeat("-", longestType), strings.Repeat("-", longestValue), strings.Repeat("-", longestEnv))
-
 }

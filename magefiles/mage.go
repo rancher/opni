@@ -9,19 +9,19 @@ import (
 )
 
 func init() {
-	if _, ok := os.LookupEnv("MAGE_SYMLINK_CACHED_BINARY"); ok {
-		name, err := os.Executable()
+	if target, ok := os.LookupEnv("MAGE_SYMLINK_CACHED_BINARY"); ok {
+		x, err := os.Executable()
 		if err != nil {
 			panic(err)
 		}
-		basename := filepath.Base(name)
-		if basename == "latest" {
+		basename := filepath.Base(x)
+		if basename == target {
 			return
 		}
-		dir := filepath.Dir(name)
-		target := filepath.Join(dir, "latest")
+		dir := filepath.Dir(x)
+		target := filepath.Join(dir, target)
 		os.Remove(target)
-		if err := os.Link(name, target); err != nil {
+		if err := os.Symlink(x, target); err != nil {
 			panic(err)
 		}
 	}

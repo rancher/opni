@@ -11,7 +11,7 @@ func NodeBase(client *dagger.Client) *dagger.Container {
 	return client.
 		Container().
 		Pipeline("Node Base Image").
-		From("node:14")
+		From("node:14.20.0")
 }
 
 func GoBase(client *dagger.Client) *dagger.Container {

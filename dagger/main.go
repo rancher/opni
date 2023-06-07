@@ -4,13 +4,25 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"reflect"
+	"strings"
 
 	"dagger.io/dagger"
+	"github.com/go-playground/validator/v10"
+	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/posflag"
+	"github.com/knadh/koanf/providers/structs"
+	"github.com/knadh/koanf/v2"
+	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/dagger/config"
 	"github.com/rancher/opni/dagger/helm"
-	"github.com/rancher/opni/dagger/images"
-	"golang.org/x/sync/errgroup"
+	"github.com/spf13/pflag"
 )
 
 type Builder struct {
@@ -23,39 +35,89 @@ type Builder struct {
 }
 
 func main() {
-	conf := config.BuilderConfig{
-		Opni: config.ImageTarget{
-			Repo: "docker.io/rancher/opni",
-			Tag:  "latest",
-		},
-		OpniMinimal: config.ImageTarget{
-			Repo:      "docker.io/rancher/opni-minimal",
-			TagSuffix: "-minimal",
-		},
-		HelmOCI: config.ImageTarget{
-			Repo: "ghcr.io/rancher",
-		},
-	}
-	fs := conf.FlagSet()
-	if err := fs.Parse(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
+	var configs []string
+	var showConfig bool
+	pflag.StringSliceVar(&configs, "config", nil, "Path to one or more config files")
+	pflag.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
+	configFlagSet := config.BuildFlagSet(reflect.TypeOf(config.BuilderConfig{}))
+	pflag.CommandLine.SortFlags = false
+	pflag.CommandLine.AddFlagSet(configFlagSet)
+	pflag.Parse()
 
-	if conf.Opni.Tag != "" && conf.OpniMinimal.Tag == "" {
-		conf.OpniMinimal.Tag = conf.Opni.Tag
+	k := koanf.NewWithConf(koanf.Conf{
+		Delim:       ".",
+		StrictMerge: true,
+	})
+
+	// Load Defaults
+	must(k.Load(structs.Provider(config.BuilderConfig{}, "koanf"), nil))
+
+	// Load from config file
+	for _, conf := range configs {
+		switch path.Ext(conf) {
+		case ".yaml":
+			k.Load(file.Provider(conf), yaml.Parser())
+		case ".json":
+			k.Load(file.Provider(conf), json.Parser())
+		case ".toml":
+			k.Load(file.Provider(conf), toml.Parser())
+		default:
+			fmt.Fprintf(os.Stderr, "unsupported config file type: %s\n", conf)
+			os.Exit(1)
+		}
 	}
 
 	ctx := context.Background()
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
-	if err != nil {
+
+	// Load from environment
+	must(k.Load(env.ProviderWithValue("CI_", ".", func(envvar string, val string) (string, any) {
+		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(envvar, "CI_")), "_", ".")
+		if strings.Contains(key, "secret") {
+			fmt.Printf("[config] setting %s=<secret> from env %s\n", key, envvar)
+			return key, client.SetSecret(key, val)
+		}
+		fmt.Printf("[config] setting %s=%s from env %s\n", key, val, envvar)
+		return key, val
+	}), nil))
+
+	must(k.Load(posflag.Provider(configFlagSet, ".", k), nil))
+
+	var builderConfig config.BuilderConfig
+	if err := k.UnmarshalWithConf("", nil, koanf.UnmarshalConf{
+		DecoderConfig: &mapstructure.DecoderConfig{
+			WeaklyTypedInput: false,
+			ErrorUnused:      true,
+			Result:           &builderConfig,
+		},
+	}); err != nil {
+		printConfig(k)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	conf.LoadSecretsFromEnv(client)
+	v := validator.New()
+	v.RegisterTagNameFunc(func(sf reflect.StructField) string {
+		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
+	})
+	err = v.Struct(builderConfig)
+	if err != nil {
+		msg := err.Error()
+		msg = strings.ReplaceAll(msg, `BuilderConfig.`, "")
+		fmt.Fprintln(os.Stderr, msg)
+		if showConfig {
+			printConfig(k)
+			os.Exit(1)
+		}
+	}
+
+	if showConfig {
+		printConfig(k)
+		os.Exit(0)
+	}
+
 	builder := &Builder{
-		BuilderConfig: conf,
+		BuilderConfig: builderConfig,
 		ctx:           ctx,
 		client:        client,
 
@@ -109,6 +171,7 @@ func (b *Builder) run(ctx context.Context) error {
 	goBuild := goBase.
 		Pipeline("Go Build").
 		WithMountedDirectory(b.workdir, b.sources).
+		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`})
 
 	nodeBuild := nodeBase.
@@ -151,6 +214,12 @@ func (b *Builder) run(ctx context.Context) error {
 		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
 		WithExec([]string{"golangci-lint", "run"})
 
+	if b.Lint {
+		if _, err := lint.Sync(ctx); err != nil {
+			return err
+		}
+	}
+
 	fullImage := alpineBase.
 		Pipeline("Full Image").
 		WithFile("/usr/bin/opni", opni.File(b.bin("opni"))).
@@ -160,151 +229,66 @@ func (b *Builder) run(ctx context.Context) error {
 		Pipeline("Minimal Image").
 		WithFile("/usr/bin/opni", minimal.File(b.bin("opni-minimal")))
 
-	if b.HelmOCI.Enabled || b.Helm.Enabled {
-		charts := goBuild.
-			Pipeline("Charts").
-			WithFile(b.ciTarget("charts")).
-			WithEnvVariable("MAGE_SYMLINK_CACHED_BINARY", "1").
-			WithExec(mage("charts"))
+	charts := goBuild.
+		Pipeline("Charts").
+		WithFile(b.ciTarget("charts")).
+		WithEnvVariable("MAGE_SYMLINK_CACHED_BINARY", "charts").
+		WithExec(mage("charts")).
+		WithoutEnvVariable("MAGE_SYMLINK_CACHED_BINARY")
 
-		if b.Export {
-			charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
-			charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
-		}
+	if b.Charts.Git.Export {
+		charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
+		charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
+	}
 
-		if b.Push {
-			if b.HelmOCI.Enabled {
-				if err := helm.Push(ctx, b.client, helm.PushOptions{
-					Target: b.HelmOCI,
-					Dir:    charts.Directory(filepath.Join(b.workdir, "assets")),
-					Charts: []string{"opni/opni-0.10.0-rc4.tgz"},
-				}); err != nil {
-					return fmt.Errorf("pushing helm chart images: %w", err)
-				}
-			}
-			if b.Helm.Enabled {
-				if err := helm.PublishToChartsRepo(ctx, b.client, helm.PublishOptions{
-					Target:         b.Helm,
-					BuildContainer: charts,
-					Caches:         b.caches,
-				}); err != nil {
-					return fmt.Errorf("publishing helm charts: %w", err)
-				}
-			}
+	if b.Charts.Git.Push {
+		if err := helm.PublishToChartsRepo(ctx, b.client, helm.PublishOpts{
+			Target:         b.Charts.Git,
+			BuildContainer: charts,
+			Caches:         b.caches,
+		}); err != nil {
+			return fmt.Errorf("publishing helm charts: %w", err)
 		}
 	}
 
-	{
-		eg, ctx := errgroup.WithContext(ctx)
-		if b.Lint {
-			sync(ctx, eg, lint)
-		}
-		if !b.Push {
-			if b.Opni.Enabled {
-				sync(ctx, eg, fullImage)
-			}
-			if b.OpniMinimal.Enabled {
-				sync(ctx, eg, minimalImage)
-			}
-		}
-		if err := eg.Wait(); err != nil {
-			return err
+	if b.Charts.OCI.Push {
+		if err := helm.Push(ctx, b.client, helm.PushOpts{
+			Target: b.Charts.OCI,
+			Dir:    charts.Directory(filepath.Join(b.workdir, "assets")),
+			Charts: []string{"opni/opni-0.10.0-rc4.tgz"},
+		}); err != nil {
+			return fmt.Errorf("pushing helm chart images: %w", err)
 		}
 	}
 
-	if b.Push {
-		var minimalRef string
-		if b.OpniMinimal.Enabled {
-			var err error
-			minimalRef, err = minimalImage.Publish(ctx, fmt.Sprintf("%s:%s%s", b.OpniMinimal.Repo, b.OpniMinimal.Tag, b.OpniMinimal.TagSuffix))
-			if err != nil {
-				return fmt.Errorf("failed to publish image: %w", err)
-			}
-			fmt.Println("published image:", minimalRef)
+	var minimalRef string
+	if b.Images.OpniMinimal.Push {
+		var err error
+		minimalRef, err = minimalImage.
+			WithRegistryAuth(b.Images.OpniMinimal.RegistryAuth()).
+			Publish(ctx, b.Images.OpniMinimal.Ref())
+		if err != nil {
+			return fmt.Errorf("failed to publish image: %w", err)
 		}
+		fmt.Println("published image:", minimalRef)
+	}
 
-		if b.Opni.Enabled {
-			ref, err := fullImage.
+	if b.Images.Opni.Push {
+		if minimalRef != "" {
+			fullImage = fullImage.
 				WithEnvVariable("OPNI_MINIMAL_IMAGE_REF", minimalRef).
-				WithLabel("opni.io.minimal-image-ref", minimalRef).
-				Publish(ctx, fmt.Sprintf("%s:%s%s", b.Opni.Repo, b.Opni.Tag, b.Opni.TagSuffix))
-			if err != nil {
-				return fmt.Errorf("failed to publish image: %w", err)
-			}
-			fmt.Println("published image:", ref)
+				WithLabel("opni.io.minimal-image-ref", minimalRef)
 		}
-		return nil
+		ref, err := fullImage.
+			WithRegistryAuth(b.Images.Opni.RegistryAuth()).
+			Publish(ctx, b.Images.Opni.Ref())
+		if err != nil {
+			return fmt.Errorf("failed to publish image: %w", err)
+		}
+		fmt.Println("published image:", ref)
 	}
 
 	return nil
-}
-
-func (b *Builder) bin(paths ...string) string {
-	return filepath.Join(append([]string{b.workdir, "bin"}, paths...)...)
-}
-
-func (b *Builder) nodeBase() *dagger.Container {
-	return images.NodeBase(b.client).
-		WithMountedCache(b.caches.Yarn()).
-		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
-		WithWorkdir(filepath.Join(b.workdir, "web"))
-}
-
-func (b *Builder) goBase() *dagger.Container {
-	return images.GoBase(b.client).
-		WithMountedCache(b.caches.Mage()).
-		WithMountedCache(b.caches.GoBuild()).
-		WithMountedCache(b.caches.GoMod()).
-		WithMountedCache(b.caches.GoBin()).
-		WithWorkdir(b.workdir)
-}
-
-func (b *Builder) alpineBase() *dagger.Container {
-	return images.AlpineBase(b.client, images.WithPackages(
-		"tzdata",
-		"bash",
-		"bash-completion",
-		"curl",
-		"tini",
-	))
-}
-
-func (b *Builder) ciTarget(name string) (string, *dagger.File) {
-	return filepath.Join(b.workdir, "magefiles/targets", name+".go"),
-		b.sources.File(filepath.Join("magefiles/targets/ci", name+".go"))
-}
-
-func mage(target string, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {
-	if len(opts) == 0 {
-		opts = append(opts, dagger.ContainerWithExecOpts{})
-	}
-	return []string{"mage", "-v", target}, opts[0]
-}
-
-func yarn[S string | []string](target S, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {
-	if len(opts) == 0 {
-		opts = append(opts, dagger.ContainerWithExecOpts{})
-	}
-	var args []string
-	switch target := any(target).(type) {
-	case string:
-		args = []string{"yarn", target}
-	case []string:
-		args = append([]string{"yarn"}, target...)
-	}
-	return args, opts[0]
-}
-
-func sync(ctx context.Context, eg *errgroup.Group, pipelines ...*dagger.Container) {
-	for _, pipeline := range pipelines {
-		pipeline := pipeline
-		eg.Go(func() error {
-			if _, err := pipeline.Sync(ctx); err != nil {
-				return err
-			}
-			return nil
-		})
-	}
 }
 
 func (b *Builder) SetupCaches() {

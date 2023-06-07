@@ -1,0 +1,113 @@
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+agent:
+  # agent version: "v1" or "v2"
+  version: v2
+
+image:
+  repository: rancher/opni
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+  pullPolicy: Always
+
+# v1 only
+metrics:
+  enabled: false
+  insecure: false
+  prometheusAgent:
+    enabled: true
+    rbac: true
+
+logging:
+  enabled: false
+  insecure: false
+  tracing: false
+  disableOpensearchTLSVerify: false
+  disableBootstrap: false
+  provider: rke
+  jobTTL: 0
+
+# v1 only
+events:
+  enabled: true
+
+# logLevel: debug
+# profiling: true
+
+podAnnotations: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  {}
+  # requests:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # limits:
+  #   cpu: "1"
+  #   memory: "1Gi"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+disableUsage: false
+
+# If the following values are set, the agent-config secret will be created.
+# Otherwise, it can be manually created using `opni bootstrap`
+
+# Bootstrap token
+token: ""
+# Gateway public key pin
+pin: ""
+# Gateway address
+address: ""
+
+# v2 only
+persistence:
+  # mode: pvc
+  # clusters without persistent storage can use a hostPath volume
+  mode: hostPath
+  # hostDirectoryPath: /var/lib/opni/plugins
+
+
+bootstrapInCluster:
+  # If enabled, the agent will bootstrap itself automatically by interacting
+  # directly with the management API. Use this when running the agent in the
+  # same cluster as the gateway.
+  enabled: false
+  # The address of the internal management api (name.namespace.svc:port)
+  managementAddress: ""
+
+kube-prometheus-stack:
+  enabled: true
+  grafana:
+    enabled: false # disable the default Grafana deployment
+  prometheus:
+    enabled: false # disable the default Prometheus deployment
+  alertmanager:
+    enabled: false # disable the default Alertmanager deployment
+
+global:
+  cattle:
+    systemDefaultRegistry: ""
+  storageClass: ""

@@ -2,45 +2,12 @@ package backend
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"time"
 
-	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"go.uber.org/zap"
 )
-
-func (b *LoggingBackend) waitForOpensearchClient(ctx context.Context) error {
-	b.WaitForInit()
-
-	expBackoff := backoff.Exponential(
-		backoff.WithMaxRetries(0),
-		backoff.WithMinInterval(5*time.Second),
-		backoff.WithMaxInterval(1*time.Minute),
-		backoff.WithMultiplier(1.1),
-	).Start(ctx)
-
-CHECK:
-	for {
-		select {
-		case <-expBackoff.Done():
-			return fmt.Errorf("context cancelled before client was set")
-		case <-expBackoff.Next():
-			b.OpensearchManager.Lock()
-			client := b.OpensearchManager.Client
-			b.OpensearchManager.Unlock()
-			if client != nil {
-				break CHECK
-			} else {
-				b.Logger.Errorf("opensearch client not set, waiting")
-			}
-		}
-	}
-
-	return nil
-}
 
 func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *managementv1.WatchEvent) error {
 	newName, oldName := event.Cluster.Metadata.Labels[opnicorev1.NameLabel], event.Previous.Metadata.Labels[opnicorev1.NameLabel]

@@ -1,0 +1,15 @@
+annotations:
+  catalog.cattle.io/display-name: Opni Agent
+  catalog.cattle.io/os: linux
+  catalog.rancher.io/namespace: opni-system
+  catalog.rancher.io/release-name: opni-agent
+apiVersion: v2
+appVersion: 0.10.0
+dependencies:
+- condition: kube-prometheus-stack.enabled
+  name: kube-prometheus-stack
+  repository: file://./charts/kube-prometheus-stack
+description: Opni Agent
+name: opni-agent
+type: application
+version: 0.10.0

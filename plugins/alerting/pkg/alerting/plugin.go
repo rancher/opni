@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
+	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"go.uber.org/zap"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -72,6 +73,8 @@ type Plugin struct {
 	*endpoints.EndpointServerComponent
 	*alarms.AlarmServerComponent
 
+	node *node_backend.AlertingNodeBackend
+
 	httpProxy *HttpApiServer
 }
 
@@ -103,6 +106,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
+
+		node: node_backend.NewAlertingNodeBackend(),
 
 		gatewayConfig: future.New[*v1beta1.GatewayConfig](),
 
@@ -190,6 +195,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
+var (
+	_ alertingv1.AlertEndpointsServer     = (*Plugin)(nil)
+	_ alertingv1.AlertConditionsServer    = (*Plugin)(nil)
+	_ alertingv1.AlertNotificationsServer = (*Plugin)(nil)
+)
+
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
@@ -219,6 +230,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 		),
 	)
+
+	// TODO : when we enable alerting agent, uncomment stream
+	// scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

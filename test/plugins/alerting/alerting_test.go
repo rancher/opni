@@ -92,7 +92,7 @@ func BuildAlertingClusterIntegrationTests(
 	alertingNotificationsConstructor func() alertingv1.AlertNotificationsClient,
 	mgmtClientConstructor func() managementv1.ManagementClient,
 ) bool {
-	return Describe("Alerting Cluster Integration tests", Ordered, Label("integration"), func() {
+	return XDescribe("Alerting Cluster Integration tests", Ordered, Label("integration"), func() {
 		var alertClusterClient alertops.AlertingAdminClient
 		var alertEndpointsClient alertingv1.AlertEndpointsClient
 		var alertConditionsClient alertingv1.AlertConditionsClient

@@ -14,3 +14,7 @@ func All(ctx context.Context) {
 
 	mg.SerialCtxDeps(ctx, Generate.All, Build.All)
 }
+
+var Aliases = map[string]any{
+	"test": Test.Test,
+}

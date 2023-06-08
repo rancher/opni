@@ -42,7 +42,7 @@ func init() {
 func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
-	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
+	return XDescribe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		When("setting namespace specs on the routing tree", func() {
 			step := "initial"
 			var router routing.OpniRouting

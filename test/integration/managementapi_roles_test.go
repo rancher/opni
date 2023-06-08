@@ -98,7 +98,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 		},
 		)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("Unknown desc = missing required field: id"))
+		Expect(err.Error()).To(ContainSubstring("InvalidArgument desc = missing required field: id"))
 	})
 
 	It("can create and get a role without a cluster ID", func() {

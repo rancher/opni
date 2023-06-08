@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
-	"github.com/go-playground/validator/v10"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -114,19 +113,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	v := validator.New()
-	v.RegisterTagNameFunc(func(sf reflect.StructField) string {
-		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
-	})
-	err = v.Struct(builderConfig)
-	if err != nil {
+	if err := config.Validate(&builderConfig); err != nil {
 		msg := err.Error()
 		msg = strings.ReplaceAll(msg, `BuilderConfig.`, "")
 		fmt.Fprintln(os.Stderr, msg)
-		if showConfig {
-			printConfig(k, outputFormat)
-			os.Exit(1)
-		}
+		printConfig(k, outputFormat)
+		os.Exit(1)
 	}
 
 	if showConfig {
@@ -248,6 +240,16 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	if b.Lint {
 		if _, err := lint.Sync(ctx); err != nil {
+			return err
+		}
+	}
+
+	test := archives.
+		Pipeline("Test").
+		WithExec(mage("test"))
+
+	if b.Test {
+		if _, err := test.Sync(ctx); err != nil {
 			return err
 		}
 	}

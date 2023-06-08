@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
+	"github.com/go-playground/validator/v10"
 	"github.com/mitchellh/copystructure"
 	"github.com/spf13/pflag"
 )
@@ -62,6 +63,7 @@ type BuilderConfig struct {
 	Images ImagesConfig `koanf:"images"`
 	Charts ChartsConfig `koanf:"charts"`
 	Lint   bool         `koanf:"lint"`
+	Test   bool         `koanf:"test"`
 }
 
 type ImagesConfig struct {
@@ -81,7 +83,7 @@ type ImageTarget struct {
 type AuthConfig struct {
 	Username string         `koanf:"username"`
 	Email    string         `koanf:"email"`
-	Secret   *dagger.Secret `koanf:"secret" validate:"required"`
+	Secret   *dagger.Secret `koanf:"secret"`
 }
 
 type ChartsConfig struct {
@@ -113,6 +115,22 @@ type OpensearchConfig struct {
 		OpensearchVersion string `koanf:"opensearch-version" validate:"required_with=Opensearch"`
 		PluginVersion     string `koanf:"plugin-version" validate:"required_with=Opensearch Dashboards"`
 	} `koanf:"build"`
+}
+
+func Validate(conf *BuilderConfig) error {
+	v := validator.New()
+	v.RegisterStructValidation(func(sl validator.StructLevel) {
+		ac := sl.Current().Interface().(AuthConfig)
+		if ac.Secret == nil {
+			if !sl.Parent().FieldByName("Push").IsZero() {
+				sl.ReportError(ac.Secret, "secret", "secret", "required_if", "Push")
+			}
+		}
+	}, AuthConfig{})
+	v.RegisterTagNameFunc(func(sf reflect.StructField) string {
+		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
+	})
+	return v.Struct(conf)
 }
 
 func BuildFlagSet(t reflect.Type, prefix ...string) *pflag.FlagSet {

@@ -1,11 +1,11 @@
 package main
 
 import (
-	//mage:import
-	_ "github.com/rancher/opni/magefiles/targets"
-
 	"os"
 	"path/filepath"
+
+	//mage:import
+	_ "github.com/rancher/opni/magefiles/targets"
 )
 
 func init() {

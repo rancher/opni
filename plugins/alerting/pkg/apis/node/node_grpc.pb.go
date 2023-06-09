@@ -28,7 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeAlertingCapabilityClient interface {
-	Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*SyncResponse, error)
+	Sync(ctx context.Context, in *AlertingCapabilityConfig, opts ...grpc.CallOption) (*SyncResponse, error)
 }
 
 type nodeAlertingCapabilityClient struct {
@@ -39,7 +39,7 @@ func NewNodeAlertingCapabilityClient(cc grpc.ClientConnInterface) NodeAlertingCa
 	return &nodeAlertingCapabilityClient{cc}
 }
 
-func (c *nodeAlertingCapabilityClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*SyncResponse, error) {
+func (c *nodeAlertingCapabilityClient) Sync(ctx context.Context, in *AlertingCapabilityConfig, opts ...grpc.CallOption) (*SyncResponse, error) {
 	out := new(SyncResponse)
 	err := c.cc.Invoke(ctx, NodeAlertingCapability_Sync_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *nodeAlertingCapabilityClient) Sync(ctx context.Context, in *SyncRequest
 // All implementations must embed UnimplementedNodeAlertingCapabilityServer
 // for forward compatibility
 type NodeAlertingCapabilityServer interface {
-	Sync(context.Context, *SyncRequest) (*SyncResponse, error)
+	Sync(context.Context, *AlertingCapabilityConfig) (*SyncResponse, error)
 	mustEmbedUnimplementedNodeAlertingCapabilityServer()
 }
 
@@ -60,7 +60,7 @@ type NodeAlertingCapabilityServer interface {
 type UnimplementedNodeAlertingCapabilityServer struct {
 }
 
-func (UnimplementedNodeAlertingCapabilityServer) Sync(context.Context, *SyncRequest) (*SyncResponse, error) {
+func (UnimplementedNodeAlertingCapabilityServer) Sync(context.Context, *AlertingCapabilityConfig) (*SyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
 func (UnimplementedNodeAlertingCapabilityServer) mustEmbedUnimplementedNodeAlertingCapabilityServer() {
@@ -78,7 +78,7 @@ func RegisterNodeAlertingCapabilityServer(s grpc.ServiceRegistrar, srv NodeAlert
 }
 
 func _NodeAlertingCapability_Sync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SyncRequest)
+	in := new(AlertingCapabilityConfig)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func _NodeAlertingCapability_Sync_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: NodeAlertingCapability_Sync_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeAlertingCapabilityServer).Sync(ctx, req.(*SyncRequest))
+		return srv.(NodeAlertingCapabilityServer).Sync(ctx, req.(*AlertingCapabilityConfig))
 	}
 	return interceptor(ctx, in, info, handler)
 }

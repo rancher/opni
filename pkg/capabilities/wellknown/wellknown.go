@@ -8,3 +8,13 @@ const (
 	CapabilityTopology = "topology"
 	CapabilityExample  = "example"
 )
+
+func KnownCapabilities() []string {
+	return []string{
+		CapabilityAlerting,
+		CapabilityMetrics,
+		CapabilityLogs,
+		CapabilityTraces,
+		CapabilityTopology,
+	}
+}

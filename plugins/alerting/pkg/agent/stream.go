@@ -18,13 +18,13 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	nodeClient := node.NewNodeAlertingCapabilityClient(cc)
+	nodeClient := node.NewAbstractAlertingSyncClient(cc)
 	healthListenerClient := controlv1.NewHealthListenerClient(cc)
 	identityClient := controlv1.NewIdentityClient(cc)
 
-	p.node.setClients(
+	p.node.SetClients(
+		healthListenerClient,
 		nodeClient,
 		identityClient,
-		healthListenerClient,
 	)
 }

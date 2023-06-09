@@ -8,7 +8,7 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 package alerting.node;
 
 service NodeAlertingCapability {
-    rpc Sync(SyncRequest) returns (SyncResponse) {
+    rpc Sync(AlertingCapabilityConfig) returns (SyncResponse) {
         option (google.api.http) = {
             post: "/v1/node/sync"
             body: "*"
@@ -56,17 +56,8 @@ message AlertingCapabilitySpec {
     // TODO: implement me
 }
 
-message SyncRequest {
-    AlertingCapabilityConfig currentConfig = 1;  
-}
-
-enum ConfigStatus {
-    Unknown = 0;
-    UpToDate = 1;
-    NeedsUpdate = 2;
-}
   
 message SyncResponse {
-    ConfigStatus configStatus = 1;
+    core.ConfigStatus configStatus = 1;
     AlertingCapabilityConfig updatedConfig = 2;
 }

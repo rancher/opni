@@ -44,7 +44,7 @@ func (a *AlertingNodeBackend) SetNodeConfiguration(_ context.Context, _ *node.No
 	return nil, status.Error(codes.Unimplemented, "Alerting capability not yet supported")
 }
 
-func (a *AlertingNodeBackend) Sync(_ context.Context, _ *node.SyncRequest) (*node.SyncResponse, error) {
+func (a *AlertingNodeBackend) Sync(_ context.Context, _ *node.AlertingCapabilityConfig) (*node.SyncResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Alerting capability not yet supported")
 }
 

@@ -112,200 +112,201 @@ var NodeAlertingCapability_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NodeConfiguration_GetDefaultConfiguration_FullMethodName = "/alerting.node.NodeConfiguration/GetDefaultConfiguration"
-	NodeConfiguration_SetDefaultConfiguration_FullMethodName = "/alerting.node.NodeConfiguration/SetDefaultConfiguration"
-	NodeConfiguration_GetNodeConfiguration_FullMethodName    = "/alerting.node.NodeConfiguration/GetNodeConfiguration"
-	NodeConfiguration_SetNodeConfiguration_FullMethodName    = "/alerting.node.NodeConfiguration/SetNodeConfiguration"
+	AlertingNodeConfiguration_GetDefaultConfiguration_FullMethodName = "/alerting.node.AlertingNodeConfiguration/GetDefaultConfiguration"
+	AlertingNodeConfiguration_SetDefaultConfiguration_FullMethodName = "/alerting.node.AlertingNodeConfiguration/SetDefaultConfiguration"
+	AlertingNodeConfiguration_GetNodeConfiguration_FullMethodName    = "/alerting.node.AlertingNodeConfiguration/GetNodeConfiguration"
+	AlertingNodeConfiguration_SetNodeConfiguration_FullMethodName    = "/alerting.node.AlertingNodeConfiguration/SetNodeConfiguration"
 )
 
-// NodeConfigurationClient is the client API for NodeConfiguration service.
+// AlertingNodeConfigurationClient is the client API for AlertingNodeConfiguration service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type NodeConfigurationClient interface {
+type AlertingNodeConfigurationClient interface {
 	GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error)
 	SetDefaultConfiguration(ctx context.Context, in *AlertingCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetNodeConfiguration(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error)
 	SetNodeConfiguration(ctx context.Context, in *NodeConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type nodeConfigurationClient struct {
+type alertingNodeConfigurationClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewNodeConfigurationClient(cc grpc.ClientConnInterface) NodeConfigurationClient {
-	return &nodeConfigurationClient{cc}
+func NewAlertingNodeConfigurationClient(cc grpc.ClientConnInterface) AlertingNodeConfigurationClient {
+	return &alertingNodeConfigurationClient{cc}
 }
 
-func (c *nodeConfigurationClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error) {
+func (c *alertingNodeConfigurationClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error) {
 	out := new(AlertingCapabilitySpec)
-	err := c.cc.Invoke(ctx, NodeConfiguration_GetDefaultConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, AlertingNodeConfiguration_GetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) SetDefaultConfiguration(ctx context.Context, in *AlertingCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingNodeConfigurationClient) SetDefaultConfiguration(ctx context.Context, in *AlertingCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, NodeConfiguration_SetDefaultConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, AlertingNodeConfiguration_SetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) GetNodeConfiguration(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error) {
+func (c *alertingNodeConfigurationClient) GetNodeConfiguration(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertingCapabilitySpec, error) {
 	out := new(AlertingCapabilitySpec)
-	err := c.cc.Invoke(ctx, NodeConfiguration_GetNodeConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, AlertingNodeConfiguration_GetNodeConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) SetNodeConfiguration(ctx context.Context, in *NodeConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingNodeConfigurationClient) SetNodeConfiguration(ctx context.Context, in *NodeConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, NodeConfiguration_SetNodeConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, AlertingNodeConfiguration_SetNodeConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// NodeConfigurationServer is the server API for NodeConfiguration service.
-// All implementations must embed UnimplementedNodeConfigurationServer
+// AlertingNodeConfigurationServer is the server API for AlertingNodeConfiguration service.
+// All implementations must embed UnimplementedAlertingNodeConfigurationServer
 // for forward compatibility
-type NodeConfigurationServer interface {
+type AlertingNodeConfigurationServer interface {
 	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*AlertingCapabilitySpec, error)
 	SetDefaultConfiguration(context.Context, *AlertingCapabilitySpec) (*emptypb.Empty, error)
 	GetNodeConfiguration(context.Context, *v1.Reference) (*AlertingCapabilitySpec, error)
 	SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedNodeConfigurationServer()
+	mustEmbedUnimplementedAlertingNodeConfigurationServer()
 }
 
-// UnimplementedNodeConfigurationServer must be embedded to have forward compatible implementations.
-type UnimplementedNodeConfigurationServer struct {
+// UnimplementedAlertingNodeConfigurationServer must be embedded to have forward compatible implementations.
+type UnimplementedAlertingNodeConfigurationServer struct {
 }
 
-func (UnimplementedNodeConfigurationServer) GetDefaultConfiguration(context.Context, *emptypb.Empty) (*AlertingCapabilitySpec, error) {
+func (UnimplementedAlertingNodeConfigurationServer) GetDefaultConfiguration(context.Context, *emptypb.Empty) (*AlertingCapabilitySpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) SetDefaultConfiguration(context.Context, *AlertingCapabilitySpec) (*emptypb.Empty, error) {
+func (UnimplementedAlertingNodeConfigurationServer) SetDefaultConfiguration(context.Context, *AlertingCapabilitySpec) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) GetNodeConfiguration(context.Context, *v1.Reference) (*AlertingCapabilitySpec, error) {
+func (UnimplementedAlertingNodeConfigurationServer) GetNodeConfiguration(context.Context, *v1.Reference) (*AlertingCapabilitySpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodeConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error) {
+func (UnimplementedAlertingNodeConfigurationServer) SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetNodeConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) mustEmbedUnimplementedNodeConfigurationServer() {}
+func (UnimplementedAlertingNodeConfigurationServer) mustEmbedUnimplementedAlertingNodeConfigurationServer() {
+}
 
-// UnsafeNodeConfigurationServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to NodeConfigurationServer will
+// UnsafeAlertingNodeConfigurationServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AlertingNodeConfigurationServer will
 // result in compilation errors.
-type UnsafeNodeConfigurationServer interface {
-	mustEmbedUnimplementedNodeConfigurationServer()
+type UnsafeAlertingNodeConfigurationServer interface {
+	mustEmbedUnimplementedAlertingNodeConfigurationServer()
 }
 
-func RegisterNodeConfigurationServer(s grpc.ServiceRegistrar, srv NodeConfigurationServer) {
-	s.RegisterService(&NodeConfiguration_ServiceDesc, srv)
+func RegisterAlertingNodeConfigurationServer(s grpc.ServiceRegistrar, srv AlertingNodeConfigurationServer) {
+	s.RegisterService(&AlertingNodeConfiguration_ServiceDesc, srv)
 }
 
-func _NodeConfiguration_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingNodeConfiguration_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, in)
+		return srv.(AlertingNodeConfigurationServer).GetDefaultConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_GetDefaultConfiguration_FullMethodName,
+		FullMethod: AlertingNodeConfiguration_GetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(AlertingNodeConfigurationServer).GetDefaultConfiguration(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NodeConfiguration_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingNodeConfiguration_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AlertingCapabilitySpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).SetDefaultConfiguration(ctx, in)
+		return srv.(AlertingNodeConfigurationServer).SetDefaultConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_SetDefaultConfiguration_FullMethodName,
+		FullMethod: AlertingNodeConfiguration_SetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).SetDefaultConfiguration(ctx, req.(*AlertingCapabilitySpec))
+		return srv.(AlertingNodeConfigurationServer).SetDefaultConfiguration(ctx, req.(*AlertingCapabilitySpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NodeConfiguration_GetNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingNodeConfiguration_GetNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).GetNodeConfiguration(ctx, in)
+		return srv.(AlertingNodeConfigurationServer).GetNodeConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_GetNodeConfiguration_FullMethodName,
+		FullMethod: AlertingNodeConfiguration_GetNodeConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).GetNodeConfiguration(ctx, req.(*v1.Reference))
+		return srv.(AlertingNodeConfigurationServer).GetNodeConfiguration(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NodeConfiguration_SetNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AlertingNodeConfiguration_SetNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NodeConfigRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).SetNodeConfiguration(ctx, in)
+		return srv.(AlertingNodeConfigurationServer).SetNodeConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_SetNodeConfiguration_FullMethodName,
+		FullMethod: AlertingNodeConfiguration_SetNodeConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).SetNodeConfiguration(ctx, req.(*NodeConfigRequest))
+		return srv.(AlertingNodeConfigurationServer).SetNodeConfiguration(ctx, req.(*NodeConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// NodeConfiguration_ServiceDesc is the grpc.ServiceDesc for NodeConfiguration service.
+// AlertingNodeConfiguration_ServiceDesc is the grpc.ServiceDesc for AlertingNodeConfiguration service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var NodeConfiguration_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "alerting.node.NodeConfiguration",
-	HandlerType: (*NodeConfigurationServer)(nil),
+var AlertingNodeConfiguration_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.node.AlertingNodeConfiguration",
+	HandlerType: (*AlertingNodeConfigurationServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetDefaultConfiguration",
-			Handler:    _NodeConfiguration_GetDefaultConfiguration_Handler,
+			Handler:    _AlertingNodeConfiguration_GetDefaultConfiguration_Handler,
 		},
 		{
 			MethodName: "SetDefaultConfiguration",
-			Handler:    _NodeConfiguration_SetDefaultConfiguration_Handler,
+			Handler:    _AlertingNodeConfiguration_SetDefaultConfiguration_Handler,
 		},
 		{
 			MethodName: "GetNodeConfiguration",
-			Handler:    _NodeConfiguration_GetNodeConfiguration_Handler,
+			Handler:    _AlertingNodeConfiguration_GetNodeConfiguration_Handler,
 		},
 		{
 			MethodName: "SetNodeConfiguration",
-			Handler:    _NodeConfiguration_SetNodeConfiguration_Handler,
+			Handler:    _AlertingNodeConfiguration_SetNodeConfiguration_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

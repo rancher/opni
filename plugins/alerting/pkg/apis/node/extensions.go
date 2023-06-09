@@ -5,7 +5,10 @@ import (
 
 	"github.com/rancher/opni/pkg/agent/node"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
+
+const defaultConfigFlag = "is-default-config"
 
 var _ node.CapabilityConfig = (*AlertingCapabilityConfig)(nil)
 
@@ -28,4 +31,15 @@ func NewAbstractAlertingSyncClient(cc grpc.ClientConnInterface) node.AbstractNod
 	return &abstractAlertingSyncClient{
 		client: client,
 	}
+}
+
+func IsDefaultConfig(trailer metadata.MD) bool {
+	if len(trailer[defaultConfigFlag]) > 0 {
+		return trailer[defaultConfigFlag][0] == "true"
+	}
+	return false
+}
+
+func DefaultConfigMetadata() metadata.MD {
+	return metadata.Pairs(defaultConfigFlag, "true")
 }

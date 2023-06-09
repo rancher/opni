@@ -16,7 +16,7 @@ service NodeAlertingCapability {
     }
 }
 
-service NodeConfiguration{
+service AlertingNodeConfiguration{
     rpc GetDefaultConfiguration(google.protobuf.Empty) returns (AlertingCapabilitySpec) {
         option (google.api.http) = {
           get: "/node_config"
@@ -53,7 +53,11 @@ message AlertingCapabilityConfig {
 }
 
 message AlertingCapabilitySpec {
-    // TODO: implement me
+  RuleDiscoverySpec ruleDiscovery = 1;
+}
+
+message RuleDiscoverySpec {
+   bool enabled = 1;
 }
 
   

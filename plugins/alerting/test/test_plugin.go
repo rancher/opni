@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/topology/pkg/topology/agent"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -57,4 +58,5 @@ func init() {
 	alarms.DisconnectStreamEvaluateInterval = time.Second * 1
 	alarms.CapabilityStreamEvaluateInterval = time.Second * 1
 	alarms.CortexStreamEvaluateInterval = time.Second * 1
+	test.EnablePlugin(meta.ModeAgent, agent.Scheme)
 }

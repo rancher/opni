@@ -8,9 +8,9 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/plugins/alerting/pkg/agent"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
-	"github.com/rancher/opni/plugins/topology/pkg/topology/agent"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

@@ -139,32 +139,28 @@ func (a *AlertingNodeBackend) GetDefaultConfiguration(ctx context.Context, _ *em
 	return a.getDefaultNodeSpec(ctx)
 }
 
-func (a *AlertingNodeBackend) SetDefaultConfiguration(ctx context.Context, spec *node.AlertingCapabilitySpec) (_ *emptypb.Empty, retErr error) {
+func (a *AlertingNodeBackend) SetDefaultConfiguration(ctx context.Context, spec *node.AlertingCapabilitySpec) (*emptypb.Empty, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alerting Node Backend is not yet initialized")
 	}
-	defer func() {
-		if retErr != nil {
-			a.requestNodeSync(ctx, &corev1.Reference{})
-		}
-	}()
 	var empty node.AlertingCapabilitySpec
 	if cmp.Equal(spec, &empty, protocmp.Transform()) {
 		if err := a.capabilityKV.Get().DefaultCapabilitySpec.Delete(ctx); err != nil {
-			retErr = err
-			return
+			return nil, err
 		}
+		a.requestNodeSync(ctx, &corev1.Reference{})
+		return &emptypb.Empty{}, nil
 	}
 
 	if err := spec.Validate(); err != nil {
-		retErr = err
-		return
+		return nil, err
 	}
 
 	if err := a.capabilityKV.Get().DefaultCapabilitySpec.Put(ctx, spec); err != nil {
-		retErr = err
-		return
+		return nil, err
 	}
+
+	a.requestNodeSync(ctx, &corev1.Reference{Id: ""})
 
 	return &emptypb.Empty{}, nil
 }
@@ -176,26 +172,27 @@ func (a *AlertingNodeBackend) GetNodeConfiguration(ctx context.Context, node *co
 	return a.getNodeSpecOrDefault(ctx, node.Id)
 }
 
-func (a *AlertingNodeBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (_ *emptypb.Empty, retErr error) {
+func (a *AlertingNodeBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (*emptypb.Empty, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alerting Node Backend is not yet initialized")
 	}
 
-	defer func() {
-		if retErr != nil {
-			a.requestNodeSync(ctx, req.GetNode())
+	if req.Spec == nil {
+		if err := a.capabilityKV.Get().NodeCapabilitySpecs.Delete(ctx, req.Node.GetId()); err != nil {
+			return nil, err
 		}
-	}()
+		a.requestNodeSync(ctx, req.GetNode())
+		return &emptypb.Empty{}, nil
+	}
 
 	if err := req.GetSpec().Validate(); err != nil {
-		retErr = err
-		return
+		return nil, err
 	}
 
 	if err := a.capabilityKV.Get().NodeCapabilitySpecs.Put(ctx, req.Node.GetId(), req.GetSpec()); err != nil {
-		retErr = err
-		return
+		return nil, err
 	}
+	a.requestNodeSync(ctx, req.GetNode())
 	return &emptypb.Empty{}, nil
 }
 

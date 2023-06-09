@@ -26,13 +26,17 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"go.uber.org/zap"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 )
 
 func (p *Plugin) Components() []server.ServerComponent {
@@ -58,12 +62,15 @@ type Plugin struct {
 	clusterDriver   future.Future[drivers.ClusterDriver]
 	syncController  SyncController
 
-	mgmtClient      future.Future[managementv1.ManagementClient]
-	adminClient     future.Future[cortexadmin.CortexAdminClient]
-	cortexOpsClient future.Future[cortexops.CortexOpsClient]
-	natsConn        future.Future[*nats.Conn]
-	js              future.Future[nats.JetStreamContext]
-	globalWatchers  management.ConditionWatcher
+	mgmtClient          future.Future[managementv1.ManagementClient]
+	storageBackend      future.Future[storage.Backend]
+	capabilitySpecStore future.Future[node_backend.CapabilitySpecKV]
+	capabilityManager   future.Future[capabilityv1.NodeManagerClient]
+	adminClient         future.Future[cortexadmin.CortexAdminClient]
+	cortexOpsClient     future.Future[cortexops.CortexOpsClient]
+	natsConn            future.Future[*nats.Conn]
+	js                  future.Future[nats.JetStreamContext]
+	globalWatchers      management.ConditionWatcher
 
 	gatewayConfig future.Future[*v1beta1.GatewayConfig]
 
@@ -101,7 +108,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 		clusterNotifier: make(chan []client.AlertingPeer),
 		clusterDriver:   future.New[drivers.ClusterDriver](),
 
-		mgmtClient:      future.New[managementv1.ManagementClient](),
+		mgmtClient:          future.New[managementv1.ManagementClient](),
+		storageBackend:      future.New[storage.Backend](),
+		capabilitySpecStore: future.New[node_backend.CapabilitySpecKV](),
+		capabilityManager:   future.New[capabilityv1.NodeManagerClient](),
+
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
@@ -127,6 +138,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.ready,
 		p.healthy,
 	)
+	p.node = *node_backend.NewAlertingNodeBackend(
+		p.Logger.With("component", "node-backend"),
+	)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
 		p.logger.With("component", "notifications"),
 	)
@@ -141,7 +155,22 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.NotificationServerComponent,
 	)
 
-	future.Wait1(p.storageClientSet, func(s storage.AlertingClientSet) {
+	future.Wait4(
+		p.storageBackend,
+		p.mgmtClient,
+		p.capabilitySpecStore,
+		p.capabilityManager,
+		func(
+			storageBackend storage.Backend,
+			mgmtClient managementv1.ManagementClient,
+			specStore node_backend.CapabilitySpecKV,
+			capabilityManager capabilityv1.NodeManagerClient,
+		) {
+			p.node.Initialize(specStore, mgmtClient, capabilityManager, storageBackend)
+		},
+	)
+
+	future.Wait1(p.storageClientSet, func(s alertingStorage.AlertingClientSet) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
 		})
@@ -168,7 +197,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
 		func(
 			js nats.JetStreamContext,
-			s storage.AlertingClientSet,
+			s alertingStorage.AlertingClientSet,
 			mgmtClient managementv1.ManagementClient,
 			adminClient cortexadmin.CortexAdminClient,
 			cortexOpsClient cortexops.CortexOpsClient,
@@ -228,11 +257,19 @@ func Scheme(ctx context.Context) meta.Scheme {
 				&alertops.ConfigReconciler_ServiceDesc,
 				p,
 			),
+			util.PackService(
+				&node.AlertingNodeConfiguration_ServiceDesc,
+				&p.node,
+			),
+			util.PackService(
+				&node.NodeAlertingCapability_ServiceDesc,
+				&p.node,
+			),
 		),
 	)
 
-	// TODO : when we enable alerting agent, uncomment stream
-	// scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.node))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	return scheme
 }

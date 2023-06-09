@@ -11,15 +11,19 @@ import (
 
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"go.uber.org/zap"
 
 	"github.com/nats-io/nats.go"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -27,6 +31,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -51,6 +56,12 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		p.gatewayConfig.Set(config)
+		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
+		if err != nil {
+			p.logger.With(zap.Error(err)).Error("failed to configure storage backend")
+			os.Exit(1)
+		}
+		p.storageBackend.Set(backend)
 		opt := &shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
@@ -75,7 +86,12 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
-func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
+func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	p.capabilitySpecStore.Set(node_backend.CapabilitySpecKV{
+		DefaultCapabilitySpec: storage.NewValueStore(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/default"),
+		NodeCapabilitySpecs:   storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/nodes"),
+	})
+
 	var (
 		nc  *nats.Conn
 		err error
@@ -150,6 +166,11 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(cc))
+}
+
+func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
+	p.capabilityManager.Set(client)
+	<-p.ctx.Done()
 }
 
 func (p *Plugin) handleDriverNotifications() {

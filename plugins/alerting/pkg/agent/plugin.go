@@ -57,7 +57,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.driver = driver
 		break
 	}
-
 	return p
 }
 

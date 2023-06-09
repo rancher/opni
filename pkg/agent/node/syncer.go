@@ -178,12 +178,12 @@ func (s *defaultHealthConfigSyncer[T]) doSync(ctx context.Context) {
 		s.lg.Infof("%s node config is up to date", s.capability)
 	case corev1.ConfigStatus_NeedsUpdate:
 		s.lg.Infof("%s updating node config", s.capability)
-	}
-	if err := s.updateConfig(ctx, syncResp.GetUpdatedConfig()); err != nil {
-		s.conditions.Set(health.CondNodeDriver, health.StatusFailure, err.Error())
-		return
-	} else {
-		s.conditions.Clear(health.CondNodeDriver)
+		if err := s.updateConfig(ctx, syncResp.GetUpdatedConfig()); err != nil {
+			s.conditions.Set(health.CondNodeDriver, health.StatusFailure, err.Error())
+			return
+		} else {
+			s.conditions.Clear(health.CondNodeDriver)
+		}
 	}
 }
 

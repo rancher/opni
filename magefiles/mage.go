@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	//mage:import
-	_ "github.com/rancher/opni/magefiles/targets"
+	"github.com/rancher/opni/magefiles/targets"
 )
 
 func init() {
@@ -25,4 +25,12 @@ func init() {
 			panic(err)
 		}
 	}
+}
+
+var Default = targets.All
+
+var Aliases = map[string]any{
+	"test":     targets.Test.All,
+	"build":    targets.Build.All,
+	"generate": targets.Generate.All,
 }

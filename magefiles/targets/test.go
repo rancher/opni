@@ -17,7 +17,7 @@ import (
 
 type Test mg.Namespace
 
-func (Test) Test() error {
+func (Test) All() error {
 	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
 		mg.Deps(Test.Bin)
 	}
@@ -119,57 +119,75 @@ func (Test) Env() {
 
 const k8sVersion = "1.26.3"
 
-func (Test) Bin() {
-	mg.Deps(mg.F(Dagger.X, "testbin", `{
-		"binaries": [
-			{
-				"name": "etcd",
-				"sourceImage": "bitnami/etcd"
-			},
-			{
-				"name": "prometheus",
-				"sourceImage": "prom/prometheus"
-			},
-			{
-				"name": "promtool",
-				"sourceImage": "prom/prometheus"
-			},
-			{
-				"name": "node_exporter",
-				"sourceImage": "prom/node-exporter"
-			},
-			{
-				"name": "alertmanager",
-				"sourceImage": "prom/alertmanager"
-			},
-			{
-				"name": "amtool",
-				"sourceImage": "prom/alertmanager"
-			},
-			{
-				"name": "nats-server",
-				"sourceImage": "nats"
-			},
-			{
-				"name": "otelcol-custom",
-				"sourceImage": "ghcr.io/rancher-sandbox/opni-otel-collector",
-				"version": "v0.1.2-0.74.0"
-			},
-			{
-				"name": "kube-apiserver",
-				"sourceImage": "registry.k8s.io/kube-apiserver",
-				"version": "v`+k8sVersion+`"
-			},
-			{
-				"name": "kube-controller-manager",
-				"sourceImage": "registry.k8s.io/kube-controller-manager",
-				"version": "v`+k8sVersion+`"
-			},
-			{
-				"name": "kubectl",
-				"sourceImage": "bitnami/kubectl",
-				"version": "`+k8sVersion+`"
-			}
-		]
-	}`))
+var testbinConfig = fmt.Sprintf(`
+{
+	"binaries": [
+		{
+			"name": "etcd",
+			"sourceImage": "bitnami/etcd",
+			"path": "/opt/bitnami/etcd/bin/etcd"
+		},
+		{
+			"name": "prometheus",
+			"sourceImage": "prom/prometheus",
+			"path": "/bin/prometheus"
+		},
+		{
+			"name": "promtool",
+			"sourceImage": "prom/prometheus",
+			"path": "/bin/promtool"
+		},
+		{
+			"name": "node_exporter",
+			"sourceImage": "prom/node-exporter",
+			"path": "/bin/node_exporter"
+		},
+		{
+			"name": "alertmanager",
+			"sourceImage": "prom/alertmanager",
+			"path": "/bin/alertmanager"
+		},
+		{
+			"name": "amtool",
+			"sourceImage": "prom/alertmanager",
+			"path": "/bin/amtool"
+		},
+		{
+			"name": "nats-server",
+			"sourceImage": "nats",
+			"path": "/nats-server"
+		},
+		{
+			"name": "otelcol-custom",
+			"sourceImage": "ghcr.io/rancher-sandbox/opni-otel-collector",
+			"version": "v0.1.2-0.74.0",
+			"path": "/otelcol-custom"
+		},
+		{
+			"name": "kube-apiserver",
+			"sourceImage": "registry.k8s.io/kube-apiserver",
+			"version": "v%[1]s",
+			"path": "/usr/local/bin/kube-apiserver"
+		},
+		{
+			"name": "kube-controller-manager",
+			"sourceImage": "registry.k8s.io/kube-controller-manager",
+			"version": "v%[1]s",
+			"path": "/usr/local/bin/kube-controller-manager"
+		},
+		{
+			"name": "kubectl",
+			"sourceImage": "bitnami/kubectl",
+			"version": "%[1]s",
+			"path": "/opt/bitnami/kubectl/bin/kubectl"
+		}
+	]
+}`[1:], k8sVersion)
+
+func (Test) BinConfig() {
+	fmt.Println(testbinConfig)
+}
+
+func (Test) Bin() error {
+	return Dagger{}.run(daggerx, "testbin", testbinConfig)
 }

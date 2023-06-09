@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	encodingjson "encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -21,6 +22,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/dagger/config"
 	"github.com/rancher/opni/dagger/helm"
+	"github.com/rancher/opni/dagger/x/cmds"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 )
@@ -152,6 +154,7 @@ func main() {
 				"pkg/",
 				"plugins/",
 				"web/",
+				"test/",
 				"configuration.yaml",
 				".golangci.yaml",
 				"tools.go",
@@ -196,7 +199,8 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
-		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"})
+		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
+		WithExec([]string{"ls", "-l", "/go/bin"})
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
@@ -232,7 +236,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithExec(mage("build:linter"))
 
 	linterPluginPath := filepath.Join(b.workdir, "internal/linter/linter.so")
-	lint := goBase.
+	lint := goBuild.
 		Pipeline("Lint").
 		WithMountedDirectory(b.workdir, b.sources).
 		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
@@ -244,14 +248,24 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		}
 	}
 
-	test := archives.
+	test := opni.
 		Pipeline("Test").
-		WithExec(mage("test"))
+		WithExec(mage("test:binconfig"))
 
 	if b.Test {
-		if _, err := test.Sync(ctx); err != nil {
+		var opts cmds.TestBinOptions
+		confJson, err := test.Stdout(ctx)
+		if err != nil {
 			return err
 		}
+		if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
+			return err
+		}
+
+		test = cmds.TestBin(b.client, test, opts).
+			WithExec(mage("test"))
+		test.File(filepath.Join(b.workdir, "cover.out")).Export(ctx, "cover.out")
+		test.Sync(ctx)
 	}
 
 	fullImage := alpineBase.

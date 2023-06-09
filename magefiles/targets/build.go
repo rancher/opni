@@ -12,6 +12,36 @@ import (
 
 type Build mg.Namespace
 
+func (Build) All(ctx context.Context) {
+	ctx, tr := Tracer.Start(ctx, "target.build")
+	defer tr.End()
+
+	mg.CtxDeps(ctx, Build.Opni, Build.Plugins)
+}
+
+func (Build) Extra(ctx context.Context) {
+	ctx, tr := Tracer.Start(ctx, "target.build.x")
+	defer tr.End()
+
+	mg.CtxDeps(ctx, Build.Opni, Build.OpniMinimal, Build.Plugins)
+}
+
+func (Build) Archives(ctx context.Context) error {
+	_, tr := Tracer.Start(ctx, "target.build.archives")
+	defer tr.End()
+
+	return buildArchive("./...")
+}
+
+func (Build) Linter(ctx context.Context) error {
+	_, tr := Tracer.Start(ctx, "target.build.linter")
+	defer tr.End()
+
+	return sh.RunWith(map[string]string{
+		"CGO_ENABLED": "1",
+	}, mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+}
+
 type buildOpts struct {
 	Path   string
 	Output string
@@ -53,34 +83,4 @@ func buildArchive(path string) error {
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "0",
 	}, mg.GoCmd(), "build", "-buildmode=archive", "-trimpath", "-tags=nomsgpack", path)
-}
-
-func (Build) All(ctx context.Context) {
-	ctx, tr := Tracer.Start(ctx, "target.build")
-	defer tr.End()
-
-	mg.CtxDeps(ctx, Build.Opni, Build.Plugins)
-}
-
-func (Build) Extra(ctx context.Context) {
-	ctx, tr := Tracer.Start(ctx, "target.build.x")
-	defer tr.End()
-
-	mg.CtxDeps(ctx, Build.Opni, Build.OpniMinimal, Build.Plugins)
-}
-
-func (Build) Archives(ctx context.Context) error {
-	_, tr := Tracer.Start(ctx, "target.build.archives")
-	defer tr.End()
-
-	return buildArchive("./...")
-}
-
-func (Build) Linter(ctx context.Context) error {
-	_, tr := Tracer.Start(ctx, "target.build.linter")
-	defer tr.End()
-
-	return sh.RunWith(map[string]string{
-		"CGO_ENABLED": "1",
-	}, mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
 }

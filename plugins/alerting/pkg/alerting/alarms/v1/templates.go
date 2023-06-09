@@ -281,7 +281,7 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 		lg.Errorf("failed to get cortex client %s", err)
 	}
 
-	results := make(chan chan *clusterCpuSaturation, len(clusters.Items))
+	results := make(chan (<-chan *clusterCpuSaturation), len(clusters.Items))
 	for _, cl := range clusters.Items {
 		cl := cl
 		results <- lo.Async(func() *clusterCpuSaturation {
@@ -402,7 +402,7 @@ func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*
 		lg.Errorf("failed to get cortex client %s", err)
 	}
 
-	results := make(chan chan *clusterMemorySaturation, len(clusters.Items))
+	results := make(chan (<-chan *clusterMemorySaturation), len(clusters.Items))
 	for _, cl := range clusters.Items {
 		cl := cl
 		results <- lo.Async(func() *clusterMemorySaturation {
@@ -529,7 +529,7 @@ func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*aler
 		lg.Errorf("failed to get cortex client %s", err)
 	}
 
-	results := make(chan chan *clusterFilesystemSaturation, len(clusters.Items))
+	results := make(chan (<-chan *clusterFilesystemSaturation), len(clusters.Items))
 	for _, cl := range clusters.Items {
 		cl := cl
 		results <- lo.Async(func() *clusterFilesystemSaturation {

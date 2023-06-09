@@ -189,6 +189,7 @@ type Caches struct {
 	Mage        func() (string, *dagger.CacheVolume)
 	Yarn        func() (string, *dagger.CacheVolume)
 	NodeModules func() (string, *dagger.CacheVolume)
+	TestBin     func() (string, *dagger.CacheVolume)
 }
 
 func init() {

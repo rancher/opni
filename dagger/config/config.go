@@ -2,14 +2,24 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 
 	"dagger.io/dagger"
+	"github.com/distribution/distribution/v3/reference"
 	"github.com/go-playground/validator/v10"
+	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/mitchellh/copystructure"
 	"github.com/spf13/pflag"
 )
+
+const EnvPrefix = "_OPNI_"
 
 type SpecialCaseEnv struct {
 	EnvVar    string
@@ -18,8 +28,11 @@ type SpecialCaseEnv struct {
 }
 
 func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
-	fn := func(k, v string) any {
+	secret := func(k, v string) any {
 		return client.SetSecret(k, v)
+	}
+	plaintext := func(_, v string) any {
+		return v
 	}
 
 	return []SpecialCaseEnv{
@@ -31,11 +44,10 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 				"images.opensearch.opensearch.auth.username",
 				"images.opensearch.dashboards.auth.username",
 				"images.opensearch.update-service.auth.username",
+				"images.python-base.auth.username",
 				"charts.oci.auth.username",
 			},
-			Converter: func(_, v string) any {
-				return v
-			},
+			Converter: plaintext,
 		},
 		{
 			EnvVar: "DOCKER_PASSWORD",
@@ -45,16 +57,28 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 				"images.opensearch.opensearch.auth.secret",
 				"images.opensearch.dashboards.auth.secret",
 				"images.opensearch.update-service.auth.secret",
+				"images.python-base.auth.secret",
 				"charts.oci.auth.secret",
 			},
-			Converter: fn,
+			Converter: secret,
 		},
 		{
 			EnvVar: "GH_TOKEN",
 			Keys: []string{
 				"charts.git.auth.secret",
 			},
-			Converter: fn,
+			Converter: secret,
+		},
+		{
+			EnvVar: "DRONE_TAG",
+			Keys: []string{
+				"images.opni.tag",
+				"images.opni.minimal.tag",
+				"images.opensearch.opensearch.tag",
+				"images.opensearch.dashboards.tag",
+				"images.openesearch.update-service.tag",
+			},
+			Converter: plaintext,
 		},
 	}
 }
@@ -70,14 +94,16 @@ type ImagesConfig struct {
 	Opni        ImageTarget      `koanf:"opni"`
 	OpniMinimal ImageTarget      `koanf:"minimal"`
 	Opensearch  OpensearchConfig `koanf:"opensearch"`
+	PythonBase  ImageTarget      `koanf:"python-base"`
 }
 
 type ImageTarget struct {
-	Push      bool       `koanf:"push"`
-	Repo      string     `koanf:"repo" validate:"required_if=Push true"`
-	Tag       string     `koanf:"tag" validate:"required_if=Push true"`
-	TagSuffix string     `koanf:"tag-suffix" validate:"excluded_if=Tag ''"`
-	Auth      AuthConfig `koanf:"auth" validate:"required_if=Push true"`
+	Push           bool       `koanf:"push"`
+	Repo           string     `koanf:"repo" validate:"required_if=Push true,reference-name-only"`
+	Tag            string     `koanf:"tag" validate:"required_if=Push true,reference-tag"`
+	TagSuffix      string     `koanf:"tag-suffix" validate:"excluded_if=Tag '',reference-tag-suffix"`
+	AdditionalTags []string   `koanf:"additional-tags" validate:"dive,reference-tag"`
+	Auth           AuthConfig `koanf:"auth" validate:"required_if=Push true"`
 }
 
 type AuthConfig struct {
@@ -92,7 +118,7 @@ type ChartsConfig struct {
 }
 
 type OCIChartTarget struct {
-	Push []string   `koanf:"push"`
+	Push bool       `koanf:"push"`
 	Repo string     `koanf:"repo" validate:"required_with=Push"`
 	Auth AuthConfig `koanf:"auth" validate:"required_with=Push"`
 }
@@ -127,6 +153,9 @@ func Validate(conf *BuilderConfig) error {
 			}
 		}
 	}, AuthConfig{})
+	v.RegisterValidation("reference-name-only", referenceName)
+	v.RegisterValidation("reference-tag", referenceTag)
+	v.RegisterValidation("reference-tag-suffix", referenceTag)
 	v.RegisterTagNameFunc(func(sf reflect.StructField) string {
 		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
 	})
@@ -177,6 +206,17 @@ func (t *ImageTarget) Ref() string {
 	return fmt.Sprintf("%s:%s%s", t.Repo, t.Tag, t.TagSuffix)
 }
 
+func (t *ImageTarget) AdditionalRefs() []string {
+	var refs []string
+	for _, tag := range t.AdditionalTags {
+		if tag == "" {
+			continue
+		}
+		refs = append(refs, fmt.Sprintf("%s:%s%s", t.Repo, tag, t.TagSuffix))
+	}
+	return refs
+}
+
 type CacheVolume struct {
 	*dagger.CacheVolume
 	Path string
@@ -196,4 +236,68 @@ func init() {
 	copystructure.Copiers[reflect.TypeOf(dagger.Secret{})] = func(v any) (any, error) {
 		return v, nil
 	}
+}
+
+func AutoLoader(filename string) (koanf.Provider, koanf.Parser) {
+	var parser koanf.Parser
+
+	if _, err := os.Stat(filename); err != nil {
+		if filepath.Ext(filename) == "" {
+			matches, err := filepath.Glob(fmt.Sprintf("%s.*", filename))
+			if err != nil {
+				panic(err)
+			}
+			if len(matches) == 0 {
+				fmt.Fprintf(os.Stderr, "no config file found for %q\n", filename)
+			}
+			if len(matches) > 1 {
+				fmt.Fprintf(os.Stderr, "ambiguous config file path %q matches %v\n", filename, matches)
+			}
+
+			filename = matches[0]
+		}
+	}
+
+	if _, err := os.Stat(filename); err != nil {
+		fmt.Fprintf(os.Stderr, "config file %q not found\n", filename)
+		os.Exit(1)
+	}
+
+	switch filepath.Ext(filename) {
+	case ".yaml", ".yml":
+		parser = yaml.Parser()
+	case ".json":
+		parser = json.Parser()
+	case ".toml":
+		parser = toml.Parser()
+	default:
+		fmt.Fprintf(os.Stderr, "config file %q has unsupported extension (supported: .yaml, .json, .toml)\n", filename)
+		os.Exit(1)
+	}
+
+	fmt.Printf("[config] loading %s\n", filename)
+	return file.Provider(filename), parser
+}
+
+func referenceName(fl validator.FieldLevel) bool {
+	named, err := reference.ParseNamed(fl.Field().String())
+	if err != nil {
+		return false
+	}
+	if !reference.IsNameOnly(named) {
+		return false
+	}
+	return true
+}
+
+func referenceTag(fl validator.FieldLevel) bool {
+	return reference.TagRegexp.MatchString(fl.Field().String())
+}
+
+func referenceTagSuffix(fl validator.FieldLevel) bool {
+	str := fl.Field().String()
+	if len(str) > 0 && str[0] != '-' {
+		return false
+	}
+	return reference.TagRegexp.MatchString(str[1:])
 }

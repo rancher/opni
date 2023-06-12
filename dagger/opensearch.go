@@ -56,10 +56,38 @@ func (b *Builder) BuildOpensearchImage() *dagger.Container {
 	return ctr
 }
 
-func (b *Builder) BuildOpensearchUpdateServiceImage() *dagger.Container {
-	ctr := b.client.Container().
+func (b *Builder) BuildOpniPythonBase() *dagger.Container {
+	base := b.client.Container().
+		Pipeline("Opni Python Base Image").
+		From("registry.suse.com/suse/sle15:15.3").
+		WithExec([]string{"zypper", "--non-interactive", "in", "python39"}).
+		WithExec([]string{"zypper", "--non-interactive", "in", "python39-pip"}).
+		WithExec([]string{"zypper", "--non-interactive", "in", "python39-devel"}).
+		WithExec([]string{"ln", "-s", "/usr/bin/python3.9", "/usr/bin/python"}).
+		WithExec([]string{"ln", "-s", "/usr/bin/pip3.9", "/usr/bin/pip"})
+
+	builder1 := base.
+		WithExec([]string{"zypper", "--non-interactive", "in", "gcc"}).
+		WithExec([]string{"python", "-m", "venv", "/opt/venv"}).
+		WithFile("/requirements.txt", b.sources.File("images/python/requirements.txt")).
+		WithExec([]string{"/opt/venv/bin/pip", "install", "-r", "/requirements.txt"})
+
+	builder2 := builder1.
+		WithFile("/requirements-torch.txt", b.sources.File("images/python/requirements-torch.txt")).
+		WithExec([]string{"/opt/venv/bin/pip", "install", "-r", "/requirements-torch.txt"})
+
+	return base.
+		WithDirectory("/opt/venv", builder1.Directory("/opt/venv")).
+		WithDirectory("/opt/venv", builder2.Directory("/opt/venv")).
+		WithEnvVariable("PATH", "/usr/local/nvidia/bin:/usr/local/cuda/bin:/opt/venv/bin:${PATH}", dagger.ContainerWithEnvVariableOpts{Expand: true}).
+		WithEnvVariable("LD_LIBRARY_PATH", "/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}", dagger.ContainerWithEnvVariableOpts{Expand: true}).
+		WithEnvVariable("NVIDIA_VISIBLE_DEVICES", "all").
+		WithEnvVariable("NVIDIA_DRIVER_CAPABILITIES", "compute,utility")
+}
+
+func (b *Builder) BuildOpensearchUpdateServiceImage(pythonBase *dagger.Container) *dagger.Container {
+	ctr := pythonBase.
 		Pipeline("Opensearch Update Service Image").
-		From("rancher/opni-python-base:3.8").
 		WithDirectory(".", b.sources.Directory("aiops/")).
 		WithExec([]string{"pip", "install", "-r", "requirements.txt"}).
 		WithEntrypoint([]string{"python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"})

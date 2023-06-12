@@ -1,0 +1,14 @@
+[images.opni]
+	additional-tags = ["latest"]
+
+[images.minimal]
+	additional-tags = ["latest"]
+
+[images.opensearch.dashboards]
+	additional-tags = ["latest"]
+
+[images.opensearch.opensearch]
+	additional-tags = ["latest"]
+
+[images.opensearch.update-service]
+	additional-tags = ["latest"]

@@ -1,0 +1,5 @@
+[charts.oci]
+	push = true
+
+[charts.git]
+	push = true

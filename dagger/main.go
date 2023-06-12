@@ -5,17 +5,12 @@ import (
 	encodingjson "encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
 
 	"dagger.io/dagger"
-	"github.com/knadh/koanf/parsers/json"
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/posflag"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
@@ -37,16 +32,37 @@ type Builder struct {
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+type runOptions struct {
+	Context context.Context
+	Client  *dagger.Client
+	Args    []string
+}
+
+func run(opts ...runOptions) error {
+	if len(opts) == 0 {
+		opts = append(opts, runOptions{
+			Args: os.Args,
+		})
+	}
 	var configs []string
 	var showConfig bool
 	var outputFormat string
-	pflag.StringSliceVar(&configs, "config", nil, "Path to one or more config files")
-	pflag.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
-	pflag.StringVar(&outputFormat, "output-format", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
+	pf := pflag.NewFlagSet("dagger", pflag.ExitOnError)
+	pf.StringSliceVarP(&configs, "config", "c", nil, "Path to one or more config files")
+	pf.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
+	pf.StringVarP(&outputFormat, "output-format", "o", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
 	configFlagSet := config.BuildFlagSet(reflect.TypeOf(config.BuilderConfig{}))
-	pflag.CommandLine.SortFlags = false
-	pflag.CommandLine.AddFlagSet(configFlagSet)
-	pflag.Parse()
+	pf.SortFlags = false
+	pf.AddFlagSet(configFlagSet)
+	if err := pf.Parse(opts[0].Args); err != nil {
+		return err
+	}
 
 	k := koanf.NewWithConf(koanf.Conf{
 		Delim:       ".",
@@ -58,21 +74,27 @@ func main() {
 
 	// Load from config file
 	for _, conf := range configs {
-		switch path.Ext(conf) {
-		case ".yaml":
-			k.Load(file.Provider(conf), yaml.Parser())
-		case ".json":
-			k.Load(file.Provider(conf), json.Parser())
-		case ".toml":
-			k.Load(file.Provider(conf), toml.Parser())
-		default:
-			fmt.Fprintf(os.Stderr, "unsupported config file type: %s\n", conf)
-			os.Exit(1)
+		if err := k.Load(config.AutoLoader(conf)); err != nil {
+			return err
 		}
 	}
 
-	ctx := context.Background()
-	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
+	var ctx context.Context
+	var client *dagger.Client
+	if opts[0].Context != nil {
+		ctx = opts[0].Context
+	} else {
+		ctx = context.Background()
+	}
+	if opts[0].Client != nil {
+		client = opts[0].Client
+	} else {
+		var err error
+		client, err = dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
+		if err != nil {
+			return err
+		}
+	}
 
 	// Load from environment
 
@@ -90,8 +112,8 @@ func main() {
 	}
 
 	// Then load from standard environment variables (these take priority)
-	must(k.Load(env.ProviderWithValue("CI_", ".", func(envvar string, val string) (string, any) {
-		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(envvar, "CI_")), "_", ".")
+	must(k.Load(env.ProviderWithValue(config.EnvPrefix, ".", func(envvar string, val string) (string, any) {
+		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(envvar, config.EnvPrefix)), "_", ".")
 		if strings.Contains(key, "secret") {
 			fmt.Printf("[config] setting %s=<secret> from env %s\n", key, envvar)
 			return key, client.SetSecret(key, val)
@@ -111,8 +133,7 @@ func main() {
 		},
 	}); err != nil {
 		printConfig(k, outputFormat)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	if err := config.Validate(&builderConfig); err != nil {
@@ -120,12 +141,12 @@ func main() {
 		msg = strings.ReplaceAll(msg, `BuilderConfig.`, "")
 		fmt.Fprintln(os.Stderr, msg)
 		printConfig(k, outputFormat)
-		os.Exit(1)
+		return err
 	}
 
 	if showConfig {
 		printConfig(k, outputFormat)
-		os.Exit(0)
+		return nil
 	}
 
 	builder := &Builder{
@@ -169,12 +190,12 @@ func main() {
 	}
 	builder.SetupCaches()
 
-	err = builder.run(ctx)
+	err := builder.run(ctx)
 	client.Close()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
 
 func (b *Builder) run(ctx context.Context) error {
@@ -306,12 +327,11 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		})
 	}
 
-	if len(b.Charts.OCI.Push) > 0 {
+	if b.Charts.OCI.Push {
 		eg.Go(func() error {
 			return helm.Push(ctx, b.client, helm.PushOpts{
 				Target: b.Charts.OCI,
 				Dir:    charts.Directory(filepath.Join(b.workdir, "assets")),
-				Charts: b.Charts.OCI.Push,
 			})
 		})
 	}
@@ -327,6 +347,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				return fmt.Errorf("failed to publish image: %w", err)
 			}
 			fmt.Println("published image:", minimalRef)
+
 		}
 
 		if b.Images.Opni.Push {
@@ -353,7 +374,13 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 	opensearchDashboards := b.BuildOpensearchDashboardsImage()
 	opensearch := b.BuildOpensearchImage()
-	updateSvc := b.BuildOpensearchUpdateServiceImage()
+	var pythonBase *dagger.Container
+	if b.Images.PythonBase.Push {
+		pythonBase = b.BuildOpniPythonBase()
+	} else {
+		pythonBase = b.client.Container().From(b.Images.PythonBase.Ref())
+	}
+	updateSvc := b.BuildOpensearchUpdateServiceImage(pythonBase)
 
 	if b.Images.Opensearch.Dashboards.Push {
 		ref, err := opensearchDashboards.
@@ -368,6 +395,15 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 		ref, err := opensearch.
 			WithRegistryAuth(b.Images.Opensearch.Opensearch.RegistryAuth()).
 			Publish(ctx, b.Images.Opensearch.Opensearch.Ref())
+		if err != nil {
+			return fmt.Errorf("failed to publish image: %w", err)
+		}
+		fmt.Println("published image:", ref)
+	}
+	if b.Images.PythonBase.Push {
+		ref, err := pythonBase.
+			WithRegistryAuth(b.Images.PythonBase.RegistryAuth()).
+			Publish(ctx, b.Images.PythonBase.Ref())
 		if err != nil {
 			return fmt.Errorf("failed to publish image: %w", err)
 		}

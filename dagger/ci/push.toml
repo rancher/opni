@@ -1,0 +1,17 @@
+[images.opni]
+	push = true
+
+[images.minimal]
+	push = true
+
+[images.opensearch.dashboards]
+	push = true
+
+[images.opensearch.opensearch]
+	push = true
+
+[images.opensearch.update-service]
+	push = true
+
+[images.python-base]
+	push = true

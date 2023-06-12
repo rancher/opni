@@ -121,7 +121,7 @@ func printConfigTable(k *koanf.Koanf) {
 		if len(key) > longestKey {
 			longestKey = len(key)
 		}
-		env := fmt.Sprintf("CI_%s", strings.ToUpper(strings.ReplaceAll(key, ".", "_")))
+		env := fmt.Sprintf("%s%s", config.EnvPrefix, strings.ToUpper(strings.ReplaceAll(key, ".", "_")))
 	OUTER:
 		for _, sc := range specialCaseEnvs {
 			for _, k := range sc.Keys {

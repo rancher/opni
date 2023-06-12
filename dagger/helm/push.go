@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"dagger.io/dagger"
 	"github.com/rancher/opni/dagger/config"
@@ -14,7 +13,6 @@ import (
 type PushOpts struct {
 	Target config.OCIChartTarget
 	Dir    *dagger.Directory
-	Charts []string
 }
 
 func Push(ctx context.Context, client *dagger.Client, opts PushOpts) error {
@@ -26,10 +24,10 @@ func Push(ctx context.Context, client *dagger.Client, opts PushOpts) error {
 		WithExec([]string{
 			"sh", "-c",
 			fmt.Sprintf(`helm registry login --username="%s" --password="$DOCKER_PASSWORD" %s`, opts.Target.Auth.Username, opts.Target.Repo),
+		}).
+		WithExec([]string{"sh", "-c",
+			fmt.Sprintf(`find . -type f -name "*.tgz" -exec helm push {} oci://%s/%s \;`, opts.Target.Repo, opts.Target.Auth.Username),
 		})
-	for _, chart := range opts.Charts {
-		ctr = ctr.WithExec([]string{"helm", "push", chart, fmt.Sprintf("oci://%s/%s", opts.Target.Repo, opts.Target.Auth.Username)})
-	}
 
 	_, err := ctr.Sync(ctx)
 	if err != nil {
@@ -58,7 +56,6 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 		Pipeline("Publish Charts").
 		WithWorkdir(workdir).
 		WithSecretVariable("GH_TOKEN", opts.Target.Auth.Secret).
-		WithEnvVariable("NO_CACHE", time.Now().String()).
 		WithDirectory(workdir, client.Git(opts.Target.Repo, dagger.GitOpts{KeepGitDir: true}).Branch(opts.Target.Branch).Tree()).
 		WithExec([]string{"gh", "auth", "setup-git"}).
 		// WithExec([]string{"gh", "repo", "clone", opts.Target.Repo, ".", "--", "--branch", opts.Target.Branch, "--depth", "1", "--no-tags"}).

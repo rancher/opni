@@ -33,5 +33,5 @@ test = true
 	repo = "docker.io/rancher/opensearch-update-service"
 
 [images.python-base]
-	repo = "rancher/opni-python-base"
+	repo = "docker.io/rancher/opni-python-base"
 	tag = "3.9"

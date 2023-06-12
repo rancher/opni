@@ -70,13 +70,24 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 			Converter: secret,
 		},
 		{
-			EnvVar: "DRONE_TAG",
+			EnvVar: "DRONE_BRANCH",
 			Keys: []string{
 				"images.opni.tag",
-				"images.opni.minimal.tag",
+				"images.minimal.tag",
 				"images.opensearch.opensearch.tag",
 				"images.opensearch.dashboards.tag",
-				"images.openesearch.update-service.tag",
+				"images.opensearch.update-service.tag",
+			},
+			Converter: plaintext,
+		},
+		{
+			EnvVar: "DRONE_TAG", // if set, will override DRONE_BRANCH
+			Keys: []string{
+				"images.opni.tag",
+				"images.minimal.tag",
+				"images.opensearch.opensearch.tag",
+				"images.opensearch.dashboards.tag",
+				"images.opeesearch.update-service.tag",
 			},
 			Converter: plaintext,
 		},
@@ -155,7 +166,7 @@ func Validate(conf *BuilderConfig) error {
 	}, AuthConfig{})
 	v.RegisterValidation("reference-name-only", referenceName)
 	v.RegisterValidation("reference-tag", referenceTag)
-	v.RegisterValidation("reference-tag-suffix", referenceTag)
+	v.RegisterValidation("reference-tag-suffix", referenceTagSuffix)
 	v.RegisterTagNameFunc(func(sf reflect.StructField) string {
 		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
 	})
@@ -296,7 +307,10 @@ func referenceTag(fl validator.FieldLevel) bool {
 
 func referenceTagSuffix(fl validator.FieldLevel) bool {
 	str := fl.Field().String()
-	if len(str) > 0 && str[0] != '-' {
+	if len(str) == 0 {
+		return true
+	}
+	if str[0] != '-' {
 		return false
 	}
 	return reference.TagRegexp.MatchString(str[1:])

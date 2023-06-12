@@ -18,6 +18,7 @@ type TestBinOptions struct {
 }
 
 func TestBin(client *dagger.Client, ctr *dagger.Container, opts TestBinOptions) *dagger.Container {
+	ctr = ctr.Pipeline("Download Test Binaries")
 	targets := map[string][]Binary{}
 	for _, b := range opts.Binaries {
 		if b.Version == "" {

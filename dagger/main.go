@@ -106,7 +106,12 @@ func run(opts ...runOptions) error {
 		}
 		for _, key := range sc.Keys {
 			val := sc.Converter(key, str)
-			fmt.Printf("[config] setting %s=<secret> from env %s\n", key, sc.EnvVar)
+			switch val.(type) {
+			case string:
+				fmt.Printf("[config] setting %s=%s from env %s\n", key, val, sc.EnvVar)
+			case *dagger.Secret:
+				fmt.Printf("[config] setting %s=<secret> from env %s\n", key, sc.EnvVar)
+			}
 			k.Set(key, val)
 		}
 	}
@@ -270,7 +275,6 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	}
 
 	test := opni.
-		Pipeline("Test").
 		WithExec(mage("test:binconfig"))
 
 	if b.Test {
@@ -284,6 +288,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		}
 
 		test = cmds.TestBin(b.client, test, opts).
+			Pipeline("Test").
 			WithExec(mage("test"))
 		test.File(filepath.Join(b.workdir, "cover.out")).Export(ctx, "cover.out")
 		test.Sync(ctx)

@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/agent/node"
+	"github.com/rancher/opni/pkg/alerting/node"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"

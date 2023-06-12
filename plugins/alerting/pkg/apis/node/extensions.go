@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/agent/node"
+	"github.com/rancher/opni/pkg/alerting/node"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

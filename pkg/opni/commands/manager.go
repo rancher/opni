@@ -154,24 +154,6 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		if features.DefaultMutableFeatureGate.Enabled(features.NodeFeatureDiscoveryOperator) {
-			if err = (&controllers.NodeFeatureDiscoveryReconciler{}).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "NodeFeatureDiscovery")
-				return err
-			}
-		}
-
-		if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) {
-			if err = (&controllers.ClusterPolicyReconciler{}).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "ClusterPolicy")
-				return err
-			}
-			if err = (&controllers.GpuPolicyAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "GpuPolicyAdapter")
-				return err
-			}
-		}
-
 		// +kubebuilder:scaffold:builder
 
 		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

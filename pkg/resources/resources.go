@@ -3,7 +3,7 @@ package resources
 import (
 	"fmt"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/apimachinery/pkg/runtime"

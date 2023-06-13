@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // +kubebuilder:rbac:groups=core.opni.io,resources=alertingclusters,verbs=get;list;watch;create;update;patch;delete
@@ -63,25 +62,21 @@ func (r *CoreAlertingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
 		Watches(
-			&source.Kind{
-				Type: &corev1beta1.Gateway{},
-			},
+			&corev1beta1.Gateway{},
 			handler.EnqueueRequestsFromMapFunc(r.findAlertingClusters),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Watches(
-			&source.Kind{
-				Type: &corev1beta1.AlertingCluster{},
-			},
+			&corev1beta1.AlertingCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.findAlertingClusters),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *CoreAlertingReconciler) findAlertingClusters(gw client.Object) []ctrl.Request {
+func (r *CoreAlertingReconciler) findAlertingClusters(ctx context.Context, gw client.Object) []ctrl.Request {
 	alertingClusters := &corev1beta1.AlertingClusterList{}
-	err := r.List(context.Background(), alertingClusters, client.InNamespace(gw.GetNamespace()))
+	err := r.List(ctx, alertingClusters, client.InNamespace(gw.GetNamespace()))
 	if err != nil {
 		return []ctrl.Request{}
 	}

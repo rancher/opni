@@ -10,7 +10,7 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
@@ -112,7 +112,7 @@ func BuildKeyringsGetCmd() *cobra.Command {
 				fmt.Println(e.EncodeToString(util.Must(kr.Marshal())))
 			case "crd":
 				fmt.Printf("apiVersion: %s\nkind: %s\nmetadata:\n  name: %s\ndata: %s\n",
-					v1beta2.GroupVersion.String(), "Keyring", args[0],
+					opnicorev1beta1.GroupVersion.String(), "Keyring", args[0],
 					base64.StdEncoding.EncodeToString(util.Must(kr.Marshal())))
 			default:
 				return fmt.Errorf("unsupported encoding: %s", output)

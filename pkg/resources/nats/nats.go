@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/k8s-objectmatcher/patch"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/client-go/util/retry"

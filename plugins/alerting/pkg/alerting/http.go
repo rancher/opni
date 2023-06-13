@@ -88,8 +88,8 @@ func (h *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	router.GET("/plugin_alerting/ready", h.ready)
 	router.GET("/plugin_alerting/healthy", h.healthy)
 
-	router.Any(path.Join(proxyPath, "/api/v2/alerts/*any"), h.alertmanagerProxy)
-	router.Any(path.Join(proxyPath, "/api/v1/alerts/*any"), h.alertmanagerProxy)
+	router.Any(path.Join(proxyPath, "/api/v2/*any"), h.alertmanagerProxy)
+	router.Any(path.Join(proxyPath, "/api/v1/*any"), h.alertmanagerProxy)
 	pprof.Register(router, "/debug/plugin_alerting/pprof")
 }
 

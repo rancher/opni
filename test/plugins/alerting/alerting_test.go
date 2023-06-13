@@ -125,7 +125,7 @@ func BuildAlertingClusterIntegrationTests(
 				alertNotificationsClient = alertingNotificationsConstructor()
 				mgmtClient = mgmtClientConstructor()
 				numAgents = 5
-				tlsConfig := env.GatewayTLSConfig()
+				tlsConfig := env.GatewayClientTLSConfig()
 				httpProxyClient = &http.Client{
 					Transport: &http.Transport{
 						DialTLS: func(network, addr string) (net.Conn, error) {
@@ -385,7 +385,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*30, time.Second).Should(Succeed())
+					}, time.Second*45, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())

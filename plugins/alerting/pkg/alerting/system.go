@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -54,12 +53,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		p.gatewayConfig.Set(config)
-		p.cortexTLSConfig.Set(p.loadCerts())
-		p.AlertingClient.ConfigureHttp(func(c *http.Client) {
-			c.Transport = &http.Transport{
-				TLSClientConfig: p.cortexTLSConfig.Get(),
-			}
-		})
 		opt := &shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,

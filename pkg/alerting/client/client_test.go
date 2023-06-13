@@ -390,7 +390,7 @@ func BuildProxyClientTestSuite(
 		})
 		When("Using the Proxy client", func() {
 			It("should be able to list alerts", func() {
-				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts/", nil)
 				Expect(err).To(Succeed())
 				resp, err := cl.Handle(context.TODO(), req)
 				Expect(err).To(Succeed())
@@ -419,7 +419,7 @@ func BuildProxyClientTestSuite(
 				var data bytes.Buffer
 				err := json.NewEncoder(&data).Encode(reqBody)
 				Expect(err).To(Succeed())
-				req, err := http.NewRequest(http.MethodPost, "http://localhost:5000/api/v2/alerts", bytes.NewReader(data.Bytes()))
+				req, err := http.NewRequest(http.MethodPost, "http://localhost:5000/api/v2/alerts/", bytes.NewReader(data.Bytes()))
 				Expect(err).To(Succeed())
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Accept", "application/json")
@@ -429,7 +429,7 @@ func BuildProxyClientTestSuite(
 			})
 
 			It("should be able to list the newly create alert", func() {
-				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts/", nil)
 				Expect(err).To(Succeed())
 				resp, err := cl.Handle(context.TODO(), req)
 				Expect(err).To(Succeed())

@@ -370,7 +370,11 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Notifier: ruler.NotifierConfig{
-				TLS: tlsClientConfig,
+				TLS: tls.ClientConfig{
+					CertPath: tlsClientConfig.CertPath,
+					CAPath:   tlsClientConfig.CAPath,
+					KeyPath:  tlsClientConfig.KeyPath,
+				},
 			},
 			Ring: ruler.RingConfig{
 				KVStore: kvConfig,

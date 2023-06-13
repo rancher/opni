@@ -9,7 +9,7 @@ step certificate create "Example Intermediate CA 3" intermediate_ca_3.crt interm
 step certificate create "example.com" example.com.crt example.com.key --profile=leaf --ca=intermediate_ca_3.crt --ca-key=intermediate_ca_3.key "${args[@]}"
 step certificate create "leaf" localhost.crt localhost.key --profile=leaf --ca=root_ca.crt --ca-key=root_ca.key --san=localhost --san=127.0.0.1 "${args[@]}"
 step certificate create "self-signed-leaf" self_signed_leaf.crt self_signed_leaf.key --profile=self-signed --subtle "${args[@]}"
-
+step certificate create "client auth" client.crt client.key --profile=leaf --ca=root_ca.crt --ca-key=root_ca.key --san=localhost --san=127.0.0.1 "${args[@]}"
 cat example.com.crt intermediate_ca_3.crt intermediate_ca_2.crt intermediate_ca_1.crt root_ca.crt >full_chain.crt
 
 jsonData='{"testData":[]}'
@@ -21,6 +21,6 @@ done
 jq <<<"$jsonData" >fingerprints.json
 
 cd cortex || exit 1
-step certificate create "Test Cortex CA" root.crt root.key --profile=root-ca "${args[@]}"
-step certificate create "Test Cortex Client" client.crt client.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost "${args[@]}"
-step certificate create "Test Cortex Server" server.crt server.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost "${args[@]}"
+step certificate create "Test Cortex CA" root.crt root.key --profile=intermediate-ca --ca=../root_ca.crt --ca-key=../root_ca.key "${args[@]}"
+step certificate create "Test Cortex Client" client.crt client.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost --san=127.0.0.1 "${args[@]}"
+step certificate create "Test Cortex Server" server.crt server.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost --san=127.0.0.1 "${args[@]}"

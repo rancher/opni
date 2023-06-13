@@ -95,7 +95,7 @@ func NewHTTPServer(
 	metricsHandler := NewMetricsEndpointHandler(cfg.Metrics)
 	metricsRouter.GET(cfg.Metrics.GetPath(), gin.WrapH(metricsHandler.Handler()))
 
-	tlsConfig, _, err := loadTLSConfig(cfg)
+	tlsConfig, _, err := httpTLSConfig(cfg)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -192,7 +192,6 @@ func (s *GatewayHTTPServer) setupPluginRoutes(
 	s.routesMu.Lock()
 	defer s.routesMu.Unlock()
 	tlsConfig := s.tlsConfig.Clone()
-	tlsConfig.InsecureSkipVerify = true
 	sampledLogger := logger.New(
 		logger.WithSampling(&zap.SamplingConfig{
 			Initial:    1,

@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"crypto/tls"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
@@ -64,8 +63,7 @@ type Plugin struct {
 	js              future.Future[nats.JetStreamContext]
 	globalWatchers  management.ConditionWatcher
 
-	gatewayConfig   future.Future[*v1beta1.GatewayConfig]
-	cortexTLSConfig future.Future[*tls.Config]
+	gatewayConfig future.Future[*v1beta1.GatewayConfig]
 
 	collector.CollectorServer
 
@@ -102,8 +100,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
 
-		cortexTLSConfig: future.New[*tls.Config](),
-		gatewayConfig:   future.New[*v1beta1.GatewayConfig](),
+		gatewayConfig: future.New[*v1beta1.GatewayConfig](),
 
 		CollectorServer: collector,
 

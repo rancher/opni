@@ -722,7 +722,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		HttpListenPort:           e.ports.CortexHTTP,
 		GrpcListenPort:           e.ports.CortexGRPC,
 		StorageDir:               path.Join(e.tempDir, "cortex"),
-		AlertmanagerProxyAddress: "https://127.0.0.1:8080/plugin_alerting/alertmanager",
+		AlertmanagerProxyAddress: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
 		CertDir:                  e.certDir,
 	}); err != nil {
 		panic(err)
@@ -1363,6 +1363,14 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	if err != nil {
 		panic(err)
 	}
+	err = os.WriteFile(path.Join(e.certDir, "client.crt"), servingCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "client.key"), servingKeyData, 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
@@ -1705,22 +1713,24 @@ func (e *Environment) startGateway() {
 	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
 
 	lg.Info("Waiting for gateway to start...")
-	for i := 0; i < 10; i++ {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/healthz",
-			e.gatewayConfig.Spec.HTTPListenAddress), nil)
-		client := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: e.GatewayTLSConfig(),
-			},
-		}
-		resp, err := client.Do(req)
+	started := false
+	for i := 0; i < 100; i++ {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/healthz",
+			e.gatewayConfig.Spec.MetricsListenAddress), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
+				started = true
 				break
 			}
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
+	if !started {
+		lg.Panic("gateway failed to start")
+	}
+
 	lg.Info("Gateway started")
 }
 
@@ -1951,6 +1961,32 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		RootCAs:    pool,
+	}
+}
+
+func (e *Environment) GatewayClientTLSConfig() *tls.Config {
+	pool := x509.NewCertPool()
+
+	// Load the root CA certificate
+	caCertFile := path.Join(e.certDir, "root_ca.crt")
+	caCert, err := os.ReadFile(caCertFile)
+	if err != nil {
+		panic(err)
+	}
+	pool.AppendCertsFromPEM(caCert)
+
+	// Load the client certificate and key
+	clientCertFile := path.Join(e.certDir, "client.crt")
+	clientKeyFile := path.Join(e.certDir, "client.key")
+	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	if err != nil {
+		panic(err)
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{clientCert},
 	}
 }
 

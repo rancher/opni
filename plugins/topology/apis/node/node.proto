@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/node";
+option go_package = "github.com/rancher/opni/plugins/topology/apis/node";
 
 package node.topology;
 
@@ -10,7 +10,7 @@ service NodeTopologyCapability {
 message TopologyCapabilityConfig {
     bool enabled = 1;
     repeated string conditions = 2;
-    TopologyCapabilitySpec spec = 3; 
+    TopologyCapabilitySpec spec = 3;
 }
 
 message TopologyCapabilitySpec {

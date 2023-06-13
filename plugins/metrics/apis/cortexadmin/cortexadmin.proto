@@ -1,11 +1,11 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin";
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexadmin";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
-import "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin/status.proto";
+import "github.com/rancher/opni/plugins/metrics/apis/cortexadmin/status.proto";
 
 package cortexadmin;
 

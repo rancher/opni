@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/rancher/opni/aiops/apis/opni_proto/log_anomaly_payload";
+option go_package = "github.com/rancher/opni/aiops/apis/opni_proto";
 
 package log_anomaly_payload;
 

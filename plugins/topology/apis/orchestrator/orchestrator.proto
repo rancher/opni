@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/plugins/topology/pkg/apis/orchestrator";
+option go_package = "github.com/rancher/opni/plugins/topology/apis/orchestrator";
 
 
 import "google/protobuf/empty.proto";

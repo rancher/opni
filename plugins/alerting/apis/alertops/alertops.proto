@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops";
+option go_package = "github.com/rancher/opni/plugins/alerting/apis/alertops";
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
@@ -75,7 +75,7 @@ message InstallStatus {
 message ClusterConfiguration {
     // number of replicas for the opni-alerting (odd-number for HA)
     int32 numReplicas = 2;
-    
+
     // Maximum time to wait for cluster
     // connections to settle before
     // evaluating notifications.

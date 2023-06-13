@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"dagger.io/dagger"
-	"github.com/distribution/distribution/v3/reference"
 	"github.com/go-playground/validator/v10"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
@@ -17,6 +17,12 @@ import (
 	"github.com/knadh/koanf/v2"
 	"github.com/mitchellh/copystructure"
 	"github.com/spf13/pflag"
+)
+
+var (
+	// generated from docker/distribution
+	referenceRegexp = regexp.MustCompile(`^((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?/)?[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`)
+	tagRegexp       = regexp.MustCompile(`[\w][\w.-]{0,127}`)
 )
 
 const EnvPrefix = "_OPNI_"
@@ -286,23 +292,16 @@ func AutoLoader(filename string) (koanf.Provider, koanf.Parser) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("[config] loading %s\n", filename)
 	return file.Provider(filename), parser
 }
 
 func referenceName(fl validator.FieldLevel) bool {
-	named, err := reference.ParseNamed(fl.Field().String())
-	if err != nil {
-		return false
-	}
-	if !reference.IsNameOnly(named) {
-		return false
-	}
-	return true
+	matches := referenceRegexp.FindStringSubmatch(fl.Field().String())
+	return len(matches) == 4 && matches[0] == matches[1]
 }
 
 func referenceTag(fl validator.FieldLevel) bool {
-	return reference.TagRegexp.MatchString(fl.Field().String())
+	return tagRegexp.MatchString(fl.Field().String())
 }
 
 func referenceTagSuffix(fl validator.FieldLevel) bool {
@@ -313,5 +312,5 @@ func referenceTagSuffix(fl validator.FieldLevel) bool {
 	if str[0] != '-' {
 		return false
 	}
-	return reference.TagRegexp.MatchString(str[1:])
+	return tagRegexp.MatchString(str[1:])
 }

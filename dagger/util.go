@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -114,27 +115,20 @@ func printConfigTable(k *koanf.Koanf) {
 	keys := k.Keys()
 	values := k.All()
 	valueTypes := make(map[string]string)
-	envVars := make(map[string]string)
-	var longestKey, longestType, longestValue, longestEnv int
+	envVars := make(map[string][]any)
 	specialCaseEnvs := config.SpecialCaseEnvVars(nil)
 	for _, key := range keys {
-		if len(key) > longestKey {
-			longestKey = len(key)
-		}
 		env := fmt.Sprintf("%s%s", config.EnvPrefix, strings.ToUpper(strings.ReplaceAll(key, ".", "_")))
+		envVars[key] = []any{env}
 	OUTER:
 		for _, sc := range specialCaseEnvs {
 			for _, k := range sc.Keys {
 				if k == key {
-					env = fmt.Sprintf("%s, %s", env, sc.EnvVar)
+					envVars[key] = append(envVars[key], sc.EnvVar)
 					break OUTER
 				}
 			}
 		}
-		if len(env) > longestEnv {
-			longestEnv = len(env)
-		}
-		envVars[key] = env
 	}
 	for key, value := range values {
 		if strings.Contains(key, "secret") {
@@ -147,28 +141,25 @@ func printConfigTable(k *koanf.Koanf) {
 			continue
 		}
 		valueType := fmt.Sprintf("%T", value)
-		if len(valueType) > longestType {
-			longestType = len(valueType)
-		}
 		valueTypes[key] = valueType
 		valueStr := fmt.Sprintf("%v", value)
-		if len(valueStr) > longestValue {
-			longestValue = len(valueStr)
-		}
 		values[key] = valueStr
 	}
-	// key | type | value | env var
+	w := table.NewWriter()
 
-	// print the header
-	fmt.Printf("%s-+-%s-+-%s-+-%s\n", strings.Repeat("-", longestKey), strings.Repeat("-", longestType), strings.Repeat("-", longestValue), strings.Repeat("-", longestEnv))
-	fmt.Printf("%-*s | %-*s | %-*s | %-*s\n", longestKey, "Key", longestType, "Type", longestValue, "Value", longestEnv, "Environment Variable")
-	fmt.Printf("%s-+-%s-+-%s-+-%s\n", strings.Repeat("-", longestKey), strings.Repeat("-", longestType), strings.Repeat("-", longestValue), strings.Repeat("-", longestEnv))
-
-	// print the values
-	for _, key := range keys {
-		fmt.Printf("%-*s | %-*s | %-*s | %-*s\n", longestKey, key, longestType, valueTypes[key], longestValue, values[key], longestEnv, envVars[key])
+	maxNumEnvVars := 0
+	for _, envs := range envVars {
+		if len(envs) > maxNumEnvVars {
+			maxNumEnvVars = len(envs)
+		}
 	}
-
-	// print the footer
-	fmt.Printf("%s-+-%s-+-%s-+-%s\n", strings.Repeat("-", longestKey), strings.Repeat("-", longestType), strings.Repeat("-", longestValue), strings.Repeat("-", longestEnv))
+	header := []any{"Key", "Type", "Value"}
+	for i := 0; i < maxNumEnvVars; i++ {
+		header = append(header, "Environment Variables")
+	}
+	w.AppendHeader(header, table.RowConfig{AutoMerge: true})
+	for _, key := range keys {
+		w.AppendRow(append(table.Row{key, valueTypes[key], values[key]}, envVars[key]...))
+	}
+	fmt.Println(w.Render())
 }

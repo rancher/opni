@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/plugins/slo/pkg/apis/slo";
+option go_package = "github.com/rancher/opni/plugins/slo/apis/slo";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
@@ -136,7 +136,7 @@ message Event{
 message ServiceInfo {
   string jobId = 1;
   string clusterId = 5;
-  string metricName = 2; 
+  string metricName = 2;
   string metricIdGood = 3;
   string metricIdTotal = 4;
 }

@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/node";
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
@@ -18,6 +18,9 @@ package node.metrics;
 // Served as a stream API extension.
 service NodeMetricsCapability {
   rpc Sync(SyncRequest) returns (SyncResponse);
+
+
+
 }
 
 // The NodeConfiguration service allows for per-node configuration of the

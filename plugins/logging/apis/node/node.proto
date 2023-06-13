@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/node";
+option go_package = "github.com/rancher/opni/plugins/logging/apis/node";
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";

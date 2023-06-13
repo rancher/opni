@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin";
+option go_package = "github.com/rancher/opni/plugins/logging/apis/loggingadmin";
 
 import "google/protobuf/empty.proto";
 import "google/api/http.proto";

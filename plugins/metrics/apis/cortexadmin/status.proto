@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin";
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexadmin";
 import "google/protobuf/timestamp.proto";
 
 

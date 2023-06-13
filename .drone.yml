@@ -6,15 +6,6 @@ platform:
   os: linux
   arch: amd64
 steps:
-  - name: setup
-    image: golang
-    commands:
-      - go build -buildvcs=false -o /dagger-bin/dagger ./dagger
-    volumes:
-      - name: dagger-bin
-        path: /dagger-bin
-    environment:
-      CGO_ENABLED: "0"
   - name: build-and-package
     image: docker
     environment: &environment
@@ -36,7 +27,8 @@ steps:
       - name: docker-config
         path: /root/.docker
     commands:
-      - /dagger-bin/dagger -c dagger/ci/defaults
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults
   - name: coverage
     image: plugins/codecov
     settings:
@@ -49,7 +41,8 @@ steps:
     environment: *environment
     volumes: *volumes
     commands:
-      - /dagger-bin/dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest
     when:
       event:
         - tag
@@ -64,7 +57,8 @@ steps:
     environment: *environment
     volumes: *volumes
     commands:
-      - /dagger-bin/dagger -c dagger/ci/defaults,dagger/ci/push
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push
     when:
       event:
         - push
@@ -73,8 +67,6 @@ steps:
       branch:
         - main
 volumes:
-  - name: dagger-bin
-    temp: {}
   - name: docker-sock
     host:
       path: /var/run/docker.sock

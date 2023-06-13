@@ -50,10 +50,12 @@ func run(opts ...runOptions) error {
 			Args: os.Args,
 		})
 	}
+	var debug bool
 	var configs []string
 	var showConfig bool
 	var outputFormat string
 	pf := pflag.NewFlagSet("dagger", pflag.ExitOnError)
+	pf.BoolVar(&debug, "debug", false, "Enable debug logging")
 	pf.StringSliceVarP(&configs, "config", "c", nil, "Path to one or more config files")
 	pf.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
 	pf.StringVarP(&outputFormat, "output-format", "o", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
@@ -76,6 +78,9 @@ func run(opts ...runOptions) error {
 	for _, conf := range configs {
 		if err := k.Load(config.AutoLoader(conf)); err != nil {
 			return err
+		}
+		if debug {
+			fmt.Printf("[config] loading %s\n", conf)
 		}
 	}
 
@@ -108,9 +113,13 @@ func run(opts ...runOptions) error {
 			val := sc.Converter(key, str)
 			switch val.(type) {
 			case string:
-				fmt.Printf("[config] setting %s=%s from env %s\n", key, val, sc.EnvVar)
+				if debug {
+					fmt.Printf("[config] setting %s=%s from env %s\n", key, val, sc.EnvVar)
+				}
 			case *dagger.Secret:
-				fmt.Printf("[config] setting %s=<secret> from env %s\n", key, sc.EnvVar)
+				if debug {
+					fmt.Printf("[config] setting %s=<secret> from env %s\n", key, sc.EnvVar)
+				}
 			}
 			k.Set(key, val)
 		}
@@ -120,10 +129,14 @@ func run(opts ...runOptions) error {
 	must(k.Load(env.ProviderWithValue(config.EnvPrefix, ".", func(envvar string, val string) (string, any) {
 		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(envvar, config.EnvPrefix)), "_", ".")
 		if strings.Contains(key, "secret") {
-			fmt.Printf("[config] setting %s=<secret> from env %s\n", key, envvar)
+			if debug {
+				fmt.Printf("[config] setting %s=<secret> from env %s\n", key, envvar)
+			}
 			return key, client.SetSecret(key, val)
 		}
-		fmt.Printf("[config] setting %s=%s from env %s\n", key, val, envvar)
+		if debug {
+			fmt.Printf("[config] setting %s=%s from env %s\n", key, val, envvar)
+		}
 		return key, val
 	}), nil))
 
@@ -221,12 +234,15 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	goBuild := goBase.
 		Pipeline("Go Build").
+		WithDirectory(b.workdir, b.sources, dagger.ContainerWithDirectoryOpts{
+			Include: []string{"go.mod", "go.sum"},
+		}).
+		WithExec([]string{"go", "mod", "download"}).
 		WithMountedDirectory(b.workdir, b.sources).
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
-		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
-		WithExec([]string{"ls", "-l", "/go/bin"})
+		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"})
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
@@ -268,30 +284,41 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
 		WithExec([]string{"golangci-lint", "run"})
 
-	if b.Lint {
-		if _, err := lint.Sync(ctx); err != nil {
-			return err
-		}
-	}
-
 	test := opni.
 		WithExec(mage("test:binconfig"))
 
-	if b.Test {
-		var opts cmds.TestBinOptions
-		confJson, err := test.Stdout(ctx)
-		if err != nil {
-			return err
-		}
-		if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
-			return err
+	{ // lint & test
+		var eg errgroup.Group
+		if b.Lint {
+			eg.Go(func() error {
+				if _, err := lint.Sync(ctx); err != nil {
+					return err
+				}
+				return nil
+			})
 		}
 
-		test = cmds.TestBin(b.client, test, opts).
-			Pipeline("Test").
-			WithExec(mage("test"))
-		test.File(filepath.Join(b.workdir, "cover.out")).Export(ctx, "cover.out")
-		test.Sync(ctx)
+		if b.Test {
+			eg.Go(func() error {
+				var opts cmds.TestBinOptions
+				confJson, err := test.Stdout(ctx)
+				if err != nil {
+					return err
+				}
+				if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
+					return err
+				}
+				test = cmds.TestBin(b.client, test, opts).
+					Pipeline("Test").
+					WithExec(mage("test"))
+				test.File(filepath.Join(b.workdir, "cover.out")).Export(ctx, "cover.out")
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
 	fullImage := alpineBase.
@@ -349,10 +376,9 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				WithRegistryAuth(b.Images.OpniMinimal.RegistryAuth()).
 				Publish(ctx, b.Images.OpniMinimal.Ref())
 			if err != nil {
-				return fmt.Errorf("failed to publish image: %w", err)
+				return fmt.Errorf("failed to publish image %s: %w", b.Images.OpniMinimal.Ref(), err)
 			}
 			fmt.Println("published image:", minimalRef)
-
 		}
 
 		if b.Images.Opni.Push {
@@ -365,7 +391,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				WithRegistryAuth(b.Images.Opni.RegistryAuth()).
 				Publish(ctx, b.Images.Opni.Ref())
 			if err != nil {
-				return fmt.Errorf("failed to publish image: %w", err)
+				return fmt.Errorf("failed to publish image %s: %w", b.Images.Opni.Ref(), err)
 			}
 			fmt.Println("published image:", ref)
 		}
@@ -392,7 +418,7 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 			WithRegistryAuth(b.Images.Opensearch.Dashboards.RegistryAuth()).
 			Publish(ctx, b.Images.Opensearch.Dashboards.Ref())
 		if err != nil {
-			return fmt.Errorf("failed to publish image: %w", err)
+			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.Dashboards.Ref(), err)
 		}
 		fmt.Println("published image:", ref)
 	}
@@ -401,7 +427,7 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 			WithRegistryAuth(b.Images.Opensearch.Opensearch.RegistryAuth()).
 			Publish(ctx, b.Images.Opensearch.Opensearch.Ref())
 		if err != nil {
-			return fmt.Errorf("failed to publish image: %w", err)
+			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.Opensearch.Ref(), err)
 		}
 		fmt.Println("published image:", ref)
 	}
@@ -410,7 +436,7 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 			WithRegistryAuth(b.Images.PythonBase.RegistryAuth()).
 			Publish(ctx, b.Images.PythonBase.Ref())
 		if err != nil {
-			return fmt.Errorf("failed to publish image: %w", err)
+			return fmt.Errorf("failed to publish image %s: %w", b.Images.PythonBase.Ref(), err)
 		}
 		fmt.Println("published image:", ref)
 	}
@@ -419,7 +445,7 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 			WithRegistryAuth(b.Images.Opensearch.UpdateService.RegistryAuth()).
 			Publish(ctx, b.Images.Opensearch.UpdateService.Ref())
 		if err != nil {
-			return fmt.Errorf("failed to publish image: %w", err)
+			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.UpdateService.Ref(), err)
 		}
 		fmt.Println("published image:", ref)
 	}

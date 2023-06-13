@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/plugins/topology/pkg/apis/representation";
+option go_package = "github.com/rancher/opni/plugins/topology/apis/representation";
 
 import "google/protobuf/empty.proto";
 import "google/api/http.proto";
@@ -30,7 +30,7 @@ message TopologyGraph {
 
 enum GraphRepr {
     None = 0;
-    KubectlGraph = 1; 
+    KubectlGraph = 1;
 }
 
 message DOTRepresentation {

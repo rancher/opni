@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/topology/pkg/apis/stream";
+option go_package = "github.com/rancher/opni/plugins/topology/apis/stream";
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
@@ -26,5 +26,5 @@ message TopologyGraph {
 
 enum GraphRepr {
     None = 0;
-    KubectlGraph = 1; 
+    KubectlGraph = 1;
 }

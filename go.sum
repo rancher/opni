@@ -1103,8 +1103,8 @@ github.com/edsrzf/mmap-go v1.1.0/go.mod h1:19H/e8pUPLicwkyNgOykDXkJ9F0MHE+Z52B8E
 github.com/efficientgo/core v1.0.0-rc.2 h1:7j62qHLnrZqO3V3UA0AqOGd5d5aXV3AX6m/NZBHp78I=
 github.com/efficientgo/core v1.0.0-rc.2/go.mod h1:FfGdkzWarkuzOlY04VY+bGfb1lWrjaL6x/GLcQ4vJps=
 github.com/efficientgo/e2e v0.14.1-0.20230119090947-fa7ceb0197c5 h1:N1fHVcNEPMJNB93sxT6icl5yvoFxa2sp3/1NnVlrAFc=
-github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153 h1:yUdfgN0XgIJw7foRItutHYUIhlcKzcSf5vDpdhQAKTc=
 github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153/go.mod h1:/Zj4wYkgs4iZTTu3o/KG3Itv/qCCa8VVMlb3i9OVuzc=
+github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819 h1:RIB4cRk+lBqKK3Oy0r2gRX4ui7tuhiZq2SuTtTCi0/0=
 github.com/emicklei/go-restful v0.0.0-20170410110728-ff4f55a20633/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful v2.9.5+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful/v3 v3.10.1 h1:rc42Y5YTp7Am7CS630D7JmhRjq4UlEUuEKfrDac4bSQ=
@@ -1979,6 +1979,8 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/kralicky/cortex v1.14.1-opni.0 h1:+XrmnpjKlAwyMUOgSDgWVVd7uRM6Vrk/2691uRpGnRM=
 github.com/kralicky/cortex v1.14.1-opni.0/go.mod h1:/EKcnQHqRrx1MyPp2LDJ7tKSHlr+f+A1hrisqyOVFZw=
+github.com/kralicky/fosite v0.0.0-20230609182504-1f8a89091bb9 h1:HoBG4NJEBNrsXhqwLDSfXEV0L5GpWAL6BgGu/UzoYwc=
+github.com/kralicky/fosite v0.0.0-20230609182504-1f8a89091bb9/go.mod h1:e5J7fuurRQn4hR2aX72369rFDRwRBw66EhBmKUsBLio=
 github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555 h1:w/v9aYd9gdL0pEofCiOM7MWNroB9+HWxHT29Wj2NMYc=
 github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555/go.mod h1:EJrGSfmocDg2CBjHDm3zy9oxNKCSGhf+MNTiN1DRbKA=
 github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be h1:j8X7zwJNBX6qcG0P8FZ90mhWpL7MIO7J51XOEglxx7Q=
@@ -2406,8 +2408,6 @@ github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJ
 github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/oracle/oci-go-sdk/v65 v65.13.0 h1:0+9ea5goYfhI3/MPfbIQU6yzHYWE6sCk6VuUepxk5Nk=
-github.com/ory/fosite v0.44.0 h1:Z3UjyO11/wlIoa3BotOqcTkfm7kUNA8F7dd8mOMfx0o=
-github.com/ory/fosite v0.44.0/go.mod h1:o/G4kAeNn65l6MCod2+KmFfU6JQBSojS7eXys6lKGzM=
 github.com/ory/go-acc v0.2.9-0.20230103102148-6b1c9a70dbbe h1:rvu4obdvqR0fkSIJ8IfgzKOWwZ5kOT2UNfLq81Qk7rc=
 github.com/ory/go-acc v0.2.9-0.20230103102148-6b1c9a70dbbe/go.mod h1:z4n3u6as84LbV4YmgjHhnwtccQqzf4cZlSk9f1FhygI=
 github.com/ory/go-convenience v0.1.0 h1:zouLKfF2GoSGnJwGq+PE/nJAE6dj2Zj5QlTgmMTsTS8=

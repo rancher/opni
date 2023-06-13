@@ -673,3 +673,5 @@ replace (
 
 // Temporary replacements
 replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver/v4 v4.0.0
+
+replace github.com/ory/fosite => github.com/kralicky/fosite v0.0.0-20230609182504-1f8a89091bb9

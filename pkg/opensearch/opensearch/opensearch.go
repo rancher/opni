@@ -17,14 +17,15 @@ import (
 
 type Client struct {
 	ClientOptions
-	ISM      api.ISMApi
-	Security api.SecurityAPI
-	Indices  api.IndicesAPI
-	Ingest   api.IngestAPI
-	Tasks    api.TasksAPI
-	Cluster  api.ClusterAPI
-	Alerting api.AlertingAPI
-	Snapshot api.SnapshotAPI
+	ISM          api.ISMApi
+	Security     api.SecurityAPI
+	Indices      api.IndicesAPI
+	Ingest       api.IngestAPI
+	Tasks        api.TasksAPI
+	Cluster      api.ClusterAPI
+	Alerting     api.AlertingAPI
+	Snapshot     api.SnapshotAPI
+	NeuralSearch api.NeuralSearchAPI
 }
 
 type ClientConfig struct {
@@ -134,6 +135,9 @@ func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 			},
 		},
 		Snapshot: api.SnapshotAPI{
+			Client: client,
+		},
+		NeuralSearch: api.NeuralSearchAPI{
 			Client: client,
 		},
 	}, nil

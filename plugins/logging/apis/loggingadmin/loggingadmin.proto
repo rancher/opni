@@ -77,6 +77,7 @@ message OpensearchClusterV2 {
     optional DashboardsDetails dashboards = 5;
     optional string dataRetention = 6;
     optional OpensearchS3Settings s3 = 7;
+    optional MlDetails mlNodes = 8;
 }
 
 message DataPersistence {
@@ -208,4 +209,15 @@ message SnapshotStatus {
     optional string statusMessage = 3;
     google.protobuf.Timestamp lastUpdated = 4;
     bool recurring = 5;
+}
+
+message MlDetails {
+    optional int32 replicas = 1;
+    string diskSize = 2;
+    string memoryLimit = 3;
+    optional CPUResource cpuResources = 4;
+    optional bool enableAntiAffinity = 5;
+    map<string, string> nodeSelector = 6;
+    repeated k8s.io.api.core.v1.Toleration tolerations = 7;
+    optional DataPersistence persistence = 8;
 }

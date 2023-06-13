@@ -82,6 +82,18 @@ func generateIndicesSettingsPath(indices []string) strings.Builder {
 	return path
 }
 
+func generateIndicesMappingsPath(indices []string) strings.Builder {
+	var path strings.Builder
+	path.Grow(1 + len(strings.Join(indices, ",")) + 1 + len("_mappings"))
+	if len(indices) > 0 {
+		path.WriteString("/")
+		path.WriteString(strings.Join(indices, ","))
+	}
+	path.WriteString("/")
+	path.WriteString("_mappings")
+	return path
+}
+
 func generateDeleteByQueryPath(indices []string) strings.Builder {
 	var path strings.Builder
 	path.Grow(1 + len(strings.Join(indices, ",")) + 1 + len("_delete_by_query"))
@@ -240,6 +252,26 @@ func (a *IndicesAPI) AsyncDeleteByQuery(ctx context.Context, indices []string, b
 func (a *IndicesAPI) UpdateIndicesSettings(ctx context.Context, indices []string, body io.Reader) (*Response, error) {
 	method := http.MethodPut
 	path := generateIndicesSettingsPath(indices)
+
+	req, err := http.NewRequest(method, path.String(), body)
+	if err != nil {
+		return nil, err
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	if body != nil {
+		req.Header.Add(headerContentType, jsonContentHeader)
+	}
+
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
+
+func (a *IndicesAPI) UpdateIndicesMappings(ctx context.Context, indices []string, body io.Reader) (*Response, error) {
+	method := http.MethodPut
+	path := generateIndicesMappingsPath(indices)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {

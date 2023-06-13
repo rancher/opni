@@ -45,6 +45,7 @@ var (
 		ClusterPermissions: []string{
 			"cluster_composite_ops",
 			"cluster_monitor",
+			"cluster:admin/opensearch/ml/predict",
 		},
 		IndexPermissions: []opensearchtypes.IndexPermissionSpec{
 			{
@@ -267,6 +268,7 @@ var (
 				ISMPolicyID:      LogPolicyName,
 				RolloverAlias:    LogIndexAlias,
 				DefaultPipeline:  preProcessingPipelineName,
+				KNN:              true,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
 				Properties: map[string]opensearchtypes.PropertySettings{

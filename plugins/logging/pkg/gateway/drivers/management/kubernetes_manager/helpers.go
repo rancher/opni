@@ -165,6 +165,39 @@ func (d *KubernetesManagerDriver) generateNodePools(cluster *loggingadmin.Opense
 		pools = append(pools, cp)
 	}
 
+	if cluster.GetMlNodes() != nil {
+		resources, jvm, retErr = generateK8sResources(
+			cluster.GetMlNodes().GetMemoryLimit(),
+			cluster.GetMlNodes().GetCpuResources(),
+		)
+		if retErr != nil {
+			return
+		}
+		mlPool := opsterv1.NodePool{
+			Component: "ml",
+			Replicas:  lo.FromPtrOr(cluster.MlNodes.Replicas, 1),
+			Roles: []string{
+				"ml",
+			},
+			Labels: map[string]string{
+				LabelOpniNodeGroup: "ml",
+			},
+			DiskSize:     cluster.GetMlNodes().GetDiskSize(),
+			NodeSelector: cluster.GetMlNodes().GetNodeSelector(),
+			Resources:    resources,
+			Jvm:          jvm,
+			Tolerations:  convertTolerations(cluster.GetMlNodes().GetTolerations()),
+			Affinity: func() *corev1.Affinity {
+				if lo.FromPtrOr(cluster.GetMlNodes().EnableAntiAffinity, false) {
+					return d.generateAntiAffinity("ml")
+				}
+				return nil
+			}(),
+			Persistence: convertPersistence(cluster.GetMlNodes().GetPersistence()),
+		}
+		pools = append(pools, mlPool)
+	}
+
 	return
 }
 

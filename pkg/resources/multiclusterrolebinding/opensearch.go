@@ -141,6 +141,23 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
+	modelID, retErr := reconciler.CreateNeuralSearchModel()
+	if retErr != nil {
+		return
+	}
+
+	retErr = reconciler.MaybeUpdateIngestPipelineForNeuralSearch(preProcessingPipelineName, preprocessingPipeline, modelID)
+	if retErr != nil {
+		return
+	}
+
+	retErr = reconciler.UpdateNeuralSearchLogEmbeddingForIndex(
+		fmt.Sprintf("%s*", LogIndexPrefix),
+	)
+	if retErr != nil {
+		return
+	}
+
 	if opensearchCluster.Spec.Dashboards.Enable {
 		retErr = reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
 	}

@@ -150,6 +150,7 @@ func (r *Reconciler) shouldCreateTemplate(template types.IndexTemplateSpec) (boo
 	if err != nil {
 		return false, err
 	}
+
 	for _, remoteTemplate := range getTemplateResp.IndexTemplates {
 		if remoteTemplate.Name == template.TemplateName {
 			compared := remoteTemplate.Template
@@ -881,6 +882,133 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 
 	if resp.IsError() {
 		return fmt.Errorf("failed to update index settings: %s", resp.String())
+	}
+
+	return nil
+}
+
+func (r *Reconciler) UpdateNeuralSearchLogEmbeddingForIndex(index string) error {
+	var absent bool
+	var err error
+
+	if strings.HasSuffix(index, "*") {
+		absent, err = r.prefixIndicesAbsent(index)
+		if err != nil {
+			return err
+		}
+	} else {
+		exists, err := r.indexExists(index)
+		absent = !exists
+		if err != nil {
+			return err
+		}
+	}
+
+	// If indices don't exist we don't need to update anything
+	if absent {
+		return nil
+	}
+
+	mapping, err := sjson.Set("", "properties."+types.LogEmbeddingName, types.LogEmbedding)
+	if err != nil {
+		return err
+	}
+
+	resp, err := r.osClient.Indices.UpdateIndicesMappings(
+		r.ctx,
+		[]string{index},
+		strings.NewReader(mapping),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to update index settings: %s", resp.String())
+	}
+
+	return nil
+}
+
+func (r *Reconciler) shouldUpdateIngestPipelineForNeuralSearch(pipelineName string, modelID string) (bool, error) {
+	if modelID == "" {
+		return false, fmt.Errorf("neural search model not loaded into memory")
+	}
+	resp, err := r.osClient.Ingest.GetIngestPipeline(r.ctx, pipelineName)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return false, fmt.Errorf("failed to get pipeline %s: %s", pipelineName, resp.String())
+	}
+
+	existing := types.IngestPipeline{}
+	err = json.NewDecoder(resp.Body).Decode(&existing)
+	if err != nil {
+		return false, err
+	}
+
+	for _, p := range existing.Processors {
+		if p.TextEmbedding != nil && p.TextEmbedding.ModelId == modelID {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (r *Reconciler) CreateNeuralSearchModel() (string, error) {
+	resp, err := r.osClient.NeuralSearch.PostEnableModelAccessControl(r.ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to enable model access control: %s", resp.String())
+	}
+
+	modelGroupID, err := r.osClient.NeuralSearch.MaybeCreateModelGroup(r.ctx)
+	if err != nil {
+		return "", err
+	}
+
+	modelID, err := r.osClient.NeuralSearch.MaybeCreateRegisteredModel(r.ctx, modelGroupID)
+	if err != nil {
+		return "", err
+	}
+
+	err = r.osClient.NeuralSearch.DeployNeuralSearchModel(r.ctx, modelID)
+	if err != nil {
+		return "", err
+	}
+
+	return modelID, nil
+}
+
+func (r *Reconciler) MaybeUpdateIngestPipelineForNeuralSearch(pipelineName string, pipeline types.IngestPipeline, modelID string) error {
+	shouldUpdate, err := r.shouldUpdateIngestPipelineForNeuralSearch(pipelineName, modelID)
+	if err != nil {
+		return err
+	}
+	if !shouldUpdate {
+		return nil
+	}
+
+	pipeline.Processors = append(pipeline.Processors, types.Processor{
+		TextEmbedding: &types.TextEmbeddingConfig{
+			ModelId: modelID,
+			FieldMap: &types.FieldMap{
+				Log: types.LogEmbeddingName,
+			},
+		},
+	})
+
+	resp, err := r.osClient.Ingest.PutIngestTemplate(r.ctx, pipelineName, opensearchutil.NewJSONReader(pipeline))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to update pipeline processor: %s", resp.String())
 	}
 
 	return nil

@@ -25,6 +25,7 @@ type TemplateSettingsSpec struct {
 	ISMPolicyID      string `json:"opendistro.index_state_management.policy_id,omitempty"`
 	RolloverAlias    string `json:"opendistro.index_state_management.rollover_alias,omitempty"`
 	DefaultPipeline  string `json:"default_pipeline,omitempty"`
+	KNN              bool   `json:"knn,omitempty"`
 }
 
 type TemplateMappingsSpec struct {

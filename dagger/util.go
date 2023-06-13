@@ -22,17 +22,17 @@ func (b *Builder) bin(paths ...string) string {
 
 func (b *Builder) nodeBase() *dagger.Container {
 	return images.NodeBase(b.client).
-		WithMountedCache(b.caches.Yarn()).
+		With(b.caches.Yarn).
 		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
 		WithWorkdir(filepath.Join(b.workdir, "web"))
 }
 
 func (b *Builder) goBase() *dagger.Container {
 	return images.GoBase(b.client).
-		WithMountedCache(b.caches.Mage()).
-		WithMountedCache(b.caches.GoBuild()).
-		WithMountedCache(b.caches.GoMod()).
-		WithMountedCache(b.caches.GoBin()).
+		With(b.caches.Mage).
+		With(b.caches.GoBuild).
+		With(b.caches.GoMod).
+		With(b.caches.GoBin).
 		WithWorkdir(b.workdir)
 }
 
@@ -162,4 +162,45 @@ func printConfigTable(k *koanf.Koanf) {
 		w.AppendRow(append(table.Row{key, valueTypes[key], values[key]}, envVars[key]...))
 	}
 	fmt.Println(w.Render())
+}
+
+func SetupCaches(client *dagger.Client, cacheMode string) config.Caches {
+	if _, ok := os.LookupEnv("CI"); ok {
+		cacheMode = CacheModeNone
+	}
+	identity := func(ctr *dagger.Container) *dagger.Container { return ctr }
+	switch cacheMode {
+	case CacheModeVolumes:
+		return config.Caches{
+			GoMod: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/go/pkg/mod", client.CacheVolume("gomod"))
+			},
+			GoBuild: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/root/.cache/go-build", client.CacheVolume("gobuild"))
+			},
+			GoBin: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/go/bin", client.CacheVolume("gobin"))
+			},
+			Mage: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/root/.magefile", client.CacheVolume("mage"))
+			},
+			Yarn: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/cache/yarn", client.CacheVolume("yarn"))
+			},
+			NodeModules: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/src/web/node_modules", client.CacheVolume("node_modules"))
+			},
+		}
+	case CacheModeNone:
+		fallthrough
+	default:
+		return config.Caches{
+			GoMod:       identity,
+			GoBuild:     identity,
+			GoBin:       identity,
+			Mage:        identity,
+			Yarn:        identity,
+			NodeModules: identity,
+		}
+	}
 }

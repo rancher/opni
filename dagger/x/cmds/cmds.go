@@ -33,7 +33,7 @@ func TestBin(client *dagger.Client, ctr *dagger.Container, opts TestBinOptions) 
 		binaryCtr := client.Container().From(img)
 		for _, b := range binaries {
 			b := b
-			ctr = ctr.WithMountedFile(fmt.Sprintf("/src/testbin/bin/%s", b.Name), binaryCtr.File(b.Path))
+			ctr = ctr.WithFile(fmt.Sprintf("/src/testbin/bin/%s", b.Name), binaryCtr.File(b.Path))
 		}
 	}
 

@@ -18,7 +18,7 @@ func (b *Builder) BuildOpensearchDashboardsPlugin(ctx context.Context) error {
 		Tree()
 
 	_, err := images.NodeBase(b.client).Pipeline("Opensearch Dashboards Plugin").
-		WithMountedCache(b.caches.Yarn()).
+		With(b.caches.Yarn).
 		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
 		WithDirectory("/src", osdSrc).
 		WithDirectory("/src/plugins/opni-dashboards-plugin", opniPluginSrc).

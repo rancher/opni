@@ -24,11 +24,12 @@ import (
 
 type Builder struct {
 	config.BuilderConfig
-	ctx     context.Context
-	caches  config.Caches
-	client  *dagger.Client
-	sources *dagger.Directory
-	workdir string
+	ctx       context.Context
+	caches    config.Caches
+	cacheMode string
+	client    *dagger.Client
+	sources   *dagger.Directory
+	workdir   string
 }
 
 func main() {
@@ -44,6 +45,11 @@ type runOptions struct {
 	Args    []string
 }
 
+const (
+	CacheModeVolumes = "volumes"
+	CacheModeNone    = "none"
+)
+
 func run(opts ...runOptions) error {
 	if len(opts) == 0 {
 		opts = append(opts, runOptions{
@@ -51,11 +57,13 @@ func run(opts ...runOptions) error {
 		})
 	}
 	var debug bool
+	var cacheMode string
 	var configs []string
 	var showConfig bool
 	var outputFormat string
 	pf := pflag.NewFlagSet("dagger", pflag.ExitOnError)
 	pf.BoolVar(&debug, "debug", false, "Enable debug logging")
+	pf.StringVar(&cacheMode, "cache-mode", "volumes", "Cache mode (volumes|none)")
 	pf.StringSliceVarP(&configs, "config", "c", nil, "Path to one or more config files")
 	pf.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
 	pf.StringVarP(&outputFormat, "output-format", "o", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
@@ -171,8 +179,8 @@ func run(opts ...runOptions) error {
 		BuilderConfig: builderConfig,
 		ctx:           ctx,
 		client:        client,
-
-		workdir: "/src",
+		caches:        SetupCaches(client, cacheMode),
+		workdir:       "/src",
 		sources: client.Host().Directory(".", dagger.HostDirectoryOpts{
 			Include: []string{
 				"go.mod",
@@ -206,7 +214,6 @@ func run(opts ...runOptions) error {
 			},
 		}).WithNewFile("web/dist/.gitkeep", ""),
 	}
-	builder.SetupCaches()
 
 	err := builder.run(ctx)
 	client.Close()
@@ -247,7 +254,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
 		WithMountedDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
-		WithMountedCache(b.caches.NodeModules()).
+		With(b.caches.NodeModules).
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
@@ -333,9 +340,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	charts := goBuild.
 		Pipeline("Charts").
 		WithFile(b.ciTarget("charts")).
-		WithEnvVariable("MAGE_SYMLINK_CACHED_BINARY", "charts").
-		WithExec(mage("charts")).
-		WithoutEnvVariable("MAGE_SYMLINK_CACHED_BINARY")
+		WithExec(mage("charts"))
 
 	// export and push artifacts
 
@@ -451,27 +456,4 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (b *Builder) SetupCaches() {
-	b.caches = config.Caches{
-		GoMod: func() (string, *dagger.CacheVolume) {
-			return "/go/pkg/mod", b.client.CacheVolume("gomod")
-		},
-		GoBuild: func() (string, *dagger.CacheVolume) {
-			return "/root/.cache/go-build", b.client.CacheVolume("gobuild")
-		},
-		GoBin: func() (string, *dagger.CacheVolume) {
-			return "/go/bin", b.client.CacheVolume("gobin")
-		},
-		Mage: func() (string, *dagger.CacheVolume) {
-			return "/root/.magefile", b.client.CacheVolume("mage")
-		},
-		Yarn: func() (string, *dagger.CacheVolume) {
-			return "/cache/yarn", b.client.CacheVolume("yarn")
-		},
-		NodeModules: func() (string, *dagger.CacheVolume) {
-			return filepath.Join(b.workdir, "web/node_modules"), b.client.CacheVolume("node_modules")
-		},
-	}
 }

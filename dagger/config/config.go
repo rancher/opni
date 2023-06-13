@@ -240,13 +240,13 @@ type CacheVolume struct {
 }
 
 type Caches struct {
-	GoMod       func() (string, *dagger.CacheVolume)
-	GoBuild     func() (string, *dagger.CacheVolume)
-	GoBin       func() (string, *dagger.CacheVolume)
-	Mage        func() (string, *dagger.CacheVolume)
-	Yarn        func() (string, *dagger.CacheVolume)
-	NodeModules func() (string, *dagger.CacheVolume)
-	TestBin     func() (string, *dagger.CacheVolume)
+	GoMod       func(*dagger.Container) *dagger.Container
+	GoBuild     func(*dagger.Container) *dagger.Container
+	GoBin       func(*dagger.Container) *dagger.Container
+	Mage        func(*dagger.Container) *dagger.Container
+	Yarn        func(*dagger.Container) *dagger.Container
+	NodeModules func(*dagger.Container) *dagger.Container
+	TestBin     func(*dagger.Container) *dagger.Container
 }
 
 func init() {

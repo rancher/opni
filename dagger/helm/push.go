@@ -50,7 +50,6 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 	chartsMountPath := filepath.Join(workdir, "charts")
 	assetsMountPath := filepath.Join(workdir, "assets")
 	magefilesMountPath := filepath.Join(workdir, "magefiles")
-	mageCacheDir, mageCache := opts.Caches.Mage()
 
 	ctr := images.AlpineBase(client, images.WithPackages("github-cli")).
 		Pipeline("Publish Charts").
@@ -62,8 +61,8 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 		WithDirectory(chartsMountPath, opts.BuildContainer.Directory(chartsMountPath)). // Important: WithDirectory merges the contents
 		WithDirectory(assetsMountPath, opts.BuildContainer.Directory(assetsMountPath)).
 		WithMountedDirectory(magefilesMountPath, opts.BuildContainer.Directory(magefilesMountPath)).
-		WithMountedCache(mageCacheDir, mageCache).
-		WithExec([]string{filepath.Join(mageCacheDir, "charts"), "charts:index"}).
+		WithMountedDirectory("/go/bin", opts.BuildContainer.Directory("/go/bin")).
+		WithExec([]string{"/go/bin/mage", "charts:index"}).
 		WithoutMount(magefilesMountPath).
 		WithExec([]string{"git", "status", "--porcelain"}, dagger.ContainerWithExecOpts{RedirectStdout: "/git-status"})
 

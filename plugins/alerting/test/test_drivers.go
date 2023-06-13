@@ -148,7 +148,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 		}
 	}
 	if len(l.managedInstances) > 1 {
-		l.AlertingClusterOptions.WorkerNodesService = "localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "127.0.0.1"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
 		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
@@ -157,8 +157,8 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://localhost:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
+			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
@@ -211,15 +211,15 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	}
 	l.AlertingClient = client.NewClient(
 		nil,
-		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].AlertManagerPort),
-		fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort),
+		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
+		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort),
 	)
 
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://localhost:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://localhost:%d", inst.OpniPort),
+			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
@@ -235,13 +235,13 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	l.ResourceLimits.Cpu = "500m"
 	l.ResourceLimits.Memory = "200Mi"
 	l.ResourceLimits.Storage = "500Mi"
-	l.AlertingClusterOptions.ControllerNodeService = "localhost"
+	l.AlertingClusterOptions.ControllerNodeService = "127.0.0.1"
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
 	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
 
-	rTree := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTree := routing.NewRoutingTree(fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort))
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -299,7 +299,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		"alerting-server",
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", configFilePath),
 		fmt.Sprintf("--syncer.listen.address=:%d", syncerPort),
-		fmt.Sprintf("--syncer.alertmanager.address=%s", "http://localhost:"+strconv.Itoa(webPort)),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", "http://127.0.0.1:"+strconv.Itoa(webPort)),
 		fmt.Sprintf("--syncer.gateway.join.address=%s", ":"+strings.Split(l.env.GatewayConfig().Spec.Management.GRPCListenAddress, ":")[2]),
 		"syncer",
 	}
@@ -322,9 +322,9 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	if len(l.managedInstances) > 0 {
 		for _, replica := range l.managedInstances {
 			alertmanagerArgs = append(alertmanagerArgs,
-				fmt.Sprintf("--cluster.peer=localhost:%d", replica.ClusterPort))
+				fmt.Sprintf("--cluster.peer=127.0.0.1:%d", replica.ClusterPort))
 		}
-		l.AlertingClusterOptions.WorkerNodesService = "localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "127.0.0.1"
 		l.AlertingClusterOptions.WorkerNodePort = webPort
 	}
 
@@ -342,7 +342,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 	retries := 0
 	for ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/-/ready", webPort))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -368,7 +368,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 
-	l.logger.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
+	l.logger.With("address", fmt.Sprintf("http://127.0.0.1:%d", webPort)).Info("AlertManager started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		cmd, _ := session.G()

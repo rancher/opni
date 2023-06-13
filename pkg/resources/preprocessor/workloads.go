@@ -21,9 +21,9 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "0.71.0"
-	preprocessorImageRepo = "ghcr.io/dbason"
-	preprocessorImage     = "otelcol-custom"
+	preprocessorVersion   = "v0.1.3-rc2-0.74.0"
+	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
+	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
 )
 
@@ -83,6 +83,8 @@ exporters:
     index: {{ .WriteIndex }}
     mapping:
       mode: flatten_attributes
+      timestamp_field: time
+      unix_timestamp: true
     tls:
       ca_file: /etc/otel/chain.crt
       cert_file: /etc/otel/certs/tls.crt

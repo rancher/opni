@@ -296,11 +296,17 @@ func AutoLoader(filename string) (koanf.Provider, koanf.Parser) {
 }
 
 func referenceName(fl validator.FieldLevel) bool {
+	if fl.Field().IsZero() {
+		return true
+	}
 	matches := referenceRegexp.FindStringSubmatch(fl.Field().String())
 	return len(matches) == 4 && matches[0] == matches[1]
 }
 
 func referenceTag(fl validator.FieldLevel) bool {
+	if fl.Field().IsZero() {
+		return true
+	}
 	return tagRegexp.MatchString(fl.Field().String())
 }
 

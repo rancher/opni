@@ -3,8 +3,9 @@ module github.com/rancher/opni/dagger
 go 1.20
 
 require (
-	dagger.io/dagger v0.7.2-0.20230606034931-095282bb3b51
+	dagger.io/dagger v0.7.1
 	github.com/go-playground/validator/v10 v10.14.1
+	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/knadh/koanf/parsers/json v0.1.0
 	github.com/knadh/koanf/parsers/toml v0.1.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
@@ -32,9 +33,11 @@ require (
 	github.com/knadh/koanf/maps v0.1.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.3 // indirect

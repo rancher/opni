@@ -1,6 +1,9 @@
 lint = true
 test = true
 
+[coverage]
+	export = true
+
 [charts.git]
 	repo = "github.com/rancher/opni"
 	branch = "charts-repo"

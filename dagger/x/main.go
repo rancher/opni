@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"dagger.io/dagger"
 	"github.com/rancher/opni/dagger/x/cmds"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -37,23 +37,21 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		opts.MountOnly = true
 		ctr := cmds.TestBin(client, client.Container(), opts)
 
-		mounts, err := ctr.Mounts(ctx)
-		if err != nil {
+		var eg errgroup.Group
+		for _, b := range opts.Binaries {
+			b := b
+			eg.Go(func() error {
+				_, err := ctr.File(filepath.Join("/src/testbin/bin/", b.Name)).Export(ctx, filepath.Join("./testbin/bin", b.Name))
+				return err
+			})
+		}
+		if err := eg.Wait(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		var wg sync.WaitGroup
-		for _, m := range mounts {
-			m := m
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				ctr.File(m).Export(ctx, filepath.Join("./testbin/bin", m))
-			}()
-		}
-		wg.Wait()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %s\n", os.Args[1])
 	}

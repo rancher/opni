@@ -45,11 +45,6 @@ type runOptions struct {
 	Args    []string
 }
 
-const (
-	CacheModeVolumes = "volumes"
-	CacheModeNone    = "none"
-)
-
 func run(opts ...runOptions) error {
 	if len(opts) == 0 {
 		opts = append(opts, runOptions{
@@ -158,7 +153,7 @@ func run(opts ...runOptions) error {
 			Result:           &builderConfig,
 		},
 	}); err != nil {
-		printConfig(k, outputFormat)
+		fmt.Println(string(config.Marshal(k, outputFormat)))
 		return err
 	}
 
@@ -166,12 +161,12 @@ func run(opts ...runOptions) error {
 		msg := err.Error()
 		msg = strings.ReplaceAll(msg, `BuilderConfig.`, "")
 		fmt.Fprintln(os.Stderr, msg)
-		printConfig(k, outputFormat)
+		fmt.Println(string(config.Marshal(k, outputFormat)))
 		return err
 	}
 
 	if showConfig {
-		printConfig(k, outputFormat)
+		fmt.Println(string(config.Marshal(k, outputFormat)))
 		return nil
 	}
 
@@ -179,7 +174,7 @@ func run(opts ...runOptions) error {
 		BuilderConfig: builderConfig,
 		ctx:           ctx,
 		client:        client,
-		caches:        SetupCaches(client, cacheMode),
+		caches:        config.SetupCaches(client, cacheMode),
 		workdir:       "/src",
 		sources: client.Host().Directory(".", dagger.HostDirectoryOpts{
 			Include: []string{
@@ -286,10 +281,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	linterPluginPath := filepath.Join(b.workdir, "internal/linter/linter.so")
 	lint := goBuild.
-		Pipeline("Lint").
+		Pipeline("Run Linter").
 		WithMountedDirectory(b.workdir, b.sources).
 		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
-		WithExec([]string{"golangci-lint", "run"})
+		WithExec([]string{"golangci-lint", "run", "-v", "--fast"})
 
 	test := opni.
 		WithExec(mage("test:binconfig"))
@@ -315,11 +310,19 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
 					return err
 				}
-				test = cmds.TestBin(b.client, test, opts).
-					Pipeline("Test").
-					WithExec(mage("test"))
-				test.File(filepath.Join(b.workdir, "cover.out")).Export(ctx, "cover.out")
-				return nil
+				test = cmds.TestBin(b.client, test, opts)
+				if b.Coverage.Export {
+					_, err := test.Pipeline("Run Tests").
+						WithExec(mage("test")).
+						File(filepath.Join(b.workdir, "cover.out")).
+						Export(ctx, "cover.out")
+					return err
+				}
+				_, err = test.Pipeline("Run Tests").
+					WithEnvVariable("DISABLE_COVERAGE", "1").
+					WithExec(mage("test")).
+					Sync(ctx)
+				return err
 			})
 		}
 

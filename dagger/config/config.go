@@ -5,106 +5,25 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"dagger.io/dagger"
 	"github.com/go-playground/validator/v10"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/mitchellh/copystructure"
-	"github.com/spf13/pflag"
 )
-
-var (
-	// generated from docker/distribution
-	referenceRegexp = regexp.MustCompile(`^((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?/)?[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`)
-	tagRegexp       = regexp.MustCompile(`[\w][\w.-]{0,127}`)
-)
-
-const EnvPrefix = "_OPNI_"
-
-type SpecialCaseEnv struct {
-	EnvVar    string
-	Keys      []string
-	Converter func(k, v string) any
-}
-
-func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
-	secret := func(k, v string) any {
-		return client.SetSecret(k, v)
-	}
-	plaintext := func(_, v string) any {
-		return v
-	}
-
-	return []SpecialCaseEnv{
-		{
-			EnvVar: "DOCKER_USERNAME",
-			Keys: []string{
-				"images.opni.auth.username",
-				"images.minimal.auth.username",
-				"images.opensearch.opensearch.auth.username",
-				"images.opensearch.dashboards.auth.username",
-				"images.opensearch.update-service.auth.username",
-				"images.python-base.auth.username",
-				"charts.oci.auth.username",
-			},
-			Converter: plaintext,
-		},
-		{
-			EnvVar: "DOCKER_PASSWORD",
-			Keys: []string{
-				"images.opni.auth.secret",
-				"images.minimal.auth.secret",
-				"images.opensearch.opensearch.auth.secret",
-				"images.opensearch.dashboards.auth.secret",
-				"images.opensearch.update-service.auth.secret",
-				"images.python-base.auth.secret",
-				"charts.oci.auth.secret",
-			},
-			Converter: secret,
-		},
-		{
-			EnvVar: "GH_TOKEN",
-			Keys: []string{
-				"charts.git.auth.secret",
-			},
-			Converter: secret,
-		},
-		{
-			EnvVar: "DRONE_BRANCH",
-			Keys: []string{
-				"images.opni.tag",
-				"images.minimal.tag",
-				"images.opensearch.opensearch.tag",
-				"images.opensearch.dashboards.tag",
-				"images.opensearch.update-service.tag",
-			},
-			Converter: plaintext,
-		},
-		{
-			EnvVar: "DRONE_TAG", // if set, will override DRONE_BRANCH
-			Keys: []string{
-				"images.opni.tag",
-				"images.minimal.tag",
-				"images.opensearch.opensearch.tag",
-				"images.opensearch.dashboards.tag",
-				"images.opeesearch.update-service.tag",
-			},
-			Converter: plaintext,
-		},
-	}
-}
 
 type BuilderConfig struct {
-	Images ImagesConfig `koanf:"images"`
-	Charts ChartsConfig `koanf:"charts"`
-	Lint   bool         `koanf:"lint"`
-	Test   bool         `koanf:"test"`
+	Images   ImagesConfig   `koanf:"images"`
+	Charts   ChartsConfig   `koanf:"charts"`
+	Lint     bool           `koanf:"lint"`
+	Test     bool           `koanf:"test"`
+	Coverage CoverageConfig `koanf:"coverage"`
 }
 
 type ImagesConfig struct {
@@ -160,6 +79,10 @@ type OpensearchConfig struct {
 	} `koanf:"build"`
 }
 
+type CoverageConfig struct {
+	Export bool `koanf:"export"`
+}
+
 func Validate(conf *BuilderConfig) error {
 	v := validator.New()
 	v.RegisterStructValidation(func(sl validator.StructLevel) {
@@ -177,39 +100,6 @@ func Validate(conf *BuilderConfig) error {
 		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
 	})
 	return v.Struct(conf)
-}
-
-func BuildFlagSet(t reflect.Type, prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("", pflag.ExitOnError)
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		tagValue := field.Tag.Get("koanf")
-		if tagValue == "" {
-			continue
-		}
-		flagName := strings.Join(append(prefix, tagValue), ".")
-		if field.Type == reflect.TypeOf(&dagger.Secret{}) {
-			continue
-		}
-		switch kind := field.Type.Kind(); kind {
-		case reflect.String:
-			fs.String(flagName, "", tagValue)
-		case reflect.Slice:
-			switch elemKind := field.Type.Elem().Kind(); elemKind {
-			case reflect.String:
-				fs.StringSlice(flagName, nil, tagValue)
-			default:
-				panic("unimplemented: []" + elemKind.String())
-			}
-		case reflect.Bool:
-			fs.Bool(flagName, false, tagValue)
-		case reflect.Struct:
-			fs.AddFlagSet(BuildFlagSet(field.Type, append(prefix, tagValue)...))
-		default:
-			panic("unimplemented: " + kind.String())
-		}
-	}
-	return fs
 }
 
 func (t *ImageTarget) RegistryAuth() (address string, username string, secret *dagger.Secret) {
@@ -232,21 +122,6 @@ func (t *ImageTarget) AdditionalRefs() []string {
 		refs = append(refs, fmt.Sprintf("%s:%s%s", t.Repo, tag, t.TagSuffix))
 	}
 	return refs
-}
-
-type CacheVolume struct {
-	*dagger.CacheVolume
-	Path string
-}
-
-type Caches struct {
-	GoMod       func(*dagger.Container) *dagger.Container
-	GoBuild     func(*dagger.Container) *dagger.Container
-	GoBin       func(*dagger.Container) *dagger.Container
-	Mage        func(*dagger.Container) *dagger.Container
-	Yarn        func(*dagger.Container) *dagger.Container
-	NodeModules func(*dagger.Container) *dagger.Container
-	TestBin     func(*dagger.Container) *dagger.Container
 }
 
 func init() {
@@ -319,4 +194,88 @@ func referenceTagSuffix(fl validator.FieldLevel) bool {
 		return false
 	}
 	return tagRegexp.MatchString(str[1:])
+}
+
+func Marshal(k *koanf.Koanf, outputFormat string) []byte {
+	var data []byte
+	var err error
+	if outputFormat != "table" {
+		k = k.Copy()
+		for _, key := range k.Keys() {
+			if strings.Contains(key, "secret") {
+				k.Delete(key)
+			}
+		}
+	}
+	switch outputFormat {
+	case "table":
+		data = []byte(renderTable(k))
+	case "json":
+		data, err = k.Marshal(json.Parser())
+	case "yaml":
+		data, err = k.Marshal(yaml.Parser())
+	case "toml":
+		data, err = k.Marshal(toml.Parser())
+	default:
+		fmt.Fprintf(os.Stderr, "unknown output format: %s\n", outputFormat)
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error marshaling config: %v\n", err)
+		os.Exit(1)
+	}
+	return data
+}
+
+func renderTable(k *koanf.Koanf) string {
+	keys := k.Keys()
+	values := k.All()
+	valueTypes := make(map[string]string)
+	envVars := make(map[string][]any)
+	specialCaseEnvs := SpecialCaseEnvVars(nil)
+	for _, key := range keys {
+		env := fmt.Sprintf("%s%s", EnvPrefix, strings.ToUpper(strings.ReplaceAll(key, ".", "_")))
+		envVars[key] = []any{env}
+	OUTER:
+		for _, sc := range specialCaseEnvs {
+			for _, k := range sc.Keys {
+				if k == key {
+					envVars[key] = append(envVars[key], sc.EnvVar)
+					break OUTER
+				}
+			}
+		}
+	}
+	for key, value := range values {
+		if strings.Contains(key, "secret") {
+			valueTypes[key] = "string"
+			if value != nil {
+				values[key] = "<secret>"
+			} else {
+				values[key] = ""
+			}
+			continue
+		}
+		valueType := fmt.Sprintf("%T", value)
+		valueTypes[key] = valueType
+		valueStr := fmt.Sprintf("%v", value)
+		values[key] = valueStr
+	}
+	w := table.NewWriter()
+
+	maxNumEnvVars := 0
+	for _, envs := range envVars {
+		if len(envs) > maxNumEnvVars {
+			maxNumEnvVars = len(envs)
+		}
+	}
+	header := []any{"Key", "Type", "Value"}
+	for i := 0; i < maxNumEnvVars; i++ {
+		header = append(header, "Environment Variables")
+	}
+	w.AppendHeader(header, table.RowConfig{AutoMerge: true})
+	for _, key := range keys {
+		w.AppendRow(append(table.Row{key, valueTypes[key], values[key]}, envVars[key]...))
+	}
+	return w.Render()
 }

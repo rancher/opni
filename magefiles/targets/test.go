@@ -31,21 +31,30 @@ func (Test) All() error {
 			}
 		}
 	}()
+	args := []string{"test",
+		fmt.Sprintf("-p=%d", runtime.NumCPU()),
+		"-race",
+	}
+	_, coverageEnabled := os.LookupEnv("DISABLE_COVERAGE")
+	if coverageEnabled {
+		args = append(args,
+			"-cover",
+			"-coverprofile=cover.out",
+			"-coverpkg=./...",
+		)
+	}
+	args = append(args, "./...")
 	_, err := sh.Exec(map[string]string{
 		"CGO_ENABLED": "1",
-	}, w, os.Stderr, mg.GoCmd(), "test",
-		fmt.Sprintf("-p=%d", runtime.NumCPU()),
-		"-cover", "./...",
-		"-coverpkg", "./...",
-		"-coverprofile", "cover.out",
-		"-race",
-		// "-args", fmt.Sprintf("-test.gocoverdir=%s", covdata),
-	)
+	}, w, os.Stderr, mg.GoCmd(), args...)
 	if err != nil {
 		return err
 	}
 
-	// err = sh.RunV(mg.GoCmd(), "tool", "covdata", "textfmt", "-i", covdata, "-o", "cover.out")
+	if !coverageEnabled {
+		return nil
+	}
+
 	fmt.Print("processing coverage report... ")
 	defer fmt.Println("done.")
 	return filterCoverage("cover.out", []string{
@@ -189,5 +198,8 @@ func (Test) BinConfig() {
 }
 
 func (Test) Bin() error {
+	if _, err := os.Stat("testbin/bin"); err == nil {
+		os.RemoveAll("testbin/bin")
+	}
 	return Dagger{}.run(daggerx, "testbin", testbinConfig)
 }

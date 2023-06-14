@@ -29,16 +29,19 @@ steps:
     commands:
       - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults
-  - name: coverage
-    image: plugins/codecov
-    settings:
-      token:
-        from_secret: codecov_token
-      files:
-        - cover.out
     when:
       instance:
         - drone-publish.rancher.io
+  - name: build-and-package-pr
+    image: docker
+    environment: *environment
+    volumes: *volumes
+    commands:
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults --coverage.export=true
+    when:
+      instance:
+        - drone-pr.rancher.io
   - name: publish-tag
     image: docker
     environment: *environment
@@ -69,6 +72,18 @@ steps:
         - drone-publish.rancher.io
       branch:
         - main
+  - name: upload-coverage
+    image: plugins/codecov
+    settings:
+      token:
+        from_secret: codecov_token
+      files:
+        - cover.out
+    when:
+      event:
+        - push
+      instance:
+        - drone-pr.rancher.io
 volumes:
   - name: docker-sock
     host:

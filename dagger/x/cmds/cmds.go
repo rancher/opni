@@ -15,6 +15,9 @@ type Binary struct {
 
 type TestBinOptions struct {
 	Binaries []Binary `json:"binaries"`
+
+	// If true, will mount files into the container instead of copying them.
+	MountOnly bool `json:"-"`
 }
 
 func TestBin(client *dagger.Client, ctr *dagger.Container, opts TestBinOptions) *dagger.Container {
@@ -32,8 +35,12 @@ func TestBin(client *dagger.Client, ctr *dagger.Container, opts TestBinOptions) 
 		img := img
 		binaryCtr := client.Container().From(img)
 		for _, b := range binaries {
-			b := b
-			ctr = ctr.WithFile(fmt.Sprintf("/src/testbin/bin/%s", b.Name), binaryCtr.File(b.Path))
+			path, file := fmt.Sprintf("/src/testbin/bin/%s", b.Name), binaryCtr.File(b.Path)
+			if opts.MountOnly {
+				ctr = ctr.WithMountedFile(path, file)
+			} else {
+				ctr = ctr.WithFile(path, file)
+			}
 		}
 	}
 

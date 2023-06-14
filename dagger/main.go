@@ -244,7 +244,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
-		WithMountedDirectory(b.workdir, b.sources)
+		WithDirectory(b.workdir, b.sources)
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
@@ -252,7 +252,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 			Include: []string{"package.json", "yarn.lock"},
 		}).
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
-		WithMountedDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
+		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
 		With(b.caches.NodeModules).
 		WithExec(yarn("build"))
 

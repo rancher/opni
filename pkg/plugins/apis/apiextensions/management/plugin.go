@@ -65,6 +65,9 @@ func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empt
 	for _, s := range e.services {
 		rawDesc, _ := s.Unpack()
 		desc, err := grpcreflect.LoadServiceDescriptor(rawDesc)
+		if err != nil {
+			return nil, err
+		}
 		fqn := desc.GetFullyQualifiedName()
 		sd := util.ProtoClone(desc.AsServiceDescriptorProto())
 		sd.Name = &fqn

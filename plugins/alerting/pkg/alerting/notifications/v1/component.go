@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -22,7 +22,7 @@ type NotificationServerComponent struct {
 
 	logger *zap.SugaredLogger
 
-	conditionStorage future.Future[storage.ConditionStorage]
+	conditionStorage future.Future[spec.ConditionStorage]
 }
 
 var _ server.ServerComponent = (*NotificationServerComponent)(nil)
@@ -32,12 +32,12 @@ func NewNotificationServerComponent(
 ) *NotificationServerComponent {
 	return &NotificationServerComponent{
 		logger:           logger,
-		conditionStorage: future.New[storage.ConditionStorage](),
+		conditionStorage: future.New[spec.ConditionStorage](),
 	}
 }
 
 type NotificationServerConfiguration struct {
-	storage.ConditionStorage
+	spec.ConditionStorage
 }
 
 func (n *NotificationServerComponent) Name() string {

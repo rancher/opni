@@ -1,78 +1,73 @@
 package storage
 
 import (
-	"context"
+	"fmt"
+	"regexp"
+	"time"
 
-	"github.com/rancher/opni/pkg/alerting/drivers/routing"
-	"github.com/rancher/opni/pkg/alerting/interfaces"
-	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
+	"github.com/rancher/opni/pkg/alerting/storage/mem"
+	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/rancher/opni/pkg/logger"
 )
 
-type AlertingStoreBroker interface {
-	NewClientSet() AlertingClientSet
-	// Use applies a specific storage client to the matching storage client in the clientset
-	//
-	// It is also responsible for migrating existing data if there is an existing store
-	// of the same type already in use by the clientset
-	Use(store any)
+var (
+	groupPrefixV1 = func(groupId string) string {
+		return fmt.Sprintf("/alerting/%s/conditions", groupId)
+	}
+	grouptRe *regexp.Regexp = regexp.MustCompile(`^/alerting/(.+)/conditions`)
+)
+
+const (
+	conditionPrefixV1   = "/alerting/conditions"
+	endpointPrefixV1    = "/alerting/endpoints"
+	statePrefixV1       = "/alerting/state"
+	incidentPrefixV1    = "/alerting/incidents"
+	routerPrefixV1      = "/alerting/routers"
+	defaultTrackerTTLV1 = 24 * time.Hour
+)
+
+func NewDefaultAlertingBroker(js nats.JetStreamContext, opts ...storage_opts.ClientSetOption) spec.AlertingStoreBroker {
+	options := &storage_opts.ClientSetOptions{}
+	options.Apply(opts...)
+	if options.Logger == nil {
+		options.Logger = logger.NewPluginLogger().Named("alerting-storage-client-set")
+	}
+	if options.TrackerTtl == 0 {
+		options.TrackerTtl = defaultTrackerTTLV1
+	}
+	c := NewCompositeAlertingBroker(*options)
+	c.Use(mem.NewInMemoryRouterStore())
+	c.Use(
+		jetstream.NewConditionGroupManager[*alertingv1.AlertCondition](
+			jetstream.NewConditionKeyStore(js),
+			conditionPrefixV1,
+			groupPrefixV1,
+			grouptRe,
+		),
+	)
+	c.Use(
+		jetstream.NewJetStreamAlertingStorage[*alertingv1.AlertEndpoint](
+			jetstream.NewEndpointKeyStore(js),
+			endpointPrefixV1,
+		),
+	)
+	c.Use(
+		jetstream.NewJetStreamAlertingStateCache(
+			jetstream.NewStatusCache(js),
+			statePrefixV1,
+		),
+	)
+	c.Use(
+		jetstream.NewJetStreamAlertingIncidentTracker(
+			jetstream.NewIncidentKeyStore(js),
+			incidentPrefixV1,
+			options.TrackerTtl,
+		),
+	)
+
+	return c
 }
-
-type AlertingClientSet interface {
-	HashRing
-	Purge(ctx context.Context) error
-	Conditions() ConditionStorage
-	Endpoints() EndpointStorage
-	Routers() RouterStorage
-	States() StateStorage
-	Incidents() IncidentStorage
-}
-
-// HashRing Hash ring uniquely maps groups of objects to a (key, hash) pairs
-type HashRing interface {
-	CalculateHash(ctx context.Context, key string, syncOptions *opts.SyncOptions) error
-	GetHash(ctx context.Context, key string) string
-	// Sync reads from the client set and updates the router storage in the appropriate way
-	// It returns the router keys that have changed.
-	Sync(ctx context.Context, opts ...opts.SyncOption) (routerKeys []string, err error)
-	ForceSync(ctx context.Context, opts ...opts.SyncOption) error
-}
-
-type AlertingStorage[T any] interface {
-	Put(ctx context.Context, key string, value T) error
-	Get(ctx context.Context, key string, opts ...opts.RequestOption) (T, error)
-	Delete(ctx context.Context, key string) error
-	ListKeys(ctx context.Context) ([]string, error)
-	List(ctx context.Context, opts ...opts.RequestOption) ([]T, error)
-}
-
-type AlertingSecretStorage[T interfaces.AlertingSecret] interface {
-	AlertingStorage[T]
-}
-
-type ConditionStorage = AlertingSecretStorage[*alertingv1.AlertCondition]
-type EndpointStorage = AlertingSecretStorage[*alertingv1.AlertEndpoint]
-type RouterStorage = AlertingStorage[routing.OpniRouting]
-
-type AlertingStateCache[T interfaces.AlertingSecret] interface {
-	AlertingStorage[T]
-	IsDiff(ctx context.Context, key string, value T) bool
-	LastKnownChange(ctx context.Context, key string) (*timestamppb.Timestamp, error)
-}
-
-type StateStorage = AlertingStateCache[*alertingv1.CachedState]
-
-type AlertingIncidentTracker[T interfaces.AlertingSecret] interface {
-	AlertingStorage[T]
-	OpenInterval(ctx context.Context, conditionId, fingerprint string, start *timestamppb.Timestamp) error
-	CloseInterval(ctx context.Context, conditionId, fingerprint string, end *timestamppb.Timestamp) error
-	GetActiveWindowsFromIncidentTracker(
-		ctx context.Context,
-		conditionId string,
-		start,
-		end *timestamppb.Timestamp,
-	) ([]*alertingv1.ActiveWindow, error)
-}
-
-type IncidentStorage = AlertingIncidentTracker[*alertingv1.IncidentIntervals]

@@ -37,7 +37,7 @@ type AlertingNodeBackend struct {
 
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeAlertingCapabilityServer
-	node.UnsafeAlertingNodeConfigurationServer
+	node.UnsafeNodeConfigurationServer
 
 	lg *zap.SugaredLogger
 
@@ -79,9 +79,9 @@ func (a *AlertingNodeBackend) Initialize(
 }
 
 var (
-	_ node.NodeAlertingCapabilityServer    = (*AlertingNodeBackend)(nil)
-	_ node.AlertingNodeConfigurationServer = (*AlertingNodeBackend)(nil)
-	_ capabilityv1.BackendServer           = (*AlertingNodeBackend)(nil)
+	_ node.NodeAlertingCapabilityServer = (*AlertingNodeBackend)(nil)
+	_ node.NodeConfigurationServer      = (*AlertingNodeBackend)(nil)
+	_ capabilityv1.BackendServer        = (*AlertingNodeBackend)(nil)
 )
 
 var FallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{
@@ -354,23 +354,21 @@ func (a *AlertingNodeBackend) Uninstall(ctx context.Context, req *capabilityv1.U
 	}
 
 	exists := false
-	leftoverCaps := []*corev1.ClusterCapability{}
 	for _, cap := range cluster.GetCapabilities() {
 		if cap.Name == wellknown.CapabilityAlerting {
 			exists = true
-		} else {
-			leftoverCaps = append(leftoverCaps, cap)
+			break
 		}
 	}
 	if !exists {
 		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the request capability")
 	}
 
-	cluster.SetCapabilities(leftoverCaps)
-	mutator := func(o *corev1.Cluster) {
-		o = cluster
-	}
-	_, err = a.storageBackend.Get().UpdateCluster(ctx, req.GetCluster(), mutator)
+	_, err = a.storageBackend.Get().UpdateCluster(
+		ctx,
+		req.GetCluster(),
+		storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityAlerting)),
+	)
 	if err != nil {
 		return nil, err
 	}

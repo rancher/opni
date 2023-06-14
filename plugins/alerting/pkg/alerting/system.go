@@ -22,7 +22,8 @@ import (
 	"github.com/nats-io/nats.go"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
+	alertingStorage "github.com/rancher/opni/pkg/alerting/storage"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -118,7 +119,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		panic(err)
 	}
 	p.js.Set(mgr)
-	b := broker_init.NewDefaultAlertingBroker(mgr)
+	b := alertingStorage.NewDefaultAlertingBroker(mgr)
 	p.storageClientSet.Set(b.NewClientSet())
 	// spawn a reindexing task
 	go func() {

@@ -14,6 +14,16 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package alerting;
 
+message ConditionReference {
+  string id = 1;
+  // empty string represents the default group
+  string groupId = 2;
+}
+
+message ConditionReferenceList {
+  repeated ConditionReference items = 1;
+}
+
 // ------------------ ENDPOINT ------------------
 
 enum OpniSeverity {

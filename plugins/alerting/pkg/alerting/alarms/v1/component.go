@@ -5,13 +5,14 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -38,11 +39,11 @@ type AlarmServerComponent struct {
 	runner        *Runner
 	notifications *notifications.NotificationServerComponent
 
-	conditionStorage future.Future[storage.ConditionStorage]
-	incidentStorage  future.Future[storage.IncidentStorage]
-	stateStorage     future.Future[storage.StateStorage]
+	conditionStorage future.Future[spec.ConditionStorage]
+	incidentStorage  future.Future[spec.IncidentStorage]
+	stateStorage     future.Future[spec.StateStorage]
 
-	routerStorage future.Future[storage.RouterStorage]
+	routerStorage future.Future[spec.RouterStorage]
 
 	js future.Future[nats.JetStreamContext]
 
@@ -63,10 +64,10 @@ func NewAlarmServerComponent(
 		logger:           logger,
 		runner:           NewRunner(),
 		notifications:    notifications,
-		conditionStorage: future.New[storage.ConditionStorage](),
-		incidentStorage:  future.New[storage.IncidentStorage](),
-		stateStorage:     future.New[storage.StateStorage](),
-		routerStorage:    future.New[storage.RouterStorage](),
+		conditionStorage: future.New[spec.ConditionStorage](),
+		incidentStorage:  future.New[spec.IncidentStorage](),
+		stateStorage:     future.New[spec.StateStorage](),
+		routerStorage:    future.New[spec.RouterStorage](),
 		js:               future.New[nats.JetStreamContext](),
 		mgmtClient:       future.New[managementv1.ManagementClient](),
 		adminClient:      future.New[cortexadmin.CortexAdminClient](),
@@ -77,10 +78,11 @@ func NewAlarmServerComponent(
 }
 
 type AlarmServerConfiguration struct {
-	storage.ConditionStorage
-	storage.IncidentStorage
-	storage.StateStorage
-	storage.RouterStorage
+	spec.ConditionStorage
+	spec.IncidentStorage
+	spec.StateStorage
+	spec.RouterStorage
+	OpsNode         *ops.AlertingOpsNode
 	Js              nats.JetStreamContext
 	MgmtClient      managementv1.ManagementClient
 	AdminClient     cortexadmin.CortexAdminClient
@@ -114,13 +116,17 @@ func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 }
 
 func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
-	conditionStorage, err := a.conditionStorage.GetContext(ctx)
+	groupIds, err := a.conditionStorage.Get().ListGroups(a.ctx)
 	if err != nil {
 		return err
 	}
-	conds, err := conditionStorage.List(ctx)
-	if err != nil {
-		return err
+	conds := []*alertingv1.AlertCondition{}
+	for _, groupId := range groupIds {
+		groupConds, err := a.conditionStorage.Get().Group(groupId).List(a.ctx)
+		if err != nil {
+			return err
+		}
+		conds = append(conds, groupConds...)
 	}
 	eg := &util.MultiErrGroup{}
 	for _, cond := range conds {

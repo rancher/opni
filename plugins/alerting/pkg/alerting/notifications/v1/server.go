@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -171,14 +170,11 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 		return nil, err
 	}
 
-	cond, err := n.conditionStorage.Get().Get(ctx, req.ConditionId)
+	_, err := n.conditionStorage.Get().Group(req.ConditionId.GroupId).Get(ctx, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
 	consistencyInterval := durationpb.New(time.Second * 30)
-	if cond.AttachedEndpoints != nil {
-		consistencyInterval = cond.AttachedEndpoints.InitialDelay
-	}
 	req.End = timestamppb.New(req.End.AsTime().Add(consistencyInterval.AsDuration()))
 
 	resp, err := n.Client.QueryClient().ListAlarmMessages(ctx, req)
@@ -195,23 +191,33 @@ func (n *NotificationServerComponent) ListRoutingRelationships(ctx context.Conte
 	if !n.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
 	}
-	conds, err := n.conditionStorage.Get().List(ctx)
+	groupsIds, err := n.conditionStorage.Get().ListGroups(ctx)
 	if err != nil {
 		return nil, err
 	}
-	relationships := map[string]*corev1.ReferenceList{}
+	conds := []*alertingv1.AlertCondition{}
+	for _, groupId := range groupsIds {
+		groupConds, err := n.conditionStorage.Get().Group(groupId).List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		conds = append(conds, groupConds...)
+	}
+	relationships := map[string]*alertingv1.ConditionReferenceList{}
 	for _, c := range conds {
-		if c.AttachedEndpoints != nil && len(c.AttachedEndpoints.Items) > 0 {
-			refs := &corev1.ReferenceList{
-				Items: lo.Map(
-					c.AttachedEndpoints.Items,
-					func(endp *alertingv1.AttachedEndpoint, _ int) *corev1.Reference {
-						return &corev1.Reference{
-							Id: endp.EndpointId,
-						}
-					}),
+		if c.AttachedEndpoints == nil {
+			continue
+		}
+		for _, ep := range c.AttachedEndpoints.Items {
+			if _, ok := relationships[ep.EndpointId]; !ok {
+				relationships[ep.EndpointId] = &alertingv1.ConditionReferenceList{
+					Items: []*alertingv1.ConditionReference{},
+				}
 			}
-			relationships[c.Id] = refs
+			relationships[ep.EndpointId].Items = append(relationships[ep.EndpointId].Items, &alertingv1.ConditionReference{
+				Id:      c.GetId(),
+				GroupId: c.GetGroupId(),
+			})
 		}
 	}
 	return &alertingv1.ListRoutingRelationshipsResponse{

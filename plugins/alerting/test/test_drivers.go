@@ -403,11 +403,15 @@ func (n *TestNodeDriver) DiscoverRules(ctx context.Context) (*rules.RuleManifest
 	return &rules.RuleManifest{
 		Rules: []*rules.Rule{
 			{
-				RuleId:      &corev1.Reference{},
-				GroupId:     &corev1.Reference{},
+				RuleId: &corev1.Reference{
+					Id: "test-rule",
+				},
+				GroupId: &corev1.Reference{
+					Id: "test-group",
+				},
 				Name:        "test",
 				Expr:        "sum(up > 0) > 0",
-				Duration:    durationpb.New(time.Minute),
+				Duration:    durationpb.New(time.Second),
 				Labels:      map[string]string{},
 				Annotations: map[string]string{},
 			},

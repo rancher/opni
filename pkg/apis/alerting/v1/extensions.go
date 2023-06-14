@@ -415,20 +415,6 @@ func (a *AlertCondition) Namespace() string {
 	return "opni_default"
 }
 
-func (r *ListRoutingRelationshipsResponse) GetInvolvedConditions(endpointId string) *InvolvedConditions {
-	involvedConditions := &InvolvedConditions{
-		Items: []*corev1.Reference{},
-	}
-	for conditionId, endpointIds := range r.RoutingRelationships {
-		if lo.Contains(
-			lo.Map(endpointIds.Items, func(c *corev1.Reference, _ int) string { return c.Id }),
-			endpointId) {
-			involvedConditions.Items = append(involvedConditions.Items, &corev1.Reference{Id: conditionId})
-		}
-	}
-	return involvedConditions
-}
-
 func (l *ListAlertConditionRequest) FilterFunc() func(*AlertCondition, int) bool {
 	return func(item *AlertCondition, _ int) bool {
 		if len(l.Clusters) != 0 {

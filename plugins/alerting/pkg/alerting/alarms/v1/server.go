@@ -26,9 +26,23 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ alertingv1.AlertConditionsServer = (*AlarmServerComponent)(nil)
+var (
+	_ alertingv1.AlertConditionsServer = (*AlarmServerComponent)(nil)
+)
 
-func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
+func (a *AlarmServerComponent) ListAlertConditionGroups(ctx context.Context, _ *emptypb.Empty) (*corev1.ReferenceList, error) {
+	groups, err := a.conditionStorage.Get().ListGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &corev1.ReferenceList{
+		Items: lo.Map(groups, func(item string, _ int) *corev1.Reference {
+			return &corev1.Reference{Id: item}
+		}),
+	}, nil
+}
+
+func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*alertingv1.ConditionReference, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -42,17 +56,17 @@ func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *al
 		req.Metadata = make(map[string]string)
 	}
 	req.Metadata[metadataInactiveAlarm] = "true"
-	if err := a.conditionStorage.Get().Put(ctx, newId, req); err != nil {
+	if err := a.conditionStorage.Get().Group(req.GroupId).Put(ctx, newId, req); err != nil {
 		return nil, err
 	}
-	return &corev1.Reference{Id: newId}, nil
+	return &alertingv1.ConditionReference{Id: newId, GroupId: req.GroupId}, nil
 }
 
-func (a *AlarmServerComponent) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertCondition, error) {
+func (a *AlarmServerComponent) GetAlertCondition(ctx context.Context, ref *alertingv1.ConditionReference) (*alertingv1.AlertCondition, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
 	}
-	return a.conditionStorage.Get().Get(ctx, ref.Id)
+	return a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
 }
 
 func (a *AlarmServerComponent) ListAlertConditions(ctx context.Context, req *alertingv1.ListAlertConditionRequest) (*alertingv1.AlertConditionList, error) {
@@ -62,17 +76,27 @@ func (a *AlarmServerComponent) ListAlertConditions(ctx context.Context, req *ale
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	allConds, err := a.conditionStorage.Get().List(ctx)
-	if err != nil {
-		return nil, err
+	groupIds := []string{}
+	if len(req.GroupIds) == 0 {
+		groupIds = append(groupIds, "")
+	} else {
+		groupIds = req.GroupIds
+	}
+	allConds := []*alertingv1.AlertCondition{}
+
+	for _, groupId := range groupIds {
+		conds, err := a.conditionStorage.Get().Group(groupId).List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		allConds = append(allConds, lo.Filter(conds, req.FilterFunc())...)
 	}
 
 	res := &alertingv1.AlertConditionList{}
-	conds := lo.Filter(allConds, req.FilterFunc())
-	for i := range conds {
+	for i := range allConds {
 		res.Items = append(res.Items, &alertingv1.AlertConditionWithId{
-			Id:             &corev1.Reference{Id: conds[i].Id},
-			AlertCondition: conds[i],
+			Id:             &alertingv1.ConditionReference{Id: allConds[i].Id, GroupId: allConds[i].GroupId},
+			AlertCondition: allConds[i],
 		})
 	}
 	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) bool {
@@ -88,16 +112,26 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 	lg := a.logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	conditionId := req.Id.Id
+	groupId := req.Id.GroupId
 
 	req.UpdateAlert.LastUpdated = timestamppb.Now()
-	if err := a.conditionStorage.Get().Put(ctx, conditionId, req.UpdateAlert); err != nil {
+	existing, err := a.conditionStorage.Get().Group(groupId).Get(ctx, conditionId)
+	if err != nil {
+		return nil, err
+	}
+	if existing.GetMetadata() != nil && existing.GetMetadata()[metadataReadOnly] != "" {
+		configurationChangeReadOnly := util.ProtoClone(req.UpdateAlert)
+		applyMutableReadOnlyFields(configurationChangeReadOnly, req.UpdateAlert)
+		req.UpdateAlert = configurationChangeReadOnly
+	}
+	if err := a.conditionStorage.Get().Group(req.UpdateAlert.GroupId).Put(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
+func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *alertingv1.ConditionReference) (*emptypb.Empty, error) {
+	existing, err := a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -105,9 +139,8 @@ func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *co
 		return &emptypb.Empty{}, nil
 	}
 
-	existing.GetMetadata()[metadataCleanUpAlarm] = "true"
-
-	if err := a.conditionStorage.Get().Put(ctx, ref.Id, existing); err != nil {
+	existing.GetMetadata()[metadataCleanupAlarm] = "true"
+	if err := a.conditionStorage.Get().Group(ref.GroupId).Put(ctx, ref.Id, existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -123,13 +156,14 @@ func (a *AlarmServerComponent) ListAlertConditionChoices(ctx context.Context, re
 	return handleChoicesByType(ctx, a, req)
 }
 
-func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1.AlertStatusResponse, error) {
+func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *alertingv1.ConditionReference) (*alertingv1.AlertStatusResponse, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
 	}
 	lg := a.logger.With("handler", "AlertConditionStatus")
 
-	cond, err := a.conditionStorage.Get().Get(ctx, ref.Id)
+	// required info
+	cond, err := a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
@@ -222,9 +256,19 @@ func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
 	}
-	allConds, err := a.conditionStorage.Get().List(ctx)
-	if err != nil {
-		return nil, err
+	groupIds := []string{}
+	if req.ItemFilter == nil || len(req.ItemFilter.GroupIds) == 0 {
+		groupIds = append(groupIds, "")
+	} else {
+		groupIds = req.ItemFilter.GroupIds
+	}
+	allConds := []*alertingv1.AlertCondition{}
+	for _, groupId := range groupIds {
+		conds, err := a.conditionStorage.Get().Group(groupId).List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		allConds = append(allConds, conds...)
 	}
 	res := &alertingv1.ListStatusResponse{
 		AlertConditions: make(map[string]*alertingv1.AlertConditionWithStatus),
@@ -325,16 +369,18 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	existing, err := a.conditionStorage.Get().Get(ctx, req.ConditionId.Id)
+
+	existing, err := a.conditionStorage.Get().Group(req.ConditionId.GroupId).Get(ctx, req.ConditionId.Id)
 	if err != nil {
 		return nil, err
 	}
+
 	var silenceID *string
 	if existing.Silence != nil {
 		silenceID = &existing.Silence.SilenceId
 	}
 	if existing.Silence != nil && existing.Silence.SilenceId != "" {
-		_, err := a.DeactivateSilence(ctx, &corev1.Reference{Id: req.ConditionId.Id})
+		_, err := a.DeactivateSilence(ctx, &alertingv1.ConditionReference{Id: req.ConditionId.Id, GroupId: req.ConditionId.GroupId})
 		if err != nil {
 			return nil, shared.WithInternalServerErrorf("failed to deactivate existing silence : %s", err)
 		}
@@ -350,17 +396,17 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
 	// update K,V with new silence info for the respective condition
-	if err := a.conditionStorage.Get().Put(ctx, req.ConditionId.Id, newCondition); err != nil {
+	if err := a.conditionStorage.Get().Group(req.ConditionId.GroupId).Put(ctx, req.ConditionId.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *alertingv1.ConditionReference) (*emptypb.Empty, error) {
 	if err := ref.Validate(); err != nil {
 		return nil, err
 	}
-	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
+	existing, err := a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +419,8 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
-	if err := a.conditionStorage.Get().Put(ctx, ref.Id, newCondition); err != nil {
+	// update K,V with new silence info for the respective condition
+	if err := a.conditionStorage.Get().Group(ref.GroupId).Put(ctx, ref.Id, newCondition); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -387,11 +434,21 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 		return nil, err
 	}
 	lg := a.logger.With("handler", "Timeline")
-	conditions, err := a.conditionStorage.Get().List(ctx)
-	if err != nil {
-		return nil, err
+	conditions := []*alertingv1.AlertCondition{}
+	groupIds := []string{}
+	if req.Filters == nil || len(req.Filters.GroupIds) == 0 {
+		groupIds = []string{""}
+	} else {
+		groupIds = req.Filters.GroupIds
 	}
-	conds := lo.Filter(conditions, req.Filters.FilterFunc())
+	for _, groupId := range groupIds {
+		conds, err := a.conditionStorage.Get().Group(groupId).List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, lo.Filter(conds, req.Filters.FilterFunc())...)
+	}
+
 	resp := &alertingv1.TimelineResponse{
 		Items: make(map[string]*alertingv1.ActiveWindows),
 	}
@@ -407,7 +464,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 	go func() {
 		n := int(req.Limit)
 		pool := pond.New(int(math.Max(25, float64(n/10))), n, pond.Strategy(pond.Balanced()))
-		for _, cond := range conds {
+		for _, cond := range conditions {
 			cond := cond
 			pool.Submit(func() {
 				if alertingv1.IsInternalCondition(cond) {

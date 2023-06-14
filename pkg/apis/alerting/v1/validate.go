@@ -38,6 +38,13 @@ func (s *SyncerConfig) Validate() error {
 	return nil
 }
 
+func (c *ConditionReference) Validate() error {
+	if c.Id == "" {
+		return validation.Error("ConditionId must be set")
+	}
+	return nil
+}
+
 func (s *SilenceRequest) Validate() error {
 	if err := s.ConditionId.Validate(); err != nil {
 		return err

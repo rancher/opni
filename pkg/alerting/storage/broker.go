@@ -6,15 +6,16 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 )
 
-var _ RouterStorage = (*jetstream.JetstreamRouterStore[routing.OpniRouting])(nil)
-var _ AlertingStorage[interfaces.AlertingSecret] = (*jetstream.JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
-var _ AlertingStateCache[*alertingv1.CachedState] = (*jetstream.JetStreamAlertingStateCache)(nil)
-var _ AlertingIncidentTracker[*alertingv1.IncidentIntervals] = (*jetstream.JetStreamAlertingIncidentTracker)(nil)
-var _ AlertingStorage[interfaces.AlertingSecret] = (*jetstream.JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
-var _ RouterStorage = (*mem.InMemoryRouterStore)(nil)
+var _ spec.RouterStorage = (*jetstream.JetstreamRouterStore[routing.OpniRouting])(nil)
+var _ spec.AlertingStorage[interfaces.AlertingSecret] = (*jetstream.JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
+var _ spec.AlertingStateCache[*alertingv1.CachedState] = (*jetstream.JetStreamAlertingStateCache)(nil)
+var _ spec.AlertingIncidentTracker[*alertingv1.IncidentIntervals] = (*jetstream.JetStreamAlertingIncidentTracker)(nil)
+var _ spec.AlertingStorage[interfaces.AlertingSecret] = (*jetstream.JetStreamAlertingStorage[interfaces.AlertingSecret])(nil)
+var _ spec.RouterStorage = (*mem.InMemoryRouterStore)(nil)
 
 type CompositeAlertingBroker struct {
 	opts.ClientSetOptions
@@ -31,27 +32,27 @@ func NewCompositeAlertingBroker(options opts.ClientSetOptions) *CompositeAlertin
 	}
 }
 
-var _ AlertingClientSet = (*CompositeAlertingBroker)(nil)
-var _ AlertingStoreBroker = (*CompositeAlertingBroker)(nil)
+var _ spec.AlertingClientSet = (*CompositeAlertingBroker)(nil)
+var _ spec.AlertingStoreBroker = (*CompositeAlertingBroker)(nil)
 
 func (c *CompositeAlertingBroker) Use(store any) {
-	if cs, ok := store.(ConditionStorage); ok {
+	if cs, ok := store.(spec.ConditionStorage); ok {
 		c.conds = cs
 	}
-	if es, ok := store.(EndpointStorage); ok {
+	if es, ok := store.(spec.EndpointStorage); ok {
 		c.endps = es
 	}
-	if rs, ok := store.(RouterStorage); ok {
+	if rs, ok := store.(spec.RouterStorage); ok {
 		c.routers = rs
 	}
-	if ss, ok := store.(StateStorage); ok {
+	if ss, ok := store.(spec.StateStorage); ok {
 		c.states = ss
 	}
-	if is, ok := store.(IncidentStorage); ok {
+	if is, ok := store.(spec.IncidentStorage); ok {
 		c.incidents = is
 	}
 }
 
-func (c *CompositeAlertingBroker) NewClientSet() AlertingClientSet {
+func (c *CompositeAlertingBroker) NewClientSet() spec.AlertingClientSet {
 	return c.CompositeAlertingClientSet
 }

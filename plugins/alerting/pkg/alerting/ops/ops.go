@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
@@ -33,7 +33,7 @@ type AlertingOpsNode struct {
 	*shared.AlertingClusterOptions
 
 	ClusterDriver    future.Future[drivers.ClusterDriver]
-	storageClientSet future.Future[storage.AlertingClientSet]
+	storageClientSet future.Future[spec.AlertingClientSet]
 }
 
 var _ alertops.AlertingAdminServer = (*AlertingOpsNode)(nil)
@@ -58,7 +58,7 @@ var _ alertops.AlertingAdminServer = (*AlertingOpsNode)(nil)
 func NewAlertingOpsNode(
 	ctx context.Context,
 	clusterDriver future.Future[drivers.ClusterDriver],
-	storageClientSet future.Future[storage.AlertingClientSet],
+	storageClientSet future.Future[spec.AlertingClientSet],
 	opts ...AlertingOpsNodeOption) *AlertingOpsNode {
 	options := AlertingOpsNodeOptions{
 		driverTimeout:  1 * time.Second,

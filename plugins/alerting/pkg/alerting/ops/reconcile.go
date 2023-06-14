@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
 	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
@@ -179,7 +179,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 func (a *AlertingOpsNode) SendManualSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) {
 	a.syncMu.Lock()
 	defer a.syncMu.Unlock()
@@ -193,7 +193,7 @@ func (a *AlertingOpsNode) SendManualSyncRequest(
 func (a *AlertingOpsNode) constructSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) *alertops.SyncRequest {
 	lg := a.logger.With("method", "constructSyncRequest")
 	syncReq := &alertops.SyncRequest{

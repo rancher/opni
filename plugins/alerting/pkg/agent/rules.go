@@ -12,6 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	RuleSyncInterval = time.Minute * 2
+)
+
 type RuleStreamer struct {
 	util.Initializer
 
@@ -84,7 +88,7 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
-	t := time.NewTicker(time.Minute * 2)
+	t := time.NewTicker(RuleSyncInterval)
 	r.lg.Info("waiting for rule sync client...")
 	r.WaitForInitContext(ctx)
 	r.lg.Info("rule sync client acquired")

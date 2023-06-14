@@ -17,10 +17,10 @@ import (
 	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage"
-	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	"github.com/rancher/opni/pkg/alerting/storage/jetstream"
 	"github.com/rancher/opni/pkg/alerting/storage/mem"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/test/alerting"
@@ -54,16 +54,16 @@ func ExpectWindowsAreOk(v []*alertingv1.ActiveWindow, neverBefore time.Time) {
 }
 
 type TestAlertStorage[T interfaces.AlertingSecret] interface {
-	storage.AlertingStorage[T]
+	spec.AlertingStorage[T]
 	CheckRedactedSecrets(unredacted, redacted T) bool
 }
 
 type TestJetstreamAlertStorage struct {
-	storage.AlertingStorage[*testgrpc.TestSecret]
+	spec.AlertingStorage[*testgrpc.TestSecret]
 }
 
 type TestJetstreamRouterStore[T routing.OpniRouting] struct {
-	storage.RouterStorage
+	spec.RouterStorage
 }
 
 func (t *TestJetstreamAlertStorage) CheckRedactedSecrets(unredacted, redacted *testgrpc.TestSecret) bool {
@@ -160,11 +160,11 @@ func BuildAlertStorageTestSuite[T interfaces.AlertingSecret](
 
 func BuildAlertingStateCacheTestSuite(
 	name string,
-	stateCacheConstructor func() storage.AlertingStateCache[*alertingv1.CachedState],
+	stateCacheConstructor func() spec.AlertingStateCache[*alertingv1.CachedState],
 ) bool {
 	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var cache storage.AlertingStateCache[*alertingv1.CachedState]
+		var cache spec.AlertingStateCache[*alertingv1.CachedState]
 		BeforeAll(func() {
 			cache = stateCacheConstructor()
 			DeferCleanup(func() {
@@ -295,11 +295,11 @@ func BuildAlertingStateCacheTestSuite(
 
 func BuildAlertingIncidentTrackerTestSuite(
 	name string,
-	incidentTrackerConstructor func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
+	incidentTrackerConstructor func() spec.AlertingIncidentTracker[*alertingv1.IncidentIntervals],
 ) bool {
 	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var tracker storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
+		var tracker spec.AlertingIncidentTracker[*alertingv1.IncidentIntervals]
 		BeforeAll(func() {
 			tracker = incidentTrackerConstructor()
 			DeferCleanup(func() {
@@ -325,7 +325,6 @@ func BuildAlertingIncidentTrackerTestSuite(
 				key = shared.NewAlertingRefId()
 				fingerprint := shared.NewAlertingRefId()
 				generateOption := func() {
-
 					r := rand.Intn(2)
 					if r == 0 {
 						err := tracker.OpenInterval(ctx, key, fingerprint, timestamppb.Now())
@@ -382,12 +381,12 @@ func BuildAlertingIncidentTrackerTestSuite(
 
 func BuildAlertRouterStorageTestSuite(
 	name string,
-	routerStoreConstructor func() storage.RouterStorage,
+	routerStoreConstructor func() spec.RouterStorage,
 	defaultRouter routing.OpniRouting,
 ) bool {
 	return Describe(name, Ordered, Label("integration"), func() {
 		ctx, ca := context.WithCancel(context.Background())
-		var routerStore storage.RouterStorage
+		var routerStore spec.RouterStorage
 		BeforeAll(func() {
 			routerStore = routerStoreConstructor()
 			DeferCleanup(func() {
@@ -444,16 +443,15 @@ func BuildAlertRouterStorageTestSuite(
 				alerting.ExpectRouterNotEqual(updatedRouter, originalRouter)
 			})
 		})
-
 	})
 }
 
 func BuildStorageClientSetSuite(
 	name string,
-	brokerConstructor func() storage.AlertingStoreBroker,
+	brokerConstructor func() spec.AlertingStoreBroker,
 ) bool {
 	return Describe(name, Ordered, Label("integration"), func() {
-		var s storage.AlertingClientSet
+		var s spec.AlertingClientSet
 		var ctx context.Context
 		BeforeAll(func() {
 			broker := brokerConstructor()
@@ -465,6 +463,40 @@ func BuildStorageClientSetSuite(
 			Expect(ctx).NotTo(BeNil())
 			DeferCleanup(func() {
 				s.Purge(ctx)
+			})
+		})
+
+		When("intializing a new client set", func() {
+			It("should have a default condition group", func() {
+				groups, err := s.Conditions().ListGroups(ctx)
+				Expect(err).To(Succeed())
+				Expect(groups).To(ConsistOf(""))
+			})
+
+			It("should be able to create/delete conditions across groups", func() {
+				err := s.Conditions().Group("new-group").Put(ctx, "condition1", &alertingv1.AlertCondition{
+					Name:              "grouped",
+					Description:       "grouped",
+					Labels:            []string{},
+					Severity:          0,
+					AlertType:         &alertingv1.AlertTypeDetails{},
+					AttachedEndpoints: &alertingv1.AttachedEndpoints{},
+					Silence:           &alertingv1.SilenceInfo{},
+					LastUpdated:       &timestamppb.Timestamp{},
+					Id:                "",
+					GoldenSignal:      0,
+					OverrideType:      "",
+				})
+				Expect(err).To(Succeed())
+				groups, err := s.Conditions().ListGroups(ctx)
+				Expect(err).To(Succeed())
+				Expect(groups).To(ConsistOf("", "new-group"))
+
+				err = s.Conditions().Group("new-group").Delete(ctx, "condition1")
+				Expect(err).To(Succeed())
+				groups, err = s.Conditions().ListGroups(ctx)
+				Expect(err).To(Succeed())
+				Expect(groups).To(ConsistOf(""))
 			})
 		})
 
@@ -483,7 +515,7 @@ func BuildStorageClientSetSuite(
 				id2 := uuid.New().String()
 				mutateState := []func(){
 					func() { // new
-						err := s.Conditions().Put(ctx, id1, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
 							Id:          id1,
@@ -493,20 +525,22 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() { // new
-						err := s.Conditions().Put(ctx, id2, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("test-group").Put(ctx, id2, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
 							Id:          id2,
+							GroupId:     "test-group",
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 						})
 						Expect(err).To(Succeed())
 					},
-					func() { //update timestamp
-						err := s.Conditions().Put(ctx, id2, &alertingv1.AlertCondition{
+					func() { // update timestamp
+						err := s.Conditions().Group("test-group").Put(ctx, id2, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
 							Id:          id2,
+							GroupId:     "test-group",
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 						})
@@ -529,7 +563,6 @@ func BuildStorageClientSetSuite(
 							LastUpdated: timestamppb.Now(),
 						})
 						Expect(err).To(Succeed())
-
 					},
 				}
 				for _, f := range mutateState {
@@ -569,9 +602,13 @@ func BuildStorageClientSetSuite(
 				err := s.Purge(ctx)
 				Expect(err).To(Succeed())
 				By("checking that the condition store is empty")
-				conds, err := s.Conditions().List(ctx)
+				groups, err := s.Conditions().ListGroups(ctx)
 				Expect(err).To(Succeed())
-				Expect(conds).To(BeEmpty())
+				for _, groupId := range groups {
+					conds, err := s.Conditions().Group(groupId).List(ctx)
+					Expect(err).To(Succeed())
+					Expect(conds).To(BeEmpty())
+				}
 
 				By("checking that the endpoint store is empty")
 				endps, err := s.Endpoints().List(ctx)
@@ -631,7 +668,7 @@ func BuildStorageClientSetSuite(
 				)
 
 				conditionId := uuid.New().String()
-				err := s.Conditions().Put(ctx, conditionId, &alertingv1.AlertCondition{
+				err := s.Conditions().Group("").Put(ctx, conditionId, &alertingv1.AlertCondition{
 					Name:        "sample condition",
 					Description: "sample condition",
 					Severity:    alertingv1.OpniSeverity_Info,
@@ -674,7 +711,6 @@ func BuildStorageClientSetSuite(
 			It("should persist states", func() {
 				err := s.States().Put(ctx, "test", &alertingv1.CachedState{})
 				Expect(err).To(Succeed())
-
 			})
 
 			It("should persist incidents", func() {
@@ -687,9 +723,9 @@ func BuildStorageClientSetSuite(
 
 //var _ = BuildAlertRouterStorageTestSuite(
 //	"Alerting RouterV1 Jetstream Storage Test",
-//	func() storage.RouterStorage[*routing.OpniRouterV1] {
+//	func() spec.RouterStorage[*routing.OpniRouterV1] {
 //		return &TestJetstreamRouterStore[*routing.OpniRouterV1]{
-//			RouterStorage: storage.NewJetstreamRouterStore(testObj, "/router"),
+//			RouterStorage: spec.NewJetstreamRouterStore(testObj, "/router"),
 //		}
 //	},
 //	routing.NewOpniRouterV1("http://localhost:3000"),
@@ -697,7 +733,7 @@ func BuildStorageClientSetSuite(
 
 var _ = BuildAlertRouterStorageTestSuite(
 	"Alerting Router in memory store",
-	func() storage.RouterStorage {
+	func() spec.RouterStorage {
 		return mem.NewInMemoryRouterStore()
 	},
 	routing.NewDefaultOpniRouting(),
@@ -720,21 +756,21 @@ var _ = BuildAlertStorageTestSuite(
 
 var _ = BuildAlertingStateCacheTestSuite(
 	"Alerting State Cache Jetstream Cache",
-	func() storage.AlertingStateCache[*alertingv1.CachedState] {
+	func() spec.AlertingStateCache[*alertingv1.CachedState] {
 		return jetstream.NewJetStreamAlertingStateCache(testKv2, "/statecache")
 	},
 )
 
 var _ = BuildAlertingIncidentTrackerTestSuite(
 	"Alerting Incident Tracker Jetstream Cache",
-	func() storage.AlertingIncidentTracker[*alertingv1.IncidentIntervals] {
+	func() spec.AlertingIncidentTracker[*alertingv1.IncidentIntervals] {
 		return jetstream.NewJetStreamAlertingIncidentTracker(testKv2, "/incidenttracker", testTTL)
 	},
 )
 
 var _ = BuildStorageClientSetSuite(
 	"Default Storage clientset hash ring & syncing",
-	func() storage.AlertingStoreBroker {
-		return broker_init.NewDefaultAlertingBroker(embeddedJetstream)
+	func() spec.AlertingStoreBroker {
+		return storage.NewDefaultAlertingBroker(embeddedJetstream)
 	},
 )

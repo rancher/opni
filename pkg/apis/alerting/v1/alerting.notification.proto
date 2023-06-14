@@ -13,6 +13,7 @@ import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 
+
 package alerting;
 
 // Opni-Alerting internal use
@@ -61,7 +62,7 @@ service AlertNotifications {
 
 message ListAlarmMessageRequest {
   // defaults to 100 most severe (frequency + severity heuristic)
-  string conditionId = 1;
+  alerting.ConditionReference conditionId = 1;
   repeated string fingerprints = 2;
   google.protobuf.Timestamp start = 3;
   google.protobuf.Timestamp end = 4;
@@ -120,5 +121,5 @@ message ResolveAlertsRequest {
 message ResolveAlertsResponse {}
 
 message ListRoutingRelationshipsResponse{
-  map<string, core.ReferenceList> routingRelationships = 1;
+  map<string, alerting.ConditionReferenceList> routingRelationships = 1;
 }

@@ -59,4 +59,6 @@ func init() {
 	alarms.CapabilityStreamEvaluateInterval = time.Second * 1
 	alarms.CortexStreamEvaluateInterval = time.Second * 1
 	test.EnablePlugin(meta.ModeAgent, agent.Scheme)
+
+	agent.RuleSyncInterval = time.Second * 1
 }

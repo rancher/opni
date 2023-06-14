@@ -8,13 +8,14 @@ import (
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
@@ -55,7 +56,9 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	storageClientSet future.Future[storage.AlertingClientSet]
+	// components       serverComponents
+	opsNode          *ops.AlertingOpsNode
+	storageClientSet future.Future[spec.AlertingClientSet]
 
 	client.AlertingClient
 	clusterNotifier chan []client.AlertingPeer
@@ -170,7 +173,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		},
 	)
 
-	future.Wait1(p.storageClientSet, func(s alertingStorage.AlertingClientSet) {
+	future.Wait1(p.storageClientSet, func(s spec.AlertingClientSet) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
 		})
@@ -197,7 +200,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
 		func(
 			js nats.JetStreamContext,
-			s alertingStorage.AlertingClientSet,
+			s spec.AlertingClientSet,
 			mgmtClient managementv1.ManagementClient,
 			adminClient cortexadmin.CortexAdminClient,
 			cortexOpsClient cortexops.CortexOpsClient,
@@ -258,7 +261,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p,
 			),
 			util.PackService(
-				&node.AlertingNodeConfiguration_ServiceDesc,
+				&node.NodeConfiguration_ServiceDesc,
 				&p.node,
 			),
 			util.PackService(

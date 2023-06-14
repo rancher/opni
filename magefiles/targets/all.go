@@ -6,9 +6,11 @@ import (
 	"github.com/magefile/mage/mg"
 )
 
-func All(ctx context.Context) {
-	ctx, tr := Tracer.Start(ctx, "target.all")
+func Default(ctx context.Context) {
+	ctx, tr := Tracer.Start(ctx, "target.default")
 	defer tr.End()
 
 	mg.SerialCtxDeps(ctx, Generate.All, Build.All)
 }
+
+func None() {}

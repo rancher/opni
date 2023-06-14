@@ -31,9 +31,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 	p := &Plugin{
-		ctx:          ctx,
-		lg:           lg,
-		ruleStreamer: NewRuleStreamer(ctx, lg.With("component", "rule-streamer"), ct),
+		ctx: ctx,
+		lg:  lg,
 	}
 
 	p.node = node.NewDefaultHealthConfigSyncer[*alertingNode.AlertingCapabilityConfig](
@@ -43,7 +42,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		ct,
 	)
 
-	p.node.AddConfigListener(p.ruleStreamer)
 	priority_order := []string{"default_driver", "test_driver"}
 	for _, name := range priority_order {
 		builder, ok := drivers.NodeDrivers.Get(name)
@@ -55,8 +53,17 @@ func NewPlugin(ctx context.Context) *Plugin {
 			lg.With("driver", name, "err", err).Warn("failed to initialize node driver")
 		}
 		p.driver = driver
+		p.node.AddConfigListener(driver)
 		break
 	}
+	p.ruleStreamer = NewRuleStreamer(
+		ctx,
+		lg.With("component", "rule-streamer"),
+		ct,
+		p.driver,
+	)
+	p.node.AddConfigListener(p.ruleStreamer)
+
 	return p
 }
 

@@ -1,8 +1,11 @@
 package drivers
 
 import (
+	"context"
+
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 )
 
 type ConfigPropagator interface {
@@ -10,8 +13,8 @@ type ConfigPropagator interface {
 }
 
 type NodeDriver interface {
-	// TODO : implement a real rule discovery struct
-	ConfigureRuleDiscovery(conf *node.AlertingCapabilityConfig) struct{}
+	ConfigPropagator
+	DiscoverRules(ctx context.Context) (*rules.RuleManifest, error)
 }
 
 var NodeDrivers = driverutil.NewDriverCache[NodeDriver]()

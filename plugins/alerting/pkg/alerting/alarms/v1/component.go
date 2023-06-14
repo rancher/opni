@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,8 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var _ rules.RuleSyncServer = (*AlarmServerComponent)(nil)
+
 type AlarmServerComponent struct {
 	alertingv1.UnsafeAlertConditionsServer
+	rules.UnsafeRuleSyncServer
 
 	util.Initializer
 	ctx context.Context

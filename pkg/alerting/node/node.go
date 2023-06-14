@@ -139,7 +139,7 @@ func (s *defaultHealthConfigSyncer[T]) SyncNow(_ context.Context, req *capabilit
 			s.lg.Debugf("ignoring sync request due to capability filter '%s'", s.capability)
 			return &emptypb.Empty{}, nil
 		}
-		s.lg.Debug("received %s node sync request", s.capability)
+		s.lg.Debugf("received %s node sync request", s.capability)
 
 		if !s.hasNodeSyncClient() {
 			return nil, status.Error(codes.Unavailable, "not connected to node server")

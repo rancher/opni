@@ -2,32 +2,51 @@ package agent
 
 import (
 	"context"
+	"time"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"go.uber.org/zap"
 )
 
 type RuleStreamer struct {
+	util.Initializer
+
 	parentCtx context.Context
 
 	lg *zap.SugaredLogger
 
 	ruleStreamCtx  context.Context
 	stopRuleStream context.CancelFunc
+	ruleSyncClient rules.RuleSyncClient
 
 	conditions healthpkg.ConditionTracker
+	nodeDriver drivers.NodeDriver
 }
 
 var _ drivers.ConfigPropagator = (*RuleStreamer)(nil)
 
-func NewRuleStreamer(ctx context.Context, lg *zap.SugaredLogger, ct healthpkg.ConditionTracker) *RuleStreamer {
+func NewRuleStreamer(
+	ctx context.Context,
+	lg *zap.SugaredLogger,
+	ct healthpkg.ConditionTracker,
+	nodeDriver drivers.NodeDriver,
+) *RuleStreamer {
 	return &RuleStreamer{
 		parentCtx:  ctx,
 		lg:         lg,
 		conditions: ct,
+		nodeDriver: nodeDriver,
 	}
+}
+
+func (r *RuleStreamer) Initialize(ruleSyncClient rules.RuleSyncClient) {
+	r.InitOnce(func() {
+		r.ruleSyncClient = ruleSyncClient
+	})
 }
 
 func (r *RuleStreamer) ConfigureNode(nodeId string, cfg *node.AlertingCapabilityConfig) error {
@@ -44,9 +63,7 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 	startRuleStreamer := func() {
 		ctx, ca := context.WithCancel(r.parentCtx)
 		r.stopRuleStream = ca
-		// TODO : iterate over drivers and configure rule discoverers with rule spec
-
-		go r.run(ctx) // TODO : run with all the rule discoverers
+		go r.run(ctx)
 	}
 
 	switch {
@@ -67,5 +84,23 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
-	// TODO:
+	t := time.NewTicker(time.Minute * 2)
+	r.lg.Info("waiting for rule sync client...")
+	r.WaitForInitContext(ctx)
+	r.lg.Info("rule sync client acquired")
+
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
+			if err != nil {
+				r.lg.Warnf("failed to discover rules %s", err)
+			}
+			r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
+			r.ruleSyncClient.SyncRules(ctx, ruleManifest)
+		case <-ctx.Done():
+			r.lg.Info("Exiting rule sync loop")
+		}
+	}
 }

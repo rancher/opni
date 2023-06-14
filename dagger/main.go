@@ -237,20 +237,23 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	goBuild := goBase.
 		Pipeline("Go Build").
 		WithDirectory(b.workdir, b.sources, dagger.ContainerWithDirectoryOpts{
-			Include: []string{"go.mod", "go.sum"},
+			Include: []string{"go.mod", "go.sum", "tools.go"},
 		}).
 		WithExec([]string{"go", "mod", "download"}).
-		WithMountedDirectory(b.workdir, b.sources).
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
-		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"})
+		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
+		WithMountedDirectory(b.workdir, b.sources)
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
+		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web"), dagger.ContainerWithDirectoryOpts{
+			Include: []string{"package.json", "yarn.lock"},
+		}).
+		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithMountedDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
 		With(b.caches.NodeModules).
-		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
 	generated := goBuild.

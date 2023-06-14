@@ -35,8 +35,8 @@ func (Test) All() error {
 		fmt.Sprintf("-p=%d", runtime.NumCPU()),
 		"-race",
 	}
-	_, coverageEnabled := os.LookupEnv("DISABLE_COVERAGE")
-	if coverageEnabled {
+	_, coverageDisabled := os.LookupEnv("DISABLE_COVERAGE")
+	if !coverageDisabled {
 		args = append(args,
 			"-cover",
 			"-coverprofile=cover.out",
@@ -51,7 +51,7 @@ func (Test) All() error {
 		return err
 	}
 
-	if !coverageEnabled {
+	if coverageDisabled {
 		return nil
 	}
 

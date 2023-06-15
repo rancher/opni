@@ -69,7 +69,7 @@ func buildMainPackage(opts buildOpts) error {
 
 	// disable vcs stamping inside git worktrees if the linked git directory doesn't exist
 	dotGit, err := os.Stat(".git")
-	if err != nil || !dotGit.IsDir() {
+	if err == nil && !dotGit.IsDir() {
 		fmt.Println("disabling vcs stamping inside worktree")
 		args = append(args, "-buildvcs=false")
 	}

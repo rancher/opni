@@ -31,6 +31,7 @@ type ImagesConfig struct {
 	OpniMinimal ImageTarget      `koanf:"minimal"`
 	Opensearch  OpensearchConfig `koanf:"opensearch"`
 	PythonBase  ImageTarget      `koanf:"python-base"`
+	PythonTorch ImageTarget      `koanf:"python-torch"`
 }
 
 type ImageTarget struct {

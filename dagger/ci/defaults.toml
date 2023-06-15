@@ -38,3 +38,8 @@ test = true
 [images.python-base]
 	repo = "docker.io/rancher/opni-python-base"
 	tag = "3.9"
+
+[images.python-torch]
+	repo = "docker.io/rancher/opni-python-base"
+	tag = "3.9"
+	tag-suffix = "-torch"

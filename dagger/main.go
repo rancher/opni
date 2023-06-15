@@ -414,52 +414,78 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 }
 
 func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
-	opensearchDashboards := b.BuildOpensearchDashboardsImage()
-	opensearch := b.BuildOpensearchImage()
-	var pythonBase *dagger.Container
-	if b.Images.PythonBase.Push {
-		pythonBase = b.BuildOpniPythonBase()
-	} else {
-		pythonBase = b.client.Container().From(b.Images.PythonBase.Ref())
-	}
-	updateSvc := b.BuildOpensearchUpdateServiceImage(pythonBase)
+	opensearchDashboards := b.client.Container().
+		Pipeline("Opensearch Dashboards Image").
+		From(fmt.Sprintf("opensearchproject/opensearch-dashboards:%s", b.Images.Opensearch.Build.DashboardsVersion)).
+		WithExec([]string{"opensearch-dashboards-plugin", "install",
+			fmt.Sprintf("https://github.com/rancher/opni-ui/releases/download/plugin-%[1]s/opni-dashboards-plugin-%[1]s.zip", b.Images.Opensearch.Build.PluginVersion),
+		})
 
-	if b.Images.Opensearch.Dashboards.Push {
-		ref, err := opensearchDashboards.
-			WithRegistryAuth(b.Images.Opensearch.Dashboards.RegistryAuth()).
-			Publish(ctx, b.Images.Opensearch.Dashboards.Ref())
-		if err != nil {
-			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.Dashboards.Ref(), err)
-		}
-		fmt.Println("published image:", ref)
-	}
-	if b.Images.Opensearch.Opensearch.Push {
-		ref, err := opensearch.
-			WithRegistryAuth(b.Images.Opensearch.Opensearch.RegistryAuth()).
-			Publish(ctx, b.Images.Opensearch.Opensearch.Ref())
-		if err != nil {
-			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.Opensearch.Ref(), err)
-		}
-		fmt.Println("published image:", ref)
-	}
-	if b.Images.PythonBase.Push {
-		ref, err := pythonBase.
-			WithRegistryAuth(b.Images.PythonBase.RegistryAuth()).
-			Publish(ctx, b.Images.PythonBase.Ref())
-		if err != nil {
-			return fmt.Errorf("failed to publish image %s: %w", b.Images.PythonBase.Ref(), err)
-		}
-		fmt.Println("published image:", ref)
-	}
-	if b.Images.Opensearch.UpdateService.Push {
-		ref, err := updateSvc.
-			WithRegistryAuth(b.Images.Opensearch.UpdateService.RegistryAuth()).
-			Publish(ctx, b.Images.Opensearch.UpdateService.Ref())
-		if err != nil {
-			return fmt.Errorf("failed to publish image %s: %w", b.Images.Opensearch.UpdateService.Ref(), err)
-		}
-		fmt.Println("published image:", ref)
+	entrypointScript := b.sources.File("images/opensearch/entrypoint.sh")
+	opensearch := b.client.Container().
+		Pipeline("Opensearch Image").
+		From(fmt.Sprintf("opensearchproject/opensearch:%s", b.Images.Opensearch.Build.DashboardsVersion)).
+		WithExec([]string{"opensearch-plugin", "-s", "install", "-b",
+			fmt.Sprintf("https://github.com/rancher/opni-ingest-plugin/releases/download/v%s/opnipreprocessing.zip", b.Images.Opensearch.Build.PluginVersion),
+		}).
+		WithFile("/usr/share/opensearch/opensearch-docker-entrypoint.sh", entrypointScript)
+
+	pythonBase := b.client.Container().
+		Pipeline("Opni Python Base Image").
+		From("registry.suse.com/suse/sle15:15.3").
+		WithExec([]string{"zypper", "--non-interactive", "in", "python39", "python39-pip", "python39-devel"})
+
+	baseBuilder := pythonBase.
+		WithExec([]string{"zypper", "--non-interactive", "in", "gcc"}).
+		WithExec([]string{"python3.9", "-m", "venv", "/opt/venv"}).
+		WithFile("/requirements.txt", b.sources.File("images/python/requirements.txt")).
+		WithExec([]string{"/opt/venv/bin/pip", "install", "-r", "/requirements.txt"})
+
+	torchBuilder := baseBuilder.
+		WithFile("/requirements-torch.txt", b.sources.File("images/python/requirements-torch.txt")).
+		WithExec([]string{"/opt/venv/bin/pip", "install", "-r", "/requirements-torch.txt"})
+
+	opniPythonBase := pythonBase.
+		WithDirectory("/opt/venv", baseBuilder.Directory("/opt/venv")).
+		WithEnvVariable("PATH", "/opt/venv/bin:${PATH}", dagger.ContainerWithEnvVariableOpts{Expand: true})
+
+	opniPythonTorch := opniPythonBase.
+		WithDirectory("/opt/venv", torchBuilder.Directory("/opt/venv")).
+		WithEnvVariable("PATH", "/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}", dagger.ContainerWithEnvVariableOpts{Expand: true}).
+		WithEnvVariable("LD_LIBRARY_PATH", "/usr/local/nvidia/lib:/usr/local/nvidia/lib64", dagger.ContainerWithEnvVariableOpts{Expand: true}).
+		WithEnvVariable("NVIDIA_VISIBLE_DEVICES", "all").
+		WithEnvVariable("NVIDIA_DRIVER_CAPABILITIES", "compute,utility")
+
+	opensearchUpdateService := opniPythonBase.
+		Pipeline("Opensearch Update Service Image").
+		WithDirectory(".", b.sources.Directory("aiops/")).
+		WithExec([]string{"pip", "install", "-r", "requirements.txt"}).
+		WithEntrypoint([]string{"python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"})
+
+	imageTargets := map[*config.ImageTarget]*dagger.Container{
+		&b.Images.PythonBase:               opniPythonBase,
+		&b.Images.PythonTorch:              opniPythonTorch,
+		&b.Images.Opensearch.Opensearch:    opensearch,
+		&b.Images.Opensearch.Dashboards:    opensearchDashboards,
+		&b.Images.Opensearch.UpdateService: opensearchUpdateService,
 	}
 
-	return nil
+	eg, ctx := errgroup.WithContext(ctx)
+	for target, container := range imageTargets {
+		target, container := target, container
+		if target.Push {
+			eg.Go(func() error {
+				ref, err := container.
+					WithRegistryAuth(target.RegistryAuth()).
+					Publish(ctx, target.Ref())
+				if err != nil {
+					return fmt.Errorf("failed to publish image %s: %w", target.Ref(), err)
+				}
+				fmt.Println("published image:", ref)
+				return nil
+			})
+		}
+	}
+
+	return eg.Wait()
 }

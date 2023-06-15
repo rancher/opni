@@ -34,12 +34,6 @@ import (
 		},
 		docker.#Run & {
 			command: {
-				name: "apt"
-				args: ["install", "-y", "upx"]
-			}
-		},
-		docker.#Run & {
-			command: {
 				name: "go"
 				args: ["install", "github.com/magefile/mage@latest"]
 			}

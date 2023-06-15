@@ -79,10 +79,6 @@ func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	return ""
 }
 
-func isRecoverable(err error) bool {
-	return strings.Contains("context cancelled", err.Error())
-}
-
 type TargetRunMetadata struct {
 	Target *remoteread.Target
 	Query  *remoteread.Query
@@ -195,13 +191,14 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 			default:
 			}
 
-			if !isRecoverable(err) {
+			switch {
+			case strings.Contains(err.Error(), "context cancelled"):
+				tr.logger.With(
+					zap.Error(err),
+				).Error("failed to push to remote write, retrying...")
+			default:
 				return fmt.Errorf("failed to push to remote write: %w", err)
 			}
-
-			tr.logger.With(
-				zap.Error(err),
-			).Error("failed to push to remote write, retrying...")
 		}
 	}
 }
@@ -256,9 +253,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 			},
 		}
 
-		tr.remoteReaderMu.Lock()
 		readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
-		tr.remoteReaderMu.Unlock()
 
 		if err != nil {
 			activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to read from target endpoint: %s", err))
@@ -274,9 +269,17 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			if err := tr.doPush(ctx, &writeRequest); err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
-				return err
+			chunkedRequests, err := FitRequestToSize(&writeRequest, 4194304)
+			if err != nil {
+				return fmt.Errorf("failed to resize request: %w", err)
+			}
+
+			for i, request := range chunkedRequests {
+				if err := tr.doPush(ctx, request); err != nil {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+					return err
+				}
+				tr.logger.Debugf("pushed chunk %d", i)
 			}
 
 			progress.Current = uint64(nextEnd - progressDelta)

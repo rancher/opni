@@ -1,5 +1,0 @@
-apiVersion: opni.io/v1beta1
-kind: GpuPolicyAdapter
-metadata:
-  name: gpu
-spec: {}

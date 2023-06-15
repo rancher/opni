@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 )
 
-func descriptorString(fqName, help string, constLabels, varLabels []string) string {
+func descriptorString(fqName, help string, constLabels []string, varLabels []prometheus.ConstrainedLabel) string {
 	return fmt.Sprintf(
 		"Desc{fqName: %q, help: %q, constLabels: {%s}, variableLabels: %v}",
 		fqName,
@@ -67,25 +67,50 @@ var _ = Describe("Collector", Ordered, Label("unit"), func() {
 					"opni_cluster_info",
 					"Cluster information",
 					[]string{},
-					[]string{metrics.LabelImpersonateAs, "friendly_name"},
+					[]prometheus.ConstrainedLabel{
+						{
+							Name: metrics.LabelImpersonateAs,
+						},
+						{
+							Name: "friendly_name",
+						},
+					},
 				),
 				descriptorString(
 					"opni_agent_up",
 					"Agent connection status",
 					[]string{},
-					[]string{metrics.LabelImpersonateAs},
+					[]prometheus.ConstrainedLabel{
+						{
+							Name: metrics.LabelImpersonateAs,
+						},
+					},
 				),
 				descriptorString(
 					"opni_agent_ready",
 					"Agent readiness status",
 					[]string{},
-					[]string{metrics.LabelImpersonateAs, "conditions"},
+					[]prometheus.ConstrainedLabel{
+						{
+							Name: metrics.LabelImpersonateAs,
+						},
+						{
+							Name: "conditions",
+						},
+					},
 				),
 				descriptorString(
 					"opni_agent_status_summary",
 					"Agent status summary",
 					[]string{},
-					[]string{metrics.LabelImpersonateAs, "summary"},
+					[]prometheus.ConstrainedLabel{
+						{
+							Name: metrics.LabelImpersonateAs,
+						},
+						{
+							Name: "summary",
+						},
+					},
 				),
 			))
 

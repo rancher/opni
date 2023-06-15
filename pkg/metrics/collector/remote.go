@@ -3,198 +3,90 @@ package collector
 import (
 	"context"
 	"sync"
-	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/rancher/opni/pkg/metrics/desc"
+	"github.com/rancher/opni/pkg/metrics/collector/transform"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	otlpmetricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
-type RemoteCollector interface {
-	prometheus.Collector
+type RemoteProducer interface {
+	metric.Producer
 }
 
-type remoteCollector struct {
+type remoteProducer struct {
 	client RemoteCollectorClient
 }
 
-var _ prometheus.Collector = (*remoteCollector)(nil)
+var _ metric.Producer = (*remoteProducer)(nil)
 
-func NewRemoteCollector(client RemoteCollectorClient) RemoteCollector {
-	return &remoteCollector{
+func NewRemoteProducer(client RemoteCollectorClient) RemoteProducer {
+	return &remoteProducer{
 		client: client,
 	}
 }
 
-func (rc *remoteCollector) Describe(c chan<- *prometheus.Desc) {
-	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
-	defer ca()
-	resp, err := rc.client.Describe(ctx, &emptypb.Empty{})
+func (rc *remoteProducer) Produce(ctx context.Context) ([]metricdata.ScopeMetrics, error) {
+	metrics, err := rc.client.GetMetrics(ctx, &emptypb.Empty{})
 	if err != nil {
-		c <- prometheus.NewInvalidDesc(err)
-		return
+		return nil, err
 	}
-	for _, desc := range resp.GetDescriptors() {
-		c <- desc.ToPrometheusDescUnsafe()
-	}
-}
 
-func (rc *remoteCollector) Collect(c chan<- prometheus.Metric) {
-	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
-	defer ca()
-	resp, err := rc.client.Collect(ctx, &emptypb.Empty{})
-	if err != nil {
-		c <- prometheus.NewInvalidMetric(prometheus.NewInvalidDesc(err), err)
-		return
-	}
-	for _, metric := range resp.GetMetrics() {
-		c <- &remoteMetric{
-			desc:   metric.GetDesc().ToPrometheusDescUnsafe(),
-			metric: metric.GetMetric(),
+	out := []metricdata.ScopeMetrics{}
+	for _, resourceMetric := range metrics.GetResourceMetrics() {
+		scopeMetrics, err := transform.ProtoScopeMetrics(resourceMetric.GetScopeMetrics())
+		if err != nil {
+			return out, err
 		}
+		out = append(out, scopeMetrics...)
 	}
-}
-
-type remoteMetric struct {
-	desc   *prometheus.Desc
-	metric *dto.Metric
-}
-
-var _ prometheus.Metric = (*remoteMetric)(nil)
-
-func (rm *remoteMetric) Desc() *prometheus.Desc {
-	return rm.desc
-}
-
-func (rm *remoteMetric) Write(m *dto.Metric) error {
-	*m = *rm.metric
-	return nil
+	return out, nil
 }
 
 type CollectorServer interface {
 	RemoteCollectorServer
-	prometheus.Registerer
+	AppendReader(metric.Reader)
 }
 
 type remoteCollectorServer struct {
 	UnsafeRemoteCollectorServer
-
-	collectors []prometheus.Collector
-	lock       sync.RWMutex
-
-	descChannelPool   sync.Pool
-	metricChannelPool sync.Pool
+	readers []metric.Reader
+	rMutex  sync.Mutex
 }
 
-func NewCollectorServer() CollectorServer {
+func NewCollectorServer(readers ...metric.Reader) CollectorServer {
 	return &remoteCollectorServer{
-		collectors: []prometheus.Collector{},
-		descChannelPool: sync.Pool{
-			New: func() interface{} {
-				return make(chan *prometheus.Desc, 1000)
-			},
-		},
-		metricChannelPool: sync.Pool{
-			New: func() interface{} {
-				return make(chan prometheus.Metric, 1000)
-			},
-		},
+		readers: readers,
 	}
 }
 
-func (s *remoteCollectorServer) MustRegister(collectors ...prometheus.Collector) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.collectors = append(s.collectors, collectors...)
-}
-
-func (s *remoteCollectorServer) Register(collector prometheus.Collector) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	for _, c := range s.collectors {
-		if c == collector {
-			return prometheus.AlreadyRegisteredError{
-				ExistingCollector: c,
-				NewCollector:      collector,
-			}
+func (s *remoteCollectorServer) GetMetrics(ctx context.Context, _ *emptypb.Empty) (*otlpmetricsv1.MetricsData, error) {
+	s.rMutex.Lock()
+	defer s.rMutex.Unlock()
+	rms := make([]*otlpmetricsv1.ResourceMetrics, len(s.readers))
+	for i, reader := range s.readers {
+		metrics := &metricdata.ResourceMetrics{}
+		err := reader.Collect(ctx, metrics)
+		if err != nil {
+			return nil, err
 		}
-	}
-	s.collectors = append(s.collectors, collector)
-	return nil
-}
 
-func (s *remoteCollectorServer) Unregister(collector prometheus.Collector) bool {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	for i, c := range s.collectors {
-		if c == collector {
-			s.collectors = append(s.collectors[:i], s.collectors[i+1:]...)
-			return true
+		metricspb, err := transform.ResourceMetrics(metrics)
+		if err != nil {
+			return nil, err
 		}
-	}
-	return false
-}
 
-func (s *remoteCollectorServer) Describe(_ context.Context, _ *emptypb.Empty) (*DescriptorList, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	descs := []*desc.Desc{}
-	c := s.descChannelPool.Get().(chan *prometheus.Desc)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for _, collector := range s.collectors {
-			collector.Describe(c)
-		}
-	}()
-
-READ:
-	for {
-		select {
-		case d := <-c:
-			descs = append(descs, desc.FromPrometheusDesc(d))
-		case <-done:
-			break READ
-		}
+		rms[i] = metricspb
 	}
 
-	return &DescriptorList{
-		Descriptors: descs,
+	return &otlpmetricsv1.MetricsData{
+		ResourceMetrics: rms,
 	}, nil
 }
 
-func (s *remoteCollectorServer) Collect(_ context.Context, _ *emptypb.Empty) (*MetricList, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	metrics := []*Metric{}
-	c := s.metricChannelPool.Get().(chan prometheus.Metric)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for _, collector := range s.collectors {
-			collector.Collect(c)
-		}
-	}()
-
-READ:
-	for {
-		select {
-		case metric := <-c:
-			m := &Metric{
-				Desc:   desc.FromPrometheusDesc(metric.Desc()),
-				Metric: &dto.Metric{},
-			}
-			metric.Write(m.Metric)
-			metrics = append(metrics, m)
-		case <-done:
-			break READ
-		}
-	}
-
-	return &MetricList{
-		Metrics: metrics,
-	}, nil
+func (s *remoteCollectorServer) AppendReader(reader metric.Reader) {
+	s.rMutex.Lock()
+	defer s.rMutex.Unlock()
+	s.readers = append(s.readers, reader)
 }

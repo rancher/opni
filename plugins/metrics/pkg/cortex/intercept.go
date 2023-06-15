@@ -111,8 +111,8 @@ func (t *federatingInterceptor) Intercept(
 			if record {
 				record = false
 				latencyPerTimeseries := time.Since(startTime) / time.Duration(len(req.Timeseries))
-				mRemoteWriteProcessingLatency.Observe(float64(latencyPerTimeseries.Nanoseconds()))
-				mRemoteWriteTotalProcessedSeries.Add(float64(len(req.Timeseries)))
+				hRemoteWriteProcessingLatency.Record(outgoingCtx, latencyPerTimeseries.Nanoseconds())
+				cRemoteWriteTotalProcessedSeries.Add(outgoingCtx, int64(len(req.Timeseries)))
 			}
 			req.Timeseries = allTimeseries[start:end] // reuse the same request
 			md, _, _ := metadata.FromOutgoingContextRaw(outgoingCtx)

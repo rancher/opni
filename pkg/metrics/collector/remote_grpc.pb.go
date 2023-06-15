@@ -8,6 +8,7 @@ package collector
 
 import (
 	context "context"
+	v1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,16 +21,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	RemoteCollector_Describe_FullMethodName = "/collector.RemoteCollector/Describe"
-	RemoteCollector_Collect_FullMethodName  = "/collector.RemoteCollector/Collect"
+	RemoteCollector_GetMetrics_FullMethodName = "/collector.RemoteCollector/GetMetrics"
 )
 
 // RemoteCollectorClient is the client API for RemoteCollector service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteCollectorClient interface {
-	Describe(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DescriptorList, error)
-	Collect(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error)
+	GetMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.MetricsData, error)
 }
 
 type remoteCollectorClient struct {
@@ -40,18 +39,9 @@ func NewRemoteCollectorClient(cc grpc.ClientConnInterface) RemoteCollectorClient
 	return &remoteCollectorClient{cc}
 }
 
-func (c *remoteCollectorClient) Describe(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DescriptorList, error) {
-	out := new(DescriptorList)
-	err := c.cc.Invoke(ctx, RemoteCollector_Describe_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *remoteCollectorClient) Collect(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error) {
-	out := new(MetricList)
-	err := c.cc.Invoke(ctx, RemoteCollector_Collect_FullMethodName, in, out, opts...)
+func (c *remoteCollectorClient) GetMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.MetricsData, error) {
+	out := new(v1.MetricsData)
+	err := c.cc.Invoke(ctx, RemoteCollector_GetMetrics_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +52,7 @@ func (c *remoteCollectorClient) Collect(ctx context.Context, in *emptypb.Empty, 
 // All implementations must embed UnimplementedRemoteCollectorServer
 // for forward compatibility
 type RemoteCollectorServer interface {
-	Describe(context.Context, *emptypb.Empty) (*DescriptorList, error)
-	Collect(context.Context, *emptypb.Empty) (*MetricList, error)
+	GetMetrics(context.Context, *emptypb.Empty) (*v1.MetricsData, error)
 	mustEmbedUnimplementedRemoteCollectorServer()
 }
 
@@ -71,11 +60,8 @@ type RemoteCollectorServer interface {
 type UnimplementedRemoteCollectorServer struct {
 }
 
-func (UnimplementedRemoteCollectorServer) Describe(context.Context, *emptypb.Empty) (*DescriptorList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Describe not implemented")
-}
-func (UnimplementedRemoteCollectorServer) Collect(context.Context, *emptypb.Empty) (*MetricList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
+func (UnimplementedRemoteCollectorServer) GetMetrics(context.Context, *emptypb.Empty) (*v1.MetricsData, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetrics not implemented")
 }
 func (UnimplementedRemoteCollectorServer) mustEmbedUnimplementedRemoteCollectorServer() {}
 
@@ -90,38 +76,20 @@ func RegisterRemoteCollectorServer(s grpc.ServiceRegistrar, srv RemoteCollectorS
 	s.RegisterService(&RemoteCollector_ServiceDesc, srv)
 }
 
-func _RemoteCollector_Describe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RemoteCollector_GetMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RemoteCollectorServer).Describe(ctx, in)
+		return srv.(RemoteCollectorServer).GetMetrics(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RemoteCollector_Describe_FullMethodName,
+		FullMethod: RemoteCollector_GetMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteCollectorServer).Describe(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RemoteCollector_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RemoteCollectorServer).Collect(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RemoteCollector_Collect_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteCollectorServer).Collect(ctx, req.(*emptypb.Empty))
+		return srv.(RemoteCollectorServer).GetMetrics(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -134,12 +102,8 @@ var RemoteCollector_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*RemoteCollectorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Describe",
-			Handler:    _RemoteCollector_Describe_Handler,
-		},
-		{
-			MethodName: "Collect",
-			Handler:    _RemoteCollector_Collect_Handler,
+			MethodName: "GetMetrics",
+			Handler:    _RemoteCollector_GetMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

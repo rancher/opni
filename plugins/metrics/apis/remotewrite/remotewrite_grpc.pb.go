@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite/remotewrite.proto
+// source: github.com/rancher/opni/plugins/metrics/apis/remotewrite/remotewrite.proto
 
 package remotewrite
 
@@ -144,5 +144,5 @@ var RemoteWrite_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite/remotewrite.proto",
+	Metadata: "github.com/rancher/opni/plugins/metrics/apis/remotewrite/remotewrite.proto",
 }

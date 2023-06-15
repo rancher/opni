@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/aiops/pkg/apis/admin/admin.proto
+// source: github.com/rancher/opni/plugins/aiops/apis/admin/admin.proto
 
 package admin
 
@@ -291,5 +291,5 @@ var AIAdmin_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/aiops/pkg/apis/admin/admin.proto",
+	Metadata: "github.com/rancher/opni/plugins/aiops/apis/admin/admin.proto",
 }

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining/modeltraining.proto
+// source: github.com/rancher/opni/plugins/aiops/apis/modeltraining/modeltraining.proto
 
 package modeltraining
 
@@ -292,5 +292,5 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/aiops/pkg/apis/modeltraining/modeltraining.proto",
+	Metadata: "github.com/rancher/opni/plugins/aiops/apis/modeltraining/modeltraining.proto",
 }

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto
+// source: github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto
 
 package alertops
 
@@ -256,7 +256,7 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
+	Metadata: "github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto",
 }
 
 const (
@@ -373,5 +373,5 @@ var ConfigReconciler_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "github.com/rancher/opni/plugins/alerting/pkg/apis/alertops/alertops.proto",
+	Metadata: "github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto",
 }

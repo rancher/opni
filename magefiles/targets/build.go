@@ -12,6 +12,7 @@ import (
 
 type Build mg.Namespace
 
+// Builds the opni binary and plugins
 func (Build) All(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.build")
 	defer tr.End()
@@ -19,13 +20,15 @@ func (Build) All(ctx context.Context) {
 	mg.CtxDeps(ctx, Build.Opni, Build.Plugins)
 }
 
+// Builds the opni and minimal binaries, plugins, testenv, and linter.
 func (Build) Extra(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.build.x")
 	defer tr.End()
 
-	mg.CtxDeps(ctx, Build.Opni, Build.OpniMinimal, Build.Plugins)
+	mg.CtxDeps(ctx, Build.Opni, Build.OpniMinimal, Build.Plugins, Build.Testenv, Build.Linter)
 }
 
+// Compiles all go packages except those named 'main'
 func (Build) Archives(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.build.archives")
 	defer tr.End()
@@ -33,6 +36,7 @@ func (Build) Archives(ctx context.Context) error {
 	return buildArchive("./...")
 }
 
+// Builds the custom linter plugin
 func (Build) Linter(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.build.linter")
 	defer tr.End()
@@ -46,6 +50,7 @@ type buildOpts struct {
 	Path   string
 	Output string
 	Tags   []string
+	Debug  bool
 }
 
 func buildMainPackage(opts buildOpts) error {
@@ -59,10 +64,14 @@ func buildMainPackage(opts buildOpts) error {
 
 	args := []string{
 		"go", "build", "-v",
-		"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/versions.Version=%s", version),
-		"-trimpath",
-		"-o", opts.Output,
 	}
+	if !opts.Debug {
+		args = append(args,
+			"-ldflags", fmt.Sprintf("-w -s -X github.com/rancher/opni/pkg/versions.Version=%s", version),
+			"-trimpath",
+		)
+	}
+	args = append(args, "-o", opts.Output)
 	if len(opts.Tags) > 0 {
 		args = append(args, fmt.Sprintf("-tags=%s", strings.Join(opts.Tags, ",")))
 	}

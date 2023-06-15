@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/plugins/logging/pkg/apis/opensearch/opensearch.proto
+// source: github.com/rancher/opni/plugins/logging/apis/opensearch/opensearch.proto
 
 package opensearch
 
@@ -105,5 +105,5 @@ var Opensearch_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/plugins/logging/pkg/apis/opensearch/opensearch.proto",
+	Metadata: "github.com/rancher/opni/plugins/logging/apis/opensearch/opensearch.proto",
 }

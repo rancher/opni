@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/internal/codegen/cli"
 )
 
+// Generates Go protobuf code
 func (Generate) ProtobufGo(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.go")
 	defer tr.End()
@@ -35,6 +36,7 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 	return nil
 }
 
+// Generates Python protobuf code
 func (Generate) ProtobufPython(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.python")
 	defer tr.End()
@@ -54,6 +56,7 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 	return nil
 }
 
+// Generates all protobuf code
 func (Generate) Protobuf(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.generate.protobuf")
 	defer tr.End()

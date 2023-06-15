@@ -80,7 +80,7 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 				"images.minimal.tag",
 				"images.opensearch.opensearch.tag",
 				"images.opensearch.dashboards.tag",
-				"images.opeesearch.update-service.tag",
+				"images.opensearch.update-service.tag",
 			},
 			Converter: plaintext,
 		},

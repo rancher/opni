@@ -6,6 +6,7 @@ import (
 	"github.com/magefile/mage/mg"
 )
 
+// Builds the opni binary
 func (Build) Opni(ctx context.Context) error {
 	mg.CtxDeps(ctx, Build.Archives)
 
@@ -19,6 +20,7 @@ func (Build) Opni(ctx context.Context) error {
 	})
 }
 
+// Builds the opni-minimal binary
 func (Build) OpniMinimal(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.build.opni-minimal")
 	defer tr.End()

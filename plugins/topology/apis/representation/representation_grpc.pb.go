@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/pkg/plugins/topology/pkg/apis/representation/representation.proto
+// source: github.com/rancher/opni/plugins/topology/apis/representation/representation.proto
 
 package representation
 
@@ -148,5 +148,5 @@ var TopologyRepresentation_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/pkg/plugins/topology/pkg/apis/representation/representation.proto",
+	Metadata: "github.com/rancher/opni/plugins/topology/apis/representation/representation.proto",
 }

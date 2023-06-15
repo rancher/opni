@@ -11,6 +11,7 @@ import (
 	"github.com/magefile/mage/target"
 )
 
+// Generates code and CRDs for kubebuilder apis
 func (Generate) Controllers(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.controllers")
 	defer tr.End()

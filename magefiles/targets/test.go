@@ -17,6 +17,7 @@ import (
 
 type Test mg.Namespace
 
+// Runs all tests
 func (Test) All() error {
 	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
 		mg.Deps(Test.Bin)
@@ -103,11 +104,14 @@ LINES:
 	return os.Rename(tempFile, report)
 }
 
+// Runs the test environment
 func (Test) Env() {
 	// check if testbin exists
+	deps := []any{Build.Testenv}
 	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
-		mg.Deps(Test.Bin)
+		deps = append(deps, Test.Bin)
 	}
+	mg.Deps(deps...)
 	cmd := exec.Command("bin/testenv", "--agent-id-seed=0")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -193,10 +197,12 @@ var testbinConfig = fmt.Sprintf(`
 	]
 }`[1:], k8sVersion)
 
+// Prints the testbin configuration to stdout
 func (Test) BinConfig() {
 	fmt.Println(testbinConfig)
 }
 
+// Creates or rebuilds the testbin directory
 func (Test) Bin() error {
 	if _, err := os.Stat("testbin/bin"); err == nil {
 		os.RemoveAll("testbin/bin")

@@ -27,10 +27,12 @@ const (
 	daggerx daggerPackage = "./dagger/x"
 )
 
+// Invokes 'dagger run go run ./dagger' with all arguments
 func (ns Dagger) Run(arg0 string) error {
 	return ns.run("./dagger", ns.takeArgv(arg0)...)
 }
 
+// Invokes 'dagger run go run ./dagger/x' with all arguments
 func (ns Dagger) X(arg0 string) error {
 	return ns.run("./dagger/x", ns.takeArgv(arg0)...)
 }

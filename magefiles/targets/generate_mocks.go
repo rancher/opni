@@ -25,6 +25,7 @@ type Mock struct {
 	Types  []string `yaml:"types"`
 }
 
+// Generates mocks using the config in pkg/test/mock/mockgen.yaml
 func (Generate) Mocks(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.mocks")
 	defer tr.End()

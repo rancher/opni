@@ -283,7 +283,7 @@ func BuildAlertingClusterIntegrationTests(
 					groupList, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
 					Expect(groupList.Items).To(HaveLen(1))
-					Expect(groupList.Items[0].Id).To(Equal("default"))
+					Expect(groupList.Items[0].Id).To(Equal(""))
 				})
 
 				It("shoud list conditions by given filters", func() {

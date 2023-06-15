@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("agent capability tests", Ordered, Label("integration", "alerting"), func() {
+var _ = Describe("agent capability tests", Ordered, Label("integration"), func() {
 	var env *test.Environment
 	var agents []string = []string{"agent1", "agent2", "agent3"}
 	BeforeAll(func() {
@@ -33,7 +33,6 @@ var _ = Describe("agent capability tests", Ordered, Label("integration", "alerti
 	})
 
 	When("we use the alerting downstream capability", func() {
-
 		It("should install the alerting cluster", func() {
 			alertClusterClient := alertops.NewAlertingAdminClient(env.ManagementClientConn())
 			_, err := alertClusterClient.InstallCluster(env.Context(), &emptypb.Empty{})
@@ -51,7 +50,7 @@ var _ = Describe("agent capability tests", Ordered, Label("integration", "alerti
 			}, time.Second*30, time.Second*5).Should(Succeed())
 
 			alertConditionsClient := env.NewAlertConditionsClient()
-			Eventually(func() error { //FIXME: cortex CC take forever to acquire in the alerting plugin
+			Eventually(func() error { // FIXME: cortex CC take forever to acquire in the alerting plugin
 				_, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
 				return err
 			}, time.Second*30, time.Millisecond*500).Should(Succeed())
@@ -127,7 +126,6 @@ var _ = Describe("agent capability tests", Ordered, Label("integration", "alerti
 				}
 				return nil
 			}, time.Second*5, time.Millisecond*200)
-
 		})
 
 		It("should be able to manipulate a sub-set of the synced rule configuration", func() {
@@ -146,7 +144,7 @@ var _ = Describe("agent capability tests", Ordered, Label("integration", "alerti
 					Id:          newCond.Id,
 					UpdateAlert: newCond.GetAlertCondition(),
 				})
-				Expect(err).To(HaveOccurred()) //FIXME: requires HA consistency fixes here, errors when trying to apply prom rule
+				Expect(err).To(HaveOccurred()) // FIXME: requires HA consistency fixes here, errors when trying to apply prom rule
 			}
 
 			newConds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{

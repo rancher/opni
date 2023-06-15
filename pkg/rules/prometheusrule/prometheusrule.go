@@ -117,6 +117,9 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 			ruleNodes := []rulefmt.RuleNode{}
 			for _, rule := range group.Rules {
 				var ruleFor model.Duration
+				if rule.Alert != "" {
+					continue
+				}
 				if rule.For != "" {
 					ruleFor, err = model.ParseDuration(string(rule.For))
 					if err != nil {
@@ -132,7 +135,6 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 					Annotations: rule.Annotations,
 				}
 				node.Record.SetString(rule.Record)
-				node.Alert.SetString(rule.Alert)
 				node.Expr.SetString(rule.Expr.String())
 				if errs := node.Validate(); len(errs) > 0 {
 					lg.With(
@@ -145,11 +147,13 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 				}
 				ruleNodes = append(ruleNodes, node)
 			}
-			ruleGroups = append(ruleGroups, rulefmt.RuleGroup{
-				Name:     group.Name,
-				Interval: interval,
-				Rules:    ruleNodes,
-			})
+			if len(ruleNodes) > 0 {
+				ruleGroups = append(ruleGroups, rulefmt.RuleGroup{
+					Name:     group.Name,
+					Interval: interval,
+					Rules:    ruleNodes,
+				})
+			}
 		}
 	}
 

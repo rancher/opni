@@ -271,15 +271,18 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 
 			chunkedRequests, err := FitRequestToSize(&writeRequest, 4194304)
 			if err != nil {
-				return fmt.Errorf("failed to resize request: %w", err)
+				return fmt.Errorf("failed to chunk request: %w", err)
 			}
 
-			for i, request := range chunkedRequests {
+			if len(chunkedRequests) > 1 {
+				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("split write request into %d chunks", len(chunkedRequests)))
+			}
+
+			for _, request := range chunkedRequests {
 				if err := tr.doPush(ctx, request); err != nil {
 					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 					return err
 				}
-				tr.logger.Debugf("pushed chunk %d", i)
 			}
 
 			progress.Current = uint64(nextEnd - progressDelta)

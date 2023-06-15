@@ -22,7 +22,7 @@ Opni Alerting plugin only evaluates and sends alarms. The Opni-Alerting cluster 
 
 ## Implementation details:
 
-![](../../images/alerting/alerting-messaging-system-proposal.png)
+![](./images/alerting-messaging-system-proposal.png)
 
 ### Setting Defaults
 

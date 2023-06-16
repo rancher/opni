@@ -3,8 +3,6 @@ package agent
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting/node"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -12,7 +10,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
-	alertingNode "github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +18,8 @@ type Plugin struct {
 	ctx context.Context
 
 	ruleStreamer *RuleStreamer
-	node         node.HealthConfigSyncer[*alertingNode.AlertingCapabilityConfig]
-
-	driver drivers.NodeDriver
+	node         *AlertingNode
+	driver       drivers.NodeDriver
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -35,10 +31,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 		lg:  lg,
 	}
 
-	p.node = node.NewDefaultHealthConfigSyncer[*alertingNode.AlertingCapabilityConfig](
+	p.node = NewAlertingNode(
 		ctx,
 		p.lg.With("component", "health-cfg-sync"),
-		wellknown.CapabilityAlerting,
 		ct,
 	)
 

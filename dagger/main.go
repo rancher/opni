@@ -260,12 +260,13 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
+		With(b.caches.NodeModules).
 		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web"), dagger.ContainerWithDirectoryOpts{
 			Include: []string{"package.json", "yarn.lock"},
 		}).
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
-		With(b.caches.NodeModules).
+		With(b.caches.NodeModules). // mount again since node_modules would be overwritten by the previous mount
 		WithExec(yarn("build"))
 
 	generated := goBuild.

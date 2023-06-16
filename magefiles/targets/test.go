@@ -3,11 +3,9 @@ package targets
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"os/signal"
-	"runtime"
 	"strings"
 
 	"github.com/bmatcuk/doublestar"
@@ -22,40 +20,28 @@ func (Test) All() error {
 	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
 		mg.Deps(Test.Bin)
 	}
-	r, w := io.Pipe()
-	go func() {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if !strings.Contains(line, "[no test files]") {
-				fmt.Println(line)
-			}
-		}
-	}()
-	args := []string{"test",
-		fmt.Sprintf("-p=%d", runtime.NumCPU()),
-		"-race",
-	}
-	_, coverageDisabled := os.LookupEnv("DISABLE_COVERAGE")
-	if !coverageDisabled {
-		args = append(args,
-			"-cover",
-			"-coverprofile=cover.out",
-			"-coverpkg=./...",
-		)
-	}
-	args = append(args, "./...")
-	_, err := sh.Exec(map[string]string{
+	return sh.RunWithV(map[string]string{
 		"CGO_ENABLED": "1",
-	}, w, os.Stderr, mg.GoCmd(), args...)
+	}, mg.GoCmd(), "test", "-race", "./...")
+}
+
+// Runs all tests with coverage analysis
+func (Test) Cover() error {
+	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
+		mg.Deps(Test.Bin)
+	}
+	err := sh.RunWithV(map[string]string{
+		"CGO_ENABLED": "1",
+	}, mg.GoCmd(), "test",
+		"-race",
+		"-cover",
+		"-coverprofile=cover.out",
+		"-coverpkg=./...",
+		"./...",
+	)
 	if err != nil {
 		return err
 	}
-
-	if coverageDisabled {
-		return nil
-	}
-
 	fmt.Print("processing coverage report... ")
 	defer fmt.Println("done.")
 	return filterCoverage("cover.out", []string{
@@ -204,8 +190,8 @@ func (Test) BinConfig() {
 
 // Creates or rebuilds the testbin directory
 func (Test) Bin() error {
-	if _, err := os.Stat("testbin/bin"); err == nil {
-		os.RemoveAll("testbin/bin")
+	if _, err := os.Stat("testbin"); err == nil {
+		os.RemoveAll("testbin")
 	}
-	return Dagger{}.run(daggerx, "testbin", testbinConfig)
+	return Dagger{}.do(daggerx, "-o", "./", "testbin", "--config", testbinConfig)
 }

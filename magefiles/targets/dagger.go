@@ -34,7 +34,7 @@ func (ns Dagger) Run(arg0 string) error {
 
 // Invokes 'dagger run go run ./dagger/x' with all arguments
 func (ns Dagger) X(arg0 string) error {
-	return ns.run("./dagger/x", ns.takeArgv(arg0)...)
+	return ns.do("./dagger/x", ns.takeArgv(arg0)...)
 }
 
 func (Dagger) run(pkg daggerPackage, args ...string) error {
@@ -43,6 +43,14 @@ func (Dagger) run(pkg daggerPackage, args ...string) error {
 		return err
 	}
 	return sh.RunV(dagger, append([]string{"run", "go", "run", string(pkg)}, args...)...)
+}
+
+func (Dagger) do(pkg daggerPackage, args ...string) error {
+	dagger, err := daggerBinary()
+	if err != nil {
+		return err
+	}
+	return sh.Run(dagger, append([]string{"do", "--project", "./dagger", "--config", string(pkg)}, args...)...)
 }
 
 func (Dagger) takeArgv(arg0 string) (rest []string) {

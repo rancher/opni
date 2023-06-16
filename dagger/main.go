@@ -328,13 +328,12 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				test = cmds.TestBin(b.client, test, opts)
 				if b.Coverage.Export {
 					_, err := test.Pipeline("Run Tests").
-						WithExec(mage("test")).
+						WithExec(mage("test:cover")).
 						File(filepath.Join(b.workdir, "cover.out")).
 						Export(ctx, "cover.out")
 					return err
 				}
 				_, err = test.Pipeline("Run Tests").
-					WithEnvVariable("DISABLE_COVERAGE", "1").
 					WithExec(mage("test")).
 					Sync(ctx)
 				return err

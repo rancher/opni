@@ -52,6 +52,7 @@ func run(opts ...runOptions) error {
 		})
 	}
 	var debug bool
+	var setup bool
 	var cacheMode string
 	var configs []string
 	var showConfig bool
@@ -60,6 +61,7 @@ func run(opts ...runOptions) error {
 	pf.BoolVar(&debug, "debug", false, "Enable debug logging")
 	pf.StringVar(&cacheMode, "cache-mode", "volumes", "Cache mode (volumes|none)")
 	pf.StringSliceVarP(&configs, "config", "c", nil, "Path to one or more config files")
+	pf.BoolVar(&setup, "setup", false, "Interactive configuration setup")
 	pf.BoolVar(&showConfig, "show-config", false, "Print the final config and exit")
 	pf.StringVarP(&outputFormat, "output-format", "o", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
 	configFlagSet := config.BuildFlagSet(reflect.TypeOf(config.BuilderConfig{}))
@@ -67,6 +69,16 @@ func run(opts ...runOptions) error {
 	pf.AddFlagSet(configFlagSet)
 	if err := pf.Parse(opts[0].Args); err != nil {
 		return err
+	}
+
+	if setup {
+		// check if
+		if _, ok := os.LookupEnv("DAGGER_SESSION_PORT"); ok {
+			fmt.Println(`Cannot run interactive setup inside dagger; use 'go run ./dagger --setup' instead`)
+			os.Exit(1)
+		}
+		config.RunSetup()
+		return nil
 	}
 
 	k := koanf.NewWithConf(koanf.Conf{

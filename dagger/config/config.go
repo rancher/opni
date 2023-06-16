@@ -73,11 +73,13 @@ type OpensearchConfig struct {
 	Dashboards    ImageTarget `koanf:"dashboards"`
 	UpdateService ImageTarget `koanf:"update-service"`
 
-	Build struct {
-		DashboardsVersion string `koanf:"dashboards-version" validate:"required_with=Opensearch Dashboards"`
-		OpensearchVersion string `koanf:"opensearch-version" validate:"required_with=Opensearch"`
-		PluginVersion     string `koanf:"plugin-version" validate:"required_with=Opensearch Dashboards"`
-	} `koanf:"build"`
+	Build OpensearchBuildConfig `koanf:"build"`
+}
+
+type OpensearchBuildConfig struct {
+	DashboardsVersion string `koanf:"dashboards-version" validate:"required_with=Opensearch Dashboards"`
+	OpensearchVersion string `koanf:"opensearch-version" validate:"required_with=Opensearch"`
+	PluginVersion     string `koanf:"plugin-version" validate:"required_with=Opensearch Dashboards"`
 }
 
 type CoverageConfig struct {

@@ -6,9 +6,9 @@ annotations:
 apiVersion: v2
 appVersion: 0.10.0
 dependencies:
-  - condition: kube-prometheus-stack.enabled
-    name: kube-prometheus-stack
-    repository: file://./charts/kube-prometheus-stack
+- condition: kube-prometheus-stack.enabled
+  name: kube-prometheus-stack
+  repository: file://./charts/kube-prometheus-stack
 description: Opni Agent
 name: opni-agent
 type: application

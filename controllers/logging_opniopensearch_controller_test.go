@@ -108,6 +108,9 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 						OpensearchCredentialsSecret: corev1.LocalObjectReference{
 							Name: "opni-test-dashboards-auth",
 						},
+						Service: opsterv1.DashboardsServiceSpec{
+							Type: corev1.ServiceTypeClusterIP,
+						},
 					},
 				},
 				NatsRef: &corev1.LocalObjectReference{

@@ -4012,10 +4012,12 @@ sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h6
 sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=
 sigs.k8s.io/kustomize/api v0.13.2 h1:kejWfLeJhUsTGioDoFNJET5LQe/ajzXhJGYoU+pJsiA=
 sigs.k8s.io/kustomize/api v0.13.2/go.mod h1:DUp325VVMFVcQSq+ZxyDisA8wtldwHxLZbr1g94UHsw=
-sigs.k8s.io/kustomize/cmd/config v0.10.9 h1:LV8AUwZPuvqhGfia50uNwsPwNg1xOy9koEf5hyBnYs4=
-sigs.k8s.io/kustomize/cmd/config v0.10.9/go.mod h1:T0s850zPV3wKfBALA0dyeP/K74jlJcoP8Pr9ZWwE3MQ=
+sigs.k8s.io/kustomize/cmd/config v0.11.1 h1:hYv1dpSwCgrykwIKWWiiYPOHyvhx4jBIGmYTgc0f1GQ=
+sigs.k8s.io/kustomize/cmd/config v0.11.1/go.mod h1:z1I4ubecg4py5Jn4+04p4A/vmnqUjxjxDCEyYEjQu/0=
 sigs.k8s.io/kustomize/kustomize/v4 v4.5.7 h1:cDW6AVMl6t/SLuQaezMET8hgnadZGIAr8tUrxFVOrpg=
 sigs.k8s.io/kustomize/kustomize/v4 v4.5.7/go.mod h1:VSNKEH9D9d9bLiWEGbS6Xbg/Ih0tgQalmPvntzRxZ/Q=
+sigs.k8s.io/kustomize/kustomize/v5 v5.0.1 h1:HWXbyKDNwGqol+s/sMNr/vnfNME/EoMdEraP4ZkUQek=
+sigs.k8s.io/kustomize/kustomize/v5 v5.0.1/go.mod h1:Q8o+soB41Pn1y26eXzG9cniuECDpTJe2eKOA1fENCU8=
 sigs.k8s.io/kustomize/kyaml v0.14.1 h1:c8iibius7l24G2wVAGZn/Va2wNys03GXLjYVIcFVxKA=
 sigs.k8s.io/kustomize/kyaml v0.14.1/go.mod h1:AN1/IpawKilWD7V+YvQwRGUvuUOOWpjsHu6uHwonSF4=
 sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745 h1:9ZmNSw5ummXtBrcXlzhPcsxwPFgn2mMC4QiXwQcfct8=

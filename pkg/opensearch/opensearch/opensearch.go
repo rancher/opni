@@ -23,6 +23,7 @@ type Client struct {
 	Ingest   api.IngestAPI
 	Tasks    api.TasksAPI
 	Cluster  api.ClusterAPI
+	Alerting api.AlertingAPI
 }
 
 type ClientConfig struct {

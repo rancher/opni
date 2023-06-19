@@ -1,0 +1,55 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/alerting";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
+
+
+package alerting.logging;
+
+message Monitor{
+    string monitorId = 1;
+    string monitorType = 2;
+    bytes spec = 3;
+}
+
+message Destination{
+    string destinationId = 1;
+    bytes spec = 2;
+}
+
+message DestinationList{
+    bytes list = 1;
+}
+
+message ListAlertsResponse{
+    bytes alerts = 1;
+}
+
+message AcknowledgeAlertRequest {
+    string monitorId = 1;
+    repeated string alertIds = 2;
+}
+
+service MonitorManagement {
+  rpc CreateMonitor(Monitor) returns (google.protobuf.Empty);
+  rpc GetMonitor(core.Reference) returns (Monitor);
+ 
+  rpc UpdateMonitor(Monitor) returns (google.protobuf.Empty); 
+  rpc DeleteMonitor(core.Reference) returns (google.protobuf.Empty);
+}
+
+service DestinationManagement {
+  rpc CreateDestination(Destination) returns (google.protobuf.Empty);
+  rpc GetDestination(core.Reference) returns (google.protobuf.Empty);
+  rpc ListDestinations(google.protobuf.Empty) returns (DestinationList);
+  rpc UpdateDestination(Destination) returns (google.protobuf.Empty);
+  rpc DeleteDestination(core.Reference) returns (google.protobuf.Empty);
+
+}
+
+service AlertManagement {
+  rpc ListAlerts(google.protobuf.Empty) returns (ListAlertsResponse);
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (google.protobuf.Empty);
+}

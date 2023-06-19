@@ -9,7 +9,7 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0
-    created: "2023-06-20T08:27:03.972413409+12:00"
+    created: "2023-06-20T09:05:09.860735453+12:00"
     dependencies:
     - condition: opni-agent.kube-prometheus-stack.enabled
       name: kube-prometheus-stack
@@ -21,7 +21,7 @@ entries:
       name: opni-prometheus-crd
       repository: file://./charts/opni-prometheus-crd
     description: Multi Cluster Observability with AIOps
-    digest: adcca74d814590186d258e20537f24e49212d4d82dc213f0fa30a3038becfc2f
+    digest: ec120d88f0b4aaa3d8188e2753683a8ceb5588afba6fb991dcdc1376a1cf38ba
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -749,9 +749,9 @@ entries:
       catalog.cattle.io/namespace: opni-cluster-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2023-06-20T08:27:04.209513319+12:00"
+    created: "2023-06-20T09:05:10.124924613+12:00"
     description: Installs the CRDs for Opni.
-    digest: 8cf74928282cad83ab164804bf549be8d79585326da1468569597a69a2f65570
+    digest: 7ce4278aa3dd5a9100939d076c939c140b5e55bfec40845e9e765cc546698943
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky

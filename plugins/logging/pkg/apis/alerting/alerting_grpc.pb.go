@@ -222,237 +222,238 @@ var MonitorManagement_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DestinationManagement_CreateDestination_FullMethodName = "/alerting.logging.DestinationManagement/CreateDestination"
-	DestinationManagement_GetDestination_FullMethodName    = "/alerting.logging.DestinationManagement/GetDestination"
-	DestinationManagement_ListDestinations_FullMethodName  = "/alerting.logging.DestinationManagement/ListDestinations"
-	DestinationManagement_UpdateDestination_FullMethodName = "/alerting.logging.DestinationManagement/UpdateDestination"
-	DestinationManagement_DeleteDestination_FullMethodName = "/alerting.logging.DestinationManagement/DeleteDestination"
+	NotificationManagement_CreateNotification_FullMethodName = "/alerting.logging.NotificationManagement/CreateNotification"
+	NotificationManagement_GetNotification_FullMethodName    = "/alerting.logging.NotificationManagement/GetNotification"
+	NotificationManagement_ListNotifications_FullMethodName  = "/alerting.logging.NotificationManagement/ListNotifications"
+	NotificationManagement_UpdateNotification_FullMethodName = "/alerting.logging.NotificationManagement/UpdateNotification"
+	NotificationManagement_DeleteDestination_FullMethodName  = "/alerting.logging.NotificationManagement/DeleteDestination"
 )
 
-// DestinationManagementClient is the client API for DestinationManagement service.
+// NotificationManagementClient is the client API for NotificationManagement service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type DestinationManagementClient interface {
-	CreateDestination(ctx context.Context, in *Destination, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetDestination(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListDestinations(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DestinationList, error)
-	UpdateDestination(ctx context.Context, in *Destination, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type NotificationManagementClient interface {
+	CreateNotification(ctx context.Context, in *Channel, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetNotification(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListNotifications(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ChannelList, error)
+	UpdateNotification(ctx context.Context, in *Channel, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteDestination(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type destinationManagementClient struct {
+type notificationManagementClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewDestinationManagementClient(cc grpc.ClientConnInterface) DestinationManagementClient {
-	return &destinationManagementClient{cc}
+func NewNotificationManagementClient(cc grpc.ClientConnInterface) NotificationManagementClient {
+	return &notificationManagementClient{cc}
 }
 
-func (c *destinationManagementClient) CreateDestination(ctx context.Context, in *Destination, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *notificationManagementClient) CreateNotification(ctx context.Context, in *Channel, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DestinationManagement_CreateDestination_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NotificationManagement_CreateNotification_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *destinationManagementClient) GetDestination(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *notificationManagementClient) GetNotification(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DestinationManagement_GetDestination_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NotificationManagement_GetNotification_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *destinationManagementClient) ListDestinations(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DestinationList, error) {
-	out := new(DestinationList)
-	err := c.cc.Invoke(ctx, DestinationManagement_ListDestinations_FullMethodName, in, out, opts...)
+func (c *notificationManagementClient) ListNotifications(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ChannelList, error) {
+	out := new(ChannelList)
+	err := c.cc.Invoke(ctx, NotificationManagement_ListNotifications_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *destinationManagementClient) UpdateDestination(ctx context.Context, in *Destination, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *notificationManagementClient) UpdateNotification(ctx context.Context, in *Channel, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DestinationManagement_UpdateDestination_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NotificationManagement_UpdateNotification_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *destinationManagementClient) DeleteDestination(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *notificationManagementClient) DeleteDestination(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DestinationManagement_DeleteDestination_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NotificationManagement_DeleteDestination_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// DestinationManagementServer is the server API for DestinationManagement service.
-// All implementations must embed UnimplementedDestinationManagementServer
+// NotificationManagementServer is the server API for NotificationManagement service.
+// All implementations must embed UnimplementedNotificationManagementServer
 // for forward compatibility
-type DestinationManagementServer interface {
-	CreateDestination(context.Context, *Destination) (*emptypb.Empty, error)
-	GetDestination(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	ListDestinations(context.Context, *emptypb.Empty) (*DestinationList, error)
-	UpdateDestination(context.Context, *Destination) (*emptypb.Empty, error)
+type NotificationManagementServer interface {
+	CreateNotification(context.Context, *Channel) (*emptypb.Empty, error)
+	GetNotification(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListNotifications(context.Context, *emptypb.Empty) (*ChannelList, error)
+	UpdateNotification(context.Context, *Channel) (*emptypb.Empty, error)
 	DeleteDestination(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	mustEmbedUnimplementedDestinationManagementServer()
+	mustEmbedUnimplementedNotificationManagementServer()
 }
 
-// UnimplementedDestinationManagementServer must be embedded to have forward compatible implementations.
-type UnimplementedDestinationManagementServer struct {
+// UnimplementedNotificationManagementServer must be embedded to have forward compatible implementations.
+type UnimplementedNotificationManagementServer struct {
 }
 
-func (UnimplementedDestinationManagementServer) CreateDestination(context.Context, *Destination) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateDestination not implemented")
+func (UnimplementedNotificationManagementServer) CreateNotification(context.Context, *Channel) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNotification not implemented")
 }
-func (UnimplementedDestinationManagementServer) GetDestination(context.Context, *v1.Reference) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDestination not implemented")
+func (UnimplementedNotificationManagementServer) GetNotification(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNotification not implemented")
 }
-func (UnimplementedDestinationManagementServer) ListDestinations(context.Context, *emptypb.Empty) (*DestinationList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListDestinations not implemented")
+func (UnimplementedNotificationManagementServer) ListNotifications(context.Context, *emptypb.Empty) (*ChannelList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNotifications not implemented")
 }
-func (UnimplementedDestinationManagementServer) UpdateDestination(context.Context, *Destination) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateDestination not implemented")
+func (UnimplementedNotificationManagementServer) UpdateNotification(context.Context, *Channel) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateNotification not implemented")
 }
-func (UnimplementedDestinationManagementServer) DeleteDestination(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedNotificationManagementServer) DeleteDestination(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDestination not implemented")
 }
-func (UnimplementedDestinationManagementServer) mustEmbedUnimplementedDestinationManagementServer() {}
+func (UnimplementedNotificationManagementServer) mustEmbedUnimplementedNotificationManagementServer() {
+}
 
-// UnsafeDestinationManagementServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DestinationManagementServer will
+// UnsafeNotificationManagementServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NotificationManagementServer will
 // result in compilation errors.
-type UnsafeDestinationManagementServer interface {
-	mustEmbedUnimplementedDestinationManagementServer()
+type UnsafeNotificationManagementServer interface {
+	mustEmbedUnimplementedNotificationManagementServer()
 }
 
-func RegisterDestinationManagementServer(s grpc.ServiceRegistrar, srv DestinationManagementServer) {
-	s.RegisterService(&DestinationManagement_ServiceDesc, srv)
+func RegisterNotificationManagementServer(s grpc.ServiceRegistrar, srv NotificationManagementServer) {
+	s.RegisterService(&NotificationManagement_ServiceDesc, srv)
 }
 
-func _DestinationManagement_CreateDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Destination)
+func _NotificationManagement_CreateNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Channel)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DestinationManagementServer).CreateDestination(ctx, in)
+		return srv.(NotificationManagementServer).CreateNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DestinationManagement_CreateDestination_FullMethodName,
+		FullMethod: NotificationManagement_CreateNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DestinationManagementServer).CreateDestination(ctx, req.(*Destination))
+		return srv.(NotificationManagementServer).CreateNotification(ctx, req.(*Channel))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DestinationManagement_GetDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NotificationManagement_GetNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DestinationManagementServer).GetDestination(ctx, in)
+		return srv.(NotificationManagementServer).GetNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DestinationManagement_GetDestination_FullMethodName,
+		FullMethod: NotificationManagement_GetNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DestinationManagementServer).GetDestination(ctx, req.(*v1.Reference))
+		return srv.(NotificationManagementServer).GetNotification(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DestinationManagement_ListDestinations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NotificationManagement_ListNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DestinationManagementServer).ListDestinations(ctx, in)
+		return srv.(NotificationManagementServer).ListNotifications(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DestinationManagement_ListDestinations_FullMethodName,
+		FullMethod: NotificationManagement_ListNotifications_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DestinationManagementServer).ListDestinations(ctx, req.(*emptypb.Empty))
+		return srv.(NotificationManagementServer).ListNotifications(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DestinationManagement_UpdateDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Destination)
+func _NotificationManagement_UpdateNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Channel)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DestinationManagementServer).UpdateDestination(ctx, in)
+		return srv.(NotificationManagementServer).UpdateNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DestinationManagement_UpdateDestination_FullMethodName,
+		FullMethod: NotificationManagement_UpdateNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DestinationManagementServer).UpdateDestination(ctx, req.(*Destination))
+		return srv.(NotificationManagementServer).UpdateNotification(ctx, req.(*Channel))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DestinationManagement_DeleteDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NotificationManagement_DeleteDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DestinationManagementServer).DeleteDestination(ctx, in)
+		return srv.(NotificationManagementServer).DeleteDestination(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DestinationManagement_DeleteDestination_FullMethodName,
+		FullMethod: NotificationManagement_DeleteDestination_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DestinationManagementServer).DeleteDestination(ctx, req.(*v1.Reference))
+		return srv.(NotificationManagementServer).DeleteDestination(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// DestinationManagement_ServiceDesc is the grpc.ServiceDesc for DestinationManagement service.
+// NotificationManagement_ServiceDesc is the grpc.ServiceDesc for NotificationManagement service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var DestinationManagement_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "alerting.logging.DestinationManagement",
-	HandlerType: (*DestinationManagementServer)(nil),
+var NotificationManagement_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.logging.NotificationManagement",
+	HandlerType: (*NotificationManagementServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateDestination",
-			Handler:    _DestinationManagement_CreateDestination_Handler,
+			MethodName: "CreateNotification",
+			Handler:    _NotificationManagement_CreateNotification_Handler,
 		},
 		{
-			MethodName: "GetDestination",
-			Handler:    _DestinationManagement_GetDestination_Handler,
+			MethodName: "GetNotification",
+			Handler:    _NotificationManagement_GetNotification_Handler,
 		},
 		{
-			MethodName: "ListDestinations",
-			Handler:    _DestinationManagement_ListDestinations_Handler,
+			MethodName: "ListNotifications",
+			Handler:    _NotificationManagement_ListNotifications_Handler,
 		},
 		{
-			MethodName: "UpdateDestination",
-			Handler:    _DestinationManagement_UpdateDestination_Handler,
+			MethodName: "UpdateNotification",
+			Handler:    _NotificationManagement_UpdateNotification_Handler,
 		},
 		{
 			MethodName: "DeleteDestination",
-			Handler:    _DestinationManagement_DeleteDestination_Handler,
+			Handler:    _NotificationManagement_DeleteDestination_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

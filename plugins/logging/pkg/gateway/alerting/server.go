@@ -17,16 +17,16 @@ import (
 
 type AlertingManagementServer struct {
 	alerting.UnsafeAlertManagementServer
-	alerting.UnsafeDestinationManagementServer
+	alerting.UnsafeNotificationManagementServer
 	alerting.UnsafeMonitorManagementServer
 
 	*loggingutil.AsyncOpensearchClient
 }
 
 var (
-	_ alerting.AlertManagementServer       = (*AlertingManagementServer)(nil)
-	_ alerting.DestinationManagementServer = (*AlertingManagementServer)(nil)
-	_ alerting.MonitorManagementServer     = (*AlertingManagementServer)(nil)
+	_ alerting.AlertManagementServer        = (*AlertingManagementServer)(nil)
+	_ alerting.NotificationManagementServer = (*AlertingManagementServer)(nil)
+	_ alerting.MonitorManagementServer      = (*AlertingManagementServer)(nil)
 )
 
 func NewAlertingManagementServer() *AlertingManagementServer {
@@ -91,7 +91,7 @@ func (a *AlertingManagementServer) DeleteMonitor(ctx context.Context, ref *corev
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingManagementServer) CreateDestination(ctx context.Context, req *alerting.Destination) (*emptypb.Empty, error) {
+func (a *AlertingManagementServer) CreateNotification(ctx context.Context, req *alerting.Channel) (*emptypb.Empty, error) {
 	resp, err := a.Alerting.CreateMonitor(ctx, bytes.NewReader(req.GetSpec()))
 	if err != nil {
 		return nil, err
@@ -103,8 +103,8 @@ func (a *AlertingManagementServer) CreateDestination(ctx context.Context, req *a
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingManagementServer) GetDestination(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	resp, err := a.Alerting.GetDestination(ctx, ref.GetId())
+func (a *AlertingManagementServer) GetNotification(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+	resp, err := a.Alerting.GetNotification(ctx, ref.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func (a *AlertingManagementServer) GetDestination(ctx context.Context, ref *core
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingManagementServer) ListDestinations(ctx context.Context, _ *emptypb.Empty) (*alerting.DestinationList, error) {
-	resp, err := a.Alerting.ListDestinations(ctx)
+func (a *AlertingManagementServer) ListNotifications(ctx context.Context, _ *emptypb.Empty) (*alerting.ChannelList, error) {
+	resp, err := a.Alerting.ListNotifications(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -128,13 +128,13 @@ func (a *AlertingManagementServer) ListDestinations(ctx context.Context, _ *empt
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to decode response body into []byte %s", err))
 	}
-	return &alerting.DestinationList{
+	return &alerting.ChannelList{
 		List: data,
 	}, nil
 }
 
-func (a *AlertingManagementServer) UpdateDestination(ctx context.Context, req *alerting.Destination) (*emptypb.Empty, error) {
-	resp, err := a.Alerting.UpdateDestination(ctx, req.GetDestinationId(), bytes.NewReader(req.GetSpec()))
+func (a *AlertingManagementServer) UpdateNotification(ctx context.Context, req *alerting.Channel) (*emptypb.Empty, error) {
+	resp, err := a.Alerting.UpdateNotification(ctx, req.GetChannelId(), bytes.NewReader(req.GetSpec()))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (a *AlertingManagementServer) UpdateDestination(ctx context.Context, req *a
 }
 
 func (a *AlertingManagementServer) DeleteDestination(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	resp, err := a.Alerting.DeleteDestination(ctx, ref.GetId())
+	resp, err := a.Alerting.DeleteNotification(ctx, ref.GetId())
 	if err != nil {
 		return nil, err
 	}

@@ -4,14 +4,19 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
+	"path"
 
 	"github.com/opensearch-project/opensearch-go/v2/opensearchtransport"
 )
 
+const (
+	monitorBase      = "/_plugins/_alerting/monitors"
+	notificationBase = "/_plugins/_notifications/configs"
+)
+
 type AlertingAPI struct {
 	MonitorAPI
-	DestinationAPI
+	NotificationAPI
 	AlertAPI
 }
 
@@ -19,7 +24,7 @@ type MonitorAPI struct {
 	*opensearchtransport.Client
 }
 
-type DestinationAPI struct {
+type NotificationAPI struct {
 	*opensearchtransport.Client
 }
 
@@ -27,30 +32,12 @@ type AlertAPI struct {
 	*opensearchtransport.Client
 }
 
-func generateMonitorBase() strings.Builder {
-	var path strings.Builder
-	path.Grow(1 + len("_plugins") + 1 + len("_alerting") + 1 + len("monitors"))
-	path.WriteString("/")
-	path.WriteString("_plugins")
-	path.WriteString("/")
-	path.WriteString("_alerting")
-	path.WriteString("/")
-	path.WriteString("monitors")
-	return path
-}
-
-func getMonitorPath(monitorId string) strings.Builder {
-	path := generateMonitorBase()
-	path.Grow(1 + len(monitorId))
-	path.WriteString("/")
-	path.WriteString(monitorId)
-	return path
+func getMonitorPath(monitorId string) string {
+	return path.Join(monitorBase, monitorId)
 }
 
 func (m *MonitorAPI) CreateMonitor(ctx context.Context, body io.Reader) (*Response, error) {
-	path := generateMonitorBase()
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), body)
+	req, err := http.NewRequest(http.MethodPost, monitorBase, body)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +47,7 @@ func (m *MonitorAPI) CreateMonitor(ctx context.Context, body io.Reader) (*Respon
 }
 
 func (m *MonitorAPI) GetMonitor(ctx context.Context, monitorId string) (*Response, error) {
-	path := getMonitorPath(monitorId)
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, getMonitorPath(monitorId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +57,7 @@ func (m *MonitorAPI) GetMonitor(ctx context.Context, monitorId string) (*Respons
 }
 
 func (m *MonitorAPI) UpdateMonitor(ctx context.Context, monitorId string, body io.Reader) (*Response, error) {
-	path := getMonitorPath(monitorId)
-
-	req, err := http.NewRequest(http.MethodPut, path.String(), body)
+	req, err := http.NewRequest(http.MethodPut, getMonitorPath(monitorId), body)
 	if err != nil {
 		return nil, err
 	}
@@ -84,9 +67,7 @@ func (m *MonitorAPI) UpdateMonitor(ctx context.Context, monitorId string, body i
 }
 
 func (m *MonitorAPI) DeleteMonitor(ctx context.Context, monitorId string) (*Response, error) {
-	path := getMonitorPath(monitorId)
-
-	req, err := http.NewRequest(http.MethodDelete, path.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, getMonitorPath(monitorId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -94,30 +75,12 @@ func (m *MonitorAPI) DeleteMonitor(ctx context.Context, monitorId string) (*Resp
 	return (*Response)(res), err
 }
 
-func generateDestinationBase() strings.Builder {
-	var path strings.Builder
-	path.Grow(1 + len("_plugins") + 1 + len("_alerting") + 1 + len("destinations"))
-	path.WriteString("/")
-	path.WriteString("_plugins")
-	path.WriteString("/")
-	path.WriteString("_alerting")
-	path.WriteString("/")
-	path.WriteString("destinations")
-	return path
+func getNotificationPath(channelId string) string {
+	return path.Join(notificationBase, channelId)
 }
 
-func getDestinationBase(destinationId string) strings.Builder {
-	path := generateDestinationBase()
-	path.Grow(1 + len(destinationId))
-	path.WriteString("/")
-	path.WriteString(destinationId)
-	return path
-}
-
-func (d *DestinationAPI) CreateDestination(ctx context.Context, body io.Reader) (*Response, error) {
-	path := generateDestinationBase()
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), body)
+func (d *NotificationAPI) CreateNotification(ctx context.Context, body io.Reader) (*Response, error) {
+	req, err := http.NewRequest(http.MethodPost, notificationBase, body)
 	if err != nil {
 		return nil, err
 	}
@@ -126,10 +89,9 @@ func (d *DestinationAPI) CreateDestination(ctx context.Context, body io.Reader) 
 	return (*Response)(res), err
 }
 
-func (d *DestinationAPI) GetDestination(ctx context.Context, destinationId string) (*Response, error) {
-	path := getDestinationBase(destinationId)
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+func (d *NotificationAPI) GetNotification(ctx context.Context, channelId string) (*Response, error) {
+	path := getNotificationPath(channelId)
+	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +100,8 @@ func (d *DestinationAPI) GetDestination(ctx context.Context, destinationId strin
 	return (*Response)(res), err
 }
 
-func (d *DestinationAPI) ListDestinations(ctx context.Context) (*Response, error) {
-	path := generateDestinationBase()
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+func (d *NotificationAPI) ListNotifications(ctx context.Context) (*Response, error) {
+	req, err := http.NewRequest(http.MethodGet, notificationBase, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -150,10 +110,9 @@ func (d *DestinationAPI) ListDestinations(ctx context.Context) (*Response, error
 	return (*Response)(res), err
 }
 
-func (d *DestinationAPI) UpdateDestination(ctx context.Context, destinationId string, body io.Reader) (*Response, error) {
-	path := getDestinationBase(destinationId)
-
-	req, err := http.NewRequest(http.MethodPut, path.String(), body)
+func (d *NotificationAPI) UpdateNotification(ctx context.Context, channelId string, body io.Reader) (*Response, error) {
+	path := getNotificationPath(channelId)
+	req, err := http.NewRequest(http.MethodPut, path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -162,10 +121,9 @@ func (d *DestinationAPI) UpdateDestination(ctx context.Context, destinationId st
 	return (*Response)(res), err
 }
 
-func (d *DestinationAPI) DeleteDestination(ctx context.Context, destinationId string) (*Response, error) {
-	path := getDestinationBase(destinationId)
-
-	req, err := http.NewRequest(http.MethodDelete, path.String(), nil)
+func (d *NotificationAPI) DeleteNotification(ctx context.Context, channelId string) (*Response, error) {
+	path := getNotificationPath(channelId)
+	req, err := http.NewRequest(http.MethodDelete, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,12 +132,8 @@ func (d *DestinationAPI) DeleteDestination(ctx context.Context, destinationId st
 }
 
 func (a *AlertAPI) ListAlerts(ctx context.Context) (*Response, error) {
-	path := generateMonitorBase()
-	path.Grow(1 + len("alerts"))
-	path.WriteString("/")
-	path.WriteString("alerts")
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+	path := path.Join(monitorBase, "alerts")
+	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -188,14 +142,8 @@ func (a *AlertAPI) ListAlerts(ctx context.Context) (*Response, error) {
 }
 
 func (a *AlertAPI) AcknowledgeAlert(ctx context.Context, monitorId string, body io.Reader) (*Response, error) {
-	path := getMonitorPath(monitorId)
-	path.Grow(1 + len("_acknowledge") + 1 + len("alerts"))
-	path.WriteString("/")
-	path.WriteString("_acknowledge")
-	path.WriteString("/")
-	path.WriteString("alerts")
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), body)
+	path := path.Join(getMonitorPath(monitorId), "_acknowledge", "alerts")
+	req, err := http.NewRequest(http.MethodPost, path, body)
 	if err != nil {
 		return nil, err
 	}

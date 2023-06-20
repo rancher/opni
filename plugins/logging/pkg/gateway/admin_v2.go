@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
+	"github.com/rancher/opni/plugins/logging/pkg/gateway/alerting"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -58,6 +59,7 @@ type LoggingManagerV2 struct {
 	managementDriver  management.ClusterDriver
 	backendDriver     backend.ClusterDriver
 	logger            *zap.SugaredLogger
+	alertingServer    *alerting.AlertingManagementServer
 	opensearchManager *opensearchdata.Manager
 	otelForwarder     *otel.OTELForwarder
 	storageNamespace  string
@@ -100,6 +102,7 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	}
 
 	go m.opensearchManager.SetClient(m.managementDriver.NewOpensearchClientForCluster)
+	go m.alertingServer.SetClient(m.managementDriver.NewOpensearchClientForCluster)
 	m.otelForwarder.BackgroundInitClient()
 
 	version := strings.TrimPrefix(versions.Version, "v")

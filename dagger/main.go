@@ -378,11 +378,13 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	fullImage := alpineBase.
 		Pipeline("Full Image").
 		WithFile("/usr/bin/opni", opni.File(b.bin("opni"))).
-		WithDirectory("/var/lib/opni/plugins", plugins.Directory(b.bin("plugins")))
+		WithDirectory("/var/lib/opni/plugins", plugins.Directory(b.bin("plugins"))).
+		WithEntrypoint([]string{"opni"})
 
 	minimalImage := alpineBase.
 		Pipeline("Minimal Image").
-		WithFile("/usr/bin/opni", minimal.File(b.bin("opni-minimal")))
+		WithFile("/usr/bin/opni", minimal.File(b.bin("opni-minimal"))).
+		WithEntrypoint([]string{"opni"})
 
 	charts := goBuild.
 		Pipeline("Charts").

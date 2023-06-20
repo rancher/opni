@@ -66,13 +66,42 @@ func run(opts ...runOptions) error {
 	pf.StringVarP(&outputFormat, "output-format", "o", "table", "Output format used when --show-config is set (table|json|yaml|toml)")
 	configFlagSet := config.BuildFlagSet(reflect.TypeOf(config.BuilderConfig{}))
 	pf.SortFlags = false
+	pf.Usage = func() {
+		pf.PrintDefaults()
+		fmt.Printf(`
+To create a new config file interactively, use --setup, which will guide you through setting up
+a new config file with common default options. This file can then be used with --config.
+
+To see the full list of available flags, use --show-config. Any of the keys shown in the table can
+be used verbatim as a flag. For example:
+- A key 'foo.bar' of type string can be set via '--foo.bar=baz'.
+- A key 'foo.bar' of type bool can be set via '--foo.bar' (assumed true), or '--foo.bar={true|false}'.
+- A key 'foo.bar' of type []string can be set via '--foo.bar=a,b,c'.
+
+Config files are loaded in order, and fields set in earlier files can be overridden by the same
+fields set in later files. Environment variables take precedence over config files, and flags
+take precedence over environment variables. Values are always replaced, not merged, when
+overriding fields.
+
+Secrets can be configured via flags, but it is recommended to use environment variables instead,
+as flags are visible in the process list and in the shell history. The corresponding environment
+variables for each flag are shown in the table.
+
+Some keys have alternate environment variables that can be used to bulk-assign related
+fields, most commonly usernames, passwords and image tags.
+The available alternate environment variables and associated keys are as follows:
+%s
+The following validation rules are applied after loading all files, environment variables, and flags:
+%s
+`, config.SpecialCaseEnvVarHelp(), config.ValidationHelp())
+	}
 	pf.AddFlagSet(configFlagSet)
 	if err := pf.Parse(opts[0].Args); err != nil {
 		return err
 	}
 
 	if setup {
-		// check if
+		// check if we're running inside dagger
 		if _, ok := os.LookupEnv("DAGGER_SESSION_PORT"); ok {
 			fmt.Println(`Cannot run interactive setup inside dagger; use 'go run ./dagger --setup' instead`)
 			os.Exit(1)

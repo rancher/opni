@@ -2,6 +2,7 @@ package config
 
 import (
 	"regexp"
+	"strings"
 
 	"dagger.io/dagger"
 )
@@ -85,4 +86,16 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 			Converter: plaintext,
 		},
 	}
+}
+
+func SpecialCaseEnvVarHelp() string {
+	cases := SpecialCaseEnvVars(nil)
+	help := strings.Builder{}
+	for _, c := range cases {
+		help.WriteString(" " + c.EnvVar + ":\n")
+		for _, k := range c.Keys {
+			help.WriteString("  - " + k + "\n")
+		}
+	}
+	return help.String()
 }

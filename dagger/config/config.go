@@ -56,8 +56,8 @@ type ChartsConfig struct {
 
 type OCIChartTarget struct {
 	Push bool       `koanf:"push"`
-	Repo string     `koanf:"repo" validate:"required_with=Push"`
-	Auth AuthConfig `koanf:"auth" validate:"required_with=Push"`
+	Repo string     `koanf:"repo" validate:"required_if=Push true"`
+	Auth AuthConfig `koanf:"auth" validate:"required_if=Push true"`
 }
 
 type ChartTarget struct {
@@ -73,13 +73,13 @@ type OpensearchConfig struct {
 	Dashboards    ImageTarget `koanf:"dashboards"`
 	UpdateService ImageTarget `koanf:"update-service"`
 
-	Build OpensearchBuildConfig `koanf:"build"`
+	Build OpensearchBuildConfig `koanf:"build" validate:"required_with=Opensearch Dashboards"`
 }
 
 type OpensearchBuildConfig struct {
-	DashboardsVersion string `koanf:"dashboards-version" validate:"required_with=Opensearch Dashboards"`
-	OpensearchVersion string `koanf:"opensearch-version" validate:"required_with=Opensearch"`
-	PluginVersion     string `koanf:"plugin-version" validate:"required_with=Opensearch Dashboards"`
+	DashboardsVersion string `koanf:"dashboards-version"`
+	OpensearchVersion string `koanf:"opensearch-version"`
+	PluginVersion     string `koanf:"plugin-version"`
 }
 
 type CoverageConfig struct {
@@ -103,6 +103,17 @@ func Validate(conf *BuilderConfig) error {
 		return strings.SplitN(sf.Tag.Get("koanf"), ",", 2)[0]
 	})
 	return v.Struct(conf)
+}
+
+func ValidationHelp() string {
+	return fmt.Sprintf(`
+  - If any image has 'push' set to true, that image's 'repo', 'tag', and 'auth' fields must also be set.
+  - If any chart has 'push' set to true, that chart's 'repo', 'branch' (for non-OCI charts), and 'auth' fields must also be set.
+  - If any image has 'tag-suffix' set, that image's 'tag' must also be set. Otherwise, 'tag-suffix' is optional.
+  - Image 'repo' fields must not contain tags or digests.
+  - Image 'tag' fields must be valid Docker image tags.
+  - Image 'tag-suffix' fields must start with a '-' character and be followed by a valid Docker image tag.
+`[1:])
 }
 
 func (t *ImageTarget) RegistryAuth() (address string, username string, secret *dagger.Secret) {

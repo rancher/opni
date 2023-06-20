@@ -38,5 +38,9 @@ func BuildFlagSet(t reflect.Type, prefix ...string) *pflag.FlagSet {
 			panic("unimplemented: " + kind.String())
 		}
 	}
+
+	fs.VisitAll(func(f *pflag.Flag) {
+		fs.MarkHidden(f.Name)
+	})
 	return fs
 }

@@ -294,19 +294,19 @@ func (r *Reconciler) daemonSet() resources.Resource {
 					Volumes:          volumes,
 					Tolerations: []corev1.Toleration{
 						{
-							Key:    "node-role.kubernetes.io/controlplane",
-							Value:  "true",
-							Effect: corev1.TaintEffectNoSchedule,
+							Key:      "node-role.kubernetes.io/controlplane",
+							Effect:   corev1.TaintEffectNoSchedule,
+							Operator: corev1.TolerationOpExists,
 						},
 						{
-							Key:    "node-role.kubernetes.io/control-plane",
-							Value:  "true",
-							Effect: corev1.TaintEffectNoSchedule,
+							Key:      "node-role.kubernetes.io/control-plane",
+							Effect:   corev1.TaintEffectNoSchedule,
+							Operator: corev1.TolerationOpExists,
 						},
 						{
-							Key:    "node-role.kubernetes.io/etcd",
-							Value:  "true",
-							Effect: corev1.TaintEffectNoExecute,
+							Key:      "node-role.kubernetes.io/etcd",
+							Effect:   corev1.TaintEffectNoExecute,
+							Operator: corev1.TolerationOpExists,
 						},
 					},
 					ServiceAccountName: "opni-agent",

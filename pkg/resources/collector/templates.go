@@ -130,6 +130,12 @@ filelog/rke2:
   - type: move
     from: body
     to: attributes.message
+  - type: add
+    field: attributes.log_type:
+    value: controlplane
+  - type: add
+    field: attributes.kubernetes_component
+    value: kubelet
 `))
 
 	templateMainConfig = `

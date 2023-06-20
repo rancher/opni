@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -118,15 +119,26 @@ func RunSetup() {
 				},
 			},
 			Validate: func(ans interface{}) error {
+				path, err := expandPath(ans.(string))
+				if err != nil {
+					return err
+				}
 				// ensure the file doesn't exist
-				if info, err := os.Stat(ans.(string)); err == nil {
+				if info, err := os.Stat(path); err == nil {
 					return fmt.Errorf("%s already exists, please choose a different path", info.Name())
 				}
 				// ensure the directory exists
-				if _, err := os.Stat(path.Dir(ans.(string))); err != nil {
-					return fmt.Errorf("directory %s does not exist, please create it first.", path.Dir(ans.(string)))
+				if _, err := os.Stat(filepath.Dir(path)); err != nil {
+					return fmt.Errorf("directory %s does not exist, please create it first.", filepath.Dir(path))
 				}
 				return nil
+			},
+			Transform: func(ans interface{}) interface{} {
+				path, err := expandPath(ans.(string))
+				if err != nil {
+					return ans
+				}
+				return path
 			},
 		},
 		{
@@ -245,4 +257,18 @@ func RunSetup() {
 		fmt.Println(err.Error())
 		return
 	}
+
+	fmt.Printf("New configuration file written to %s\n", filename)
+}
+
+func expandPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("could not get home directory: %w", err)
+		}
+		path = strings.Replace(path, "~", home, 1)
+	}
+	path = filepath.Clean(os.ExpandEnv(path))
+	return path, nil
 }

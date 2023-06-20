@@ -133,7 +133,7 @@ func init() {
 	}
 }
 
-func AutoLoader(filename string) (koanf.Provider, koanf.Parser) {
+func AutoLoader(filename string) (koanf.Provider, koanf.Parser, koanf.Option) {
 	var parser koanf.Parser
 
 	if _, err := os.Stat(filename); err != nil {
@@ -170,7 +170,50 @@ func AutoLoader(filename string) (koanf.Provider, koanf.Parser) {
 		os.Exit(1)
 	}
 
-	return file.Provider(filename), parser
+	return file.Provider(filename), parser, koanf.WithMergeFunc(mergeStrict)
+}
+
+// same as mergeStrict() from koanf/maps/maps.go with added support for merging
+// empty []any slices with slices of a specific type.
+func mergeStrict(src, dest map[string]any) error {
+	for key, val := range src {
+		// Does the key exist in the target map?
+		// If no, add it and move on.
+		bVal, ok := dest[key]
+		if !ok {
+			dest[key] = val
+			continue
+		}
+
+		// If the incoming val is not a map, do a direct merge between the same types.
+		if _, ok := val.(map[string]any); !ok {
+			if reflect.TypeOf(dest[key]) == reflect.TypeOf(val) {
+				dest[key] = val
+			} else {
+				// Handle the special case where empty slices are decoded as []any causing
+				// a type mismatch when merging with a slice of a specific type.
+				if reflect.TypeOf(dest[key]).Kind() == reflect.Slice &&
+					reflect.TypeOf(val) == reflect.TypeOf(([]any)(nil)) &&
+					reflect.ValueOf(val).Len() == 0 {
+					dest[key] = reflect.MakeSlice(reflect.TypeOf(dest[key]), 0, 0).Interface()
+					continue
+				}
+				return fmt.Errorf("incorrect types at key %v, type %T != %T", key, dest[key], val)
+			}
+			continue
+		}
+
+		// The source key and target keys are both maps. Merge them.
+		switch v := bVal.(type) {
+		case map[string]any:
+			if err := mergeStrict(val.(map[string]any), v); err != nil {
+				return err
+			}
+		default:
+			dest[key] = val
+		}
+	}
+	return nil
 }
 
 func referenceName(fl validator.FieldLevel) bool {

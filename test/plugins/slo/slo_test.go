@@ -121,7 +121,7 @@ func simulateBreachingStatus(metricName string, instrumentationServerPort int,
 	simulateBadEvents(metricName, instrumentationServerPort, numEventsToBreach)
 }
 
-var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("integration", "slow"), func() {
+var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
 	// test environment references
 	var env *test.Environment

@@ -51,7 +51,7 @@ func expectValidEventSubsets(good []*sloapi.Event, total []*sloapi.Event) {
 
 }
 
-var _ = XDescribe("Converting SLO information to Cortex rules", Ordered, Label("integration", "slow"), func() {
+var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("integration", "slow"), func() {
 	sloObj := slo.NewSLO(
 		"slo-name",
 		"30d",

@@ -16,6 +16,7 @@ import (
 const (
 	minimalDigestPath = "/var/lib/opni/minimal-digest"
 	gatewayName       = "opni-gateway"
+	envMinimalDigest  = "OPNI_MINIMAL_IMAGE_REF"
 )
 
 var retryBackoff = wait.Backoff{
@@ -59,7 +60,11 @@ func getMinimalDigest() string {
 		return string(digest)
 	}
 
-	// TODO: remove this once we have solved the problem getting at the digest of the minimal image
+	envDigest := os.Getenv(envMinimalDigest)
+	if envDigest != "" {
+		return envDigest
+	}
+
 	if versions.Version != "unversioned" {
 		return fmt.Sprintf("%s-minimal", versions.Version)
 	}

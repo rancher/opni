@@ -224,10 +224,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}
 
 	// set up grpc server
+	rateLimitOpts := []ratelimiterOption{}
+	if conf.Spec.RateLimit != nil {
+		rateLimitOpts = append(rateLimitOpts, WithRate(conf.Spec.RateLimit.Rate))
+		rateLimitOpts = append(rateLimitOpts, WithBurst(conf.Spec.RateLimit.Burst))
+	}
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(
-			NewRateLimiterInterceptor(lg).StreamServerInterceptor(),
+			NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor(),
 			clusterAuth,
 			syncServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),

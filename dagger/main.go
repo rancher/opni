@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	encodingjson "encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,6 +35,9 @@ type Builder struct {
 
 func main() {
 	if err := run(); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return
+		}
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
@@ -57,7 +61,7 @@ func run(opts ...runOptions) error {
 	var configs []string
 	var showConfig bool
 	var outputFormat string
-	pf := pflag.NewFlagSet("dagger", pflag.ExitOnError)
+	pf := pflag.NewFlagSet("dagger", pflag.ContinueOnError)
 	pf.BoolVar(&debug, "debug", false, "Enable debug logging")
 	pf.StringVar(&cacheMode, "cache-mode", "volumes", "Cache mode (volumes|none)")
 	pf.StringSliceVarP(&configs, "config", "c", nil, "Path to one or more config files")
@@ -97,6 +101,7 @@ The following validation rules are applied after loading all files, environment 
 	}
 	pf.AddFlagSet(configFlagSet)
 	if err := pf.Parse(opts[0].Args); err != nil {
+
 		return err
 	}
 

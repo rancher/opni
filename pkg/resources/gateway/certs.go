@@ -29,6 +29,7 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.gatewayCA(),
 		r.gatewayCAIssuer(),
 		r.gatewayServingCert(),
+		r.gatewayClientCert(),
 		r.cortexIntermediateCA(),
 		r.cortexIntermediateCAIssuer(),
 		r.cortexClientCA(),
@@ -124,9 +125,48 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 				fmt.Sprintf("opni-internal.%s.svc", r.gw.Namespace),
 				fmt.Sprintf("opni-internal.%s.svc.cluster.local", r.gw.Namespace),
 			},
+			IPAddresses: []string{
+				"127.0.0.1",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageClientAuth,
+				cmv1.UsageServerAuth,
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+			},
 		},
 	}
 }
+
+func (r *Reconciler) gatewayClientCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-gateway-client-cert",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: "opni-gateway-client-cert",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "opni-gateway-ca-issuer",
+			},
+			DNSNames: []string{
+				"opni-gateway-client",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageClientAuth,
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+			},
+		},
+	}
+}
+
 func (r *Reconciler) grafanaCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{

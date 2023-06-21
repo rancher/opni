@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ = Describe("", Ordered, Label("integration", "alerting"), func() {
+var _ = Describe("", Ordered, Label("integration"), func() {
 	var env *test.Environment
 	agents := []string{"agent1", "agent2", "agent3"}
 	agentAlertingEndpoints := map[string][]*alerting.MockIntegrationWebhookServer{}

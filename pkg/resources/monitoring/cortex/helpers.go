@@ -437,6 +437,11 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 							ReadOnly:  true,
 						},
 						{
+							Name:      "opni-gateway-client-cert",
+							MountPath: "/run/gateway/certs/client",
+							ReadOnly:  true,
+						},
+						{
 							Name:      "server-certs",
 							MountPath: "/run/cortex/certs/server",
 							ReadOnly:  true,
@@ -484,9 +489,17 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					Name: "client-certs",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "cortex-serving-cert-keys",
-							Items:       tlsSecretItems,
-							DefaultMode: lo.ToPtr[int32](0644),
+							SecretName: "cortex-serving-cert-keys",
+							Items:      tlsSecretItems,
+						},
+					},
+				},
+				{
+					Name: "opni-gateway-client-cert",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "opni-gateway-client-cert",
+							Items:      tlsSecretItems,
 						},
 					},
 				},
@@ -494,9 +507,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					Name: "server-certs",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "cortex-serving-cert-keys",
-							Items:       tlsSecretItems,
-							DefaultMode: lo.ToPtr[int32](0644),
+							SecretName: "cortex-serving-cert-keys",
+							Items:      tlsSecretItems,
 						},
 					},
 				},
@@ -504,9 +516,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					Name: "etcd-client-certs",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  "etcd-client-cert-keys",
-							Items:       tlsSecretItems,
-							DefaultMode: lo.ToPtr[int32](0644),
+							SecretName: "etcd-client-cert-keys",
+							Items:      tlsSecretItems,
 						},
 					},
 				},
@@ -521,7 +532,6 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 									Path: "ca.crt",
 								},
 							},
-							DefaultMode: lo.ToPtr[int32](0644),
 						},
 					},
 				},

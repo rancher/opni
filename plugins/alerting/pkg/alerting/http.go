@@ -66,13 +66,14 @@ func (h *HttpApiServer) alertmanagerProxy(c *gin.Context) {
 		if ctx.Err() != nil {
 			errorStatus = http.StatusGatewayTimeout
 		}
-		c.AbortWithStatus(errorStatus)
+		c.AbortWithError(errorStatus, err)
 		return
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 	c.Data(resp.StatusCode, "application/json", data)
 	for key, value := range resp.Header {

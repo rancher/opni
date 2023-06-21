@@ -46,8 +46,9 @@ var _ = Describe("Flags", Label("unit"), func() {
 		tls, err := strategy.TLSConfig()
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(tls.RootCAs.Subjects()).To(HaveLen(1))
-		Expect(tls.RootCAs.Subjects()[0]).To(Equal(cert.RawSubject))
+		comparePool := x509.NewCertPool()
+		comparePool.AddCert(cert)
+		Expect(tls.RootCAs.Equal(comparePool)).To(BeTrue())
 	})
 
 	It("should use the system certs if no cacert flag is given", func() {
@@ -66,7 +67,7 @@ var _ = Describe("Flags", Label("unit"), func() {
 
 		systemCerts, err := x509.SystemCertPool()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(tls.RootCAs.Subjects()).To(Equal(systemCerts.Subjects()))
+		Expect(tls.RootCAs.Equal(systemCerts)).To(BeTrue())
 	})
 
 	It("should build the insecure strategy from flags", func() {

@@ -30,6 +30,12 @@ type GatewayConfigSpec struct {
 	Alerting       AlertingSpec   `json:"alerting,omitempty"`
 	Profiling      ProfilingSpec  `json:"profiling,omitempty"`
 	Keyring        KeyringSpec    `json:"keyring,omitempty"`
+	RateLimit      *RateLimitSpec `json:"rateLimit,omitempty"`
+}
+
+type RateLimitSpec struct {
+	Rate  float64 `json:"rate,omitempty"`
+	Burst int     `json:"burst,omitempty"`
 }
 
 type AlertingSpec struct {

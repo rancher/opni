@@ -60,7 +60,7 @@ func (p *kubernetesProvider) UniqueIdentifier(ctx context.Context) (string, erro
 }
 
 func init() {
-	util.Must(ident.RegisterProvider("kubernetes", func() ident.Provider {
+	util.Must(ident.RegisterProvider("kubernetes", func(_ ...any) ident.Provider {
 		return NewKubernetesProvider()
 	}))
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/magefile/mage/mg"
 )
 
-// Build a single plugin by name
+// Builds a single plugin by name
 func (Build) Plugin(ctx context.Context, name string) error {
 	_, tr := Tracer.Start(ctx, "target.build.plugin."+name)
 	defer tr.End()

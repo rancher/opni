@@ -12,12 +12,12 @@ import (
 
 type Dagger mg.Namespace
 
-func daggerBinary() (string, error) {
+func daggerRun() []string {
 	dagger, err := exec.LookPath("dagger")
 	if err != nil {
-		return "", fmt.Errorf("dagger not found: %w", err)
+		return []string{"go", "run"}
 	}
-	return dagger, nil
+	return []string{dagger, "run", "go", "run"}
 }
 
 type daggerPackage string
@@ -27,34 +27,36 @@ const (
 	daggerx daggerPackage = "./dagger/x"
 )
 
-// Invokes 'dagger run go run ./dagger' with all arguments
+// Invokes 'go run ./dagger' with all arguments
 func (ns Dagger) Run(arg0 string) error {
-	return ns.run("./dagger", ns.takeArgv(arg0)...)
-}
-
-// Invokes 'dagger run go run ./dagger/x' with all arguments
-func (ns Dagger) X(arg0 string) error {
-	return ns.do("./dagger/x", ns.takeArgv(arg0)...)
+	return ns.run(dagger, ns.takeArgv(arg0)...)
 }
 
 func (Dagger) run(pkg daggerPackage, args ...string) error {
-	dagger, err := daggerBinary()
-	if err != nil {
-		return err
-	}
-	return sh.RunV(dagger, append([]string{"run", "go", "run", string(pkg)}, args...)...)
+	cmds := daggerRun()
+	return sh.RunV(cmds[0], append(append(cmds[1:], string(pkg)), args...)...)
 }
 
 func (Dagger) do(pkg daggerPackage, args ...string) error {
-	dagger, err := daggerBinary()
+	dagger, err := exec.LookPath("dagger")
 	if err != nil {
-		return err
+		return fmt.Errorf("could not find dagger: %w", err)
 	}
-	return sh.Run(dagger, append([]string{"do", "--project", "./dagger", "--config", string(pkg)}, args...)...)
+	return sh.Run(dagger, append([]string{"do", "--project", dagger, "--config", string(pkg)}, args...)...)
 }
 
 func (Dagger) takeArgv(arg0 string) (rest []string) {
 	idx := slices.Index(os.Args, arg0)
 	rest, os.Args = os.Args[idx:], os.Args[:idx]
 	return
+}
+
+// Invokes 'go run ./dagger --help'
+func (ns Dagger) Help() error {
+	return sh.RunV(mg.GoCmd(), "run", string(dagger), "--help")
+}
+
+// Invokes 'go run ./dagger --setup'
+func (Dagger) Setup() error {
+	return sh.RunV(mg.GoCmd(), "run", string(dagger), "--setup")
 }

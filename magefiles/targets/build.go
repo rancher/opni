@@ -20,14 +20,6 @@ func (Build) All(ctx context.Context) {
 	mg.CtxDeps(ctx, Build.Opni, Build.Plugins)
 }
 
-// Builds the opni and minimal binaries, plugins, testenv, and linter.
-func (Build) Extra(ctx context.Context) {
-	ctx, tr := Tracer.Start(ctx, "target.build.x")
-	defer tr.End()
-
-	mg.CtxDeps(ctx, Build.Opni, Build.OpniMinimal, Build.Plugins, Build.Testenv, Build.Linter)
-}
-
 // Compiles all go packages except those named 'main'
 func (Build) Archives(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.build.archives")

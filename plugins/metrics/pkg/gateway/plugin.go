@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 
-	"github.com/prometheus/client_golang/prometheus"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -29,6 +28,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/zap"
 )
 
@@ -60,8 +60,15 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	collector := collector.NewCollectorServer()
-	collector.MustRegister(cortex.Collectors()...)
+	cortexReader := metric.NewManualReader(
+		metric.WithAggregationSelector(cortex.CortexAggregationSelector),
+	)
+	mp := metric.NewMeterProvider(
+		metric.WithReader(cortexReader),
+	)
+	cortex.RegisterMeterProvider(mp)
+
+	collector := collector.NewCollectorServer(cortexReader)
 	p := &Plugin{
 		CollectorServer: collector,
 		ctx:             ctx,
@@ -157,9 +164,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(&p.cortexHttp))
+	streamMetricReader := metric.NewManualReader()
+	p.CollectorServer.AppendReader(streamMetricReader)
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p,
 		streamext.WithMetrics(streamext.GatewayStreamMetricsConfig{
-			Registerer:      prometheus.WrapRegistererWithPrefix("opni_gateway_", p),
+			Reader:          streamMetricReader,
 			LabelsForStream: p.labelsForStreamMetrics,
 		})),
 	)

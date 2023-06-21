@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type CoreCollectorReconciler struct {
@@ -61,16 +60,16 @@ func (r *CoreCollectorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	requestMapper := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+	requestMapper := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		var collectorList corev1beta1.CollectorList
-		if err := mgr.GetCache().List(context.Background(), &collectorList); err != nil {
+		if err := mgr.GetCache().List(ctx, &collectorList); err != nil {
 			return nil
 		}
 		return reconcileRequestsForCollector(collectorList.Items, obj.GetName())
 	})
-	watchAllRequestMapper := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+	watchAllRequestMapper := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		var collectorList corev1beta1.CollectorList
-		if err := mgr.GetCache().List(context.Background(), &collectorList); err != nil {
+		if err := mgr.GetCache().List(ctx, &collectorList); err != nil {
 			return nil
 		}
 		return reconcileRequestsForAllCollectors(collectorList.Items)
@@ -80,13 +79,13 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1beta1.Collector{}).
-		Watches(&source.Kind{Type: &opnimonitoringv1beta1.CollectorConfig{}}, requestMapper).
-		Watches(&source.Kind{Type: &opniloggingv1beta1.CollectorConfig{}}, requestMapper).
+		Watches(&opnimonitoringv1beta1.CollectorConfig{}, requestMapper).
+		Watches(&opniloggingv1beta1.CollectorConfig{}, requestMapper).
 		// for metrics, the we want to watch changes to the spec of objects that drive discovery
-		Watches(&source.Kind{Type: &promoperatorv1.ServiceMonitor{}}, watchAllRequestMapper).
-		Watches(&source.Kind{Type: &promoperatorv1.PodMonitor{}}, watchAllRequestMapper).
-		Watches(&source.Kind{Type: &corev1.Service{}}, watchAllRequestMapper).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, watchAllRequestMapper).
+		Watches(&promoperatorv1.ServiceMonitor{}, watchAllRequestMapper).
+		Watches(&promoperatorv1.PodMonitor{}, watchAllRequestMapper).
+		Watches(&corev1.Service{}, watchAllRequestMapper).
+		Watches(&corev1.Pod{}, watchAllRequestMapper).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).

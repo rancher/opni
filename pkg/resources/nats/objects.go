@@ -7,7 +7,7 @@ import (
 	"text/template"
 
 	emperrors "emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	"github.com/nats-io/nkeys"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"

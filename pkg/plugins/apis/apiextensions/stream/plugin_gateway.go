@@ -10,13 +10,11 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
-	"github.com/prometheus/client_golang/prometheus"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"go.opentelemetry.io/otel/attribute"
-	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.uber.org/zap"
@@ -37,7 +35,7 @@ func (o *GatewayStreamApiExtensionPluginOptions) apply(opts ...GatewayStreamApiE
 
 type GatewayStreamMetricsConfig struct {
 	// Prometheus registerer
-	Registerer prometheus.Registerer
+	Reader metric.Reader
 
 	// A function called on each stream's Connect that returns a list of static
 	// labels to attach to all metrics collected for that stream.
@@ -68,17 +66,12 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 		metricsConfig: options.metricsConfig,
 	}
 	if p != nil {
-		if options.metricsConfig.Registerer != nil {
-			exporter, err := otelprometheus.New(
-				otelprometheus.WithRegisterer(options.metricsConfig.Registerer),
-				otelprometheus.WithoutScopeInfo(),
-				otelprometheus.WithoutTargetInfo(),
-			)
-			if err != nil {
-				panic("failed to create otel prometheus exporter")
-			}
-			ext.meterProvider = metric.NewMeterProvider(metric.WithReader(exporter),
-				metric.WithResource(resource.NewSchemaless(attribute.Key("plugin").String(name))))
+		if options.metricsConfig.Reader != nil {
+			ext.meterProvider = metric.NewMeterProvider(metric.WithReader(options.metricsConfig.Reader),
+				metric.WithResource(resource.NewSchemaless(
+					attribute.Key("plugin").String(name),
+					attribute.String("system", "opni_gateway"),
+				)))
 		}
 		servers := p.StreamServers()
 		for _, srv := range servers {

@@ -43,7 +43,7 @@ func (p *metricsPlugin) GRPCClient(
 		return nil, err
 	}
 	client := collector.NewRemoteCollectorClient(c)
-	return collector.NewRemoteCollector(client), nil
+	return collector.NewRemoteProducer(client), nil
 }
 
 func init() {

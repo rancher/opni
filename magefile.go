@@ -24,6 +24,8 @@ import (
 	"github.com/magefile/mage/sh"
 	"github.com/rancher/opni/internal/codegen/cli"
 	"github.com/samber/lo"
+	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
+	_ "sigs.k8s.io/kustomize/kustomize/v5/commands"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -134,7 +136,7 @@ func ControllerGen() error {
 
 func CRDGen() error {
 	var commands []*exec.Cmd
-	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
+	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v5",
 		"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
 	))
 	for _, cmd := range commands {

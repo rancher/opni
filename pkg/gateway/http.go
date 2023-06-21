@@ -25,6 +25,8 @@ import (
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/zap"
 )
 
@@ -114,8 +116,25 @@ func NewHTTPServer(
 
 	srv.metricsRegisterer.MustRegister(apiCollectors...)
 
+	exporter, err := otelprom.New(
+		otelprom.WithRegisterer(prometheus.WrapRegistererWithPrefix("opni_gateway_", srv.metricsRegisterer)),
+		otelprom.WithoutScopeInfo(),
+		otelprom.WithoutTargetInfo(),
+	)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to create prometheus exporter")
+	}
+
+	// We are using remote producers, but we need to register the exporter locally
+	// to prevent errors
+	metric.NewMeterProvider(
+		metric.WithReader(exporter),
+	)
+
 	pl.Hook(hooks.OnLoad(func(p types.MetricsPlugin) {
-		srv.metricsRegisterer.MustRegister(p)
+		exporter.RegisterProducer(p)
 	}))
 
 	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {

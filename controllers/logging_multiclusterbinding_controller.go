@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type LoggingMulticlusterRoleBindingReconciler struct {
@@ -58,16 +57,16 @@ func (r *LoggingMulticlusterRoleBindingReconciler) Reconcile(ctx context.Context
 func (r *LoggingMulticlusterRoleBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	requestMapper := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+	requestMapper := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		var mcrList loggingv1beta1.MulticlusterRoleBindingList
-		if err := mgr.GetCache().List(context.Background(), &mcrList); err != nil {
+		if err := mgr.GetCache().List(ctx, &mcrList); err != nil {
 			return nil
 		}
 		return reconcileRequestsForOpensearches(mcrList.Items, obj.GetName(), obj.GetNamespace())
 	})
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&loggingv1beta1.MulticlusterRoleBinding{}).
-		Watches(&source.Kind{Type: &opsterv1.OpenSearchCluster{}}, requestMapper).
+		Watches(&opsterv1.OpenSearchCluster{}, requestMapper).
 		Complete(r)
 }
 

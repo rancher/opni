@@ -1,7 +1,7 @@
 package collector_test
 
 import (
-	"errors"
+	"context"
 	"net"
 	"strings"
 	"time"
@@ -10,6 +10,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	"go.opentelemetry.io/otel/attribute"
+	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -27,22 +31,50 @@ var _ = Describe("Remote Collector", Label("unit"), func() {
 		grpcServer1 := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		grpcServer2 := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 
-		collectorServer1 := collector.NewCollectorServer()
-		collectorServer2 := collector.NewCollectorServer()
+		reader1 := sdkmetric.NewManualReader()
+		reader2 := sdkmetric.NewManualReader()
 
-		gauge1 := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name:      "test1",
-			Namespace: "remote",
-			Help:      "remote test 1",
-		}, []string{"label1", "label2"})
-		collectorServer1.MustRegister(gauge1)
+		collectorServer1 := collector.NewCollectorServer(reader1)
+		collectorServer2 := collector.NewCollectorServer(reader2)
 
-		gauge2 := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name:      "test2",
-			Namespace: "remote",
-			Help:      "remote test 2",
-		}, []string{"label1", "label2"})
-		collectorServer2.MustRegister(gauge2)
+		meterProvider1 := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader1))
+		meterProvider2 := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader2))
+
+		meter1 := meterProvider1.Meter("meter1")
+		meter2 := meterProvider2.Meter("meter2")
+
+		gauge1, err := meter1.Int64ObservableGauge("test1",
+			metric.WithDescription("remote test 1"))
+		Expect(err).NotTo(HaveOccurred())
+
+		gauge2, err := meter2.Int64ObservableGauge("test2",
+			metric.WithDescription("remote test 2"))
+		Expect(err).NotTo(HaveOccurred())
+
+		gauge1Value := int64(1)
+		gauge2Value := int64(2)
+
+		meter1.RegisterCallback(
+			func(ctx context.Context, obs metric.Observer) error {
+				obs.ObserveInt64(gauge1, gauge1Value,
+					metric.WithAttributes(attribute.String("label1", "a")),
+					metric.WithAttributes(attribute.String("label2", "b")),
+				)
+				return nil
+			},
+			gauge1,
+		)
+
+		meter2.RegisterCallback(
+			func(ctx context.Context, obs metric.Observer) error {
+				obs.ObserveInt64(gauge2, gauge2Value,
+					metric.WithAttributes(attribute.String("label1", "c")),
+					metric.WithAttributes(attribute.String("label2", "d")),
+				)
+				return nil
+			},
+			gauge2,
+		)
 
 		collector.RegisterRemoteCollectorServer(grpcServer1, collectorServer1)
 		collector.RegisterRemoteCollectorServer(grpcServer2, collectorServer2)
@@ -65,18 +97,28 @@ var _ = Describe("Remote Collector", Label("unit"), func() {
 		// Create a remote collector
 		reg := prometheus.NewRegistry()
 
-		remoteCollector1 := collector.NewRemoteCollector(collector.NewRemoteCollectorClient(cc1))
-		reg.MustRegister(remoteCollector1)
-		remoteCollector2 := collector.NewRemoteCollector(collector.NewRemoteCollectorClient(cc2))
-		reg.MustRegister(remoteCollector2)
-
-		errConn, err := grpc.Dial("bufconn", grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
-				return nil, errors.New("error")
-			}))
+		remotePrometheus1, err := otelprom.New(
+			otelprom.WithNamespace("remote"),
+			otelprom.WithRegisterer(reg),
+			otelprom.WithoutScopeInfo(),
+			otelprom.WithoutTargetInfo(),
+		)
 		Expect(err).NotTo(HaveOccurred())
-		errCollector := collector.NewRemoteCollector(collector.NewRemoteCollectorClient(errConn))
-		Expect(reg.Register(errCollector)).To(HaveOccurred())
+
+		remotePrometheus2, err := otelprom.New(
+			otelprom.WithNamespace("remote"),
+			otelprom.WithRegisterer(reg),
+			otelprom.WithoutScopeInfo(),
+			otelprom.WithoutTargetInfo(),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		_ = sdkmetric.NewMeterProvider(sdkmetric.WithReader(remotePrometheus1))
+		_ = sdkmetric.NewMeterProvider(sdkmetric.WithReader(remotePrometheus2))
+
+		remoteCollector1 := collector.NewRemoteProducer(collector.NewRemoteCollectorClient(cc1))
+		remotePrometheus1.RegisterProducer(remoteCollector1)
+		remoteCollector2 := collector.NewRemoteProducer(collector.NewRemoteCollectorClient(cc2))
+		remotePrometheus2.RegisterProducer(remoteCollector2)
 
 		// Create a local collector
 		localCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -86,8 +128,6 @@ var _ = Describe("Remote Collector", Label("unit"), func() {
 		reg.MustRegister(localCollector)
 
 		localCollector.WithLabelValues("test1").Set(1)
-		gauge1.WithLabelValues("a", "b").Set(1)
-		gauge2.WithLabelValues("c", "d").Set(2)
 
 		expectedExpfmt := `
 		# HELP local_test local test
@@ -114,8 +154,8 @@ var _ = Describe("Remote Collector", Label("unit"), func() {
 		}).Should(Succeed())
 
 		localCollector.WithLabelValues("test1").Set(5)
-		gauge1.WithLabelValues("a", "b").Set(10)
-		gauge2.WithLabelValues("c", "d").Set(20)
+		gauge1Value = 10
+		gauge2Value = 20
 
 		expectedExpfmt = `
 		# HELP local_test local test
@@ -139,16 +179,5 @@ var _ = Describe("Remote Collector", Label("unit"), func() {
 				"remote_test2",
 			)
 		}).Should(Succeed())
-
-		cc1.Close()
-
-		Eventually(func() error {
-			return promtestutil.GatherAndCompare(reg,
-				strings.NewReader(expectedExpfmt),
-				"local_test",
-				"remote_test1",
-				"remote_test2",
-			)
-		}).Should(MatchError("gathering metrics failed: rpc error: code = Canceled desc = grpc: the client connection is closing"))
 	})
 })

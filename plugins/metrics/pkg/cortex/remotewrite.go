@@ -18,6 +18,7 @@ import (
 	"github.com/weaveworks/common/user"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -76,12 +77,21 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.Writ
 
 	defer func() {
 		code := status.Code(pushErr)
-		mRemoteWriteRequests.WithLabelValues(clusterId, fmt.Sprint(code), code.String()).Inc()
+		cRemoteWriteRequests.Add(ctx, 1,
+			metric.WithAttributes(
+				attribute.String("cluster_id", clusterId),
+				attribute.Int("code", int(code)),
+				attribute.String("code_text", code.String()),
+			),
+		)
 	}()
 
-	payloadSize := float64(writeReq.Size())
-	mIngestBytesTotal.Add(payloadSize)
-	mIngestBytesByID.WithLabelValues(clusterId).Add(payloadSize)
+	payloadSize := int64(writeReq.Size())
+	cIngestBytesByID.Add(ctx, payloadSize,
+		metric.WithAttributes(
+			attribute.String("cluster_id", clusterId),
+		),
+	)
 
 	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
 		trace.WithAttributes(attribute.String("clusterId", clusterId)))

@@ -93,6 +93,9 @@ spec:
               version:
                 default: latest
                 type: string
+            required:
+            - username
+            - version
             type: object
           status:
             properties:

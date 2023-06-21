@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // +kubebuilder:rbac:groups=core.opni.io,resources=monitoringclusters,verbs=get;list;watch;create;update;patch;delete
@@ -68,17 +67,17 @@ func (r *CoreMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Watches(
-			&source.Kind{Type: &corev1beta1.Gateway{}},
+			&corev1beta1.Gateway{},
 			handler.EnqueueRequestsFromMapFunc(r.findMonitoringClusters),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *CoreMonitoringReconciler) findMonitoringClusters(gw client.Object) []ctrl.Request {
+func (r *CoreMonitoringReconciler) findMonitoringClusters(ctx context.Context, gw client.Object) []ctrl.Request {
 	// Look up all MonitoringClusters that reference this gateway
 	monitoringClusters := &corev1beta1.MonitoringClusterList{}
-	err := r.List(context.Background(), monitoringClusters, client.InNamespace(gw.GetNamespace()))
+	err := r.List(ctx, monitoringClusters, client.InNamespace(gw.GetNamespace()))
 	if err != nil {
 		return []ctrl.Request{}
 	}

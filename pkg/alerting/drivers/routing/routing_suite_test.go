@@ -9,6 +9,7 @@ import (
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	_ "github.com/rancher/opni/plugins/alerting/test"
+	_ "github.com/rancher/opni/plugins/metrics/test"
 )
 
 func TestRouting(t *testing.T) {
@@ -16,8 +17,10 @@ func TestRouting(t *testing.T) {
 	RunSpecs(t, "Routing Suite")
 }
 
-var env *test.Environment
-var tmpConfigDir string
+var (
+	env          *test.Environment
+	tmpConfigDir string
+)
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {

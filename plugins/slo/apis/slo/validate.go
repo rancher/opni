@@ -8,6 +8,10 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 )
 
+var (
+	MinEvaluateInterval = time.Minute
+)
+
 func (slo *ServiceLevelObjective) Validate() error {
 	if slo.Target == nil {
 		return validation.Errorf("Target must be set for an SLO")
@@ -54,7 +58,7 @@ func (slo *ServiceLevelObjective) Validate() error {
 		}
 	}
 	interval := slo.GetBudgetingInterval()
-	if interval.AsDuration() < time.Minute || interval.AsDuration() > time.Hour {
+	if interval.AsDuration() < MinEvaluateInterval || interval.AsDuration() > time.Hour {
 		return validation.Error("budgetingInterval must be between 1 minute and 1 hour")
 	}
 	if slo.AttachedEndpoints != nil && len(slo.AttachedEndpoints.Items) > 0 {

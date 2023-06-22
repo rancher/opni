@@ -40,6 +40,8 @@ ingester_client:
   grpc_client_config: *tls_client_config
 
 ruler:
+  evaluation_interval: 1s
+  poll_interval : 1s
   enable_alertmanager_v2: true
   ruler_client: *tls_client_config
   enable_api: true

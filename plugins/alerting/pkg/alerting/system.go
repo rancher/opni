@@ -27,8 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const ApiExtensionBackoff = time.Second * 5
-
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(context.Background(),
@@ -155,8 +153,7 @@ func (p *Plugin) handleDriverNotifications() {
 
 func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
 	cw := p.newClusterWatcherHooks(p.Ctx, alarms.NewAgentStream())
-	clusterCrud, clusterHealthStatus, cortexBackendStatus :=
-		func() { p.watchGlobalCluster(client, cw) },
+	clusterCrud, clusterHealthStatus, cortexBackendStatus := func() { p.watchGlobalCluster(client, cw) },
 		func() { p.watchGlobalClusterHealthStatus(client, alarms.NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
 

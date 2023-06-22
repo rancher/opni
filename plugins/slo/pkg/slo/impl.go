@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
@@ -151,59 +152,55 @@ func (s SLOMonitoring) MultiClusterClone(
 		idx := idx
 		clusterId := clusterId
 		ruleId := slo.GetId()
-		go func() {
-			defer wg.Done()
-			if !slices.Contains(clusterIds, clusterId.Id) {
-				errArr[idx] = fmt.Errorf("cluster %s not found", clusterId.Id)
-				return
-			}
-			svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListServicesRequest{
-				Datasource: "monitoring",
-				ClusterId:  clusterId.Id,
-			})
-			services, err := svcBackend.ListServices()
-			if err != nil {
-				errArr[idx] = err
-				return
-			}
-			if services.ContainsId(sloData.GetServiceId()) {
-				errArr[idx] = fmt.Errorf("service %s not found on cluster %s", sloData.GetServiceId(), clusterId.Id)
-				return
-			}
-			svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListMetricsRequest{
-				Datasource: "monitoring",
-				ClusterId:  clusterId.Id,
-				ServiceId:  sloData.GetServiceId(),
-			})
-			metrics, err := svcBackend.ListMetrics()
-			if err != nil {
-				errArr[idx] = err
-				return
-			}
-			if !metrics.ContainsId(sloData.GetGoodMetricName()) {
-				errArr[idx] = fmt.Errorf(
-					"good metric %s not found on cluster %s",
-					sloData.GetGoodMetricName(),
-					clusterId.Id,
-				)
-				return
-			}
-			if !metrics.ContainsId(sloData.GetTotalMetricName()) {
-				errArr[idx] = fmt.Errorf(
-					"total metric %s not found on cluster %s",
-					sloData.GetTotalMetricName(),
-					clusterId.Id,
-				)
-				return
-			}
-			errArr[idx] = tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, clusterId.Id, &ruleId, toApply)
-		}()
+		if !slices.Contains(clusterIds, clusterId.Id) {
+			errArr[idx] = fmt.Errorf("cluster %s not found", clusterId.Id)
+			continue
+		}
+		svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListServicesRequest{
+			Datasource: "monitoring",
+			ClusterId:  clusterId.Id,
+		})
+		services, err := svcBackend.ListServices()
+		if err != nil {
+			errArr[idx] = err
+			continue
+		}
+		if services.ContainsId(sloData.GetServiceId()) {
+			errArr[idx] = fmt.Errorf("service %s not found on cluster %s", sloData.GetServiceId(), clusterId.Id)
+			continue
+		}
+		svcBackend.WithCurrentRequest(s.ctx, &sloapi.ListMetricsRequest{
+			Datasource: "monitoring",
+			ClusterId:  clusterId.Id,
+			ServiceId:  sloData.GetServiceId(),
+		})
+		metrics, err := svcBackend.ListMetrics()
+		if err != nil {
+			errArr[idx] = err
+			continue
+		}
+		if !metrics.ContainsId(sloData.GetGoodMetricName()) {
+			errArr[idx] = fmt.Errorf(
+				"good metric %s not found on cluster %s",
+				sloData.GetGoodMetricName(),
+				clusterId.Id,
+			)
+			continue
+		}
+		if !metrics.ContainsId(sloData.GetTotalMetricName()) {
+			errArr[idx] = fmt.Errorf(
+				"total metric %s not found on cluster %s",
+				sloData.GetTotalMetricName(),
+				clusterId.Id,
+			)
+			continue
+		}
+		errArr[idx] = tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, clusterId.Id, &ruleId, toApply)
 		clonedData.SLO.Name = sloData.Name + "-clone-" + strconv.Itoa(idx)
 		clonedData.Id = slo.GetId()
 		clusterDefinitions[idx] = clonedData
 		clusterIdsCreate[idx] = &corev1.Reference{Id: slo.GetId()}
 	}
-	wg.Wait()
 	return clusterIdsCreate, clusterDefinitions, errArr
 }
 
@@ -214,8 +211,8 @@ func (s SLOMonitoring) MultiClusterClone(
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
 	now := time.Now()
-	evaluationInterval := time.Minute
-	if now.Sub(existing.CreatedAt.AsTime()) <= evaluationInterval*2 {
+
+	if now.Sub(existing.CreatedAt.AsTime()) <= sloapi.MinEvaluateInterval*2 {
 		s.lg.With("sloId", existing.Id).Debug("SLO status is not ready to be evaluated : ",
 			(&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
 
@@ -296,8 +293,11 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	startTs, endTs := cur.Add(time.Duration(-dur)), cur
 	numSteps := 250
 	step := time.Duration(endTs.Sub(startTs).Seconds()/float64(numSteps)) * time.Second
+	if step < time.Second {
+		step = time.Second
+	}
 
-	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
+	ruleGroup := slo.ConstructRecordingRuleGroup(lo.ToPtr(sloapi.MinEvaluateInterval))
 	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr.Value
 	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(NaN))" // handles the empty case and still differentiates between 0 and empty
 	_, err = parser.ParseExpr(sli)

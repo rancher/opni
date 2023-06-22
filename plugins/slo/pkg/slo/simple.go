@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 )
@@ -752,10 +753,10 @@ func (s *SLO) ConstructRawAlertQueries() (yaml.Node, yaml.Node) {
 		panic(err)
 	}
 	filters = "{" + filters + "}"
-	alertCriticalRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[0].Expr
+	alertCriticalRawQuery := s.ConstructAlertingRuleGroup(lo.ToPtr(sloapi.MinEvaluateInterval)).Rules[0].Expr
 	alertCriticalRawQuery.Value = strings.Replace(alertCriticalRawQuery.Value, filters, "", -1)
 	alertCriticalRawQuery.Value = strings.Replace(alertCriticalRawQuery.Value, fmt.Sprintf("without (%s)", slo_window), "", -1)
-	alertSevereRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[1].Expr
+	alertSevereRawQuery := s.ConstructAlertingRuleGroup(lo.ToPtr(sloapi.MinEvaluateInterval)).Rules[1].Expr
 	alertSevereRawQuery.Value = strings.Replace(alertSevereRawQuery.Value, filters, "", -1)
 	alertSevereRawQuery.Value = strings.Replace(alertSevereRawQuery.Value, fmt.Sprintf("without (%s)", slo_window), "", -1)
 

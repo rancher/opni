@@ -173,7 +173,7 @@ func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results
 
 func (k *kubernetesAgentUpgrader) getAgentDeployment(ctx context.Context) (*appsv1.Deployment, error) {
 	list := &appsv1.DeploymentList{}
-	if err := k.k8sClient.List(context.TODO(), list,
+	if err := k.k8sClient.List(ctx, list,
 		client.InNamespace(k.namespace),
 		client.MatchingLabels{
 			"opni.io/app": "agent",
@@ -189,12 +189,22 @@ func (k *kubernetesAgentUpgrader) getAgentDeployment(ctx context.Context) (*apps
 }
 
 func (k *kubernetesAgentUpgrader) patchContainer(container *corev1.Container, patch *controlv1.PatchSpec) error {
-	oldImage := oci.Parse(container.Image)
-	if oldImage.Digest != patch.GetOldDigest() {
+	oldImage, err := oci.Parse(container.Image)
+	if err != nil {
+		return err
+	}
+	if oldImage.Reference() != patch.GetOldDigest() {
 		return kubernetes.ErrOldDigestMismatch
 	}
-	image := oci.Parse(patch.GetPath())
-	image.Digest = patch.GetNewDigest()
+	image, err := oci.Parse(patch.GetPath())
+	if err != nil {
+		return err
+	}
+
+	err = image.UpdateReference(patch.GetNewDigest())
+	if err != nil {
+		return err
+	}
 	if k.repoOverride != nil {
 		image.Registry = *k.repoOverride
 	}
@@ -222,11 +232,14 @@ func getControllerContainer(containers []corev1.Container) *corev1.Container {
 
 func makeEntry(container *corev1.Container, packageType kubernetes.ComponentType) *controlv1.UpdateManifestEntry {
 	entryURN := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, string(packageType))
-	image := oci.Parse(container.Image)
+	image, err := oci.Parse(container.Image)
+	if err != nil {
+		return nil
+	}
 	return &controlv1.UpdateManifestEntry{
 		Package: entryURN.String(),
 		Path:    image.Path(),
-		Digest:  image.Digest,
+		Digest:  image.Reference(),
 	}
 }
 

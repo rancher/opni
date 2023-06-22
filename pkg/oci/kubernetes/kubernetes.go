@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -67,33 +68,45 @@ func NewKubernetesResolveImageDriver(
 	}, nil
 }
 
-func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType oci.ImageType) (oci.Image, error) {
-	var image oci.Image
+func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType oci.ImageType) (*oci.Image, error) {
+	var image *oci.Image
+	var err error
 	switch imageType {
 	case oci.ImageTypeOpni:
-		image = d.getOpniImage(ctx)
+		image, err = d.getOpniImage(ctx)
 	case oci.ImageTypeMinimal:
-		image = d.getMinimalImage(ctx)
+		image, err = d.getMinimalImage(ctx)
 	default:
-		return oci.Image{}, ErrUnsupportedImageType
+		return nil, ErrUnsupportedImageType
 	}
+
+	if err != nil {
+		return nil, errors.Join(ErrImageNotFound, err)
+	}
+
 	if image.Empty() {
-		return oci.Image{}, ErrImageNotFound
+		return nil, ErrImageNotFound
 	}
 	return image, nil
 }
 
-func (d *kubernetesResolveImageDriver) getOpniImage(ctx context.Context) oci.Image {
+func (d *kubernetesResolveImageDriver) getOpniImage(ctx context.Context) (*oci.Image, error) {
 	return oci.Parse(d.getOpniImageString(ctx))
 }
 
-func (d *kubernetesResolveImageDriver) getMinimalImage(ctx context.Context) oci.Image {
-	image := d.getOpniImage(ctx)
+func (d *kubernetesResolveImageDriver) getMinimalImage(ctx context.Context) (*oci.Image, error) {
+	image, err := d.getOpniImage(ctx)
+	if err != nil {
+		return nil, err
+	}
 	minimalDigest := getMinimalDigest()
 	if minimalDigest != "" {
-		image.Digest = minimalDigest
+		err := image.UpdateReference(minimalDigest)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return image
+	return image, nil
 }
 
 func init() {

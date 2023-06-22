@@ -17,6 +17,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	imageDigest = "sha256:15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
+)
+
 var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 	var k8sServer update.UpdateTypeHandler
 
@@ -73,12 +77,12 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN1.String(),
 							Path:    "example.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 						{
 							Package: packageURN2.String(),
 							Path:    "example.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 					},
 				}
@@ -104,12 +108,12 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN1.String(),
 							Path:    "quay.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 						{
 							Package: packageURN2.String(),
 							Path:    "opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 					},
 				}
@@ -135,7 +139,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN1.String(),
 							Path:    "example.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 						{
 							Package: packageURN2.String(),
@@ -151,14 +155,14 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				Expect(desiredManifest).NotTo(Equal(manifest))
 				for _, item := range desiredManifest.GetItems() {
 					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal("sha256:123456789"))
+						Expect(item.GetDigest()).To(Equal(imageDigest))
 					}
 				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
 						Expect(patch.GetPath()).To(Equal("example.io/opni-noop"))
-						Expect(patch.GetNewDigest()).To(Equal("sha256:123456789"))
+						Expect(patch.GetNewDigest()).To(Equal(imageDigest))
 						Expect(patch.GetOldDigest()).To(Equal("latest"))
 					}
 				}
@@ -183,7 +187,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN1.String(),
 							Path:    "example.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 						{
 							Package: packageURN2.String(),
@@ -199,14 +203,14 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				Expect(desiredManifest).NotTo(Equal(manifest))
 				for _, item := range desiredManifest.GetItems() {
 					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal("sha256:123456789"))
+						Expect(item.GetDigest()).To(Equal(imageDigest))
 					}
 				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
 						Expect(patch.GetPath()).To(Equal("example.io/opni-noop"))
-						Expect(patch.GetNewDigest()).To(Equal("sha256:123456789"))
+						Expect(patch.GetNewDigest()).To(Equal(imageDigest))
 						Expect(patch.GetOldDigest()).To(Equal("latest"))
 					}
 				}
@@ -219,12 +223,12 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN1.String(),
 							Path:    "example.io/opni-noop",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 						{
 							Package: packageURN2.String(),
 							Path:    "example.io/rancher/test",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 					},
 				}
@@ -235,15 +239,15 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				Expect(desiredManifest).NotTo(Equal(manifest))
 				for _, item := range desiredManifest.GetItems() {
 					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal("sha256:123456789"))
+						Expect(item.GetDigest()).To(Equal(imageDigest))
 					}
 				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
 						Expect(patch.GetPath()).To(Equal("example.io/opni-noop"))
-						Expect(patch.GetNewDigest()).To(Equal("sha256:123456789"))
-						Expect(patch.GetOldDigest()).To(Equal("sha256:123456789"))
+						Expect(patch.GetNewDigest()).To(Equal(imageDigest))
+						Expect(patch.GetOldDigest()).To(Equal(imageDigest))
 					}
 				}
 			})
@@ -260,7 +264,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 						{
 							Package: packageURN2.String(),
 							Path:    "example.io/rancher/test",
-							Digest:  "sha256:123456789",
+							Digest:  imageDigest,
 						},
 					},
 				}

@@ -3,8 +3,9 @@ package oci
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
+
+	"github.com/opencontainers/go-digest"
 )
 
 type ImageType string
@@ -15,66 +16,108 @@ const (
 	ImageTypePlugins ImageType = "plugins"
 )
 
+var (
+	ErrInvalidImageFormat     = fmt.Errorf("image string is either invalid or empty")
+	ErrInvalidReferenceFormat = fmt.Errorf("reference string is either invalid or empty")
+)
+
 type Fetcher interface {
-	GetImage(context.Context, ImageType) (Image, error)
+	GetImage(context.Context, ImageType) (*Image, error)
 }
 
 type Image struct {
 	Registry   string
 	Repository string
-	Digest     string
+	Tag        string
+	Digest     digest.Digest
 }
 
-func Parse(image string) Image {
-	var registry, repo, digest string
-	splitImage := strings.Split(image, "/")
-	if len(splitImage) > 1 {
-		if strings.Contains(splitImage[0], ".") {
-			registry = splitImage[0]
-			image = strings.TrimPrefix(image, fmt.Sprintf("%s/", registry))
-		}
+func Parse(s string) (*Image, error) {
+	matches := ReferenceRegexp.FindStringSubmatch(s)
+	if matches == nil {
+		return nil, ErrInvalidImageFormat
 	}
-	if strings.Contains(image, "@") {
-		splitImage := strings.Split(image, "@")
-		repo = splitImage[0]
-		digest = splitImage[1]
-	} else {
-		splitImage := strings.Split(image, ":")
-		repo = splitImage[0]
-		if len(splitImage) > 1 {
-			digest = splitImage[1]
+
+	image := &Image{}
+	nameMatch := anchoredNameRegexp.FindStringSubmatch(matches[1])
+	switch len(nameMatch) {
+	case 3:
+		image.Registry = nameMatch[1]
+		image.Repository = nameMatch[2]
+	case 2:
+		image.Repository = nameMatch[1]
+	}
+
+	image.Tag = matches[2]
+
+	if matches[3] != "" {
+		var err error
+		image.Digest, err = digest.Parse(matches[3])
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return Image{
-		Registry:   registry,
-		Repository: repo,
-		Digest:     digest,
-	}
+	return image, nil
 }
 
-func (i Image) String() string {
+func (i *Image) String() string {
 	var prefix, suffix string
 	if i.Registry != "" {
 		prefix = fmt.Sprintf("%s/", i.Registry)
 	}
-	switch {
-	case strings.HasPrefix(i.Digest, "sha256:"):
-		suffix = fmt.Sprintf("@%s", i.Digest)
-	case i.Digest != "":
-		suffix = fmt.Sprintf(":%s", i.Digest)
+
+	if i.Tag != "" {
+		suffix += fmt.Sprintf(":%s", i.Tag)
+	}
+	if i.Digest != "" {
+		suffix += fmt.Sprintf("@%s", i.Digest.String())
 	}
 
 	return fmt.Sprintf("%s%s%s", prefix, i.Repository, suffix)
 }
 
-func (i Image) Path() string {
-	i.Digest = ""
-	return i.String()
+func (i *Image) Path() string {
+	var prefix string
+	if i.Registry != "" {
+		prefix = fmt.Sprintf("%s/", i.Registry)
+	}
+	return fmt.Sprintf("%s%s", prefix, i.Repository)
 }
 
-func (i Image) Empty() bool {
+func (i *Image) Empty() bool {
 	return i.Repository == ""
+}
+
+func (i *Image) UpdateReference(ref string) error {
+	match := anchoredTagRegexp.FindString(ref)
+	if match != "" {
+		i.Tag = match
+		i.Digest = ""
+		return nil
+	}
+	match = anchoredDigestRegexp.FindString(ref)
+	if match != "" {
+		i.Tag = ""
+		d, err := digest.Parse(match)
+		if err != nil {
+			return err
+		}
+		i.Digest = d
+		return nil
+	}
+
+	return ErrInvalidReferenceFormat
+}
+
+func (i *Image) Reference() string {
+	if i.Digest != "" {
+		return i.Digest.String()
+	}
+	if i.Tag != "" {
+		return i.Tag
+	}
+	return ""
 }
 
 var (

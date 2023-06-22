@@ -2,6 +2,7 @@ package kubernetes_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,6 +11,10 @@ import (
 	"github.com/rancher/opni/pkg/oci/kubernetes"
 	"github.com/rancher/opni/pkg/versions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	imageDigest = "sha256:15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
 )
 
 var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func() {
@@ -52,9 +57,10 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 			Expect(err).To(MatchError(kubernetes.ErrImageNotFound))
 		})
 		When("version is set", func() {
+			BeforeEach(func() {
+				versions.Version = "v1.0.0"
+			})
 			It("should not return the minimal image", func() {
-				versions.SetVersionForTest("v1.0.0")
-				defer versions.UnlockVersionForTest()
 				_, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeOpni)
 				Expect(err).To(MatchError(kubernetes.ErrImageNotFound))
 			})
@@ -62,30 +68,32 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 	})
 
 	When("gateway status is set", Ordered, func() {
+		BeforeEach(func() {
+			gateway.Status = corev1beta1.GatewayStatus{
+				Image: fmt.Sprintf("rancher/opni-test@%s", imageDigest),
+			}
+			Expect(k8sClient.Status().Update(context.Background(), gateway)).To(Succeed())
+		})
 		When("version is unset", func() {
-			It("should set the status", func() {
-				gateway.Status = corev1beta1.GatewayStatus{
-					Image: "rancher/opni-test@sha256:1234567890",
-				}
-				Expect(k8sClient.Status().Update(context.Background(), gateway)).To(Succeed())
+			BeforeEach(func() {
+				versions.Version = "unversioned"
 			})
 			It("should return the opni image", func() {
 				image, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeOpni)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(image.String()).To(Equal("rancher/opni-test@sha256:1234567890"))
+				Expect(image.String()).To(Equal(fmt.Sprintf("rancher/opni-test@%s", imageDigest)))
 			})
 			It("should return the opni image as the minimal image", func() {
-				versions.SetVersionForTest("unversioned")
-				defer versions.UnlockVersionForTest()
 				image, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeMinimal)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(image.String()).To(Equal("rancher/opni-test@sha256:1234567890"))
+				Expect(image.String()).To(Equal(fmt.Sprintf("rancher/opni-test@%s", imageDigest)))
 			})
 		})
 		When("version is set", func() {
+			BeforeEach(func() {
+				versions.Version = "v1.0.0"
+			})
 			It("should return the minimal image", func() {
-				versions.SetVersionForTest("v1.0.0")
-				defer versions.UnlockVersionForTest()
 				image, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeMinimal)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(image.String()).To(Equal("rancher/opni-test:v1.0.0-minimal"))

@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	imageDigest = "sha256:15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
 )
 
 var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
@@ -113,7 +118,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 					{
 						Package: packageURN.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 				},
 			}
@@ -144,7 +149,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 					{
 						Package: packageURN.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 				},
 			}
@@ -248,7 +253,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 					{
 						Package: packageURN1.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 					{
 						Package: packageURN2.String(),
@@ -264,7 +269,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 						Package:   packageURN1.String(),
 						Path:      "opni.io/test",
 						OldDigest: "latest-minimal",
-						NewDigest: "sha256:123456789",
+						NewDigest: imageDigest,
 					},
 					{
 						Op:      controlv1.PatchOp_None,
@@ -289,7 +294,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 			})).Should(ExistAnd(
 				HaveMatchingContainer(And(
 					HaveName("agent"),
-					HaveImage("opni.io/test@sha256:123456789"),
+					HaveImage(fmt.Sprintf("opni.io/test@%s", imageDigest)),
 				)),
 				HaveMatchingContainer(And(
 					HaveName("client"),
@@ -312,7 +317,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 					{
 						Package: packageURN2.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 				},
 			}
@@ -323,7 +328,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 						Package:   packageURN2.String(),
 						Path:      "opni.io/test",
 						OldDigest: "latest",
-						NewDigest: "sha256:123456789",
+						NewDigest: imageDigest,
 					},
 					{
 						Op:      controlv1.PatchOp_None,
@@ -352,7 +357,7 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				)),
 				HaveMatchingContainer(And(
 					HaveName("client"),
-					HaveImage("opni.io/test@sha256:123456789"),
+					HaveImage(fmt.Sprintf("opni.io/test@%s", imageDigest)),
 				)),
 			))
 		})
@@ -366,12 +371,12 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 					{
 						Package: packageURN1.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 					{
 						Package: packageURN2.String(),
 						Path:    "opni.io/test",
-						Digest:  "sha256:123456789",
+						Digest:  imageDigest,
 					},
 				},
 			}
@@ -382,14 +387,14 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 						Package:   packageURN1.String(),
 						Path:      "opni.io/test",
 						OldDigest: "latest-minimal",
-						NewDigest: "sha256:123456789",
+						NewDigest: imageDigest,
 					},
 					{
 						Op:        controlv1.PatchOp_Update,
 						Package:   packageURN2.String(),
 						Path:      "opni.io/test",
 						OldDigest: "latest",
-						NewDigest: "sha256:123456789",
+						NewDigest: imageDigest,
 					},
 				},
 			}
@@ -409,11 +414,11 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 			})).Should(ExistAnd(
 				HaveMatchingContainer(And(
 					HaveName("agent"),
-					HaveImage("opni.io/test@sha256:123456789"),
+					HaveImage(fmt.Sprintf("opni.io/test@%s", imageDigest)),
 				)),
 				HaveMatchingContainer(And(
 					HaveName("client"),
-					HaveImage("opni.io/test@sha256:123456789"),
+					HaveImage(fmt.Sprintf("opni.io/test@%s", imageDigest)),
 				)),
 			))
 		})

@@ -104,7 +104,7 @@ func (k *kubernetesSyncServer) calculateAgentUpdate(
 		if err != nil {
 			return nil, nil, status.Error(codes.Internal, err.Error())
 		}
-		if image.Empty() {
+		if image == nil || image.Empty() {
 			return nil, nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no image found for %s", item.GetPackage()))
 		}
 		patch, entry := patchForImage(item, image)
@@ -124,10 +124,10 @@ func (k *kubernetesSyncServer) calculateAgentUpdate(
 func (k *kubernetesSyncServer) imageForEntry(
 	ctx context.Context,
 	entry *controlv1.UpdateManifestEntry,
-) (oci.Image, error) {
+) (*oci.Image, error) {
 	urn, err := opniurn.ParseString(entry.GetPackage())
 	if err != nil {
-		return oci.Image{}, err
+		return nil, err
 	}
 
 	component := kubernetes.ComponentType(urn.Component)
@@ -135,7 +135,7 @@ func (k *kubernetesSyncServer) imageForEntry(
 	imageType, ok := kubernetes.ComponentImageMap[component]
 	if !ok {
 		k.lg.Warnf("no image found for component %s", component)
-		return oci.Image{}, nil
+		return nil, nil
 	}
 
 	return k.imageFetcher.GetImage(ctx, imageType)
@@ -143,13 +143,17 @@ func (k *kubernetesSyncServer) imageForEntry(
 
 func patchForImage(
 	entry *controlv1.UpdateManifestEntry,
-	image oci.Image,
+	image *oci.Image,
 ) (*controlv1.PatchSpec, *controlv1.UpdateManifestEntry) {
 	if entry == nil {
 		return nil, nil
 	}
-	existingImage := oci.Parse(entry.GetPath())
-	if entry.GetDigest() == image.Digest && existingImage.Repository == image.Repository {
+	existingImage, err := oci.Parse(entry.GetPath())
+	if err != nil {
+		return nil, nil
+	}
+
+	if entry.GetDigest() == image.Reference() && existingImage.Repository == image.Repository {
 		return &controlv1.PatchSpec{
 			Package: entry.GetPackage(),
 			Path:    entry.GetPath(),
@@ -159,12 +163,12 @@ func patchForImage(
 	newEntry := &controlv1.UpdateManifestEntry{
 		Package: entry.GetPackage(),
 		Path:    image.Path(),
-		Digest:  image.Digest,
+		Digest:  image.Reference(),
 	}
 	return &controlv1.PatchSpec{
 		Op:        controlv1.PatchOp_Update,
 		OldDigest: entry.GetDigest(),
-		NewDigest: image.Digest,
+		NewDigest: image.Reference(),
 		Package:   entry.GetPackage(),
 		Path:      image.Path(),
 	}, newEntry

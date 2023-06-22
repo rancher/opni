@@ -1,0 +1,102 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/alerting";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+
+
+package alerting.logging;
+
+message Monitor{
+    string monitorId = 1;
+    string monitorType = 2;
+    bytes spec = 3;
+}
+
+message Channel{
+    string channelId = 1;
+    bytes spec = 2;
+}
+
+message ChannelList{
+    bytes list = 1;
+}
+
+message ListAlertsResponse{
+    bytes alerts = 1;
+}
+
+message AcknowledgeAlertRequest {
+    string monitorId = 1;
+    repeated string alertIds = 2;
+}
+
+service MonitorManagement {
+  rpc CreateMonitor(Monitor) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      post : "/monitor"
+      body : "*"
+    };
+  }
+  rpc GetMonitor(core.Reference) returns (Monitor) {
+    option(google.api.http) = {
+      get : "/monitor/{id}"
+    };
+  }
+  rpc UpdateMonitor(Monitor) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      put : "/monitor/{id}"
+      body : "*"
+    };
+  }
+  rpc DeleteMonitor(core.Reference) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      delete : "/monitor/{id}"
+    };
+  }
+}
+
+service NotificationManagement {
+  rpc CreateNotification(Channel) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      post : "/notification"
+      body : "*"
+    };
+  }
+  rpc GetNotification(core.Reference) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+       get : "/notification/{id}" 
+    };
+  }
+  rpc ListNotifications(google.protobuf.Empty) returns (ChannelList) {
+    option(google.api.http) = {
+      get : "/notification"
+    };
+  }
+  rpc UpdateNotification(Channel) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      put : "/notification/{id}"
+      body : "*"
+    };
+  }
+  rpc DeleteDestination(core.Reference) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      delete : "/notification"
+    };
+  }
+}
+
+service AlertManagement {
+  rpc ListAlerts(google.protobuf.Empty) returns (ListAlertsResponse) {
+    option(google.api.http) = {
+      get : "/alerts"
+    };
+  }
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (google.protobuf.Empty) {
+    option(google.api.http) = {
+      post : "/alerts/acknowledge"
+      body : "*"
+    };
+  }
+}

@@ -23,6 +23,7 @@ type Client struct {
 	Ingest   api.IngestAPI
 	Tasks    api.TasksAPI
 	Cluster  api.ClusterAPI
+	Alerting api.AlertingAPI
 }
 
 type ClientConfig struct {
@@ -119,6 +120,17 @@ func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 		},
 		Cluster: api.ClusterAPI{
 			Client: client,
+		},
+		Alerting: api.AlertingAPI{
+			MonitorAPI: api.MonitorAPI{
+				Client: client,
+			},
+			NotificationAPI: api.NotificationAPI{
+				Client: client,
+			},
+			AlertAPI: api.AlertAPI{
+				Client: client,
+			},
 		},
 	}, nil
 }

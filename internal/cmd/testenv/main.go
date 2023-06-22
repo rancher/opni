@@ -45,6 +45,7 @@ import (
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
+	_ "github.com/rancher/opni/plugins/slo/test"
 )
 
 func main() {

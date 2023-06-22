@@ -1,6 +1,7 @@
 package slo_test
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -15,10 +16,13 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -92,6 +96,15 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
+		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
+		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
+			Mode: cortexops.DeploymentMode_AllInOne,
+			Storage: &storagev1.StorageSpec{
+				Backend: storagev1.Filesystem,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
 		Eventually(errC).Should(Receive(BeNil()))
 		pPort, err = env.StartPrometheus("agent")
@@ -118,34 +131,34 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		Expect(err).NotTo(HaveOccurred())
 
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
-		// Eventually(func() error {
-		// 	stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	for _, item := range stats.Items {
-		// 		if item.UserID == "agent" {
-		// 			if item.NumSeries > 0 {
-		// 				return nil
-		// 			}
-		// 		}
-		// 	}
-		// 	return fmt.Errorf("waiting for metric data to be stored in cortex")
-		// }, 30*time.Second, 1*time.Second).Should(Succeed())
-		// Eventually(func() error {
-		// 	stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	for _, item := range stats.Items {
-		// 		if item.UserID == "agent2" {
-		// 			if item.NumSeries > 0 {
-		// 				return nil
-		// 			}
-		// 		}
-		// 	}
-		// 	return fmt.Errorf("waiting for metric data to be stored in cortex")
-		// }, 30*time.Second, 1*time.Second).Should(Succeed())
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent2" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	When("We receive alert matrix data from cortex", func() {

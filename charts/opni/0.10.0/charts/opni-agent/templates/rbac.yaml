@@ -1,0 +1,301 @@
+{{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-agent
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+rules:
+
+# opni requirements
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - imagestreams/layers
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/stats
+  verbs:
+  - get
+
+# discovery permissions
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+
+# client manager permissions
+- apiGroups:
+  - logging.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - monitoring.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - core.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - daemonsets/finalizers
+  - daemonsets/status
+  - deployments
+  - deployments/finalizers
+  - deployments/status
+  - statefulsets
+  - statefulsets/finalizers
+  - statefulsets/status
+  - replicasets
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - "*"
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - persistentvolumeclaims
+  verbs:
+  - "*"
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - create
+  - use
+  - get
+  - list
+  - watch
+
+# prometheus resources
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - alertmanagers
+  - alertmanagers/finalizers
+  - alertmanagerconfigs
+  - prometheuses
+  - prometheuses/status
+  - prometheuses/finalizers
+  - thanosrulers
+  - thanosrulers/finalizers
+  - servicemonitors
+  - podmonitors
+  - probes
+  - prometheusrules
+  verbs:
+  - "*"
+
+# required to create prometheus agent rbac objects
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - roles
+  - clusterrolebindings
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opni-agent
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opni-agent
+subjects:
+  - kind: ServiceAccount
+    name: opni-agent
+    namespace: {{ $namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opni-agent
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+# opni resources
+- apiGroups:
+  - opni.io
+  - core.opni.io
+  - logging.opni.io
+  - monitoring.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opni-agent
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opni-agent
+subjects:
+  - kind: ServiceAccount
+    name: opni-agent
+    namespace: {{ $namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opni-agent
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}

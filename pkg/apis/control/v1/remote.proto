@@ -15,9 +15,8 @@ service HealthListener {
   rpc UpdateHealth(core.Health) returns (google.protobuf.Empty);
 }
 
-service PluginSync {
-  rpc SyncPluginManifest(PluginManifest) returns (SyncResults);
-  rpc GetPluginManifest(google.protobuf.Empty) returns (PluginManifest);
+service UpdateSync {
+  rpc SyncManifest(UpdateManifest) returns (SyncResults);
 }
 
 enum PatchOp {
@@ -34,22 +33,22 @@ enum PatchOp {
 }
 
 message SyncResults {
-  PluginManifest desiredState = 1;
+  UpdateManifest desiredState = 1;
   PatchList requiredPatches = 2;
 }
 
-message PluginManifestEntry {
-  string module = 1;
-  string filename = 2;
+message UpdateManifestEntry {
+  string package = 1;
+  string path = 2;
   string digest = 3;
 }
 
-message PluginManifest {
-  repeated PluginManifestEntry items = 1;
+message UpdateManifest {
+  repeated UpdateManifestEntry items = 1;
 }
 
 message PluginArchiveEntry {
-  PluginManifestEntry metadata = 1;
+  UpdateManifestEntry metadata = 1;
   bytes data = 2;
 }
 
@@ -60,10 +59,10 @@ message PluginArchive {
 // opPath should be empty when op == PatchRename
 // bytes should be empty when op == PatchRemove
 message PatchSpec {
-  string module = 1;
+  string package = 1;
   PatchOp op = 2;
   bytes data = 3;
-  string filename = 4;
+  string path = 4;
   string oldDigest = 5;
   string newDigest = 6;
 }

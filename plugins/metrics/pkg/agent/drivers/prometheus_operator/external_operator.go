@@ -2,11 +2,9 @@ package prometheus_operator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
-	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -22,15 +20,11 @@ import (
 	reconcilerutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type ExternalPromOperatorDriver struct {
@@ -291,86 +285,6 @@ func (d *ExternalPromOperatorDriver) buildRbac() (*corev1.ServiceAccount, *rbacv
 		},
 	}
 	return svcAcct, clusterRole, clusterRoleBinding
-}
-
-func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shouldExist bool) error {
-	// get the object
-	key := client.ObjectKeyFromObject(desired)
-	lg := d.Logger.With("object", key)
-	lg.Info("reconciling object")
-
-	// get the agent statefulset
-	list := &appsv1.StatefulSetList{}
-	if err := d.K8sClient.List(context.TODO(), list,
-		client.InNamespace(d.Namespace),
-		client.MatchingLabels{
-			"opni.io/app": "agent",
-		},
-	); err != nil {
-		return err
-	}
-
-	if len(list.Items) != 1 {
-		return errors.New("statefulsets found not exactly 1")
-	}
-	agentStatefulSet := &list.Items[0]
-
-	current := desired.DeepCopyObject().(client.Object)
-	err := d.K8sClient.Get(context.TODO(), key, current)
-	if client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	// this can error if the object is cluster-scoped, but that's ok
-	controllerutil.SetOwnerReference(agentStatefulSet, desired, d.K8sClient.Scheme())
-
-	if k8serrors.IsNotFound(err) {
-		if !shouldExist {
-			lg.Info("object does not exist and should not exist, skipping")
-			return nil
-		}
-		lg.Info("object does not exist, creating")
-		// create the object
-		return d.K8sClient.Create(context.TODO(), desired)
-	} else if !shouldExist {
-		// delete the object
-		lg.Info("object exists and should not exist, deleting")
-		return d.K8sClient.Delete(context.TODO(), current)
-	}
-
-	// update the object
-	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
-	if err != nil {
-		d.Logger.With(
-			zap.Error(err),
-		).Warn("could not match objects")
-		return err
-	}
-	if patchResult.IsEmpty() {
-		d.Logger.Info("resource is in sync")
-		return nil
-	}
-	d.Logger.Info("resource diff")
-
-	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
-		d.Logger.With(
-			zap.Error(err),
-		).Error("failed to set last applied annotation")
-	}
-
-	metaAccessor := meta.NewAccessor()
-
-	currentResourceVersion, err := metaAccessor.ResourceVersion(current)
-	if err != nil {
-		return err
-	}
-	if err := metaAccessor.SetResourceVersion(desired, currentResourceVersion); err != nil {
-		return err
-	}
-
-	d.Logger.Info("updating resource")
-
-	return d.K8sClient.Update(context.TODO(), desired)
 }
 
 func (d *ExternalPromOperatorDriver) DiscoverPrometheuses(ctx context.Context, namespace string) ([]*remoteread.DiscoveryEntry, error) {

@@ -1,5 +1,4 @@
 ---
-{{- if (or (eq .Values.agent.version "v2") .Values.metrics.enabled) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,8 +16,6 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
 ---
-{{- end }}
-{{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -33,4 +30,3 @@ spec:
   selector:
     {{- include "opni-agent.selectorLabels" . | nindent 4 }}
 ---
-{{- end }}

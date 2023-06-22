@@ -1,5 +1,4 @@
 {{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
-{{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -20,4 +19,3 @@ spec:
     kind: Issuer
     name: opni-agent-selfsigned-issuer
   secretName: agent-webhook-server-cert
-{{- end }}

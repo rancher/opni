@@ -134,11 +134,13 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 		gatewayConfig = environment.NewGatewayConfig()
 		gatewayConfig.Spec.Plugins = v1beta1.PluginsSpec{
 			Dir: path.Join(tempDir, "plugins"),
-			Cache: v1beta1.CacheSpec{
-				PatchEngine: v1beta1.PatchEngineBsdiff,
-				Backend:     v1beta1.CacheBackendFilesystem,
-				Filesystem: v1beta1.FilesystemCacheSpec{
-					Dir: path.Join(tempDir, "cache"),
+			Binary: v1beta1.BinaryPluginsSpec{
+				Cache: v1beta1.CacheSpec{
+					PatchEngine: v1beta1.PatchEngineBsdiff,
+					Backend:     v1beta1.CacheBackendFilesystem,
+					Filesystem: v1beta1.FilesystemCacheSpec{
+						Dir: path.Join(tempDir, "cache"),
+					},
 				},
 			},
 		}
@@ -207,14 +209,10 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 						Token: t.EncodeHex(),
 						Pins:  []string{fingerprint},
 					},
-					Plugins: v1beta1.PluginsSpec{
-						Dir: path.Join(tempDir, "plugins"),
-						Cache: v1beta1.CacheSpec{
-							Backend: v1beta1.CacheBackendFilesystem,
-							Filesystem: v1beta1.FilesystemCacheSpec{
-								Dir: path.Join(tempDir, "cache"),
-							},
-						},
+					PluginDir: path.Join(tempDir, "plugins"),
+					PluginUpgrade: v1beta1.PluginUpgradeSpec{
+						Type:   v1beta1.PluginUpgradeBinary,
+						Binary: &v1beta1.BinaryUpgradeSpec{},
 					},
 				},
 			}

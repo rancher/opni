@@ -5,7 +5,7 @@ import (
 
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/test"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 

@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -216,7 +215,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 }
 
 type LoadOptions struct {
-	manifest      *controlv1.PluginManifest
+	manifest      *controlv1.UpdateManifest
 	clientOptions []ClientOption
 }
 
@@ -238,7 +237,7 @@ func WithClientOptions(clientOptions ...ClientOption) LoadOption {
 // that can be loaded, and verify plugin checksums before loading.
 // If this option is not provided, plugins will be loaded without any
 // restrictions or verification.
-func WithManifest(manifest *controlv1.PluginManifest) LoadOption {
+func WithManifest(manifest *controlv1.UpdateManifest) LoadOption {
 	return func(o *LoadOptions) {
 		o.manifest = manifest
 	}
@@ -250,7 +249,7 @@ func WithManifest(manifest *controlv1.PluginManifest) LoadOption {
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, opts ...LoadOption) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, pluginDir string, scheme meta.Scheme, opts ...LoadOption) {
 	options := LoadOptions{}
 	options.apply(opts...)
 
@@ -258,7 +257,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	secureConfigs := make(map[string]*plugin.SecureConfig)
 	if verifyManifest {
 		for _, entry := range options.manifest.Items {
-			secureConfigs[entry.Module] = &plugin.SecureConfig{
+			secureConfigs[entry.Package] = &plugin.SecureConfig{
 				Checksum: entry.DigestBytes(),
 				Hash:     entry.DigestHash(),
 			}
@@ -270,7 +269,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	wg := &sync.WaitGroup{}
 
 	dc := DiscoveryConfig{
-		Dir:    conf.Dir,
+		Dir:    pluginDir,
 		Logger: p.logger,
 	}
 	plugins := dc.Discover()

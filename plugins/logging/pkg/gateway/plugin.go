@@ -32,7 +32,9 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	alertingApi "github.com/rancher/opni/plugins/logging/apis/alerting"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
+	"github.com/rancher/opni/plugins/logging/pkg/gateway/alerting"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
@@ -58,6 +60,7 @@ type Plugin struct {
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
+	alertingServer      *alerting.AlertingManagementServer
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *otel.OTELForwarder
@@ -135,6 +138,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
 		kv:                  kv,
+		alertingServer:      alerting.NewAlertingManagementServer(),
 		opensearchManager: opensearchdata.NewManager(
 			lg.Named("opensearch-manager"),
 			kv,
@@ -173,8 +177,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	return p
 }
 
-var _ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
-var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
+var (
+	_ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
+	_ collogspb.LogsServiceServer       = (*otel.OTELForwarder)(nil)
+)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
@@ -232,6 +238,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	if state := p.backendDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
 		go p.opensearchManager.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
+		go p.alertingServer.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
 		err = loggingManager.createInitialAdmin()
 		if err != nil {
 			p.logger.Warnf("failed to create initial admin: %v", err)
@@ -246,6 +253,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 		managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
+			util.PackService(&alertingApi.MonitorManagement_ServiceDesc, p.alertingServer),
+			util.PackService(&alertingApi.NotificationManagement_ServiceDesc, p.alertingServer),
+			util.PackService(&alertingApi.AlertManagement_ServiceDesc, p.alertingServer),
 		),
 	)
 
@@ -257,6 +267,7 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		managementDriver:  p.managementDriver,
 		backendDriver:     p.backendDriver,
 		logger:            p.logger.Named("opensearch-manager"),
+		alertingServer:    p.alertingServer,
 		opensearchManager: p.opensearchManager,
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,

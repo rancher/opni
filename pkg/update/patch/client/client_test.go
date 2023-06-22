@@ -815,13 +815,6 @@ var _ = Describe("Client", Label("unit"), func() {
 					RequiredPatches: patches,
 				}
 				Expect(client.HandleSyncResults(context.Background(), syncResp)).To(Succeed())
-
-				patches = &controlv1.PatchList{
-					Items: []*controlv1.PatchSpec{
-						op(opUpdate, test1, v1, v2),
-					},
-				}
-				Expect(client.HandleSyncResults(context.Background(), syncResp)).To(Succeed())
 			})
 		})
 	})

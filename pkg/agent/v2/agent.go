@@ -198,6 +198,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		&conf.Spec.Upgrade,
 		lg.Named("agent-upgrader"),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("agent upgrade configuration error: %w", err)
+	}
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer initCancel()

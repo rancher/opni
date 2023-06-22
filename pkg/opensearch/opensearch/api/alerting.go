@@ -41,6 +41,11 @@ func (m *MonitorAPI) CreateMonitor(ctx context.Context, body io.Reader) (*Respon
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := m.Perform(req)
 	return (*Response)(res), err
@@ -51,6 +56,11 @@ func (m *MonitorAPI) GetMonitor(ctx context.Context, monitorId string) (*Respons
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := m.Perform(req)
 	return (*Response)(res), err
@@ -61,6 +71,11 @@ func (m *MonitorAPI) UpdateMonitor(ctx context.Context, monitorId string, body i
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := m.Perform(req)
 	return (*Response)(res), err
@@ -71,6 +86,11 @@ func (m *MonitorAPI) DeleteMonitor(ctx context.Context, monitorId string) (*Resp
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	res, err := m.Perform(req)
 	return (*Response)(res), err
 }
@@ -84,6 +104,11 @@ func (d *NotificationAPI) CreateNotification(ctx context.Context, body io.Reader
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := d.Perform(req)
 	return (*Response)(res), err
@@ -95,6 +120,11 @@ func (d *NotificationAPI) GetNotification(ctx context.Context, channelId string)
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := d.Perform(req)
 	return (*Response)(res), err
@@ -105,6 +135,11 @@ func (d *NotificationAPI) ListNotifications(ctx context.Context) (*Response, err
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := d.Perform(req)
 	return (*Response)(res), err
@@ -116,6 +151,11 @@ func (d *NotificationAPI) UpdateNotification(ctx context.Context, channelId stri
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	req.Header.Add(headerContentType, jsonContentHeader)
 	res, err := d.Perform(req)
 	return (*Response)(res), err
@@ -127,6 +167,11 @@ func (d *NotificationAPI) DeleteNotification(ctx context.Context, channelId stri
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	res, err := d.Perform(req)
 	return (*Response)(res), err
 }
@@ -137,6 +182,11 @@ func (a *AlertAPI) ListAlerts(ctx context.Context) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	res, err := a.Perform(req)
 	return (*Response)(res), err
 }
@@ -147,6 +197,11 @@ func (a *AlertAPI) AcknowledgeAlert(ctx context.Context, monitorId string, body 
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	res, err := a.Perform(req)
 	return (*Response)(res), err
 }

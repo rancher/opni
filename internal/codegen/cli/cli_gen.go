@@ -179,7 +179,7 @@ type serviceGenWriters struct {
 	PrintObtainClient        func(service *protogen.Service, g *protogen.GeneratedFile)
 }
 
-func generateContextInjectionFunctions(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func generateContextInjectionFunctions(_ *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
 	for _, service := range file.Services {
 		g.P("type contextKey_", service.GoName, "_type struct{}")
 		g.P("var contextKey_", service.GoName, " contextKey_", service.GoName, "_type")
@@ -196,7 +196,7 @@ func generateContextInjectionFunctions(gen *protogen.Plugin, file *protogen.File
 	}
 }
 
-func (cg *Generator) generateServiceTopLevelCmd(gen *protogen.Plugin, file *protogen.File, service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateServiceTopLevelCmd(_ *protogen.Plugin, _ *protogen.File, service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
 	leadingComments := formatComments(service.Comments)
 
 	opts := CommandGroupOptions{
@@ -238,7 +238,7 @@ func (cg *Generator) generateServiceTopLevelCmd(gen *protogen.Plugin, file *prot
 	g.P("}")
 }
 
-func (cg *Generator) generateMethodCmd(gen *protogen.Plugin, file *protogen.File, service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateMethodCmd(_ *protogen.Plugin, _ *protogen.File, service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
 	writers.PrintCmdBuilderSignature(method.GoName, service.GoName, g)
 	isEmpty := method.Input.Desc.FullName() == "google.protobuf.Empty"
 	if !isEmpty {
@@ -653,7 +653,7 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P("}")
 }
 
-func (cg *Generator) generateDeepcopyFunctions(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func (cg *Generator) generateDeepcopyFunctions(_ *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
 	for _, msg := range file.Messages {
 		g.P()
 		g.P("func (in *", msg.GoIdent, ") DeepCopyInto(out *", msg.GoIdent, ") {")

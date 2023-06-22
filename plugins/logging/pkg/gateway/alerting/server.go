@@ -36,7 +36,7 @@ func NewAlertingManagementServer() *AlertingManagementServer {
 }
 
 func (a *AlertingManagementServer) CreateMonitor(ctx context.Context, req *alerting.Monitor) (*emptypb.Empty, error) {
-	resp, err := a.Alerting.CreateMonitor(context.Background(), bytes.NewReader(req.GetSpec()))
+	resp, err := a.Alerting.CreateMonitor(ctx, bytes.NewReader(req.GetSpec()))
 	if err != nil {
 		return nil, err
 	}

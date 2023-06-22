@@ -8,7 +8,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (m *PluginManifest) DigestSet() map[string]struct{} {
+func (m *UpdateManifest) DigestSet() map[string]struct{} {
 	hm := map[string]struct{}{}
 	for _, v := range m.Items {
 		hm[v.GetDigest()] = struct{}{}
@@ -16,7 +16,7 @@ func (m *PluginManifest) DigestSet() map[string]struct{} {
 	return hm
 }
 
-func (m *PluginManifest) PluginDigests() map[string]string {
+func (m *UpdateManifest) PluginDigests() map[string]string {
 	hm := map[string]string{}
 	for _, v := range m.Items {
 		hm[v.GetId()] = v.GetDigest()
@@ -24,34 +24,34 @@ func (m *PluginManifest) PluginDigests() map[string]string {
 	return hm
 }
 
-func (m *PluginManifestEntry) GetId() string {
-	return m.GetModule()
+func (m *UpdateManifestEntry) GetId() string {
+	return m.GetPackage()
 }
 
-func (m *PluginManifestEntry) DigestBytes() []byte {
+func (m *UpdateManifestEntry) DigestBytes() []byte {
 	decoded, _ := hex.DecodeString(m.GetDigest())
 	return decoded
 }
 
-func (m *PluginManifestEntry) DigestHash() hash.Hash {
+func (m *UpdateManifestEntry) DigestHash() hash.Hash {
 	h, _ := blake2b.New256(nil)
 	return h
 }
 
-func (m *PluginManifest) Sort() {
-	slices.SortFunc(m.Items, func(a, b *PluginManifestEntry) bool {
-		return a.GetModule() < b.GetModule()
+func (m *UpdateManifest) Sort() {
+	slices.SortFunc(m.Items, func(a, b *UpdateManifestEntry) bool {
+		return a.GetPackage() < b.GetPackage()
 	})
 }
 
 func (a *PluginArchive) Sort() {
 	slices.SortFunc(a.Items, func(a, b *PluginArchiveEntry) bool {
-		return a.GetMetadata().GetModule() < b.GetMetadata().GetModule()
+		return a.GetMetadata().GetPackage() < b.GetMetadata().GetPackage()
 	})
 }
 
-func (a *PluginArchive) ToManifest() *PluginManifest {
-	manifest := &PluginManifest{}
+func (a *PluginArchive) ToManifest() *UpdateManifest {
+	manifest := &UpdateManifest{}
 	for _, entry := range a.Items {
 		manifest.Items = append(manifest.Items, entry.Metadata)
 	}
@@ -63,26 +63,27 @@ func (l *PatchList) Sort() {
 		if a.GetOp() != b.GetOp() {
 			return a.GetOp() < b.GetOp()
 		}
-		if a.GetModule() != b.GetModule() {
-			return a.GetModule() < b.GetModule()
+		if a.GetPackage() != b.GetPackage() {
+			return a.GetPackage() < b.GetPackage()
 		}
-		return a.GetFilename() < b.GetFilename()
+		return a.GetPath() < b.GetPath()
 	})
 }
 
 const (
+	UpdateStrategyKey = "update-strategy"
 	ManifestDigestKey = "manifest-digest"
 	AgentBuildInfoKey = "agent-build-info"
 )
 
 // Returns a hash of the manifest metadata list. This can be used to compare
 // manifests between the gateway and agent.
-func (m *PluginManifest) Digest() string {
+func (m *UpdateManifest) Digest() string {
 	m.Sort()
 	hash, _ := blake2b.New256(nil)
 	for _, entry := range m.GetItems() {
-		hash.Write([]byte(entry.GetModule()))
-		hash.Write([]byte(entry.GetFilename()))
+		hash.Write([]byte(entry.GetPackage()))
+		hash.Write([]byte(entry.GetPath()))
 		hash.Write([]byte(entry.GetDigest()))
 	}
 	return hex.EncodeToString(hash.Sum(nil))

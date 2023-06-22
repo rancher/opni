@@ -392,6 +392,8 @@ spec:
                         type: array
                     type: object
                 type: object
+              agentImageTagOverride:
+                type: string
               alerting:
                 properties:
                   alertVolumeMounts:

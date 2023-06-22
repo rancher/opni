@@ -27,6 +27,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
+	_ "github.com/rancher/opni/pkg/oci/kubernetes"
+	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
 	_ "github.com/rancher/opni/pkg/storage/crds"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
@@ -153,7 +155,7 @@ func BuildGatewayCmd() *cobra.Command {
 			}
 		}))
 
-		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins, plugins.GatewayScheme)
+		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins.Dir, plugins.GatewayScheme)
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).

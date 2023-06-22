@@ -10,7 +10,9 @@ import (
 	"github.com/rancher/opni/pkg/auth/challenges"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
-	"github.com/rancher/opni/pkg/patch"
+	"github.com/rancher/opni/pkg/update"
+	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
+	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/spf13/afero"
 
 	"github.com/hashicorp/go-plugin"
@@ -199,9 +201,12 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		challenges.If(session.ShouldEnableIncoming).Then(sessionAttrChallenge),
 	))
 
+	//set up update server
+	updateServer := update.NewUpdateServer()
+
 	// set up plugin sync server
-	syncServer, err := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
-		patch.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
+	binarySyncServer, err := patchserver.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
+		patchserver.WithPluginSyncFilters(func(pm meta.PluginMeta) bool {
 			if pm.ExtendedMetadata != nil {
 				// only sync plugins that have the agent mode set
 				return slices.Contains(pm.ExtendedMetadata.ModeList.Modes, meta.ModeAgent)
@@ -215,13 +220,23 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create plugin sync server")
 	}
 
-	httpServer.metricsRegisterer.MustRegister(syncServer.Collectors()...)
-
-	if err := syncServer.RunGarbageCollection(ctx, storageBackend); err != nil {
+	if err := binarySyncServer.RunGarbageCollection(ctx, storageBackend); err != nil {
 		lg.With(
 			zap.Error(err),
 		).Error("failed to run garbage collection")
 	}
+
+	updateServer.RegisterUpdateHandler(binarySyncServer.Strategy(), binarySyncServer)
+
+	kubernetesSyncServer, err := k8sserver.NewKubernetesSyncServer(conf.Spec.AgentUpgrades.Kubernetes, lg)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to create kubernetes agent sync server")
+	}
+	updateServer.RegisterUpdateHandler(kubernetesSyncServer.Strategy(), kubernetesSyncServer)
+
+	httpServer.metricsRegisterer.MustRegister(updateServer.Collectors()...)
 
 	// set up grpc server
 	rateLimitOpts := []ratelimiterOption{}
@@ -234,7 +249,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpc.ChainStreamInterceptor(
 			NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor(),
 			clusterAuth,
-			syncServer.StreamServerInterceptor(),
+			updateServer.StreamServerInterceptor(),
 			NewLastKnownDetailsApplier(storageBackend),
 		),
 	)
@@ -253,8 +268,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
-	controlv1.RegisterPluginSyncServer(grpcServer, syncServer)
 	corev1.RegisterPingerServer(streamSvc, &pinger{})
+	controlv1.RegisterUpdateSyncServer(grpcServer, updateServer)
 
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 

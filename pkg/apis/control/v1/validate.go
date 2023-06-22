@@ -17,10 +17,10 @@ func (a *PluginArchiveEntry) Validate() error {
 	if a.Metadata.GetDigest() == "" {
 		return validation.Error("digest is required for plugin archive entries")
 	}
-	if a.Metadata.GetFilename() == "" {
-		return validation.Error("filename is required for plugin archive entries")
+	if a.Metadata.GetPath() == "" {
+		return validation.Error("path is required for plugin archive entries")
 	}
-	if a.Metadata.GetModule() == "" {
+	if a.Metadata.GetPackage() == "" {
 		return validation.Error("module is required for plugin archive entries")
 	}
 	if a.Metadata.GetId() == "" {
@@ -29,20 +29,20 @@ func (a *PluginArchiveEntry) Validate() error {
 	return nil
 }
 
-func (m *PluginManifestEntry) Validate() error {
+func (m *UpdateManifestEntry) Validate() error {
 	if m.Digest == "" {
 		return validation.Error("digest is required for plugin manifest entries")
 	}
-	if m.Filename == "" {
-		return validation.Error("Filename is required for plugin manifest entries")
+	if m.Path == "" {
+		return validation.Error("Path is required for plugin manifest entries")
 	}
-	if m.Module == "" {
-		return validation.Error("Module is required for plugin manifest entries")
+	if m.Package == "" {
+		return validation.Error("Package is required for plugin manifest entries")
 	}
 	return nil
 }
 
-func (m *PluginManifest) Validate() error {
+func (m *UpdateManifest) Validate() error {
 	for _, item := range m.Items {
 		if err := item.Validate(); err != nil {
 			return err
@@ -52,10 +52,10 @@ func (m *PluginManifest) Validate() error {
 }
 
 func (a *PatchSpec) Validate() error {
-	if a.GetFilename() == "" {
+	if a.GetPath() == "" {
 		return validation.Error("filename must be set")
 	}
-	if a.GetModule() == "" {
+	if a.GetPackage() == "" {
 		return validation.Error("module must be set")
 	}
 	switch a.GetOp() {

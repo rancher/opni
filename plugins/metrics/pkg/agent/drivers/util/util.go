@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"

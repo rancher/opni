@@ -7,10 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
+	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -122,23 +119,6 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		// First remove old objects
-		for _, obj := range []client.Object{
-			m.buildAuthSecret(),
-			m.buildDataPrepper(),
-			m.buildOpniClusterOutput(),
-			m.buildOpniClusterFlow(),
-			m.buildLogAdapter(),
-		} {
-			if err := m.reconcileObject(obj, false); err != nil {
-				m.Logger.With(
-					"object", client.ObjectKeyFromObject(obj).String(),
-					zap.Error(err),
-				).Error("error reconciling object")
-				continue BACKOFF
-			}
-		}
-		// Now create new objects
 		collectorConf := m.buildLoggingCollectorConfig()
 		if err := m.reconcileObject(collectorConf, config.Enabled); err != nil {
 			m.Logger.With(
@@ -163,121 +143,6 @@ BACKOFF:
 	} else {
 		m.Logger.Info("objects reconciled successfully")
 	}
-}
-
-func (m *KubernetesManagerDriver) buildAuthSecret() *corev1.Secret {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: m.Namespace,
-		},
-	}
-	return secret
-}
-
-func (m *KubernetesManagerDriver) buildDataPrepper() *opniloggingv1beta1.DataPrepper {
-	dataPrepper := &opniloggingv1beta1.DataPrepper{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dataPrepperName,
-			Namespace: m.Namespace,
-		},
-	}
-	return dataPrepper
-}
-
-func (m *KubernetesManagerDriver) buildOpniClusterOutput() *loggingv1beta1.ClusterOutput {
-	return &loggingv1beta1.ClusterOutput{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterOutputName,
-			Namespace: m.Namespace,
-		},
-		Spec: loggingv1beta1.ClusterOutputSpec{
-			OutputSpec: loggingv1beta1.OutputSpec{
-				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, m.Namespace),
-					ContentType: "application/json",
-					JsonArray:   true,
-					Buffer: &output.Buffer{
-						Tags:           lo.ToPtr("[]"),
-						FlushInterval:  "2s",
-						ChunkLimitSize: "1mb",
-					},
-				},
-			},
-		},
-	}
-}
-
-func (m *KubernetesManagerDriver) buildOpniClusterFlow() *loggingv1beta1.ClusterFlow {
-	return &loggingv1beta1.ClusterFlow{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterFlowName,
-			Namespace: m.Namespace,
-		},
-		Spec: loggingv1beta1.ClusterFlowSpec{
-			Filters: []loggingv1beta1.Filter{
-				{
-					Dedot: &filter.DedotFilterConfig{
-						Separator: "-",
-						Nested:    true,
-					},
-				},
-				{
-					Grep: &filter.GrepConfig{
-						Exclude: []filter.ExcludeSection{
-							{
-								Key:     "log",
-								Pattern: `^\n$`,
-							},
-						},
-					},
-				},
-				{
-					DetectExceptions: &filter.DetectExceptions{
-						Languages: []string{
-							"java",
-							"python",
-							"go",
-							"ruby",
-							"js",
-							"csharp",
-							"php",
-						},
-						MultilineFlushInterval: "0.1",
-					},
-				},
-			},
-			Match: []loggingv1beta1.ClusterMatch{
-				{
-					ClusterExclude: &loggingv1beta1.ClusterExclude{
-						Namespaces: []string{
-							m.Namespace,
-						},
-					},
-				},
-				{
-					ClusterSelect: &loggingv1beta1.ClusterSelect{},
-				},
-			},
-			GlobalOutputRefs: []string{
-				clusterOutputName,
-			},
-		},
-	}
-}
-
-func (m *KubernetesManagerDriver) buildLogAdapter() *opniloggingv1beta1.LogAdapter {
-	logAdapter := &opniloggingv1beta1.LogAdapter{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "opni-logging",
-		},
-		Spec: opniloggingv1beta1.LogAdapterSpec{
-			Provider:         opniloggingv1beta1.LogProvider(m.provider),
-			ControlNamespace: &m.Namespace,
-		},
-	}
-	logAdapter.Default()
-	return logAdapter
 }
 
 func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1beta1.CollectorConfig {

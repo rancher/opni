@@ -3,7 +3,7 @@ package alerting
 import (
 	"context"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"

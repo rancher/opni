@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/resources"

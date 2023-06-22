@@ -706,6 +706,9 @@ func (d *KubernetesManagerDriver) convertProtobufToDashboards(
 			}
 			return resources
 		}(),
+		Service: opsterv1.DashboardsServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+		},
 		Version: osVersion,
 		Tls: &opsterv1.DashboardsTlsConfig{
 			Enable:   true,

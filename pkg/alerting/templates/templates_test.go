@@ -64,10 +64,8 @@ var _ = Describe("Prometheus fingerprint templating", Label("unit"), func() {
 					output: "0",
 					queryResult: promql.Vector{
 						{
-							Point: promql.Point{
-								T: time.Now().Unix(),
-								V: 0,
-							},
+							T: time.Now().Unix(),
+							F: 0,
 						},
 					},
 				},
@@ -82,10 +80,8 @@ var _ = Describe("Prometheus fingerprint templating", Label("unit"), func() {
 									Value: "ALERTS_FOR_STATE",
 								},
 							},
-							Point: promql.Point{
-								T: time.Now().Unix(),
-								V: fingerprintTs,
-							},
+							T: time.Now().Unix(),
+							F: fingerprintTs,
 						},
 					},
 				},

@@ -30,11 +30,13 @@ var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 		})
 	})
 	It("should obtain a unique identifier from a kubernetes cluster", func() {
-		ident.RegisterProvider("k8s-test", func() ident.Provider {
+		ident.RegisterProvider("k8s-test", func(_ ...any) ident.Provider {
 			return kubernetes.NewKubernetesProvider(kubernetes.WithRestConfig(restConfig))
 		})
-		provider, err := ident.GetProvider("k8s-test")
+		builder, err := ident.GetProviderBuilder("k8s-test")
 		Expect(err).NotTo(HaveOccurred())
+
+		provider := builder()
 
 		cl, err := client.New(restConfig, client.Options{})
 		Expect(err).NotTo(HaveOccurred())

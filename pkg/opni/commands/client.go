@@ -115,10 +115,6 @@ func BuildClientCmd() *cobra.Command {
 			opnicorev1beta1.CollectorCRD,
 			loggingv1beta1.CollectorConfigCRD,
 			monitoringv1beta1.CollectorConfigCRD,
-			loggingv1beta1.DataPrepperCRD,
-			loggingv1beta1.ClusterOutputCRD,
-			loggingv1beta1.ClusterFlowCRD,
-			loggingv1beta1.LogAdapterCRD,
 			opnicorev1beta1.KeyringCRD,
 		} {
 			crd, err := crdFunc()

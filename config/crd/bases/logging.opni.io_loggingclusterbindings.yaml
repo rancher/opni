@@ -60,6 +60,8 @@ spec:
                   namespace:
                     type: string
                 type: object
+            required:
+            - opensearchClusterRef
             type: object
           status:
             properties:

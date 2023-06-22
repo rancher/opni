@@ -9,6 +9,7 @@ import (
 	"github.com/kralicky/ragu/pkg/plugins/python"
 	"github.com/magefile/mage/mg"
 	"github.com/rancher/opni/internal/codegen/cli"
+	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
 )
 
 // Generates Go protobuf code

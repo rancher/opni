@@ -7,7 +7,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"

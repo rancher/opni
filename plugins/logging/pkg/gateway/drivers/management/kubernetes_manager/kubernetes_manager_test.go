@@ -85,6 +85,9 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 				Enable:   true,
 				Generate: true,
 			},
+			Service: opsterv1.DashboardsServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+			},
 			AdditionalConfig: map[string]string{
 				"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
 				"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",

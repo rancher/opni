@@ -63,7 +63,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -109,8 +108,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			"../config/crd/bases",
 			"../config/crd/logging",
 			"../config/crd/grafana",
-			"../config/crd/nvidia",
-			"../config/crd/nfd",
 			"../config/crd/opensearch",
 			"../test/resources",
 		},
@@ -130,12 +127,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	certMgr = &testk8s.TestCertManager{}
 
 	stopEnv, k8sManager, k8sClient = RunTestEnvironment(testEnv, true, false,
-		&controllers.GpuPolicyAdapterReconciler{},
-		&controllers.LoggingReconciler{},
 		&controllers.CoreGatewayReconciler{},
 		&controllers.CoreMonitoringReconciler{},
 		&controllers.LoggingDataPrepperReconciler{},
-		&controllers.LoggingLogAdapterReconciler{},
 		&controllers.CoreAlertingReconciler{},
 		&controllers.AIOpniClusterReconciler{
 			Opts: []opnicluster.ReconcilerOption{
@@ -285,7 +279,7 @@ func buildAICluster(opts opniClusterOpts) *aiv1beta1.OpniCluster {
 	}
 	return &aiv1beta1.OpniCluster{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta2.GroupVersion.String(),
+			APIVersion: aiv1beta1.GroupVersion.String(),
 			Kind:       "OpniCluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{

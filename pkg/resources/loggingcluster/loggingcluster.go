@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"

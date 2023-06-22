@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"

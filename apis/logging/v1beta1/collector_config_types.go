@@ -1,10 +1,53 @@
 package v1beta1
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/schemas/openapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type LogProvider string
+
+const (
+	LogProviderAKS     LogProvider = "aks"
+	LogProviderEKS     LogProvider = "eks"
+	LogProviderGKE     LogProvider = "gke"
+	LogProviderK3S     LogProvider = "k3s"
+	LogProviderRKE     LogProvider = "rke"
+	LogProviderRKE2    LogProvider = "rke2"
+	LogProviderGeneric LogProvider = "generic"
+)
+
+type ContainerEngine string
+
+const (
+	ContainerEngineSystemd ContainerEngine = "systemd"
+	ContainerEngineOpenRC  ContainerEngine = "openrc"
+)
+
+// Provider-specific settings are below.
+type AKSSpec struct {
+}
+
+type EKSSpec struct {
+}
+
+type GKESpec struct {
+}
+
+type K3SSpec struct {
+	ContainerEngine ContainerEngine `json:"containerEngine,omitempty"`
+	LogPath         string          `json:"logPath,omitempty"`
+}
+
+type RKESpec struct {
+	LogLevel opnimeta.LogLevel `json:"logLevel,omitempty"`
+}
+
+type RKE2Spec struct {
+	LogPath string `json:"logPath,omitempty"`
+}
 
 // CollectorConfigSpec defines the desired state of CollectorConfig
 type CollectorConfigSpec struct {

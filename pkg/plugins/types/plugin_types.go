@@ -14,6 +14,6 @@ type (
 	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capabilityv1.BackendClient
 	CapabilityNodePlugin         = capabilityv1.NodeClient
-	MetricsPlugin                = collector.RemoteCollector
+	MetricsPlugin                = collector.RemoteProducer
 	SystemPlugin                 = system.SystemPluginServer
 )

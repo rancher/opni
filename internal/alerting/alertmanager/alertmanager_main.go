@@ -139,7 +139,7 @@ const defaultClusterAddr = "0.0.0.0:9094"
 
 // buildReceiverIntegrations builds a list of integration notifiers off of a
 // receiver config.
-func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, logger log.Logger) ([]notify.Integration, error) {
+func buildReceiverIntegrations(nc config.Receiver, tmpl *template.Template, logger log.Logger) ([]notify.Integration, error) {
 	var (
 		errs         types.MultiError
 		integrations []notify.Integration
@@ -296,15 +296,14 @@ func run(args []string) int {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	notificationLogOpts := []nflog.Option{
-		nflog.WithRetention(*retention),
-		nflog.WithSnapshot(filepath.Join(*dataDir, "nflog")),
-		nflog.WithMaintenance(*maintenanceInterval, stopc, wg.Done, nil),
-		nflog.WithMetrics(prometheus.DefaultRegisterer),
-		nflog.WithLogger(log.With(logger, "component", "nflog")),
+	notificationLogOpts := nflog.Options{
+		SnapshotFile: filepath.Join(*dataDir, "nflog"),
+		Retention:    *retention,
+		Logger:       log.With(logger, "component", "nflog"),
+		Metrics:      prometheus.DefaultRegisterer,
 	}
 
-	notificationLog, err := nflog.New(notificationLogOpts...)
+	notificationLog, err := nflog.New(notificationLogOpts)
 	if err != nil {
 		level.Error(logger).Log("err", err)
 		return 1
@@ -436,7 +435,7 @@ func run(args []string) int {
 		configLogger,
 	)
 	configCoordinator.Subscribe(func(conf *config.Config) error {
-		tmpl, err = template.FromGlobs(conf.Templates...)
+		tmpl, err = template.FromGlobs(conf.Templates)
 		if err != nil {
 			return errors.Wrap(err, "failed to parse templates")
 		}

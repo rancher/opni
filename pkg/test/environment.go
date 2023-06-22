@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/kralicky/totem"
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	natstest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
@@ -42,6 +44,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/caching"
@@ -73,6 +76,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	_ "github.com/rancher/opni/pkg/storage/etcd"
@@ -1442,6 +1446,71 @@ func WithClientCaching(memoryLimitBytes int64, _ time.Duration) EnvClientOption 
 	}
 }
 
+func (e *Environment) NewStreamConnection(pins []string) (grpc.ClientConnInterface, <-chan error) {
+	if !e.enableGateway {
+		panic("gateway is not enabled")
+	}
+	outC := make(chan error)
+
+	publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+	for i, pin := range pins {
+		d, err := pkp.DecodePin(pin)
+		if err != nil {
+			outC <- err
+			return nil, outC
+		}
+		publicKeyPins[i] = d
+	}
+	conf := trust.StrategyConfig{
+		PKP: &trust.PKPConfig{
+			Pins: trust.NewPinSource(publicKeyPins),
+		},
+	}
+	strategy, err := conf.Build()
+	if err != nil {
+		outC <- err
+		return nil, outC
+	}
+
+	tlsConfig, err := strategy.TLSConfig()
+	if err != nil {
+		outC <- err
+		return nil, outC
+	}
+
+	conn, err := grpc.DialContext(e.ctx,
+		fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithDefaultCallOptions(
+			grpc.WaitForReady(true),
+			grpc.MaxCallSendMsgSize(math.MaxInt32),
+			grpc.MaxCallRecvMsgSize(math.MaxInt32),
+		),
+	)
+	if err != nil {
+		outC <- err
+		return nil, outC
+	}
+
+	streamClient := streamv1.NewStreamClient(conn)
+	stream, err := streamClient.Connect(e.ctx)
+	if err != nil {
+		outC <- err
+		return nil, outC
+	}
+
+	ts, err := totem.NewServer(
+		stream,
+		totem.WithName("gateway-client"),
+	)
+	if err != nil {
+		outC <- err
+		return nil, outC
+	}
+
+	return ts.Serve()
+}
+
 func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.ManagementClient {
 	options := EnvClientOptions{
 		dialOptions: []grpc.DialOption{},
@@ -1660,7 +1729,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 
 	errC := make(chan error, 2)
-	if err := ident.RegisterProvider(id, func() ident.Provider {
+	if err := ident.RegisterProvider(id, func(_ ...any) ident.Provider {
 		return mock_ident.NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {
 		if !errors.Is(err, ident.ErrProviderAlreadyExists) {

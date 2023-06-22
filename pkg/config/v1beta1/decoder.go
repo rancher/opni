@@ -27,6 +27,12 @@ func DecodeObject(kind string, document []byte) (meta.Object, error) {
 			return nil, err
 		}
 		return obj, nil
+	case "SupportAgentConfig":
+		obj := &SupportAgentConfig{}
+		if err := yaml.UnmarshalStrict(document, obj); err != nil {
+			return nil, err
+		}
+		return obj, nil
 	}
 	return nil, fmt.Errorf("%w: %s", meta.ErrUnknownObjectKind, kind)
 }

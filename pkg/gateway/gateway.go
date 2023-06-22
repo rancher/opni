@@ -239,7 +239,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to load TLS config")
 	}
 
-	rateLimitOpts := []ratelimiterOption{}
+	rateLimitOpts := []RatelimiterOption{}
 	if conf.Spec.RateLimit != nil {
 		rateLimitOpts = append(rateLimitOpts, WithRate(conf.Spec.RateLimit.Rate))
 		rateLimitOpts = append(rateLimitOpts, WithBurst(conf.Spec.RateLimit.Burst))

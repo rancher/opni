@@ -16,6 +16,9 @@ import (
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v2"
@@ -85,6 +88,7 @@ func (j JetstreamRouterStore[T]) Get(_ context.Context, key string, opts ...stor
 	options.Apply(opts...)
 	var t T
 	objRes, err := j.obj.Get(j.key(key))
+
 	if err != nil {
 		return t, err
 	}
@@ -165,6 +169,9 @@ func (j *JetStreamAlertingStorage[T]) Get(_ context.Context, key string, opts ..
 	options := storage_opts.RequestOptions{}
 	options.Apply(opts...)
 	data, err := j.kv.Get(j.Key(key))
+	if errors.Is(err, nats.ErrKeyNotFound) {
+		return t, status.Error(codes.NotFound, "not found")
+	}
 	if err != nil {
 		return t, err
 	}

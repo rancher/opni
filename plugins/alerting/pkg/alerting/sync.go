@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	metricsnode "github.com/rancher/opni/plugins/metrics/apis/node"
 )
 
 // capability name ---> condition name ---> condition status
@@ -45,11 +46,11 @@ func init() {
 		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
 	RegisterCapabilityStatus(
 		wellknown.CapabilityMetrics,
-		agent.CondRemoteWrite,
+		metricsnode.CondRemoteWrite,
 		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
 	RegisterCapabilityStatus(
 		wellknown.CapabilityMetrics,
-		agent.CondRuleSync,
+		metricsnode.CondRuleSync,
 		[]health.ConditionStatus{
 			health.StatusPending,
 			health.StatusFailure})

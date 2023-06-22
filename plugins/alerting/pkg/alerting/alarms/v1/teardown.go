@@ -8,15 +8,43 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"go.uber.org/zap"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 )
 
-func (p *AlarmServerComponent) teardownCondition(ctx context.Context, _ *zap.SugaredLogger, req *alertingv1.AlertCondition, id string) error {
+const (
+	metadataCleanUpAlarm = "opni.io/alarm-cleanup"
+)
+
+func (p *AlarmServerComponent) teardownCondition(
+	ctx context.Context,
+	req *alertingv1.AlertCondition,
+	id string,
+	cleanup bool,
+) (retErr error) {
+	defer func() {
+		if cleanup && retErr == nil {
+			condStorage, err := p.conditionStorage.GetContext(ctx)
+			if err != nil {
+				retErr = err
+				return
+			}
+			if err := condStorage.Delete(ctx, id); err != nil {
+				retErr = err
+			}
+		}
+	}()
+	if req.GetMetadata() != nil && req.GetMetadata()[metadataInactiveAlarm] != "" {
+		return nil
+	}
 	if alertingv1.IsInternalCondition(req) {
 		p.runner.RemoveConfigListener(id)
-		p.incidentStorage.Get().Delete(ctx, id)
-		p.stateStorage.Get().Delete(ctx, id)
+		if err := p.incidentStorage.Get().Delete(ctx, id); err != nil {
+			retErr = err
+			return
+		}
+		if err := p.stateStorage.Get().Delete(ctx, id); err != nil {
+			retErr = err
+		}
 	}
 	if alertingv1.IsMetricsCondition(req) {
 		if r, _ := extractClusterMd(req.AlertType); r != nil {
@@ -25,9 +53,11 @@ func (p *AlarmServerComponent) teardownCondition(ctx context.Context, _ *zap.Sug
 				Namespace: shared.OpniAlertingCortexNamespace,
 				GroupName: cortex.RuleIdFromUuid(id),
 			})
-			return err
+			retErr = err
+			return
 		} else {
-			return fmt.Errorf("failed to extract clusterId from metrics condition %s", req.GetId())
+			retErr = fmt.Errorf("failed to extract clusterId from metrics condition %s", req.GetId())
+			return
 		}
 	}
 	return shared.AlertingErrNotImplemented

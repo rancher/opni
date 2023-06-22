@@ -11,17 +11,20 @@ import (
 //
 // Example:
 //
-//		var eg util.MutliErrGroup{}
+// var eg util.MutliErrGroup{}
+
+// tasks := []func() error{/* */}
 //
-//		tasks := []func() error{/* */}
-//		for _, task := range tasks {
-//		 eg.Go(func() error {
-//		    return task()
-//		 }
+//	for _, task := range tasks {
+//		eg.Go(func() error {
+//		return task()
 //		}
-//		eg.Wait()
-//		if err := eg.Error(); err != nil {
-//		 // handle error
+//	}
+//
+// eg.Wait()
+//
+//	if err := eg.Error(); err != nil {
+//		// handle error
 //	}
 type MultiErrGroup struct {
 	errMu sync.Mutex

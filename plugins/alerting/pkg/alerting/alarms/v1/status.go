@@ -27,6 +27,12 @@ import (
 )
 
 func (a *AlarmServerComponent) checkClusterStatus(cond *alertingv1.AlertCondition, info statusInfo) *alertingv1.AlertStatusResponse {
+	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataCleanUpAlarm] != "" {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Deleting,
+			Reason: "Alarm is queued for deletion",
+		}
+	}
 	clusterId := cond.GetClusterId()
 	if clusterId == nil {
 		return &alertingv1.AlertStatusResponse{

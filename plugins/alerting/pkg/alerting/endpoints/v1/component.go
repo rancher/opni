@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -84,10 +83,6 @@ func (e *EndpointServerComponent) SetConfig(conf server.Config) {
 
 func (e *EndpointServerComponent) Sync(_ context.Context, _ bool) error {
 	return nil
-}
-
-func (e *EndpointServerComponent) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{}
 }
 
 func (e *EndpointServerComponent) Initialize(conf EndpointServerConfiguration) {

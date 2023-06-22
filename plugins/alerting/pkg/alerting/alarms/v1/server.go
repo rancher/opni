@@ -105,7 +105,9 @@ func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *co
 		return &emptypb.Empty{}, nil
 	}
 
-	if err := a.conditionStorage.Get().Delete(ctx, ref.Id); err != nil {
+	existing.GetMetadata()[metadataCleanUpAlarm] = "true"
+
+	if err := a.conditionStorage.Get().Put(ctx, ref.Id, existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

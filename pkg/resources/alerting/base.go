@@ -93,17 +93,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	requiredPersistentClaims := []corev1.PersistentVolumeClaim{pvc}
 
-	// workerService, workerWorkers := r.newAlertingCluster(
-	// 	shared.OperatorAlertingClusterNodeServiceName,
-	// 	r.alertmanagerWorkerArgs(),
-	// 	publicNodeSvcLabels,
-	// 	publicNodeLabels,
-	// 	r.nodeAlertingPorts(),
-	// 	requiredVolumes,
-	// 	requiredPersistentClaims,
-	// 	lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)-1,
-	// )
-
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-alerting",

@@ -4,12 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -18,74 +14,15 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	metricsnode "github.com/rancher/opni/plugins/metrics/apis/node"
 
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// capability name ---> condition name ---> condition status
-var (
-	registerMu                   sync.RWMutex
-	RegisteredCapabilityStatuses = map[string]map[string][]health.ConditionStatus{}
-)
-
-func RegisterCapabilityStatus(capabilityName, condName string, availableStatuses []health.ConditionStatus) {
-	registerMu.Lock()
-	defer registerMu.Unlock()
-	if _, ok := RegisteredCapabilityStatuses[capabilityName]; !ok {
-		RegisteredCapabilityStatuses[capabilityName] = map[string][]health.ConditionStatus{}
-	}
-	RegisteredCapabilityStatuses[capabilityName][condName] = availableStatuses
-}
-
-func ListCapabilityStatuses(capabilityName string) map[string][]health.ConditionStatus {
-	registerMu.RLock()
-	defer registerMu.RUnlock()
-	return RegisteredCapabilityStatuses[capabilityName]
-}
-
-func ListBadDefaultStatuses() []string {
-	return []string{health.StatusFailure.String(), health.StatusPending.String()}
-}
-
-func init() {
-	// metrics
-	RegisterCapabilityStatus(
-		wellknown.CapabilityMetrics,
-		health.CondConfigSync,
-		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
-	RegisterCapabilityStatus(
-		wellknown.CapabilityMetrics,
-		metricsnode.CondRemoteWrite,
-		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
-	RegisterCapabilityStatus(
-		wellknown.CapabilityMetrics,
-		metricsnode.CondRuleSync,
-		[]health.ConditionStatus{
-			health.StatusPending,
-			health.StatusFailure,
-		})
-	RegisterCapabilityStatus(
-		wellknown.CapabilityMetrics,
-		health.CondBackend,
-		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
-	// logging
-	RegisterCapabilityStatus(wellknown.CapabilityLogs, health.CondConfigSync, []health.ConditionStatus{
-		health.StatusPending,
-		health.StatusFailure,
-	})
-	RegisterCapabilityStatus(wellknown.CapabilityLogs, health.CondBackend, []health.ConditionStatus{
-		health.StatusPending,
-		health.StatusFailure,
-	})
-}
 
 func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option) {
 	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
@@ -103,14 +40,6 @@ func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option)
 			p.clusterDriver.Set(driver)
 			break
 		}
-	}
-}
-
-func (p *Plugin) collectors() []prometheus.Collector {
-	return []prometheus.Collector{
-		metrics.SyncCycleCounter,
-		metrics.SyncCycleFailedCounter,
-		metrics.SyncCycleProcessLatency,
 	}
 }
 

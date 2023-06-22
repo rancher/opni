@@ -25,7 +25,6 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/test"
-	debug_exec "github.com/rancher/opni/pkg/test/exec"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -44,7 +43,7 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
@@ -223,7 +222,6 @@ func main() {
 			testlog.Log.Info(chalk.Blue.Color("Press (p)(a) to open a pprof allocs profile"))
 			testlog.Log.Info(chalk.Blue.Color("Press (p)(p) to run and open a pprof profile"))
 			testlog.Log.Info(chalk.Blue.Color("Press (i) to show runtime information"))
-			testlog.Log.Info(chalk.Blue.Color("Press (d) to show all attachable delve processes"))
 			testlog.Log.Info(chalk.Blue.Color("Press (h) to show this help message"))
 		}
 	}
@@ -514,11 +512,6 @@ func main() {
 			})
 			if err != nil {
 				testlog.Log.Error(err)
-			}
-		case 'd':
-			procs := debug_exec.ListDebugProcesses()
-			for _, proc := range procs {
-				fmt.Println(chalk.Green.Color(fmt.Sprintf("Running dlv process for %s on port %d...", proc.Binary, proc.Port)))
 			}
 		}
 	}

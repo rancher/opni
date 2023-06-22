@@ -39,8 +39,6 @@ func NewHttpApiServer(
 	}
 }
 
-// func (h *HttpApiServer) configureProxy()
-
 func (h *HttpApiServer) ready(c *gin.Context) {
 	if err := h.readyFunc(); err != nil {
 		c.Status(http.StatusServiceUnavailable)

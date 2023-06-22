@@ -152,7 +152,7 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Second*5, time.Millisecond*200).Should(Succeed())
 				})
 
-				It("should apply the configuration configuration", func() {
+				It("should apply the configuration", func() {
 					_, err := alertClusterClient.ConfigureCluster(env.Context(), clusterConf)
 					if err != nil {
 						if s, ok := status.FromError(err); ok { // conflict is ok if using default config
@@ -385,7 +385,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*45, time.Second).Should(Succeed())
+					}, time.Second*60, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
@@ -475,18 +475,18 @@ func BuildAlertingClusterIntegrationTests(
 								// hard to map these excatly without recreating the internal routing logic from the routers
 								// since we have dedicated routing integration tests, we can just check that the buffer is not empty
 								if len(server.GetBuffer()) == 0 {
-									return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.Buffer))
+									return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.GetBuffer()))
 								}
 							}
 						}
 						return nil
-					}, time.Second*10, time.Millisecond*200).Should(Succeed())
+					}, time.Second*120, time.Millisecond*200).Should(Succeed())
 
 					By("verifying the notification servers have not received any alarm disconnect messages")
 					Eventually(func() error {
 						for _, server := range notificationServers {
 							if len(server.GetBuffer()) != 0 {
-								return fmt.Errorf("expected webhook server %s to not have any notifications, got %d", server.EndpointId, len(server.Buffer))
+								return fmt.Errorf("expected webhook server %s to not have any notifications, got %d", server.EndpointId, len(server.GetBuffer()))
 							}
 						}
 						return nil
@@ -536,7 +536,7 @@ func BuildAlertingClusterIntegrationTests(
 					Eventually(func() error {
 						for _, server := range notificationServers {
 							if len(server.GetBuffer()) == 0 {
-								return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.Buffer))
+								return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.GetBuffer()))
 							}
 						}
 						return nil

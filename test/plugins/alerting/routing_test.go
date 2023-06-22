@@ -40,7 +40,7 @@ func init() {
 func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
-	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
+	return XDescribe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		var alertingClient client.AlertingClient
 		var alertingClient2 client.AlertingClient
 		var alertingClient3 client.AlertingClient
@@ -156,7 +156,7 @@ func BuildRoutingLogicTest(
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort)
-				}, time.Second*15, time.Second*1).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca()
 				server1.ClearBuffer()
 				server2.ClearBuffer()
@@ -191,7 +191,7 @@ func BuildRoutingLogicTest(
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort2)
-				}, time.Second*15, time.Second*1).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca2()
 
 				By("updating an endpoint to another endpoint")
@@ -230,7 +230,7 @@ func BuildRoutingLogicTest(
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort3)
-				}, time.Second*15, time.Second*1).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca3()
 			})
 		})

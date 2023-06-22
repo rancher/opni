@@ -263,7 +263,6 @@ func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertop
 
 	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
 
-	ctrlErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(cs), cs)
 	workErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(ws), ws)
 	replicas := lo.FromPtrOr(existing.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	if existing.Spec.Alertmanager.Enable {

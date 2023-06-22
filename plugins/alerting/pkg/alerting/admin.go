@@ -9,9 +9,11 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -28,6 +30,8 @@ type SyncController struct {
 	syncMu          *sync.RWMutex
 	heartbeatTicker *time.Ticker
 	forceSyncTicker *time.Ticker
+
+	metricsExporter *SyncMetricsExporter
 }
 
 func (s *SyncController) AddSyncPusher(LifecycleUuid string, pusher chan *alertops.SyncRequest) {
@@ -54,6 +58,7 @@ func NewSyncController() SyncController {
 		syncMu:          &sync.RWMutex{},
 		heartbeatTicker: time.NewTicker(SyncInterval),
 		forceSyncTicker: time.NewTicker(ForceSyncInterval),
+		metricsExporter: NewSyncMetricsExporter(),
 	}
 }
 
@@ -268,16 +273,28 @@ type syncTask func(ctx context.Context, shouldSync bool) error
 
 func (p *Plugin) runSyncTasks(tasks []syncTask) (retErr error) {
 	lg := p.logger.With("action", "runSyncTasks")
+	ctx, ca := context.WithTimeout(p.ctx, 10*time.Second)
+	defer ca()
 	start := time.Now()
 	defer func() {
-		if retErr != nil {
-			metrics.SyncCycleFailedCounter.Inc()
+		cycleAttributes := []attribute.KeyValue{
+			{
+				Key:   "status",
+				Value: attribute.StringValue("success"),
+			},
 		}
-		metrics.SyncCycleCounter.Inc()
+		if retErr != nil {
+			cycleAttributes[0].Value = attribute.StringValue("failure")
+		}
+		p.syncController.metricsExporter.syncCycleStatusCounter.Add(ctx, 1, metric.WithAttributes(
+			cycleAttributes...,
+		))
 		duration := time.Since(start).Milliseconds()
-		metrics.SyncCycleProcessLatency.Observe(float64(duration))
+		p.syncController.metricsExporter.syncCycleProcessLatency.Record(ctx, duration, metric.WithAttributes(
+			cycleAttributes...,
+		))
 	}()
-	clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
+	clStatus, err := p.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
 		lg.Warnf("skipping periodic sync due to status error: %s", err)
 		retErr = err
@@ -289,7 +306,7 @@ func (p *Plugin) runSyncTasks(tasks []syncTask) (retErr error) {
 	for _, task := range tasks {
 		task := task
 		eg.Go(func() error {
-			return task(p.ctx, shouldSync)
+			return task(ctx, shouldSync)
 		})
 	}
 	eg.Wait()
@@ -353,4 +370,16 @@ func (p *Plugin) healthy() error {
 		}
 	}
 	return nil
+}
+
+type SyncMetricsExporter struct {
+	syncCycleProcessLatency metric.Int64Histogram
+	syncCycleStatusCounter  metric.Int64Counter
+}
+
+func NewSyncMetricsExporter() *SyncMetricsExporter {
+	return &SyncMetricsExporter{
+		syncCycleProcessLatency: metrics.SyncCycleProcessLatency,
+		syncCycleStatusCounter:  metrics.SyncCycleStatusCounter,
+	}
 }

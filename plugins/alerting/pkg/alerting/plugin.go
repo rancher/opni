@@ -7,8 +7,10 @@ import (
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
@@ -48,7 +50,6 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	// components       serverComponents
 	storageClientSet future.Future[storage.AlertingClientSet]
 
 	client.AlertingClient
@@ -81,9 +82,13 @@ var (
 )
 
 func NewPlugin(ctx context.Context) *Plugin {
-	collector := collector.NewCollectorServer()
 	lg := logger.NewPluginLogger().Named("alerting")
 	storageClientSet := future.New[storage.AlertingClientSet]()
+	metricReader := metricsdk.NewManualReader()
+	metricsExporter.RegisterMeterProvider(metricsdk.NewMeterProvider(
+		metricsdk.WithReader(metricReader),
+	))
+	collector := collector.NewCollectorServer(metricReader)
 	p := &Plugin{
 		ctx:    ctx,
 		logger: lg,
@@ -92,7 +97,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 		clusterNotifier: make(chan []client.AlertingPeer),
 		clusterDriver:   future.New[drivers.ClusterDriver](),
-		syncController:  NewSyncController(),
 
 		mgmtClient:      future.New[managementv1.ManagementClient](),
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
@@ -110,13 +114,14 @@ func NewPlugin(ctx context.Context) *Plugin {
 			"http://opni-alerting:3000",
 		),
 	}
+
+	p.syncController = NewSyncController()
 	p.httpProxy = NewHttpApiServer(
 		lg.With("component", "http-proxy"),
 		p.AlertingClient,
 		p.ready,
 		p.healthy,
 	)
-	p.CollectorServer.MustRegister(p.collectors()...)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
 		p.logger.With("component", "notifications"),
 	)
@@ -153,9 +158,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.EndpointServerComponent.SetConfig(
 			serverCfg,
 		)
-
-		p.CollectorServer.MustRegister(p.NotificationServerComponent.Collectors()...)
-		p.CollectorServer.MustRegister(p.EndpointServerComponent.Collectors()...)
 	})
 
 	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
@@ -184,7 +186,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.AlarmServerComponent.SetConfig(
 				serverCfg,
 			)
-			p.CollectorServer.MustRegister(p.AlarmServerComponent.Collectors()...)
 		})
 	return p
 }

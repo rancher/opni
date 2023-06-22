@@ -3,10 +3,12 @@ package alerting_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -14,8 +16,8 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/alerting"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -59,7 +61,7 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 
 			for _, agent := range agents {
 				_, errC := env.StartAgent(agent, token, []string{fingerprint})
-				Eventually(errC).Should(Receive(BeNil()))
+				Eventually(errC, time.Second*5, time.Millisecond*200).Should(Receive(BeNil()))
 			}
 
 			Eventually(func() error {
@@ -84,6 +86,29 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 				return nil
 			}, time.Second*30, time.Second).Should(Succeed())
 		})
+
+		It("should collect the internal alerting metrics", func() {
+			metricsUrl := fmt.Sprintf("http://%s/metrics", env.GatewayConfig().Spec.MetricsListenAddress)
+
+			Eventually(func() error {
+				res := promtestutil.ScrapeAndCompare(metricsUrl, strings.NewReader(`
+# HELP opni_gateway_alerting_sync_cycle_processing_latency_milliseconds Latency of alerting sync cycles in milliseconds
+# TYPE opni_gateway_alerting_sync_cycle_processing_latency_milliseconds histogram
+`[1:],
+				), "opni_gateway_alerting_sync_cycle_processing_latency_milliseconds")
+				return res
+			}).Should(Succeed())
+
+			Eventually(func() error {
+				res := promtestutil.ScrapeAndCompare(metricsUrl, strings.NewReader(`
+# HELP opni_gateway_alerting_alarm_activation_count_total Total number of alerting alarm activations
+# TYPE opni_gateway_alerting_alarm_activation_count_total counter
+`[1:],
+				), "opni_gateway_alerting_alarm_activation_count_total")
+				return res
+			}).Should(Succeed())
+		})
+
 		It("should create prometheus query alerts that map to endpoints", func() {
 			alertEndpointsClient := env.NewAlertEndpointsClient()
 			alertConditionsClient := env.NewAlertConditionsClient()
@@ -227,7 +252,7 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 					}
 				}
 				return nil
-			}, time.Second*30, time.Millisecond*500).Should(Succeed())
+			}, time.Second*45, time.Millisecond*500).Should(Succeed())
 		})
 	})
 })

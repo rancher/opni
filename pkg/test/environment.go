@@ -62,7 +62,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/slo/query"
-	debug_exec "github.com/rancher/opni/pkg/test/exec"
 	"github.com/rancher/opni/pkg/test/freeport"
 	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	"github.com/rancher/opni/pkg/test/testdata"
@@ -732,12 +731,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 	defaultArgs := []string{
 		"cortex", fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
-	var cmd *exec.Cmd
-	if os.Getenv("DEBUG_PROCESSES") != "" {
-		cmd = debug_exec.DebugCommandContext(ctx, bin, defaultArgs...)
-	} else {
-		cmd = exec.CommandContext(ctx, bin, defaultArgs...)
-	}
+	cmd := exec.CommandContext(ctx, bin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {

@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rancher/opni/pkg/caching"
@@ -124,18 +125,14 @@ func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-	ccCortexAdmin, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
+	services := []string{"CortexAdmin", "CortexOps"}
+	cc, err := intf.GetClientConn(p.Ctx, services...)
 	if err != nil {
-		p.Logger.With("err", err).Error("failed to get cortex admin client")
+		p.Logger.With("err", err).Error("failed to get required clients for alerting : %s", strings.Join(services, ","))
 		os.Exit(1)
 	}
-	p.adminClient.Set(cortexadmin.NewCortexAdminClient(ccCortexAdmin))
-	ccCortexOps, err := intf.GetClientConn(p.Ctx, "CortexOps")
-	if err != nil {
-		p.Logger.With("err", err).Error("failed to get cortex ops client")
-		os.Exit(1)
-	}
-	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(ccCortexOps))
+	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
+	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(cc))
 }
 
 func (p *Plugin) handleDriverNotifications() {

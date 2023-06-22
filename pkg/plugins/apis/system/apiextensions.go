@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"fmt"
-	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/grpc"
@@ -25,40 +24,25 @@ type apiExtensionInterfaceImpl struct {
 }
 
 func (c *apiExtensionInterfaceImpl) GetClientConn(ctx context.Context, serviceNames ...string) (grpc.ClientConnInterface, error) {
-	//FIXME:(alex) Not being called
-	found := false
-	serviceMap := make(map[string]bool)
-	discovered := make(map[string]bool)
-	for k := range serviceNames {
-		serviceMap[serviceNames[k]] = true
-		discovered[serviceNames[k]] = false
-	}
 	// Use c.managementClientConn to obtain a management client, then query the api extension list for that name.
 	// Only when the extension becomes available, return c.managementClientConn.
 	client := managementv1.NewManagementClient(c.managementClientConn)
-	for retries := 10; retries > 0; retries-- {
-		apiExtensions, err := client.APIExtensions(ctx, &emptypb.Empty{})
-		if err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
+	apiExtensions, err := client.APIExtensions(ctx, &emptypb.Empty{}, grpc.WaitForReady(true))
+	if err != nil {
+		return nil, err
+	}
+EXTENSIONS:
+	for _, name := range serviceNames {
 		for _, ext := range apiExtensions.Items {
-			if serviceMap[ext.ServiceDesc.GetName()] {
-				discovered[ext.ServiceDesc.GetName()] = true
+			if ext.ServiceDesc.GetName() == name {
+				continue EXTENSIONS
 			}
 		}
-		for _, has := range discovered {
-			found = found && has
+		fmt.Println("available extensions:")
+		for _, ext := range apiExtensions.Items {
+			fmt.Println(ext.ServiceDesc.GetName())
 		}
-
-		if found {
-			break
-		} else {
-			time.Sleep(time.Second)
-		}
-	}
-	if found {
-		return nil, fmt.Errorf("Failed to get one or more API extensions")
+		return nil, fmt.Errorf("api extension %s is not available", name)
 	}
 	return c.managementClientConn, nil
 }

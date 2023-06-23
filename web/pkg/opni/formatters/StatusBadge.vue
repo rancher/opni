@@ -19,7 +19,13 @@ export default {
 </script>
 
 <template>
-  <div>
-    <BadgeState :color="color" :label="value.shortMessage || value.message" />
+  <div class="status-badge">
+    <BadgeState v-tooltip="value.longMessage" :color="color" :label="value.shortMessage || value.message" />
   </div>
 </template>
+
+<style lang="scss" scoped>
+.status-badge {
+  user-select: none;
+}
+</style>

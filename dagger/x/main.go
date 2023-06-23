@@ -12,7 +12,6 @@ func main() {
 	dagger.ServeCommands(
 		Testbin,
 	)
-
 }
 
 func Testbin(ctx dagger.Context, config string) (*dagger.Directory, error) {
@@ -30,6 +29,6 @@ func Testbin(ctx dagger.Context, config string) (*dagger.Directory, error) {
 			for _, b := range opts.Binaries {
 				dir = dir.WithFile(filepath.Join("testbin/bin", b.Name), ctr.File(filepath.Join("/src/testbin/bin/", b.Name)))
 			}
-			return dir
+			return dir.WithFile("testbin/lock.json", ctr.File("/src/testbin/lock.json"))
 		}), nil
 }

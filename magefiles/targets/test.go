@@ -2,10 +2,12 @@ package targets
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
+	"reflect"
 	"strings"
 
 	"github.com/bmatcuk/doublestar"
@@ -17,7 +19,7 @@ type Test mg.Namespace
 
 // Runs all tests
 func (Test) All() error {
-	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
+	if testbinNeedsUpdate() {
 		mg.Deps(Test.Bin)
 	}
 	return sh.RunWithV(map[string]string{
@@ -27,7 +29,7 @@ func (Test) All() error {
 
 // Runs all tests with coverage analysis
 func (Test) Cover() error {
-	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
+	if testbinNeedsUpdate() {
 		mg.Deps(Test.Bin)
 	}
 	err := sh.RunWithV(map[string]string{
@@ -94,8 +96,8 @@ LINES:
 func (Test) Env() {
 	// check if testbin exists
 	deps := []any{Build.Testenv}
-	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
-		deps = append(deps, Test.Bin)
+	if testbinNeedsUpdate() {
+		mg.Deps(Test.Bin)
 	}
 	mg.Deps(deps...)
 	cmd := exec.Command("bin/testenv", "--agent-id-seed=0")
@@ -188,10 +190,25 @@ func (Test) BinConfig() {
 	fmt.Println(testbinConfig)
 }
 
+func testbinNeedsUpdate() bool {
+	lock, err := os.ReadFile("testbin/lock.json")
+	if err != nil {
+		return true
+	}
+	var current, desired map[string]any
+	if err := json.Unmarshal(lock, &current); err != nil {
+		return true
+	}
+	if err := json.Unmarshal([]byte(testbinConfig), &desired); err != nil {
+		return true
+	}
+	return reflect.DeepEqual(current, desired)
+}
+
 // Creates or rebuilds the testbin directory
 func (Test) Bin() error {
 	if _, err := os.Stat("testbin"); err == nil {
 		os.RemoveAll("testbin")
 	}
-	return Dagger{}.do(daggerx, "-o", "./", "testbin", "--config", testbinConfig)
+	return Dagger{}.do(".", "testbin", "--config", testbinConfig)
 }

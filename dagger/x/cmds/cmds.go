@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"dagger.io/dagger"
@@ -44,5 +45,8 @@ func TestBin(client *dagger.Client, ctr *dagger.Container, opts TestBinOptions) 
 		}
 	}
 
-	return ctr
+	optionsData, _ := json.Marshal(opts)
+	return ctr.WithNewFile("/src/testbin/lock.json", dagger.ContainerWithNewFileOpts{
+		Contents: string(optionsData),
+	})
 }

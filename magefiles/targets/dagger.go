@@ -37,12 +37,12 @@ func (Dagger) run(pkg daggerPackage, args ...string) error {
 	return sh.RunV(cmds[0], append(append(cmds[1:], string(pkg)), args...)...)
 }
 
-func (Dagger) do(pkg daggerPackage, args ...string) error {
-	dagger, err := exec.LookPath("dagger")
+func (Dagger) do(outputDir string, args ...string) error {
+	daggerBinary, err := exec.LookPath("dagger")
 	if err != nil {
 		return fmt.Errorf("could not find dagger: %w", err)
 	}
-	return sh.Run(dagger, append([]string{"do", "--project", dagger, "--config", string(pkg)}, args...)...)
+	return sh.Run(daggerBinary, append([]string{"do", "--output", outputDir, "--project", string(dagger), "--config", string(daggerx)}, args...)...)
 }
 
 func (Dagger) takeArgv(arg0 string) (rest []string) {

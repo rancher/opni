@@ -4,6 +4,8 @@ go 1.20
 
 require (
 	dagger.io/dagger v0.7.2
+	github.com/AlecAivazis/survey/v2 v2.3.7
+	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/knadh/koanf/parsers/json v0.1.0
@@ -17,12 +19,12 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/sync v0.3.0
 )
 
 require (
 	github.com/99designs/gqlgen v0.17.33 // indirect
-	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/Khan/genqlient v0.6.0 // indirect
 	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
@@ -45,7 +47,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.3 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.4 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.11.0 // indirect

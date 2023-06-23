@@ -35,7 +35,7 @@ func NewPodMonitorScrapeConfigRetriever(
 	logger *zap.SugaredLogger,
 	client client.Client,
 	namespace string,
-	discovery monitoringv1beta1.PrometheusDiscovery,
+	_ monitoringv1beta1.PrometheusDiscovery,
 ) ScrapeConfigRetriever {
 	return &podMonitorScrapeConfigRetriever{
 		client:    client,

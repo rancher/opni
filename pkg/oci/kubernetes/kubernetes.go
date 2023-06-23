@@ -21,15 +21,15 @@ type kubernetesResolveImageDriverOptions struct {
 	config *rest.Config
 }
 
-type kubernetesResolveImageDriverOption func(*kubernetesResolveImageDriverOptions)
+type KubernetesResolveImageDriverOption func(*kubernetesResolveImageDriverOptions)
 
-func WithRestConfig(config *rest.Config) kubernetesResolveImageDriverOption {
+func WithRestConfig(config *rest.Config) KubernetesResolveImageDriverOption {
 	return func(o *kubernetesResolveImageDriverOptions) {
 		o.config = config
 	}
 }
 
-func (o *kubernetesResolveImageDriverOptions) apply(opts ...kubernetesResolveImageDriverOption) {
+func (o *kubernetesResolveImageDriverOptions) apply(opts ...KubernetesResolveImageDriverOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -37,7 +37,7 @@ func (o *kubernetesResolveImageDriverOptions) apply(opts ...kubernetesResolveIma
 
 func NewKubernetesResolveImageDriver(
 	namespace string,
-	opts ...kubernetesResolveImageDriverOption,
+	opts ...KubernetesResolveImageDriverOption,
 ) (oci.Fetcher, error) {
 	options := kubernetesResolveImageDriverOptions{}
 	options.apply(opts...)
@@ -113,7 +113,7 @@ func init() {
 	oci.RegisterFetcherBuilder("kubernetes", func(args ...any) (oci.Fetcher, error) {
 		namespace := args[0].(string)
 
-		var opts []kubernetesResolveImageDriverOption
+		var opts []KubernetesResolveImageDriverOption
 		for _, arg := range args[1:] {
 			switch v := arg.(type) {
 			case *rest.Config:

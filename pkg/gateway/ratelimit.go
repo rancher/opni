@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ratelimiterInterceptor struct {
+type RatelimiterInterceptor struct {
 	tokenBucket *tokenbucket.Limiter
 	lg          *zap.SugaredLogger
 }
@@ -18,34 +18,34 @@ type ratelimiterOptions struct {
 	burst int
 }
 
-type ratelimiterOption func(*ratelimiterOptions)
+type RatelimiterOption func(*ratelimiterOptions)
 
-func (o *ratelimiterOptions) apply(opts ...ratelimiterOption) {
+func (o *ratelimiterOptions) apply(opts ...RatelimiterOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-func WithRate(rate float64) ratelimiterOption {
+func WithRate(rate float64) RatelimiterOption {
 	return func(o *ratelimiterOptions) {
 		o.rate = rate
 	}
 }
 
-func WithBurst(burst int) ratelimiterOption {
+func WithBurst(burst int) RatelimiterOption {
 	return func(o *ratelimiterOptions) {
 		o.burst = burst
 	}
 }
 
-func NewRateLimiterInterceptor(lg *zap.SugaredLogger, opts ...ratelimiterOption) *ratelimiterInterceptor {
+func NewRateLimiterInterceptor(lg *zap.SugaredLogger, opts ...RatelimiterOption) *RatelimiterInterceptor {
 	options := &ratelimiterOptions{
 		rate:  10,
 		burst: 50,
 	}
 	options.apply(opts...)
 
-	return &ratelimiterInterceptor{
+	return &RatelimiterInterceptor{
 		lg: lg,
 		tokenBucket: tokenbucket.NewLimiter(
 			tokenbucket.Limit(options.rate),
@@ -54,12 +54,12 @@ func NewRateLimiterInterceptor(lg *zap.SugaredLogger, opts ...ratelimiterOption)
 	}
 }
 
-func (r *ratelimiterInterceptor) allow() bool {
+func (r *RatelimiterInterceptor) allow() bool {
 	r.lg.Debugf("ratelimit: %d available", r.tokenBucket.Tokens())
 	return r.tokenBucket.Allow()
 }
 
-func (r *ratelimiterInterceptor) StreamServerInterceptor() grpc.StreamServerInterceptor {
+func (r *RatelimiterInterceptor) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if r.allow() {
 			return handler(srv, stream)

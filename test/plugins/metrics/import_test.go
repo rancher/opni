@@ -37,6 +37,7 @@ type blockingHttpHandler struct {
 func (h blockingHttpHandler) ServeHTTP(_ http.ResponseWriter, request *http.Request) {
 	switch request.URL.Path {
 	case "/block":
+		// select {} will block forever without using CPU.
 		select {}
 	default:
 	}

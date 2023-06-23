@@ -19,14 +19,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/util/spanlogger"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -108,7 +107,7 @@ func (c *WriteClient) Store(ctx context.Context, req []byte) error {
 	c.requestDuration.WithLabelValues(strconv.Itoa(httpResp.StatusCode)).Observe(time.Since(start).Seconds())
 
 	defer func() {
-		_, err := io.Copy(ioutil.Discard, httpResp.Body)
+		_, err := io.Copy(io.Discard, httpResp.Body)
 		if err != nil {
 			level.Error(c.logger).Log("msg", "unable to discard write request body", "err", err)
 		}

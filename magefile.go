@@ -25,7 +25,6 @@ import (
 	"github.com/rancher/opni/internal/codegen/cli"
 	"github.com/samber/lo"
 	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
-	_ "sigs.k8s.io/kustomize/kustomize/v5/commands"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -39,6 +38,8 @@ import (
 	"github.com/rancher/opni/internal/mage/test"
 	// mage:import codegen
 	"github.com/rancher/opni/internal/codegen"
+
+	_ "sigs.k8s.io/kustomize/kustomize/v5/commands"
 )
 
 var Default = All

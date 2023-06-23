@@ -27,15 +27,15 @@ type kubernetesOptions struct {
 	namespace string
 }
 
-func (o *kubernetesOptions) apply(opts ...kubernetesOption) {
+func (o *kubernetesOptions) apply(opts ...KubernetesOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-type kubernetesOption func(*kubernetesOptions)
+type KubernetesOption func(*kubernetesOptions)
 
-func WithNamespace(namespace string) kubernetesOption {
+func WithNamespace(namespace string) KubernetesOption {
 	return func(o *kubernetesOptions) {
 		o.namespace = namespace
 	}
@@ -44,8 +44,8 @@ func WithNamespace(namespace string) kubernetesOption {
 func NewKubernetesSyncServer(
 	conf v1beta1.KubernetesAgentUpgradeSpec,
 	lg *zap.SugaredLogger,
-	opts ...kubernetesOption,
-) (*kubernetesSyncServer, error) {
+	opts ...KubernetesOption,
+) (update.UpdateTypeHandler, error) {
 	options := kubernetesOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}

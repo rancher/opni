@@ -51,7 +51,7 @@ func WithBaseFS(basefs afero.Fs) PatchClientOption {
 	}
 }
 
-func NewPatchClient(pluginDir string, lg *zap.SugaredLogger, opts ...PatchClientOption) (*patchClient, error) {
+func NewPatchClient(pluginDir string, lg *zap.SugaredLogger, opts ...PatchClientOption) (update.SyncHandler, error) {
 	options := PatchClientOptions{
 		baseFs: afero.NewOsFs(),
 	}
@@ -223,7 +223,7 @@ func (pc *patchClient) Strategy() string {
 	return patch.UpdateStrategy
 }
 
-func (pc *patchClient) GetCurrentManifest(ctx context.Context) (*controlv1.UpdateManifest, error) {
+func (pc *patchClient) GetCurrentManifest(_ context.Context) (*controlv1.UpdateManifest, error) {
 	archive, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
 		Dir:    pc.pluginDir,
 		Logger: pc.lg,

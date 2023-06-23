@@ -14,7 +14,12 @@ const (
 
 type noopUpdate struct{}
 
-func NewNoopUpdate() *noopUpdate {
+type NoopUpdate interface {
+	update.SyncHandler
+	update.UpdateTypeHandler
+}
+
+func NewNoopUpdate() NoopUpdate {
 	return &noopUpdate{}
 }
 

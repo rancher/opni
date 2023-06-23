@@ -304,7 +304,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 // requires identityClientMu to be held (either R or W)
 func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
-	id, err := m.identityClient.Whoami(context.Background(), &emptypb.Empty{})
+	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
 		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
 		return err

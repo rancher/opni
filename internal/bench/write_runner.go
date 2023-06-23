@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -142,8 +142,10 @@ func (w *WriteBenchmarkRunner) GetRandomWriteClient() (*WriteClient, error) {
 					Username: w.cfg.BasicAuthUsername,
 					Password: config.Secret(w.cfg.BasicAuthPasword),
 				},
-				ProxyURL: config.URL{
-					URL: proxyURL,
+				ProxyConfig: config.ProxyConfig{
+					ProxyURL: config.URL{
+						URL: proxyURL,
+					},
 				},
 			},
 		}, w.logger, w.requestDuration)

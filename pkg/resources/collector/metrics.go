@@ -94,7 +94,7 @@ func (r *Reconciler) withPrometheusCrdDiscovery(
 }
 
 func (r *Reconciler) discoveredScrapeCfg(
-	cfg *otel.MetricsConfig, // TODO : eventually this config will drive selector config for SD
+	_ *otel.MetricsConfig, // TODO : eventually this config will drive selector config for SD
 ) (
 	retCfg string,
 	secrets []promdiscover.SecretResolutionConfig,

@@ -6,7 +6,7 @@
     "node": ">=12"
   },
   "dependencies": {
-    "@rancher/shell": "^0.3.7",
+    "@rancher/shell": "^0.3.14",
     "@types/lodash": "^4.14.194",
     "chart.js": "^3.9.1",
     "chartjs-plugin-annotation": "^2.0.1",
@@ -28,6 +28,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",
+    "dev:standalone": "NODE_ENV=dev IS_STANDALONE=true ./node_modules/.bin/vue-cli-service serve",
     "clean": "./node_modules/@rancher/shell/scripts/clean",
     "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh",
     "serve-pkgs": "./node_modules/@rancher/shell/scripts/serve-pkgs",

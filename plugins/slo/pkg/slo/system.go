@@ -7,8 +7,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/shared"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {

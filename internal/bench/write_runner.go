@@ -125,14 +125,6 @@ func (w *WriteBenchmarkRunner) GetRandomWriteClient() (*WriteClient, error) {
 			return nil, err
 		}
 
-		var proxyURL *url.URL
-		if w.cfg.ProxyURL != "" {
-			proxyURL, err = url.Parse(w.cfg.ProxyURL)
-			if err != nil {
-				return nil, errors.Wrap(err, "invalid proxy url")
-			}
-		}
-
 		cli, err = NewWriteClient("bench-"+pick, w.tenantName, &remote.ClientConfig{
 			URL:     &config.URL{URL: u},
 			Timeout: model.Duration(w.workload.options.Timeout),
@@ -141,11 +133,6 @@ func (w *WriteBenchmarkRunner) GetRandomWriteClient() (*WriteClient, error) {
 				BasicAuth: &config.BasicAuth{
 					Username: w.cfg.BasicAuthUsername,
 					Password: config.Secret(w.cfg.BasicAuthPasword),
-				},
-				ProxyConfig: config.ProxyConfig{
-					ProxyURL: config.URL{
-						URL: proxyURL,
-					},
 				},
 			},
 		}, w.logger, w.requestDuration)

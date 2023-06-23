@@ -10,7 +10,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/util"

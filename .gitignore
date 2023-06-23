@@ -17,6 +17,7 @@ Dockerfile.dapper*
 infra/Pulumi.*.yaml
 !infra/Pulumi.e2e.yaml
 otelcol-custom
+go.work.sum
 
 # Distribution/packaging
 dist/

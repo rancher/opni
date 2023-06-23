@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -129,7 +129,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		}).Should(Succeed())
 
 		// replace the standard default config with the test environment config
-		backend.FallbackDefaultNodeSpec = util.ProtoClone(defaultConfig)
+		backend.FallbackDefaultNodeSpec.Store(util.ProtoClone(defaultConfig))
 
 		spec, isDefault, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())

@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

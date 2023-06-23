@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"github.com/samber/lo"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
@@ -62,25 +62,25 @@ type MetricsNode struct {
 }
 
 func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
-	node := &MetricsNode{
+	mn := &MetricsNode{
 		logger:       lg,
 		conditions:   ct,
 		targetRunner: NewTargetRunner(lg),
 	}
-	node.conditions.AddListener(node.sendHealthUpdate)
-	node.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
+	mn.conditions.AddListener(mn.sendHealthUpdate)
+	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 
 	// FIXME: this is a hack, update the old sync code to use delegates instead
-	node.conditions.AddListener(func(key string) {
-		if key == CondNodeDriver {
-			node.logger.Info("forcing sync due to node driver status change")
+	mn.conditions.AddListener(func(key string) {
+		if key == node.CondNodeDriver {
+			mn.logger.Info("forcing sync due to node driver status change")
 			go func() {
-				node.doSync(context.TODO())
+				mn.doSync(context.TODO())
 			}()
 		}
 	})
 
-	return node
+	return mn
 }
 
 func (m *MetricsNode) sendHealthUpdate() {

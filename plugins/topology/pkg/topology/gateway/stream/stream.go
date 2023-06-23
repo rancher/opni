@@ -18,7 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
+	"github.com/rancher/opni/plugins/topology/apis/stream"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"

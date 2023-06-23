@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/slo/query"
-	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	api "github.com/rancher/opni/plugins/slo/apis/slo"
 )
 
 func constructionShouldSucceed(q *query.SLOQueryResult, err error) {

@@ -9,7 +9,7 @@ import (
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
+	"github.com/rancher/opni/plugins/logging/apis/node"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"go.uber.org/zap"

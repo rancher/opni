@@ -8,7 +8,7 @@ import (
 	"io"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/alerting"
+	"github.com/rancher/opni/plugins/logging/apis/alerting"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

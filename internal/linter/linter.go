@@ -179,7 +179,7 @@ func analyzeTests(p *analysis.Pass) (any, error) {
 		hasTestImports := len(findTestImports(f)) > 0
 		if hasTestFilenameSuffix || hasTestPackageSuffix {
 			// search for any test functions
-			if !hasTests == false {
+			if !hasTests {
 				hasTests = hasGoTests(f)
 			}
 			if !hasSuite && strings.HasSuffix(name, "suite_test.go") {

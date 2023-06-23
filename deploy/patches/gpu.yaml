@@ -1,8 +1,0 @@
-apiVersion: opni.io/v1beta1
-kind: OpniCluster
-metadata:
-  name: cluster
-spec:
-  services:
-    gpuController:
-      enabled: true

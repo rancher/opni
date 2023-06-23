@@ -10,7 +10,7 @@ import (
 
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/versions"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/alerting"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"

@@ -1,0 +1,91 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/aiops/apis/modeltraining";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+package modeltraining;
+
+service ModelTraining {
+  rpc TrainModel(ModelTrainingParametersList) returns (ModelTrainingResponse) {
+    option (google.api.http) = {
+      post: "/model/train"
+      body: "*"
+    };
+  }
+  rpc PutModelTrainingStatus(ModelStatus) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/model/current_status"
+      body: "*"
+    };
+  }
+  rpc ClusterWorkloadAggregation(core.Reference) returns (WorkloadAggregationList) {
+    option (google.api.http) = {
+      get: "/workload_aggregation/{id}"
+    };
+  }
+  rpc GetModelStatus(google.protobuf.Empty) returns (ModelStatus) {
+    option (google.api.http) = {
+      get: "/model/status"
+    };
+  }
+  rpc GetModelTrainingParameters(google.protobuf.Empty) returns (ModelTrainingParametersList) {
+    option (google.api.http) = {
+      get: "/model/training_parameters"
+    };
+  }
+  rpc GPUInfo(google.protobuf.Empty) returns (GPUInfoList) {
+    option (google.api.http) = {
+      get: "/gpu_info"
+    };
+  }
+}
+
+message GPUInfo {
+  string name = 1;
+  string capacity = 2;
+  string allocatable = 3;
+}
+
+message GPUInfoList {
+  repeated GPUInfo items = 1;
+}
+
+message ModelStatus {
+  string status = 1;
+  ModelTrainingStatistics statistics = 2;
+}
+
+message ModelTrainingResponse {
+  string response = 1;
+}
+
+message ModelTrainingParameters {
+  string clusterId = 1;
+  string namespace = 2;
+  string deployment = 3;
+}
+
+message ModelTrainingParametersList {
+  repeated ModelTrainingParameters items = 1;
+}
+
+message ModelTrainingStatistics {
+  int64 timeElapsed = 1;
+  int64 percentageCompleted = 2;
+  int64 remainingTime = 3;
+  int64 currentEpoch = 4;
+  double modelAccuracy = 5;
+  string stage = 6;
+}
+
+message WorkloadAggregation {
+  string clusterId = 1;
+  string namespace = 2;
+  string deployment = 3;
+  int64 logCount = 4;
+}
+
+message WorkloadAggregationList {
+  repeated WorkloadAggregation items = 1;
+}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/node"
 )
 
 type TopologyNodeDriver interface {

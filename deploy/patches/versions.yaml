@@ -1,8 +1,0 @@
-apiVersion: opni.io/v1beta1
-kind: OpniCluster
-metadata:
-  name: cluster
-spec:
-  version: v0.3.1
-  elastic:
-    version: 1.1.0

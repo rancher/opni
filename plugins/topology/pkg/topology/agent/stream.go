@@ -2,13 +2,13 @@ package agent
 
 import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	"github.com/rancher/opni/plugins/topology/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/stream"
+
 	// "github.com/rancher/opni/pkg/clients"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/stream"
-
 	"google.golang.org/grpc"
 )
 

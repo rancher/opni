@@ -3,13 +3,14 @@ package agent
 import (
 	"context"
 	"sync"
-
 	"sync/atomic"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/util/push"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +18,6 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 )
 
 type HttpServer struct {
@@ -42,9 +42,9 @@ func NewHttpServer(ct health.ConditionTracker, lg *zap.SugaredLogger) *HttpServe
 
 func (s *HttpServer) SetEnabled(enabled bool) {
 	if enabled {
-		s.conditions.Set(CondRemoteWrite, health.StatusPending, "")
+		s.conditions.Set(node.CondRemoteWrite, health.StatusPending, "")
 	} else {
-		s.conditions.Clear(CondRemoteWrite)
+		s.conditions.Clear(node.CondRemoteWrite)
 	}
 	s.enabled.Store(enabled)
 }
@@ -73,7 +73,7 @@ func (s *HttpServer) pushFunc(ctx context.Context, writeReq *cortexpb.WriteReque
 
 	ok := s.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
-			s.conditions.Set(CondRemoteWrite, health.StatusPending, "gateway not connected")
+			s.conditions.Set(node.CondRemoteWrite, health.StatusPending, "gateway not connected")
 			return
 		}
 		writeResp, writeErr = rwc.Push(ctx, writeReq)

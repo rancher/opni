@@ -1,0 +1,52 @@
+.bubble {
+  position: relative;
+  padding: 1px 4px;
+
+  border: 1px solid var(--info);
+  border-radius: var(--border-radius);
+
+  &::before {
+    content: "";
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    opacity: 0.3;
+    background-color: var(--info);
+  }
+
+  &.success {
+    border-color: var(--success);
+
+    &::before {
+      background-color: var(--success);
+    }
+  }
+
+  &.error {
+    border-color: var(--error);
+
+    &::before {
+      background-color: var(--error);
+    }
+  }
+
+  &.warning {
+    border-color: var(--warning);
+
+    &::before {
+      background-color: var(--warning);
+    }
+  }
+
+  &.disabled,
+  &.not-allowed {
+    border-color: var(--disabled-text);
+
+    &::before {
+      background-color: var(--disabled-bg);
+    }
+  }
+}

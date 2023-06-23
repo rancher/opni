@@ -11,7 +11,7 @@ import (
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/pkg/versions"
-	"github.com/rancher/opni/plugins/aiops/pkg/apis/admin"
+	"github.com/rancher/opni/plugins/aiops/apis/admin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"

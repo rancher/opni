@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/metrics"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"

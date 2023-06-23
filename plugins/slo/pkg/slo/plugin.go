@@ -3,6 +3,8 @@ package slo
 import (
 	"context"
 
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/slo/apis/slo"
 	"go.uber.org/zap"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -14,12 +16,10 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type Plugin struct {
-	sloapi.UnsafeSLOServer
+	slo.UnsafeSLOServer
 	system.UnimplementedSystemPluginClient
 
 	ctx    context.Context
@@ -32,9 +32,9 @@ type Plugin struct {
 }
 
 type StorageAPIs struct {
-	SLOs     storage.KeyValueStoreT[*sloapi.SLOData]
-	Services storage.KeyValueStoreT[*sloapi.Service]
-	Metrics  storage.KeyValueStoreT[*sloapi.Metric]
+	SLOs     storage.KeyValueStoreT[*slo.SLOData]
+	Services storage.KeyValueStoreT[*slo.Service]
+	Metrics  storage.KeyValueStoreT[*slo.Metric]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -48,13 +48,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 }
 
-var _ sloapi.SLOServer = (*Plugin)(nil)
+var _ slo.SLOServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&sloapi.SLO_ServiceDesc, p)))
+		managementext.NewPlugin(util.PackService(&slo.SLO_ServiceDesc, p)))
 	return scheme
 }

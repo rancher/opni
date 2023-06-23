@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
+	"github.com/rancher/opni/plugins/logging/apis/node"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"

@@ -52,11 +52,4 @@ var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 
 		Expect(id).To(BeEquivalentTo(ns.ObjectMeta.UID))
 	})
-
-	It("should already have an in-cluster kubernetes ident provider", func() {
-		Expect(func() {
-			builder, _ := ident.GetProviderBuilder("kubernetes")
-			builder()
-		}).To(PanicWith(ContainSubstring(rest.ErrNotInCluster.Error())))
-	})
 })

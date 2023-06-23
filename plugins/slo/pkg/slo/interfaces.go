@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"go.uber.org/zap"
 
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
 

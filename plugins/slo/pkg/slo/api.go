@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"

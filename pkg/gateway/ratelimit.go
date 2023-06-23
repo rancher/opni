@@ -55,7 +55,7 @@ func NewRateLimiterInterceptor(lg *zap.SugaredLogger, opts ...RatelimiterOption)
 }
 
 func (r *RatelimiterInterceptor) allow() bool {
-	r.lg.Debugf("ratelimit: %d available", r.tokenBucket.Tokens())
+	r.lg.Debugf("ratelimit: %f available", r.tokenBucket.Tokens())
 	return r.tokenBucket.Allow()
 }
 

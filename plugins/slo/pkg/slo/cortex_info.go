@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/metrics/compat"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

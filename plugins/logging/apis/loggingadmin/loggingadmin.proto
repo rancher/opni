@@ -1,0 +1,183 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/logging/apis/loggingadmin";
+
+import "google/protobuf/empty.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "k8s.io/api/core/v1/generated.proto";
+
+package loggingadmin;
+
+service LoggingAdmin {
+    rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchCluster) {
+        option (google.api.http) = {
+            get: "/logging/cluster"
+        };
+    }
+    rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/logging/cluster"
+        };
+    }
+    rpc CreateOrUpdateOpensearchCluster(OpensearchCluster) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/logging/cluster"
+            body: "*"
+        };
+    }
+    rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
+        option (google.api.http) = {
+            get: "/logging/upgrade/available"
+        };
+    }
+    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/logging/upgrade/do"
+        };
+    }
+    rpc GetStorageClasses(google.protobuf.Empty) returns(StorageClassResponse) {
+        option (google.api.http) = {
+            get: "/logging/storageclasses"
+        };
+    }
+    rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
+        option (google.api.http) = {
+            get: "/logging/status"
+        };
+    }
+}
+
+service LoggingAdminV2 {
+    rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchClusterV2) {
+        option (google.api.http) = {
+            get: "/logging/cluster"
+        };
+    }
+    rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/logging/cluster"
+        };
+    }
+    rpc CreateOrUpdateOpensearchCluster(OpensearchClusterV2) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/logging/cluster"
+            body: "*"
+        };
+    }
+    rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
+        option (google.api.http) = {
+            get: "/logging/upgrade/available"
+        };
+    }
+    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/logging/upgrade/do"
+        };
+    }
+    rpc GetStorageClasses(google.protobuf.Empty) returns(StorageClassResponse) {
+        option (google.api.http) = {
+            get: "/logging/storageclasses"
+        };
+    }
+    rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
+        option (google.api.http) = {
+            get: "/logging/status"
+        };
+    }
+}
+
+message OpensearchCluster {
+    string ExternalURL = 1;
+    // +optional
+    repeated OpensearchNodeDetails NodePools = 2;
+    optional DashboardsDetails Dashboards = 3;
+    optional string DataRetention = 4;
+}
+
+message OpensearchClusterV2 {
+    string externalURL = 1;
+    DataDetails dataNodes = 2;
+    optional IngestDetails ingestNodes = 3;
+    optional ControlplaneDetails controlplaneNodes = 4;
+    optional DashboardsDetails dashboards = 5;
+    optional string dataRetention = 6;
+}
+
+message DataPersistence {
+    optional bool enabled = 1;
+    optional string storageClass = 2;
+}
+
+message CPUResource {
+    string request = 1;
+    string limit = 2;
+}
+
+message OpensearchNodeDetails {
+    string Name = 1;
+    optional int32 Replicas = 2;
+    string DiskSize = 3;
+    string MemoryLimit = 4;
+    optional CPUResource CPUResources = 5;
+    optional bool EnableAntiAffinity = 6;
+    map<string, string> NodeSelector = 7;
+    repeated k8s.io.api.core.v1.Toleration Tolerations = 8;
+    repeated string Roles = 9;
+    optional DataPersistence Persistence = 10;
+}
+
+message DashboardsDetails {
+    optional bool enabled = 1;
+    optional int32 replicas = 2;
+    ResourceRequirements resources = 3;
+}
+
+message UpgradeAvailableResponse {
+    bool upgradePending = 1;
+}
+
+message StorageClassResponse {
+    repeated string storageClasses = 1;
+}
+
+message ResourceRequirements {
+    ComputeResourceQuantities requests = 1;
+    ComputeResourceQuantities limits = 2;
+}
+
+message ComputeResourceQuantities {
+    string cpu = 1;
+    string memory = 2;
+}
+
+message StatusResponse {
+    int32 status = 1;
+    string details = 2;
+}
+
+message DataDetails {
+    optional int32 replicas = 1;
+    string diskSize = 2;
+    string memoryLimit = 3;
+    optional CPUResource cpuResources = 4;
+    optional bool enableAntiAffinity = 5;
+    map<string, string> nodeSelector = 6;
+    repeated k8s.io.api.core.v1.Toleration tolerations = 7;
+    optional DataPersistence persistence = 8;
+}
+
+message IngestDetails {
+    optional int32 replicas = 1;
+    string memoryLimit = 2;
+    optional CPUResource cpuResources = 3;
+    optional bool enableAntiAffinity = 4;
+    map<string, string> nodeSelector = 5;
+    repeated k8s.io.api.core.v1.Toleration tolerations = 6;
+}
+
+message ControlplaneDetails {
+    optional int32 replicas = 1;
+    map<string, string> nodeSelector = 2;
+    repeated k8s.io.api.core.v1.Toleration tolerations = 3;
+    optional DataPersistence persistence = 4;
+}

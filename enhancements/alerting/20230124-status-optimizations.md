@@ -23,7 +23,7 @@ Customers scale up to many alarms & want to check their status.
 
 ### Current
 
-![](./images/alerting/condition-status-no-cache.png)
+![](./images/condition-status-no-cache.png)
 
 ### Proposed
 
@@ -48,7 +48,7 @@ Caching will be implemented using interceptors over the protocols Opni uses
 - standard library `net/http` transport layer for caching implementation, similar to https://pkg.go.dev/github.com/gregjones/httpcache#Cache
 - definitions & helper methods for HTTP caching interceptors will go in `pkg/util/http.go`
 
-![](./images/alerting/condition-status-cache.png)
+![](./images/condition-status-cache.png)
 
 ####
 

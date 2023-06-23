@@ -9,7 +9,7 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/node"
+	"github.com/rancher/opni/plugins/topology/apis/node"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

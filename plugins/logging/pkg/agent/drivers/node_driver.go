@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/plugins/driverutil"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
+	"github.com/rancher/opni/plugins/logging/apis/node"
 )
 
 type LoggingNodeDriver interface {

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator"
+	"github.com/rancher/opni/plugins/topology/apis/orchestrator"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

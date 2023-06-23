@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/remoteread"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
+	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 )

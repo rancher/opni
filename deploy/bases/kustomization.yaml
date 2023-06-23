@@ -1,6 +1,0 @@
-namespace: opni
-resources:
-  - namespace.yaml
-  - opnicluster.yaml
-  - pretrainedmodel.yaml
-  - logadapter.yaml

@@ -5,6 +5,9 @@ import (
 	"sync/atomic"
 
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 
@@ -16,8 +19,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"go.uber.org/zap"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -27,7 +28,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 )
 
 type ServerComponent interface {

@@ -6,38 +6,73 @@ platform:
   os: linux
   arch: amd64
 steps:
-  - name: lint
+  - name: build-and-package
     image: docker
-    environment: &dagger_env
-      DAGGER_LOG_FORMAT: "plain"
-      BUILD_VERSION: ${DRONE_TAG}
-    commands:
-      - apk add --no-cache curl
-      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.36 sh
-      - bin/dagger version
-      - bin/dagger do lint
+    environment: &environment
+      _EXPERIMENTAL_DAGGER_CLOUD_TOKEN:
+        from_secret: dagger_cloud_token
+      _EXPERIMENTAL_DAGGER_CACHE_CONFIG:
+        from_secret: dagger_cache_config
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      GH_TOKEN:
+        from_secret: github_token
     volumes: &volumes
-      - name: docker
+      - name: dagger-bin
+        path: /dagger-bin
+      - name: docker-sock
         path: /var/run/docker.sock
       - name: docker-config
         path: /root/.docker
-  - name: build-and-package
-    image: docker
-    environment:
-      <<: *dagger_env
-      # DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
-      # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
-      - bin/dagger do build
-    volumes: *volumes
-  - name: test
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults
+    when:
+      instance:
+        - drone-publish.rancher.io
+  - name: build-and-package-pr
     image: docker
-    environment:
-      <<: *dagger_env
-    commands:
-      - bin/dagger do test
+    environment: *environment
     volumes: *volumes
-  - name: coverage
+    commands:
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults --coverage.export=true
+    when:
+      instance:
+        - drone-pr.rancher.io
+  - name: publish-tag
+    image: docker
+    environment: *environment
+    volumes: *volumes
+    commands:
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/heads/main
+        - refs/heads/release
+        - refs/tags/*
+  - name: publish-main
+    image: docker
+    environment: *environment
+    volumes: *volumes
+    commands:
+      - apk add --no-cache go
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push
+    when:
+      event:
+        - push
+      instance:
+        - drone-publish.rancher.io
+      branch:
+        - main
+  - name: upload-coverage
     image: plugins/codecov
     settings:
       token:
@@ -48,265 +83,9 @@ steps:
       event:
         - push
       instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-        - release
-  - name: publish-dockerhub-tag
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-      HELM_OCI_USERNAME: rancher
-      HELM_OCI_PASSWORD:
-        from_secret: github_token
-      GITHUB_TOKEN:
-        from_secret: github_token
-      GIT_USER: Rancher Bot
-      GIT_EMAIL: rancherbot@rancher.com
-      TAG: ${DRONE_TAG}
-    commands:
-      - bin/dagger do push
-    volumes: *volumes
-    when:
-      event:
-        - tag
-      instance:
-        - drone-publish.rancher.io
-      refs:
-        - refs/heads/main
-        - refs/heads/release
-        - refs/tags/*
-  - name: publish-dockerhub-latest
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-      HELM_OCI_USERNAME: rancher
-      HELM_OCI_PASSWORD:
-        from_secret: github_token
-      GITHUB_TOKEN:
-        from_secret: github_token
-      GIT_USER: Rancher Bot
-      GIT_EMAIL: rancherbot@rancher.com
-      TAG: latest
-    commands:
-      - bin/dagger do push
-    volumes: *volumes
-    when:
-      event:
-        - tag
-      instance:
-        - drone-publish.rancher.io
-      refs:
-        - refs/heads/main
-        - refs/heads/release
-        - refs/tags/*
-  - name: publish-dockerhub-main
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-      HELM_OCI_USERNAME: rancher
-      HELM_OCI_PASSWORD:
-        from_secret: github_token
-      GITHUB_TOKEN:
-        from_secret: github_token
-      GIT_USER: Rancher Bot
-      GIT_EMAIL: rancherbot@rancher.com
-      TAG: main
-    commands:
-      - bin/dagger do push
-    volumes: *volumes
-    when:
-      event:
-        - push
-      instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-        - release
-  - name: publish-opensearch-dashboards-latest
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-    commands:
-      - bin/dagger do dashboards
-    volumes: *volumes
-    when:
-      event:
-        - push
-      instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-        - release
-  - name: publish-opensearch-latest
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-    commands:
-      - bin/dagger do opensearch
-    volumes: *volumes
-    when:
-      event:
-        - push
-      instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-        - release
-  - name: publish-opensearch-dashboards-tag
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-    commands:
-      - bin/dagger do dashboards
-    volumes: *volumes
-    when:
-      event:
-        - tag
-      instance:
-        - drone-publish.rancher.io
-      refs:
-        - refs/heads/main
-        - refs/tags/*
-  - name: publish-opensearch-tag
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-    commands:
-      - bin/dagger do opensearch
-    volumes: *volumes
-    when:
-      event:
-        - tag
-      instance:
-        - drone-publish.rancher.io
-      refs:
-        - refs/heads/main
-        - refs/heads/release
-        - refs/tags/*
-  - name: e2e-nightly
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-      AWS_ACCESS_KEY_ID:
-        from_secret: aws_access_key_id
-      AWS_SECRET_ACCESS_KEY:
-        from_secret: aws_secret_access_key
-      PULUMI_ACCESS_TOKEN:
-        from_secret: pulumi_access_token
-    commands:
-      - bin/dagger do e2e
-    volumes: *volumes
-    when:
-      event:
-        - cron
-      instance:
-        - drone-publish.rancher.io
-      cron:
-        - e2e-nightly
-  - name: publish-aiops
-    image: docker
-    environment:
-      <<: *dagger_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-      TWINE_PASSWORD:
-        from_secret: twine_password
-      TAG: ${DRONE_TAG}
-    commands:
-      - bin/dagger do aiops
-    volumes: *volumes
-    when:
-      event:
-        - tag
-      instance:
-        - drone-publish.rancher.io
-      refs:
-        - refs/heads/main
-        - refs/heads/release
-        - refs/tags/*
-  - name: publish-python-builder1
-    image: plugins/docker
-    settings:
-      password:
-        from_secret: docker_password
-      username:
-        from_secret: docker_username
-      context: images/python/
-      dockerfile: images/python/Dockerfile
-      cache_from: rancher/opni-python-base:builder1
-      target: builder1
-      repo: rancher/opni-python-base
-      tags:
-        - "builder1"
-    when:
-      instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-      event:
-        exclude:
-          - pull_request
-  - name: publish-python-base
-    image: plugins/docker
-    settings:
-      password:
-        from_secret: docker_password
-      username:
-        from_secret: docker_username
-      context: images/python/
-      dockerfile: images/python/Dockerfile
-      cache_from:
-        - rancher/opni-python-base:builder1
-        - rancher/opni-python-base:3.8
-      target: base-final
-      repo: rancher/opni-python-base
-      tags:
-        - "3.8"
-    when:
-      instance:
-        - drone-publish.rancher.io
-      branch:
-        - main
-      event:
-        exclude:
-          - pull_request
+        - drone-pr.rancher.io
 volumes:
-  - name: docker
+  - name: docker-sock
     host:
       path: /var/run/docker.sock
   - name: docker-config

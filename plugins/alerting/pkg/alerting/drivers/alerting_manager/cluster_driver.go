@@ -14,8 +14,8 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -240,8 +240,8 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 	return &emptypb.Empty{}, nil
 }
 
-func (a *AlertingClusterManager) GetClusterStatus(_ context.Context, _ *emptypb.Empty) (status *alertops.InstallStatus, retErr error) {
-	status, err := a.controllerStatus()
+func (a *AlertingClusterManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (status *alertops.InstallStatus, retErr error) {
+	status, err := a.controllerStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -249,9 +249,9 @@ func (a *AlertingClusterManager) GetClusterStatus(_ context.Context, _ *emptypb.
 	return status, nil
 }
 
-func (a *AlertingClusterManager) controllerStatus() (*alertops.InstallStatus, error) {
+func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertops.InstallStatus, error) {
 	existing := a.newAlertingClusterCrd()
-	if err := a.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(existing), existing); err != nil {
+	if err := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return &alertops.InstallStatus{
 				State: alertops.InstallState_NotInstalled,
@@ -264,8 +264,8 @@ func (a *AlertingClusterManager) controllerStatus() (*alertops.InstallStatus, er
 	cs := newOpniControllerSet(a.GatewayRef.Namespace)
 	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
 
-	ctrlErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(cs), cs)
-	workErr := a.K8sClient.Get(context.Background(), client.ObjectKeyFromObject(ws), ws)
+	ctrlErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(cs), cs)
+	workErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(ws), ws)
 	replicas := lo.FromPtrOr(existing.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	if existing.Spec.Alertmanager.Enable {
 		expectedSets := []statusTuple{{A: ctrlErr, B: cs}}

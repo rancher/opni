@@ -1,0 +1,42 @@
+lint = true
+test = true
+
+[charts.git]
+	repo = "github.com/rancher/opni"
+	branch = "charts-repo"
+[charts.git.auth]
+	email = "rancherbot@rancher.com"
+	username = "Rancher Bot"
+
+[charts.oci]
+	repo = "docker.io"
+
+[images.opni]
+	repo = "docker.io/rancher/opni"
+
+[images.minimal]
+	repo = "docker.io/rancher/opni"
+	tag-suffix = "-minimal"
+
+[images.opensearch.build]
+	dashboards-version = "2.4.0"
+	opensearch-version = "2.4.0"
+	plugin-version = "0.10.0"
+
+[images.opensearch.dashboards]
+	repo = "docker.io/rancher/opensearch-dashboards"
+
+[images.opensearch.opensearch]
+	repo = "docker.io/rancher/opensearch"
+
+[images.opensearch.update-service]
+	repo = "docker.io/rancher/opensearch-update-service"
+
+[images.python-base]
+	repo = "docker.io/rancher/opni-python-base"
+	tag = "3.9"
+
+[images.python-torch]
+	repo = "docker.io/rancher/opni-python-base"
+	tag = "3.9"
+	tag-suffix = "-torch"

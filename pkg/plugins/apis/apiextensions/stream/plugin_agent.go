@@ -7,7 +7,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
@@ -15,8 +17,18 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+const (
+	CorrelationIDHeader = "x-correlation-id"
+)
+
+var (
+	discoveryTimeout = 10 * time.Second
 )
 
 func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
@@ -29,9 +41,9 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 	}
 
 	ext := &agentStreamExtensionServerImpl{
-		name:             name,
-		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
-		streamClientCond: sync.NewCond(&sync.Mutex{}),
+		name:          name,
+		logger:        logger.NewPluginLogger().Named(name).Named("stream"),
+		activeStreams: make(map[string]chan struct{}),
 	}
 	if p != nil {
 		servers := p.StreamServers()
@@ -48,9 +60,6 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
 		}
-		if clientDisconnectHandler, ok := p.(StreamClientDisconnectHandler); ok {
-			ext.clientDisconnectHandler = clientDisconnectHandler
-		}
 	}
 	return &streamApiExtensionPlugin[*agentStreamExtensionServerImpl]{
 		extensionSrv: ext,
@@ -61,19 +70,30 @@ type agentStreamExtensionServerImpl struct {
 	streamv1.UnsafeStreamServer
 	apiextensions.UnimplementedStreamAPIExtensionServer
 
-	name                    string
-	servers                 []*richServer
-	clientHandler           StreamClientHandler
-	clientDisconnectHandler StreamClientDisconnectHandler
-	logger                  *zap.SugaredLogger
+	name          string
+	servers       []*richServer
+	clientHandler StreamClientHandler
+	logger        *zap.SugaredLogger
 
-	streamClientCond *sync.Cond
-	streamClient     grpc.ClientConnInterface
+	activeStreamsMu sync.Mutex
+	activeStreams   map[string]chan struct{}
 }
 
 // Implements streamv1.StreamServer
 func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
 	e.logger.Debug("stream connected")
+	correlationId := uuid.NewString()
+	stream.SetHeader(metadata.Pairs(CorrelationIDHeader, correlationId))
+
+	e.activeStreamsMu.Lock()
+	discoveryC := make(chan struct{}, 1)
+	e.activeStreams[correlationId] = discoveryC
+	e.activeStreamsMu.Unlock()
+	defer func() {
+		e.activeStreamsMu.Lock()
+		delete(e.activeStreams, correlationId)
+		e.activeStreamsMu.Unlock()
+	}()
 
 	opts := []totem.ServerOption{
 		totem.WithName("plugin_" + e.name),
@@ -97,72 +117,61 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	select {
 	case err := <-errC:
 		if errors.Is(err, io.EOF) {
-			e.logger.Debug("stream disconnected")
+			return status.Errorf(codes.Aborted, "stream disconnected while waiting for discovery")
 		} else {
-			e.logger.With(
-				zap.Error(err),
-			).Warn("stream disconnected with error")
+			return status.Errorf(codes.Internal, "stream encountered an error while waiting for discovery: %v", err)
 		}
-		return err
-	default:
+	case <-discoveryC:
+		e.logger.Debug("stream client is now available")
+		if e.clientHandler != nil {
+			e.clientHandler.UseStreamClient(cc)
+		}
+	case <-time.After(discoveryTimeout):
+		// If we don't get a discovery event within 10 seconds, something went
+		// wrong. To prevent the connection from hanging forever, close the stream
+		// and reconnect.
+		return status.Errorf(codes.DeadlineExceeded, "stream client discovery timed out after %s", discoveryTimeout)
 	}
 
-	e.streamClientCond.L.Lock()
-	e.logger.Debug("stream client is now available")
-	e.streamClient = cc
-	e.streamClientCond.Broadcast()
-	e.streamClientCond.L.Unlock()
-
-	defer func() {
-		e.streamClientCond.L.Lock()
-		if e.clientDisconnectHandler != nil {
-			e.logger.Debug("calling disconnect handler")
-			e.clientDisconnectHandler.StreamDisconnected()
-		}
-		e.logger.Debug("stream client is no longer available")
-		e.streamClient = nil
-		e.streamClientCond.Broadcast()
-		e.streamClientCond.L.Unlock()
-	}()
-
-	return <-errC
+	err = <-errC
+	if errors.Is(err, io.EOF) {
+		e.logger.Debug("stream disconnected")
+	} else {
+		e.logger.With(
+			zap.Error(err),
+		).Warn("stream disconnected with error")
+	}
+	return err
 }
 
 func (e *agentStreamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
 	).Debugf("received notify event for '%s'", e.name)
-	returned := make(chan struct{})
-	defer close(returned)
-	go func() {
-		select {
-		case <-ctx.Done():
-			e.streamClientCond.L.Lock()
-			e.streamClientCond.Broadcast()
-			e.streamClientCond.L.Unlock()
-		case <-returned:
-		}
-	}()
+	e.activeStreamsMu.Lock()
+	defer e.activeStreamsMu.Unlock()
 
 	if event.Type == streamv1.EventType_DiscoveryComplete {
 		e.logger.Debug("processing discovery complete event")
-		e.streamClientCond.L.Lock()
-		for e.streamClient == nil {
-			if ctx.Err() != nil {
-				e.streamClientCond.L.Unlock()
-				e.logger.Debug("context cancelled while waiting for stream client")
-				return nil, ctx.Err()
+
+		correlationId := event.GetCorrelationId()
+		if correlationId == "" {
+			// backwards compatibility:
+			// if correlation ID is not set, just notify all active streams.
+			// the id is only to prevent rare timing issues anyway; there is still
+			// only one active stream at a time.
+			for _, c := range e.activeStreams {
+				select {
+				case c <- struct{}{}:
+				default:
+				}
 			}
-			e.logger.Debug("waiting for stream client to become available")
-			e.streamClientCond.Wait()
-		}
-		if e.clientHandler != nil {
-			e.logger.Debug("calling client handler")
-			go e.clientHandler.UseStreamClient(e.streamClient)
 		} else {
-			e.logger.Warn("bug: no client handler or stream client")
+			select {
+			case e.activeStreams[correlationId] <- struct{}{}:
+			default:
+			}
 		}
-		e.streamClientCond.L.Unlock()
 	}
 	return &emptypb.Empty{}, nil
 }

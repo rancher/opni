@@ -27,12 +27,6 @@ type StreamClientHandler interface {
 	UseStreamClient(client grpc.ClientConnInterface)
 }
 
-// A plugin can optionally implement StreamClientDisconnectHandler to
-// be notified when the stream disconnects
-type StreamClientDisconnectHandler interface {
-	StreamDisconnected()
-}
-
 type Server struct {
 	Desc              *grpc.ServiceDesc
 	Impl              interface{}

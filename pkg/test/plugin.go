@@ -99,7 +99,11 @@ type testPlugin struct {
 	Metadata   meta.PluginMeta
 }
 
-func LoadPlugins(ctx context.Context, loader *plugins.PluginLoader, mode meta.PluginMode) int {
+type TestPluginSet map[meta.PluginMode][]testPlugin
+
+var globalTestPlugins = &TestPluginSet{}
+
+func (tp TestPluginSet) LoadPlugins(ctx context.Context, loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	cert, caPool, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
 		CACertData:      testdata.TestData("root_ca.crt"),
 		ServingCertData: testdata.TestData("localhost.crt"),
@@ -115,7 +119,7 @@ func LoadPlugins(ctx context.Context, loader *plugins.PluginLoader, mode meta.Pl
 	}
 
 	wg := &sync.WaitGroup{}
-	for _, p := range testPlugins[mode] {
+	for _, p := range tp[mode] {
 		p := p
 		scheme := p.SchemeFunc(ctx)
 		sc := plugins.ServeConfig(scheme)
@@ -137,10 +141,24 @@ func LoadPlugins(ctx context.Context, loader *plugins.PluginLoader, mode meta.Pl
 	}
 	wg.Wait()
 	loader.Complete()
-	return len(testPlugins)
+	return len(tp)
 }
 
-var testPlugins = map[meta.PluginMode][]testPlugin{}
+func (tp TestPluginSet) EnablePlugin(pkgName, pluginName string, mode meta.PluginMode, schemeFunc func(context.Context) meta.Scheme) {
+	for _, m := range tp[mode] {
+		if m.Metadata.BinaryPath == pluginName {
+			panic("bug: duplicate plugin name: " + pluginName)
+		}
+	}
+	tp[mode] = append(tp[mode], testPlugin{
+		SchemeFunc: schemeFunc,
+		Metadata: meta.PluginMeta{
+			BinaryPath: pluginName,
+			GoVersion:  runtime.Version(),
+			Module:     pkgName,
+		},
+	})
+}
 
 // Adds the calling plugin to the list of plugins that will be loaded
 // in the test environment. The plugin metadata is inferred from the
@@ -168,17 +186,5 @@ func EnablePlugin(mode meta.PluginMode, schemeFunc func(context.Context) meta.Sc
 	pkgName := "github.com/rancher/opni/plugins/" + matches[1]
 	pluginName := "plugin_" + matches[1]
 
-	for _, m := range testPlugins[mode] {
-		if m.Metadata.BinaryPath == pluginName {
-			panic("bug: duplicate plugin name: " + pluginName)
-		}
-	}
-	testPlugins[mode] = append(testPlugins[mode], testPlugin{
-		SchemeFunc: schemeFunc,
-		Metadata: meta.PluginMeta{
-			BinaryPath: pluginName,
-			GoVersion:  runtime.Version(),
-			Module:     pkgName,
-		},
-	})
+	globalTestPlugins.EnablePlugin(pkgName, pluginName, mode, schemeFunc)
 }

@@ -23,6 +23,7 @@ enum EventType {
 
 message StreamEvent {
   EventType type = 1;
+  string correlationId = 2;
 }
 
 service Delegate {

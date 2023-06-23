@@ -87,9 +87,6 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
 		}
-		if clientDisconnectHandler, ok := p.(StreamClientDisconnectHandler); ok {
-			ext.clientDisconnectHandler = clientDisconnectHandler
-		}
 	}
 	return &streamApiExtensionPlugin[*gatewayStreamExtensionServerImpl]{
 		extensionSrv: ext,
@@ -100,13 +97,12 @@ type gatewayStreamExtensionServerImpl struct {
 	streamv1.UnimplementedStreamServer
 	apiextensions.UnsafeStreamAPIExtensionServer
 
-	name                    string
-	servers                 []*richServer
-	clientHandler           StreamClientHandler
-	clientDisconnectHandler StreamClientDisconnectHandler
-	logger                  *zap.SugaredLogger
-	metricsConfig           GatewayStreamMetricsConfig
-	meterProvider           *metric.MeterProvider
+	name          string
+	servers       []*richServer
+	clientHandler StreamClientHandler
+	logger        *zap.SugaredLogger
+	metricsConfig GatewayStreamMetricsConfig
+	meterProvider *metric.MeterProvider
 }
 
 // Implements streamv1.StreamServer
@@ -185,13 +181,6 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 
 	e.logger.Debug("calling client handler")
 	go e.clientHandler.UseStreamClient(cc)
-
-	defer func() {
-		if e.clientDisconnectHandler != nil {
-			e.logger.Debug("calling disconnect handler")
-			e.clientDisconnectHandler.StreamDisconnected()
-		}
-	}()
 
 	return <-errC
 }

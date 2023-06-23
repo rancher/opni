@@ -1652,7 +1652,7 @@ func (e *Environment) startGateway() {
 	}))
 
 	lg.Info("Loading gateway plugins...")
-	LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
+	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
 
 	lg.Info("Waiting for gateway to start...")
 	for i := 0; i < 10; i++ {
@@ -1850,7 +1850,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				mu.Unlock()
 				return
 			}
-			LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
+			globalTestPlugins.LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel
 			agentListMu.Unlock()

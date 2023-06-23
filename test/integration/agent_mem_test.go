@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -31,23 +32,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func buildExamplePlugin(destDir string) error {
-	testlog.Log.Debug("building new example plugin...")
-	cmd := exec.Command("go", "build", "-o", path.Join(destDir, "/plugin_example"),
-		"-ldflags", "-w -s",
-		"./plugins/example",
-	)
-	cmd.Stdout = GinkgoWriter
-	cmd.Stderr = GinkgoWriter
-	cmd.Dir = "../../.."
+func buildPrerequisites() error {
+	testlog.Log.Debug("building prerequisite binaries...")
+	cmd := exec.Command("mage", "build:plugin", "example", "build:opniminimal", "build:opni")
+	cmd.Dir = "../.."
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-func buildMinimalAgent() (string, error) {
-	testlog.Log.Info("building minimal agent...")
-	return gexec.BuildWithEnvironment("github.com/rancher/opni/cmd/opni", []string{"CGO_ENABLED=0"},
-		"-tags=minimal,noagentv1,noscheme_thirdparty,nomsgpack",
-	)
 }
 
 // this test takes approx. 2 minutes
@@ -86,7 +77,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		for ctx.Err() == nil {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz", agentListenPort))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", agentListenPort))
 			if err == nil && resp.StatusCode == 200 {
 				return
 			} else if err == nil {
@@ -103,7 +94,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		for ctx.Err() == nil {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/healthz", agentListenPort))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", agentListenPort))
 			if err != nil || resp.StatusCode != 200 {
 				return
 			}
@@ -114,11 +105,7 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 	}
 
 	BeforeAll(func() {
-		minimalAgentBin, err := buildMinimalAgent()
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			gexec.CleanupBuildArtifacts()
-		})
+		Expect(buildPrerequisites()).To(Succeed())
 
 		environment = &test.Environment{}
 		Expect(environment.Start(test.WithEnableGateway(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
@@ -130,6 +117,18 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 			os.RemoveAll(tempDir)
 		})
 		os.Mkdir(path.Join(tempDir, "plugins"), 0755)
+		os.Mkdir(path.Join(tempDir, "cache"), 0755)
+		// copy plugin_example only to the plugins dir
+		file, err := os.Open("../../bin/plugins/plugin_example")
+		Expect(err).NotTo(HaveOccurred())
+
+		dest, err := os.OpenFile(filepath.Join(tempDir, "plugins/plugin_example"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = io.Copy(dest, file)
+		Expect(err).NotTo(HaveOccurred())
+		dest.Close()
+		file.Close()
 
 		gatewayConfig = environment.NewGatewayConfig()
 		gatewayConfig.Spec.Plugins = v1beta1.PluginsSpec{
@@ -150,8 +149,6 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 		Expect(os.WriteFile(configFile, configData, 0644)).To(Succeed())
 
 		startGateway = func() {
-			buildExamplePlugin(path.Join(tempDir, "plugins"))
-
 			cmd := exec.Command("bin/opni", "gateway", "--config", configFile)
 			cmd.Dir = "../../"
 			cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -221,8 +218,8 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 			Expect(err).NotTo(HaveOccurred())
 			Expect(os.WriteFile(configFile, configData, 0644)).To(Succeed())
 
-			cmd := exec.Command(minimalAgentBin, "agentv2", "--config", configFile)
-			cmd.Dir = "../../../"
+			cmd := exec.Command("bin/opni-minimal", "agentv2", "--config", configFile)
+			cmd.Dir = "../.."
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				Setsid: true,
 			}
@@ -234,11 +231,11 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 			})
 		})
 	})
-	Specify("watching agent memory usage", FlakeAttempts(3), func() {
+	Specify("watching agent memory usage", func() {
 		var rssValues []int
 		exp := gmeasure.NewExperiment("agent rss")
 		for i := 0; i < 10; i++ {
-			waitForAgentReady(2 * time.Minute)
+			waitForAgentReady(10 * time.Second)
 			time.Sleep(1 * time.Second) // wait for the agent to settle
 
 			pid := agentSession.Command.Process.Pid

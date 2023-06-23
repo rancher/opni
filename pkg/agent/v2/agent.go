@@ -532,55 +532,57 @@ func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, r
 	// First sync the agent
 	manifest, err := a.agentSyncer.GetCurrentManifest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get current agent manifest: %w", err)
 	}
 
 	// validate the manifest
 	if len(manifest.GetItems()) > 0 {
 		updateType, err := update.GetType(manifest.GetItems())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get manifest update type: %w", err)
 		}
 		if updateType != urn.Agent {
 			panic("bug: agent manifest is not of type agent")
 		}
+		syncResp, err := manifestClient.SyncManifest(ctx, manifest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sync agent manifest: %w", err)
+		}
+
+		err = a.agentSyncer.HandleSyncResults(ctx, syncResp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to handle agent sync results: %w", err)
+		}
+	} else {
+		a.Logger.Debug("skipping agent update: empty manifest")
 	}
 
-	syncResp, err := manifestClient.SyncManifest(ctx, manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	err = a.agentSyncer.HandleSyncResults(ctx, syncResp)
-	if err != nil {
-		return nil, err
-	}
-
+	// Now sync the plugins
 	manifest, err = a.pluginSyncer.GetCurrentManifest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get current plugin manifest: %w", err)
 	}
 
 	// validate the manifest
 	if len(manifest.GetItems()) > 0 {
 		updateType, err := update.GetType(manifest.GetItems())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get manifest update type: %w", err)
 		}
 		if updateType != urn.Plugin {
 			panic("bug: plugin manifest is not of type plugin")
 		}
 	}
 
-	syncResp, err = manifestClient.SyncManifest(ctx, manifest, grpc.UseCompressor("zstd"))
+	syncResp, err := manifestClient.SyncManifest(ctx, manifest, grpc.UseCompressor("zstd"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to sync plugin manifest: %w", err)
 	}
 	a.Logger.Info("received patch manifest from gateway")
 
 	err = a.pluginSyncer.HandleSyncResults(ctx, syncResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to handle plugin sync results: %w", err)
 	}
 
 	return syncResp.DesiredState, nil

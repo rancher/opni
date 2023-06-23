@@ -47,7 +47,7 @@ func (s *UpdateServer) SyncManifest(ctx context.Context, manifest *controlv1.Upd
 	defer s.handlerMu.Unlock()
 	handler, ok := s.updateHandlers[strategy]
 	if !ok {
-		return nil, status.Error(codes.Unimplemented, "no handler for strategy")
+		return nil, status.Errorf(codes.Unimplemented, "no handler for update strategy: %q", strategy)
 	}
 
 	patchList, desired, err := handler.CalculateUpdate(ctx, manifest)

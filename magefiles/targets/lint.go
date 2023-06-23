@@ -13,5 +13,5 @@ func Lint(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.lint")
 	defer tr.End()
 
-	return sh.Run(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint", "run", "-v", "--fast")
+	return sh.RunV(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint", "run", "-v", "--fast")
 }

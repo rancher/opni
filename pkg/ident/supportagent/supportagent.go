@@ -22,27 +22,27 @@ type supportAgentProviderOptions struct {
 	config     *v1beta1.SupportAgentConfig
 }
 
-type supportAgentProviderOption func(*supportAgentProviderOptions)
+type SupportAgentProviderOption func(*supportAgentProviderOptions)
 
-func (o *supportAgentProviderOptions) apply(opts ...supportAgentProviderOption) {
+func (o *supportAgentProviderOptions) apply(opts ...SupportAgentProviderOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithConfigPath(path string) supportAgentProviderOption {
+func WithConfigPath(path string) SupportAgentProviderOption {
 	return func(o *supportAgentProviderOptions) {
 		o.configPath = path
 	}
 }
 
-func WithConfig(config *v1beta1.SupportAgentConfig) supportAgentProviderOption {
+func WithConfig(config *v1beta1.SupportAgentConfig) SupportAgentProviderOption {
 	return func(o *supportAgentProviderOptions) {
 		o.config = config
 	}
 }
 
-func newSupportAgentProvider(opts ...supportAgentProviderOption) ident.Provider {
+func newSupportAgentProvider(opts ...SupportAgentProviderOption) ident.Provider {
 	path, err := config.FindSupportConfig()
 	if err != nil {
 		if !errors.Is(err, config.ErrConfigNotFound) {
@@ -90,7 +90,7 @@ func (p *supportAgentProvider) UniqueIdentifier(_ context.Context) (string, erro
 
 func init() {
 	util.Must(ident.RegisterProvider("supportagent", func(args ...any) ident.Provider {
-		var opts []supportAgentProviderOption
+		var opts []SupportAgentProviderOption
 		for _, arg := range args {
 			switch v := arg.(type) {
 			case string:

@@ -15,7 +15,7 @@ func (tp *testProvider) UniqueIdentifier(context.Context) (string, error) {
 	return "foo", nil
 }
 
-func newTestProvider(args ...any) ident.Provider {
+func newTestProvider(_ ...any) ident.Provider {
 	return &testProvider{}
 }
 

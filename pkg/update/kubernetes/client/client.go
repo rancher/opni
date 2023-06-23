@@ -33,33 +33,33 @@ type kubernetesOptions struct {
 	repoOverride *string
 }
 
-func (o *kubernetesOptions) apply(opts ...kubernetesOption) {
+func (o *kubernetesOptions) apply(opts ...KubernetesOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-type kubernetesOption func(*kubernetesOptions)
+type KubernetesOption func(*kubernetesOptions)
 
-func WithRestConfig(config *rest.Config) kubernetesOption {
+func WithRestConfig(config *rest.Config) KubernetesOption {
 	return func(o *kubernetesOptions) {
 		o.restConfig = config
 	}
 }
 
-func WithNamespace(namespace string) kubernetesOption {
+func WithNamespace(namespace string) KubernetesOption {
 	return func(o *kubernetesOptions) {
 		o.namespace = namespace
 	}
 }
 
-func WithRepoOverride(repo *string) kubernetesOption {
+func WithRepoOverride(repo *string) KubernetesOption {
 	return func(o *kubernetesOptions) {
 		o.repoOverride = repo
 	}
 }
 
-func NewKubernetesAgentUpgrader(lg *zap.SugaredLogger, opts ...kubernetesOption) (*kubernetesAgentUpgrader, error) {
+func NewKubernetesAgentUpgrader(lg *zap.SugaredLogger, opts ...KubernetesOption) (update.SyncHandler, error) {
 	options := kubernetesOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}
@@ -259,7 +259,7 @@ func init() {
 			return nil, fmt.Errorf("expected *zap.Logger, got %T", args[0])
 		}
 
-		var opts []kubernetesOption
+		var opts []KubernetesOption
 		for _, arg := range args[1:] {
 			switch v := arg.(type) {
 			case *rest.Config:

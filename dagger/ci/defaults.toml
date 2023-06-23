@@ -30,7 +30,7 @@ test = true
 	repo = "docker.io/rancher/opensearch"
 
 [images.opensearch.update-service]
-	repo = "docker.io/rancher/opensearch-update-service"
+	repo = "docker.io/rancher/opni-opensearch-update-service"
 
 [images.python-base]
 	repo = "docker.io/rancher/opni-python-base"

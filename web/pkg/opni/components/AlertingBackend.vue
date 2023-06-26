@@ -1,9 +1,9 @@
 <script>
-import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
   InstallState, getClusterConfiguration, configureCluster, getClusterStatus, installCluster, uninstallCluster
 } from '../utils/requests/alerts';
 import { delay } from '../utils/time';
+import RadioGroup from './Radio/RadioGroup';
 import Backend from './Backend';
 
 export async function isEnabled() {
@@ -15,7 +15,7 @@ export async function isEnabled() {
 export default {
   components: {
     Backend,
-    LabeledSelect,
+    RadioGroup
   },
 
   async fetch() {
@@ -38,7 +38,7 @@ export default {
         {
           label:   'Highly Available',
           value:   3,
-          tooltip: 'This will deploy multiple instances of AlertManager in order to improve resiliency.'
+          tooltip: 'This will deploy multiple AlertManager instances in order to improve resiliency.'
         },
       ],
       status: '',
@@ -146,7 +146,12 @@ export default {
     <template #editing>
       <div class="row mb-20">
         <div class="col span-12">
-          <LabeledSelect v-model="config.numReplicas" :options="modes" label="Mode" />
+          <RadioGroup
+            v-model="config.numReplicas"
+            name="mode"
+            label="Mode"
+            :options="modes"
+          />
         </div>
       </div>
     </template>

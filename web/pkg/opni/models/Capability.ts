@@ -65,6 +65,7 @@ export interface ClusterStats {
 }
 
 export interface CapabilityStatuses {
+  alerting?: CapabilityStatus;
   metrics?: CapabilityStatus;
   logs?: CapabilityStatus;
 }
@@ -82,6 +83,12 @@ export class Capability extends Resource {
     this.capLogs = [];
     this.capabilityStatus = {};
     Vue.set(this, 'capabilityStatus', {});
+  }
+
+  get nameDisplay(): string {
+    return {
+      metrics: 'Monitoring', logs: 'Logging', alerting: 'Alerting'
+    }[this.rawType];
   }
 
   get rawCluster() {
@@ -240,17 +247,17 @@ export class Capability extends Resource {
       const result = await installCapabilityV2(this.type, this.cluster.id);
 
       Vue.set(this.capabilityStatus, this.type, {
-        state:   CapabilityStatusState[result.status].toLowerCase(),
+        state:        CapabilityStatusState[result.status].toLowerCase(),
         shortMessage: result.status === CapabilityStatusState.Success ? 'Installed' : CapabilityStatusState[result.status],
-        message: result.message,
+        message:      result.message,
       });
 
       await this.updateCapabilities();
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
-        state:   'error',
+        state:        'error',
         shortMessage: 'Error',
-        message: exceptionToErrorsArray(ex).join('; '),
+        message:      exceptionToErrorsArray(ex).join('; '),
       });
     }
   }

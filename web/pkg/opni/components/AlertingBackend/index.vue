@@ -1,10 +1,12 @@
 <script>
 import {
   InstallState, getClusterConfiguration, configureCluster, getClusterStatus, installCluster, uninstallCluster
-} from '../utils/requests/alerts';
-import { delay } from '../utils/time';
-import RadioGroup from './Radio/RadioGroup';
-import Backend from './Backend';
+} from '../../utils/requests/alerts';
+import { delay } from '../../utils/time';
+import { getAlertingCapabilities } from '../../utils/requests/capability';
+import Backend from '../Backend';
+import RadioGroup from '../Radio/RadioGroup';
+import CapabilityTable from '../CapabilityTable';
 
 export async function isEnabled() {
   const status = (await getClusterStatus()).state;
@@ -15,6 +17,7 @@ export async function isEnabled() {
 export default {
   components: {
     Backend,
+    CapabilityTable,
     RadioGroup
   },
 
@@ -130,7 +133,10 @@ export default {
       } catch (ex) {
         return null;
       }
-    }
+    },
+    async loadCapabilities(parent) {
+      return await getAlertingCapabilities(parent);
+    },
   },
 };
 </script>
@@ -154,6 +160,9 @@ export default {
           />
         </div>
       </div>
+    </template>
+    <template #details>
+      <CapabilityTable :capability-provider="loadCapabilities" />
     </template>
   </Backend>
 </template>

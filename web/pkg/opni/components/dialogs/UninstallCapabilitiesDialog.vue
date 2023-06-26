@@ -62,7 +62,7 @@ export default {
     },
 
     label() {
-      return { metrics: 'Monitoring', logs: 'Logging' }[(this.capabilities[0] || {}).rawType];
+      return (this.capabilities[0] || {}).nameDisplay;
     }
   }
 };
@@ -104,7 +104,9 @@ export default {
         <div class="row">
           <div class="col span-12">
             <Banner color="warning">
-              Uninstalling capabilities will permanently remove them. Are you sure you want to uninstall <b>{{ label }}</b>?
+              <div>
+                <span>Uninstalling capabilities will permanently remove them. Are you sure you want to uninstall</span> <b>{{ label }}</b>?
+              </div>
             </Banner>
             To confirm uninstall enter <b>{{ label }}</b> below:
             <input v-model="confirm" class="no-label mt-5" type="text" />

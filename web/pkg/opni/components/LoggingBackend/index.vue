@@ -1,6 +1,6 @@
 <script>
 import { LabeledInput } from '@components/Form/LabeledInput';
-import { cloneDeep, isEmpty } from 'lodash';
+import { cloneDeep } from 'lodash';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import Backend from '../Backend';

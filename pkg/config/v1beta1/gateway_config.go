@@ -90,6 +90,17 @@ type ManagementSpec struct {
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 	//+kubebuilder:default="0.0.0.0:12080"
 	WebListenAddress string `json:"webListenAddress,omitempty"`
+
+	WebCerts *CertsSpec `json:"webCerts,omitempty"`
+}
+
+func (m *ManagementSpec) DeepCopyInto(out *ManagementSpec) {
+	*out = *m
+	if m.WebCerts != nil {
+		in, out := &m.WebCerts, &out.WebCerts
+		*out = new(CertsSpec)
+		**out = **in
+	}
 }
 
 func (m ManagementSpec) GetGRPCListenAddress() string {

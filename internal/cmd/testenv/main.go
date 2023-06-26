@@ -58,6 +58,7 @@ func main() {
 	)
 	var remoteGatewayAddress string
 	var agentIdSeed int64
+	var webAssetsPath string
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
@@ -65,6 +66,7 @@ func main() {
 	pflag.BoolVar(&enableNodeExporter, "enable-node-exporter", true, "enable node exporter")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
+	pflag.StringVar(&webAssetsPath, "web-assets-path", "", "path to custom web assets (if unset, uses embedded assets)")
 
 	pflag.Parse()
 
@@ -228,7 +230,12 @@ func main() {
 			if !enableGateway {
 				return
 			}
-			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management)
+			opts := []dashboard.ServerOption{}
+			if webAssetsPath != "" {
+				fs := os.DirFS(webAssetsPath)
+				opts = append(opts, dashboard.WithAssetsFS(fs))
+			}
+			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management, opts...)
 			if err != nil {
 				testlog.Log.Error(err)
 				return

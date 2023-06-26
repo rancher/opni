@@ -772,7 +772,7 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 			(*out)[key] = val
 		}
 	}
-	out.Management = in.Management
+	in.Management.DeepCopyInto(&out.Management)
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = make(map[string]string, len(*in))

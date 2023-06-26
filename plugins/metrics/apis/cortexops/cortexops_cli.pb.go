@@ -29,6 +29,12 @@ func CortexOpsClientFromContext(ctx context.Context) (CortexOpsClient, bool) {
 	return client, ok
 }
 
+var extraCmds_CortexOps []*cobra.Command
+
+func addCortexOpsCommand(custom *cobra.Command) {
+	extraCmds_CortexOps = append(extraCmds_CortexOps, custom)
+}
+
 func BuildCortexOpsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "ops",
@@ -41,6 +47,9 @@ func BuildCortexOpsCmd() *cobra.Command {
 	cmd.AddCommand(BuildConfigureClusterCmd())
 	cmd.AddCommand(BuildGetClusterStatusCmd())
 	cmd.AddCommand(BuildUninstallClusterCmd())
+	for _, extraCmd := range extraCmds_CortexOps {
+		cmd.AddCommand(extraCmd)
+	}
 	cli.AddOutputFlag(cmd)
 	return cmd
 }

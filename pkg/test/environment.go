@@ -161,8 +161,8 @@ type Environment struct {
 	ports          ServicePorts
 	localAgentOnce sync.Once
 
-	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
+	runningAgents   map[string]RunningAgent
 
 	gatewayConfig *v1beta1.GatewayConfig
 
@@ -170,6 +170,9 @@ type Environment struct {
 
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
+
+	managementServerMu sync.Mutex
+	managementServer   *management.Server
 }
 
 type EnvironmentOptions struct {
@@ -1313,6 +1316,8 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := testdata.TestData("root_ca.crt")
 	servingCertData := testdata.TestData("localhost.crt")
 	servingKeyData := testdata.TestData("localhost.key")
+	// dashboardCertData := testdata.TestData("dashboard.crt")
+	// dashboardKeyData := testdata.TestData("dashboard.key")
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1326,6 +1331,11 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				// WebCerts: v1beta1.CertsSpec{
+				// 	CACertData:      dashboardCertData,
+				// 	ServingCertData: dashboardCertData,
+				// 	ServingKeyData:  dashboardKeyData,
+				// },
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
@@ -1619,13 +1629,16 @@ func (e *Environment) startGateway() {
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
 		gateway.WithLifecycler(lifecycler),
 	)
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
+
+	e.managementServerMu.Lock()
+	defer e.managementServerMu.Unlock()
+
+	e.managementServer = management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
-
-	g.MustRegisterCollector(m)
+	g.MustRegisterCollector(e.managementServer)
 
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Infof("loaded %d plugins", numLoaded)
@@ -1634,7 +1647,7 @@ func (e *Environment) startGateway() {
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
 		waitctx.AddOne(e.ctx)
 		defer waitctx.Done(e.ctx)
-		if err := m.ListenAndServe(e.ctx); err != nil {
+		if err := e.managementServer.ListenAndServe(e.ctx); err != nil {
 			lg.With(
 				zap.Error(err),
 			).Warn("management server exited with error")
@@ -1924,6 +1937,12 @@ func (e *Environment) CortexTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
+}
+
+func (e *Environment) ManagementServer() *management.Server {
+	e.managementServerMu.Lock()
+	defer e.managementServerMu.Unlock()
+	return e.managementServer
 }
 
 func (e *Environment) GetAlertingManagementWebhookEndpoint() string {

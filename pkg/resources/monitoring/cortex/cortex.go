@@ -59,7 +59,10 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	}
 	allResources = append(allResources, config)
 
-	runtimeConfig := r.runtimeConfig()
+	runtimeConfig, err := r.runtimeConfig()
+	if err != nil {
+		return nil, err
+	}
 	allResources = append(allResources, runtimeConfig)
 
 	fallbackConfig := r.alertmanagerFallbackConfig()

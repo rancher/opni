@@ -130,16 +130,16 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 
-		if conf.Cortex.Limits != nil {
+		if conf.GetCortex().GetLimits() != nil {
 			cluster.Spec.Cortex.Limits = conf.Cortex.Limits
 		}
-		if conf.Cortex.Compactor != nil {
+		if conf.GetCortex().GetCompactor() != nil {
 			cluster.Spec.Cortex.CompactorConfig = conf.Cortex.Compactor
 		}
-		if conf.Cortex.Querier != nil {
+		if conf.GetCortex().GetQuerier() != nil {
 			cluster.Spec.Cortex.QuerierConfig = conf.Cortex.Querier
 		}
-		if conf.Cortex.TenantLimits != nil {
+		if conf.GetCortex().GetTenantLimits() != nil {
 			cluster.Spec.Cortex.TenantLimits = conf.Cortex.TenantLimits
 		}
 

@@ -24,3 +24,5 @@ cd cortex || exit 1
 step certificate create "Test Cortex CA" root.crt root.key --profile=root-ca "${args[@]}"
 step certificate create "Test Cortex Client" client.crt client.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost "${args[@]}"
 step certificate create "Test Cortex Server" server.crt server.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost "${args[@]}"
+
+step certificate create "Dashboard" dashboard.crt dashboard.key --profile=self-signed --subtle --insecure --no-password --not-after=87600h --kty=RSA --san=localhost

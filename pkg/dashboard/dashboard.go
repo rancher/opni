@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"io/fs"
@@ -24,45 +25,88 @@ import (
 	"go.uber.org/zap"
 )
 
-type ExtraHandler struct {
-	Path    string
-	Handler http.HandlerFunc
-}
-
-var (
-	ExtraHandlers = []ExtraHandler{}
-)
-
-func AddExtraHandler(path string, handler http.HandlerFunc) {
-	ExtraHandlers = append(ExtraHandlers, ExtraHandler{
-		Path:    path,
-		Handler: handler,
-	})
-}
-
 type Server struct {
+	ServerOptions
 	config *v1beta1.ManagementSpec
 	logger *zap.SugaredLogger
 }
 
-func NewServer(config *v1beta1.ManagementSpec) (*Server, error) {
-	if !web.EmbeddedAssetsAvailable() {
+type extraHandler struct {
+	method  string
+	prefix  string
+	handler []gin.HandlerFunc
+}
+
+type ServerOptions struct {
+	extraHandlers []extraHandler
+	assetsFS      fs.FS
+}
+
+type ServerOption func(*ServerOptions)
+
+func (o *ServerOptions) apply(opts ...ServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithHandler(method, prefix string, handler ...gin.HandlerFunc) ServerOption {
+	return func(o *ServerOptions) {
+		o.extraHandlers = append(o.extraHandlers, extraHandler{
+			method:  method,
+			prefix:  prefix,
+			handler: handler,
+		})
+	}
+}
+
+func WithAssetsFS(fs fs.FS) ServerOption {
+	return func(o *ServerOptions) {
+		o.assetsFS = fs
+	}
+}
+
+func NewServer(config *v1beta1.ManagementSpec, opts ...ServerOption) (*Server, error) {
+	options := ServerOptions{
+		assetsFS: web.DistFS,
+	}
+	options.apply(opts...)
+
+	if !web.EmbeddedAssetsAvailable(options.assetsFS) {
 		return nil, errors.New("embedded assets not available")
 	}
+
 	if config.WebListenAddress == "" {
 		return nil, errors.New("management.webListenAddress not set in config")
 	}
 	return &Server{
-		config: config,
-		logger: logger.New().Named("dashboard"),
+		ServerOptions: options,
+		config:        config,
+		logger:        logger.New().Named("dashboard"),
 	}, nil
 }
 
 func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	lg := ws.logger
-	listener, err := net.Listen("tcp4", ws.config.WebListenAddress)
-	if err != nil {
-		return err
+	var listener net.Listener
+	if ws.config.WebCerts != nil {
+		certs, caPool, err := util.LoadServingCertBundle(*ws.config.WebCerts)
+		if err != nil {
+			return err
+		}
+		listener, err = tls.Listen("tcp4", ws.config.WebListenAddress, &tls.Config{
+			Certificates: []tls.Certificate{*certs},
+			ClientCAs:    caPool,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		listener, err = net.Listen("tcp4", ws.config.WebListenAddress)
+		if err != nil {
+			return err
+		}
 	}
 	lg.With(
 		"address", listener.Addr(),
@@ -72,12 +116,13 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	router := gin.New()
 	router.Use(
 		gin.Recovery(),
+		gin.Logger(),
 		logger.GinLogger(ws.logger),
 		otelgin.Middleware("opni-ui"),
 	)
 
 	// Static assets
-	sub, err := fs.Sub(web.DistFS, "dist")
+	sub, err := fs.Sub(ws.assetsFS, "dist")
 	if err != nil {
 		return err
 	}
@@ -166,6 +211,10 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		rw.WriteHeader(resp.StatusCode)
 		io.Copy(rw, resp.Body)
 	})))
+
+	for _, h := range ws.extraHandlers {
+		router.Handle(h.method, h.prefix, h.handler...)
+	}
 
 	return util.ServeHandler(ctx, router, listener)
 }

@@ -341,3 +341,7 @@ func (m *Server) CapabilityInstaller(
 		Command: cmd,
 	}, nil
 }
+
+func (m *Server) Server() *grpc.Server {
+	return m.grpcServer
+}

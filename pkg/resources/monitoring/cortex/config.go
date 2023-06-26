@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
@@ -48,6 +49,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/runtimeconfig"
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	"github.com/cortexproject/cortex/pkg/util/validation"
+	"github.com/kralicky/yaml/v3"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/prometheus/model/relabel"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -432,7 +434,29 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	return resources.Present(secret), nil
 }
 
-func (r *Reconciler) runtimeConfig() resources.Resource {
+func (r *Reconciler) runtimeConfig() (resources.Resource, error) {
+	// the cortex runtime config is unexported in pkg/cortex/runtime_config.go
+	// the only field we use right now is the tenant limits config, which is
+	// TenantLimits map[string]*validation.Limits `yaml:"overrides"`
+
+	overrides := map[string]any{}
+	for tenantId, limits := range r.mc.Spec.Cortex.TenantLimits {
+		limitsData, err := protojson.Marshal(limits)
+		if err != nil {
+			return nil, err
+		}
+		var overrideValue any
+		if err := yaml.Unmarshal(limitsData, &overrideValue); err != nil {
+			return nil, err
+		}
+		overrides[tenantId] = overrideValue
+	}
+
+	yamlOverrides, err := yaml.Marshal(map[string]any{"overrides": overrides})
+	if err != nil {
+		return nil, err
+	}
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-runtime-config",
@@ -440,11 +464,11 @@ func (r *Reconciler) runtimeConfig() resources.Resource {
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
-			"runtime_config.yaml": "{}",
+			"runtime_config.yaml": string(yamlOverrides),
 		},
 	}
 	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm)
+	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm), nil
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {

@@ -204,6 +204,13 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 	}
 	applyOptions(service.Desc, &opts)
 
+	g.P("var extraCmds_", service.GoName, " []*", _cobra.Ident("Command"))
+	g.P()
+	g.P("func addCortexOpsCommand(custom *", _cobra.Ident("Command"), ") {")
+	g.P(" extraCmds_", service.GoName, " = append(extraCmds_", service.GoName, ", custom)")
+	g.P("}")
+	g.P()
+
 	writers.PrintCmdBuilderSignature(service.GoName, service.GoName, g)
 
 	g.P("cmd := &", _cobra.Ident("Command"), "{")
@@ -231,6 +238,9 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 	for _, method := range service.Methods {
 		writers.PrintAddCmd(method, g)
 	}
+	g.P("for _, extraCmd := range extraCmds_", service.GoName, " {")
+	g.P(" cmd.AddCommand(extraCmd)")
+	g.P("}")
 
 	g.P(_cli.Ident("AddOutputFlag(cmd)"))
 

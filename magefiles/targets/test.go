@@ -211,8 +211,5 @@ func testbinNeedsUpdate() bool {
 
 // Creates or rebuilds the testbin directory
 func (Test) Bin() error {
-	if _, err := os.Stat("testbin"); err == nil {
-		os.RemoveAll("testbin")
-	}
-	return Dagger{}.do(".", "testbin", "--config", testbinConfig)
+	return Dagger{}.do("./testbin", "testbin", "--config", testbinConfig)
 }

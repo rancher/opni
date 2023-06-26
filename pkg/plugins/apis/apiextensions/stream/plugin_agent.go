@@ -16,7 +16,10 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/samber/lo"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -28,7 +31,7 @@ const (
 )
 
 var (
-	discoveryTimeout = 10 * time.Second
+	discoveryTimeout = atomic.NewDuration(10 * time.Second)
 )
 
 func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
@@ -83,11 +86,11 @@ type agentStreamExtensionServerImpl struct {
 func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
 	e.logger.Debug("stream connected")
 	correlationId := uuid.NewString()
-	stream.SetHeader(metadata.Pairs(CorrelationIDHeader, correlationId))
+	stream.SendHeader(metadata.Pairs(CorrelationIDHeader, correlationId))
 
 	e.activeStreamsMu.Lock()
-	discoveryC := make(chan struct{}, 1)
-	e.activeStreams[correlationId] = discoveryC
+	notifyC := make(chan struct{}, 1)
+	e.activeStreams[correlationId] = notifyC
 	e.activeStreamsMu.Unlock()
 	defer func() {
 		e.activeStreamsMu.Lock()
@@ -109,29 +112,35 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	for _, srv := range e.servers {
 		ts.RegisterService(srv.Desc, srv.Impl)
 	}
-
-	cc, errC := ts.Serve()
-
-	e.logger.Debug("stream server started")
+	timeout := discoveryTimeout.Load()
+	var cc grpc.ClientConnInterface
+	var errC <-chan error
+	select {
+	case res := <-lo.Async2(ts.Serve):
+		cc, errC = res.Unpack()
+	case <-time.After(timeout):
+		// If we don't get a discovery event within 10 seconds, something went
+		// wrong. To prevent the connection from hanging forever, close the stream
+		// and reconnect.
+		return status.Errorf(codes.DeadlineExceeded, "stream client discovery timed out after %s", timeout)
+	case <-stream.Context().Done():
+		e.logger.With(stream.Context().Err()).Error("stream disconnected while waiting for discovery")
+	}
 
 	select {
-	case err := <-errC:
-		if errors.Is(err, io.EOF) {
-			return status.Errorf(codes.Aborted, "stream disconnected while waiting for discovery")
-		} else {
-			return status.Errorf(codes.Internal, "stream encountered an error while waiting for discovery: %v", err)
-		}
-	case <-discoveryC:
+	case <-notifyC:
 		e.logger.Debug("stream client is now available")
 		if e.clientHandler != nil {
 			e.clientHandler.UseStreamClient(cc)
 		}
-	case <-time.After(discoveryTimeout):
-		// If we don't get a discovery event within 10 seconds, something went
-		// wrong. To prevent the connection from hanging forever, close the stream
-		// and reconnect.
-		return status.Errorf(codes.DeadlineExceeded, "stream client discovery timed out after %s", discoveryTimeout)
+	case err := <-errC:
+		if err != nil {
+			e.logger.With(stream.Context().Err()).Error("stream encountered an error while waiting for discovery")
+			return status.Errorf(codes.Internal, "stream encountered an error while waiting for discovery: %v", err)
+		}
 	}
+
+	e.logger.Debug("stream server started")
 
 	err = <-errC
 	if errors.Is(err, io.EOF) {

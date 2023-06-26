@@ -2,14 +2,19 @@ package stream_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/plugins"
@@ -26,7 +31,7 @@ import (
 )
 
 var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() {
-	var pluginImpl *mock_stream.MockStreamAPIExtension
+	var pluginImpl *mock_stream.MockStreamAPIExtensionWithHandlers
 	var pluginSet test.TestPluginSet
 	var agentMode, gatewayMode meta.SchemeFunc
 	var pluginLoader *plugins.PluginLoader
@@ -35,7 +40,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 
-		pluginImpl = mock_stream.NewMockStreamAPIExtension(ctrl)
+		pluginImpl = mock_stream.NewMockStreamAPIExtensionWithHandlers(ctrl)
 		agentMode = func(ctx context.Context) meta.Scheme {
 			agentScheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
 			agentScheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(pluginImpl))
@@ -60,8 +65,13 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 
 	Context("Agent mode", func() {
 		var loadedPlugins chan lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+		var ext2mock *mock_ext.MockExt2Server
 		BeforeEach(func() {
-			ext2mock := mock_ext.NewMockExt2Server(ctrl)
+			loadedPlugins = make(chan lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn], 1)
+			pluginLoader.Hook(hooks.OnLoadMC(func(p types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+				loadedPlugins <- lo.T3(p, md, cc)
+			}))
+			ext2mock = mock_ext.NewMockExt2Server(ctrl)
 			pluginImpl.EXPECT().
 				StreamServers().
 				DoAndReturn(func() []stream.Server {
@@ -75,50 +85,231 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 					}
 				}).
 				Times(1)
-			ext2mock.EXPECT().
-				Foo(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
-					return &ext.FooResponse{
-						Response: fmt.Sprintf("received: %s", req.Request),
-					}, nil
-				}).
-				Times(1)
-
-			loadedPlugins = make(chan lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn], 1)
-			pluginLoader.Hook(hooks.OnLoadMC(func(p types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-				loadedPlugins <- lo.T3(p, md, cc)
-			}))
 		})
-		It("should load in agent mode", func(ctx SpecContext) {
-			var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
-			Eventually(loadedPlugins).Should(Receive(&lp))
-			p, md, cc := lp.Unpack()
-
-			Expect(p).NotTo(BeNil())
-			Expect(md).NotTo(BeNil())
-			Expect(cc).NotTo(BeNil())
-
-			streamClient := streamv1.NewStreamClient(cc)
-			stream, err := streamClient.Connect(ctx)
-			Expect(err).NotTo(HaveOccurred())
-
-			ts, err := totem.NewServer(stream)
-			Expect(err).NotTo(HaveOccurred())
-
-			tc, errC := ts.Serve()
-			f := future.NewFromChannel(errC)
-			Expect(f.IsSet()).To(BeFalse())
-
-			ext2Client := ext.NewExt2Client(tc)
-			resp, err := ext2Client.Foo(ctx, &ext.FooRequest{
-				Request: "foo",
+		When("no errors occur", func() {
+			BeforeEach(func() {
+				pluginImpl.EXPECT().
+					UseStreamClient(gomock.Any()).
+					DoAndReturn(func(cc grpc.ClientConnInterface) {
+						ext2Client := ext.NewExt2Client(cc)
+						value := uuid.NewString()
+						resp, err := ext2Client.Foo(context.Background(), &ext.FooRequest{
+							Request: value,
+						})
+						Expect(err).NotTo(HaveOccurred())
+						sum := sha256.Sum256([]byte(value))
+						sumHex := hex.EncodeToString(sum[:])
+						Expect(resp.Response).To(Equal(sumHex))
+					}).
+					Times(1)
+				ext2mock.EXPECT().
+					Foo(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
+						return &ext.FooResponse{
+							Response: fmt.Sprintf("received: %s", req.Request),
+						}, nil
+					}).
+					Times(1)
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Response).To(Equal("received: foo"))
+			It("should handle the stream correctly", func(ctx context.Context) {
+				var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+				Eventually(loadedPlugins).Should(Receive(&lp))
+				p, md, cc := lp.Unpack()
 
-			Expect(cc.Close()).To(Succeed())
+				Expect(p).NotTo(BeNil())
+				Expect(md).NotTo(BeNil())
+				Expect(cc).NotTo(BeNil())
+				streamClient := streamv1.NewStreamClient(cc)
 
-			Expect(f.Get()).To(testutil.MatchStatusCode(grpc.ErrClientConnClosing))
+				ctx, ca := context.WithCancel(ctx)
+
+				stream, err := streamClient.Connect(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				streamMd, err := stream.Header()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(streamMd).To(HaveKeyWithValue("x-correlation-id", HaveLen(1)))
+
+				ts, err := totem.NewServer(stream)
+				Expect(err).NotTo(HaveOccurred())
+
+				serverImpl := mock_ext.NewMockExt2Server(ctrl)
+				serverImpl.EXPECT().
+					Foo(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
+						sum := sha256.Sum256([]byte(req.Request))
+						return &ext.FooResponse{
+							Response: hex.EncodeToString(sum[:]),
+						}, nil
+					}).
+					Times(1)
+				ext.RegisterExt2Server(ts, &mock_ext.MockExt2ServerImpl{MockExt2Server: serverImpl})
+
+				tc, errC := ts.Serve()
+				f := future.NewFromChannel(errC)
+				Expect(f.IsSet()).To(BeFalse())
+
+				_, err = streamClient.Notify(ctx, &streamv1.StreamEvent{
+					Type:          streamv1.EventType_DiscoveryComplete,
+					CorrelationId: streamMd["x-correlation-id"][0],
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				ext2Client := ext.NewExt2Client(tc)
+				resp, err := ext2Client.Foo(ctx, &ext.FooRequest{
+					Request: "foo",
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.Response).To(Equal("received: foo"))
+
+				ca()
+				Expect(f.Get()).To(testutil.MatchStatusCode(codes.Canceled))
+			})
+			When("no correlation id is given to Notify", func() {
+				It("should use the old behavior and notify the active stream without a check", func(ctx context.Context) {
+					var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+					Eventually(loadedPlugins).Should(Receive(&lp))
+					p, md, cc := lp.Unpack()
+
+					Expect(p).NotTo(BeNil())
+					Expect(md).NotTo(BeNil())
+					Expect(cc).NotTo(BeNil())
+					streamClient := streamv1.NewStreamClient(cc)
+
+					ctx, ca := context.WithCancel(ctx)
+
+					stream, err := streamClient.Connect(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					ts, err := totem.NewServer(stream)
+					Expect(err).NotTo(HaveOccurred())
+
+					serverImpl := mock_ext.NewMockExt2Server(ctrl)
+					serverImpl.EXPECT().
+						Foo(gomock.Any(), gomock.Any()).
+						DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
+							sum := sha256.Sum256([]byte(req.Request))
+							return &ext.FooResponse{
+								Response: hex.EncodeToString(sum[:]),
+							}, nil
+						}).
+						Times(1)
+					ext.RegisterExt2Server(ts, &mock_ext.MockExt2ServerImpl{MockExt2Server: serverImpl})
+
+					tc, errC := ts.Serve()
+					f := future.NewFromChannel(errC)
+					Expect(f.IsSet()).To(BeFalse())
+
+					_, err = streamClient.Notify(ctx, &streamv1.StreamEvent{
+						Type: streamv1.EventType_DiscoveryComplete,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					ext2Client := ext.NewExt2Client(tc)
+					resp, err := ext2Client.Foo(ctx, &ext.FooRequest{
+						Request: "foo",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.Response).To(Equal("received: foo"))
+
+					ca()
+					Expect(f.Get()).To(testutil.MatchStatusCode(codes.Canceled))
+				})
+			})
+		})
+		When("the stream is disconnected before discovery is complete", func() {
+			BeforeEach(func() {
+				prev := stream.X_SetDiscoveryTimeout(1 * time.Second)
+				DeferCleanup(func() {
+					stream.X_SetDiscoveryTimeout(prev)
+				})
+			})
+			It("should return an error", func(ctx context.Context) {
+				var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+				Eventually(loadedPlugins).Should(Receive(&lp))
+				p, md, cc := lp.Unpack()
+
+				Expect(p).NotTo(BeNil())
+				Expect(md).NotTo(BeNil())
+				Expect(cc).NotTo(BeNil())
+				streamClient := streamv1.NewStreamClient(cc)
+				ctx, ca := context.WithCancel(ctx)
+				errC := make(chan error, 1)
+				_, err := streamClient.Connect(ctx, grpc.OnFinish(func(err error) {
+					errC <- err
+				}))
+				Expect(err).NotTo(HaveOccurred())
+				time.Sleep(100 * time.Millisecond)
+				ca()
+
+				Eventually(errC, 1*time.Second, 1*time.Millisecond).
+					Should(Receive(testutil.MatchStatusCode(codes.Canceled)))
+			})
+		})
+		When("the stream times out before discovery is complete", func() {
+			BeforeEach(func() {
+				prev := stream.X_SetDiscoveryTimeout(100 * time.Millisecond)
+				DeferCleanup(func() {
+					stream.X_SetDiscoveryTimeout(prev)
+				})
+			})
+			It("should return an error", func(ctx context.Context) {
+				var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+				Eventually(loadedPlugins).Should(Receive(&lp))
+				p, md, cc := lp.Unpack()
+
+				Expect(p).NotTo(BeNil())
+				Expect(md).NotTo(BeNil())
+				Expect(cc).NotTo(BeNil())
+				streamClient := streamv1.NewStreamClient(cc)
+				stream, err := streamClient.Connect(ctx)
+				Expect(err).NotTo(HaveOccurred())
+			receive:
+				select {
+				case resp := <-lo.Async2(stream.Recv):
+					_, err := resp.Unpack()
+					if err == nil {
+						goto receive
+					}
+					Expect(err).To(testutil.MatchStatusCode(codes.DeadlineExceeded, ContainSubstring("stream client discovery timed out after 100ms")))
+				case <-time.After(1 * time.Second):
+					Fail("stream.Recv() should have returned")
+				}
+			})
+		})
+		When("the stream encounters an error before discovery is complete", func() {
+			BeforeEach(func() {
+				prev := stream.X_SetDiscoveryTimeout(100 * time.Millisecond)
+				DeferCleanup(func() {
+					stream.X_SetDiscoveryTimeout(prev)
+				})
+			})
+			It("should return an error", func(ctx context.Context) {
+				var lp lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
+				Eventually(loadedPlugins).Should(Receive(&lp))
+				p, md, cc := lp.Unpack()
+
+				Expect(p).NotTo(BeNil())
+				Expect(md).NotTo(BeNil())
+				Expect(cc).NotTo(BeNil())
+				streamClient := streamv1.NewStreamClient(cc)
+
+				stream, err := streamClient.Connect(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				ts, err := totem.NewServer(stream)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, errC := ts.Serve()
+				f := future.NewFromChannel(errC)
+				Expect(f.IsSet()).To(BeFalse())
+
+				// wait for longer than the discovery timeout. we are testing a separate
+				// code path than the previous test case
+				time.Sleep(200 * time.Millisecond)
+				cc.Close()
+
+				err = f.Get()
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })

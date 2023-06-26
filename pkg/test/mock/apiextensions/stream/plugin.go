@@ -88,6 +88,55 @@ func (mr *MockStreamClientHandlerMockRecorder) UseStreamClient(client interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseStreamClient", reflect.TypeOf((*MockStreamClientHandler)(nil).UseStreamClient), client)
 }
 
+// MockStreamAPIExtensionWithHandlers is a mock of StreamAPIExtensionWithHandlers interface.
+type MockStreamAPIExtensionWithHandlers struct {
+	ctrl     *gomock.Controller
+	recorder *MockStreamAPIExtensionWithHandlersMockRecorder
+}
+
+// MockStreamAPIExtensionWithHandlersMockRecorder is the mock recorder for MockStreamAPIExtensionWithHandlers.
+type MockStreamAPIExtensionWithHandlersMockRecorder struct {
+	mock *MockStreamAPIExtensionWithHandlers
+}
+
+// NewMockStreamAPIExtensionWithHandlers creates a new mock instance.
+func NewMockStreamAPIExtensionWithHandlers(ctrl *gomock.Controller) *MockStreamAPIExtensionWithHandlers {
+	mock := &MockStreamAPIExtensionWithHandlers{ctrl: ctrl}
+	mock.recorder = &MockStreamAPIExtensionWithHandlersMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStreamAPIExtensionWithHandlers) EXPECT() *MockStreamAPIExtensionWithHandlersMockRecorder {
+	return m.recorder
+}
+
+// StreamServers mocks base method.
+func (m *MockStreamAPIExtensionWithHandlers) StreamServers() []stream.Server {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StreamServers")
+	ret0, _ := ret[0].([]stream.Server)
+	return ret0
+}
+
+// StreamServers indicates an expected call of StreamServers.
+func (mr *MockStreamAPIExtensionWithHandlersMockRecorder) StreamServers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamServers", reflect.TypeOf((*MockStreamAPIExtensionWithHandlers)(nil).StreamServers))
+}
+
+// UseStreamClient mocks base method.
+func (m *MockStreamAPIExtensionWithHandlers) UseStreamClient(client grpc.ClientConnInterface) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UseStreamClient", client)
+}
+
+// UseStreamClient indicates an expected call of UseStreamClient.
+func (mr *MockStreamAPIExtensionWithHandlersMockRecorder) UseStreamClient(client interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseStreamClient", reflect.TypeOf((*MockStreamAPIExtensionWithHandlers)(nil).UseStreamClient), client)
+}
+
 // MockstreamExtPlugin is a mock of streamExtPlugin interface.
 type MockstreamExtPlugin struct {
 	ctrl     *gomock.Controller

@@ -6,7 +6,7 @@ mocks:
   - source: pkg/plugins/apis/apiextensions/stream/plugin.go
     dest: pkg/test/mock/apiextensions/stream/plugin.go
     types:
-      - StreamAPIExtension
+      - StreamAPIExtensionWithHandlers
   - source: pkg/apis/capability/v1/capability_grpc.pb.go
     dest: pkg/test/mock/capability/backend.go
     types:

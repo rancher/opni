@@ -27,6 +27,11 @@ type StreamClientHandler interface {
 	UseStreamClient(client grpc.ClientConnInterface)
 }
 
+type StreamAPIExtensionWithHandlers interface {
+	StreamAPIExtension
+	StreamClientHandler
+}
+
 type Server struct {
 	Desc              *grpc.ServiceDesc
 	Impl              interface{}

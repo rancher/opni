@@ -227,7 +227,6 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(extensions.Items[0].Rules[9].Http.GetPost()).To(Equal("/baz/{paramMsg.paramMsg.paramMsg.paramMsg.paramString}"))
 		Expect(extensions.Items[0].Rules[10].Http.GetPut()).To(Equal("/set/{node.id}"))
 		Expect(extensions.Items[0].Rules[11].Http.GetPut()).To(Equal("/set/example/{node.id}"))
-
 	})
 	It("should forward gRPC calls to the plugin", func() {
 		cc, err := grpc.Dial(tv.grpcEndpoint,
@@ -244,23 +243,26 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		Expect(resp.Response).To(Equal("HELLO"))
 	})
 	It("should forward HTTP calls to the plugin", func() {
-		tries := 10 // need to wait a bit for the server to become ready
-		for {
+		Eventually(func() error {
 			resp, err := http.Post(tv.httpEndpoint+"/Ext/foo",
 				"application/json", strings.NewReader("hello"))
-			if (err != nil || resp.StatusCode != 200) && tries > 0 {
-				tries--
-				time.Sleep(100 * time.Millisecond)
-				continue
+			if err != nil {
+				return err
 			}
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(200))
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("expecte response status code 200, got : %d", resp.StatusCode)
+			}
 			body, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return err
+			}
 			resp.Body.Close()
-			Expect(string(body)).To(Equal(`{"response":"HELLO"}`))
-			break
-		}
+			expected := `{"response":"HELLO"}`
+			if string(body) != expected {
+				return fmt.Errorf("Expected response body %s to equal %s", string(body), expected)
+			}
+			return nil
+		}, time.Second*3, time.Millisecond*20).Should(Succeed())
 	})
 	It("should forward HTTP calls containing path parameters to the plugin", func() {
 		tries := 10 // need to wait a bit for the server to become ready

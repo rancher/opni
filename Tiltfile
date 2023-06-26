@@ -14,7 +14,7 @@ cfg = config.parse()
 
 allow_k8s_contexts(cfg.get('allowedContexts'))
 
-min_k8s_version('1.24')
+min_k8s_version('1.23')
 
 namespace_create('opni')
 
@@ -33,32 +33,32 @@ ignore=[
   'packages/'
 ]
 
-if cfg.get('defaultRegistry') != None:
-  default_registry(cfg.get('defaultRegistry'))
-
 local_resource('build charts',
   deps='packages/**/templates',
   cmd='go run ./dagger --charts.git.export',
   ignore=ignore,
 )
 
-helm_resource('opni-crd', './charts/opni-crd/'+version,
+k8s_yaml(helm('./charts/opni-crd/'+version,
+  name='opni-crd',
   namespace='opni',
-  release_name='opni-crd',
-  resource_deps=['build charts'],
-  auto_init=False
-)
-# workaround for https://github.com/tilt-dev/tilt/issues/6058
-k8s_resource('opni-crd', auto_init=True, pod_readiness='ignore')
+), allow_duplicates=True)
 
-helm_resource('opni', './charts/opni/'+version,
-  namespace='opni',
-  release_name='opni',
-  resource_deps=['build charts', 'opni-crd'],
-  image_selector="rancher/opni",
-  image_deps=['rancher/opni'],
-  image_keys=[("image.repository", "image.tag")],
-)
+if cfg.get('valuesPath') != None:
+  k8s_yaml(helm('./charts/opni/'+version,
+    name='opni',
+    namespace='opni',
+    values=cfg.get('valuesPath')
+  ), allow_duplicates=True)
+else:
+  k8s_yaml(helm('./charts/opni/'+version,
+    name='opni',
+    namespace='opni',
+    set=cfg.get('opniChartValues')
+  ), allow_duplicates=True)
+
+if cfg.get('defaultRegistry') != None:
+  default_registry(cfg.get('defaultRegistry'))
 
 custom_build("rancher/opni",
   command="go run ./dagger --images.opni.push --images.opni.repo=${EXPECTED_REF/:*} --images.opni.tag=${EXPECTED_REF/*:}",

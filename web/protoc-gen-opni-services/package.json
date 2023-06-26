@@ -1,0 +1,29 @@
+{
+  "name": "protoc-gen-opni-services",
+  "version": "0.0.1",
+  "description": "Stuff",
+  "bin": {
+    "protoc-gen-opni-services": "bin/protoc-gen-opni-services"
+  },
+  "scripts": {
+    "clean": "rm -rf ./dist/*",
+    "build": "tsc -p tsconfig.json",
+    "fix:prettier": "prettier --write ."
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^0.3.0",
+    "@bufbuild/protoplugin": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "prettier": "^2.8.0",
+    "typescript": "^4.9.3"
+  },
+  "peerDependencies": {
+    "@bufbuild/protobuf": "^0.3.0"
+  }
+}

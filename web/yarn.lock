@@ -2006,6 +2006,83 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@bufbuild/buf-darwin-arm64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-darwin-arm64/-/buf-darwin-arm64-1.22.0.tgz#1158b2343cd4e5cc1aeeacd399dd963aad4cf569"
+  integrity sha512-/Xh9h9XGhO9FOVN0fyK3n+CwjX7D07KkiuM9whInQ6MzWyNxjfRhsg6JhuBvT4M7B0Kc5BkT+saiBYYOZU+e4g==
+
+"@bufbuild/buf-darwin-x64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-darwin-x64/-/buf-darwin-x64-1.22.0.tgz#28e704a2595bf46c8adb7abe45d85b5c5f572712"
+  integrity sha512-Tx/zCiKOCHbg/FuG/pFaGJoHOfge89uMfELhGL5wbrAnvN/s9jgWq9KGrGkDu2mfc+tWFRv/s0/lkFlDrh8meA==
+
+"@bufbuild/buf-linux-aarch64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-linux-aarch64/-/buf-linux-aarch64-1.22.0.tgz#50f9567ca661d3d7fedc7c88ef4791e4e6cdd0be"
+  integrity sha512-nXEmI5nIg5YdsEzGceStZ1IWtoNwwzF42X/SyS5wOqAteMbExbKcB4hbk6eFY+tXYgWb0jZXYx92ZB4ZTNAAOw==
+
+"@bufbuild/buf-linux-x64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-linux-x64/-/buf-linux-x64-1.22.0.tgz#ab7ec2c7a2b4b32285042a3cd9985bd7a0d7437e"
+  integrity sha512-7XBHa/LJP5fpMZ1cXVzXyL2LVzC1I9lugeJeO5hp+VF0JsAj2g/bawhLjTu05PpAjrYCqMD1JWW7bBdV/S498A==
+
+"@bufbuild/buf-win32-arm64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-win32-arm64/-/buf-win32-arm64-1.22.0.tgz#0847e8f4339cb85240b00e10524069dbcc561869"
+  integrity sha512-4OrrSNmF5tAojkRT4/1T8Xzuwlwg7e3Bghdc08NbMQ7TjuQK9r0oFTNv7jWYKYqdwdGxqWqESKbb/XI40PKRIg==
+
+"@bufbuild/buf-win32-x64@1.22.0":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf-win32-x64/-/buf-win32-x64-1.22.0.tgz#464b644ac65222cfb0ed10a30f238b2adeab7240"
+  integrity sha512-naKg0qI4LgtpZOgdwt+Gz1WThc80TuROFlmaOVeG5drEl5fOaSU+bOFgIXgWBmMz6s2yGIE09xWI1HBJb95MgQ==
+
+"@bufbuild/buf@^1.21.0-1":
+  version "1.22.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/buf/-/buf-1.22.0.tgz#6d2a6747e0e58853a07db6847bb5031ad0cbcff4"
+  integrity sha512-k53rT4vOnOR/sscjjD2vP05oEQ/nn5i6zctnyU0FEDCtqUOBdWmgKRWr2eR1xBWoTf1UDazr2Po5VIQWIaYz9g==
+  optionalDependencies:
+    "@bufbuild/buf-darwin-arm64" "1.22.0"
+    "@bufbuild/buf-darwin-x64" "1.22.0"
+    "@bufbuild/buf-linux-aarch64" "1.22.0"
+    "@bufbuild/buf-linux-x64" "1.22.0"
+    "@bufbuild/buf-win32-arm64" "1.22.0"
+    "@bufbuild/buf-win32-x64" "1.22.0"
+
+"@bufbuild/protobuf@0.3.0", "@bufbuild/protobuf@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-0.3.0.tgz#ef7535d4915a6fb2d96c690164d7b9c3ca761d4c"
+  integrity sha512-+s4GgUc+hW4czQVtTG8axIMNwBpaStkRoxocVgJjbn1mfIcng4csyp/arX9CP9bYZmyyCysx+S3sBqGQhMQybw==
+
+"@bufbuild/protobuf@1.2.1", "@bufbuild/protobuf@^1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-1.2.1.tgz#f8b1fbbe79726a4eafa9772ddde147b57f85d177"
+  integrity sha512-cwwGvLGqvoaOZmoP5+i4v/rbW+rHkguvTehuZyM2p/xpmaNSdT2h3B7kHw33aiffv35t1XrYHIkdJSEkSEMJuA==
+
+"@bufbuild/protoc-gen-es@^1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protoc-gen-es/-/protoc-gen-es-1.2.1.tgz#0eeee9175579e36e2c60755690d8ecd19a7bcade"
+  integrity sha512-Nfg4ZTYciAgzqrbuGtRHR2TV4tueP10cRSD/joe57EeT0hfiXT0oQzH4OO3CzqqZvMxfkxpO4jgJgtwdQd941g==
+  dependencies:
+    "@bufbuild/protoplugin" "1.2.1"
+
+"@bufbuild/protoplugin@1.2.1", "@bufbuild/protoplugin@^1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protoplugin/-/protoplugin-1.2.1.tgz#bdac5dba4e3397178ae2b2db304e9dc04c4ef964"
+  integrity sha512-7VtPgJGXcOszidMpQRQK9wm8QlKqC80Uc5XR9+Ej+DN4Ur64dAW1djZ7kLZ3ij6Z9IY4FteGQT+ubUNxzcW2NA==
+  dependencies:
+    "@bufbuild/protobuf" "1.2.1"
+    "@typescript/vfs" "^1.4.0"
+    typescript "4.5.2"
+
+"@bufbuild/protoplugin@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protoplugin/-/protoplugin-0.3.0.tgz#3ee28647f7901281672b31d572cd8f953894cb13"
+  integrity sha512-L0Queku6AjZoY12tVbd4j+utT51vq/rBfNJhqiv2z+CfIBdZ3NWeU7FP4z1U3wqAsUp+Mb17jifMWFHv5W6tLQ==
+  dependencies:
+    "@bufbuild/protobuf" "0.3.0"
+    "@typescript/vfs" "^1.4.0"
+    typescript "4.5.2"
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
@@ -3417,6 +3494,13 @@
   dependencies:
     "@typescript-eslint/types" "4.33.0"
     eslint-visitor-keys "^2.0.0"
+
+"@typescript/vfs@^1.4.0":
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/@typescript/vfs/-/vfs-1.4.0.tgz#2d22985c7666c9d4ce26eb025405e6f156aa32b0"
+  integrity sha512-Pood7yv5YWMIX+yCHo176OnF8WUlKGImFG7XlsuH14Zb1YN5+dYD3uUtS7lqZtsH7tAveNUi2NzdpQCN0yRbaw==
+  dependencies:
+    debug "^4.1.1"
 
 "@vue/babel-helper-vue-jsx-merge-props@^1.4.0":
   version "1.4.0"
@@ -13592,6 +13676,12 @@ proto-list@~1.2.1:
   resolved "https://registry.yarnpkg.com/proto-list/-/proto-list-1.2.4.tgz#212d5bfe1318306a420f6402b8e26ff39647a849"
   integrity sha512-vtK/94akxsTMhe0/cbfpR+syPuszcuwhqVjJq26CuNDgFGj682oRBXOP5MJpv2r7JtE8MsiepGIqvvOTBwn2vA==
 
+"protoc-gen-opni-services@file:./protoc-gen-opni-services":
+  version "0.0.1"
+  dependencies:
+    "@bufbuild/protobuf" "^0.3.0"
+    "@bufbuild/protoplugin" "^0.3.0"
+
 protocols@^2.0.0, protocols@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/protocols/-/protocols-2.0.1.tgz#8f155da3fc0f32644e83c5782c8e8212ccf70a86"
@@ -15808,6 +15898,11 @@ typescript@4.1.6:
   version "4.1.6"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.1.6.tgz#1becd85d77567c3c741172339e93ce2e69932138"
   integrity sha512-pxnwLxeb/Z5SP80JDRzVjh58KsM6jZHRAOtTpS7sXLS4ogXNKC9ANxHHZqLLeVHZN35jCtI4JdmLLbLiC1kBow==
+
+typescript@4.5.2:
+  version "4.5.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.5.2.tgz#8ac1fba9f52256fdb06fb89e4122fa6a346c2998"
+  integrity sha512-5BlMof9H1yGt0P8/WF+wPNw6GfctgGjXp5hkblpyT+8rkASSmkUKMXrxR0Xg8ThVCi/JnHQiKXeBaEwCeQwMFw==
 
 typescript@~4.2:
   version "4.2.4"

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/rancher/opni/pkg/auth/challenges"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/kralicky/totem"
 
@@ -183,8 +183,10 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	}
 
 	for _, sc := range gc.spliced {
+		sc := sc
 		streamClient := streamv1.NewStreamClient(sc.cc)
-		splicedStream, err := streamClient.Connect(ctx)
+		var headerMd metadata.MD
+		splicedStream, err := streamClient.Connect(ctx, grpc.Header(&headerMd))
 		if err != nil {
 			gc.logger.With(
 				zap.String("name", sc.name),
@@ -205,11 +207,19 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 			if errf.IsSet() {
 				return
 			}
-			ctx, ca := context.WithTimeout(ctx, 2*time.Second)
-			defer ca()
-			streamClient.Notify(ctx, &streamv1.StreamEvent{
-				Type: streamv1.EventType_DiscoveryComplete,
-			})
+			var correlationId string
+			if values := headerMd.Get("x-correlation"); len(values) == 1 {
+				correlationId = values[0]
+			}
+			if _, err := streamClient.Notify(ctx, &streamv1.StreamEvent{
+				Type:          streamv1.EventType_DiscoveryComplete,
+				CorrelationId: correlationId,
+			}); err != nil {
+				gc.logger.With(
+					zap.String("name", sc.name),
+					zap.Error(err),
+				).Error("failed to notify remote stream")
+			}
 		}()
 	}
 

@@ -63,7 +63,7 @@ func MatchStatusCode(expected any, matchMessage ...types.GomegaMatcher) types.Go
 	return m
 }
 
-func (m *StatusCodeMatcher) code(value any) codes.Code {
+func code(value any) codes.Code {
 	if value == nil {
 		return codes.OK
 	}
@@ -81,17 +81,40 @@ func (m *StatusCodeMatcher) code(value any) codes.Code {
 	}
 }
 
+func message(value any) string {
+	if value == nil {
+		return ""
+	}
+	switch value := value.(type) {
+	case error:
+		return status.Convert(value).Message()
+	case *status.Status:
+		return value.Message()
+	case codes.Code:
+		return value.String()
+	case uint32:
+		return codes.Code(value).String()
+	default:
+		panic(fmt.Sprintf("MatchStatus expects a grpc status, error, or codes.Code. Got:\n%s", format.Object(value, 1)))
+	}
+}
+
 func (m *StatusCodeMatcher) Match(actual any) (success bool, err error) {
 	if actual == nil && m.Expected == nil {
 		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized")
 	}
-
-	return m.code(actual) == m.code(m.Expected), nil
+	if code(actual) != code(m.Expected) {
+		return false, nil
+	}
+	if m.matchMsg != nil {
+		return m.matchMsg.Match(message(actual))
+	}
+	return true, nil
 }
 
 func (m *StatusCodeMatcher) FailureMessage(actual any) (message string) {
-	actualStatusCode := m.code(actual)
-	expectedStatusCode := m.code(m.Expected)
+	actualStatusCode := code(actual)
+	expectedStatusCode := code(m.Expected)
 
 	actualMsg := fmt.Sprintf("%s | %s(%d)", format.Object(actual, 1), actualStatusCode.String(), actualStatusCode)
 	expectedMsg := fmt.Sprintf("%s | %s(%d)", format.Object(m.Expected, 1), expectedStatusCode.String(), expectedStatusCode)

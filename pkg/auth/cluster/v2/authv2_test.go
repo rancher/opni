@@ -17,9 +17,9 @@ import (
 	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/test/mock/auth"
+	mock_auth "github.com/rancher/opni/pkg/test/mock/auth"
 	mock_grpc "github.com/rancher/opni/pkg/test/mock/grpc"
-	"github.com/rancher/opni/pkg/test/mock/storage"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	mock_streams "github.com/rancher/opni/pkg/test/mock/streams"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testlog"
@@ -265,14 +265,17 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 					return listener.Dial()
 				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					ctx = outgoingCtx(ctx)
-					clientStream, _ := streamer(ctx, desc, cc, method, opts...)
+					clientStream, err := streamer(ctx, desc, cc, method, opts...)
+					if err != nil {
+						panic("test failed: unexpected error: " + err.Error())
+					}
 					var req corev1.ChallengeRequestList
 					clientStream.RecvMsg(&req)
 					time.Sleep(15 * time.Millisecond)
 					// at this point, ctx should have been canceled by us, so sending a
 					// challenge response should fail with a DeadlineExceeded error
 					var x corev1.ChallengeResponseList
-					err := clientStream.SendMsg(&x)
+					err = clientStream.SendMsg(&x)
 					if !errors.Is(err, io.EOF) {
 						panic("test failed")
 					}

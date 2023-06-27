@@ -32,21 +32,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
 )
 
-type apiExtensionSrvImpl struct {
-	apiextensions.UnsafeManagementAPIExtensionServer
-	*mock_apiextensions.MockManagementAPIExtensionServer
-}
-
-type extSrvImpl struct {
-	ext.UnsafeExtServer
-	*mock_ext.MockExtServer
-}
-
-type ext2SrvImpl struct {
-	ext.UnsafeExt2Server
-	*mock_ext.MockExt2Server
-}
-
 var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var descriptorLogic func() (*apiextensions.ServiceDescriptorProtoList, error)
@@ -140,7 +125,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		// Loading the plugins after installing the hooks ensures LoadOne will block
 		// until all hooks return.
 		if shouldLoadExt1.Load() {
-			apiextSrv := &apiExtensionSrvImpl{
+			apiextSrv := &mock_apiextensions.MockManagementAPIExtensionServerImpl{
 				MockManagementAPIExtensionServer: mock_apiextensions.NewMockManagementAPIExtensionServer(tv.ctrl),
 			}
 			serviceDescriptor, err := grpcreflect.LoadServiceDescriptor(&ext.Ext_ServiceDesc)
@@ -158,7 +143,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 						Items: []*descriptorpb.ServiceDescriptorProto{sd},
 					}, nil
 				})
-			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &extSrvImpl{
+			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &mock_ext.MockExtServerImpl{
 				MockExtServer: extSrv,
 			})
 			pl.LoadOne(context.Background(), meta.PluginMeta{
@@ -169,7 +154,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		}
 
 		if shouldLoadExt2.Load() {
-			apiextSrv2 := &apiExtensionSrvImpl{
+			apiextSrv2 := &mock_apiextensions.MockManagementAPIExtensionServerImpl{
 				MockManagementAPIExtensionServer: mock_apiextensions.NewMockManagementAPIExtensionServer(tv.ctrl),
 			}
 			serviceDescriptor2, err := grpcreflect.LoadServiceDescriptor(&ext.Ext2_ServiceDesc)
@@ -187,7 +172,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 						Items: []*descriptorpb.ServiceDescriptorProto{sd},
 					}, nil
 				})
-			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &ext2SrvImpl{
+			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &mock_ext.MockExt2ServerImpl{
 				MockExt2Server: ext2Srv,
 			})
 			pl.LoadOne(context.Background(), meta.PluginMeta{

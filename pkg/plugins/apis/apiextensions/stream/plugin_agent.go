@@ -153,7 +153,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	return err
 }
 
-func (e *agentStreamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
+func (e *agentStreamExtensionServerImpl) Notify(_ context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
 	).Debugf("received notify event for '%s'", e.name)

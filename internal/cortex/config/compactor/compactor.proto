@@ -44,4 +44,6 @@ message Config {
   google.protobuf.Duration block_visit_marker_timeout = 18 [(cli.flag) = { default: "5m0s" }];
   // How frequently block visit marker file should be updated duration compaction.
   google.protobuf.Duration block_visit_marker_file_update_interval = 19 [(cli.flag) = { default: "1m0s" }];
+  // When enabled, index verification will ignore out of order label names.
+  bool accept_malformed_index = 20 [(cli.flag) = { default: "false" }];
 }

@@ -1,21 +1,20 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/duration.proto";
-import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
-import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
-import "github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto";
-import "github.com/rancher/opni/internal/cortex/config/querier/querier.proto";
 
 package cortexops;
 
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto";
+import "github.com/rancher/opni/internal/cortex/config/querier/querier.proto";
+import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
+import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
 option (cli.generator) = {
   generate: true
 };
-
 
 // The CortexOps service contains setup and configuration lifecycle actions for the managed Cortex cluster.
 service CortexOps {
@@ -80,16 +79,16 @@ service CortexOps {
 }
 
 enum InstallState {
-  Unknown = 0;
+  Unknown      = 0;
   NotInstalled = 1;
-  Updating = 2;
-  Installed = 3;
+  Updating     = 2;
+  Installed    = 3;
   Uninstalling = 4;
 }
 
 message InstallStatus {
-  InstallState state = 1;
-  string version = 2;
+  InstallState        state    = 1;
+  string              version  = 2;
   map<string, string> metadata = 3;
 }
 
@@ -102,22 +101,22 @@ enum DeploymentMode {
 
 message ClusterConfiguration {
   // The deployment mode to use for Cortex.
-  DeploymentMode mode = 1;
-  storage.StorageSpec storage = 2;
-  GrafanaConfig grafana = 3;
-  Workloads workloads = 4;
-  CortexConfig cortex = 5;
+  DeploymentMode      mode      = 1;
+  storage.StorageSpec storage   = 2;
+  GrafanaConfig       grafana   = 3;
+  Workloads           workloads = 4;
+  CortexConfig        cortex    = 5;
 }
 
 message Workloads {
-  CortexWorkloadSpec distributor = 1 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
-  CortexWorkloadSpec ingester = 2;
-  CortexWorkloadSpec compactor = 3;
-  CortexWorkloadSpec storeGateway = 4;
-  CortexWorkloadSpec ruler = 5;
+  CortexWorkloadSpec distributor   = 1 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
+  CortexWorkloadSpec ingester      = 2;
+  CortexWorkloadSpec compactor     = 3;
+  CortexWorkloadSpec storeGateway  = 4;
+  CortexWorkloadSpec ruler         = 5;
   CortexWorkloadSpec queryFrontend = 6 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
-  CortexWorkloadSpec querier = 7;
-  CortexWorkloadSpec purger = 8 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
+  CortexWorkloadSpec querier       = 7;
+  CortexWorkloadSpec purger        = 8 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
 }
 
 message CortexWorkloadSpec {
@@ -128,10 +127,10 @@ message CortexWorkloadSpec {
 }
 
 message CortexConfig {
-  validation.Limits limits = 1  [(cli.flag_set) = {
+  validation.Limits limits = 1 [(cli.flag_set) = {
     default: {
       [type.googleapis.com/validation.Limits]: {
-        compactor_blocks_retention_period: { seconds: 2592000 } // 30 days
+        compactor_blocks_retention_period: {seconds: 2592000} /* 30 days */
         ingestion_rate: 600000
         ingestion_rate_strategy: "local"
         ingestion_burst_size: 1000000
@@ -147,15 +146,14 @@ message CortexConfig {
       }
     }
   }];
-  map<string, validation.Limits> tenantLimits = 2 [(cli.flag).skip=true];
-  compactor.Config compactor = 3;
-  querier.Config querier = 4;
+  map<string, validation.Limits> tenantLimits = 2 [(cli.flag).skip = true];
+  compactor.Config               compactor    = 3;
+  querier.Config                 querier      = 4;
 }
-
 
 message GrafanaConfig {
   // Whether to deploy a managed Grafana instance.
-  bool enabled = 1 [(cli.flag).default="false"];
+  bool enabled = 1 [(cli.flag).default = "false"];
 
   // DNS name at which Grafana will be available in the browser.
   string hostname = 2;

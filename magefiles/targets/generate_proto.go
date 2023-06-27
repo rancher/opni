@@ -2,18 +2,28 @@ package targets
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/kralicky/ragu"
+	"github.com/kralicky/ragu/pkg/plugins/external"
 	"github.com/kralicky/ragu/pkg/plugins/golang"
 	"github.com/kralicky/ragu/pkg/plugins/golang/grpc"
 	"github.com/kralicky/ragu/pkg/plugins/python"
 	"github.com/magefile/mage/mg"
+	"github.com/rancher/opni/internal/codegen"
 	"github.com/rancher/opni/internal/codegen/cli"
 	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 // Generates Go protobuf code
 func (Generate) ProtobufGo(ctx context.Context) error {
+	mg.Deps(codegen.GenCortexConfig)
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.go")
 	defer tr.End()
 
@@ -37,6 +47,22 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 	return nil
 }
 
+// Can be used to "bootstrap" the cli generator when modifying cli.proto
+func (Generate) ProtobufCLI() error {
+	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()},
+		"internal/codegen/cli/*.proto",
+	)
+	if err != nil {
+		return err
+	}
+	for _, file := range out {
+		if err := file.WriteToDisk(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Generates Python protobuf code
 func (Generate) ProtobufPython(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.python")
@@ -52,6 +78,52 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 	for _, file := range out {
 		if err := file.WriteToDisk(); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (Generate) ProtobufTypescript(destDir string) error {
+	esGen, err := exec.LookPath("protoc-gen-es")
+	if err != nil {
+		return fmt.Errorf("cannot generate typescript code: %w", err)
+	}
+
+	out, err := ragu.GenerateCode([]ragu.Generator{
+		external.NewGenerator(esGen, external.GeneratorOptions{
+			Opt: "target=ts,import_extension=none",
+			CodeGeneratorRequestHook: func(req *pluginpb.CodeGeneratorRequest) {
+				for _, f := range req.ProtoFile {
+					if !strings.HasPrefix(f.GetName(), "github.com/rancher/opni/") {
+						req.FileToGenerate = append(req.FileToGenerate, f.GetName())
+					}
+				}
+			},
+			CodeGeneratorResponseHook: func(resp *pluginpb.CodeGeneratorResponse) {
+
+			},
+		}),
+	},
+		"**/*.proto",
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating typescript code: %v\n", err)
+		return err
+	}
+
+	if err := os.Mkdir(destDir, 0755); err != nil {
+		return err
+	}
+	if err := os.Chdir(destDir); err != nil {
+		return err
+	}
+
+	for _, file := range out {
+		file.SourceRelPath = path.Join(file.Package, file.Name)
+		fmt.Println(file.SourceRelPath)
+		os.MkdirAll(filepath.Dir(file.SourceRelPath), 0755)
+		if err := file.WriteToDisk(); err != nil {
+			return fmt.Errorf("error writing file %s: %w", file.SourceRelPath, err)
 		}
 	}
 	return nil

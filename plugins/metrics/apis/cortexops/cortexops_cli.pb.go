@@ -6,14 +6,15 @@ package cortexops
 import (
 	context "context"
 	cli "github.com/rancher/opni/internal/codegen/cli"
+	compactor "github.com/rancher/opni/internal/cortex/config/compactor"
+	querier "github.com/rancher/opni/internal/cortex/config/querier"
+	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
-	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
-	time "time"
 )
 
 type contextKey_CortexOps_type struct{}
@@ -115,9 +116,6 @@ HTTP handlers for this method:
 	cmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"AllInOne", "HighlyAvailable"}, cobra.ShellCompDirectiveDefault
 	})
-	cmd.RegisterFlagCompletionFunc("storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
-	})
 	return cmd
 }
 
@@ -210,23 +208,6 @@ func (in *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *ClusterConfiguration) RedactSecrets() {
-	if in == nil {
-		return
-	}
-	in.Storage.RedactSecrets()
-}
-
-func (in *ClusterConfiguration) UnredactSecrets(unredacted *ClusterConfiguration) error {
-	if in == nil {
-		return nil
-	}
-	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("GrafanaConfig", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -287,70 +268,21 @@ func (in *CortexWorkloadSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CortexConfig", pflag.ExitOnError)
 	fs.SortFlags = true
+	if in.Limits == nil {
+		in.Limits = &validation.Limits{}
+	}
+	fs.AddFlagSet(in.Limits.FlagSet(append(prefix, "limits")...))
+	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate"), ".")).DefValue = "600000"
+	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate-strategy"), ".")).DefValue = "local"
+	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-burst-size"), ".")).DefValue = "1000000"
+	fs.Lookup(strings.Join(append(prefix, "limits", "compactor-blocks-retention-period"), ".")).DefValue = "seconds:2592000"
 	if in.Compactor == nil {
-		in.Compactor = &CompactorConfig{}
+		in.Compactor = &compactor.Config{}
 	}
 	fs.AddFlagSet(in.Compactor.FlagSet(append(prefix, "compactor")...))
 	if in.Querier == nil {
-		in.Querier = &QuerierConfig{}
+		in.Querier = &querier.Config{}
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
-	if in.Distributor == nil {
-		in.Distributor = &DistributorConfig{}
-	}
-	fs.AddFlagSet(in.Distributor.FlagSet(append(prefix, "distributor")...))
-	if in.Ingester == nil {
-		in.Ingester = &IngesterConfig{}
-	}
-	fs.AddFlagSet(in.Ingester.FlagSet(append(prefix, "ingester")...))
-	return fs
-}
-
-func (in *CompactorConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CompactorConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.DurationpbSliceValue([]time.Duration{2 * time.Hour, 12 * time.Hour, 24 * time.Hour}, &in.BlockRanges), strings.Join(append(prefix, "block-ranges"), "."), "List of compaction time ranges")
-	fs.Var(flagutil.DurationpbValue(1*time.Hour, &in.CompactionInterval), strings.Join(append(prefix, "compaction-interval"), "."), "The frequency at which the compaction runs")
-	fs.Var(flagutil.DurationpbValue(15*time.Minute, &in.CleanupInterval), strings.Join(append(prefix, "cleanup-interval"), "."), "How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index")
-	fs.Var(flagutil.DurationpbValue(12*time.Hour, &in.DeletionDelay), strings.Join(append(prefix, "deletion-delay"), "."), "Time before a block marked for deletion is deleted from the bucket")
-	fs.Var(flagutil.DurationpbValue(6*time.Hour, &in.TenantCleanupDelay), strings.Join(append(prefix, "tenant-cleanup-delay"), "."), "For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant")
-	return fs
-}
-
-func (in *QuerierConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("QuerierConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.DurationpbValue(2*time.Minute, &in.QueryTimeout), strings.Join(append(prefix, "query-timeout"), "."), "The timeout for a query")
-	fs.Int32Var(&in.MaxSamples, strings.Join(append(prefix, "max-samples"), "."), 50e6, "Maximum number of samples a single query can load into memory")
-	fs.Var(flagutil.DurationpbValue(0, &in.QueryIngestersWithin), strings.Join(append(prefix, "query-ingesters-within"), "."), "Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.")
-	fs.Var(flagutil.DurationpbValue(10*time.Minute, &in.MaxQueryIntoFuture), strings.Join(append(prefix, "max-query-into-future"), "."), "Maximum duration into the future you can query. 0 to disable")
-	fs.Var(flagutil.DurationpbValue(1*time.Minute, &in.DefaultEvaluationInterval), strings.Join(append(prefix, "default-evaluation-interval"), "."), "The default evaluation interval or step size for subqueries")
-	fs.Var(flagutil.DurationpbValue(0, &in.QueryStoreAfter), strings.Join(append(prefix, "query-store-after"), "."), "The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store. When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated to ensure the query end is not more recent than 'now - query-store-after'.")
-	fs.Var(flagutil.DurationpbValue(5*time.Minute, &in.LookbackDelta), strings.Join(append(prefix, "lookback-delta"), "."), "Time since the last sample after which a time series is considered stale and ignored by expression evaluations")
-	fs.Var(flagutil.DurationpbValue(0, &in.ShuffleShardingIngestersLookbackPeriod), strings.Join(append(prefix, "shuffle-sharding-ingesters-lookback-period"), "."), "When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'. The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'. If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).")
-	fs.Int32Var(&in.MaxFetchedSeriesPerQuery, strings.Join(append(prefix, "max-fetched-series-per-query"), "."), 0, "The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable")
-	return fs
-}
-
-func (in *DistributorConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("DistributorConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Float64Var(&in.IngestionRate, strings.Join(append(prefix, "ingestion-rate"), "."), 600000, "Per-user ingestion rate limit in samples per second.")
-	fs.StringVar(&in.IngestionRateStrategy, strings.Join(append(prefix, "ingestion-rate-strategy"), "."), "local", "Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).")
-	fs.Int32Var(&in.IngestionBurstSize, strings.Join(append(prefix, "ingestion-burst-size"), "."), 1000000, "Per-user allowed ingestion burst size (in number of samples).")
-	return fs
-}
-
-func (in *IngesterConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("IngesterConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Int32Var(&in.MaxLocalSeriesPerUser, strings.Join(append(prefix, "max-local-series-per-user"), "."), 0, "The maximum number of active series per user, per ingester. 0 to disable.")
-	fs.Int32Var(&in.MaxLocalSeriesPerMetric, strings.Join(append(prefix, "max-local-series-per-metric"), "."), 0, "The maximum number of active series per metric name, per ingester. 0 to disable.")
-	fs.Int32Var(&in.MaxGlobalSeriesPerUser, strings.Join(append(prefix, "max-global-series-per-user"), "."), 0, "The maximum number of active series per user, across the cluster before replication. 0 to disable.")
-	fs.Int32Var(&in.MaxGlobalSeriesPerMetric, strings.Join(append(prefix, "max-global-series-per-metric"), "."), 0, "The maximum number of active series per metric name, across the cluster before replication. 0 to disable.")
-	fs.Int32Var(&in.MaxLocalMetricsWithMetadataPerUser, strings.Join(append(prefix, "max-local-metrics-with-metadata-per-user"), "."), 0, "The maximum number of active metrics with metadata per user, per ingester. 0 to disable.")
-	fs.Int32Var(&in.MaxLocalMetadataPerMetric, strings.Join(append(prefix, "max-local-metadata-per-metric"), "."), 0, "The maximum number of metadata per metric, per ingester. 0 to disable.")
-	fs.Int32Var(&in.MaxGlobalMetricsWithMetadataPerUser, strings.Join(append(prefix, "max-global-metrics-with-metadata-per-user"), "."), 0, "The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.")
-	fs.Int32Var(&in.MaxGlobalMetadataPerMetric, strings.Join(append(prefix, "max-global-metadata-per-metric"), "."), 0, "The maximum number of metadata per metric, across the cluster. 0 to disable.")
 	return fs
 }

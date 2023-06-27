@@ -602,10 +602,13 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						return true
 					})
 
-					depFs := cg.generateFlagSet(g.g, field.Message)
-					deps[kebabName] = depFs
-					if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {
-						fs.depsWithSecretFields = append(fs.depsWithSecretFields, field)
+					// generate a flag set only if the field is from a message in the same file
+					if field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() {
+						depFs := cg.generateFlagSet(g.g, field.Message)
+						deps[kebabName] = depFs
+						if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {
+							fs.depsWithSecretFields = append(fs.depsWithSecretFields, field)
+						}
 					}
 				}
 				continue

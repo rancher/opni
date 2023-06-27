@@ -36,6 +36,6 @@ message Config {
   google.protobuf.Duration lookback_delta = 14 [(cli.flag) = { default: "5m0s" }];
   // When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'. The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'. If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).
   google.protobuf.Duration shuffle_sharding_ingesters_lookback_period = 15 [(cli.flag) = { default: "0s" }];
-  // Experimental. Use Thanos promql engine https://github.com/thanos-community/promql-engine rather than the Prometheus promql engine.
+  // Experimental. Use Thanos promql engine https://github.com/thanos-io/promql-engine rather than the Prometheus promql engine.
   bool thanos_engine = 16 [(cli.flag) = { default: "false" }];
 }

@@ -1693,8 +1693,8 @@ github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230523174150-7468e11cb5a1 h1:
 github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230523174150-7468e11cb5a1/go.mod h1:kaHQSA3VgnXAh2KhXNJIhvXFTAVjo316qL3FHeMQuJM=
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c h1:1kKbyl5GtGk/D+6jSIZSl8DD3/p/7IAT7Oxe4PfCNpU=
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c/go.mod h1:GXnSgs1TGXa8aX1hO9SUE1o3pLfggl5hkBMXdVWD8dc=
-github.com/kralicky/ragu v1.0.11-0.20230627013358-0c75ddb4c51d h1:KaqrYWlvzDuZM+xi05dsuKiHCamy7v/nWEDWLs2TJ04=
-github.com/kralicky/ragu v1.0.11-0.20230627013358-0c75ddb4c51d/go.mod h1:njQGnwU5IHm4Qx6/oOY0ll7Z6WA0apfP0ClpVA0M27Q=
+github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3 h1:UB8Fk6c8Ait8DLtemgT/ItRdUpxJQHMDntqFopFt6/Q=
+github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3/go.mod h1:njQGnwU5IHm4Qx6/oOY0ll7Z6WA0apfP0ClpVA0M27Q=
 github.com/kralicky/totem v1.1.17 h1:wujOwnsSSR6MTBsgn1csgJzp/QknAgqB/Vhxy7A1xj4=
 github.com/kralicky/totem v1.1.17/go.mod h1:oOydSbxmbKRAiJ4z4ceaejC+g23Cu6Q6BL4DOlzP1io=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=

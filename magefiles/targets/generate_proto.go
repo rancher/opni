@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/rancher/opni/internal/codegen"
 	"github.com/rancher/opni/internal/codegen/cli"
 	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
@@ -89,38 +89,31 @@ func (Generate) ProtobufTypescript(destDir string) error {
 		return fmt.Errorf("cannot generate typescript code: %w", err)
 	}
 
+	targets := []string{
+		"pkg/apis/management/v1/management.proto",
+		"plugins/metrics/apis/cortexadmin/cortexadmin.proto",
+		"plugins/metrics/apis/cortexops/cortexops.proto",
+	}
+
 	out, err := ragu.GenerateCode([]ragu.Generator{
 		external.NewGenerator(esGen, external.GeneratorOptions{
 			Opt: "target=ts,import_extension=none",
 			CodeGeneratorRequestHook: func(req *pluginpb.CodeGeneratorRequest) {
 				for _, f := range req.ProtoFile {
-					if !strings.HasPrefix(f.GetName(), "github.com/rancher/opni/") {
+					if !slices.Contains(targets, f.GetName()) && !strings.HasPrefix(f.GetName(), "google/protobuf") {
 						req.FileToGenerate = append(req.FileToGenerate, f.GetName())
 					}
 				}
 			},
-			CodeGeneratorResponseHook: func(resp *pluginpb.CodeGeneratorResponse) {
-
-			},
 		}),
-	},
-		"**/*.proto",
-	)
+	}, targets...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating typescript code: %v\n", err)
 		return err
 	}
 
-	if err := os.Mkdir(destDir, 0755); err != nil {
-		return err
-	}
-	if err := os.Chdir(destDir); err != nil {
-		return err
-	}
-
 	for _, file := range out {
-		file.SourceRelPath = path.Join(file.Package, file.Name)
-		fmt.Println(file.SourceRelPath)
+		file.SourceRelPath = filepath.Join(destDir, file.Package, file.Name)
 		os.MkdirAll(filepath.Dir(file.SourceRelPath), 0755)
 		if err := file.WriteToDisk(); err != nil {
 			return fmt.Errorf("error writing file %s: %w", file.SourceRelPath, err)
@@ -134,5 +127,5 @@ func (Generate) Protobuf(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.generate.protobuf")
 	defer tr.End()
 
-	mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython)
+	mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython, mg.F(Generate.ProtobufTypescript, "web/pkg/opni/generated"))
 }

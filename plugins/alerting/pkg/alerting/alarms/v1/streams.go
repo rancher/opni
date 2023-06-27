@@ -23,13 +23,17 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func fallbackInterval(evalInterval time.Duration) *timestamppb.Timestamp {
+	return timestamppb.New(time.Now().Add(-evalInterval))
+}
+
 func NewAgentStream() *nats.StreamConfig {
 	return &nats.StreamConfig{
 		Name:      shared.AgentClusterHealthStatusStream,
 		Subjects:  []string{shared.AgentClusterHealthStatusSubjects},
 		Retention: nats.LimitsPolicy,
 		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB
+		MaxBytes:  1 * 1024 * 50, // 50KB
 	}
 }
 
@@ -58,7 +62,7 @@ func NewCortexStatusStream() *nats.StreamConfig {
 		Subjects:  []string{shared.CortexStatusStreamSubjects},
 		Retention: nats.LimitsPolicy,
 		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB
+		MaxBytes:  1 * 1024 * 50, // 50KB
 	}
 }
 
@@ -99,6 +103,15 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
 			healthOnMessage: func(h *corev1.ClusterHealthStatus) (health bool, ts *timestamppb.Timestamp) {
+				if h == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
+				if h.HealthStatus == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
+				if h.HealthStatus.Status == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
 				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
 				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
@@ -174,8 +187,14 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
 			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				healthy = true
+				if h == nil {
+					return false, fallbackInterval(capability.GetFor().AsDuration())
+				}
+				if h.HealthStatus == nil {
+					return false, fallbackInterval(capability.GetFor().AsDuration())
+				}
 				if h.HealthStatus.Health == nil {
-					return false, h.HealthStatus.Status.Timestamp
+					return false, fallbackInterval(capability.GetFor().AsDuration())
 				}
 				lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
 				for _, s := range h.HealthStatus.Health.Conditions {
@@ -376,6 +395,9 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				if h == nil {
+					return false, fallbackInterval(cortex.GetFor().AsDuration())
+				}
 				return reduceCortexAdminStates(cortex.GetBackendComponents(), h)
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -485,7 +507,7 @@ type InternalConditionEvaluator[T proto.Message] struct {
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	defer c.cancelEvaluation()
-	//replay consumer if it exists
+	// replay consumer if it exists
 	t := time.NewTicker(c.evaluateInterval)
 	defer t.Stop()
 	for {
@@ -500,9 +522,6 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 				continue
 			}
 			defer subStream.Unsubscribe()
-			if err != nil {
-				continue
-			}
 			shouldExit = true
 		}
 		if shouldExit {

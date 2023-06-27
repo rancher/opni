@@ -222,25 +222,32 @@ func (p *Plugin) publishInitialStatus(
 			}
 		}
 	}
-	msg := &corev1.HealthStatus{
-		Health: &corev1.Health{
-			Timestamp:   timestamppb.Now(),
-			Ready:       false,
-			Conditions:  []string{},
-			Annotations: map[string]string{},
+	p.Logger.Infof("manually setting %s cluster's status to disconnected", cl.GetId())
+	msg := &corev1.ClusterHealthStatus{
+		Cluster: &corev1.Reference{
+			Id: cl.GetId(),
 		},
-		Status: &corev1.Status{
-			Timestamp:         timestamppb.Now(),
-			Connected:         false,
-			SessionAttributes: []string{},
+		HealthStatus: &corev1.HealthStatus{
+			Health: &corev1.Health{
+				Timestamp:   timestamppb.Now(),
+				Ready:       false,
+				Conditions:  []string{},
+				Annotations: map[string]string{},
+			},
+			Status: &corev1.Status{
+				Timestamp:         timestamppb.Now(),
+				Connected:         false,
+				SessionAttributes: []string{},
+			},
 		},
 	}
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		p.Logger.Errorf("failed to marshal default message %s", err)
 		return
 	}
-	p.js.Get().PublishAsync(ingressStream.Name, data)
+	p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(cl.GetId()), data)
 }
 
 // blocking
@@ -260,9 +267,7 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 		p.Logger.Error("failed to list clusters, exiting...")
 		os.Exit(1)
 	}
-	var wg sync.WaitGroup
 	for _, cl := range cls.Items {
-		wg.Add(1)
 		cl := cl
 		// make sure durable consumer is setup
 		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, alarms.NewAgentDurableReplayConsumer(cl.GetId()))
@@ -270,7 +275,6 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 			panic(replayErr)
 		}
 		go func() {
-			defer wg.Done()
 			p.publishInitialStatus(
 				client,
 				cl,
@@ -278,7 +282,6 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 			)
 		}()
 	}
-	wg.Wait()
 	for {
 		select {
 		case <-p.Ctx.Done():

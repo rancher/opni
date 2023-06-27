@@ -175,8 +175,12 @@ func (s *otlpShipper) shipLogs(ctx context.Context) {
 			return
 		case logs := <-s.converter.OutChannel():
 			s.exportLogs(ctx, logs)
-		case <-s.readingDone:
-			return
+		default:
+			select {
+			case <-s.readingDone:
+				return
+			default:
+			}
 		}
 	}
 }

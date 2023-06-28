@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 import {
-  AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ListAlertTypeDetails, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
+  AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ListAlarmMessageRequest, ListAlertTypeDetails, ListMessageResponse, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
 } from '../../models/alerting/Condition';
 import {
   AlertEndpoint, AlertEndpointList, Endpoint, TestAlertEndpointRequest, UpdateAlertEndpointRequest
@@ -85,6 +85,10 @@ export function deactivateSilenceAlertCondition(id: string) {
 
 export async function getConditionTimeline(request: TimelineRequest): Promise<TimelineResponse> {
   return (await axios.post<TimelineResponse>(`opni-api/AlertConditions/timeline`, request)).data;
+}
+
+export async function getAlarmNotifications(request: ListAlarmMessageRequest): Promise<ListMessageResponse> {
+  return (await axios.post<ListMessageResponse>(`opni-api/AlertNotifications/alarms/list`, request)).data;
 }
 
 export interface ResourceLimitSpec {

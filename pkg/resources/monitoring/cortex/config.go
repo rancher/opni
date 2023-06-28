@@ -2,12 +2,12 @@ package cortex
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"time"
 
-	"github.com/imdario/mergo"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/logging"
@@ -392,17 +392,30 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 	}
 
-	if err := mergo.Merge(&config.LimitsConfig, &r.mc.Spec.Cortex.Limits); err != nil {
-		return nil, fmt.Errorf("failed to merge limits config: %w", err)
+	limitsData, err := protojson.Marshal(r.mc.Spec.Cortex.Limits)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal limits: %w", err)
 	}
+	if err := json.Unmarshal(limitsData, &config.LimitsConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal limits: %w", err)
+	}
+
 	if r.mc.Spec.Cortex.CompactorConfig != nil {
-		if err := mergo.Merge(&config.Compactor, r.mc.Spec.Cortex.CompactorConfig); err != nil {
-			return nil, fmt.Errorf("failed to merge compactor config: %w", err)
+		compactorData, err := protojson.Marshal(r.mc.Spec.Cortex.CompactorConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal compactor config: %w", err)
+		}
+		if err := json.Unmarshal(compactorData, &config.Compactor); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal compactor config: %w", err)
 		}
 	}
 	if r.mc.Spec.Cortex.QuerierConfig != nil {
-		if err := mergo.Merge(&config.Querier, r.mc.Spec.Cortex.QuerierConfig); err != nil {
-			return nil, fmt.Errorf("failed to merge querier config: %w", err)
+		querierData, err := protojson.Marshal(r.mc.Spec.Cortex.QuerierConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal querier config: %w", err)
+		}
+		if err := json.Unmarshal(querierData, &config.Querier); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal querier config: %w", err)
 		}
 	}
 
@@ -414,7 +427,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			return s.Value, nil
 		}),
 	)
-	err := encoder.Encode(config)
+	err = encoder.Encode(config)
 	if err != nil {
 		return nil, err
 	}

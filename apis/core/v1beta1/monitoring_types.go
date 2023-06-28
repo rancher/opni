@@ -45,16 +45,6 @@ type AlertingSpec struct {
 	RawInternalRouting string `json:"rawInternalRouting,omitempty"`
 }
 
-type StorageBackendType string
-
-const (
-	StorageBackendS3         StorageBackendType = "s3"
-	StorageBackendGCS        StorageBackendType = "gcs"
-	StorageBackendAzure      StorageBackendType = "azure"
-	StorageBackendSwift      StorageBackendType = "swift"
-	StorageBackendFilesystem StorageBackendType = "filesystem"
-)
-
 type DeploymentMode string
 
 const (
@@ -94,17 +84,21 @@ type CortexWorkloadsSpec struct {
 }
 
 type CortexWorkloadSpec struct {
-	Replicas           *int32                            `json:"replicas,omitempty"`
-	ExtraVolumes       []corev1.Volume                   `json:"extraVolumes,omitempty"`
-	ExtraVolumeMounts  []corev1.VolumeMount              `json:"extraVolumeMounts,omitempty"`
-	ExtraEnvVars       []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
-	ExtraArgs          []string                          `json:"extraArgs,omitempty"`
-	SidecarContainers  []corev1.Container                `json:"sidecarContainers,omitempty"`
-	InitContainers     []corev1.Container                `json:"initContainers,omitempty"`
-	DeploymentStrategy *appsv1.DeploymentStrategy        `json:"deploymentStrategy,omitempty"`
-	UpdateStrategy     *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	SecurityContext    *corev1.SecurityContext           `json:"securityContext,omitempty"`
-	Affinity           *corev1.Affinity                  `json:"affinity,omitempty"`
+	Replicas  *int32   `json:"replicas,omitempty"`
+	ExtraArgs []string `json:"extraArgs,omitempty"`
+
+	ExtraVolumes         []corev1.Volume                   `json:"extraVolumes,omitempty"`
+	ExtraVolumeMounts    []corev1.VolumeMount              `json:"extraVolumeMounts,omitempty"`
+	ExtraEnvVars         []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
+	SidecarContainers    []corev1.Container                `json:"sidecarContainers,omitempty"`
+	InitContainers       []corev1.Container                `json:"initContainers,omitempty"`
+	DeploymentStrategy   *appsv1.DeploymentStrategy        `json:"deploymentStrategy,omitempty"`
+	UpdateStrategy       *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	SecurityContext      *corev1.SecurityContext           `json:"securityContext,omitempty"`
+	Affinity             *corev1.Affinity                  `json:"affinity,omitempty"`
+	ResourceRequirements *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
+	NodeSelector         map[string]string                 `json:"nodeSelector,omitempty"`
+	Tolerations          []corev1.Toleration               `json:"tolerations,omitempty"`
 }
 
 type GrafanaSpec struct {

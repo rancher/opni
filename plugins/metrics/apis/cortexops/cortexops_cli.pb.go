@@ -10,6 +10,7 @@ import (
 	querier "github.com/rancher/opni/internal/cortex/config/querier"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
@@ -198,7 +199,7 @@ func (in *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Grafana.FlagSet(append(prefix, "grafana")...))
 	if in.Workloads == nil {
-		in.Workloads = &Workloads{}
+		in.Workloads = &CortexWorkloadsSpec{}
 	}
 	fs.AddFlagSet(in.Workloads.FlagSet(append(prefix, "workloads")...))
 	if in.Cortex == nil {
@@ -216,8 +217,8 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *Workloads) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Workloads", pflag.ExitOnError)
+func (in *CortexWorkloadsSpec) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CortexWorkloadsSpec", pflag.ExitOnError)
 	fs.SortFlags = true
 	if in.Distributor == nil {
 		in.Distributor = &CortexWorkloadSpec{}
@@ -260,7 +261,7 @@ func (in *Workloads) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *CortexWorkloadSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CortexWorkloadSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Int32Var(&in.Replicas, strings.Join(append(prefix, "replicas"), "."), 0, "Number of replicas to run for this workload. Should be an odd number.")
+	fs.Var(flagutil.IntPtrValue(&in.Replicas), strings.Join(append(prefix, "replicas"), "."), "Number of replicas to run for this workload. Should be an odd number.")
 	fs.StringSliceVar(&in.ExtraArgs, strings.Join(append(prefix, "extra-args"), "."), nil, "Any additional arguments to pass to Cortex.")
 	return fs
 }
@@ -284,5 +285,6 @@ func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Querier = &querier.Config{}
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
+	fs.StringVar(&in.LogLevel, strings.Join(append(prefix, "log-level"), "."), "", "")
 	return fs
 }

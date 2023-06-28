@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,12 +74,22 @@ func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Em
 	}
 	storage := mc.Spec.Cortex.Storage.DeepCopy()
 	storage.RedactSecrets()
+	apiWorkloads := &cortexops.CortexWorkloadsSpec{}
+	mergeK8sWorkloadsToApi(apiWorkloads, &mc.Spec.Cortex.Workloads)
 	return &cortexops.ClusterConfiguration{
 		Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
 		Storage: storage,
 		Grafana: &cortexops.GrafanaConfig{
 			Enabled:  mc.Spec.Grafana.Enabled,
 			Hostname: mc.Spec.Grafana.Hostname,
+		},
+		Workloads: apiWorkloads,
+		Cortex: &cortexops.CortexConfig{
+			Limits:       mc.Spec.Cortex.Limits,
+			TenantLimits: mc.Spec.Cortex.TenantLimits,
+			Compactor:    mc.Spec.Cortex.CompactorConfig,
+			Querier:      mc.Spec.Cortex.QuerierConfig,
+			LogLevel:     mc.Spec.Cortex.LogLevel,
 		},
 	}, nil
 }
@@ -129,7 +141,11 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			Name: k.GatewayRef.Name,
 		}
 		cluster.Spec.Cortex.DeploymentMode = opnicorev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
-
+		if conf.GetWorkloads() != nil {
+			if err := mergeApiWorkloadsToK8s(&cluster.Spec.Cortex.Workloads, conf.GetWorkloads()); err != nil {
+				return err
+			}
+		}
 		if conf.GetCortex().GetLimits() != nil {
 			cluster.Spec.Cortex.Limits = conf.Cortex.Limits
 		}
@@ -185,6 +201,77 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+func mergeApiWorkloadsToK8s(k8sWorkloads *opnicorev1beta1.CortexWorkloadsSpec, apiWorkloads *cortexops.CortexWorkloadsSpec) error {
+	for _, w := range []lo.Tuple2[**opnicorev1beta1.CortexWorkloadSpec, *cortexops.CortexWorkloadSpec]{
+		lo.T2(&k8sWorkloads.Distributor, apiWorkloads.Distributor),
+		lo.T2(&k8sWorkloads.Ingester, apiWorkloads.Ingester),
+		lo.T2(&k8sWorkloads.Compactor, apiWorkloads.Compactor),
+		lo.T2(&k8sWorkloads.StoreGateway, apiWorkloads.StoreGateway),
+		lo.T2(&k8sWorkloads.Ruler, apiWorkloads.Ruler),
+		lo.T2(&k8sWorkloads.QueryFrontend, apiWorkloads.QueryFrontend),
+		lo.T2(&k8sWorkloads.Querier, apiWorkloads.Querier),
+		lo.T2(&k8sWorkloads.Purger, apiWorkloads.Purger),
+	} {
+		pDest, src := w.Unpack()
+		if src == nil {
+			continue
+		}
+		if *pDest == nil {
+			*pDest = &opnicorev1beta1.CortexWorkloadSpec{}
+		}
+		dest := *pDest
+
+		dest.Replicas = src.Replicas
+		dest.ExtraArgs = src.ExtraArgs
+
+		jsonData, err := src.JsonData.MarshalJSON()
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(jsonData, dest); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mergeK8sWorkloadsToApi(apiWorkloads *cortexops.CortexWorkloadsSpec, k8sWorkloads *opnicorev1beta1.CortexWorkloadsSpec) error {
+	for _, w := range []lo.Tuple2[**cortexops.CortexWorkloadSpec, *opnicorev1beta1.CortexWorkloadSpec]{
+		lo.T2(&apiWorkloads.Distributor, k8sWorkloads.Distributor),
+		lo.T2(&apiWorkloads.Ingester, k8sWorkloads.Ingester),
+		lo.T2(&apiWorkloads.Compactor, k8sWorkloads.Compactor),
+		lo.T2(&apiWorkloads.StoreGateway, k8sWorkloads.StoreGateway),
+		lo.T2(&apiWorkloads.Ruler, k8sWorkloads.Ruler),
+		lo.T2(&apiWorkloads.QueryFrontend, k8sWorkloads.QueryFrontend),
+		lo.T2(&apiWorkloads.Querier, k8sWorkloads.Querier),
+		lo.T2(&apiWorkloads.Purger, k8sWorkloads.Purger),
+	} {
+		pDest, src := w.Unpack()
+		if src == nil {
+			continue
+		}
+		if *pDest == nil {
+			*pDest = &cortexops.CortexWorkloadSpec{}
+		}
+		dest := *pDest
+
+		dest.Replicas = src.Replicas
+		dest.ExtraArgs = src.ExtraArgs
+
+		jsonData, err := json.Marshal(src)
+		if err != nil {
+			return err
+		}
+		if dest.JsonData == nil {
+			dest.JsonData = &structpb.Struct{Fields: map[string]*structpb.Value{}}
+		}
+		if err := dest.JsonData.UnmarshalJSON(jsonData); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {

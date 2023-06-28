@@ -83,7 +83,8 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 	return nil
 }
 
-func (Generate) ProtobufTypescript(destDir string) error {
+func (Generate) ProtobufTypescript() error {
+	destDir := "web/pkg/opni/generated"
 	esGen, err := exec.LookPath("protoc-gen-es")
 	if err != nil {
 		return fmt.Errorf("cannot generate typescript code: %w", err)
@@ -127,5 +128,5 @@ func (Generate) Protobuf(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.generate.protobuf")
 	defer tr.End()
 
-	mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython, mg.F(Generate.ProtobufTypescript, "web/pkg/opni/generated"))
+	mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython)
 }

@@ -244,11 +244,9 @@ spec:
                       alertmanager_max_templates_count:
                         format: int32
                         type: integer
-                      alertmanager_notification_rate_limit:
-                        type: number
+                      alertmanager_notification_rate_limit: {}
                       alertmanager_notification_rate_limit_per_integration:
-                        additionalProperties:
-                          type: number
+                        additionalProperties: {}
                         type: object
                       alertmanager_receivers_firewall_block_cidr_networks:
                         items:
@@ -295,8 +293,7 @@ spec:
                       ingestion_burst_size:
                         format: int32
                         type: integer
-                      ingestion_rate:
-                        type: number
+                      ingestion_rate: {}
                       ingestion_rate_strategy:
                         type: string
                       ingestion_tenant_shard_size:
@@ -783,11 +780,9 @@ spec:
                         alertmanager_max_templates_count:
                           format: int32
                           type: integer
-                        alertmanager_notification_rate_limit:
-                          type: number
+                        alertmanager_notification_rate_limit: {}
                         alertmanager_notification_rate_limit_per_integration:
-                          additionalProperties:
-                            type: number
+                          additionalProperties: {}
                           type: object
                         alertmanager_receivers_firewall_block_cidr_networks:
                           items:
@@ -834,8 +829,7 @@ spec:
                         ingestion_burst_size:
                           format: int32
                           type: integer
-                        ingestion_rate:
-                          type: number
+                        ingestion_rate: {}
                         ingestion_rate_strategy:
                           type: string
                         ingestion_tenant_shard_size:
@@ -2800,9 +2794,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -3480,6 +3509,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -5301,9 +5346,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -5981,6 +6061,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -7802,9 +7898,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -8482,6 +8613,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -10303,9 +10450,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -10983,6 +11165,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -12804,9 +13002,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -13484,6 +13717,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -15305,9 +15554,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -15985,6 +16269,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -17806,9 +18106,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -18486,6 +18821,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -20307,9 +20658,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -20987,6 +21373,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:
@@ -22808,9 +23210,44 @@ spec:
                               - name
                               type: object
                             type: array
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
+                          resourceLimits:
+                            properties:
+                              claims:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
                           securityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -23488,6 +23925,22 @@ spec:
                                   type: string
                               required:
                               - name
+                              type: object
+                            type: array
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
                               type: object
                             type: array
                           updateStrategy:

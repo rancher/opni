@@ -10,6 +10,7 @@ import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
 option (cli.generator) = {
@@ -104,11 +105,11 @@ message ClusterConfiguration {
   DeploymentMode      mode      = 1;
   storage.StorageSpec storage   = 2;
   GrafanaConfig       grafana   = 3;
-  Workloads           workloads = 4;
+  CortexWorkloadsSpec workloads = 4;
   CortexConfig        cortex    = 5;
 }
 
-message Workloads {
+message CortexWorkloadsSpec {
   CortexWorkloadSpec distributor   = 1 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
   CortexWorkloadSpec ingester      = 2;
   CortexWorkloadSpec compactor     = 3;
@@ -121,9 +122,12 @@ message Workloads {
 
 message CortexWorkloadSpec {
   // Number of replicas to run for this workload. Should be an odd number.
-  int32 replicas = 1;
+  optional int32 replicas = 1;
   // Any additional arguments to pass to Cortex.
   repeated string extraArgs = 2;
+  // Driver-specific options that are used to configure the workload. Does not
+  // include the replicas and extraArgs fields.
+  google.protobuf.Struct jsonData = 3 [(cli.flag).skip = true];
 }
 
 message CortexConfig {
@@ -149,6 +153,7 @@ message CortexConfig {
   map<string, validation.Limits> tenantLimits = 2 [(cli.flag).skip = true];
   compactor.Config               compactor    = 3;
   querier.Config                 querier      = 4;
+  string                         logLevel     = 5;
 }
 
 message GrafanaConfig {

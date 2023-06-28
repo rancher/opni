@@ -540,6 +540,12 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					case protoreflect.BoolKind:
 						g.P(`fs.Var(`, _flagutil.Ident("BoolPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 						continue
+					case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+						g.P(`fs.Var(`, _flagutil.Ident("IntPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						continue
+					case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+						g.P(`fs.Var(`, _flagutil.Ident("UintPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						continue
 					default:
 						panic("unimplemented: *" + field.Desc.Kind().String())
 					}
@@ -676,6 +682,14 @@ func (cg *Generator) generateDeepcopyFunctions(file *protogen.File, g *protogen.
 		g.P("func (in *", msg.GoIdent, ") DeepCopy() *", msg.GoIdent, " {")
 		g.P(" return ", _proto.Ident("Clone"), "(in).(*", msg.GoIdent, ")")
 		g.P("}")
+	}
+}
+
+// generate converters from the proto type to the standard struct type and back
+func (cg *Generator) generateConverterFunctions(file *protogen.File, g *protogen.GeneratedFile) {
+	for _, msg := range file.Messages {
+		g.P()
+		g.P("func (in *", msg.GoIdent, ") ToSourceType() *", msg.GoIdent, " {")
 	}
 }
 

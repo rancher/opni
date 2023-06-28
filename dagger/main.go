@@ -332,7 +332,6 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	linterPluginPath := filepath.Join(b.workdir, "internal/linter/linter.so")
 	lint := goBuild.
 		Pipeline("Run Linter").
-		WithMountedDirectory(b.workdir, b.sources).
 		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
 		WithExec([]string{"golangci-lint", "run", "-v", "--fast"})
 

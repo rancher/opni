@@ -10,6 +10,7 @@ import (
 	querier "github.com/rancher/opni/internal/cortex/config/querier"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	util "github.com/rancher/opni/pkg/opni/util"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
@@ -66,7 +67,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -100,7 +101,17 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if edited, err := util.EditInteractive(in); err != nil {
+					return err
+				} else {
+					in = edited
+				}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -114,6 +125,7 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	cmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"AllInOne", "HighlyAvailable"}, cobra.ShellCompDirectiveDefault
 	})
@@ -136,7 +148,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -167,7 +179,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")

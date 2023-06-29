@@ -74,6 +74,7 @@ var (
 	_pflag     = protogen.GoImportPath("github.com/spf13/pflag")
 	_emptypb   = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	_flagutil  = protogen.GoImportPath("github.com/rancher/opni/pkg/util/flagutil")
+	_cliutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/util")
 	_enumflag  = protogen.GoImportPath("github.com/thediveo/enumflag/v2")
 	_errors    = protogen.GoImportPath("errors")
 )
@@ -321,6 +322,7 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 	if !isEmpty {
 		flagSet := cg.generateFlagSet(g, method.Input)
 		g.P("cmd.Flags().AddFlagSet(in.FlagSet())")
+		g.P(`cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")`)
 
 		cg.generateFlagCompletionFuncs(g, flagSet)
 	}
@@ -841,10 +843,22 @@ func formatComments(comments protogen.CommentSet) (leadingComments []string) {
 }
 
 func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
-	g.P(" RunE: func(cmd *", _cobra.Ident("Command"), ", args []string) error {")
-	writers.PrintObtainClient(service, g)
 	requestIsEmpty := isEmptypb(method.Desc.Input())
 	responseIsEmpty := isEmptypb(method.Desc.Output())
+	if !requestIsEmpty {
+		g.P(" PreRunE: func(cmd *", _cobra.Ident("Command"), ", args []string) error {")
+		g.P(`  if cmd.Flags().Lookup("interactive").Value.String() == "true" {`)
+		g.P(`    if edited, err := `, _cliutil.Ident("EditInteractive"), `(in); err != nil {`)
+		g.P(`      return err`)
+		g.P(`    } else {`)
+		g.P(`      in = edited`)
+		g.P(`    }`)
+		g.P(`  }`)
+		g.P(`  return nil`)
+		g.P("},")
+	}
+	g.P(" RunE: func(cmd *", _cobra.Ident("Command"), ", argenerateArgsgs []string) error {")
+	writers.PrintObtainClient(service, g)
 
 	responseVarName := "_"
 	if !responseIsEmpty {

@@ -1,0 +1,27 @@
+{
+  "name": "service-generator",
+  "version": "0.0.1",
+  "description": "Stuff",
+  "bin": {
+    "service-generator": "generate"
+  },
+  "scripts": {
+    "clean": "rm -rf ./dist/*",
+    "build": "tsc -p tsconfig.json"
+  },
+  "files": [
+    "bin"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.2.1",
+    "@bufbuild/protoplugin": "^1.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "prettier": "^2.8.0",
+    "typescript": "^4.9.3"
+  },
+  "peerDependencies": {
+    "@bufbuild/protobuf": "^1.2.1"
+  }
+}

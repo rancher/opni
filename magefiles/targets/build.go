@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/magefile/mage/mg"
@@ -36,6 +38,23 @@ func (Build) Linter(ctx context.Context) error {
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "1",
 	}, mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+}
+
+// Build the typescript service generator plugin
+func (Build) TypescriptServiceGenerator() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	webPath := path.Join(cwd, "web")
+	command := exec.Command("yarn", "build:service-generator")
+	command.Dir = webPath
+	command.Stderr = os.Stderr
+	command.Stdout = os.Stdout
+	command.Stdin = os.Stdin
+	
+	return command.Run()
 }
 
 type buildOpts struct {

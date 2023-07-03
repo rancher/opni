@@ -150,11 +150,11 @@ message CortexConfig {
       }
     }
   }];
-  runtimeconfig.RuntimeConfigValues runtimeConfig = 2;
-  compactor.Config                  compactor     = 3;
-  querier.Config                    querier       = 4;
-  string                            logLevel      = 5;
-  storage.StorageSpec               storage       = 6;
+  runtimeconfig.RuntimeConfigValues runtime_config = 2;
+  compactor.Config                  compactor      = 3;
+  querier.Config                    querier        = 4;
+  string                            log_level      = 5;
+  storage.StorageSpec               storage        = 6;
 }
 
 message GrafanaConfig {

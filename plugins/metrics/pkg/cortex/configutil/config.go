@@ -18,6 +18,7 @@ import (
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
@@ -552,29 +553,35 @@ func CortexAPISpecToCortexConfig[T cortexconfig](
 		},
 	}
 
-	limitsData, err := protojson.Marshal(in.GetLimits())
+	limitsData, err := protojson.MarshalOptions{
+		UseProtoNames: true,
+	}.Marshal(in.GetLimits())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal limits: %w", err)
 	}
-	if err := json.Unmarshal(limitsData, &config.LimitsConfig); err != nil {
+	if err := yaml.Unmarshal(limitsData, &config.LimitsConfig); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal limits: %w", err)
 	}
 
 	if in.GetCompactor() != nil {
-		compactorData, err := protojson.Marshal(in.GetCompactor())
+		compactorData, err := protojson.MarshalOptions{
+			UseProtoNames: true,
+		}.Marshal(in.GetCompactor())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal compactor config: %w", err)
 		}
-		if err := json.Unmarshal(compactorData, &config.Compactor); err != nil {
+		if err := yaml.Unmarshal(compactorData, &config.Compactor); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal compactor config: %w", err)
 		}
 	}
 	if in.GetQuerier() != nil {
-		querierData, err := protojson.Marshal(in.GetQuerier())
+		querierData, err := protojson.MarshalOptions{
+			UseProtoNames: true,
+		}.Marshal(in.GetQuerier())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal querier config: %w", err)
 		}
-		if err := json.Unmarshal(querierData, &config.Querier); err != nil {
+		if err := yaml.Unmarshal(querierData, &config.Querier); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal querier config: %w", err)
 		}
 	}
@@ -602,7 +609,9 @@ func CortexAPISpecToCortexConfig[T cortexconfig](
 	}
 	for tenantId, tenantLimits := range rt.GetOverrides() {
 		limits := &validation.Limits{}
-		data, err := protojson.Marshal(tenantLimits)
+		data, err := protojson.MarshalOptions{
+			UseProtoNames: true,
+		}.Marshal(tenantLimits)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal tenant limits: %w", err)
 		}

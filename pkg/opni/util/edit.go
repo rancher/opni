@@ -194,7 +194,8 @@ func tryEdit[T proto.Message](spec T, lang language, extraComments []string) (T,
 	editedLines := strings.Split(string(editedBytes), "\n")
 	filteredLines := make([]string, 0, len(editedLines))
 	for _, line := range editedLines {
-		if !strings.HasPrefix(strings.TrimSpace(line), lang.BeginComment()) {
+		trimmedLine := strings.TrimSpace(line)
+		if len(trimmedLine) > 0 && !strings.HasPrefix(trimmedLine, lang.BeginComment()) {
 			filteredLines = append(filteredLines, line)
 		}
 	}

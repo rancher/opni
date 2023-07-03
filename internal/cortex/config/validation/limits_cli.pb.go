@@ -14,7 +14,8 @@ import (
 )
 
 func (in *Limits) DeepCopyInto(out *Limits) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *Limits) DeepCopy() *Limits {
@@ -22,7 +23,8 @@ func (in *Limits) DeepCopy() *Limits {
 }
 
 func (in *RelabelConfig) DeepCopyInto(out *RelabelConfig) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *RelabelConfig) DeepCopy() *RelabelConfig {

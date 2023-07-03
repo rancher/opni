@@ -28,6 +28,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/cortex"
 	"github.com/cortexproject/cortex/pkg/cortex/storage"
 	"github.com/cortexproject/cortex/pkg/distributor"
+	"github.com/cortexproject/cortex/pkg/flusher"
 	"github.com/cortexproject/cortex/pkg/ingester"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/cortexproject/cortex/pkg/querier"
@@ -167,15 +168,6 @@ func StorageToBucketConfig(in *storagev1.StorageSpec) bucket.Config {
 	return storageConfig
 }
 
-type cortexconfig interface {
-	GetStorage() *storagev1.StorageSpec
-	GetLogLevel() string
-	GetLimits() *validation_gen.Limits
-	GetQuerier() *querier_gen.Config
-	GetCompactor() *compactor_gen.Config
-	GetRuntimeConfig() *runtimeconfig_gen.RuntimeConfigValues
-}
-
 type cortexConfigOverrider[T any] interface {
 	applyConfigOverrides(cfg *T)
 }
@@ -277,10 +269,10 @@ func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 		NewOverrider(func(t *server.Config) {
 			t.HTTPListenAddress = impl.HttpListenAddress
 			t.HTTPListenPort = impl.HttpListenPort
-			t.HTTPListenNetwork = "tcp4"
+			t.HTTPListenNetwork = "tcp"
 			t.GRPCListenAddress = impl.GrpcListenAddress
 			t.GRPCListenPort = impl.GrpcListenPort
-			t.GRPCListenNetwork = "tcp4"
+			t.GRPCListenNetwork = "tcp"
 			t.MinVersion = "VersionTLS13"
 			t.HTTPTLSConfig = server.TLSConfig(impl.TLSServerConfig)
 			t.GRPCTLSConfig = server.TLSConfig(impl.TLSServerConfig)
@@ -407,7 +399,16 @@ func mergeOverriders(overriders <-chan CortexConfigOverrider) []CortexConfigOver
 	return merged
 }
 
-func CortexAPISpecToCortexConfig[T cortexconfig](
+type cortexspec interface {
+	GetStorage() *storagev1.StorageSpec
+	GetLogLevel() string
+	GetLimits() *validation_gen.Limits
+	GetQuerier() *querier_gen.Config
+	GetCompactor() *compactor_gen.Config
+	GetRuntimeConfig() *runtimeconfig_gen.RuntimeConfigValues
+}
+
+func CortexAPISpecToCortexConfig[T cortexspec](
 	in T,
 	overriders ...CortexConfigOverrider,
 ) (*cortex.Config, *cortex.RuntimeConfigValues, error) {
@@ -550,6 +551,9 @@ func CortexAPISpecToCortexConfig[T cortexconfig](
 			MetricRelabelConfigs: []*relabel.Config{
 				metrics.OpniInternalLabelFilter(),
 			},
+		},
+		Flusher: flusher.Config{
+			ExitAfterFlush: false,
 		},
 	}
 

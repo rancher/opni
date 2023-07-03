@@ -2,6 +2,7 @@ package cortexops
 
 import (
 	"github.com/rancher/opni/internal/codegen/cli"
+	pflag "github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 )
 
@@ -22,5 +23,13 @@ func (s *InstallStatus) RenderText(out cli.Writer) {
 	out.Printf("Version: %s\n", s.Version)
 	for k, v := range s.Metadata {
 		out.Printf("%s: %s\n", k, v)
+	}
+}
+
+func (cc *ClusterConfiguration) LoadDefaults() {
+	fs := pflag.NewFlagSet("", pflag.ContinueOnError)
+	fs.AddFlagSet(cc.FlagSet())
+	if err := fs.Parse([]string{}); err != nil {
+		panic(err)
 	}
 }

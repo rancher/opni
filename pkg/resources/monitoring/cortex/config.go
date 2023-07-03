@@ -3,11 +3,13 @@ package cortex
 import (
 	"fmt"
 
+	"github.com/go-kit/log"
 	"github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
+	"go.uber.org/zap"
 
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
@@ -74,10 +76,8 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		configutil.NewStandardOverrides(configutil.StandardOverridesShape{
 			HttpListenAddress: "0.0.0.0",
 			HttpListenPort:    8080,
-			HttpListenNetwork: "tcp4",
 			GrpcListenAddress: "0.0.0.0",
 			GrpcListenPort:    9095,
-			GrpcListenNetwork: "tcp4",
 			StorageDir:        "/data",
 			RuntimeConfig:     "/etc/cortex-runtime-config/runtime_config.yaml",
 			TLSServerConfig:   configutil.TLSServerConfigShape(tlsServerConfig),
@@ -99,6 +99,11 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+	if err := conf.Validate(log.NewNopLogger()); err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Warn("Cortex config failed validation (ignoring)")
 	}
 	confBytes, err := configutil.MarshalCortexConfig(conf)
 	if err != nil {

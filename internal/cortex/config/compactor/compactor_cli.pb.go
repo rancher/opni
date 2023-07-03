@@ -14,7 +14,8 @@ import (
 )
 
 func (in *Config) DeepCopyInto(out *Config) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *Config) DeepCopy() *Config {

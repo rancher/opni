@@ -342,9 +342,7 @@ func main() {
 					testlog.Log.Info(chalk.Green.Color("Metrics backend configured"))
 				}()
 				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{
-					Mode: cortexops.DeploymentMode_AllInOne,
-				})
+				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{})
 				if err != nil {
 					testlog.Log.Error(err)
 				}

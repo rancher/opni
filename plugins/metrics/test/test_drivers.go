@@ -10,11 +10,13 @@ import (
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/cortexproject/cortex/pkg/storage/tsdb"
+	"github.com/go-kit/log"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util/merge"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -23,6 +25,7 @@ import (
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -87,9 +90,11 @@ type TestEnvMetricsClusterDriver struct {
 }
 
 func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
+	defaultConf := &cortexops.ClusterConfiguration{}
+	defaultConf.LoadDefaults()
 	return &TestEnvMetricsClusterDriver{
 		Env:           env,
-		Configuration: &cortexops.ClusterConfiguration{},
+		Configuration: defaultConf,
 		state:         cortexops.InstallState_NotInstalled,
 	}
 }
@@ -156,7 +161,9 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 	ctx, ca := context.WithCancel(waitctx.FromContext(d.Env.Context()))
 	d.cortexCtx = ctx
 	d.cortexCancel = ca
-	d.Configuration = conf
+	merge.MergeOptions{
+		ReplaceLists: true,
+	}.Merge(d.Configuration, conf)
 
 	go func() {
 		if oldCancel != nil {
@@ -164,7 +171,7 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 			waitctx.Wait(oldCtx)
 		}
 		d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions) ([]byte, []byte, error) {
-			cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(conf.Cortex,
+			cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(d.Configuration.Cortex,
 				configutil.MergeOverrideLists(
 					configutil.NewStandardOverrides(cco),
 					[]configutil.CortexConfigOverrider{
@@ -186,6 +193,12 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 			)
 			if err != nil {
 				return nil, nil, err
+			}
+
+			if err := cconf.Validate(log.NewNopLogger()); err != nil {
+				d.Env.Logger.With(
+					zap.Error(err),
+				).Warn("Cortex config failed validation (ignoring)")
 			}
 
 			cconfBytes, err := configutil.MarshalCortexConfig(cconf)

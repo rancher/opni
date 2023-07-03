@@ -681,7 +681,8 @@ func (cg *Generator) generateDeepcopyFunctions(file *protogen.File, g *protogen.
 	for _, msg := range file.Messages {
 		g.P()
 		g.P("func (in *", msg.GoIdent, ") DeepCopyInto(out *", msg.GoIdent, ") {")
-		g.P(_proto.Ident("Merge"), "(in, out)")
+		g.P(" out.Reset()")
+		g.P(_proto.Ident("Merge"), "(out, in)")
 		g.P("}")
 		g.P()
 		g.P("func (in *", msg.GoIdent, ") DeepCopy() *", msg.GoIdent, " {")
@@ -850,6 +851,22 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 	responseIsEmpty := isEmptypb(method.Desc.Output())
 	if !requestIsEmpty {
 		g.P(" PreRunE: func(cmd *", _cobra.Ident("Command"), ", args []string) error {")
+		if responseIsEmpty {
+			// try to find a matching "getter" method. If found, use it to obtain the current
+			// value of `in` and pass it to the setter method.
+			for _, candidate := range service.Methods {
+				if candidate == method {
+					continue
+				}
+				if candidate.Desc.Input() == method.Desc.Output() && candidate.Desc.Output() == method.Desc.Input() {
+					writers.PrintObtainClient(service, g)
+					g.P("if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", _emptypb.Ident("Empty"), "{}); err == nil {")
+					g.P(" in = curValue")
+					g.P("}")
+					break
+				}
+			}
+		}
 		g.P(`  if cmd.Flags().Lookup("interactive").Value.String() == "true" {`)
 		g.P(`    if edited, err := `, _cliutil.Ident("EditInteractive"), `(in); err != nil {`)
 		g.P(`      return err`)

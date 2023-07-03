@@ -103,6 +103,14 @@ HTTP handlers for this method:
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if curValue, err := client.GetClusterConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+				in = curValue
+			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
 				if edited, err := util.EditInteractive(in); err != nil {
 					return err

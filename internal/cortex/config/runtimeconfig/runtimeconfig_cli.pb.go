@@ -13,7 +13,8 @@ import (
 )
 
 func (in *IngesterInstanceLimits) DeepCopyInto(out *IngesterInstanceLimits) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *IngesterInstanceLimits) DeepCopy() *IngesterInstanceLimits {
@@ -21,7 +22,8 @@ func (in *IngesterInstanceLimits) DeepCopy() *IngesterInstanceLimits {
 }
 
 func (in *KvMultiRuntimeConfig) DeepCopyInto(out *KvMultiRuntimeConfig) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *KvMultiRuntimeConfig) DeepCopy() *KvMultiRuntimeConfig {
@@ -29,7 +31,8 @@ func (in *KvMultiRuntimeConfig) DeepCopy() *KvMultiRuntimeConfig {
 }
 
 func (in *RuntimeConfigValues) DeepCopyInto(out *RuntimeConfigValues) {
-	proto.Merge(in, out)
+	out.Reset()
+	proto.Merge(out, in)
 }
 
 func (in *RuntimeConfigValues) DeepCopy() *RuntimeConfigValues {

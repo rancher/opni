@@ -713,10 +713,10 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 
 	configBytes, rtConfigBytes, err := configBuilder(CortexConfigOptions{
 		HttpListenAddress: "localhost",
-		HttpListenNetwork: "tcp4",
+		HttpListenNetwork: "tcp",
 		HttpListenPort:    e.ports.CortexHTTP,
 		GrpcListenAddress: "localhost",
-		GrpcListenNetwork: "tcp4",
+		GrpcListenNetwork: "tcp",
 		GrpcListenPort:    e.ports.CortexGRPC,
 		StorageDir:        storageDir,
 		RuntimeConfig:     path.Join(storageDir, "runtime_config.yaml"),

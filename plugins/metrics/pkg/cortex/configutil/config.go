@@ -9,8 +9,12 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
+	compactor_gen "github.com/rancher/opni/internal/cortex/config/compactor"
+	querier_gen "github.com/rancher/opni/internal/cortex/config/querier"
+	runtimeconfig_gen "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
+	validation_gen "github.com/rancher/opni/internal/cortex/config/validation"
 	"github.com/rancher/opni/pkg/metrics"
+	"github.com/samber/lo"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -23,8 +27,6 @@ import (
 	"github.com/cortexproject/cortex/pkg/cortex"
 	"github.com/cortexproject/cortex/pkg/cortex/storage"
 	"github.com/cortexproject/cortex/pkg/distributor"
-	"github.com/cortexproject/cortex/pkg/frontend"
-	v2 "github.com/cortexproject/cortex/pkg/frontend/v2"
 	"github.com/cortexproject/cortex/pkg/ingester"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/cortexproject/cortex/pkg/querier"
@@ -38,7 +40,6 @@ import (
 	"github.com/cortexproject/cortex/pkg/ruler/rulestore"
 	"github.com/cortexproject/cortex/pkg/storage/bucket"
 	"github.com/cortexproject/cortex/pkg/storage/bucket/azure"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
 	"github.com/cortexproject/cortex/pkg/storage/bucket/gcs"
 	bucket_http "github.com/cortexproject/cortex/pkg/storage/bucket/http"
 	"github.com/cortexproject/cortex/pkg/storage/bucket/s3"
@@ -53,10 +54,8 @@ import (
 	kyamlv3 "github.com/kralicky/yaml/v3"
 
 	"github.com/prometheus/prometheus/model/relabel"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/samber/lo"
 )
 
 func valueOrDefault[T any](t *T) (_ T) {
@@ -66,20 +65,41 @@ func valueOrDefault[T any](t *T) (_ T) {
 	return *t
 }
 
-type ImplementationSpecificConfig struct {
-	HttpListenPort       int
-	GrpcListenPort       int
-	StorageDir           string
-	RuntimeConfig        string
-	TLSServerConfig      server.TLSConfig
-	TLSClientConfig      cortextls.ClientConfig
-	QueryFrontendAddress string
+type TLSServerConfigShape = struct {
+	TLSCertPath string
+	TLSKeyPath  string
+	ClientAuth  string
+	ClientCAs   string
 }
 
-func StorageToBucketConfig(
-	in *storagev1.StorageSpec,
-	impl ImplementationSpecificConfig,
-) bucket.Config {
+type TLSClientConfigShape = struct {
+	CertPath           string
+	KeyPath            string
+	CAPath             string
+	ServerName         string
+	InsecureSkipVerify bool
+}
+
+type StandardOverridesShape = struct {
+	HttpListenAddress string
+	HttpListenPort    int
+	HttpListenNetwork string
+	GrpcListenAddress string
+	GrpcListenPort    int
+	GrpcListenNetwork string
+	StorageDir        string
+	RuntimeConfig     string
+	TLSServerConfig   TLSServerConfigShape
+	TLSClientConfig   TLSClientConfigShape
+}
+
+type ImplementationSpecificOverridesShape = struct {
+	QueryFrontendAddress string
+	MemberlistJoinAddrs  []string
+	AlertmanagerURL      string
+}
+
+func StorageToBucketConfig(in *storagev1.StorageSpec) bucket.Config {
 	s3Spec := valueOrDefault(in.GetS3())
 	gcsSpec := valueOrDefault(in.GetGcs())
 	azureSpec := valueOrDefault(in.GetAzure())
@@ -142,25 +162,260 @@ func StorageToBucketConfig(
 			ConnectTimeout:    swiftSpec.GetConnectTimeout().AsDuration(),
 			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
 		},
-		Filesystem: filesystem.Config{
-			Directory: filepath.Join(impl.StorageDir, "bucket"),
-		},
 	}
 	return storageConfig
 }
 
-func CortexAPISpecToCortexConfig(
-	in *corev1beta1.CortexSpec,
-	impl ImplementationSpecificConfig,
-	overrides ...func(*cortex.Config),
-) (*cortex.Config, error) {
-	isHA := in.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable
+type cortexconfig interface {
+	GetStorage() *storagev1.StorageSpec
+	GetLogLevel() string
+	GetLimits() *validation_gen.Limits
+	GetQuerier() *querier_gen.Config
+	GetCompactor() *compactor_gen.Config
+	GetRuntimeConfig() *runtimeconfig_gen.RuntimeConfigValues
+}
+
+type cortexConfigOverrider[T any] interface {
+	applyConfigOverrides(cfg *T)
+}
+
+type cortexConfigOverriderFunc[T any] func(cfg *T)
+
+func (f cortexConfigOverriderFunc[T]) applyConfigOverrides(cfg any) {
+	f(cfg.(*T))
+}
+
+func (f cortexConfigOverriderFunc[T]) inputType() reflect.Type {
+	var t T
+	return reflect.TypeOf(&t).Elem()
+}
+
+func applyCortexConfigOverrides(spec any, appliers []CortexConfigOverrider) {
+	sValue := reflect.ValueOf(spec)
+	if sValue.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("bug: invalid spec type for %T: must be pointer", spec))
+	}
+	numFields := sValue.Elem().NumField()
+	for i := 0; i < numFields; i++ {
+		field := sValue.Elem().Field(i)
+		// skip unexported fields
+		if field.CanSet() == false {
+			continue
+		}
+		if field.Type().Kind() == reflect.Ptr && field.Type().Elem().Kind() == reflect.Struct {
+			if !field.IsNil() {
+				applyCortexConfigOverrides(field.Interface(), appliers)
+			}
+		} else if field.Type().Kind() == reflect.Struct {
+			applyCortexConfigOverrides(field.Addr().Interface(), appliers)
+		} else {
+			for _, app := range appliers {
+				tType := app.inputType()
+				if field.Type() == tType {
+					app.applyConfigOverrides(field.Addr().Interface())
+				}
+			}
+		}
+	}
+
+	sType := sValue.Elem().Type()
+	for _, app := range appliers {
+		tType := app.inputType()
+		if tType == sType {
+			app.applyConfigOverrides(sValue.Interface())
+		}
+	}
+}
+func NewOverrider[T any](fn func(*T)) CortexConfigOverrider {
+	return cortexConfigOverriderFunc[T](fn)
+}
+
+type CortexConfigOverrider interface {
+	applyConfigOverrides(any)
+	inputType() reflect.Type
+}
+
+// These are overrides that are required when running Cortex in HA mode.
+func NewHAOverrides() []CortexConfigOverrider {
+	return []CortexConfigOverrider{
+		NewOverrider(func(in *kv.Config) {
+			in.Store = "memberlist"
+		}),
+		NewOverrider(func(in *ring.LifecyclerConfig) {
+			in.JoinAfter = 10 * time.Second
+			in.ObservePeriod = 10 * time.Second
+		}),
+		NewOverrider(func(in *ring.Config) {
+			in.ReplicationFactor = 3
+		}),
+		NewOverrider(func(in *ruler.Config) {
+			in.EnableSharding = true
+		}),
+		NewOverrider(func(in *storegateway.Config) {
+			in.ShardingEnabled = true
+		}),
+		NewOverrider(func(in *storegateway.RingConfig) {
+			in.ReplicationFactor = 3
+		}),
+		NewOverrider(func(in *alertmanager.RingConfig) {
+			in.ReplicationFactor = 3
+		}),
+		NewOverrider(func(in *alertmanager.MultitenantAlertmanagerConfig) {
+			in.ShardingEnabled = true
+		}),
+		NewOverrider(func(in *compactor.Config) {
+			in.ShardingEnabled = true
+		}),
+	}
+}
+
+// These are the standard overrides that are generally always required to have
+// a working Cortex config. They configure network, TLS, and filesystem settings.
+func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
+	return []CortexConfigOverrider{
+		NewOverrider(func(t *server.Config) {
+			t.HTTPListenAddress = impl.HttpListenAddress
+			t.HTTPListenPort = impl.HttpListenPort
+			t.HTTPListenNetwork = "tcp4"
+			t.GRPCListenAddress = impl.GrpcListenAddress
+			t.GRPCListenPort = impl.GrpcListenPort
+			t.GRPCListenNetwork = "tcp4"
+			t.MinVersion = "VersionTLS13"
+			t.HTTPTLSConfig = server.TLSConfig(impl.TLSServerConfig)
+			t.GRPCTLSConfig = server.TLSConfig(impl.TLSServerConfig)
+		}),
+		NewOverrider(func(t *grpcclient.Config) {
+			t.TLSEnabled = true
+			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+		}),
+		NewOverrider(func(t *alertmanager.ClientConfig) {
+			t.TLSEnabled = true
+			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+		}),
+		NewOverrider(func(t *querier.ClientConfig) {
+			t.TLSEnabled = true
+			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+		}),
+		NewOverrider(func(t *querier.Config) {
+			t.ActiveQueryTrackerDir = filepath.Join(impl.StorageDir, "active-query-tracker")
+		}),
+		NewOverrider(func(t *alertmanager.MultitenantAlertmanagerConfig) {
+			t.DataDir = filepath.Join(impl.StorageDir, "alertmanager")
+		}),
+		NewOverrider(func(t *compactor.Config) {
+			t.DataDir = filepath.Join(impl.StorageDir, "compactor")
+		}),
+		NewOverrider(func(t *tsdb.BucketStoreConfig) {
+			t.SyncDir = filepath.Join(impl.StorageDir, "tsdb-sync")
+		}),
+		NewOverrider(func(t *tsdb.TSDBConfig) {
+			t.Dir = filepath.Join(impl.StorageDir, "tsdb")
+		}),
+		NewOverrider(func(t *bucket.Config) {
+			t.Backend = "filesystem"
+			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "bucket")
+		}),
+		NewOverrider(func(t *ruler.Config) {
+			t.RulePath = filepath.Join(impl.StorageDir, "rules")
+		}),
+		NewOverrider(func(t *rulestore.Config) {
+			t.Backend = "filesystem"
+			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "rules")
+		}),
+		NewOverrider(func(t *runtimeconfig.Config) {
+			t.LoadPath = filepath.Base(impl.RuntimeConfig)
+			t.StorageConfig.Backend = "filesystem"
+			t.StorageConfig.Filesystem.Directory = filepath.Dir(impl.RuntimeConfig)
+		}),
+	}
+}
+
+// These are overrides that are generally always required, but are specific
+// to the runtime environment and are logically separate from the standard
+// override set.
+func NewImplementationSpecificOverrides(impl ImplementationSpecificOverridesShape) []CortexConfigOverrider {
+	return []CortexConfigOverrider{
+		NewOverrider(func(t *worker.Config) {
+			t.FrontendAddress = impl.QueryFrontendAddress
+		}),
+		NewOverrider(func(t *memberlist.KVConfig) {
+			t.JoinMembers = impl.MemberlistJoinAddrs
+		}),
+		NewOverrider(func(t *ruler.Config) {
+			t.AlertmanagerURL = impl.AlertmanagerURL
+		}),
+	}
+}
+
+func MergeOverrideLists(lists ...[]CortexConfigOverrider) []CortexConfigOverrider {
+	c := make(chan CortexConfigOverrider, 1)
+	merged := lo.Async(func() []CortexConfigOverrider {
+		return mergeOverriders(c)
+	})
+
+	for _, list := range lists {
+		for _, o := range list {
+			c <- o
+		}
+	}
+	close(c)
+	return (<-merged)
+}
+
+type mergedOverrider struct {
+	overriders []CortexConfigOverrider
+	inType     reflect.Type
+}
+
+func (m *mergedOverrider) applyConfigOverrides(in any) {
+	for _, o := range m.overriders {
+		o.applyConfigOverrides(in)
+	}
+}
+
+func (m *mergedOverrider) inputType() reflect.Type {
+	return m.inType
+}
+
+func (m *mergedOverrider) unwrapIfSingular() CortexConfigOverrider {
+	if len(m.overriders) == 1 {
+		return m.overriders[0]
+	}
+	return m
+}
+
+func mergeOverriders(overriders <-chan CortexConfigOverrider) []CortexConfigOverrider {
+	var merged []CortexConfigOverrider
+	mergedOverridersByType := map[reflect.Type]*mergedOverrider{}
+	for o := range overriders {
+		t := o.inputType()
+		if existing, ok := mergedOverridersByType[t]; ok {
+			existing.overriders = append(existing.overriders, o)
+		} else {
+			mo := &mergedOverrider{
+				overriders: []CortexConfigOverrider{o},
+				inType:     t,
+			}
+			mergedOverridersByType[t] = mo
+			merged = append(merged, mo)
+		}
+	}
+	for i, m := range merged {
+		merged[i] = m.(*mergedOverrider).unwrapIfSingular()
+	}
+	return merged
+}
+
+func CortexAPISpecToCortexConfig[T cortexconfig](
+	in T,
+	overriders ...CortexConfigOverrider,
+) (*cortex.Config, *cortex.RuntimeConfigValues, error) {
 	kvConfig := kv.Config{
-		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
+		Store: "inmemory",
 	}
 
 	logLevel := logging.Level{}
-	level := in.LogLevel
+	level := in.GetLogLevel()
 	if level == "" {
 		level = "info"
 	}
@@ -170,7 +425,7 @@ func CortexAPISpecToCortexConfig(
 	logFmt := logging.Format{}
 	logFmt.Set("json")
 
-	storageConfig := StorageToBucketConfig(in.Storage, impl)
+	storageConfig := StorageToBucketConfig(in.GetStorage())
 
 	config := cortex.Config{
 		AuthEnabled: true,
@@ -182,13 +437,9 @@ func CortexAPISpecToCortexConfig(
 			ResponseCompression:  true,
 		},
 		Server: server.Config{
-			HTTPListenPort:                 impl.HttpListenPort,
-			GRPCListenPort:                 impl.GrpcListenPort,
 			GPRCServerMaxConcurrentStreams: 10000,
 			GRPCServerMaxSendMsgSize:       100 << 20,
 			GPRCServerMaxRecvMsgSize:       100 << 20, // typo in upstream
-			GRPCTLSConfig:                  impl.TLSServerConfig,
-			HTTPTLSConfig:                  impl.TLSServerConfig,
 			LogLevel:                       logLevel,
 			LogFormat:                      logFmt,
 		},
@@ -197,7 +448,6 @@ func CortexAPISpecToCortexConfig(
 		},
 		BlocksStorage: tsdb.BlocksStorageConfig{
 			TSDB: tsdb.TSDBConfig{
-				Dir:                   filepath.Join(impl.StorageDir, "tsdb"),
 				FlushBlocksOnShutdown: true,
 			},
 			Bucket: storageConfig,
@@ -205,7 +455,6 @@ func CortexAPISpecToCortexConfig(
 				BucketIndex: tsdb.BucketIndexConfig{
 					Enabled: true,
 				},
-				SyncDir:      filepath.Join(impl.StorageDir, "tsdb-sync"),
 				SyncInterval: 5 * time.Minute,
 				IndexCache: tsdb.IndexCacheConfig{
 					Backend: "inmemory",
@@ -215,28 +464,20 @@ func CortexAPISpecToCortexConfig(
 		RulerStorage: rulestore.Config{
 			Config: storageConfig,
 		},
-		RuntimeConfig: runtimeconfig.Config{
-			LoadPath: impl.RuntimeConfig,
-		},
 		MemberlistKV: memberlist.KVConfig{
-			JoinMembers: lo.Ternary(isHA, flagext.StringSlice{"cortex-memberlist"}, nil),
+			JoinMembers: nil,
 		},
 
 		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
-			DataDir: filepath.Join(impl.StorageDir, "alertmanager"),
-			AlertmanagerClient: alertmanager.ClientConfig{
-				TLSEnabled: true,
-				TLS:        impl.TLSClientConfig,
-			},
 			EnableAPI: true,
 			ExternalURL: flagext.URLValue{
 				URL: util.Must(url.Parse("/api/prom/alertmanager")),
 			},
 			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
-			ShardingEnabled:    isHA,
+			ShardingEnabled:    false,
 			ShardingRing: alertmanager.RingConfig{
 				KVStore:           kvConfig,
-				ReplicationFactor: lo.Ternary(isHA, 3, 1),
+				ReplicationFactor: 1,
 			},
 		},
 		AlertmanagerStorage: alertstore.Config{
@@ -244,12 +485,11 @@ func CortexAPISpecToCortexConfig(
 		},
 
 		Compactor: compactor.Config{
-			ShardingEnabled: isHA,
+			ShardingEnabled: false,
 			ShardingRing: compactor.RingConfig{
 				KVStore: kvConfig,
 			},
 			CleanupInterval: 5 * time.Minute,
-			DataDir:         filepath.Join(impl.StorageDir, "compactor"),
 		},
 		Distributor: distributor.Config{
 			PoolConfig: distributor.PoolConfig{
@@ -260,45 +500,21 @@ func CortexAPISpecToCortexConfig(
 			},
 			ShardByAllLabels: true,
 		},
-		Frontend: frontend.CombinedFrontendConfig{
-			FrontendV2: v2.Config{
-				GRPCClientConfig: grpcclient.Config{
-					TLSEnabled: true,
-					TLS:        impl.TLSClientConfig,
-				},
-			},
-		},
-		Worker: worker.Config{
-			FrontendAddress: impl.QueryFrontendAddress,
-			GRPCClientConfig: grpcclient.Config{
-				TLSEnabled: true,
-				TLS:        impl.TLSClientConfig,
-			},
-		},
 		Ingester: ingester.Config{
 			LifecyclerConfig: ring.LifecyclerConfig{
-				JoinAfter:     lo.Ternary(isHA, 10*time.Second, 0),
-				NumTokens:     512,
-				ObservePeriod: lo.Ternary(isHA, 10*time.Second, 0),
+				NumTokens: 512,
 				RingConfig: ring.Config{
 					KVStore:           kvConfig,
-					ReplicationFactor: lo.Ternary(isHA, 3, 1),
+					ReplicationFactor: 1,
 				},
 			},
 		},
 		IngesterClient: client.Config{
 			GRPCClientConfig: grpcclient.Config{
 				MaxSendMsgSize: 100 << 20,
-				TLSEnabled:     true,
-				TLS:            impl.TLSClientConfig,
 			},
 		},
 		Querier: querier.Config{
-			ActiveQueryTrackerDir: filepath.Join(impl.StorageDir, "active-query-tracker"),
-			StoreGatewayClient: querier.ClientConfig{
-				TLSEnabled: true,
-				TLS:        impl.TLSClientConfig,
-			},
 			QueryStoreForLabels: true,
 		},
 		QueryRange: queryrange.Config{
@@ -315,23 +531,18 @@ func CortexAPISpecToCortexConfig(
 			},
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
 				KVStore: kvConfig,
 			},
-			ClientTLSConfig: grpcclient.Config{
-				TLSEnabled: true,
-				TLS:        impl.TLSClientConfig,
-			},
-			EnableSharding: isHA,
+			EnableSharding: false,
 		},
 		StoreGateway: storegateway.Config{
-			ShardingEnabled: isHA,
+			ShardingEnabled: false,
 			ShardingRing: storegateway.RingConfig{
 				KVStore:           kvConfig,
-				ReplicationFactor: lo.Ternary(isHA, 3, 1),
+				ReplicationFactor: 1,
 			},
 		},
 		LimitsConfig: validation.Limits{
@@ -341,38 +552,67 @@ func CortexAPISpecToCortexConfig(
 		},
 	}
 
-	limitsData, err := protojson.Marshal(in.Limits)
+	limitsData, err := protojson.Marshal(in.GetLimits())
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal limits: %w", err)
+		return nil, nil, fmt.Errorf("failed to marshal limits: %w", err)
 	}
 	if err := json.Unmarshal(limitsData, &config.LimitsConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal limits: %w", err)
+		return nil, nil, fmt.Errorf("failed to unmarshal limits: %w", err)
 	}
 
-	if in.CompactorConfig != nil {
-		compactorData, err := protojson.Marshal(in.CompactorConfig)
+	if in.GetCompactor() != nil {
+		compactorData, err := protojson.Marshal(in.GetCompactor())
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal compactor config: %w", err)
+			return nil, nil, fmt.Errorf("failed to marshal compactor config: %w", err)
 		}
 		if err := json.Unmarshal(compactorData, &config.Compactor); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal compactor config: %w", err)
+			return nil, nil, fmt.Errorf("failed to unmarshal compactor config: %w", err)
 		}
 	}
-	if in.QuerierConfig != nil {
-		querierData, err := protojson.Marshal(in.QuerierConfig)
+	if in.GetQuerier() != nil {
+		querierData, err := protojson.Marshal(in.GetQuerier())
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal querier config: %w", err)
+			return nil, nil, fmt.Errorf("failed to marshal querier config: %w", err)
 		}
 		if err := json.Unmarshal(querierData, &config.Querier); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal querier config: %w", err)
+			return nil, nil, fmt.Errorf("failed to unmarshal querier config: %w", err)
 		}
 	}
 
-	for _, overrideFn := range overrides {
-		overrideFn(&config)
+	applyCortexConfigOverrides(&config, overriders)
+
+	rt := in.GetRuntimeConfig()
+	rtConfig := cortex.RuntimeConfigValues{
+		TenantLimits: make(map[string]*validation.Limits),
+	}
+	if rt != nil {
+		rtConfig.IngesterChunkStreaming = rt.IngesterStreamChunksWhenUsingBlocks
+	}
+	if multi := rt.GetMultiKvConfig(); multi != nil {
+		rtConfig.Multi.PrimaryStore = multi.Primary
+		rtConfig.Multi.Mirroring = multi.MirrorEnabled
+	}
+	if il := rt.GetIngesterLimits(); il != nil {
+		rtConfig.IngesterLimits = &ingester.InstanceLimits{
+			MaxIngestionRate:        il.MaxIngestionRate,
+			MaxInMemoryTenants:      il.MaxTenants,
+			MaxInMemorySeries:       il.MaxSeries,
+			MaxInflightPushRequests: il.MaxInflightPushRequests,
+		}
+	}
+	for tenantId, tenantLimits := range rt.GetOverrides() {
+		limits := &validation.Limits{}
+		data, err := protojson.Marshal(tenantLimits)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal tenant limits: %w", err)
+		}
+		if err := json.Unmarshal(data, limits); err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal tenant limits: %w", err)
+		}
+		rtConfig.TenantLimits[tenantId] = limits
 	}
 
-	return &config, nil
+	return &config, &rtConfig, nil
 }
 
 func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
@@ -388,7 +628,17 @@ func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return buf.Bytes(), nil
+}
 
+func MarshalRuntimeConfig(config *cortex.RuntimeConfigValues) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	encoder := kyamlv3.NewEncoder(buf)
+	encoder.SetAlwaysOmitEmpty(true)
+	err := encoder.Encode(config)
+	if err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 

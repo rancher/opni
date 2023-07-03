@@ -32,6 +32,7 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 	out, err := ragu.GenerateCode(
 		generators,
 		"internal/codegen/cli/*.proto",
+		"internal/cortex/**/*.proto",
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)

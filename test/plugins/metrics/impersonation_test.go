@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/golang/snappy"
@@ -17,7 +16,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
@@ -87,12 +85,6 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 
 		_, err = cortexOpsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-				Filesystem: &storagev1.FilesystemStorageSpec{
-					Directory: path.Join(env.GetTempDirectory(), "cortex", "data"),
-				},
-			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

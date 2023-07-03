@@ -4,6 +4,7 @@ import (
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/rancher/opni/internal/cortex/config/compactor"
 	"github.com/rancher/opni/internal/cortex/config/querier"
+	"github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	"github.com/rancher/opni/internal/cortex/config/validation"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -62,11 +63,59 @@ type CortexSpec struct {
 
 	// Overrides for specific workloads. If unset, all values have automatic
 	// defaults based on the deployment mode.
-	Workloads       CortexWorkloadsSpec           `json:"workloads,omitempty"`
-	Limits          *validation.Limits            `json:"limits,omitempty"`
-	TenantLimits    map[string]*validation.Limits `json:"tenantLimits,omitempty"`
-	CompactorConfig *compactor.Config             `json:"compactorConfig,omitempty"`
-	QuerierConfig   *querier.Config               `json:"querierConfig,omitempty"`
+	Workloads       CortexWorkloadsSpec                `json:"workloads,omitempty"`
+	Limits          *validation.Limits                 `json:"limits,omitempty"`
+	RuntimeConfig   *runtimeconfig.RuntimeConfigValues `json:"runtimeConfig,omitempty"`
+	CompactorConfig *compactor.Config                  `json:"compactorConfig,omitempty"`
+	QuerierConfig   *querier.Config                    `json:"querierConfig,omitempty"`
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetStorage() *storagev1.StorageSpec {
+	if cs == nil {
+		return nil
+	}
+	return cs.Storage
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetLimits() *validation.Limits {
+	if cs == nil {
+		return nil
+	}
+	return cs.Limits
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetRuntimeConfig() *runtimeconfig.RuntimeConfigValues {
+	if cs == nil {
+		return nil
+	}
+	return cs.RuntimeConfig
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetCompactor() *compactor.Config {
+	if cs == nil {
+		return nil
+	}
+	return cs.CompactorConfig
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetQuerier() *querier.Config {
+	if cs == nil {
+		return nil
+	}
+	return cs.QuerierConfig
+}
+
+// Implements constraint configutil.cortexconfig
+func (cs *CortexSpec) GetLogLevel() string {
+	if cs == nil {
+		return ""
+	}
+	return cs.LogLevel
 }
 
 type CortexWorkloadsSpec struct {

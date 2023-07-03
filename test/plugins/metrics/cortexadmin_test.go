@@ -19,7 +19,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -121,9 +120,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
 		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

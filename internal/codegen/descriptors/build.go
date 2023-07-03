@@ -30,6 +30,8 @@ type BuilderOptions struct {
 	EditFieldComment func(rf reflect.StructField, in *string)
 	// Called for each field. If it returns true, the field will be skipped.
 	SkipFieldFunc func(rf reflect.StructField) bool
+
+	CustomFieldTypes map[reflect.Type]func() *builder.FieldType
 }
 
 type Builder struct {
@@ -230,22 +232,21 @@ FIELDS:
 			keyType := rfType.Key()
 			valueType := rfType.Elem()
 
-			keyFieldType := fieldType(keyType)
-			var valueFieldType *builder.FieldType
-			if valueType.Kind() == reflect.Struct {
-				valueFieldType = builder.FieldTypeMessage(b.BuildMessage(rfType, maybeApplyDiscoveredMetadata(rfType)))
-			} else {
-				valueFieldType = fieldType(valueType)
+			if valueType.Kind() == reflect.Ptr {
+				valueType = valueType.Elem()
 			}
+
+			keyFieldType := b.fieldType(keyType)
+			valueFieldType := b.fieldType(valueType)
 			newField := builder.NewMapField(rfName, keyFieldType, valueFieldType)
 			newFieldHook(newField, rf)
 			m.AddField(newField)
 			continue
 		}
 
-		field := builder.NewField(rfName, fieldType(rfType))
+		field := builder.NewField(rfName, b.fieldType(rfType))
 		// if the field is a pointer to a scalar, set optional
-		if isPtr && isScalar(rfType.Elem()) {
+		if isPtr && isScalar(rfType) {
 			field.SetProto3Optional(true)
 		}
 		if isSlice {
@@ -258,7 +259,7 @@ FIELDS:
 	return m
 }
 
-func fieldType(rf reflect.Type) *builder.FieldType {
+func (b *Builder) fieldType(rf reflect.Type) *builder.FieldType {
 	switch rf.Kind() {
 	case reflect.Bool:
 		return builder.FieldTypeBool()
@@ -276,6 +277,17 @@ func fieldType(rf reflect.Type) *builder.FieldType {
 		return builder.FieldTypeDouble()
 	case reflect.String:
 		return builder.FieldTypeString()
+	case reflect.Struct:
+		{
+			rf := rf
+			if rf.Kind() == reflect.Pointer {
+				rf = rf.Elem()
+			}
+			if c, ok := b.CustomFieldTypes[rf]; ok {
+				return c()
+			}
+		}
+		return builder.FieldTypeMessage(b.BuildMessage(rf, maybeApplyDiscoveredMetadata(rf)))
 	default:
 		panic("unsupported type: " + rf.String() + " (" + rf.Kind().String() + ")")
 	}

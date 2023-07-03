@@ -12,7 +12,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -48,9 +47,6 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

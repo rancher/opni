@@ -5,6 +5,7 @@ package cortexops;
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto";
 import "github.com/rancher/opni/internal/cortex/config/querier/querier.proto";
+import "github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconfig.proto";
 import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "google/api/annotations.proto";
@@ -103,7 +104,6 @@ enum DeploymentMode {
 message ClusterConfiguration {
   // The deployment mode to use for Cortex.
   DeploymentMode      mode      = 1;
-  storage.StorageSpec storage   = 2;
   GrafanaConfig       grafana   = 3;
   CortexWorkloadsSpec workloads = 4;
   CortexConfig        cortex    = 5;
@@ -150,10 +150,11 @@ message CortexConfig {
       }
     }
   }];
-  map<string, validation.Limits> tenantLimits = 2 [(cli.flag).skip = true];
-  compactor.Config               compactor    = 3;
-  querier.Config                 querier      = 4;
-  string                         logLevel     = 5;
+  runtimeconfig.RuntimeConfigValues runtimeConfig = 2;
+  compactor.Config                  compactor     = 3;
+  querier.Config                    querier       = 4;
+  string                            logLevel      = 5;
+  storage.StorageSpec               storage       = 6;
 }
 
 message GrafanaConfig {

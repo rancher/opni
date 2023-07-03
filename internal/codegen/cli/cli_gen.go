@@ -610,8 +610,11 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						return true
 					})
 
-					// generate a flag set only if the field is from a message in the same file
-					if field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() {
+					// generate a flag set if either:
+					// - the field is from a message in the same file
+					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
+					if field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() ||
+						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
 						depFs := cg.generateFlagSet(g.g, field.Message)
 						deps[kebabName] = depFs
 						if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {

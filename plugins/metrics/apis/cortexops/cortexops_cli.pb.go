@@ -8,6 +8,7 @@ import (
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	compactor "github.com/rancher/opni/internal/cortex/config/compactor"
 	querier "github.com/rancher/opni/internal/cortex/config/querier"
+	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	util "github.com/rancher/opni/pkg/opni/util"
@@ -129,6 +130,9 @@ HTTP handlers for this method:
 	cmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"AllInOne", "HighlyAvailable"}, cobra.ShellCompDirectiveDefault
 	})
+	cmd.RegisterFlagCompletionFunc("cortex.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
+	})
 	return cmd
 }
 
@@ -202,10 +206,6 @@ func (in *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 		DeploymentMode_AllInOne:        {"AllInOne"},
 		DeploymentMode_HighlyAvailable: {"HighlyAvailable"},
 	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "mode"), "."), "The deployment mode to use for Cortex.")
-	if in.Storage == nil {
-		in.Storage = &v1.StorageSpec{}
-	}
-	fs.AddFlagSet(in.Storage.FlagSet(append(prefix, "storage")...))
 	if in.Grafana == nil {
 		in.Grafana = &GrafanaConfig{}
 	}
@@ -219,6 +219,23 @@ func (in *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Cortex.FlagSet(append(prefix, "cortex")...))
 	return fs
+}
+
+func (in *ClusterConfiguration) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Cortex.RedactSecrets()
+}
+
+func (in *ClusterConfiguration) UnredactSecrets(unredacted *ClusterConfiguration) error {
+	if in == nil {
+		return nil
+	}
+	if err := in.Cortex.UnredactSecrets(unredacted.GetCortex()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -289,6 +306,10 @@ func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate-strategy"), ".")).DefValue = "local"
 	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-burst-size"), ".")).DefValue = "1000000"
 	fs.Lookup(strings.Join(append(prefix, "limits", "compactor-blocks-retention-period"), ".")).DefValue = "seconds:2592000"
+	if in.RuntimeConfig == nil {
+		in.RuntimeConfig = &runtimeconfig.RuntimeConfigValues{}
+	}
+	fs.AddFlagSet(in.RuntimeConfig.FlagSet(append(prefix, "runtime-config")...))
 	if in.Compactor == nil {
 		in.Compactor = &compactor.Config{}
 	}
@@ -298,5 +319,26 @@ func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
 	fs.StringVar(&in.LogLevel, strings.Join(append(prefix, "log-level"), "."), "", "")
+	if in.Storage == nil {
+		in.Storage = &v1.StorageSpec{}
+	}
+	fs.AddFlagSet(in.Storage.FlagSet(append(prefix, "storage")...))
 	return fs
+}
+
+func (in *CortexConfig) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Storage.RedactSecrets()
+}
+
+func (in *CortexConfig) UnredactSecrets(unredacted *CortexConfig) error {
+	if in == nil {
+		return nil
+	}
+	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); err != nil {
+		return err
+	}
+	return nil
 }

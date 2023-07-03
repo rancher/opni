@@ -43,5 +43,6 @@ func (in *Config) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.StringSliceVar(&in.DisabledTenants, strings.Join(append(prefix, "disabled-tenants"), "."), nil, "Comma separated list of tenants that cannot be compacted by this compactor. If specified, and compactor would normally pick given tenant for compaction (via -compactor.enabled-tenants or sharding), it will be ignored instead.")
 	fs.Var(flagutil.DurationpbValue(5*time.Minute, &in.BlockVisitMarkerTimeout), strings.Join(append(prefix, "block-visit-marker-timeout"), "."), "How long block visit marker file should be considered as expired and able to be picked up by compactor again.")
 	fs.Var(flagutil.DurationpbValue(1*time.Minute, &in.BlockVisitMarkerFileUpdateInterval), strings.Join(append(prefix, "block-visit-marker-file-update-interval"), "."), "How frequently block visit marker file should be updated duration compaction.")
+	fs.BoolVar(&in.AcceptMalformedIndex, strings.Join(append(prefix, "accept-malformed-index"), "."), false, "When enabled, index verification will ignore out of order label names.")
 	return fs
 }

@@ -680,31 +680,69 @@ func (e *Environment) startEtcd() {
 	lg.Info("Etcd started")
 }
 
-type cortexTemplateOptions struct {
-	HttpListenPort int
-	GrpcListenPort int
-	StorageDir     string
+// These types match the types in plugins/metrics/pkg/cortex/configutil
+type CortexServerTlsConfig = struct {
+	TLSCertPath string
+	TLSKeyPath  string
+	ClientAuth  string
+	ClientCAs   string
+}
+type CortexClientTlsConfig = struct {
+	CertPath           string
+	KeyPath            string
+	CAPath             string
+	ServerName         string
+	InsecureSkipVerify bool
+}
+type CortexConfigOptions = struct {
+	HttpListenAddress string
+	HttpListenPort    int
+	HttpListenNetwork string
+	GrpcListenAddress string
+	GrpcListenPort    int
+	GrpcListenNetwork string
+	StorageDir        string
+	RuntimeConfig     string
+	TLSServerConfig   CortexServerTlsConfig
+	TLSClientConfig   CortexClientTlsConfig
 }
 
-func (e *Environment) StartCortex(ctx context.Context) {
+func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions) ([]byte, []byte, error)) {
 	lg := e.Logger
-	configTemplate := testdata.TestData("cortex/config.yaml")
-	t := util.Must(template.New("config").Parse(string(configTemplate)))
-	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
+	storageDir := path.Join(e.tempDir, "cortex")
+
+	configBytes, rtConfigBytes, err := configBuilder(CortexConfigOptions{
+		HttpListenAddress: "localhost",
+		HttpListenNetwork: "tcp4",
+		HttpListenPort:    e.ports.CortexHTTP,
+		GrpcListenAddress: "localhost",
+		GrpcListenNetwork: "tcp4",
+		GrpcListenPort:    e.ports.CortexGRPC,
+		StorageDir:        storageDir,
+		RuntimeConfig:     path.Join(storageDir, "runtime_config.yaml"),
+		TLSServerConfig: CortexServerTlsConfig{
+			TLSCertPath: path.Join(storageDir, "server.crt"),
+			TLSKeyPath:  path.Join(storageDir, "server.key"),
+			ClientCAs:   path.Join(storageDir, "root.crt"),
+			ClientAuth:  "RequireAndVerifyClientCert",
+		},
+		TLSClientConfig: CortexClientTlsConfig{
+			CertPath:   path.Join(storageDir, "client.crt"),
+			KeyPath:    path.Join(storageDir, "client.key"),
+			CAPath:     path.Join(storageDir, "root.crt"),
+			ServerName: "localhost",
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
-	if err := t.Execute(configFile, cortexTemplateOptions{
-		HttpListenPort: e.ports.CortexHTTP,
-		GrpcListenPort: e.ports.CortexGRPC,
-		StorageDir:     path.Join(e.tempDir, "cortex"),
-	}); err != nil {
-		panic(err)
-	}
-	configFile.Close()
+
+	os.WriteFile(path.Join(storageDir, "config.yaml"), configBytes, 0644)
+	os.WriteFile(path.Join(storageDir, "runtime_config.yaml"), rtConfigBytes, 0644)
+
 	cortexBin := filepath.Join(e.TestBin, "../../bin/opni")
 	defaultArgs := []string{
-		"cortex", fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
+		"cortex", fmt.Sprintf("-config.file=%s", path.Join(storageDir, "config.yaml")),
 	}
 	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
@@ -716,6 +754,7 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		return
 	}
 	lg.Info("Waiting for cortex to start...")
+	retryCount := 0
 	for ctx.Err() == nil {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
 		client := http.Client{
@@ -728,12 +767,15 @@ func (e *Environment) StartCortex(ctx context.Context) {
 			break
 		}
 		if resp != nil {
-			lg.With(
-				zap.Error(err),
-				"status", resp.Status,
-			).Info("Waiting for cortex to start...")
+			if retryCount%100 == 0 {
+				lg.With(
+					zap.Error(err),
+					"status", resp.Status,
+				).Info("Waiting for cortex to start...")
+			}
+			retryCount++
 		}
-		time.Sleep(time.Second)
+		time.Sleep(10 * time.Millisecond)
 	}
 	lg.With(
 		"httpAddress", fmt.Sprintf("https://localhost:%d", e.ports.CortexHTTP),

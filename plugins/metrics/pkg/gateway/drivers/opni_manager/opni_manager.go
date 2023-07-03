@@ -77,19 +77,19 @@ func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Em
 	apiWorkloads := &cortexops.CortexWorkloadsSpec{}
 	mergeK8sWorkloadsToApi(apiWorkloads, &mc.Spec.Cortex.Workloads)
 	return &cortexops.ClusterConfiguration{
-		Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
-		Storage: storage,
+		Mode: cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
 		Grafana: &cortexops.GrafanaConfig{
 			Enabled:  mc.Spec.Grafana.Enabled,
 			Hostname: mc.Spec.Grafana.Hostname,
 		},
 		Workloads: apiWorkloads,
 		Cortex: &cortexops.CortexConfig{
-			Limits:       mc.Spec.Cortex.Limits,
-			TenantLimits: mc.Spec.Cortex.TenantLimits,
-			Compactor:    mc.Spec.Cortex.CompactorConfig,
-			Querier:      mc.Spec.Cortex.QuerierConfig,
-			LogLevel:     mc.Spec.Cortex.LogLevel,
+			Storage:       storage,
+			Limits:        mc.Spec.Cortex.Limits,
+			RuntimeConfig: mc.Spec.Cortex.RuntimeConfig,
+			Compactor:     mc.Spec.Cortex.CompactorConfig,
+			Querier:       mc.Spec.Cortex.QuerierConfig,
+			LogLevel:      mc.Spec.Cortex.LogLevel,
 		},
 	}, nil
 }
@@ -126,11 +126,11 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	}
 
 	mutator := func(cluster *opnicorev1beta1.MonitoringCluster) error {
-		if err := conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
+		if err := conf.GetCortex().GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
 			return err
 		}
 		cluster.Spec.Cortex.Enabled = true
-		cluster.Spec.Cortex.Storage = conf.GetStorage()
+		cluster.Spec.Cortex.Storage = conf.GetCortex().GetStorage()
 		if cluster.Spec.Cortex.Storage.Filesystem != nil &&
 			cluster.Spec.Cortex.Storage.Filesystem.Directory == "" {
 			cluster.Spec.Cortex.Storage.Filesystem.Directory = "/data"
@@ -155,8 +155,8 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		if conf.GetCortex().GetQuerier() != nil {
 			cluster.Spec.Cortex.QuerierConfig = conf.Cortex.Querier
 		}
-		if conf.GetCortex().GetTenantLimits() != nil {
-			cluster.Spec.Cortex.TenantLimits = conf.Cortex.TenantLimits
+		if conf.GetCortex().GetRuntimeConfig() != nil {
+			cluster.Spec.Cortex.RuntimeConfig = conf.Cortex.RuntimeConfig
 		}
 
 		controllerutil.SetOwnerReference(gateway, cluster, k.K8sClient.Scheme())

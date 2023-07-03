@@ -53,17 +53,11 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return k8sutil.Requeue().ResultPtr()
 	}
 
-	config, err := r.config()
+	configs, err := r.config()
 	if err != nil {
 		return nil, err
 	}
-	allResources = append(allResources, config)
-
-	runtimeConfig, err := r.runtimeConfig()
-	if err != nil {
-		return nil, err
-	}
-	allResources = append(allResources, runtimeConfig)
+	allResources = append(allResources, configs...)
 
 	fallbackConfig := r.alertmanagerFallbackConfig()
 	allResources = append(allResources, fallbackConfig)

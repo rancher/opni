@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
 
+	"github.com/cortexproject/cortex/pkg/ring"
+	"github.com/cortexproject/cortex/pkg/ruler"
+	"github.com/cortexproject/cortex/pkg/storage/tsdb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -17,6 +21,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -158,7 +163,41 @@ func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *
 			oldCancel()
 			waitctx.Wait(oldCtx)
 		}
-		d.Env.StartCortex(ctx)
+		d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions) ([]byte, []byte, error) {
+			cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(conf.Cortex,
+				configutil.MergeOverrideLists(
+					configutil.NewStandardOverrides(cco),
+					[]configutil.CortexConfigOverrider{
+						configutil.NewOverrider(func(t *ring.LifecyclerConfig) {
+							t.Addr = "localhost"
+							t.JoinAfter = 1 * time.Millisecond
+							t.MinReadyDuration = 1 * time.Millisecond
+							t.FinalSleep = 1 * time.Millisecond
+						}),
+						configutil.NewOverrider(func(t *ruler.Config) {
+							t.EvaluationInterval = 1 * time.Second
+							t.PollInterval = 1 * time.Second
+						}),
+						configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) {
+							t.SyncInterval = 10 * time.Second
+						}),
+					},
+				)...,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			cconfBytes, err := configutil.MarshalCortexConfig(cconf)
+			if err != nil {
+				return nil, nil, err
+			}
+			rtconfBytes, err := configutil.MarshalRuntimeConfig(rtconf)
+			if err != nil {
+				return nil, nil, err
+			}
+			return cconfBytes, rtconfBytes, nil
+		})
 		d.lock.Lock()
 		defer d.lock.Unlock()
 		d.state = cortexops.InstallState_Installed

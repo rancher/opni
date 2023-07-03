@@ -1,30 +1,40 @@
 package cortex
 
 import (
+	"fmt"
+
+	"github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
-	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *Reconciler) config() (resources.Resource, error) {
+func (r *Reconciler) config() ([]resources.Resource, error) {
 	if !r.mc.Spec.Cortex.Enabled {
-		return resources.Absent(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cortex",
-				Namespace: r.mc.Namespace,
-				Labels:    cortexAppLabel,
-			},
-		}), nil
+		return []resources.Resource{
+			resources.Absent(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cortex",
+					Namespace: r.mc.Namespace,
+					Labels:    cortexAppLabel,
+				},
+			}),
+			resources.Absent(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cortex-runtime-config",
+					Namespace: r.mc.Namespace,
+					Labels:    cortexAppLabel,
+				},
+			}),
+		}, nil
 	}
 
 	if r.mc.Spec.Cortex.Storage == nil {
@@ -57,77 +67,71 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	tlsServerConfig := server.TLSConfig{
 		TLSCertPath: "/run/cortex/certs/server/tls.crt",
 		TLSKeyPath:  "/run/cortex/certs/server/tls.key",
-		ClientAuth:  "RequireAndVerifyClientCert",
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
+		ClientAuth:  "RequireAndVerifyClientCert",
+	}
+	overrideLists := [][]configutil.CortexConfigOverrider{
+		configutil.NewStandardOverrides(configutil.StandardOverridesShape{
+			HttpListenAddress: "0.0.0.0",
+			HttpListenPort:    8080,
+			HttpListenNetwork: "tcp4",
+			GrpcListenAddress: "0.0.0.0",
+			GrpcListenPort:    9095,
+			GrpcListenNetwork: "tcp4",
+			StorageDir:        "/data",
+			RuntimeConfig:     "/etc/cortex-runtime-config/runtime_config.yaml",
+			TLSServerConfig:   configutil.TLSServerConfigShape(tlsServerConfig),
+			TLSClientConfig:   configutil.TLSClientConfigShape(tlsClientConfig),
+		}),
+		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
+			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
+			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
+			AlertmanagerURL:      fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+		}),
+	}
+	switch r.mc.Spec.Cortex.DeploymentMode {
+	case v1beta1.DeploymentModeHighlyAvailable:
+		overrideLists = append(overrideLists, configutil.NewHAOverrides())
 	}
 
-	impl := configutil.ImplementationSpecificConfig{
-		HttpListenPort:       8080,
-		GrpcListenPort:       9095,
-		StorageDir:           "/data",
-		RuntimeConfig:        "/etc/cortex-runtime-config/runtime_config.yaml",
-		TLSServerConfig:      tlsServerConfig,
-		TLSClientConfig:      tlsClientConfig,
-		QueryFrontendAddress: "cortex-query-frontend-headless:9095",
-	}
-	conf, err := configutil.CortexAPISpecToCortexConfig(&r.mc.Spec.Cortex, impl)
+	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(&r.mc.Spec.Cortex,
+		configutil.MergeOverrideLists(overrideLists...)...,
+	)
 	if err != nil {
 		return nil, err
 	}
-	buf, err := configutil.MarshalCortexConfig(conf)
+	confBytes, err := configutil.MarshalCortexConfig(conf)
 	if err != nil {
 		return nil, err
 	}
-	secret := &corev1.Secret{
+	rtConfBytes, err := configutil.MarshalRuntimeConfig(rtConf)
+	configSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
 			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string][]byte{
-			"cortex.yaml": buf,
+			"cortex.yaml": confBytes,
 		},
 	}
-
-	ctrl.SetControllerReference(r.mc, secret, r.client.Scheme())
-	return resources.Present(secret), nil
-}
-
-func (r *Reconciler) runtimeConfig() (resources.Resource, error) {
-	// the cortex runtime config is unexported in pkg/cortex/runtime_config.go
-	// the only field we use right now is the tenant limits config, which is
-	// TenantLimits map[string]*validation.Limits `yaml:"overrides"`
-
-	overrides := map[string]any{}
-	for tenantId, limits := range r.mc.Spec.Cortex.TenantLimits {
-		limitsData, err := protojson.Marshal(limits)
-		if err != nil {
-			return nil, err
-		}
-		var overrideValue any
-		if err := yaml.Unmarshal(limitsData, &overrideValue); err != nil {
-			return nil, err
-		}
-		overrides[tenantId] = overrideValue
-	}
-
-	yamlOverrides, err := yaml.Marshal(map[string]any{"overrides": overrides})
-	if err != nil {
-		return nil, err
-	}
-
-	cm := &corev1.ConfigMap{
+	runtimeConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-runtime-config",
 			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
-			"runtime_config.yaml": string(yamlOverrides),
+			"runtime_config.yaml": string(rtConfBytes),
 		},
 	}
-	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm), nil
+
+	ctrl.SetControllerReference(r.mc, configSecret, r.client.Scheme())
+	ctrl.SetControllerReference(r.mc, runtimeConfigMap, r.client.Scheme())
+	return []resources.Resource{
+		resources.Present(configSecret),
+		resources.Present(runtimeConfigMap),
+	}, nil
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {

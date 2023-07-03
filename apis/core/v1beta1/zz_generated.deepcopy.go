@@ -6,7 +6,7 @@
 package v1beta1
 
 import (
-	"github.com/rancher/opni/internal/cortex/config/validation"
+	"github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	"github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
@@ -475,12 +475,10 @@ func (in *CortexSpec) DeepCopyInto(out *CortexSpec) {
 		in, out := &in.Limits, &out.Limits
 		*out = (*in).DeepCopy()
 	}
-	if in.TenantLimits != nil {
-		in, out := &in.TenantLimits, &out.TenantLimits
-		*out = make(map[string]*validation.Limits, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val.DeepCopy()
-		}
+	if in.RuntimeConfig != nil {
+		in, out := &in.RuntimeConfig, &out.RuntimeConfig
+		*out = new(runtimeconfig.RuntimeConfigValues)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.CompactorConfig != nil {
 		in, out := &in.CompactorConfig, &out.CompactorConfig

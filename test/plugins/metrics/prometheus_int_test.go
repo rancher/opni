@@ -17,7 +17,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -36,9 +35,6 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

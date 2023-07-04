@@ -20,7 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ExampleAPIExtension_Echo_FullMethodName = "/example.ExampleAPIExtension/Echo"
+	ExampleAPIExtension_Echo_FullMethodName  = "/example.ExampleAPIExtension/Echo"
+	ExampleAPIExtension_Ready_FullMethodName = "/example.ExampleAPIExtension/Ready"
 )
 
 // ExampleAPIExtensionClient is the client API for ExampleAPIExtension service.
@@ -28,6 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExampleAPIExtensionClient interface {
 	Echo(ctx context.Context, in *EchoRequest, opts ...grpc.CallOption) (*EchoResponse, error)
+	Ready(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type exampleAPIExtensionClient struct {
@@ -47,11 +49,21 @@ func (c *exampleAPIExtensionClient) Echo(ctx context.Context, in *EchoRequest, o
 	return out, nil
 }
 
+func (c *exampleAPIExtensionClient) Ready(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ExampleAPIExtension_Ready_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExampleAPIExtensionServer is the server API for ExampleAPIExtension service.
 // All implementations must embed UnimplementedExampleAPIExtensionServer
 // for forward compatibility
 type ExampleAPIExtensionServer interface {
 	Echo(context.Context, *EchoRequest) (*EchoResponse, error)
+	Ready(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedExampleAPIExtensionServer()
 }
 
@@ -61,6 +73,9 @@ type UnimplementedExampleAPIExtensionServer struct {
 
 func (UnimplementedExampleAPIExtensionServer) Echo(context.Context, *EchoRequest) (*EchoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Echo not implemented")
+}
+func (UnimplementedExampleAPIExtensionServer) Ready(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ready not implemented")
 }
 func (UnimplementedExampleAPIExtensionServer) mustEmbedUnimplementedExampleAPIExtensionServer() {}
 
@@ -93,6 +108,24 @@ func _ExampleAPIExtension_Echo_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExampleAPIExtension_Ready_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExampleAPIExtensionServer).Ready(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExampleAPIExtension_Ready_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExampleAPIExtensionServer).Ready(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ExampleAPIExtension_ServiceDesc is the grpc.ServiceDesc for ExampleAPIExtension service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -103,6 +136,10 @@ var ExampleAPIExtension_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Echo",
 			Handler:    _ExampleAPIExtension_Echo_Handler,
+		},
+		{
+			MethodName: "Ready",
+			Handler:    _ExampleAPIExtension_Ready_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -9,6 +9,7 @@ import (
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
+	_ "github.com/rancher/opni/plugins/example/test"
 )
 
 //#region Test Setup
@@ -23,7 +24,7 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, Label("i
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

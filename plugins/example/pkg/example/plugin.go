@@ -39,6 +39,7 @@ import (
 )
 
 type ExamplePlugin struct {
+	util.Initializer
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
@@ -48,6 +49,13 @@ type ExamplePlugin struct {
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
+}
+
+var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
+var _ ExampleUnaryExtensionServer = (*ExamplePlugin)(nil)
+
+func (s *ExamplePlugin) Initialize() {
+	s.InitOnce(func() {})
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
@@ -60,6 +68,13 @@ func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, e
 	return &EchoResponse{
 		Message: "Hello World",
 	}, nil
+}
+
+func (s *ExamplePlugin) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if !s.Initialized() {
+		return nil, util.StatusError(codes.Unavailable)
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (s *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider[proto.Message]) {
@@ -199,6 +214,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 		storageBackend:      future.New[storage.Backend](),
 		uninstallController: future.New[*task.Controller](),
 	}
+
+	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
+		p.Initialize()
+	})
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(util.PackService(&ExampleAPIExtension_ServiceDesc, p)))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))

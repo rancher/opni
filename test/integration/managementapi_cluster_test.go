@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	_ "github.com/rancher/opni/plugins/example/test"
 )
 
 // #region Test Setup
@@ -51,7 +52,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
 	//#endregion
 

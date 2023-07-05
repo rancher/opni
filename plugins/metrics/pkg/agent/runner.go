@@ -269,7 +269,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			chunkedRequests, err := FitRequestToSize(&writeRequest, 4194304)
+			chunkedRequests, err := fitRequestToSize(&writeRequest, 4194304)
 			if err != nil {
 				return fmt.Errorf("failed to chunk request: %w", err)
 			}

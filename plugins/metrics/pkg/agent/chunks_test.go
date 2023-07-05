@@ -1,17 +1,16 @@
-package metrics_test
+package agent
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/samber/lo"
 )
 
 var _ = Describe("Chunks", Label("unit"), func() {
 	When("request is empty", func() {
 		It("should return same response", func() {
-			requests, err := agent.FitRequestToSize(&prompb.WriteRequest{}, 100)
+			requests, err := fitRequestToSize(&prompb.WriteRequest{}, 100)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(requests).To(Equal([]*prompb.WriteRequest{{}}))
 		})
@@ -19,7 +18,7 @@ var _ = Describe("Chunks", Label("unit"), func() {
 
 	When("request is smalller than max", func() {
 		It("should return the same response", func() {
-			requests, err := agent.FitRequestToSize(&prompb.WriteRequest{
+			requests, err := fitRequestToSize(&prompb.WriteRequest{
 				Timeseries: []prompb.TimeSeries{
 					{
 						Labels: []prompb.Label{
@@ -64,7 +63,7 @@ var _ = Describe("Chunks", Label("unit"), func() {
 
 	When("request is larger than max", func() {
 		It("should break the request into chunks", func() {
-			requests, err := agent.FitRequestToSize(&prompb.WriteRequest{
+			requests, err := fitRequestToSize(&prompb.WriteRequest{
 				Timeseries: []prompb.TimeSeries{
 					{
 						Labels: []prompb.Label{
@@ -111,7 +110,7 @@ var _ = Describe("Chunks", Label("unit"), func() {
 
 	When("max size is too small", func() {
 		It("should fail", func() {
-			requests, err := agent.FitRequestToSize(&prompb.WriteRequest{
+			requests, err := fitRequestToSize(&prompb.WriteRequest{
 				Timeseries: []prompb.TimeSeries{
 					{
 						Labels: []prompb.Label{

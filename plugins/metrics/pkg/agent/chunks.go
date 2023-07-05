@@ -86,7 +86,7 @@ func splitWriteRequestChunks(request *prompb.WriteRequest, n int) ([]*prompb.Wri
 	}
 }
 
-func FitRequestToSize(request *prompb.WriteRequest, maxBytes int) ([]*prompb.WriteRequest, error) {
+func fitRequestToSize(request *prompb.WriteRequest, maxBytes int) ([]*prompb.WriteRequest, error) {
 	bytes, err := request.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("could not check for ")
@@ -103,7 +103,7 @@ func FitRequestToSize(request *prompb.WriteRequest, maxBytes int) ([]*prompb.Wri
 
 	out := make([][]*prompb.WriteRequest, 0, len(requests))
 	for _, r := range requests {
-		split, err := FitRequestToSize(r, maxBytes)
+		split, err := fitRequestToSize(r, maxBytes)
 		if err != nil {
 			return nil, err
 		}

@@ -37,7 +37,7 @@ type AlertingNodeBackend struct {
 
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeAlertingCapabilityServer
-	node.UnsafeNodeConfigurationServer
+	node.UnsafeAlertingNodeConfigurationServer
 
 	lg *zap.SugaredLogger
 
@@ -79,9 +79,9 @@ func (a *AlertingNodeBackend) Initialize(
 }
 
 var (
-	_ node.NodeAlertingCapabilityServer = (*AlertingNodeBackend)(nil)
-	_ node.NodeConfigurationServer      = (*AlertingNodeBackend)(nil)
-	_ capabilityv1.BackendServer        = (*AlertingNodeBackend)(nil)
+	_ node.NodeAlertingCapabilityServer    = (*AlertingNodeBackend)(nil)
+	_ node.AlertingNodeConfigurationServer = (*AlertingNodeBackend)(nil)
+	_ capabilityv1.BackendServer           = (*AlertingNodeBackend)(nil)
 )
 
 var FallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{

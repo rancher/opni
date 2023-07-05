@@ -657,9 +657,11 @@ func BuildAlertingClusterIntegrationTests(
 									return fmt.Errorf("condition evaluation is flaky, should only have one window, but has %d", len(item.Windows))
 								}
 								messages, err := alertNotificationsClient.ListAlarmMessages(env.Context(), &alertingv1.ListAlarmMessageRequest{
-									ConditionId: id,
-									Start:       item.Windows[0].Start,
-									End:         timestamppb.Now(),
+									ConditionId: &alertingv1.ConditionReference{
+										Id: id,
+									},
+									Start: item.Windows[0].Start,
+									End:   timestamppb.Now(),
 								})
 								if err != nil {
 									return err

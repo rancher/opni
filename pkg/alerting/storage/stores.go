@@ -18,7 +18,7 @@ var (
 	groupPrefixV1 = func(groupId string) string {
 		return fmt.Sprintf("/alerting/%s/conditions", groupId)
 	}
-	grouptRe *regexp.Regexp = regexp.MustCompile(`^/alerting/(.+)/conditions`)
+	grouptRe = regexp.MustCompile(`^/alerting/(.+)/conditions`)
 )
 
 const (

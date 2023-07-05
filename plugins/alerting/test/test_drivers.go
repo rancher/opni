@@ -27,9 +27,9 @@ import (
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/samber/lo"
@@ -399,7 +399,7 @@ func (n *TestNodeDriver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfi
 	return nil
 }
 
-func (n *TestNodeDriver) DiscoverRules(ctx context.Context) (*rules.RuleManifest, error) {
+func (n *TestNodeDriver) DiscoverRules(_ context.Context) (*rules.RuleManifest, error) {
 	return &rules.RuleManifest{
 		Rules: []*rules.Rule{
 			{

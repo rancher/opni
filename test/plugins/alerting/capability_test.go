@@ -15,7 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/alerting/pkg/apis/alertops"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

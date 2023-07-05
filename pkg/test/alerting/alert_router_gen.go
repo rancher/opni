@@ -596,13 +596,13 @@ func NewRoutableDataset() *RoutableDataset {
 		},
 		ExpectedAlarms: []AlarmPair{
 			{A: &alertingv1.ListAlarmMessageRequest{
-				ConditionId:  condId1,
+				ConditionId:  &alertingv1.ConditionReference{Id: condId1},
 				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
 				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
 				Fingerprints: []string{"fingerprint"},
 			}, B: 1},
 			{A: &alertingv1.ListAlarmMessageRequest{
-				ConditionId:  condId2,
+				ConditionId:  &alertingv1.ConditionReference{Id: condId2},
 				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
 				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
 				Fingerprints: []string{"fingerprint"},

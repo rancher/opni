@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/metrics/collector"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
@@ -83,7 +84,7 @@ type Plugin struct {
 	*endpoints.EndpointServerComponent
 	*alarms.AlarmServerComponent
 
-	node *node_backend.AlertingNodeBackend
+	node node_backend.AlertingNodeBackend
 
 	httpProxy *HttpApiServer
 }
@@ -96,7 +97,7 @@ var (
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("alerting")
-	storageClientSet := future.New[storage.AlertingClientSet]()
+	storageClientSet := future.New[spec.AlertingClientSet]()
 	metricReader := metricsdk.NewManualReader()
 	metricsExporter.RegisterMeterProvider(metricsdk.NewMeterProvider(
 		metricsdk.WithReader(metricReader),
@@ -121,8 +122,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
 
-		node: node_backend.NewAlertingNodeBackend(),
-
 		gatewayConfig: future.New[*v1beta1.GatewayConfig](),
 
 		CollectorServer: collector,
@@ -142,7 +141,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.healthy,
 	)
 	p.node = *node_backend.NewAlertingNodeBackend(
-		p.Logger.With("component", "node-backend"),
+		p.logger.With("component", "node-backend"),
 	)
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
 		p.logger.With("component", "notifications"),
@@ -261,7 +260,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 				p,
 			),
 			util.PackService(
-				&node.NodeConfiguration_ServiceDesc,
+				&node.AlertingNodeConfiguration_ServiceDesc,
 				&p.node,
 			),
 			util.PackService(

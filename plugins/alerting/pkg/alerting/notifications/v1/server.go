@@ -65,7 +65,8 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
-
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	err := n.Client.AlertClient().PostAlarm(
 		ctx,
 		client.AlertObject{

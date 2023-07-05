@@ -139,7 +139,7 @@ func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *al
 		return &emptypb.Empty{}, nil
 	}
 
-	existing.GetMetadata()[metadataCleanupAlarm] = "true"
+	existing.GetMetadata()[metadataCleanUpAlarm] = "true"
 	if err := a.conditionStorage.Get().Group(ref.GroupId).Put(ctx, ref.Id, existing); err != nil {
 		return nil, err
 	}
@@ -435,7 +435,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 	}
 	lg := a.logger.With("handler", "Timeline")
 	conditions := []*alertingv1.AlertCondition{}
-	groupIds := []string{}
+	var groupIds []string
 	if req.Filters == nil || len(req.Filters.GroupIds) == 0 {
 		groupIds = []string{""}
 	} else {

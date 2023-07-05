@@ -58,7 +58,7 @@ func (m *ConditionGroupManager[T]) Group(groupId string) spec.AlertingSecretStor
 	)
 }
 
-func (m *ConditionGroupManager[T]) ListGroups(ctx context.Context) ([]string, error) {
+func (m *ConditionGroupManager[T]) ListGroups(_ context.Context) ([]string, error) {
 	allKeys, err := keys(m.kv)
 	if err != nil {
 		return nil, err

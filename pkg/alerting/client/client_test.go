@@ -357,7 +357,7 @@ func BuildAlertAndQuerierClientTestSuite(
 				now := time.Now()
 				Eventually(func() error {
 					msgs, err := ql.ListAlarmMessages(env.Context(), &alertingv1.ListAlarmMessageRequest{
-						ConditionId:  "test",
+						ConditionId:  &alertingv1.ConditionReference{Id: "test"},
 						Fingerprints: []string{},
 						Start:        timestamppb.New(now.Add(-time.Minute)),
 						End:          timestamppb.New(now.Add(time.Minute)),

@@ -586,7 +586,7 @@ func (l *ListAlarmMessageRequest) Sanitize() {
 }
 
 func (l *ListAlarmMessageRequest) Validate() error {
-	if l.ConditionId == "" {
+	if l.ConditionId.Id == "" {
 		return validation.Error("field conditionId must be set")
 	}
 	if l.Start.AsTime().After(l.End.AsTime()) {

@@ -78,7 +78,7 @@ func (d *Driver) filterAlertingRules(promRules *promoperatorv1.PrometheusRuleLis
 	return alertingRules
 }
 
-func (d *Driver) ConfigureNode(_nodeId string, _ *node.AlertingCapabilityConfig) error {
+func (d *Driver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error {
 	return nil
 }
 

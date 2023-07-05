@@ -14,37 +14,36 @@ package remoteread;
 service RemoteReadGateway {
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/add"
+      post: "/targets"
       body: "*"
     };
   };
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      patch: "/edit"
+      put: "/targets"
       body: "*"
     };
   }
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/remove"
+      delete: "/targets/{meta.clusterId}/{meta.name}"
       body: "*"
     };
   }
   rpc ListTargets(TargetListRequest) returns (TargetList) {
     option (google.api.http) = {
-      get: "/list"
+      get: "/targets"
     };
   }
-
   rpc Start(StartReadRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/start"
+      post: "/targets/start/{target.meta.clusterId}/{target.meta.name}"
       body: "*"
     };
   }
   rpc Stop(StopReadRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/stop"
+      post: "/targets/stop/{meta.clusterId}/{meta.name}"
       body: "*"
     };
   }

@@ -237,7 +237,10 @@ func (j *JetStreamAlertingStateCache) IsDiff(ctx context.Context, key string, in
 	persistedState, err := j.JetStreamAlertingStorage.Get(ctx, key, storage_opts.WithUnredacted())
 	if err != nil {
 		// if it's not found, then the state is definitely different, otherwise we assume the resource is busy
-		return errors.Is(err, nats.ErrKeyNotFound)
+		if status, ok := status.FromError(err); ok && status.Code() == codes.NotFound {
+			return true
+		}
+		return false
 	}
 	return !persistedState.IsEquivalent(incomingState)
 }
@@ -278,7 +281,7 @@ func (j *JetStreamAlertingIncidentTracker) OpenInterval(ctx context.Context, con
 	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
 	var intervals *alertingv1.IncidentIntervals
 	if err != nil {
-		if errors.Is(err, nats.ErrKeyNotFound) {
+		if status, ok := status.FromError(err); ok && status.Code() == codes.NotFound {
 			// Create a new entry
 			intervals = &alertingv1.IncidentIntervals{
 				Items: []*alertingv1.Interval{},
@@ -323,12 +326,11 @@ func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, co
 	existingIntervals, err := j.JetStreamAlertingStorage.Get(ctx, conditionId)
 	var intervals *alertingv1.IncidentIntervals
 	if err != nil {
-		if errors.Is(err, nats.ErrKeyNotFound) {
-			// Create a new entry
+		if status, ok := status.FromError(err); ok && status.Code() == codes.NotFound {
 			intervals = &alertingv1.IncidentIntervals{
 				Items: []*alertingv1.Interval{},
 			}
-			err = j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
+			err := j.JetStreamAlertingStorage.Put(ctx, conditionId, intervals)
 			if err != nil {
 				return err
 			}

@@ -480,7 +480,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*120, time.Millisecond*200).Should(Succeed())
+					}, time.Second*60, time.Millisecond*500).Should(Succeed())
 
 					By("verifying the notification servers have not received any alarm disconnect messages")
 					Eventually(func() error {

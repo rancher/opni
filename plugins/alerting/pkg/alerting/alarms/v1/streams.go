@@ -3,7 +3,6 @@ package alarms
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -19,6 +18,8 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -577,6 +578,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 		case <-ticker.C:
 			lastKnownState, err := c.stateStorage.Get(c.evaluationCtx, c.conditionId)
 			if err != nil {
+				c.lg.With("id", c.conditionId, "name", c.conditionName).Errorf("failed to get last internal condition state %s", err)
 				continue
 			}
 			if !lastKnownState.Healthy {
@@ -649,21 +651,32 @@ func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *aler
 
 func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	incomingState := alertingv1.DefaultCachedState()
-	if _, getErr := c.incidentStorage.Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		err := c.incidentStorage.Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
-		if err != nil {
-			c.lg.Error(err)
+	if _, getErr := c.incidentStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
+		if status, ok := status.FromError(getErr); ok && status.Code() == codes.NotFound {
+			err := c.incidentStorage.Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
+			if err != nil {
+				c.lg.Error(err)
+				c.cancelEvaluation()
+				return
+			}
+		} else {
 			c.cancelEvaluation()
 			return
 		}
 	} else if getErr != nil {
 		c.lg.Error(getErr)
 	}
-	if st, getErr := c.stateStorage.Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		if err := c.stateStorage.Put(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+	if st, getErr := c.stateStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
+		if code, ok := status.FromError(getErr); ok && code.Code() == codes.NotFound {
+			if err := c.stateStorage.Put(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+				c.cancelEvaluation()
+				return
+			}
+		} else {
 			c.cancelEvaluation()
 			return
 		}
+
 	} else if getErr == nil {
 		incomingState = st
 	}

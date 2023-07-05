@@ -836,7 +836,10 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		return 0, err
 	}
 	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
-	os.MkdirAll(promDir, 0755)
+	err = os.MkdirAll(promDir, 0755)
+	if err != nil {
+		return 0, err
+	}
 
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {

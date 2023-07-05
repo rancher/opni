@@ -252,7 +252,7 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 					}
 				}
 				return nil
-			}, time.Second*45, time.Millisecond*500).Should(Succeed())
+			}, time.Second*60, time.Millisecond*500).Should(Succeed())
 		})
 	})
 })

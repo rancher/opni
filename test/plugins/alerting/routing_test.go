@@ -40,7 +40,7 @@ func init() {
 func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
-	return XDescribe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
+	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
 		var alertingClient client.AlertingClient
 		var alertingClient2 client.AlertingClient
 		var alertingClient3 client.AlertingClient

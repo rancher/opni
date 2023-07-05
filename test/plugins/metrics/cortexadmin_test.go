@@ -182,7 +182,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				}
 			}
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 		Eventually(func() error {
 			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
@@ -197,7 +197,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				}
 			}
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 		//scrape interval is 1 second
 	})

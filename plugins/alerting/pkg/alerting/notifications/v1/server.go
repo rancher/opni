@@ -104,6 +104,8 @@ func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *al
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
 
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	err := n.Client.AlertClient().ResolveAlert(ctx, client.AlertObject{
 		Id:          req.ConditionId.Id,
 		Labels:      req.Labels,
@@ -127,6 +129,8 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 	}
 
 	routingLabels := req.GetRoutingLabels()
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	err := n.Client.AlertClient().PostNotification(
 		ctx,
 		client.AlertObject{

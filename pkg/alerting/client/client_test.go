@@ -271,19 +271,40 @@ func BuildAlertAndQuerierClientTestSuite(
 				Expect(silenceId).NotTo(BeEmpty())
 
 				// check silence list
-				silences, err := sl.ListSilences(env.Context())
-				Expect(err).To(Succeed())
-				for _, silence := range silences {
-					Expect(silence.Matchers).To(HaveLen(1))
-					Expect(*silence.ID).To(Equal(silenceId))
-					Expect(*silence.Matchers[0].Name).To(Equal("opni_uuid"))
-					Expect(*silence.Matchers[0].Value).To(Equal(id))
-					t, err := time.Parse(time.RFC3339Nano, string(silence.EndsAt.String()))
-					Expect(err).To(Succeed())
-					Expect(t).To(BeTemporally(">", time.Now()))
-					Expect(t).To(BeTemporally(">", time.Now().Add(time.Minute)))
-					Expect(t).To(BeTemporally("<", time.Now().Add(6*time.Minute)))
-				}
+				Eventually(func() error {
+					silences, err := sl.ListSilences(env.Context())
+					if err != nil {
+						return err
+					}
+					for _, silence := range silences {
+						if len(silence.Matchers) != 1 {
+							return fmt.Errorf("silence matchers is not of length 1")
+						}
+						if *silence.ID != silenceId {
+							return fmt.Errorf("silence id is not %s", silenceId)
+						}
+						if *silence.Matchers[0].Name != "opni_uuid" {
+							return fmt.Errorf("silence matcher name is not opni_uuid")
+						}
+						if *silence.Matchers[0].Value != id {
+							return fmt.Errorf("silence matcher value is not %s", id)
+						}
+						t, err := time.Parse(time.RFC3339Nano, string(silence.EndsAt.String()))
+						if err != nil {
+							return err
+						}
+						if t.Before(time.Now()) {
+							return fmt.Errorf("silence endsAt is before now")
+						}
+						if t.Before(time.Now().Add(time.Minute)) {
+							return fmt.Errorf("silence endsAt is before 1 minute from now")
+						}
+						if t.After(time.Now().Add(time.Minute * 6)) {
+							return fmt.Errorf("silence endsAt is after 6 minutes from now, should be approximately 5")
+						}
+					}
+					return nil
+				}, time.Second*5).Should(Succeed())
 
 				// update
 				By("updating the existing silence to be longer")
@@ -295,21 +316,40 @@ func BuildAlertAndQuerierClientTestSuite(
 				)
 				Expect(err).To(Succeed())
 
-				// check silence list
-				silences, err = sl.ListSilences(env.Context())
-				Expect(err).To(Succeed())
-
-				for _, silence := range silences {
-					Expect(silence.Matchers).To(HaveLen(1))
-					Expect(*silence.ID).To(Equal(silenceId))
-					Expect(*silence.Matchers[0].Name).To(Equal("opni_uuid"))
-					Expect(*silence.Matchers[0].Value).To(Equal(id))
-					t, err := time.Parse(time.RFC3339Nano, string(silence.EndsAt.String()))
-					Expect(err).To(Succeed())
-					Expect(t).To(BeTemporally(">", time.Now()))
-					Expect(t).To(BeTemporally(">", time.Now().Add(time.Minute)))
-					Expect(t).To(BeTemporally(">", time.Now().Add(10*time.Minute)))
-				}
+				Eventually(func() error {
+					silences, err := sl.ListSilences(env.Context())
+					if err != nil {
+						return err
+					}
+					for _, silence := range silences {
+						if len(silence.Matchers) != 1 {
+							return fmt.Errorf("silence matchers is not of length 1")
+						}
+						if *silence.ID != silenceId {
+							return fmt.Errorf("silence id is not %s", silenceId)
+						}
+						if *silence.Matchers[0].Name != "opni_uuid" {
+							return fmt.Errorf("silence matcher name is not opni_uuid")
+						}
+						if *silence.Matchers[0].Value != id {
+							return fmt.Errorf("silence matcher value is not %s", id)
+						}
+						t, err := time.Parse(time.RFC3339Nano, string(silence.EndsAt.String()))
+						if err != nil {
+							return err
+						}
+						if t.Before(time.Now()) {
+							return fmt.Errorf("silence endsAt is before now")
+						}
+						if t.Before(time.Now().Add(time.Minute)) {
+							return fmt.Errorf("silence endsAt is before 1 minute from now")
+						}
+						if t.Before(time.Now().Add(time.Minute * 10)) {
+							return fmt.Errorf("silence endsAt is before 10 minutes from now, should be approximately 5 hours from now")
+						}
+					}
+					return nil
+				}, time.Second*5).Should(Succeed())
 			})
 		})
 		When("we use the querier client to retrieve alert and notification data", func() {

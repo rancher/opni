@@ -272,6 +272,26 @@ export interface UpdateAlertConditionRequest {
   updateAlert: AlertCondition;
 }
 
+export type StringStringPair = { [key: string]: string };
+export interface MessageInstance {
+  receivedAt: Timestamp;
+  lastUpdatedAt: Timestamp;
+  notification: Notification;
+  startDetails: StringStringPair;
+  lastDetails: StringStringPair;
+}
+
+export interface ListMessageResponse {
+  items: MessageInstance[];
+}
+
+export interface ListAlarmMessageRequest {
+  conditionId: string;
+  fingerprints: string[];
+  start: Timestamp;
+  end: Timestamp;
+}
+
 export enum AlertConditionState {
   UNSPECIFIED = 0, // eslint-disable-line no-unused-vars, camelcase
   OK = 1, // eslint-disable-line no-unused-vars, camelcase

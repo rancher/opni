@@ -2,8 +2,6 @@ package stream_test
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -65,29 +63,35 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 
 	Context("Agent mode", func() {
 		var loadedPlugins chan lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn]
-		var ext2mock *mock_ext.MockExt2Server
+		var ext2MockA mock_ext.MockExt2ServerImpl
+		var ext2MockB mock_ext.MockExt2ServerImpl
 		BeforeEach(func() {
 			loadedPlugins = make(chan lo.Tuple3[types.StreamAPIExtensionPlugin, meta.PluginMeta, *grpc.ClientConn], 1)
 			pluginLoader.Hook(hooks.OnLoadMC(func(p types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 				loadedPlugins <- lo.T3(p, md, cc)
 			}))
-			ext2mock = mock_ext.NewMockExt2Server(ctrl)
+			ext2MockA = mock_ext.MockExt2ServerImpl{
+				MockExt2Server: mock_ext.NewMockExt2Server(ctrl),
+			}
+			ext2MockB = mock_ext.MockExt2ServerImpl{
+				MockExt2Server: mock_ext.NewMockExt2Server(ctrl),
+			}
 			pluginImpl.EXPECT().
 				StreamServers().
 				DoAndReturn(func() []stream.Server {
 					return []stream.Server{
 						{
 							Desc: &ext.Ext2_ServiceDesc,
-							Impl: &mock_ext.MockExt2ServerImpl{
-								MockExt2Server: ext2mock,
-							},
+							Impl: ext2MockA,
 						},
 					}
 				}).
 				Times(1)
 		})
 		When("no errors occur", func() {
+			var useStreamClientCalled chan struct{}
 			BeforeEach(func() {
+				useStreamClientCalled = make(chan struct{})
 				pluginImpl.EXPECT().
 					UseStreamClient(gomock.Any()).
 					DoAndReturn(func(cc grpc.ClientConnInterface) {
@@ -97,16 +101,23 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 							Request: value,
 						})
 						Expect(err).NotTo(HaveOccurred())
-						sum := sha256.Sum256([]byte(value))
-						sumHex := hex.EncodeToString(sum[:])
-						Expect(resp.Response).To(Equal(sumHex))
+						Expect(resp.Response).To(Equal(fmt.Sprintf("received from B: %s", value)))
+						close(useStreamClientCalled)
 					}).
 					Times(1)
-				ext2mock.EXPECT().
+				ext2MockA.EXPECT().
 					Foo(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
 						return &ext.FooResponse{
-							Response: fmt.Sprintf("received: %s", req.Request),
+							Response: fmt.Sprintf("received from A: %s", req.Request),
+						}, nil
+					}).
+					Times(1)
+				ext2MockB.EXPECT().
+					Foo(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
+						return &ext.FooResponse{
+							Response: fmt.Sprintf("received from B: %s", req.Request),
 						}, nil
 					}).
 					Times(1)
@@ -132,17 +143,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 				ts, err := totem.NewServer(stream)
 				Expect(err).NotTo(HaveOccurred())
 
-				serverImpl := mock_ext.NewMockExt2Server(ctrl)
-				serverImpl.EXPECT().
-					Foo(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
-						sum := sha256.Sum256([]byte(req.Request))
-						return &ext.FooResponse{
-							Response: hex.EncodeToString(sum[:]),
-						}, nil
-					}).
-					Times(1)
-				ext.RegisterExt2Server(ts, &mock_ext.MockExt2ServerImpl{MockExt2Server: serverImpl})
+				ext.RegisterExt2Server(ts, ext2MockB)
 
 				tc, errC := ts.Serve()
 				f := future.NewFromChannel(errC)
@@ -159,8 +160,13 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 					Request: "foo",
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.Response).To(Equal("received: foo"))
+				Expect(resp.Response).To(Equal("received from A: foo"))
 
+				select {
+				case <-useStreamClientCalled:
+				case <-time.After(1 * time.Second):
+					Fail("useStreamClient was not called")
+				}
 				ca()
 				Expect(f.Get()).To(testutil.MatchStatusCode(codes.Canceled))
 			})
@@ -182,17 +188,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 					ts, err := totem.NewServer(stream)
 					Expect(err).NotTo(HaveOccurred())
 
-					serverImpl := mock_ext.NewMockExt2Server(ctrl)
-					serverImpl.EXPECT().
-						Foo(gomock.Any(), gomock.Any()).
-						DoAndReturn(func(ctx context.Context, req *ext.FooRequest) (*ext.FooResponse, error) {
-							sum := sha256.Sum256([]byte(req.Request))
-							return &ext.FooResponse{
-								Response: hex.EncodeToString(sum[:]),
-							}, nil
-						}).
-						Times(1)
-					ext.RegisterExt2Server(ts, &mock_ext.MockExt2ServerImpl{MockExt2Server: serverImpl})
+					ext.RegisterExt2Server(ts, ext2MockB)
 
 					tc, errC := ts.Serve()
 					f := future.NewFromChannel(errC)
@@ -208,8 +204,13 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 						Request: "foo",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(resp.Response).To(Equal("received: foo"))
+					Expect(resp.Response).To(Equal("received from A: foo"))
 
+					select {
+					case <-useStreamClientCalled:
+					case <-time.After(1 * time.Second):
+						Fail("useStreamClient was not called")
+					}
 					ca()
 					Expect(f.Get()).To(testutil.MatchStatusCode(codes.Canceled))
 				})
@@ -246,7 +247,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 		})
 		When("the stream times out before discovery is complete", func() {
 			BeforeEach(func() {
-				prev := stream.X_SetDiscoveryTimeout(100 * time.Millisecond)
+				prev := stream.X_SetDiscoveryTimeout(0)
 				DeferCleanup(func() {
 					stream.X_SetDiscoveryTimeout(prev)
 				})
@@ -269,8 +270,8 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 					if err == nil {
 						goto receive
 					}
-					Expect(err).To(testutil.MatchStatusCode(codes.DeadlineExceeded, ContainSubstring("stream client discovery timed out after 100ms")))
-				case <-time.After(1 * time.Second):
+					Expect(err).To(testutil.MatchStatusCode(codes.DeadlineExceeded, ContainSubstring("stream client discovery timed out")))
+				case <-time.After(10 * time.Millisecond):
 					Fail("stream.Recv() should have returned")
 				}
 			})

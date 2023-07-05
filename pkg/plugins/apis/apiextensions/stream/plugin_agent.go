@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
@@ -118,6 +119,14 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	select {
 	case res := <-lo.Async2(ts.Serve):
 		cc, errC = res.Unpack()
+		if cc == nil {
+			select {
+			case err := <-errC:
+				return fmt.Errorf("stream server failed to start: %w", err)
+			default:
+				return fmt.Errorf("stream server failed to start (unknown error)")
+			}
+		}
 	case <-time.After(timeout):
 		// If we don't get a discovery event within 10 seconds, something went
 		// wrong. To prevent the connection from hanging forever, close the stream
@@ -125,6 +134,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 		return status.Errorf(codes.DeadlineExceeded, "stream client discovery timed out after %s", timeout)
 	case <-stream.Context().Done():
 		e.logger.With(stream.Context().Err()).Error("stream disconnected while waiting for discovery")
+		return stream.Context().Err()
 	}
 
 	select {

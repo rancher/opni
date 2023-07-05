@@ -85,6 +85,7 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 }
 
 func (Generate) ProtobufTypescript() error {
+	mg.Deps(Build.TypescriptServiceGenerator)
 	destDir := "web/pkg/opni/generated"
 	esGen, err := exec.LookPath("protoc-gen-es")
 	if err != nil {
@@ -107,6 +108,9 @@ func (Generate) ProtobufTypescript() error {
 					}
 				}
 			},
+		}),
+		external.NewGenerator([]string{"./web/service-generator/generate"}, external.GeneratorOptions{
+			Opt: "target=ts",
 		}),
 	}, targets...)
 	if err != nil {

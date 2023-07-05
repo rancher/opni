@@ -1,2 +1,3 @@
 node_modules
 dist
+pkg/opni/generated

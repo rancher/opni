@@ -33,6 +33,8 @@
     "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh",
     "serve-pkgs": "./node_modules/@rancher/shell/scripts/serve-pkgs",
     "publish-pkgs": "./node_modules/@rancher/shell/scripts/extension/publish",
+
+    "build:service-generator": "(cd ./service-generator && yarn install && yarn build)",
     
     "docker": "docker build -t opni-ui -f ./Dockerfile .",
     "build": "IS_STANDALONE=true ./node_modules/.bin/vue-cli-service build",

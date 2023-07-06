@@ -12,15 +12,53 @@ import "google/api/annotations.proto";
 package remoteread;
 
 service RemoteReadGateway {
-  rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty);
-  rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty);
-  rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty);
-  rpc ListTargets(TargetListRequest) returns (TargetList);
-
-  rpc Start(StartReadRequest) returns (google.protobuf.Empty);
-  rpc Stop(StopReadRequest) returns (google.protobuf.Empty);
-  rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus);
-  rpc Discover(DiscoveryRequest) returns (DiscoveryResponse);
+  rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/targets"
+      body: "*"
+    };
+  };
+  rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/targets"
+      body: "*"
+    };
+  }
+  rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/targets/{meta.clusterId}/{meta.name}"
+      body: "*"
+    };
+  }
+  rpc ListTargets(TargetListRequest) returns (TargetList) {
+    option (google.api.http) = {
+      get: "/targets"
+    };
+  }
+  rpc Start(StartReadRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/targets/start/{target.meta.clusterId}/{target.meta.name}"
+      body: "*"
+    };
+  }
+  rpc Stop(StopReadRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/targets/stop/{meta.clusterId}/{meta.name}"
+      body: "*"
+    };
+  }
+  rpc GetTargetStatus(TargetStatusRequest) returns (TargetStatus) {
+    option (google.api.http) = {
+      post: "/status"
+      body: "*"
+    };
+  }
+  rpc Discover(DiscoveryRequest) returns (DiscoveryResponse) {
+    option (google.api.http) = {
+      post: "/edit"
+      body: "*"
+    };
+  }
 }
 
 service RemoteReadAgent {

@@ -15,8 +15,10 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
@@ -54,16 +56,6 @@ func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.Label
 	return pbLabelMatchers
 }
 
-func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
-	dereferenced := make([]prompb.TimeSeries, 0, len(in))
-
-	for _, ref := range in {
-		dereferenced = append(dereferenced, *ref)
-	}
-
-	return dereferenced
-}
-
 func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	if len(logs) == 0 {
 		return ""
@@ -82,6 +74,12 @@ func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 type TargetRunMetadata struct {
 	Target *remoteread.Target
 	Query  *remoteread.Query
+}
+
+// todo: could probably find a better name for this
+type ReadMetadata struct {
+	Query   *prompb.Query
+	Request *prompb.WriteRequest
 }
 
 type targetStore struct {
@@ -203,94 +201,148 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 	}
 }
 
+func (tr *taskRunner) doRead(ctx context.Context, run *TargetRunMetadata, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+	expbackoff := tr.backoffPolicy.Start(ctx)
+
+	for {
+		select {
+		case <-expbackoff.Done():
+			return nil, ctx.Err()
+		case <-expbackoff.Next():
+			tr.remoteReaderMu.Lock()
+			readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
+			tr.remoteReaderMu.Unlock()
+
+			// todo: check if recoverable
+			if err != nil {
+				return nil, fmt.Errorf("failed to read from target endpoint: %w", err)
+			}
+
+			return readResponse, nil
+		}
+	}
+}
+
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	limit := util.DefaultWriteLimit()
+
+	b := &memoryBuffer[ReadMetadata]{
+		ch: make(chan ReadMetadata),
+	}
+
+	writeChan := make(chan *ReadMetadata)
+
+	wc := waitctx.FromContext(ctx)
+
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
-	labelMatchers := toLabelMatchers(run.Query.Matchers)
+	waitctx.Go(wc, func() {
+		labelMatchers := toLabelMatchers(run.Query.Matchers)
 
-	importEnd := run.Query.EndTimestamp.AsTime().UnixMilli()
-	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
-	nextEnd := nextStart
+		importEnd := run.Query.EndTimestamp.AsTime().UnixMilli()
+		nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
+		nextEnd := nextStart
 
-	progressDelta := nextStart
+		activeTask.AddLogEntry(zapcore.InfoLevel, "import read running")
 
-	progress := &corev1.Progress{
-		Current: 0,
-		Total:   uint64(importEnd - progressDelta),
-	}
+		for nextStart < importEnd {
+			select {
+			case <-ctx.Done():
+				activeTask.AddLogEntry(zapcore.InfoLevel, "import read stopped")
+				return
+			default: // continue with import
+			}
 
-	activeTask.SetProgress(progress)
+			nextStart = nextEnd
+			nextEnd = nextStart + TimeDeltaMillis
 
-	activeTask.AddLogEntry(zapcore.InfoLevel, "import running")
+			if nextStart >= importEnd {
+				break
+			}
 
-	for nextStart < importEnd {
-		select {
-		case <-ctx.Done():
-			activeTask.AddLogEntry(zapcore.InfoLevel, "import stopped")
-			return ctx.Err()
-		default: // continue with import
-		}
+			if nextEnd >= importEnd {
+				nextEnd = importEnd
+			}
 
-		nextStart = nextEnd
-		nextEnd = nextStart + TimeDeltaMillis
-
-		if nextStart >= importEnd {
-			break
-		}
-
-		if nextEnd >= importEnd {
-			nextEnd = importEnd
-		}
-
-		readRequest := &prompb.ReadRequest{
-			Queries: []*prompb.Query{
-				{
-					StartTimestampMs: nextStart,
-					EndTimestampMs:   nextEnd,
-					Matchers:         labelMatchers,
+			readRequest := &prompb.ReadRequest{
+				Queries: []*prompb.Query{
+					{
+						StartTimestampMs: nextStart,
+						EndTimestampMs:   nextEnd,
+						Matchers:         labelMatchers,
+					},
 				},
-			},
-		}
-
-		readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
-
-		if err != nil {
-			activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to read from target endpoint: %s", err))
-			return fmt.Errorf("failed to read from target endpoint: %w", err)
-		}
-
-		for _, result := range readResponse.Results {
-			if len(result.Timeseries) == 0 {
-				continue
 			}
 
-			writeRequest := prompb.WriteRequest{
-				Timeseries: dereferenceResultTimeseries(result.Timeseries),
-			}
-
-			chunkedRequests, err := util.SplitChunksWithLimit(&writeRequest, limit)
+			readResponse, err := tr.doRead(wc, run, readRequest)
 			if err != nil {
-				return fmt.Errorf("failed to chunk request: %w", err)
+				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+				return
 			}
 
-			if len(chunkedRequests) > 1 {
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("split write request into %d chunks", len(chunkedRequests)))
+			meta := &ReadMetadata{
+				Query: readRequest.Queries[0],
+				Request: &prompb.WriteRequest{
+					Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
+						return lo.FromPtr(t)
+					}),
+					Metadata: []prompb.MetricMetadata{},
+				},
 			}
 
-			for i, request := range chunkedRequests {
-				if err := tr.doPush(ctx, request); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
-					return err
-				}
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed chunk %d of %d", i+1, len(chunkedRequests)))
-			}
-
-			progress.Current = uint64(nextEnd - progressDelta)
-			activeTask.SetProgress(progress)
+			writeChan <- meta
 		}
-	}
+	})
+
+	waitctx.Go(wc, func() {
+		for {
+			select {
+			case <-ctx.Done():
+				break
+			case meta := <-writeChan:
+				chunks, err := util.SplitChunksWithLimit(meta.Request, limit)
+				if err != nil {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+					return
+				}
+
+				lo.ForEach(chunks, func(chunk *prompb.WriteRequest, _ int) {
+					b.Add(ReadMetadata{
+						Query:   meta.Query,
+						Request: chunk,
+					})
+				})
+			}
+		}
+	})
+
+	waitctx.Go(wc, func() {
+		progress := &corev1.Progress{
+			Current: 0,
+			Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli()),
+		}
+		activeTask.SetProgress(progress)
+
+		activeTask.AddLogEntry(zapcore.InfoLevel, "import push running")
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case meta := <-b.ch:
+				if err := tr.doPush(wc, meta.Request); err != nil {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+					return
+				}
+
+				progress.Current += uint64(meta.Query.EndTimestampMs - meta.Query.StartTimestampMs)
+				activeTask.SetProgress(progress)
+			}
+		}
+	})
+
+	waitctx.Wait(wc)
 
 	return nil
 }

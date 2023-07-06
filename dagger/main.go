@@ -404,6 +404,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		eg.Go(func() error {
 			charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
 			charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
+			charts.File(filepath.Join(b.workdir, "index.yaml")).Export(ctx, "./index.yaml")
 			return nil
 		})
 	}

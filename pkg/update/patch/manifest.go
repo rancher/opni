@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
-	"path"
 	"path/filepath"
 	"sync"
 
@@ -126,7 +125,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 				return
 			}
 			sum := hex.EncodeToString(hash.Sum(nil))
-			opniURN := urn.NewOpniURN(urn.Plugin, UpdateStrategy, path.Base(md.Module))
+			opniURN := urn.NewOpniURN(urn.Plugin, UpdateStrategy, md.Module)
 			res.Items[i] = &controlv1.PluginArchiveEntry{
 				Metadata: &controlv1.UpdateManifestEntry{
 					Package: opniURN.String(),

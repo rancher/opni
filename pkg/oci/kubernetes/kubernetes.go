@@ -2,7 +2,6 @@ package kubernetes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -81,7 +80,7 @@ func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType o
 	}
 
 	if err != nil {
-		return nil, errors.Join(ErrImageNotFound, err)
+		return nil, err
 	}
 
 	if image.Empty() {

@@ -70,7 +70,7 @@ func shipRKEEtcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Sugar
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.EtcdRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -89,7 +89,7 @@ func shipRKEKubeApi(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.KlogRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -108,7 +108,7 @@ func shipRKEKubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.KlogRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -127,7 +127,7 @@ func shipRKEKubeControllerManager(ctx context.Context, cc grpc.ClientConnInterfa
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.KlogRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -146,7 +146,7 @@ func shipRKEKubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.KlogRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -165,7 +165,7 @@ func shipRKEKubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.
 		return err
 	}
 	defer reader.Close()
-	p := &dateparser.DefaultParser{
+	p := &dateparser.DockerParser{
 		TimestampRegex: dateparser.KlogRegex,
 	}
 	s := shipper.NewOTLPShipper(cc, p, lg,
@@ -263,7 +263,7 @@ func shipK3sControlplane(ctx context.Context, cc grpc.ClientConnInterface, lg *z
 	}
 	defer reader.Close()
 
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.JournaldRegex,
 		dateparser.JournaldLayout,
 		dateparser.WithTimezone(timezone),
@@ -402,7 +402,7 @@ func shipRKE2Kubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 	defer reader.Close()
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.KlogRegex,
 		dateparser.KlogLayout,
 		dateparser.WithTimezone(timezone),
@@ -424,7 +424,7 @@ func shipRKE2KubeAPI(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 	}
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.KlogRegex,
 		dateparser.KlogLayout,
 		dateparser.WithTimezone(timezone),
@@ -461,7 +461,7 @@ func shipRKE2KubeControllerManager(ctx context.Context, cc grpc.ClientConnInterf
 	}
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.KlogRegex,
 		dateparser.KlogLayout,
 		dateparser.WithTimezone(timezone),
@@ -498,7 +498,7 @@ func shipRKE2KubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg 
 	}
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.KlogRegex,
 		dateparser.KlogLayout,
 		dateparser.WithTimezone(timezone),
@@ -535,7 +535,7 @@ func shipRKE2KubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap
 	}
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.KlogRegex,
 		dateparser.KlogLayout,
 		dateparser.WithTimezone(timezone),
@@ -575,7 +575,7 @@ func shipRKE2Journald(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.
 	defer reader.Close()
 
 	timezone, year := zoneAndYearFromDatefile()
-	p := dateparser.NewDateZoneParser(
+	p := dateparser.NewDayMonthParser(
 		dateparser.JournaldRegex,
 		dateparser.JournaldLayout,
 		dateparser.WithTimezone(timezone),

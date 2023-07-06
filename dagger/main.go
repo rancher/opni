@@ -288,8 +288,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithExec([]string{"go", "mod", "download"}).
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
-		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
+		WithEnvVariable("CGO_ENABLED", "0").  // important for cached magefiles
+		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
+		WithoutEnvVariable("GOBIN").
 		WithDirectory(b.workdir, b.sources)
 
 	nodeBuild := nodeBase.

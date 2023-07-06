@@ -40,7 +40,6 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.etcdIntermediateCAIssuer(),
 		r.etcdClientCert(),
 		r.etcdServingCert(),
-		r.grafanaCert(),
 	} {
 		ctrl.SetControllerReference(r.gw, obj, r.client.Scheme())
 		list = append(list, resources.Present(obj))
@@ -162,31 +161,6 @@ func (r *Reconciler) gatewayClientCert() client.Object {
 				cmv1.UsageClientAuth,
 				cmv1.UsageDigitalSignature,
 				cmv1.UsageKeyEncipherment,
-			},
-		},
-	}
-}
-
-func (r *Reconciler) grafanaCert() client.Object {
-	return &cmv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "grafana-datasource-cert",
-			Namespace: r.gw.Namespace,
-		},
-		Spec: cmv1.CertificateSpec{
-			SecretName: "grafana-datasource-cert",
-			PrivateKey: &cmv1.CertificatePrivateKey{
-				Algorithm: cmv1.Ed25519KeyAlgorithm,
-				Encoding:  cmv1.PKCS1,
-			},
-			IssuerRef: cmmetav1.ObjectReference{
-				Group: "cert-manager.io",
-				Kind:  "Issuer",
-				Name:  "opni-gateway-ca-issuer",
-			},
-			DNSNames: []string{
-				fmt.Sprintf("grafana.%s.svc", r.gw.Namespace),
-				fmt.Sprintf("grafana.%s.svc.cluster.local", r.gw.Namespace),
 			},
 		},
 	}

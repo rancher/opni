@@ -140,11 +140,11 @@ func (p *Plugin) publishInitialStatus(
 	for i := retries; i > 0; i-- {
 		select {
 		case <-time.After(1 * time.Second):
-			clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
+			clusterStatus, err := client.GetClusterHealthStatus(p.ctx, &corev1.Reference{Id: cl.GetId()})
 			if err == nil {
 				clusterStatusData, err := json.Marshal(clusterStatus)
 				if err != nil {
-					p.Logger.Errorf("failed to marshal cluster health status: %s", err)
+					p.logger.Errorf("failed to marshal cluster health status: %s", err)
 					continue
 				}
 
@@ -153,14 +153,14 @@ func (p *Plugin) publishInitialStatus(
 					return
 				}
 				if err != nil {
-					p.Logger.Errorf("failed to publish cluster health status : %s", err)
+					p.logger.Errorf("failed to publish cluster health status : %s", err)
 				}
 			} else {
-				p.Logger.Warnf("failed to read cluster health status on startup for cluster %s : %s, retrying...", cl.GetId(), err.Error())
+				p.logger.Warnf("failed to read cluster health status on startup for cluster %s : %s, retrying...", cl.GetId(), err.Error())
 			}
 		}
 	}
-	p.Logger.Infof("manually setting %s cluster's status to disconnected", cl.GetId())
+	p.logger.Infof("manually setting %s cluster's status to disconnected", cl.GetId())
 	msg := &corev1.ClusterHealthStatus{
 		Cluster: &corev1.Reference{
 			Id: cl.GetId(),
@@ -182,7 +182,7 @@ func (p *Plugin) publishInitialStatus(
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		p.Logger.Errorf("failed to marshal default message %s", err)
+		p.logger.Errorf("failed to marshal default message %s", err)
 		return
 	}
 	p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(cl.GetId()), data)

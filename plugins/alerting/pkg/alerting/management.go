@@ -25,11 +25,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // capability name ---> condition name ---> condition status
-var registerMu sync.RWMutex
-var RegisteredCapabilityStatuses = map[string]map[string][]health.ConditionStatus{}
+var (
+	registerMu                   sync.RWMutex
+	RegisteredCapabilityStatuses = map[string]map[string][]health.ConditionStatus{}
+)
 
 func RegisterCapabilityStatus(capabilityName, condName string, availableStatuses []health.ConditionStatus) {
 	registerMu.Lock()
@@ -65,12 +68,13 @@ func init() {
 		metricsnode.CondRuleSync,
 		[]health.ConditionStatus{
 			health.StatusPending,
-			health.StatusFailure})
+			health.StatusFailure,
+		})
 	RegisterCapabilityStatus(
 		wellknown.CapabilityMetrics,
 		health.CondBackend,
 		[]health.ConditionStatus{health.StatusPending, health.StatusFailure})
-	//logging
+	// logging
 	RegisterCapabilityStatus(wellknown.CapabilityLogs, health.CondConfigSync, []health.ConditionStatus{
 		health.StatusPending,
 		health.StatusFailure,
@@ -189,6 +193,63 @@ func (p *Plugin) watchGlobalCluster(
 	}
 }
 
+func (p *Plugin) publishInitialStatus(
+	client managementv1.ManagementClient,
+	cl *corev1.Cluster,
+	ingressStream *nats.StreamConfig,
+) {
+	retries := 10
+	for i := retries; i > 0; i-- {
+		select {
+		case <-time.After(1 * time.Second):
+			clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
+			if err == nil {
+				clusterStatusData, err := json.Marshal(clusterStatus)
+				if err != nil {
+					p.Logger.Errorf("failed to marshal cluster health status: %s", err)
+					continue
+				}
+
+				_, err = p.js.Get().PublishAsync(ingressStream.Name, clusterStatusData)
+				if err == nil {
+					return
+				}
+				if err != nil {
+					p.Logger.Errorf("failed to publish cluster health status : %s", err)
+				}
+			} else {
+				p.Logger.Warnf("failed to read cluster health status on startup for cluster %s : %s, retrying...", cl.GetId(), err.Error())
+			}
+		}
+	}
+	p.Logger.Infof("manually setting %s cluster's status to disconnected", cl.GetId())
+	msg := &corev1.ClusterHealthStatus{
+		Cluster: &corev1.Reference{
+			Id: cl.GetId(),
+		},
+		HealthStatus: &corev1.HealthStatus{
+			Health: &corev1.Health{
+				Timestamp:   timestamppb.Now(),
+				Ready:       false,
+				Conditions:  []string{},
+				Annotations: map[string]string{},
+			},
+			Status: &corev1.Status{
+				Timestamp:         timestamppb.Now(),
+				Connected:         false,
+				SessionAttributes: []string{},
+			},
+		},
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		p.Logger.Errorf("failed to marshal default message %s", err)
+		return
+	}
+	p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(cl.GetId()), data)
+}
+
 // blocking
 func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient, ingressStream *nats.StreamConfig) {
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
@@ -207,26 +268,19 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 		os.Exit(1)
 	}
 	for _, cl := range cls.Items {
-		clusterStatus, err := client.GetClusterHealthStatus(p.Ctx, &corev1.Reference{Id: cl.GetId()})
-		//make sure durable consumer is setup
+		cl := cl
+		// make sure durable consumer is setup
 		replayErr := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, alarms.NewAgentDurableReplayConsumer(cl.GetId()))
 		if replayErr != nil {
 			panic(replayErr)
 		}
-		if err == nil {
-			clusterStatusData, err := json.Marshal(clusterStatus)
-			if err != nil {
-				p.Logger.Errorf("failed to marshal cluster health status: %s", err)
-				continue
-			}
-
-			_, err = p.js.Get().PublishAsync(ingressStream.Name, clusterStatusData)
-			if err != nil {
-				p.Logger.Errorf("failed to publish cluster health status : %s", err)
-			}
-		} else {
-			p.Logger.Warnf("failed to read cluster health status on startup for cluster %s : %s", cl.GetId(), err.Error())
-		}
+		go func() {
+			p.publishInitialStatus(
+				client,
+				cl,
+				ingressStream,
+			)
+		}()
 	}
 	for {
 		select {

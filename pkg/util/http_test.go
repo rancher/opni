@@ -15,9 +15,14 @@ import (
 	"github.com/rancher/opni/pkg/test/testgrpc"
 )
 
+const (
+	maxCacheExpiration  = time.Millisecond * 500
+	cacheExpirationStep = time.Millisecond * 20
+)
+
 var _ = BuildHttpTransportCaching(
 	caching.NewInternalHttpCacheTransport(
-		caching.NewInMemoryHttpTtlCache(5*1024*1024, time.Millisecond*20),
+		caching.NewInMemoryHttpTtlCache(5*1024*1024, cacheExpirationStep),
 	),
 )
 
@@ -130,7 +135,6 @@ func BuildHttpTransportCaching(
 			Expect(client.Transport).NotTo(BeNil())
 			Expect(serverPort).NotTo(BeZero())
 			cachingClient = client
-
 		})
 		When("We use standardized cache control headers with our http caching transport", func() {
 			It("should not replace custom transports", func() {
@@ -138,7 +142,6 @@ func BuildHttpTransportCaching(
 				Expect(defaultClient.Transport).NotTo(BeNil())
 			})
 			It("should implement the cache-control headers", func() {
-
 				var data testgrpc.ValueResponse
 				By("sending a request to increment the value")
 				var resp *http.Response
@@ -209,8 +212,7 @@ func BuildHttpTransportCaching(
 					Expect(err).To(Succeed())
 					defer resp.Body.Close()
 					return data.Value
-				}).Should(Equal(11))
-
+				}, maxCacheExpiration, cacheExpirationStep).Should(Equal(11))
 			})
 
 			It("should allow servers to tell clients using the cache transport to cache requests", func() {
@@ -251,7 +253,7 @@ func BuildHttpTransportCaching(
 					Expect(err).To(Succeed())
 					defer resp.Body.Close()
 					return data.Value
-				}).Should(Equal(16))
+				}, maxCacheExpiration, cacheExpirationStep).Should(Equal(16))
 			})
 		})
 	})

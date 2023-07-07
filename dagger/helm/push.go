@@ -51,18 +51,18 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 	assetsMountPath := filepath.Join(workdir, "assets")
 	magefilesMountPath := filepath.Join(workdir, "magefiles")
 
-	ctr := images.AlpineBase(client, images.WithPackages("github-cli")).
+	ctr := opts.BuildContainer.
 		Pipeline("Publish Charts").
 		WithWorkdir(workdir).
 		WithSecretVariable("GH_TOKEN", opts.Target.Auth.Secret).
 		WithDirectory(workdir, client.Git(opts.Target.Repo, dagger.GitOpts{KeepGitDir: true}).Branch(opts.Target.Branch).Tree()).
+		With(GithubCLI).
 		WithExec([]string{"gh", "auth", "setup-git"}).
 		// WithExec([]string{"gh", "repo", "clone", opts.Target.Repo, ".", "--", "--branch", opts.Target.Branch, "--depth", "1", "--no-tags"}).
 		WithDirectory(chartsMountPath, opts.BuildContainer.Directory(chartsMountPath)). // Important: WithDirectory merges the contents
 		WithDirectory(assetsMountPath, opts.BuildContainer.Directory(assetsMountPath)).
 		WithMountedDirectory(magefilesMountPath, opts.BuildContainer.Directory(magefilesMountPath)).
-		WithMountedDirectory("/go/bin", opts.BuildContainer.Directory("/go/bin")).
-		WithExec([]string{"/go/bin/mage", "charts:index"}).
+		WithExec([]string{"mage", "charts:index"}).
 		WithoutMount(magefilesMountPath).
 		WithExec([]string{"git", "status", "--porcelain"}, dagger.ContainerWithExecOpts{RedirectStdout: "/git-status"})
 
@@ -100,4 +100,13 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 		return fmt.Errorf("failed to publish charts: %w", err)
 	}
 	return nil
+}
+
+func GithubCLI(buildContainer *dagger.Container) *dagger.Container {
+	return buildContainer.WithFile("/usr/bin/gh",
+		buildContainer.WithExec([]string{"git", "clone", "https://github.com/cli/cli.git", "/tmp/gh-cli"}).
+			WithWorkdir("/tmp/gh-cli").
+			WithExec([]string{"make", "install"}).
+			File("/usr/local/bin/gh"),
+	)
 }

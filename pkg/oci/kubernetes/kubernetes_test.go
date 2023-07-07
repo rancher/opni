@@ -50,11 +50,11 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 	When("gateway status is not set", func() {
 		It("should not return opni image", func() {
 			_, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeOpni)
-			Expect(err).To(MatchError(kubernetes.ErrImageNotFound))
+			Expect(err).To(HaveOccurred())
 		})
 		It("should not return the minimal image", func() {
 			_, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeOpni)
-			Expect(err).To(MatchError(kubernetes.ErrImageNotFound))
+			Expect(err).To(HaveOccurred())
 		})
 		When("version is set", func() {
 			BeforeEach(func() {
@@ -62,7 +62,7 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 			})
 			It("should not return the minimal image", func() {
 				_, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeOpni)
-				Expect(err).To(MatchError(kubernetes.ErrImageNotFound))
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})

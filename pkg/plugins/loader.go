@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/urn"
 )
 
 const DefaultPluginGlob = "plugin_*"
@@ -257,7 +258,14 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, pluginDir string, scheme
 	secureConfigs := make(map[string]*plugin.SecureConfig)
 	if verifyManifest {
 		for _, entry := range options.manifest.Items {
-			secureConfigs[entry.Package] = &plugin.SecureConfig{
+			entryURN, err := urn.ParseString(entry.Package)
+			if err != nil {
+				p.logger.With(
+					"package", entry.Package,
+				).Warn("invalid package in manifest")
+				continue
+			}
+			secureConfigs[entryURN.Component] = &plugin.SecureConfig{
 				Checksum: entry.DigestBytes(),
 				Hash:     entry.DigestHash(),
 			}

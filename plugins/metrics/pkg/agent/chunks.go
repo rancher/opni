@@ -7,6 +7,14 @@ import (
 	"github.com/samber/lo"
 )
 
+type WriteLimit struct {
+	// GrpcMaxBytes is the maximum siz of a message that can be sent over the grpc connection.
+	GrpcMaxBytes int
+
+	// CortexIngestionRateLimit is the maximum number of samples that can be sent to cortex per second.
+	CortexIngestionRateLimit int
+}
+
 func splitNChunks[T any](a []T, n int) ([][]T, error) {
 	if n == 0 {
 		return nil, fmt.Errorf("n cannot be 0")
@@ -86,13 +94,19 @@ func splitWriteRequestChunks(request *prompb.WriteRequest, n int) ([]*prompb.Wri
 	}
 }
 
-func fitRequestToSize(request *prompb.WriteRequest, maxBytes int) ([]*prompb.WriteRequest, error) {
+func sampleCount(request *prompb.WriteRequest) int {
+	return lo.Reduce(request.Timeseries, func(count int, ts prompb.TimeSeries, _ int) int {
+		return len(ts.Samples) + count
+	}, 0)
+}
+
+func splitChunksWithLimit(request *prompb.WriteRequest, limit WriteLimit) ([]*prompb.WriteRequest, error) {
 	bytes, err := request.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("could not check for ")
 	}
 
-	if len(bytes) <= maxBytes {
+	if len(bytes) <= limit.GrpcMaxBytes && sampleCount(request) <= limit.CortexIngestionRateLimit {
 		return []*prompb.WriteRequest{request}, nil
 	}
 
@@ -103,7 +117,7 @@ func fitRequestToSize(request *prompb.WriteRequest, maxBytes int) ([]*prompb.Wri
 
 	out := make([][]*prompb.WriteRequest, 0, len(requests))
 	for _, r := range requests {
-		split, err := fitRequestToSize(r, maxBytes)
+		split, err := splitChunksWithLimit(r, limit)
 		if err != nil {
 			return nil, err
 		}

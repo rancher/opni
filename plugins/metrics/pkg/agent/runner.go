@@ -192,10 +192,12 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 			}
 
 			switch {
-			case strings.Contains(err.Error(), "context cancelled"):
+			case strings.Contains(err.Error(), "context cancelled"),
+				strings.Contains(err.Error(), "ingestion rate limit"):
+
 				tr.logger.With(
 					zap.Error(err),
-				).Error("failed to push to remote write, retrying...")
+				).Warn("failed to push to remote write, retrying...")
 			default:
 				return fmt.Errorf("failed to push to remote write: %w", err)
 			}
@@ -204,6 +206,10 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 }
 
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+	limit := WriteLimit{
+		GrpcMaxBytes:             4194304,
+		CortexIngestionRateLimit: 2500,
+	}
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
@@ -269,7 +275,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			chunkedRequests, err := fitRequestToSize(&writeRequest, 4194304)
+			chunkedRequests, err := splitChunksWithLimit(&writeRequest, limit)
 			if err != nil {
 				return fmt.Errorf("failed to chunk request: %w", err)
 			}
@@ -278,11 +284,12 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("split write request into %d chunks", len(chunkedRequests)))
 			}
 
-			for _, request := range chunkedRequests {
+			for i, request := range chunkedRequests {
 				if err := tr.doPush(ctx, request); err != nil {
 					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 					return err
 				}
+				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed chunk %d of %d", i+1, len(chunkedRequests)))
 			}
 
 			progress.Current = uint64(nextEnd - progressDelta)

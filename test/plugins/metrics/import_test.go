@@ -55,8 +55,9 @@ func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Requ
 									Value: "test_metric",
 								},
 							},
-							Samples: lo.Map(make([]prompb.Sample, 4194304), func(sample prompb.Sample, _ int) prompb.Sample {
-								sample.Timestamp = time.Now().Unix()
+							// Samples: lo.Map(make([]prompb.Sample, 4194304), func(sample prompb.Sample, i int) prompb.Sample {
+							Samples: lo.Map(make([]prompb.Sample, 65536), func(sample prompb.Sample, i int) prompb.Sample {
+								sample.Timestamp = time.Now().UnixMilli()
 								return sample
 							}),
 						},
@@ -106,7 +107,8 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 	query := &remoteread.Query{
 		StartTimestamp: &timestamppb.Timestamp{
-			Seconds: time.Now().Unix() - int64(time.Hour.Seconds()),
+			// we only want this to run 1-3 times to avoid waiting for several large packets with backoffs due to ingest rate limiting, so we set the start time to be 2 * the read query step
+			Seconds: int64(time.Now().Unix()) - int64(time.Minute.Seconds()*2),
 		},
 		EndTimestamp: &timestamppb.Timestamp{
 			Seconds: time.Now().Unix(),
@@ -311,7 +313,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 				})
 
 				return status.State, err
-			}).Should(Equal(remoteread.TargetState_Completed))
+			}, "15s").Should(Equal(remoteread.TargetState_Completed))
 		})
 	})
 })

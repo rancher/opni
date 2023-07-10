@@ -138,6 +138,8 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 
 		continueScan = tokens.Scan()
 	}
+	// Once we've finished the scan, we need to ship the last log
+	entries = append(entries, previousEnt)
 
 	if len(entries) > 0 {
 		err := s.converter.Batch(entries)

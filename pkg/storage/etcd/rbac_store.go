@@ -32,6 +32,19 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	return nil
 }
 
+func (e *EtcdStore) UpdateRole(ctx context.Context, role *corev1.Role) error {
+	data, err := protojson.Marshal(role)
+	if err != nil {
+		return fmt.Errorf("failed to marshal role: %w", err)
+	}
+	key := path.Join(e.Prefix, roleKey, role.Id)
+	_, err = e.Client.Put(ctx, key, string(data))
+	if err != nil {
+		return fmt.Errorf("failed to update role: %w", err)
+	}
+	return nil
+}
+
 func (e *EtcdStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
 	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, roleKey, ref.Id))
 	if err != nil {

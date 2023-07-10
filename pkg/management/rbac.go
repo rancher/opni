@@ -15,6 +15,13 @@ func (s *Server) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empt
 	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRole(ctx, in)
 }
 
+func (s *Server) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().UpdateRole(ctx, in)
+}
+
 func (s *Server) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err

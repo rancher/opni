@@ -643,6 +643,20 @@ func (mr *MockRBACStoreMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).CreateRoleBinding), arg0, arg1)
 }
 
+// UpdateRole mocks base method.
+func (m *MockRBACStore) UpdateRole(arg0 context.Context, arg1 *v1.Role) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRole", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRole indicates an expected call of UpdateRole.
+func (mr *MockRBACStoreMockRecorder) UpdateRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACStore)(nil).UpdateRole), arg0, arg1)
+}
+
 // DeleteRole mocks base method.
 func (m *MockRBACStore) DeleteRole(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()

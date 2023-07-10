@@ -25,6 +25,20 @@ func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	return err
 }
 
+func (c *CRDStore) UpdateRole(ctx context.Context, role *corev1.Role) error {
+	err := c.client.Update(ctx, &monitoringv1beta1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      role.Id,
+			Namespace: c.namespace,
+		},
+		Spec: role,
+	})
+	if k8serrors.IsNotFound(err) {
+		return storage.ErrNotFound
+	}
+	return err
+}
+
 func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
 	err := c.client.Delete(ctx, &monitoringv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{

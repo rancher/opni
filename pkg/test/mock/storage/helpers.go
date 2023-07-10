@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	sync2 "github.com/kralicky/gpkg/sync"
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
@@ -463,6 +463,18 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, role *v1.Role) error {
 			mu.Lock()
 			defer mu.Unlock()
+			roles[role.Id] = role
+			return nil
+		}).
+		AnyTimes()
+	mockRBACStore.EXPECT().
+		UpdateRole(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, role *v1.Role) error {
+			mu.Lock()
+			defer mu.Unlock()
+			if _, ok := roles[role.Id]; !ok {
+				return storage.ErrNotFound
+			}
 			roles[role.Id] = role
 			return nil
 		}).

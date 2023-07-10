@@ -22,6 +22,21 @@ func (s *JetStreamStore) CreateRole(_ context.Context, role *corev1.Role) error 
 	return err
 }
 
+func (s *JetStreamStore) UpdateRole(_ context.Context, role *corev1.Role) error {
+	data, err := protojson.Marshal(role)
+	if err != nil {
+		return err
+	}
+	if _, err := s.kv.Roles.Get(role.Id); err != nil {
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			return storage.ErrNotFound
+		}
+		return err
+	}
+	_, err = s.kv.Roles.Put(role.Id, data)
+	return err
+}
+
 func (s *JetStreamStore) DeleteRole(_ context.Context, ref *corev1.Reference) error {
 	if _, err := s.kv.Roles.Get(ref.Id); err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) {

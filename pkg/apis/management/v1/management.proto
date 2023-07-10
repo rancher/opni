@@ -85,6 +85,12 @@ service Management {
       body: "*"
     };
   }
+  rpc UpdateRole(core.Role) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/roles"
+      body: "*"
+    };
+  }
   rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/roles/{id}"

@@ -35,6 +35,7 @@ const (
 	Management_WatchClusterHealthStatus_FullMethodName  = "/management.Management/WatchClusterHealthStatus"
 	Management_EditCluster_FullMethodName               = "/management.Management/EditCluster"
 	Management_CreateRole_FullMethodName                = "/management.Management/CreateRole"
+	Management_UpdateRole_FullMethodName                = "/management.Management/UpdateRole"
 	Management_DeleteRole_FullMethodName                = "/management.Management/DeleteRole"
 	Management_GetRole_FullMethodName                   = "/management.Management/GetRole"
 	Management_CreateRoleBinding_FullMethodName         = "/management.Management/CreateRoleBinding"
@@ -74,6 +75,7 @@ type ManagementClient interface {
 	WatchClusterHealthStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error)
 	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error)
 	CreateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -263,6 +265,15 @@ func (c *managementClient) EditCluster(ctx context.Context, in *EditClusterReque
 func (c *managementClient) CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Management_CreateRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_UpdateRole_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -467,6 +478,7 @@ type ManagementServer interface {
 	WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error
 	EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error)
 	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
+	UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
 	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	GetRole(context.Context, *v1.Reference) (*v1.Role, error)
 	CreateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
@@ -534,6 +546,9 @@ func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRe
 }
 func (UnimplementedManagementServer) CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
+}
+func (UnimplementedManagementServer) UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateRole not implemented")
 }
 func (UnimplementedManagementServer) DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
@@ -844,6 +859,24 @@ func _Management_CreateRole_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).CreateRole(ctx, req.(*v1.Role))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Role)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_UpdateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).UpdateRole(ctx, req.(*v1.Role))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1258,6 +1291,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateRole",
 			Handler:    _Management_CreateRole_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _Management_UpdateRole_Handler,
 		},
 		{
 			MethodName: "DeleteRole",

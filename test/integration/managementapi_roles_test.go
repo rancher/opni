@@ -72,6 +72,27 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 		}
 	})
 
+	It("can update an existing role", func() {
+		_, err = client.UpdateRole(context.Background(), &corev1.Role{
+			Id:         "test-role1",
+			ClusterIDs: []string{"updated-test-cluster"},
+			MatchLabels: &corev1.LabelSelector{
+				MatchLabels: map[string]string{"test-label": "updated-test-value"},
+			},
+		},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		roleInfo, err := client.GetRole(context.Background(), &corev1.Reference{
+			Id: "test-role1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(roleInfo.Id).To(Equal("test-role1"))
+		Expect(roleInfo.ClusterIDs).To(Equal([]string{"updated-test-cluster"}))
+		Expect(roleInfo.GetMatchLabels().GetMatchLabels()).To(Equal(map[string]string{"test-label": "updated-test-value"}))
+	})
+
 	It("can delete an existing role", func() {
 		_, err := client.DeleteRole(context.Background(), &corev1.Reference{
 			Id: "test-role1",
@@ -218,6 +239,19 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 			Id: "test-role6",
 		})
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("cannot update a nonexistent role", func() {
+		_, err = client.UpdateRole(context.Background(), &corev1.Role{
+			Id:         "test-role7",
+			ClusterIDs: []string{"test-cluster"},
+			MatchLabels: &corev1.LabelSelector{
+				MatchLabels: map[string]string{"test-label": "test-value"},
+			},
+		},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	//#endregion

@@ -41,6 +41,7 @@ type ClusterStore interface {
 
 type RBACStore interface {
 	CreateRole(context.Context, *corev1.Role) error
+	UpdateRole(context.Context, *corev1.Role) error
 	DeleteRole(context.Context, *corev1.Reference) error
 	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
 	CreateRoleBinding(context.Context, *corev1.RoleBinding) error

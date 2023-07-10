@@ -38,7 +38,7 @@ func (p *AlarmServerComponent) hasChanged(
 	if err != nil {
 		return false, err
 	}
-	cond, err := condStorage.Get(ctx, conditionId)
+	cond, err := condStorage.Group(newCond.GroupId).Get(ctx, conditionId)
 	if err == nil {
 		if lastAppliedHash, ok := cond.GetMetadata()[metadataLastAppliedHashKey]; ok {
 			configHash, err := newCond.Hash()
@@ -62,7 +62,7 @@ func (p *AlarmServerComponent) requiresDeploy(
 		return true
 	}
 
-	status, err := p.AlertConditionStatus(ctx, &corev1.Reference{Id: conditionId})
+	status, err := p.AlertConditionStatus(ctx, &alertingv1.ConditionReference{Id: conditionId, GroupId: cond.GroupId})
 	if err == nil {
 		if status.State != alertingv1.AlertConditionState_Invalidated {
 			return false
@@ -123,7 +123,7 @@ func (p *AlarmServerComponent) activateCondition(
 			md[metadataLastAppliedHashKey] = configHash
 			delete(md, metadataInactiveAlarm)
 			cond.Metadata = md
-			retErr = conditionStorage.Put(ctx, conditionId, cond)
+			retErr = conditionStorage.Group(cond.GroupId).Put(ctx, conditionId, cond)
 		}
 	}()
 

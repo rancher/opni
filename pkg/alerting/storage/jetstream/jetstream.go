@@ -350,7 +350,7 @@ func (j *JetStreamAlertingIncidentTracker) CloseInterval(ctx context.Context, co
 		})
 	} else {
 		last := intervals.Items[len(intervals.Items)-1]
-		if last.Start == nil { //weird
+		if last.Start == nil { // weird
 			last.Start = end
 			last.End = end
 		} else {

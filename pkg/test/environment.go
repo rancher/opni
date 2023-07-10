@@ -1798,7 +1798,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		}
 	}
 
-	gatewayAddress := fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC)
+	gatewayAddress := fmt.Sprintf("127.0.0.1:%d", e.ports.GatewayGRPC)
 	if options.remoteGatewayAddress != "" {
 		gatewayAddress = options.remoteGatewayAddress
 	}
@@ -1806,7 +1806,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
 			TrustStrategy:    v1beta1.TrustStrategyPKP,
-			ListenAddress:    fmt.Sprintf("localhost:%d", options.listenPort),
+			ListenAddress:    fmt.Sprintf("127.0.0.1:%d", options.listenPort),
 			GatewayAddress:   gatewayAddress,
 			IdentityProvider: id,
 			Rules: &v1beta1.RulesSpec{
@@ -1828,13 +1828,13 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				Case(v1beta1.StorageTypeEtcd, v1beta1.StorageSpec{
 					Type: v1beta1.StorageTypeEtcd,
 					Etcd: &v1beta1.EtcdStorageSpec{
-						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+						Endpoints: []string{fmt.Sprintf("http://127.0.0.1:%d", e.ports.Etcd)},
 					},
 				}).
 				Case(v1beta1.StorageTypeJetStream, v1beta1.StorageSpec{
 					Type: v1beta1.StorageTypeJetStream,
 					JetStream: &v1beta1.JetStreamStorageSpec{
-						Endpoint:     fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream),
+						Endpoint:     fmt.Sprintf("nats://127.0.0.1:%d", e.ports.Jetstream),
 						NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
 					},
 				}).

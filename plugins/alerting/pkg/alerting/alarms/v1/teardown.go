@@ -28,7 +28,7 @@ func (p *AlarmServerComponent) teardownCondition(
 				retErr = err
 				return
 			}
-			if err := condStorage.Delete(ctx, id); err != nil {
+			if err := condStorage.Group(req.GroupId).Delete(ctx, id); err != nil {
 				retErr = err
 			}
 		}

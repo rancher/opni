@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integration"), func() {
 	var env *test.Environment
-	var toDeleteMetrics *corev1.Reference
+	var toDeleteMetrics *alertingv1.ConditionReference
 	var listRuleRequest *cortexadmin.ListRulesRequest
 	agent1 := "agent1"
 	agent2 := "agent2"

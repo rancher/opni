@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
@@ -52,7 +52,7 @@ func (e *EndpointServerComponent) GetAlertEndpoint(ctx context.Context, ref *cor
 	return endp, nil
 }
 
-func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
+func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *alertingv1.UpdateAlertEndpointRequest) (*alertingv1.ConditionReferenceList, error) {
 	if !e.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
 	}
@@ -67,9 +67,9 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 	if err != nil {
 		return nil, err
 	}
-	refList := resp.GetInvolvedConditions(req.Id.Id)
-	if len(refList.Items) > 0 && !req.ForceUpdate {
-		return refList, nil
+	dependentConditions := resp.RoutingRelationships[req.Id.Id]
+	if dependentConditions != nil && !req.ForceUpdate {
+		return dependentConditions, nil
 	}
 	// force the new endpoint to preserve the original endpoint id
 	req.UpdateAlert.Id = req.Id.Id
@@ -77,10 +77,13 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 	if err := e.endpointStorage.Get().Put(ctx, req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
-	return refList, nil
+	if dependentConditions == nil {
+		dependentConditions = &alertingv1.ConditionReferenceList{}
+	}
+	return dependentConditions, nil
 }
 
-func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.DeleteAlertEndpointRequest) (*alertingv1.InvolvedConditions, error) {
+func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *alertingv1.DeleteAlertEndpointRequest) (*alertingv1.ConditionReferenceList, error) {
 	if !e.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
 	}
@@ -89,25 +92,29 @@ func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *
 		return nil, err
 	}
 	if existing == nil {
-		return &alertingv1.InvolvedConditions{}, nil
+		return &alertingv1.ConditionReferenceList{}, nil
 	}
 
 	resp, err := e.notifications.ListRoutingRelationships(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
-	refList := resp.GetInvolvedConditions(req.Id.Id)
-	if len(refList.Items) > 0 && !req.ForceDelete {
-		return refList, nil
+	dependentConditions := resp.RoutingRelationships[req.Id.Id]
+	if dependentConditions != nil && !req.ForceDelete {
+		return dependentConditions, nil
 	}
 
 	if err := e.endpointStorage.Get().Delete(ctx, req.Id.Id); err != nil {
 		return nil, err
 	}
 
-	lop.ForEach(refList.Items, func(condRef *corev1.Reference, _ int) {
+	if dependentConditions == nil {
+		return &alertingv1.ConditionReferenceList{}, nil
+	}
+
+	lop.ForEach(dependentConditions.Items, func(condRef *alertingv1.ConditionReference, _ int) {
 		// delete endpoint metadata from each condition
-		cond, err := e.conditionStorage.Get().Get(ctx, condRef.Id)
+		cond, err := e.conditionStorage.Get().Group(condRef.GroupId).Get(ctx, condRef.Id)
 		if err != nil {
 			return
 		}
@@ -116,12 +123,11 @@ func (e *EndpointServerComponent) DeleteAlertEndpoint(ctx context.Context, req *
 				return item.EndpointId != req.Id.Id
 			})
 		}
-		if err := e.conditionStorage.Get().Put(ctx, condRef.Id, cond); err != nil {
+		if err := e.conditionStorage.Get().Group(condRef.GroupId).Put(ctx, condRef.Id, cond); err != nil {
 			return
 		}
 	})
-
-	return refList, nil
+	return dependentConditions, nil
 }
 func (e *EndpointServerComponent) ToggleNotifications(ctx context.Context, req *alertingv1.ToggleRequest) (*emptypb.Empty, error) {
 	if !e.Initialized() {
@@ -252,7 +258,7 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 
 func unredactSecrets(
 	ctx context.Context,
-	store storage.EndpointStorage,
+	store spec.EndpointStorage,
 	endpointId string,
 	endp *alertingv1.AlertEndpoint,
 ) error {

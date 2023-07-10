@@ -14,7 +14,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/fingerprint"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -466,8 +466,8 @@ type internalConditionStorage struct {
 	js              nats.JetStreamContext
 	streamSubject   string
 	durableConsumer *nats.ConsumerConfig
-	incidentStorage storage.IncidentStorage
-	stateStorage    storage.StateStorage
+	incidentStorage spec.IncidentStorage
+	stateStorage    spec.StateStorage
 
 	msgCh chan *nats.Msg
 }

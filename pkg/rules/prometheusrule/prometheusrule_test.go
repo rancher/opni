@@ -21,14 +21,29 @@ import (
 )
 
 var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration", "slow"), func() {
+	alertGroup := []monitoringv1.RuleGroup{
+		{
+			Name:     "test-0",
+			Interval: "1m",
+			Rules: []monitoringv1.Rule{
+				{
+					Record:      "",
+					Alert:       "nothing",
+					Expr:        intstr.FromString("burger"),
+					For:         "5m",
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
+				},
+			},
+		},
+	}
 	testGroups1 := []monitoringv1.RuleGroup{
 		{
 			Name: "test",
 			Rules: []monitoringv1.Rule{
 				{
-					Alert:  "foo",
+					Record: "foo",
 					Expr:   intstr.FromString("foo"),
-					For:    "1m",
 					Labels: map[string]string{"foo": "bar"},
 				},
 			},
@@ -38,9 +53,8 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Name: "test2",
 			Rules: []monitoringv1.Rule{
 				{
-					Alert:  "bar",
+					Record: "bar",
 					Expr:   intstr.FromString("bar"),
-					For:    "2m",
 					Labels: map[string]string{"bar": "baz"},
 				},
 			},
@@ -58,9 +72,9 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Name: "test5",
 			Rules: []monitoringv1.Rule{
 				{
-					Alert: "foo",
-					Expr:  intstr.FromString("foo"),
-					For:   "invalid",
+					Record: "foo",
+					Expr:   intstr.FromString("foo"),
+					For:    "invalid",
 				},
 				{
 					Record: "bar",
@@ -68,9 +82,8 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 					For:    "1m", // not allowed in recording rule
 				},
 				{
-					Alert: "baz",
-					Expr:  intstr.FromString("baz"),
-					For:   "1m",
+					Record: "baz",
+					Expr:   intstr.FromString("baz"),
 				},
 			},
 			Interval: "1m",
@@ -79,9 +92,9 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Name: "test6",
 			Rules: []monitoringv1.Rule{
 				{
-					Alert: "baz",
-					Expr:  intstr.FromString("baz"),
-					For:   "2m",
+					Record: "baz",
+					Expr:   intstr.FromString("baz"),
+					For:    "2m",
 				},
 			},
 			Interval: "invalid",
@@ -147,7 +160,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Expect([]string{
 				groups[0].Name,
 				groups[1].Name,
-			}).To(ContainElements("test", "test2"))
+			}).To(ConsistOf("test", "test2"))
 		})
 	})
 	When("creating a PrometheusRule in a different namespace", func() {
@@ -197,11 +210,11 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 				groups[2].Name,
 				groups[3].Name,
 				groups[4].Name,
-			}).To(ContainElements("test", "test2", "test3", "test4", "test5"))
+			}).To(ConsistOf("test", "test2", "test3", "test4", "test5"))
 			for _, group := range groups {
 				if group.Name == "test5" {
 					Expect(group.Rules).To(HaveLen(1))
-					Expect(group.Rules[0].Alert.Value).To(Equal("baz"))
+					Expect(group.Rules[0].Record.Value).To(Equal("baz"))
 				}
 			}
 		})
@@ -239,5 +252,28 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Expect(err).NotTo(HaveOccurred())
 			Expect(groups).To(HaveLen(5))
 		}
+	})
+
+	It("should ignore alerting rules all together", func() {
+		Expect(k8sClient.Create(context.Background(), &monitoringv1.PrometheusRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "alerting",
+				Namespace: "test2",
+			},
+			Spec: monitoringv1.PrometheusRuleSpec{
+				Groups: alertGroup,
+			},
+		})).To(Succeed())
+
+		groups, err := finder.Find(context.Background())
+		Expect(err).To(Succeed())
+		Expect(groups).To(HaveLen(5))
+		Expect([]string{
+			groups[0].Name,
+			groups[1].Name,
+			groups[2].Name,
+			groups[3].Name,
+			groups[4].Name,
+		}).To(ConsistOf([]string{"test", "test2", "test3", "test4", "test5"}))
 	})
 })

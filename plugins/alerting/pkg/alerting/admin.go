@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"go.opentelemetry.io/otel/attribute"
@@ -180,7 +180,7 @@ func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerSer
 func (p *Plugin) constructSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) *alertops.SyncRequest {
 	lg := p.logger.With("method", "constructSyncRequest")
 	syncReq := &alertops.SyncRequest{
@@ -343,7 +343,7 @@ func (p *Plugin) runSync() {
 func (p *Plugin) SendManualSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) {
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()

@@ -390,7 +390,9 @@ func BuildEmbeddedServerNotificationTests(
 			Eventually(func() error {
 				listResp := listAlarm(httpClient,
 					&alertingv1.ListAlarmMessageRequest{
-						ConditionId:  id,
+						ConditionId: &alertingv1.ConditionReference{
+							Id: id,
+						},
 						Fingerprints: fingerprints,
 						Start:        timestamppb.New(time.Now().Add(-time.Hour)),
 						End:          timestamppb.New(time.Now().Add(time.Hour)),

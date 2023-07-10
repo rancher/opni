@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -23,13 +23,13 @@ type EndpointServerComponent struct {
 	server.Config
 
 	notifications *notifications.NotificationServerComponent
-	ManualSync    func(ctx context.Context, routerKeys []string, routers storage.RouterStorage)
+	ManualSync    func(ctx context.Context, routerKeys []string, routers spec.RouterStorage)
 
 	logger *zap.SugaredLogger
 
-	endpointStorage  future.Future[storage.EndpointStorage]
-	conditionStorage future.Future[storage.ConditionStorage]
-	routerStorage    future.Future[storage.RouterStorage]
+	endpointStorage  future.Future[spec.EndpointStorage]
+	conditionStorage future.Future[spec.ConditionStorage]
+	routerStorage    future.Future[spec.RouterStorage]
 }
 
 var _ server.ServerComponent = (*EndpointServerComponent)(nil)
@@ -43,18 +43,18 @@ func NewEndpointServerComponent(
 		ctx:              ctx,
 		logger:           logger,
 		notifications:    notifications,
-		endpointStorage:  future.New[storage.EndpointStorage](),
-		conditionStorage: future.New[storage.ConditionStorage](),
-		routerStorage:    future.New[storage.RouterStorage](),
+		endpointStorage:  future.New[spec.EndpointStorage](),
+		conditionStorage: future.New[spec.ConditionStorage](),
+		routerStorage:    future.New[spec.RouterStorage](),
 	}
 }
 
 type EndpointServerConfiguration struct {
-	storage.EndpointStorage
-	storage.ConditionStorage
-	storage.RouterStorage
+	spec.EndpointStorage
+	spec.ConditionStorage
+	spec.RouterStorage
 
-	ManualSync func(ctx context.Context, routerKeys []string, routers storage.RouterStorage)
+	ManualSync func(ctx context.Context, routerKeys []string, routers spec.RouterStorage)
 }
 
 func (e *EndpointServerComponent) Name() string {

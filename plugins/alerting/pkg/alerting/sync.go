@@ -107,7 +107,7 @@ var (
 )
 
 func (p *Plugin) createDefaultDisconnect(clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().Group("").List(p.ctx, opts.WithUnredacted())
 	if err != nil {
 		p.logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -140,7 +140,7 @@ func (p *Plugin) createDefaultDisconnect(clusterId string) error {
 }
 
 func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().Group("").List(p.ctx, opts.WithUnredacted())
 	if err != nil {
 		p.logger.Errorf("failed to list conditions from storage : %s", err)
 	}
@@ -152,7 +152,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{
+					_, err = p.DeleteAlertCondition(ctx, &alertingv1.ConditionReference{
 						Id: cond.Id,
 					})
 					if err != nil {
@@ -167,7 +167,7 @@ func (p *Plugin) onDeleteClusterAgentDisconnectHook(ctx context.Context, cluster
 }
 
 func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
-	items, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
+	items, err := p.storageClientSet.Get().Conditions().Group("").List(p.ctx, opts.WithUnredacted())
 	if err != nil {
 		p.logger.Errorf("failed to list alert conditions : %s", err)
 		return err
@@ -202,7 +202,7 @@ func (p *Plugin) createDefaultCapabilityHealth(clusterId string) error {
 }
 
 func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId string) error {
-	conditions, err := p.storageClientSet.Get().Conditions().List(p.ctx, opts.WithUnredacted())
+	conditions, err := p.storageClientSet.Get().Conditions().Group("").List(p.ctx, opts.WithUnredacted())
 	if err != nil {
 		p.logger.Errorf("failed to list conditions from storage : %s", err)
 	}
@@ -214,7 +214,7 @@ func (p *Plugin) onDeleteClusterCapabilityHook(ctx context.Context, clusterId st
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{
+					_, err = p.DeleteAlertCondition(ctx, &alertingv1.ConditionReference{
 						Id: cond.Id,
 					})
 					if err != nil {

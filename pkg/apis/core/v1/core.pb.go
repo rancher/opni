@@ -183,6 +183,55 @@ func (TaskTrigger) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDescGZIP(), []int{2}
 }
 
+type ConfigStatus int32
+
+const (
+	ConfigStatus_Unkown      ConfigStatus = 0
+	ConfigStatus_UpToDate    ConfigStatus = 1
+	ConfigStatus_NeedsUpdate ConfigStatus = 2
+)
+
+// Enum value maps for ConfigStatus.
+var (
+	ConfigStatus_name = map[int32]string{
+		0: "Unkown",
+		1: "UpToDate",
+		2: "NeedsUpdate",
+	}
+	ConfigStatus_value = map[string]int32{
+		"Unkown":      0,
+		"UpToDate":    1,
+		"NeedsUpdate": 2,
+	}
+)
+
+func (x ConfigStatus) Enum() *ConfigStatus {
+	p := new(ConfigStatus)
+	*p = x
+	return p
+}
+
+func (x ConfigStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConfigStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_enumTypes[3].Descriptor()
+}
+
+func (ConfigStatus) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_enumTypes[3]
+}
+
+func (x ConfigStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConfigStatus.Descriptor instead.
+func (ConfigStatus) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDescGZIP(), []int{3}
+}
+
 type PingResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3074,14 +3123,18 @@ var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDesc = []byte{
 	0x61, 0x73, 0x6b, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x12, 0x09, 0x0a, 0x05, 0x53, 0x74,
 	0x61, 0x72, 0x74, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x45, 0x6e, 0x64, 0x10, 0x01, 0x12, 0x09,
 	0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x02, 0x12, 0x0a, 0x0a, 0x06, 0x43, 0x61, 0x6e,
-	0x63, 0x65, 0x6c, 0x10, 0x03, 0x32, 0x3c, 0x0a, 0x06, 0x50, 0x69, 0x6e, 0x67, 0x65, 0x72, 0x12,
-	0x32, 0x0a, 0x04, 0x50, 0x69, 0x6e, 0x67, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a,
-	0x12, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x42, 0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70,
-	0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x76, 0x31, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x63, 0x65, 0x6c, 0x10, 0x03, 0x2a, 0x39, 0x0a, 0x0c, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x0a, 0x0a, 0x06, 0x55, 0x6e, 0x6b, 0x6f, 0x77, 0x6e, 0x10,
+	0x00, 0x12, 0x0c, 0x0a, 0x08, 0x55, 0x70, 0x54, 0x6f, 0x44, 0x61, 0x74, 0x65, 0x10, 0x01, 0x12,
+	0x0f, 0x0a, 0x0b, 0x4e, 0x65, 0x65, 0x64, 0x73, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x10, 0x02,
+	0x32, 0x3c, 0x0a, 0x06, 0x50, 0x69, 0x6e, 0x67, 0x65, 0x72, 0x12, 0x32, 0x0a, 0x04, 0x50, 0x69,
+	0x6e, 0x67, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x12, 0x2e, 0x63, 0x6f, 0x72,
+	0x65, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x2a,
+	0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e,
+	0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70,
+	0x69, 0x73, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -3096,118 +3149,119 @@ func file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDescGZIP() []by
 	return file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDescData
 }
 
-var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_goTypes = []interface{}{
 	(MatchOptions)(0),                  // 0: core.MatchOptions
 	(TaskState)(0),                     // 1: core.TaskState
 	(TaskTrigger)(0),                   // 2: core.TaskTrigger
-	(*PingResponse)(nil),               // 3: core.PingResponse
-	(*BootstrapToken)(nil),             // 4: core.BootstrapToken
-	(*BootstrapTokenMetadata)(nil),     // 5: core.BootstrapTokenMetadata
-	(*TokenCapability)(nil),            // 6: core.TokenCapability
-	(*BootstrapTokenList)(nil),         // 7: core.BootstrapTokenList
-	(*Cluster)(nil),                    // 8: core.Cluster
-	(*ClusterMetadata)(nil),            // 9: core.ClusterMetadata
-	(*LastKnownConnectionDetails)(nil), // 10: core.LastKnownConnectionDetails
-	(*BuildInfo)(nil),                  // 11: core.BuildInfo
-	(*Module)(nil),                     // 12: core.Module
-	(*BuildSetting)(nil),               // 13: core.BuildSetting
-	(*ClusterCapability)(nil),          // 14: core.ClusterCapability
-	(*ClusterList)(nil),                // 15: core.ClusterList
-	(*LabelSelector)(nil),              // 16: core.LabelSelector
-	(*LabelSelectorRequirement)(nil),   // 17: core.LabelSelectorRequirement
-	(*ClusterSelector)(nil),            // 18: core.ClusterSelector
-	(*Role)(nil),                       // 19: core.Role
-	(*RoleBinding)(nil),                // 20: core.RoleBinding
-	(*RoleList)(nil),                   // 21: core.RoleList
-	(*RoleBindingList)(nil),            // 22: core.RoleBindingList
-	(*CertInfo)(nil),                   // 23: core.CertInfo
-	(*Reference)(nil),                  // 24: core.Reference
-	(*ReferenceList)(nil),              // 25: core.ReferenceList
-	(*SubjectAccessRequest)(nil),       // 26: core.SubjectAccessRequest
-	(*Status)(nil),                     // 27: core.Status
-	(*Health)(nil),                     // 28: core.Health
-	(*HealthStatus)(nil),               // 29: core.HealthStatus
-	(*ClusterHealth)(nil),              // 30: core.ClusterHealth
-	(*ClusterStatus)(nil),              // 31: core.ClusterStatus
-	(*ClusterHealthStatus)(nil),        // 32: core.ClusterHealthStatus
-	(*AlertLog)(nil),                   // 33: core.AlertLog
-	(*AlertLogList)(nil),               // 34: core.AlertLogList
-	(*TimeRange)(nil),                  // 35: core.TimeRange
-	(*StateTransition)(nil),            // 36: core.StateTransition
-	(*Progress)(nil),                   // 37: core.Progress
-	(*TaskStatus)(nil),                 // 38: core.TaskStatus
-	(*LogEntry)(nil),                   // 39: core.LogEntry
-	(*ChallengeRequestList)(nil),       // 40: core.ChallengeRequestList
-	(*ChallengeRequest)(nil),           // 41: core.ChallengeRequest
-	(*ChallengeResponseList)(nil),      // 42: core.ChallengeResponseList
-	(*ChallengeResponse)(nil),          // 43: core.ChallengeResponse
-	(*SessionInfo)(nil),                // 44: core.SessionInfo
-	(*AuthInfo)(nil),                   // 45: core.AuthInfo
-	nil,                                // 46: core.BootstrapTokenMetadata.LabelsEntry
-	nil,                                // 47: core.ClusterMetadata.LabelsEntry
-	nil,                                // 48: core.LastKnownConnectionDetails.PluginVersionsEntry
-	nil,                                // 49: core.LabelSelector.MatchLabelsEntry
-	nil,                                // 50: core.Health.AnnotationsEntry
-	(*timestamppb.Timestamp)(nil),      // 51: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),            // 52: google.protobuf.Struct
-	(*emptypb.Empty)(nil),              // 53: google.protobuf.Empty
+	(ConfigStatus)(0),                  // 3: core.ConfigStatus
+	(*PingResponse)(nil),               // 4: core.PingResponse
+	(*BootstrapToken)(nil),             // 5: core.BootstrapToken
+	(*BootstrapTokenMetadata)(nil),     // 6: core.BootstrapTokenMetadata
+	(*TokenCapability)(nil),            // 7: core.TokenCapability
+	(*BootstrapTokenList)(nil),         // 8: core.BootstrapTokenList
+	(*Cluster)(nil),                    // 9: core.Cluster
+	(*ClusterMetadata)(nil),            // 10: core.ClusterMetadata
+	(*LastKnownConnectionDetails)(nil), // 11: core.LastKnownConnectionDetails
+	(*BuildInfo)(nil),                  // 12: core.BuildInfo
+	(*Module)(nil),                     // 13: core.Module
+	(*BuildSetting)(nil),               // 14: core.BuildSetting
+	(*ClusterCapability)(nil),          // 15: core.ClusterCapability
+	(*ClusterList)(nil),                // 16: core.ClusterList
+	(*LabelSelector)(nil),              // 17: core.LabelSelector
+	(*LabelSelectorRequirement)(nil),   // 18: core.LabelSelectorRequirement
+	(*ClusterSelector)(nil),            // 19: core.ClusterSelector
+	(*Role)(nil),                       // 20: core.Role
+	(*RoleBinding)(nil),                // 21: core.RoleBinding
+	(*RoleList)(nil),                   // 22: core.RoleList
+	(*RoleBindingList)(nil),            // 23: core.RoleBindingList
+	(*CertInfo)(nil),                   // 24: core.CertInfo
+	(*Reference)(nil),                  // 25: core.Reference
+	(*ReferenceList)(nil),              // 26: core.ReferenceList
+	(*SubjectAccessRequest)(nil),       // 27: core.SubjectAccessRequest
+	(*Status)(nil),                     // 28: core.Status
+	(*Health)(nil),                     // 29: core.Health
+	(*HealthStatus)(nil),               // 30: core.HealthStatus
+	(*ClusterHealth)(nil),              // 31: core.ClusterHealth
+	(*ClusterStatus)(nil),              // 32: core.ClusterStatus
+	(*ClusterHealthStatus)(nil),        // 33: core.ClusterHealthStatus
+	(*AlertLog)(nil),                   // 34: core.AlertLog
+	(*AlertLogList)(nil),               // 35: core.AlertLogList
+	(*TimeRange)(nil),                  // 36: core.TimeRange
+	(*StateTransition)(nil),            // 37: core.StateTransition
+	(*Progress)(nil),                   // 38: core.Progress
+	(*TaskStatus)(nil),                 // 39: core.TaskStatus
+	(*LogEntry)(nil),                   // 40: core.LogEntry
+	(*ChallengeRequestList)(nil),       // 41: core.ChallengeRequestList
+	(*ChallengeRequest)(nil),           // 42: core.ChallengeRequest
+	(*ChallengeResponseList)(nil),      // 43: core.ChallengeResponseList
+	(*ChallengeResponse)(nil),          // 44: core.ChallengeResponse
+	(*SessionInfo)(nil),                // 45: core.SessionInfo
+	(*AuthInfo)(nil),                   // 46: core.AuthInfo
+	nil,                                // 47: core.BootstrapTokenMetadata.LabelsEntry
+	nil,                                // 48: core.ClusterMetadata.LabelsEntry
+	nil,                                // 49: core.LastKnownConnectionDetails.PluginVersionsEntry
+	nil,                                // 50: core.LabelSelector.MatchLabelsEntry
+	nil,                                // 51: core.Health.AnnotationsEntry
+	(*timestamppb.Timestamp)(nil),      // 52: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),            // 53: google.protobuf.Struct
+	(*emptypb.Empty)(nil),              // 54: google.protobuf.Empty
 }
 var file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_depIdxs = []int32{
-	5,  // 0: core.BootstrapToken.metadata:type_name -> core.BootstrapTokenMetadata
-	46, // 1: core.BootstrapTokenMetadata.labels:type_name -> core.BootstrapTokenMetadata.LabelsEntry
-	6,  // 2: core.BootstrapTokenMetadata.capabilities:type_name -> core.TokenCapability
-	24, // 3: core.TokenCapability.reference:type_name -> core.Reference
-	4,  // 4: core.BootstrapTokenList.items:type_name -> core.BootstrapToken
-	9,  // 5: core.Cluster.metadata:type_name -> core.ClusterMetadata
-	47, // 6: core.ClusterMetadata.labels:type_name -> core.ClusterMetadata.LabelsEntry
-	14, // 7: core.ClusterMetadata.capabilities:type_name -> core.ClusterCapability
-	10, // 8: core.ClusterMetadata.lastKnownConnectionDetails:type_name -> core.LastKnownConnectionDetails
-	51, // 9: core.ClusterMetadata.creationTimestamp:type_name -> google.protobuf.Timestamp
-	51, // 10: core.LastKnownConnectionDetails.time:type_name -> google.protobuf.Timestamp
-	11, // 11: core.LastKnownConnectionDetails.agentBuildInfo:type_name -> core.BuildInfo
-	48, // 12: core.LastKnownConnectionDetails.pluginVersions:type_name -> core.LastKnownConnectionDetails.PluginVersionsEntry
-	12, // 13: core.BuildInfo.main:type_name -> core.Module
-	12, // 14: core.BuildInfo.deps:type_name -> core.Module
-	13, // 15: core.BuildInfo.settings:type_name -> core.BuildSetting
-	12, // 16: core.Module.replace:type_name -> core.Module
-	51, // 17: core.ClusterCapability.deletionTimestamp:type_name -> google.protobuf.Timestamp
-	8,  // 18: core.ClusterList.items:type_name -> core.Cluster
-	49, // 19: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
-	17, // 20: core.LabelSelector.matchExpressions:type_name -> core.LabelSelectorRequirement
-	16, // 21: core.ClusterSelector.labelSelector:type_name -> core.LabelSelector
+	6,  // 0: core.BootstrapToken.metadata:type_name -> core.BootstrapTokenMetadata
+	47, // 1: core.BootstrapTokenMetadata.labels:type_name -> core.BootstrapTokenMetadata.LabelsEntry
+	7,  // 2: core.BootstrapTokenMetadata.capabilities:type_name -> core.TokenCapability
+	25, // 3: core.TokenCapability.reference:type_name -> core.Reference
+	5,  // 4: core.BootstrapTokenList.items:type_name -> core.BootstrapToken
+	10, // 5: core.Cluster.metadata:type_name -> core.ClusterMetadata
+	48, // 6: core.ClusterMetadata.labels:type_name -> core.ClusterMetadata.LabelsEntry
+	15, // 7: core.ClusterMetadata.capabilities:type_name -> core.ClusterCapability
+	11, // 8: core.ClusterMetadata.lastKnownConnectionDetails:type_name -> core.LastKnownConnectionDetails
+	52, // 9: core.ClusterMetadata.creationTimestamp:type_name -> google.protobuf.Timestamp
+	52, // 10: core.LastKnownConnectionDetails.time:type_name -> google.protobuf.Timestamp
+	12, // 11: core.LastKnownConnectionDetails.agentBuildInfo:type_name -> core.BuildInfo
+	49, // 12: core.LastKnownConnectionDetails.pluginVersions:type_name -> core.LastKnownConnectionDetails.PluginVersionsEntry
+	13, // 13: core.BuildInfo.main:type_name -> core.Module
+	13, // 14: core.BuildInfo.deps:type_name -> core.Module
+	14, // 15: core.BuildInfo.settings:type_name -> core.BuildSetting
+	13, // 16: core.Module.replace:type_name -> core.Module
+	52, // 17: core.ClusterCapability.deletionTimestamp:type_name -> google.protobuf.Timestamp
+	9,  // 18: core.ClusterList.items:type_name -> core.Cluster
+	50, // 19: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
+	18, // 20: core.LabelSelector.matchExpressions:type_name -> core.LabelSelectorRequirement
+	17, // 21: core.ClusterSelector.labelSelector:type_name -> core.LabelSelector
 	0,  // 22: core.ClusterSelector.matchOptions:type_name -> core.MatchOptions
-	16, // 23: core.Role.matchLabels:type_name -> core.LabelSelector
-	19, // 24: core.RoleList.items:type_name -> core.Role
-	20, // 25: core.RoleBindingList.items:type_name -> core.RoleBinding
-	24, // 26: core.ReferenceList.items:type_name -> core.Reference
-	51, // 27: core.Status.timestamp:type_name -> google.protobuf.Timestamp
-	51, // 28: core.Health.timestamp:type_name -> google.protobuf.Timestamp
-	50, // 29: core.Health.annotations:type_name -> core.Health.AnnotationsEntry
-	28, // 30: core.HealthStatus.health:type_name -> core.Health
-	27, // 31: core.HealthStatus.status:type_name -> core.Status
-	24, // 32: core.ClusterHealth.cluster:type_name -> core.Reference
-	28, // 33: core.ClusterHealth.health:type_name -> core.Health
-	24, // 34: core.ClusterStatus.cluster:type_name -> core.Reference
-	27, // 35: core.ClusterStatus.status:type_name -> core.Status
-	24, // 36: core.ClusterHealthStatus.cluster:type_name -> core.Reference
-	29, // 37: core.ClusterHealthStatus.healthStatus:type_name -> core.HealthStatus
-	24, // 38: core.AlertLog.conditionId:type_name -> core.Reference
-	51, // 39: core.AlertLog.timestamp:type_name -> google.protobuf.Timestamp
-	52, // 40: core.AlertLog.metadata:type_name -> google.protobuf.Struct
-	33, // 41: core.AlertLogList.Items:type_name -> core.AlertLog
+	17, // 23: core.Role.matchLabels:type_name -> core.LabelSelector
+	20, // 24: core.RoleList.items:type_name -> core.Role
+	21, // 25: core.RoleBindingList.items:type_name -> core.RoleBinding
+	25, // 26: core.ReferenceList.items:type_name -> core.Reference
+	52, // 27: core.Status.timestamp:type_name -> google.protobuf.Timestamp
+	52, // 28: core.Health.timestamp:type_name -> google.protobuf.Timestamp
+	51, // 29: core.Health.annotations:type_name -> core.Health.AnnotationsEntry
+	29, // 30: core.HealthStatus.health:type_name -> core.Health
+	28, // 31: core.HealthStatus.status:type_name -> core.Status
+	25, // 32: core.ClusterHealth.cluster:type_name -> core.Reference
+	29, // 33: core.ClusterHealth.health:type_name -> core.Health
+	25, // 34: core.ClusterStatus.cluster:type_name -> core.Reference
+	28, // 35: core.ClusterStatus.status:type_name -> core.Status
+	25, // 36: core.ClusterHealthStatus.cluster:type_name -> core.Reference
+	30, // 37: core.ClusterHealthStatus.healthStatus:type_name -> core.HealthStatus
+	25, // 38: core.AlertLog.conditionId:type_name -> core.Reference
+	52, // 39: core.AlertLog.timestamp:type_name -> google.protobuf.Timestamp
+	53, // 40: core.AlertLog.metadata:type_name -> google.protobuf.Struct
+	34, // 41: core.AlertLogList.Items:type_name -> core.AlertLog
 	1,  // 42: core.StateTransition.state:type_name -> core.TaskState
-	51, // 43: core.StateTransition.timestamp:type_name -> google.protobuf.Timestamp
+	52, // 43: core.StateTransition.timestamp:type_name -> google.protobuf.Timestamp
 	1,  // 44: core.TaskStatus.state:type_name -> core.TaskState
-	37, // 45: core.TaskStatus.progress:type_name -> core.Progress
-	39, // 46: core.TaskStatus.logs:type_name -> core.LogEntry
-	36, // 47: core.TaskStatus.transitions:type_name -> core.StateTransition
-	51, // 48: core.LogEntry.timestamp:type_name -> google.protobuf.Timestamp
-	41, // 49: core.ChallengeRequestList.items:type_name -> core.ChallengeRequest
-	43, // 50: core.ChallengeResponseList.items:type_name -> core.ChallengeResponse
-	53, // 51: core.Pinger.Ping:input_type -> google.protobuf.Empty
-	3,  // 52: core.Pinger.Ping:output_type -> core.PingResponse
+	38, // 45: core.TaskStatus.progress:type_name -> core.Progress
+	40, // 46: core.TaskStatus.logs:type_name -> core.LogEntry
+	37, // 47: core.TaskStatus.transitions:type_name -> core.StateTransition
+	52, // 48: core.LogEntry.timestamp:type_name -> google.protobuf.Timestamp
+	42, // 49: core.ChallengeRequestList.items:type_name -> core.ChallengeRequest
+	44, // 50: core.ChallengeResponseList.items:type_name -> core.ChallengeResponse
+	54, // 51: core.Pinger.Ping:input_type -> google.protobuf.Empty
+	4,  // 52: core.Pinger.Ping:output_type -> core.PingResponse
 	52, // [52:53] is the sub-list for method output_type
 	51, // [51:52] is the sub-list for method input_type
 	51, // [51:51] is the sub-list for extension type_name
@@ -3743,7 +3797,7 @@ func file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_apis_core_v1_core_proto_rawDesc,
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   1,

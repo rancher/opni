@@ -28,10 +28,14 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )
@@ -385,7 +389,40 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 }
 
+type TestNodeDriver struct{}
+
+func NewTestNodeDriver() *TestNodeDriver {
+	return &TestNodeDriver{}
+}
+
+func (n *TestNodeDriver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error {
+	return nil
+}
+
+func (n *TestNodeDriver) DiscoverRules(_ context.Context) (*rules.RuleManifest, error) {
+	return &rules.RuleManifest{
+		Rules: []*rules.Rule{
+			{
+				RuleId: &corev1.Reference{
+					Id: "test-rule",
+				},
+				GroupId: &corev1.Reference{
+					Id: "test-group",
+				},
+				Name:        "test",
+				Expr:        "sum(up > 0) > 0",
+				Duration:    durationpb.New(time.Second),
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+			},
+		},
+	}, nil
+}
+
 func init() {
+	node_drivers.NodeDrivers.Register("test_driver", func(ctx context.Context, opts ...driverutil.Option) (node_drivers.NodeDriver, error) {
+		return NewTestNodeDriver(), nil
+	})
 	alerting_drivers.Drivers.Register("test-environment", func(ctx context.Context, opts ...driverutil.Option) (alerting_drivers.ClusterDriver, error) {
 		env := test.EnvFromContext(ctx)
 		options := TestEnvAlertingClusterDriverOptions{}

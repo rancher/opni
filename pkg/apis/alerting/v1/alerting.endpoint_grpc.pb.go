@@ -44,13 +44,13 @@ type AlertEndpointsClient interface {
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
-	UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error)
+	UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*ConditionReferenceList, error)
 	// when forceDelete = false,
 	// returns a list of conditions this would affect(if none, applies the delete)
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes
 	// to everything without warning
-	DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error)
+	DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*ConditionReferenceList, error)
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
 }
 
@@ -98,8 +98,8 @@ func (c *alertEndpointsClient) ListAlertEndpoints(ctx context.Context, in *ListA
 	return out, nil
 }
 
-func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error) {
-	out := new(InvolvedConditions)
+func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*ConditionReferenceList, error) {
+	out := new(ConditionReferenceList)
 	err := c.cc.Invoke(ctx, AlertEndpoints_UpdateAlertEndpoint_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -107,8 +107,8 @@ func (c *alertEndpointsClient) UpdateAlertEndpoint(ctx context.Context, in *Upda
 	return out, nil
 }
 
-func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*InvolvedConditions, error) {
-	out := new(InvolvedConditions)
+func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*ConditionReferenceList, error) {
+	out := new(ConditionReferenceList)
 	err := c.cc.Invoke(ctx, AlertEndpoints_DeleteAlertEndpoint_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -139,13 +139,13 @@ type AlertEndpointsServer interface {
 	// when forceUpdate = true,
 	//
 	//	updates everything without warning
-	UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*InvolvedConditions, error)
+	UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*ConditionReferenceList, error)
 	// when forceDelete = false,
 	// returns a list of conditions this would affect(if none, applies the delete)
 	// when forceDelete = true
 	// deletes and applies the consequences of those changes
 	// to everything without warning
-	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*InvolvedConditions, error)
+	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error)
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
 }
@@ -166,10 +166,10 @@ func (UnimplementedAlertEndpointsServer) ToggleNotifications(context.Context, *T
 func (UnimplementedAlertEndpointsServer) ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEndpoints not implemented")
 }
-func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*InvolvedConditions, error) {
+func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*ConditionReferenceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*InvolvedConditions, error) {
+func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
 }
 func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error) {

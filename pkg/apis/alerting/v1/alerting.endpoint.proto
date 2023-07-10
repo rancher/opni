@@ -55,7 +55,7 @@ service AlertEndpoints{
   // when forceUpdate = true, 
   //  updates everything without warning
   rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest)
-      returns (InvolvedConditions) {
+      returns (alerting.ConditionReferenceList) {
     option (google.api.http) = {
       put : "/configure"
       body : "*"
@@ -68,7 +68,7 @@ service AlertEndpoints{
   // deletes and applies the consequences of those changes 
   // to everything without warning
   rpc DeleteAlertEndpoint(DeleteAlertEndpointRequest) 
-  returns (InvolvedConditions) {
+  returns (ConditionReferenceList) {
     option (google.api.http) = {
       post : "/delete"
       body : "*"
@@ -286,10 +286,6 @@ message RoutingRelationships {
 message EndpointMetadata {
   int32 position = 1;
   string endpointType = 2;
-}
-
-message InvolvedConditions {
-  repeated core.Reference items = 1;
 }
 
 message ToggleRequest {

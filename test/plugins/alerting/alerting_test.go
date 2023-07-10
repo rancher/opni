@@ -111,8 +111,8 @@ func BuildAlertingClusterIntegrationTests(
 		var servers []*alerting.MockIntegrationWebhookServer
 		// physical servers that receive all opni alerting notifications
 		var notificationServers []*alerting.MockIntegrationWebhookServer
-		// expected ways the conditions dispatch to endpoints
-		expectedRouting := map[string][]string{}
+		// conditionsIds => endopintIds
+		expectedRouting := map[string]*alertingv1.ConditionReferenceList{}
 		// maps condition ids where agents are disconnect to their webhook ids
 		involvedDisconnects := map[string][]string{}
 
@@ -278,6 +278,12 @@ func BuildAlertingClusterIntegrationTests(
 						}
 						return nil
 					}, time.Second*5, time.Millisecond*200).Should(Succeed())
+
+					By("verifying that only the default group exists")
+					groupList, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
+					Expect(err).To(Succeed())
+					Expect(groupList.Items).To(HaveLen(1))
+					Expect(groupList.Items[0].Id).To(Equal(""))
 				})
 
 				It("shoud list conditions by given filters", func() {
@@ -333,10 +339,16 @@ func BuildAlertingClusterIntegrationTests(
 									EndpointId: a.GetId().Id,
 								}
 							})
+
 						if cond.GetAlertCondition().GetAlertType().GetSystem() != nil {
-							expectedRouting[cond.GetId().Id] = lo.Map(endps, func(a *alertingv1.AttachedEndpoint, _ int) string {
-								return a.EndpointId
-							})
+							for _, endp := range endps {
+								if _, ok := expectedRouting[endp.EndpointId]; !ok {
+									expectedRouting[endp.EndpointId] = &alertingv1.ConditionReferenceList{
+										Items: []*alertingv1.ConditionReference{},
+									}
+								}
+								expectedRouting[endp.EndpointId].Items = append(expectedRouting[endp.EndpointId].Items, cond.GetId())
+							}
 							cond.AlertCondition.AttachedEndpoints = &alertingv1.AttachedEndpoints{
 								Items:              endps,
 								InitialDelay:       durationpb.New(time.Second * 1),
@@ -352,6 +364,14 @@ func BuildAlertingClusterIntegrationTests(
 							})
 							Expect(err).To(Succeed())
 						}
+					}
+					for _, refs := range expectedRouting {
+						slices.SortFunc(refs.Items, func(a, b *alertingv1.ConditionReference) bool {
+							if a.GroupId != b.GroupId {
+								return a.GroupId < b.GroupId
+							}
+							return a.Id < b.Id
+						})
 					}
 
 					By("creating some default webhook servers as endpoints")
@@ -390,10 +410,22 @@ func BuildAlertingClusterIntegrationTests(
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
 					Expect(len(relationships.RoutingRelationships)).To(Equal(len(expectedRouting)))
-					for conditionId, rel := range relationships.RoutingRelationships {
-						Expect(lo.Map(rel.Items, func(c *corev1.Reference, _ int) string {
-							return c.Id
-						})).To(ConsistOf(expectedRouting[conditionId]))
+
+					for endpId, rel := range relationships.RoutingRelationships {
+						slices.SortFunc(rel.Items, func(a, b *alertingv1.ConditionReference) bool {
+							if a.GroupId != b.GroupId {
+								return a.GroupId < b.GroupId
+							}
+							return a.Id < b.Id
+						})
+						if _, ok := expectedRouting[endpId]; !ok {
+							Fail(fmt.Sprintf("Expected a routing relation to exist for endpoint id %s", endpId))
+						}
+						Expect(len(rel.Items)).To(Equal(len(expectedRouting[endpId].Items)))
+						for i := range rel.Items {
+							Expect(rel.Items[i].Id).To(Equal(expectedRouting[endpId].Items[i].Id))
+							Expect(rel.Items[i].GroupId).To(Equal(expectedRouting[endpId].Items[i].GroupId))
+						}
 					}
 				})
 
@@ -451,7 +483,7 @@ func BuildAlertingClusterIntegrationTests(
 						servers := servers
 						conditionIds := lo.Keys(involvedDisconnects)
 						for _, id := range conditionIds {
-							status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &corev1.Reference{Id: id})
+							status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{Id: id})
 							if err != nil {
 								return err
 							}
@@ -461,7 +493,7 @@ func BuildAlertingClusterIntegrationTests(
 						}
 
 						for id := range notInvolvedDisconnects {
-							status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &corev1.Reference{Id: id})
+							status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{Id: id})
 							if err != nil {
 								return err
 							}
@@ -585,6 +617,7 @@ func BuildAlertingClusterIntegrationTests(
 							ForceUpdate: false,
 						})
 						Expect(err).NotTo(HaveOccurred())
+
 						Expect(involvedConditions.Items).NotTo(HaveLen(0))
 						involvedConditions, err = alertEndpointsClient.DeleteAlertEndpoint(env.Context(), &alertingv1.DeleteAlertEndpointRequest{
 							Id: &corev1.Reference{
@@ -624,9 +657,11 @@ func BuildAlertingClusterIntegrationTests(
 									return fmt.Errorf("condition evaluation is flaky, should only have one window, but has %d", len(item.Windows))
 								}
 								messages, err := alertNotificationsClient.ListAlarmMessages(env.Context(), &alertingv1.ListAlarmMessageRequest{
-									ConditionId: id,
-									Start:       item.Windows[0].Start,
-									End:         timestamppb.Now(),
+									ConditionId: &alertingv1.ConditionReference{
+										Id: id,
+									},
+									Start: item.Windows[0].Start,
+									End:   timestamppb.Now(),
 								})
 								if err != nil {
 									return err
@@ -676,6 +711,7 @@ func BuildAlertingClusterIntegrationTests(
 					endpList, err := alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(endpList.Items)).To(BeNumerically(">", 0))
+					Expect(endpList.Items).To(HaveLen(numServers + numNotificationServers))
 					for _, endp := range endpList.Items {
 						_, err := alertEndpointsClient.UpdateAlertEndpoint(env.Context(), &alertingv1.UpdateAlertEndpointRequest{
 							Id: &corev1.Reference{
@@ -697,6 +733,7 @@ func BuildAlertingClusterIntegrationTests(
 					}
 					endpList, err = alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 					Expect(err).NotTo(HaveOccurred())
+					Expect(len(endpList.Items)).To(BeNumerically(">", 0))
 					Expect(endpList.Items).To(HaveLen(numServers + numNotificationServers))
 					updatedList := lo.Filter(endpList.Items, func(item *alertingv1.AlertEndpointWithId, _ int) bool {
 						if item.Endpoint.GetWebhook() != nil {

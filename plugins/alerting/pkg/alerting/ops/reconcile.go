@@ -19,6 +19,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var (
+	SyncInterval      = time.Minute * 1
+	ForceSyncInterval = time.Minute * 15
+)
+
 func cacheEndpointToWebhook(endpoint string) string {
 	return fmt.Sprintf("http://%s", path.Join(endpoint, shared.AlertingDefaultHookName))
 }
@@ -67,8 +72,8 @@ func (a *AlertingOpsNode) ConnectRemoteSyncer(
 
 func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 	lg := a.logger.With("method", "runPeriodicSync")
-	ticker := time.NewTicker(time.Minute * 1)
-	longTicker := time.NewTicker(time.Minute * 15)
+	ticker := time.NewTicker(SyncInterval)
+	longTicker := time.NewTicker(ForceSyncInterval)
 	defer ticker.Stop()
 	defer longTicker.Stop()
 	for {
@@ -106,7 +111,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 					return
 				}
-				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),
@@ -149,7 +154,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 					return
 				}
-				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),

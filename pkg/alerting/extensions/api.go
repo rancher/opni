@@ -58,7 +58,6 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 				return
 			}
 		}
-
 	}
 	wr.WriteHeader(http.StatusOK)
 }

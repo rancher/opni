@@ -193,12 +193,19 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	logFmt := logging.Format{}
 	logFmt.Set("json")
 
-	tlsClientConfig := tls.ClientConfig{
+	tlsCortexClientConfig := tls.ClientConfig{
 		CAPath:     "/run/cortex/certs/client/ca.crt",
 		CertPath:   "/run/cortex/certs/client/tls.crt",
 		KeyPath:    "/run/cortex/certs/client/tls.key",
 		ServerName: "cortex-server",
 	}
+
+	tlsGatewayClientConfig := tls.ClientConfig{
+		CAPath:   "/run/gateway/certs/client/ca.crt",
+		CertPath: "/run/gateway/certs/client/tls.crt",
+		KeyPath:  "/run/gateway/certs/client/tls.key",
+	}
+
 	tlsServerConfig := server.TLSConfig{
 		TLSCertPath: "/run/cortex/certs/server/tls.crt",
 		TLSKeyPath:  "/run/cortex/certs/server/tls.key",
@@ -276,7 +283,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			DataDir: "/data/alertmanager",
 			AlertmanagerClient: alertmanager.ClientConfig{
 				TLSEnabled: true,
-				TLS:        tlsClientConfig,
+				TLS:        tlsCortexClientConfig,
 			},
 			EnableAPI: true,
 			ExternalURL: flagext.URLValue{
@@ -314,7 +321,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			FrontendV2: v2.Config{
 				GRPCClientConfig: grpcclient.Config{
 					TLSEnabled: true,
-					TLS:        tlsClientConfig,
+					TLS:        tlsCortexClientConfig,
 				},
 			},
 		},
@@ -322,7 +329,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			FrontendAddress: fmt.Sprintf("cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.mc.Namespace),
 			GRPCClientConfig: grpcclient.Config{
 				TLSEnabled: true,
-				TLS:        tlsClientConfig,
+				TLS:        tlsCortexClientConfig,
 			},
 		},
 		Ingester: ingester.Config{
@@ -340,14 +347,14 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			GRPCClientConfig: grpcclient.Config{
 				MaxSendMsgSize: 100 << 20,
 				TLSEnabled:     true,
-				TLS:            tlsClientConfig,
+				TLS:            tlsCortexClientConfig,
 			},
 		},
 		Querier: querier.Config{
 			ActiveQueryTrackerDir: "/data/active-query-tracker",
 			StoreGatewayClient: querier.ClientConfig{
 				TLSEnabled: true,
-				TLS:        tlsClientConfig,
+				TLS:        tlsCortexClientConfig,
 			},
 			AtModifierEnabled:   true,
 			QueryStoreForLabels: true,
@@ -366,15 +373,18 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+			AlertmanagerURL:          fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
+			Notifier: ruler.NotifierConfig{
+				TLS: tlsGatewayClientConfig,
+			},
 			Ring: ruler.RingConfig{
 				KVStore: kvConfig,
 			},
 			ClientTLSConfig: grpcclient.Config{
 				TLSEnabled: true,
-				TLS:        tlsClientConfig,
+				TLS:        tlsCortexClientConfig,
 			},
 			EnableSharding: isHA,
 		},

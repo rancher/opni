@@ -85,9 +85,11 @@ import (
 	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
-var collectorWriteSync sync.Mutex
-var agentList = make(map[string]context.CancelFunc)
-var agentListMu sync.Mutex
+var (
+	collectorWriteSync sync.Mutex
+	agentList          = make(map[string]context.CancelFunc)
+	agentListMu        sync.Mutex
+)
 
 type ServicePorts struct {
 	Etcd             int `env:"ETCD_PORT"`
@@ -158,6 +160,7 @@ type Environment struct {
 	once   sync.Once
 
 	tempDir        string
+	certDir        string
 	ports          ServicePorts
 	localAgentOnce sync.Once
 
@@ -583,26 +586,44 @@ func (e *Environment) startJetstream() {
 	lg.Info("Jetstream started")
 }
 
+type AlertManagerPorts struct {
+	ApiPort      int
+	ClusterPort  int
+	EmbeddedPort int
+}
+
 func (e *Environment) StartEmbeddedAlertManager(
 	ctx context.Context,
 	configFilePath string,
 	opniPort *int,
-) (webPort int) {
+	peers ...string,
+) (ports AlertManagerPorts) {
+	storagePath := path.Join(e.tempDir, "alertmanager_data", uuid.New().String())
+	if err := os.MkdirAll(storagePath, 0700); err != nil {
+		panic(err)
+	}
 	amBin := path.Join(e.TestBin, "../../bin/opni")
-	ports := freeport.GetFreePorts(2)
-	webPort = ports[0]
+	fPorts := freeport.GetFreePorts(2)
+	ports.ApiPort = fPorts[0]
+	ports.ClusterPort = fPorts[1]
+	ports.EmbeddedPort = lo.FromPtrOr(opniPort, 3000)
 	defaultArgs := []string{
 		"alerting-server",
 		"alertmanager",
 		fmt.Sprintf("--config.file=%s", configFilePath),
-		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--cluster.listen-address=:%d", ports[1]),
-
-		"--storage.path=/tmp/data",
+		fmt.Sprintf("--web.listen-address=:%d", ports.ApiPort),
+		fmt.Sprintf("--cluster.listen-address=:%d", ports.ClusterPort),
+		fmt.Sprintf("--storage.path=%s", storagePath),
+		"--cluster.pushpull-interval=5s",
+		"--cluster.peer-timeout=3s",
+		"--cluster.gossip-interval=200ms",
 		"--log.level=debug",
 	}
 	if opniPort != nil {
 		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))
+	}
+	for _, peer := range peers {
+		defaultArgs = append(defaultArgs, fmt.Sprintf("--cluster.peer=%s", peer))
 	}
 	cmd := exec.CommandContext(ctx, amBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
@@ -614,7 +635,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 	}
 	e.Logger.Info("Waiting for alertmanager to start...")
 	for e.ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", ports.ApiPort))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -623,7 +644,10 @@ func (e *Environment) StartEmbeddedAlertManager(
 		}
 		time.Sleep(time.Second)
 	}
-	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", ports[0]), "opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).Info("AlertManager started")
+	e.Logger.With(
+		"address", fmt.Sprintf("http://localhost:%d", ports.ApiPort),
+		"opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).
+		Info("AlertManager started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		cmd, _ := session.G()
@@ -631,7 +655,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 			cmd.Signal(os.Signal(syscall.SIGTERM))
 		}
 	})
-	return webPort
+	return
 }
 
 func (e *Environment) startEtcd() {
@@ -678,9 +702,11 @@ func (e *Environment) startEtcd() {
 }
 
 type cortexTemplateOptions struct {
-	HttpListenPort int
-	GrpcListenPort int
-	StorageDir     string
+	HttpListenPort           int
+	GrpcListenPort           int
+	StorageDir               string
+	AlertmanagerProxyAddress string
+	CertDir                  string
 }
 
 func (e *Environment) StartCortex(ctx context.Context) {
@@ -692,18 +718,20 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		panic(err)
 	}
 	if err := t.Execute(configFile, cortexTemplateOptions{
-		HttpListenPort: e.ports.CortexHTTP,
-		GrpcListenPort: e.ports.CortexGRPC,
-		StorageDir:     path.Join(e.tempDir, "cortex"),
+		HttpListenPort:           e.ports.CortexHTTP,
+		GrpcListenPort:           e.ports.CortexGRPC,
+		StorageDir:               path.Join(e.tempDir, "cortex"),
+		AlertmanagerProxyAddress: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
+		CertDir:                  e.certDir,
 	}); err != nil {
 		panic(err)
 	}
 	configFile.Close()
-	cortexBin := filepath.Join(e.TestBin, "../../bin/opni")
+	bin := filepath.Join(e.TestBin, "../../bin/opni")
 	defaultArgs := []string{
-		"cortex", fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
+		"cortex", fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
-	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
+	cmd := exec.CommandContext(ctx, bin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
@@ -808,7 +836,10 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		return 0, err
 	}
 	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
-	os.MkdirAll(promDir, 0755)
+	err = os.MkdirAll(promDir, 0755)
+	if err != nil {
+		return 0, err
+	}
 
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
@@ -1172,7 +1203,6 @@ func (e *Environment) StartMockKubernetesMetricServer() (port int) {
 
 	reg.MustRegister(kubeMetricsIsDefined)
 
-	//mux.HandleFunc("/setKubePodState", setPhaseHandler)
 	mux.HandleFunc("/set", setObjHandler)
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		Registry: reg,
@@ -1313,6 +1343,32 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := testdata.TestData("root_ca.crt")
 	servingCertData := testdata.TestData("localhost.crt")
 	servingKeyData := testdata.TestData("localhost.key")
+	e.certDir = path.Join(e.tempDir, "gateway/certs")
+	err := os.MkdirAll(e.certDir, 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "root_ca.crt"), caCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "localhost.crt"), servingCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "localhost.key"), servingKeyData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "client.crt"), servingCertData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(path.Join(e.certDir, "client.key"), servingKeyData, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1405,10 +1461,8 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 					panic("unknown storage backend")
 				}),
 			Alerting: v1beta1.AlertingSpec{
-				//Endpoints:                 []string{"opni-alerting:9093"},
-				ConfigMap: "alertmanager-config",
-				Namespace: "default",
-				//StatefulSetName:           "opni-alerting-internal",
+				ConfigMap:             "alertmanager-config",
+				Namespace:             "default",
 				WorkerNodeService:     "opni-alerting",
 				WorkerStatefulSet:     "opni-alerting-internal",
 				WorkerPort:            9093,
@@ -1539,6 +1593,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	}
 	return c
 }
+
 func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
@@ -1655,22 +1710,24 @@ func (e *Environment) startGateway() {
 	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
 
 	lg.Info("Waiting for gateway to start...")
-	for i := 0; i < 10; i++ {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/healthz",
-			e.gatewayConfig.Spec.HTTPListenAddress), nil)
-		client := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: e.GatewayTLSConfig(),
-			},
-		}
-		resp, err := client.Do(req)
+	started := false
+	for i := 0; i < 100; i++ {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/healthz",
+			e.gatewayConfig.Spec.MetricsListenAddress), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
+				started = true
 				break
 			}
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
+	if !started {
+		lg.Panic("gateway failed to start")
+	}
+
 	lg.Info("Gateway started")
 }
 
@@ -1901,6 +1958,32 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		RootCAs:    pool,
+	}
+}
+
+func (e *Environment) GatewayClientTLSConfig() *tls.Config {
+	pool := x509.NewCertPool()
+
+	// Load the root CA certificate
+	caCertFile := path.Join(e.certDir, "root_ca.crt")
+	caCert, err := os.ReadFile(caCertFile)
+	if err != nil {
+		panic(err)
+	}
+	pool.AppendCertsFromPEM(caCert)
+
+	// Load the client certificate and key
+	clientCertFile := path.Join(e.certDir, "client.crt")
+	clientKeyFile := path.Join(e.certDir, "client.key")
+	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	if err != nil {
+		panic(err)
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{clientCert},
 	}
 }
 

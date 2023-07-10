@@ -41,9 +41,21 @@ ingester_client:
 
 ruler:
   evaluation_interval: 1s
-  poll_interval : 1s
+  poll_interval: 1s
+  resend_delay: 1s
   enable_alertmanager_v2: true
-  ruler_client: *tls_client_config
+  ruler_client:
+    tls_enabled: true
+    tls_cert_path: "{{ .StorageDir }}/client.crt"
+    tls_key_path: "{{ .StorageDir }}/client.key"
+    tls_ca_path: "{{ .StorageDir }}/root.crt"
+    tls_server_name: localhost
+  alertmanager_url: "{{ .AlertmanagerProxyAddress }}"
+  alertmanager_client:
+    tls_cert_path: "{{ .CertDir }}/client.crt"
+    tls_key_path: "{{ .CertDir }}/client.key"
+    tls_ca_path: "{{ .CertDir }}/root_ca.crt"
+    tls_server_name: 127.0.0.1
   enable_api: true
   enable_sharding: false
   rule_path: "{{ .StorageDir }}/rules"
@@ -98,6 +110,6 @@ ruler_storage:
 
 limits:
   metric_relabel_configs:
-  - source_labels: [zz_opni_impersonate_as]
-    regex: '.+'
-    action: drop
+    - source_labels: [zz_opni_impersonate_as]
+      regex: ".+"
+      action: drop

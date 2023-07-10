@@ -2,13 +2,11 @@ package notifications
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"math"
-	"net/http"
 	"time"
 
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/google/uuid"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -52,15 +50,6 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
 	lg.Debugf("Received alert annotations : %s", req.Annotations)
 
-	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	if err != nil {
-		return nil, err
-	}
 	// This logic is intended to
 	// 1) Provide a safeguard to ensure that external callers of the API will not cause nil pointer map dereferences in the AlertManager adapter logic
 	// 2) Set the required information if it is not already embedded in the postable Alert's information.
@@ -78,38 +67,26 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
 
-	apiNode := backend.NewAlertManagerPostAlertClient(
+	err := n.Client.AlertClient().PostAlarm(
 		ctx,
-		availableEndpoint,
-		backend.WithLogger(lg),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithPostAlertBody(req.ConditionId.Id, req.Labels, req.Annotations),
+		client.AlertObject{
+			Id:          req.ConditionId.Id,
+			Labels:      req.Labels,
+			Annotations: req.Annotations,
+		},
 	)
 
-	err = apiNode.DoRequest()
-	if err != nil {
-		return nil, err
-	}
-	return &alertingv1.TriggerAlertsResponse{}, nil
+	return &alertingv1.TriggerAlertsResponse{}, err
 }
 
 func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *alertingv1.ResolveAlertsRequest) (*alertingv1.ResolveAlertsResponse, error) {
 	if !n.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
 	}
-	lg := n.logger.With("Handler", "ResolveAlerts")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	if err != nil {
-		return nil, err
-	}
+
 	// This logic is intended to
 	// 1) Provide a safeguard to ensure that external callers of the API will not cause nil pointer map dereferences in the AlertManager adapter logic
 	// 2) Set the required information if it is not already embedded in the postable Alert's information.
@@ -127,18 +104,15 @@ func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *al
 		req.Annotations[shared.BackendConditionNameLabel] = req.ConditionName
 	}
 
-	apiNode := backend.NewAlertManagerPostAlertClient(
-		ctx,
-		availableEndpoint,
-		backend.WithLogger(lg),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithPostResolveAlertBody(req.ConditionId.Id, req.Labels, req.Annotations),
-	)
-	err = apiNode.DoRequest()
-	if err != nil {
-		return nil, err
-	}
-	return &alertingv1.ResolveAlertsResponse{}, nil
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	err := n.Client.AlertClient().ResolveAlert(ctx, client.AlertObject{
+		Id:          req.ConditionId.Id,
+		Labels:      req.Labels,
+		Annotations: req.Annotations,
+	})
+
+	return &alertingv1.ResolveAlertsResponse{}, err
 }
 
 func (n *NotificationServerComponent) PushNotification(ctx context.Context, req *alertingv1.Notification) (*emptypb.Empty, error) {
@@ -154,29 +128,18 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 		req.Properties[alertingv1.NotificationPropertyDedupeKey] = util.HashStrings([]string{req.Title, req.Body})
 	}
 
-	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
-	availableEndpoint, err := n.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	if err != nil {
-		return nil, err
-	}
 	routingLabels := req.GetRoutingLabels()
-	apiNode := backend.NewAlertManagerPostAlertClient(
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	err := n.Client.AlertClient().PostNotification(
 		ctx,
-		availableEndpoint,
-		backend.WithLogger(n.logger),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithPostNotificationBody(
-			routingLabels[alertingv1.NotificationPropertyOpniUuid],
-			routingLabels,
-			req.GetRoutingAnnotations(),
-			resolveContext,
-		),
+		client.AlertObject{
+			Id:          lo.ValueOr(routingLabels, alertingv1.NotificationPropertyOpniUuid, uuid.New().String()),
+			Labels:      routingLabels,
+			Annotations: req.GetRoutingAnnotations(),
+		},
 	)
-	return &emptypb.Empty{}, apiNode.DoRequest()
+	return &emptypb.Empty{}, err
 }
 
 func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req *alertingv1.ListNotificationRequest) (*alertingv1.ListMessageResponse, error) {
@@ -187,37 +150,12 @@ func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// FIXME: the messages returned by this endpoint will not always be consistent
-	// within the HA vanilla AlertManager,
-	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := n.opsNode.Get().GetAvailableCacheEndpoint(ctx, &options)
+
+	resp, err := n.Client.QueryClient().ListNotificationMessages(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &alertingv1.ListMessageResponse{}
-	apiNode := backend.NewListNotificationMessagesClient(
-		ctx,
-		availableEndpoint,
-		backend.WithLogger(n.logger),
-		backend.WithExpectClosure(func(incoming *http.Response) error {
-			defer incoming.Body.Close()
-			if incoming.StatusCode != http.StatusOK {
-				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
-			}
-			return json.NewDecoder(incoming.Body).Decode(resp)
-		}),
-		backend.WithPostProto(req),
-		backend.WithDefaultRetrier(),
-	)
-
-	if err := apiNode.DoRequest(); err != nil {
-		return nil, err
-	}
 	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
 		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
 	})
@@ -232,17 +170,6 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := n.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// FIXME: the messages returned by this endpoint will not always be consistent
-	// within the HA vanilla AlertManager,
-	// move this logic to cortex AlertManager member set when applicable
-	availableEndpoint, err := n.opsNode.Get().GetAvailableCacheEndpoint(ctx, &options)
-	if err != nil {
-		return nil, err
-	}
 
 	cond, err := n.conditionStorage.Get().Get(ctx, req.ConditionId)
 	if err != nil {
@@ -254,22 +181,8 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 	}
 	req.End = timestamppb.New(req.End.AsTime().Add(consistencyInterval.AsDuration()))
 
-	resp := &alertingv1.ListMessageResponse{}
-	apiNode := backend.NewListAlarmMessagesClient(
-		ctx,
-		availableEndpoint,
-		backend.WithLogger(n.logger),
-		backend.WithExpectClosure(func(incoming *http.Response) error {
-			defer incoming.Body.Close()
-			if incoming.StatusCode != http.StatusOK {
-				return fmt.Errorf("unexpected status code %d", incoming.StatusCode)
-			}
-			return json.NewDecoder(incoming.Body).Decode(resp)
-		}),
-		backend.WithPostProto(req),
-		backend.WithDefaultRetrier(),
-	)
-	if err := apiNode.DoRequest(); err != nil {
+	resp, err := n.Client.QueryClient().ListAlarmMessages(ctx, req)
+	if err != nil {
 		return nil, err
 	}
 	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {

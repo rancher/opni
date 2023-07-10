@@ -46,7 +46,7 @@ func WithInitialRouter(router routing.OpniRouting) SyncOption {
 	}
 }
 
-func WithDefaultReceiverAddreess(endpoint *url.URL) SyncOption {
+func WithDefaultReceiverAddress(endpoint *url.URL) SyncOption {
 	return func(o *SyncOptions) {
 		o.DefaultEndpoint = endpoint
 	}

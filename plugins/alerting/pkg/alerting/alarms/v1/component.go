@@ -10,10 +10,13 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 )
 
@@ -23,8 +26,8 @@ type AlarmServerComponent struct {
 	util.Initializer
 	ctx context.Context
 
-	mu                   sync.Mutex
-	clusterConfiguration struct{}
+	mu sync.Mutex
+	server.Config
 
 	logger *zap.SugaredLogger
 
@@ -37,12 +40,13 @@ type AlarmServerComponent struct {
 
 	routerStorage future.Future[storage.RouterStorage]
 
-	opsNode future.Future[*ops.AlertingOpsNode]
-	js      future.Future[nats.JetStreamContext]
+	js future.Future[nats.JetStreamContext]
 
 	mgmtClient      future.Future[managementv1.ManagementClient]
 	adminClient     future.Future[cortexadmin.CortexAdminClient]
 	cortexOpsClient future.Future[cortexops.CortexOpsClient]
+
+	metricExporter *AlarmMetricsExporter
 }
 
 func NewAlarmServerComponent(
@@ -50,7 +54,7 @@ func NewAlarmServerComponent(
 	logger *zap.SugaredLogger,
 	notifications *notifications.NotificationServerComponent,
 ) *AlarmServerComponent {
-	return &AlarmServerComponent{
+	comp := &AlarmServerComponent{
 		ctx:              ctx,
 		logger:           logger,
 		runner:           NewRunner(),
@@ -59,12 +63,13 @@ func NewAlarmServerComponent(
 		incidentStorage:  future.New[storage.IncidentStorage](),
 		stateStorage:     future.New[storage.StateStorage](),
 		routerStorage:    future.New[storage.RouterStorage](),
-		opsNode:          future.New[*ops.AlertingOpsNode](),
 		js:               future.New[nats.JetStreamContext](),
 		mgmtClient:       future.New[managementv1.ManagementClient](),
 		adminClient:      future.New[cortexadmin.CortexAdminClient](),
 		cortexOpsClient:  future.New[cortexops.CortexOpsClient](),
+		metricExporter:   NewAlarmMetricsExporter(),
 	}
+	return comp
 }
 
 type AlarmServerConfiguration struct {
@@ -72,47 +77,95 @@ type AlarmServerConfiguration struct {
 	storage.IncidentStorage
 	storage.StateStorage
 	storage.RouterStorage
-	OpsNode         *ops.AlertingOpsNode
 	Js              nats.JetStreamContext
 	MgmtClient      managementv1.ManagementClient
 	AdminClient     cortexadmin.CortexAdminClient
 	CortexOpsClient cortexops.CortexOpsClient
 }
 
-func (a *AlarmServerComponent) Status() struct{} {
-	return struct{}{}
+var _ server.ServerComponent = (*AlarmServerComponent)(nil)
+
+func (a *AlarmServerComponent) Name() string {
+	return "alarm"
 }
 
-func (a *AlarmServerComponent) SetConfig(conf struct{}) {
+func (a *AlarmServerComponent) Status() server.Status {
+	return server.Status{
+		Running: a.Initialized(),
+	}
+}
+
+func (a *AlarmServerComponent) Ready() bool {
+	return a.Initialized()
+}
+
+func (a *AlarmServerComponent) Healthy() bool {
+	return a.Initialized()
+}
+
+func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.clusterConfiguration = conf
+	a.Config = conf
 }
 
-func (a *AlarmServerComponent) Sync(enabled bool) error {
-	conds, err := a.conditionStorage.Get().List(a.ctx)
+func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
+	conditionStorage, err := a.conditionStorage.GetContext(ctx)
 	if err != nil {
 		return err
 	}
-	iErrGroup := &util.MultiErrGroup{}
-	iErrGroup.Add(len(conds))
+	conds, err := conditionStorage.List(ctx)
+	if err != nil {
+		return err
+	}
+	eg := &util.MultiErrGroup{}
 	for _, cond := range conds {
 		cond := cond
-		go func() {
-			defer iErrGroup.Done()
-			if enabled {
-				if _, err := a.setupCondition(a.ctx, a.logger, cond, cond.Id); err != nil {
-					iErrGroup.AddError(err)
+		if shouldSync {
+			eg.Go(func() error {
+				activationAttrs := []attribute.KeyValue{
+					{
+						Key:   "cluster_id",
+						Value: attribute.StringValue(cond.GetClusterId().Id),
+					},
+					{
+						Key:   "name",
+						Value: attribute.StringValue(cond.GetName()),
+					},
+					{
+						Key:   "datasource",
+						Value: attribute.StringValue(cond.DatasourceName()),
+					},
+					{
+						Key:   "id",
+						Value: attribute.StringValue(cond.GetId()),
+					},
 				}
-			} else {
-				if err := a.deleteCondition(a.ctx, a.logger, cond, cond.Id); err != nil {
-					iErrGroup.AddError(err)
+				_, err := a.applyAlarm(ctx, cond, cond.Id)
+				if err != nil {
+					activationAttrs = append(activationAttrs, attribute.KeyValue{
+						Key:   "status",
+						Value: attribute.StringValue("failed"),
+					})
+				} else {
+					activationAttrs = append(activationAttrs, attribute.KeyValue{
+						Key:   "status",
+						Value: attribute.StringValue("success"),
+					})
 				}
-			}
-		}()
+				a.metricExporter.activationStatusCounter.Add(ctx, 1, metric.WithAttributes(
+					activationAttrs...,
+				))
+				return err
+			})
+		} else {
+			eg.Go(func() error {
+				return a.teardownCondition(ctx, cond, cond.Id, false)
+			})
+		}
 	}
-	iErrGroup.Wait()
-	if err := iErrGroup.Error(); err != nil {
+	eg.Wait()
+	if err := eg.Error(); err != nil {
 		return err
 	}
 	return nil
@@ -120,7 +173,6 @@ func (a *AlarmServerComponent) Sync(enabled bool) error {
 
 func (a *AlarmServerComponent) Initialize(conf AlarmServerConfiguration) {
 	a.InitOnce(func() {
-		a.opsNode.Set(conf.OpsNode)
 		a.mgmtClient.Set(conf.MgmtClient)
 		a.adminClient.Set(conf.AdminClient)
 		a.js.Set(conf.Js)
@@ -130,4 +182,14 @@ func (a *AlarmServerComponent) Initialize(conf AlarmServerConfiguration) {
 		a.stateStorage.Set(conf.StateStorage)
 		a.routerStorage.Set(conf.RouterStorage)
 	})
+}
+
+type AlarmMetricsExporter struct {
+	activationStatusCounter metric.Int64Counter
+}
+
+func NewAlarmMetricsExporter() *AlarmMetricsExporter {
+	return &AlarmMetricsExporter{
+		activationStatusCounter: metrics.ActivationStatusCounter,
+	}
 }

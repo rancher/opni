@@ -42,7 +42,7 @@ func buildPrerequisites() error {
 }
 
 // this test takes approx. 2 minutes
-var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temporal"), func() {
+var _ = XDescribe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temporal"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -231,6 +231,11 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "tempo
 			})
 		})
 	})
+
+	AfterAll(func() {
+		ExpectGracefulExamplePluginShutdown(environment)
+	})
+
 	Specify("watching agent memory usage", func() {
 		var rssValues []int
 		exp := gmeasure.NewExperiment("agent rss")

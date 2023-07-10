@@ -14,7 +14,7 @@ import (
 	"github.com/kralicky/yaml/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/extensions"
@@ -38,6 +38,7 @@ func BuildEmbeddedServerNotificationTests(
 ) bool {
 	var webPort int
 	var opniPort int
+	var alertingClient client.AlertingClient
 	sendMsg := func(client *http.Client, msg config.WebhookMessage, opniPort int) {
 		content, err := json.Marshal(msg)
 		Expect(err).NotTo(HaveOccurred())
@@ -47,15 +48,19 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	}
+	alertingClient = client.NewClient(
+		nil,
+		fmt.Sprintf("http://localhost:%d", webPort),
+		fmt.Sprintf("http://localhost:%d", opniPort),
+	)
 	sendMsgAlertManager := func(ctx context.Context, labels, annotations map[string]string, alertManagerPort int) {
-		apiNode := backend.NewAlertManagerPostAlertClient(
-			ctx,
-			fmt.Sprintf("http://localhost:%d", webPort),
-			backend.WithExpectClosure(backend.NewExpectStatusOk()),
-			backend.WithPostAlertBody(labels[alertingv1.NotificationPropertyOpniUuid], labels, annotations),
-		)
-		err := apiNode.DoRequest()
+		err := alertingClient.AlertClient().PostNotification(context.TODO(), client.AlertObject{
+			Id:          labels[alertingv1.NotificationPropertyOpniUuid],
+			Labels:      labels,
+			Annotations: annotations,
+		})
 		Expect(err).NotTo(HaveOccurred())
+
 	}
 
 	listNotif := func(client *http.Client, listReq *alertingv1.ListNotificationRequest, opniPort int) *alertingv1.ListMessageResponse {
@@ -91,8 +96,8 @@ func BuildEmbeddedServerNotificationTests(
 		Expect(err).NotTo(HaveOccurred())
 		return listResp
 	}
-	return XDescribe("EmbeddedServer test suite", Ordered, Label("integration"), func() {
-		var client *http.Client
+	return Describe("EmbeddedServer test suite", Ordered, Label("integration"), func() {
+		var httpClient *http.Client
 		var fingerprints []string
 		var id string
 		var env *test.Environment
@@ -125,9 +130,9 @@ func BuildEmbeddedServerNotificationTests(
 			Expect(config).NotTo(BeNil())
 			err = os.WriteFile(confFile, util.Must(yaml.Marshal(config)), 0644)
 			Expect(err).NotTo(HaveOccurred())
-			port := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
-			webPort = port
-			client = http.DefaultClient
+			ports := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
+			webPort = ports.ApiPort
+			httpClient = http.DefaultClient
 		})
 
 		When("we use the embedded opni embedded server", func() {
@@ -152,7 +157,7 @@ func BuildEmbeddedServerNotificationTests(
 					GroupKey:        uuid.New().String(),
 					ExternalURL:     fmt.Sprintf("http://localhost:%d", webPort),
 				}
-				sendMsg(client, msg, opniPort)
+				sendMsg(httpClient, msg, opniPort)
 			})
 
 			It("should list notification messages indexed by Opni", func() {
@@ -160,7 +165,7 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(opniPort).NotTo(BeZero())
 
 				listReq := &alertingv1.ListNotificationRequest{}
-				respList := listNotif(client, listReq, opniPort)
+				respList := listNotif(httpClient, listReq, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 			})
@@ -192,15 +197,15 @@ func BuildEmbeddedServerNotificationTests(
 					GroupKey:        groupKey,
 					ExternalURL:     fmt.Sprintf("http://localhost:%d", webPort),
 				}
-				sendMsg(client, msg, opniPort)
-				respList := listNotif(client, listRequest, opniPort)
+				sendMsg(httpClient, msg, opniPort)
+				respList := listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 
 				// send the same message again with group key but different uuid
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
-				sendMsg(client, msg, opniPort)
-				respList = listNotif(client, listRequest, opniPort)
+				sendMsg(httpClient, msg, opniPort)
+				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 
@@ -208,20 +213,20 @@ func BuildEmbeddedServerNotificationTests(
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = msgId
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
 
-				sendMsg(client, msg, opniPort)
-				respList = listNotif(client, listRequest, opniPort)
+				sendMsg(httpClient, msg, opniPort)
+				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(2))
 
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
 				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
-				sendMsg(client, msg, opniPort)
-				respList = listNotif(client, listRequest, opniPort)
+				sendMsg(httpClient, msg, opniPort)
+				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(3))
 
-				sendMsg(client, msg, opniPort)
-				respList = listNotif(client, listRequest, opniPort)
+				sendMsg(httpClient, msg, opniPort)
+				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(3))
 
@@ -267,8 +272,12 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(config).NotTo(BeNil())
 				err = os.WriteFile(confFile, util.Must(yaml.Marshal(config)), 0644)
 				Expect(err).NotTo(HaveOccurred())
-				port := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
-				webPort = port
+				ports := env.StartEmbeddedAlertManager(env.Context(), confFile, nil)
+				alertingClient = client.NewClient(
+					nil,
+					fmt.Sprintf("http://localhost:%d", ports.ApiPort),
+					fmt.Sprintf("http://localhost:%d", opniPort),
+				)
 			})
 			It("should persist the routables", func() {
 				for _, r := range dataset.Routables {
@@ -332,7 +341,7 @@ func BuildEmbeddedServerNotificationTests(
 					_ = opniPort
 					_ = tmpConfigDir
 					for _, pair := range dataset.ExpectedNotifications {
-						listResp := listNotif(client, pair.A, opniPort)
+						listResp := listNotif(httpClient, pair.A, opniPort)
 						if len(listResp.Items) != pair.B {
 							return fmt.Errorf(
 								"notification pair failed %s : %d vs %d",
@@ -344,7 +353,7 @@ func BuildEmbeddedServerNotificationTests(
 					}
 
 					for _, pair := range dataset.ExpectedAlarms {
-						listResp := listAlarm(client, pair.A, opniPort)
+						listResp := listAlarm(httpClient, pair.A, opniPort)
 						if len(listResp.Items) != pair.B {
 							return fmt.Errorf(
 								"alarm pair failed %s : %d vs %d",
@@ -363,23 +372,11 @@ func BuildEmbeddedServerNotificationTests(
 		It("should handle fingerprints when correlating alarm incident windows to messages", func() {
 			By("verifying the alerting cluster has received unique alerts for each unique fingerprint")
 			Eventually(func() error {
-				respAlertGroup := []backend.GettableAlert{}
-				apiNodeGetAlerts := backend.NewAlertManagerGetAlertsClient(
-					env.Context(),
-					fmt.Sprintf("http://localhost:%d", webPort),
-					backend.WithExpectClosure(func(resp *http.Response) error {
-						if resp.StatusCode != http.StatusOK {
-							return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-						}
-						return json.NewDecoder(resp.Body).Decode(&respAlertGroup)
-					}))
-				err := apiNodeGetAlerts.DoRequest()
-				if err != nil {
-					return err
-				}
+				ags, err := alertingClient.AlertClient().ListAlerts(context.TODO())
+				Expect(err).To(BeNil())
 				foundFingerprints := map[string]struct{}{}
-				for _, alert := range respAlertGroup {
-					if v, ok := alert.Labels[alertingv1.NotificationPropertyFingerprint]; ok {
+				for _, ag := range ags {
+					if v, ok := ag.Labels[alertingv1.NotificationPropertyFingerprint]; ok {
 						foundFingerprints[v] = struct{}{}
 					}
 				}
@@ -391,7 +388,7 @@ func BuildEmbeddedServerNotificationTests(
 
 			By("verifying the embedded server has persisted notifications for each fingerprint")
 			Eventually(func() error {
-				listResp := listAlarm(client,
+				listResp := listAlarm(httpClient,
 					&alertingv1.ListAlarmMessageRequest{
 						ConditionId:  id,
 						Fingerprints: fingerprints,

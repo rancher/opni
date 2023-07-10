@@ -1,11 +1,8 @@
 package alerting_test
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -13,7 +10,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -43,6 +41,9 @@ func BuildRoutingLogicTest(
 	routerConstructor func() routing.OpniRouting,
 ) bool {
 	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
+		var alertingClient client.AlertingClient
+		var alertingClient2 client.AlertingClient
+		var alertingClient3 client.AlertingClient
 		When("setting namespace specs on the routing tree", func() {
 			step := "initial"
 			var router routing.OpniRouting
@@ -136,22 +137,26 @@ func BuildRoutingLogicTest(
 
 				By("running alertmanager with this config")
 				amPort, ca := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
+				alertingClient = client.NewClient(
+					nil,
+					fmt.Sprintf("http://localhost:%d", amPort),
+					fmt.Sprintf("http://localhost:%d", 0),
+				)
 				defer ca()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					reqSpec := backend.NewAlertManagerPostAlertClient(
-						env.Context(),
-						fmt.Sprintf("http://localhost:%d", amPort),
-						backend.WithPostAlertBody(spec.id, map[string]string{
+					err := alertingClient.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+						Id: spec.id,
+						Labels: map[string]string{
 							ns: spec.id,
-						}, map[string]string{}),
-					)
-					err = reqSpec.DoRequest()
+						},
+						Annotations: map[string]string{},
+					})
 					Expect(err).To(Succeed())
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort)
-				}, time.Minute*3, time.Second*30).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca()
 				server1.ClearBuffer()
 				server2.ClearBuffer()
@@ -167,22 +172,26 @@ func BuildRoutingLogicTest(
 				}
 
 				amPort2, ca2 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
+				alertingClient2 = client.NewClient(
+					nil,
+					fmt.Sprintf("http://localhost:%d", amPort2),
+					fmt.Sprintf("http://localhost:%d", 0),
+				)
 				defer ca2()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					reqSpec := backend.NewAlertManagerPostAlertClient(
-						env.Context(),
-						fmt.Sprintf("http://localhost:%d", amPort2),
-						backend.WithPostAlertBody(spec.id, map[string]string{
+					err := alertingClient2.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+						Id: spec.id,
+						Labels: map[string]string{
 							ns: spec.id,
-						}, map[string]string{}),
-					)
-					err = reqSpec.DoRequest()
+						},
+						Annotations: map[string]string{},
+					})
 					Expect(err).To(Succeed())
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort2)
-				}, time.Minute*3, time.Second*30).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca2()
 
 				By("updating an endpoint to another endpoint")
@@ -203,21 +212,25 @@ func BuildRoutingLogicTest(
 				By("send an an alert to each specs")
 				amPort3, ca3 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
 				defer ca3()
+				alertingClient3 = client.NewClient(
+					nil,
+					fmt.Sprintf("http://localhost:%d", amPort3),
+					fmt.Sprintf("http://localhost:%d", 0),
+				)
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
-					reqSpec := backend.NewAlertManagerPostAlertClient(
-						env.Context(),
-						fmt.Sprintf("http://localhost:%d", amPort3),
-						backend.WithPostAlertBody(spec.id, map[string]string{
+					err := alertingClient3.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+						Id: spec.id,
+						Labels: map[string]string{
 							ns: spec.id,
-						}, map[string]string{},
-						))
-					err = reqSpec.DoRequest()
+						},
+						Annotations: map[string]string{},
+					})
 					Expect(err).To(Succeed())
 				}
 				Eventually(func() error {
 					return suiteSpec.ExpectAlertsToBeRouted(amPort3)
-				}, time.Minute*3, time.Second*30).Should(Succeed())
+				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca3()
 			})
 		})
@@ -239,51 +252,34 @@ type testSpec struct {
 
 // FIXME: this expects that the router interface implementations builds things in the format specified by OpniRouterV1
 func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
-	var activeState []byte
 	By("getting the AlertManager state")
-	getAlerts := backend.NewAlertManagerGetAlertsClient(
-		env.Context(),
+	alertingClient := client.NewClient(
+		nil,
 		fmt.Sprintf("http://localhost:%d", amPort),
-		backend.WithExpectClosure(
-			func(resp *http.Response) error {
-				defer resp.Body.Close()
-				data, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return err
-				}
-				activeState = data
-				return nil
-			},
-		),
+		fmt.Sprintf("http://localhost:%d", 0),
 	)
-	if err := getAlerts.DoRequest(); err != nil {
-		return fmt.Errorf("get alert state failed for port %d", amPort)
-	}
-	// check data is in active state
-	By("unmarshalling active state")
-	var ag []backend.GettableAlert
-	if err := json.NewDecoder(bytes.NewReader(activeState)).Decode(&ag); err != nil {
-		return fmt.Errorf("failed to unmarshal active state: %s", err)
-	}
-
+	ags, err := alertingClient.ListAlerts(context.Background())
+	Expect(err).To(Succeed())
 	for _, spec := range t.specs {
 		ns := spec.namespace
 		conditionId := spec.id
 		found := false
-		for _, alert := range ag {
-			for labelName, label := range alert.Labels {
-				if labelName == ns && label == conditionId {
-					found = true
-					names := lo.Map(alert.Receivers, func(r *backend.Receiver, _ int) string {
-						return *r.Name
-					})
-					// each namespace should contain the default webhook
-					if !slices.Contains(names, shared.AlertingHookReceiverName) {
-						return fmt.Errorf("expected to find finalizer for '%s'=%s in receivers: %s", ns, conditionId, strings.Join(names, ","))
-					}
-					val := lo.Count(names, shared.AlertingHookReceiverName)
-					if val != 1 {
-						return fmt.Errorf("expected to find only one copy of finalizer for '%s'=%s in receivers: %s", ns, conditionId, strings.Join(names, ","))
+		for _, ag := range ags {
+			for _, alert := range ag.Alerts {
+				for labelName, label := range alert.Labels {
+					if labelName == ns && label == conditionId {
+						found = true
+						names := lo.Map(alert.Receivers, func(r *models.Receiver, _ int) string {
+							return *r.Name
+						})
+						// each namespace should contain the default webhook
+						if !slices.Contains(names, shared.AlertingHookReceiverName) {
+							return fmt.Errorf("expected to find finalizer for '%s'=%s in receivers: %s", ns, conditionId, strings.Join(names, ","))
+						}
+						val := lo.Count(names, shared.AlertingHookReceiverName)
+						if val != 1 {
+							return fmt.Errorf("expected to find only one copy of finalizer for '%s'=%s in receivers: %s", ns, conditionId, strings.Join(names, ","))
+						}
 					}
 				}
 			}

@@ -2,14 +2,11 @@ package alarms
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"net/http"
 	"time"
 
 	"github.com/alitto/pond"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -19,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
-	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -33,24 +29,20 @@ import (
 var _ alertingv1.AlertConditionsServer = (*AlarmServerComponent)(nil)
 
 func (a *AlarmServerComponent) CreateAlertCondition(ctx context.Context, req *alertingv1.AlertCondition) (*corev1.Reference, error) {
-	lg := a.logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 	newId := shared.NewAlertingRefId()
 	req.Id = newId
+	if req.Metadata == nil {
+		req.Metadata = make(map[string]string)
+	}
 	req.LastUpdated = timestamppb.Now()
+	if req.GetMetadata() == nil {
+		req.Metadata = make(map[string]string)
+	}
+	req.Metadata[metadataInactiveAlarm] = "true"
 	if err := a.conditionStorage.Get().Put(ctx, newId, req); err != nil {
-		return nil, err
-	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &corev1.Reference{Id: newId}, nil
-	}
-	if _, err := a.setupCondition(ctx, lg, req, newId); err != nil {
 		return nil, err
 	}
 	return &corev1.Reference{Id: newId}, nil
@@ -101,41 +93,21 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 	if err := a.conditionStorage.Get().Put(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &emptypb.Empty{}, nil
-	}
-	if _, err := a.setupCondition(ctx, lg, req.UpdateAlert, req.Id.Id); err != nil {
-		return nil, err
-	}
 	return &emptypb.Empty{}, nil
 }
 
 func (a *AlarmServerComponent) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	lg := a.logger.With("Handler", "DeleteAlertCondition")
 	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
 	}
-	// this can happen if the condition is not in storage
 	if existing == nil {
 		return &emptypb.Empty{}, nil
 	}
 
-	if err := a.conditionStorage.Get().Delete(ctx, ref.Id); err != nil {
-		return nil, err
-	}
-	status, err := a.opsNode.Get().GetClusterStatus(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if status.State != alertops.InstallState_Installed {
-		return &emptypb.Empty{}, nil
-	}
-	if err := a.deleteCondition(ctx, lg, existing, ref.Id); err != nil {
+	existing.GetMetadata()[metadataCleanUpAlarm] = "true"
+
+	if err := a.conditionStorage.Get().Put(ctx, ref.Id, existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -157,11 +129,16 @@ func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *co
 	}
 	lg := a.logger.With("handler", "AlertConditionStatus")
 
-	// required info
 	cond, err := a.conditionStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
 		return nil, shared.WithNotFoundErrorf("%s", err)
+	}
+	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataInactiveAlarm] != "" {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "Alarm is scheduled for activation",
+		}, nil
 	}
 
 	statusInfo, err := a.loadStatusInfo(ctx)
@@ -194,6 +171,51 @@ func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *co
 		statusInfo.alertingInfo,
 	))
 	return resultStatus, nil
+}
+
+func (a *AlarmServerComponent) compareStatusInformation(cond *alertingv1.AlertCondition, statusInfo *statusInfo) *alertingv1.AlertStatusResponse {
+	resultStatus := &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
+	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataInactiveAlarm] != "" {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "Alarm is scheduled for activation",
+		}
+	}
+	compareStatus := func(status *alertingv1.AlertStatusResponse) {
+		if resultStatus.State < status.State {
+			resultStatus.State = status.State
+			resultStatus.Reason = status.Reason
+		} else if resultStatus.State == alertingv1.AlertConditionState_Ok &&
+			status.State == alertingv1.AlertConditionState_Unkown {
+			resultStatus.State = status.State
+			resultStatus.Reason = status.Reason
+		}
+	}
+	// do:
+	// |
+	// |--- check cluster configuration based on type
+	// |    |
+	// |    | check cluster dependencies status
+	// |
+	// | --- check router to get labels
+	// |     |
+	// |     | --- check receivers for that router are loaded
+	// |     |
+	// |	 | --- check alertmanager alert status for given labels
+
+	compareStatus(a.checkClusterStatus(cond, *statusInfo))
+	compareStatus(statusFromLoadedReceivers(
+		cond,
+		statusInfo.alertingInfo,
+	))
+	compareStatus(statusFromAlertGroup(
+		cond,
+		statusInfo.alertingInfo,
+	))
+
+	return resultStatus
 }
 
 func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context, req *alertingv1.ListStatusRequest) (*alertingv1.ListStatusResponse, error) {
@@ -246,40 +268,7 @@ func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context
 	})
 	for _, cond := range conds {
 
-		resultStatus := &alertingv1.AlertStatusResponse{
-			State: alertingv1.AlertConditionState_Ok,
-		}
-		compareStatus := func(status *alertingv1.AlertStatusResponse) {
-			if resultStatus.State < status.State {
-				resultStatus.State = status.State
-				resultStatus.Reason = status.Reason
-			} else if resultStatus.State == alertingv1.AlertConditionState_Ok &&
-				status.State == alertingv1.AlertConditionState_Unkown {
-				resultStatus.State = status.State
-				resultStatus.Reason = status.Reason
-			}
-		}
-		// do:
-		// |
-		// |--- check cluster configuration based on type
-		// |    |
-		// |    | check cluster dependencies status
-		// |
-		// | --- check router to get labels
-		// |     |
-		// |     | --- check receivers for that router are loaded
-		// |     |
-		// |	 | --- check alertmanager alert status for given labels
-
-		compareStatus(a.checkClusterStatus(cond, *statusInfo))
-		compareStatus(statusFromLoadedReceivers(
-			cond,
-			statusInfo.alertingInfo,
-		))
-		compareStatus(statusFromAlertGroup(
-			cond,
-			statusInfo.alertingInfo,
-		))
+		resultStatus := a.compareStatusInformation(cond, statusInfo)
 
 		if len(req.States) != 0 {
 			if !slices.Contains(req.States, resultStatus.State) {
@@ -315,38 +304,28 @@ func (a *AlarmServerComponent) CloneTo(ctx context.Context, req *alertingv1.Clon
 			return nil, validation.Errorf("cluster could not be found %s", ref)
 		}
 	}
-	iErrGroup := &util.MultiErrGroup{}
-	iErrGroup.Add(len(req.ToClusters))
+	eg := &util.MultiErrGroup{}
 	for _, ref := range req.ToClusters {
 		ref := ref // capture in closure
-		go func() {
-			defer iErrGroup.Done()
+		eg.Go(func() error {
 			cond := util.ProtoClone(req.AlertCondition)
 			cond.SetClusterId(&corev1.Reference{Id: ref})
 			_, err := a.CreateAlertCondition(ctx, cond)
 			if err != nil {
 				lg.Errorf("failed to create alert condition %s", err)
-				iErrGroup.AddError(err)
 			}
-		}()
+			return err
+		})
 	}
-	iErrGroup.Wait()
-	return &emptypb.Empty{}, iErrGroup.Error()
+	eg.Wait()
+	return &emptypb.Empty{}, eg.Error()
 }
 
 func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertingv1.SilenceRequest) (*emptypb.Empty, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
 	existing, err := a.conditionStorage.Get().Get(ctx, req.ConditionId.Id)
-	if err != nil {
-		return nil, err
-	}
-	availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -360,26 +339,13 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 			return nil, shared.WithInternalServerErrorf("failed to deactivate existing silence : %s", err)
 		}
 	}
-	respSilence := &backend.PostSilencesResponse{}
-	postSilenceNode := backend.NewAlertManagerPostSilenceClient(
-		ctx,
-		availableEndpoint,
-		backend.WithLogger(a.logger),
-		backend.WithPostSilenceBody(req.ConditionId.Id, req.Duration.AsDuration(), silenceID),
-		backend.WithExpectClosure(func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("failed to create silence : %s", resp.Status)
-			}
-			return json.NewDecoder(resp.Body).Decode(respSilence)
-		}))
-	err = postSilenceNode.DoRequest()
+	newId, err := a.Client.SilenceClient().PostSilence(ctx, req.ConditionId.Id, req.Duration.AsDuration(), silenceID)
 	if err != nil {
-		a.logger.Errorf("failed to post silence : %s", err)
 		return nil, err
 	}
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = &alertingv1.SilenceInfo{ // not exact, but the difference will be negligible
-		SilenceId: respSilence.GetSilenceId(),
+		SilenceId: newId,
 		StartsAt:  timestamppb.Now(),
 		EndsAt:    timestamppb.New(time.Now().Add(req.Duration.AsDuration())),
 	}
@@ -394,10 +360,6 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 	if err := ref.Validate(); err != nil {
 		return nil, err
 	}
-	options, err := a.opsNode.Get().GetRuntimeOptions(ctx)
-	if err != nil {
-		return nil, err
-	}
 	existing, err := a.conditionStorage.Get().Get(ctx, ref.Id)
 	if err != nil {
 		return nil, err
@@ -405,26 +367,12 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *corev
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", ref.Id)
 	}
-	availableEndpoint, err := a.opsNode.Get().GetAvailableEndpoint(ctx, &options)
-	if err != nil {
-		return nil, err
-	}
-	apiNode := backend.NewAlertManagerDeleteSilenceClient(
-		ctx,
-		availableEndpoint,
-		existing.Silence.SilenceId,
-		backend.WithLogger(a.logger),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()))
-	err = apiNode.DoRequest()
-	if err != nil {
-		a.logger.Errorf("failed to delete silence : %s", err)
+	if err := a.Client.SilenceClient().DeleteSilence(ctx, existing.Silence.SilenceId); err != nil {
 		return nil, err
 	}
 
-	// update existing proto with the silence info
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
-	// update K,V with new silence info for the respective condition
 	if err := a.conditionStorage.Get().Put(ctx, ref.Id, newCondition); err != nil {
 		return nil, err
 	}

@@ -222,7 +222,7 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 	}
 	go func() { // create, trigger, delete
 		ctx := e.ctx
-		e.opsNode.Get().SendManualSyncRequest(ctx, []string{shared.SingleConfigId}, e.routerStorage.Get())
+		e.ManualSync(ctx, []string{shared.SingleConfigId}, e.routerStorage.Get())
 
 		_, err := e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},

@@ -13,6 +13,7 @@ service ExampleAPIExtension {
       body: "*"
     };
   }
+  rpc Ready(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 service ExampleUnaryExtension {

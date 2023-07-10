@@ -27,7 +27,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

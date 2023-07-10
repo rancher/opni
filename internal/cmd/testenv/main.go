@@ -42,6 +42,8 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
@@ -209,6 +211,8 @@ func main() {
 			testlog.Log.Info(chalk.Blue.Color("Press (s) to stop an agent"))
 			testlog.Log.Info(chalk.Blue.Color("Press (M) to configure the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
+			testlog.Log.Info(chalk.Blue.Color("Press (L) to configure the alerting backend"))
+			testlog.Log.Info(chalk.Blue.Color("Press (O) to uninstall the alerting backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (m) to install the metrics capability on all agents"))
 			testlog.Log.Info(chalk.Blue.Color("Press (u) to uninstall the metrics capability on all agents"))
 			testlog.Log.Info(chalk.Blue.Color("Press (g) to run a Grafana container"))
@@ -383,6 +387,26 @@ func main() {
 					if err != nil {
 						testlog.Log.Error(err)
 					}
+
+					conditionsClient := environment.NewAlertConditionsClient()
+					_, err = conditionsClient.CreateAlertCondition(environment.Context(), &alertingv1.AlertCondition{
+						Name:        "sanity metrics",
+						Description: "Metrics watchdog : fires when metrics agent is receiving metrics",
+						Severity:    alertingv1.OpniSeverity_Info,
+						AlertType: &alertingv1.AlertTypeDetails{
+							Type: &alertingv1.AlertTypeDetails_PrometheusQuery{
+								PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{
+									ClusterId: cluster.Reference(),
+									Query:     "sum(up > 0) > 0",
+									For:       durationpb.New(time.Second * 1),
+								},
+							},
+						},
+						GoldenSignal: alertingv1.GoldenSignal_Errors,
+					})
+					if err != nil {
+						testlog.Log.Error(err)
+					}
 				}
 			}()
 		case 'u':
@@ -459,6 +483,36 @@ func main() {
 			}
 		case 'h':
 			showHelp()
+		case 'L':
+			opsClient := alertops.NewAlertingAdminClient(environment.ManagementClientConn())
+			_, err := opsClient.InstallCluster(environment.Context(), &emptypb.Empty{})
+			if err != nil {
+				testlog.Log.Error(err)
+			} else {
+				_, err = opsClient.ConfigureCluster(environment.Context(), &alertops.ClusterConfiguration{
+					NumReplicas:             3,
+					ClusterSettleTimeout:    "5s",
+					ClusterPushPullInterval: "200ms",
+					ClusterGossipInterval:   "1s",
+					ResourceLimits: &alertops.ResourceLimitSpec{
+						Storage: "500Mi",
+						Memory:  "500m",
+						Cpu:     "500m",
+					},
+				})
+				if err != nil {
+					testlog.Log.Error(err)
+				}
+			}
+
+		case 'O':
+			opsClient := alertops.NewAlertingAdminClient(environment.ManagementClientConn())
+			_, err := opsClient.UninstallCluster(environment.Context(), &alertops.UninstallRequest{
+				DeleteData: true,
+			})
+			if err != nil {
+				testlog.Log.Error(err)
+			}
 		}
 	}
 

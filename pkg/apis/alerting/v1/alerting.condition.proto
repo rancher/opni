@@ -136,6 +136,7 @@ message AlertCondition {
   GoldenSignal goldenSignal = 10;
   // overrides the String type of AlertType Details for use in the UI
   string overrideType = 11;
+  map<string,string> metadata = 12;
 }
 
 enum AlertType {
@@ -171,6 +172,7 @@ enum AlertConditionState {
   Firing = 3;
   Silenced = 4;
   Invalidated = 5;
+  Deleting = 6;
 }
 
 // enum will map to an object of available choices

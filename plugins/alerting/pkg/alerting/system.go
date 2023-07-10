@@ -2,6 +2,9 @@ package alerting
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 
 	"github.com/nats-io/nats.go"
+	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/broker_init"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -22,6 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -32,19 +37,20 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(),
 		&emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.Logger.With(
+		p.logger.With(
 			"err", err,
 		).Error("Failed to get mgmnt config")
 		os.Exit(1)
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.Logger.With(
+		p.logger.With(
 			"err", err,
 		).Error("failed to load config")
 		os.Exit(1)
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
+		p.gatewayConfig.Set(config)
 		opt := &shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
@@ -56,15 +62,16 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureAlertManagerConfiguration(p.Ctx,
+		p.configureDriver(p.ctx,
 			driverutil.NewOption("alertingOptions", opt),
-			driverutil.NewOption("logger", p.Logger.Named("alerting-manager")),
-			driverutil.NewOption("subscribers", []chan shared.AlertingClusterNotification{p.clusterNotifier}),
+			driverutil.NewOption("logger", p.logger.Named("alerting-manager")),
+			driverutil.NewOption("subscribers", []chan []alertingClient.AlertingPeer{p.clusterNotifier}),
 		)
 	})
 	go p.handleDriverNotifications()
+	go p.runSync()
 	p.useWatchers(client)
-	<-p.Ctx.Done()
+	<-p.ctx.Done()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -74,20 +81,20 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 		err error
 	)
 	nc, err = natsutil.AcquireNATSConnection(
-		p.Ctx,
-		natsutil.WithLogger(p.Logger),
+		p.ctx,
+		natsutil.WithLogger(p.logger),
 		natsutil.WithNatsOptions([]nats.Option{
 			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
 				if s != nil {
-					p.Logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
+					p.logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
 				} else {
-					p.Logger.Warn("nats : async error outside subscription")
+					p.logger.Warn("nats : async error outside subscription")
 				}
 			}),
 		}),
 	)
 	if err != nil {
-		p.Logger.With("err", err).Error("fatal error connecting to NATs")
+		p.logger.With("err", err).Error("fatal error connecting to NATs")
 	}
 	p.natsConn.Set(nc)
 	mgr, err := p.natsConn.Get().JetStream()
@@ -99,22 +106,35 @@ func (p *Plugin) UseKeyValueStore(_ system.KeyValueStoreClient) {
 	p.storageClientSet.Set(b.NewClientSet())
 	// spawn a reindexing task
 	go func() {
-		err := p.storageClientSet.Get().ForceSync(p.Ctx)
+		err := p.storageClientSet.Get().ForceSync(p.ctx)
 		if err != nil {
 			panic(err)
 		}
-		status, err := p.opsNode.GetClusterStatus(p.Ctx, &emptypb.Empty{})
+		clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
 		if err != nil {
-			p.Logger.With("err", err).Error("failed to get cluster status")
+			p.logger.With("err", err).Error("failed to get cluster status")
 			return
 		}
-		if status.State == alertops.InstallState_Installed {
+		if clStatus.State == alertops.InstallState_Installed || clStatus.State == alertops.InstallState_InstallUpdating {
 			for _, comp := range p.Components() {
-				comp.Sync(true)
+				comp.Sync(p.ctx, true)
+			}
+			conf, err := p.GetClusterConfiguration(p.ctx, &emptypb.Empty{})
+			if err != nil {
+				p.logger.With("err", err).Error("failed to get cluster configuration")
+				return
+			}
+			peers := listPeers(int(conf.GetNumReplicas()))
+			p.logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.AlertingClient.MemberlistClient().SetKnownPeers(peers)
+			for _, comp := range p.Components() {
+				comp.SetConfig(server.Config{
+					Client: p.AlertingClient,
+				})
 			}
 		}
 	}()
-	<-p.Ctx.Done()
+	<-p.ctx.Done()
 }
 
 func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
@@ -123,9 +143,9 @@ func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	services := []string{"CortexAdmin", "CortexOps"}
-	cc, err := intf.GetClientConn(p.Ctx, services...)
+	cc, err := intf.GetClientConn(p.ctx, services...)
 	if err != nil {
-		p.Logger.With("err", err).Error("failed to get required clients for alerting : %s", strings.Join(services, ","))
+		p.logger.With("err", err).Error("failed to get required clients for alerting : %s", strings.Join(services, ","))
 		os.Exit(1)
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
@@ -135,24 +155,24 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 func (p *Plugin) handleDriverNotifications() {
 	for {
 		select {
-		case <-p.Ctx.Done():
-			p.Logger.Info("shutting down cluster driver update handler")
+		case <-p.ctx.Done():
+			p.logger.Info("shutting down cluster driver update handler")
 			return
-		case incomingState := <-p.clusterNotifier:
-			evaluating := p.evaluating.Load()
-			shouldEvaluate := incomingState.A
-			if shouldEvaluate != evaluating {
-				for _, component := range p.Components() {
-					component.Sync(shouldEvaluate)
-				}
+		case knownPeers := <-p.clusterNotifier:
+			p.logger.Infof("updating known peers : %v", knownPeers)
+			p.AlertingClient.MemberlistClient().SetKnownPeers(knownPeers)
+			serverCfg := server.Config{
+				Client: p.AlertingClient,
 			}
-			p.evaluating.Store(shouldEvaluate)
+			for _, comp := range p.Components() {
+				comp.SetConfig(serverCfg)
+			}
 		}
 	}
 }
 
 func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
-	cw := p.newClusterWatcherHooks(p.Ctx, alarms.NewAgentStream())
+	cw := p.newClusterWatcherHooks(p.ctx, alarms.NewAgentStream())
 	clusterCrud, clusterHealthStatus, cortexBackendStatus := func() { p.watchGlobalCluster(client, cw) },
 		func() { p.watchGlobalClusterHealthStatus(client, alarms.NewAgentStream()) },
 		func() { p.watchCortexClusterStatus() }
@@ -163,4 +183,61 @@ func (p *Plugin) useWatchers(client managementv1.ManagementClient) {
 		cortexBackendStatus,
 	)
 	p.globalWatchers.WatchEvents()
+}
+
+func listPeers(replicas int) []alertingClient.AlertingPeer {
+	peers := []alertingClient.AlertingPeer{}
+	for i := 0; i < replicas; i++ {
+		peers = append(peers, alertingClient.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+		})
+	}
+	return peers
+}
+
+func (p *Plugin) loadCerts() *tls.Config {
+	ctx, ca := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ca()
+	config, err := p.gatewayConfig.GetContext(ctx)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("plugin startup failed: config was not loaded: %v", err))
+		os.Exit(1)
+	}
+	cortexServerCA := config.Spec.Cortex.Certs.ServerCA
+	cortexClientCA := config.Spec.Cortex.Certs.ClientCA
+	cortexClientCert := config.Spec.Cortex.Certs.ClientCert
+	cortexClientKey := config.Spec.Cortex.Certs.ClientKey
+
+	clientCert, err := tls.LoadX509KeyPair(cortexClientCert, cortexClientKey)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to load cortex client keypair: %v", err))
+		os.Exit(1)
+	}
+	serverCAPool := x509.NewCertPool()
+	serverCAData, err := os.ReadFile(cortexServerCA)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to read cortex server CA: %v", err))
+		os.Exit(1)
+	}
+	if ok := serverCAPool.AppendCertsFromPEM(serverCAData); !ok {
+		p.logger.Error("failed to load cortex server CA")
+		os.Exit(1)
+	}
+	clientCAPool := x509.NewCertPool()
+	clientCAData, err := os.ReadFile(cortexClientCA)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to read cortex client CA: %v", err))
+		os.Exit(1)
+	}
+	if ok := clientCAPool.AppendCertsFromPEM(clientCAData); !ok {
+		p.logger.Error("failed to load cortex client CA")
+		os.Exit(1)
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{clientCert},
+		ClientCAs:    clientCAPool,
+		RootCAs:      serverCAPool,
+	}
 }

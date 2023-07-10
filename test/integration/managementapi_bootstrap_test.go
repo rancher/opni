@@ -30,9 +30,8 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
-
 	//#endregion
 
 	//#region Happy Path Tests

@@ -82,7 +82,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 				Eventually(Object(cl)).Should(Exist())
 				Eventually(Object(&appsv1.StatefulSet{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting-controller-internal",
+						Name:      "opni-alerting",
 						Namespace: gateway.Namespace,
 					},
 				})).Should(ExistAnd(
@@ -104,7 +104,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 
 				Eventually(Object(&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting-controller",
+						Name:      "opni-alerting",
 						Namespace: gateway.Namespace,
 					},
 				})).Should(Exist())
@@ -147,12 +147,12 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 
 				Eventually(Object(&appsv1.StatefulSet{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting-controller-internal",
+						Name:      "opni-alerting",
 						Namespace: gateway.Namespace,
 					},
 				})).Should(ExistAnd(
 					HaveOwner(cl),
-					HaveReplicaCount(1),
+					HaveReplicaCount(3),
 					HaveMatchingContainer(And(
 						HaveName("opni-syncer"),
 						HavePorts("syncer-port"),
@@ -167,35 +167,6 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 					)),
 				))
 
-				Eventually(Object(&appsv1.StatefulSet{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting-internal",
-						Namespace: gateway.Namespace,
-					},
-				})).Should(ExistAnd(
-					HaveOwner(cl),
-					HaveReplicaCount(2),
-					HaveMatchingContainer(And(
-						HaveName("opni-syncer"),
-						HavePorts("syncer-port"),
-						HaveEnv("FOO", "BAR"),
-						HaveVolumeMounts("opni-alertmanager-data"),
-					)),
-					HaveMatchingContainer(And(
-						HaveName("opni-alertmanager"),
-						HavePorts("opni-port", "web-port"),
-						HaveEnv("FOO", "BAR"),
-						HaveVolumeMounts("opni-alertmanager-data"),
-					)),
-				))
-
-				Eventually(Object(&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting-controller",
-						Namespace: gateway.Namespace,
-					},
-				})).Should(Exist())
-
 				Eventually(Object(&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "opni-alerting",
@@ -208,8 +179,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 					LabelSelector: labels.SelectorFromSet(labels.Set{
 						"app.kubernetes.io/name": "opni-alerting",
 					}),
-				})()).To(HaveLen(2))
-
+				})()).To(HaveLen(1))
 			})
 		})
 	})

@@ -32,7 +32,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
 	//#endregion
 

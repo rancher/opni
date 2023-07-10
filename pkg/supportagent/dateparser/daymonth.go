@@ -23,39 +23,39 @@ type dayMonthOptions struct {
 	innerDateRegex string
 }
 
-type dayMonthOption func(*dayMonthOptions)
+type DayMonthOption func(*dayMonthOptions)
 
-func (d *dayMonthOptions) apply(opts ...dayMonthOption) {
+func (d *dayMonthOptions) apply(opts ...DayMonthOption) {
 	for _, opt := range opts {
 		opt(d)
 	}
 }
 
-func WithTimezone(timezone string) dayMonthOption {
+func WithTimezone(timezone string) DayMonthOption {
 	return func(d *dayMonthOptions) {
 		d.timezone = timezone
 	}
 }
 
-func WithYear(year string) dayMonthOption {
+func WithYear(year string) DayMonthOption {
 	return func(d *dayMonthOptions) {
 		d.year = year
 	}
 }
 
-func WithStripOuterDate() dayMonthOption {
+func WithStripOuterDate() DayMonthOption {
 	return func(d *dayMonthOptions) {
 		d.stripOuterDate = true
 	}
 }
 
-func WithInnerDateRegex(regex string) dayMonthOption {
+func WithInnerDateRegex(regex string) DayMonthOption {
 	return func(d *dayMonthOptions) {
 		d.innerDateRegex = regex
 	}
 }
 
-func NewDayMonthParser(datetimeRegex string, layout string, opts ...dayMonthOption) DateParser {
+func NewDayMonthParser(datetimeRegex string, layout string, opts ...DayMonthOption) DateParser {
 	options := dayMonthOptions{
 		timezone:       "UTC",
 		year:           fmt.Sprint((time.Now().Year())),

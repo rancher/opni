@@ -292,7 +292,7 @@ func BuildSupportShipCmd() *cobra.Command {
 	return shipCmd
 }
 
-func validateShipArgs(cmd *cobra.Command, args []string) error {
+func validateShipArgs(_ *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("must specify a cluster type")
 	}

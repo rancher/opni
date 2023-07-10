@@ -2,6 +2,7 @@ package shipper_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	otlplogsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
+
+	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
 func TestShipper(t *testing.T) {
@@ -19,7 +22,8 @@ func TestShipper(t *testing.T) {
 
 type mockLogsServiceServer struct {
 	collogspb.UnsafeLogsServiceServer
-	logs []*otlplogsv1.ResourceLogs
+	logs   []*otlplogsv1.ResourceLogs
+	muLogs sync.RWMutex
 }
 
 func newMockLogsServiceServer() *mockLogsServiceServer {
@@ -32,8 +36,16 @@ func (m *mockLogsServiceServer) Export(
 	_ context.Context,
 	req *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
+	m.muLogs.Lock()
+	defer m.muLogs.Unlock()
 	m.logs = req.GetResourceLogs()
 	return &collogspb.ExportLogsServiceResponse{}, nil
+}
+
+func (m *mockLogsServiceServer) getLogs() []*otlplogsv1.ResourceLogs {
+	m.muLogs.RLock()
+	defer m.muLogs.RUnlock()
+	return m.logs
 }
 
 type mockDateParser struct {

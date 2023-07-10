@@ -19,53 +19,43 @@ import (
 )
 
 var _ = Describe("otlp shipper", Ordered, Label("unit"), func() {
-	var (
-		mockServer *mockLogsServiceServer
-		grpcSrv    *grpc.Server
-		conn       *grpc.ClientConn
-		lis        *bufconn.Listener
-	)
-	BeforeAll(func() {
-		mockServer = newMockLogsServiceServer()
-		lis = bufconn.Listen(1024 * 1024)
-		grpcSrv = grpc.NewServer(
-			grpc.Creds(insecure.NewCredentials()),
-		)
-		collogspb.RegisterLogsServiceServer(grpcSrv, mockServer)
-		go grpcSrv.Serve(lis)
-		var err error
-		conn, err = grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-		Expect(err).NotTo(HaveOccurred())
-	})
-	AfterAll(func() {
-		conn.Close()
-		lis.Close()
-	})
-
-	When("otlp shipper has a log line is sent", func() {
-		var (
-			otlpShipper shipper.Shipper
-			scanner     *bufio.Scanner
-			timestamp   time.Time
-		)
-		BeforeEach(func() {
-			timestamp = time.Now()
-			otlpShipper = shipper.NewOTLPShipper(
+	When("otlp shipper has a log line is sent", Ordered, func() {
+		It("should publish logs with the log type", func() {
+			By("setting up the gRPC server")
+			mockServer := newMockLogsServiceServer()
+			lis := bufconn.Listen(1024 * 1024)
+			defer lis.Close()
+			grpcSrv := grpc.NewServer(
+				grpc.Creds(insecure.NewCredentials()),
+			)
+			collogspb.RegisterLogsServiceServer(grpcSrv, mockServer)
+			go grpcSrv.Serve(lis)
+			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+				return lis.DialContext(ctx)
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+			defer conn.Close()
+			Expect(err).NotTo(HaveOccurred())
+			timestamp := time.Now()
+			logLine := "this is a log line"
+			scanner := bufio.NewScanner(strings.NewReader(logLine))
+			otlpShipper := shipper.NewOTLPShipper(
 				conn,
 				&mockDateParser{timestamp: timestamp},
 				testlog.Log,
+				shipper.WithLogType("foo"),
 			)
-			logLine := "this is a log line"
-			scanner = bufio.NewScanner(strings.NewReader(logLine))
-		})
-		It("should publish logs with the log type", func() {
 			By("publishing logs")
-			err := otlpShipper.Publish(context.Background(), scanner)
+			err = otlpShipper.Publish(context.Background(), scanner)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(mockServer.logs).To(HaveLen(1))
-			resourceLog := mockServer.logs[0]
+			Eventually(mockServer.getLogs()).Should(HaveLen(1))
+			resourceLog := mockServer.getLogs()[0]
+			Expect(resourceLog.GetResource().GetAttributes()).To(HaveLen(1))
+			Expect(resourceLog.GetResource().GetAttributes()).To(ContainElement(
+				&otlpcommonv1.KeyValue{
+					Key:   "log_type",
+					Value: &otlpcommonv1.AnyValue{Value: &otlpcommonv1.AnyValue_StringValue{StringValue: "foo"}},
+				},
+			))
 
 			By("checking the log")
 			Expect(resourceLog.GetScopeLogs()).To(HaveLen(1))
@@ -77,84 +67,83 @@ var _ = Describe("otlp shipper", Ordered, Label("unit"), func() {
 			Expect(logRecord.GetTimeUnixNano()).To(Equal(uint64(timestamp.UnixNano())))
 			Expect(logRecord.GetBody().GetStringValue()).To(Equal("this is a log line"))
 		})
-		When("the shipper has a log type", func() {
-			var otlpShipper shipper.Shipper
-			BeforeEach(func() {
-				otlpShipper = shipper.NewOTLPShipper(
-					conn,
-					&mockDateParser{timestamp: timestamp},
-					testlog.Log,
-					shipper.WithLogType("foo"),
-				)
-			})
-			It("should attach the log type to the resource", func() {
-				err := otlpShipper.Publish(context.Background(), scanner)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(mockServer.logs).To(HaveLen(1))
-				resourceLog := mockServer.logs[0]
-				Expect(resourceLog.GetResource().GetAttributes()).To(HaveLen(1))
-				Expect(resourceLog.GetResource().GetAttributes()).To(ContainElement(
-					&otlpcommonv1.KeyValue{
-						Key:   "log_type",
-						Value: &otlpcommonv1.AnyValue{Value: &otlpcommonv1.AnyValue_StringValue{StringValue: "foo"}},
-					},
-				))
-			})
-		})
-		When("the shipper has a component type", func() {
-			var otlpShipper shipper.Shipper
-			BeforeEach(func() {
-				otlpShipper = shipper.NewOTLPShipper(
-					conn,
-					&mockDateParser{timestamp: timestamp},
-					testlog.Log,
-					shipper.WithComponent("bar"),
-				)
-			})
-			It("should attach the log type to the resource", func() {
-				err := otlpShipper.Publish(context.Background(), scanner)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(mockServer.logs).To(HaveLen(1))
-				resourceLog := mockServer.logs[0]
-				Expect(resourceLog.GetResource().GetAttributes()).To(HaveLen(2))
-				Expect(resourceLog.GetResource().GetAttributes()).To(ContainElement(
-					&otlpcommonv1.KeyValue{
-						Key:   "kubernetes_component",
-						Value: &otlpcommonv1.AnyValue{Value: &otlpcommonv1.AnyValue_StringValue{StringValue: "bar"}},
-					},
-				))
-			})
-		})
 	})
-	When("otlp shipper has multiple log lines sent", func() {
-		var (
-			otlpShipper shipper.Shipper
-			scanner     *bufio.Scanner
-			timestamp   time.Time
-		)
-		BeforeEach(func() {
-			timestamp = time.Now()
-			otlpShipper = shipper.NewOTLPShipper(
+	When("the shipper has a component type", func() {
+		It("should attach the log type to the resource", func() {
+			By("setting up the gRPC server")
+			mockServer := newMockLogsServiceServer()
+			lis := bufconn.Listen(1024 * 1024)
+			defer lis.Close()
+			grpcSrv := grpc.NewServer(
+				grpc.Creds(insecure.NewCredentials()),
+			)
+			collogspb.RegisterLogsServiceServer(grpcSrv, mockServer)
+			go grpcSrv.Serve(lis)
+			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+				return lis.DialContext(ctx)
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+			defer conn.Close()
+			Expect(err).NotTo(HaveOccurred())
+
+			timestamp := time.Now()
+			logLine := "this is a log line"
+			scanner := bufio.NewScanner(strings.NewReader(logLine))
+
+			otlpShipper := shipper.NewOTLPShipper(
 				conn,
 				&mockDateParser{timestamp: timestamp},
 				testlog.Log,
+				shipper.WithLogType("foo"),
+				shipper.WithComponent("bar"),
 			)
+			err = otlpShipper.Publish(context.Background(), scanner)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(mockServer.getLogs()).Should(HaveLen(1))
+			resourceLog := mockServer.getLogs()[0]
+			Expect(resourceLog.GetResource().GetAttributes()).To(HaveLen(2))
+			Expect(resourceLog.GetResource().GetAttributes()).To(ContainElement(
+				&otlpcommonv1.KeyValue{
+					Key:   "kubernetes_component",
+					Value: &otlpcommonv1.AnyValue{Value: &otlpcommonv1.AnyValue_StringValue{StringValue: "bar"}},
+				},
+			))
+		})
+	})
+	When("otlp shipper has multiple log lines sent", func() {
+		It("should batch the logs together", func() {
+			By("setting up the gRPC server")
+			mockServer := newMockLogsServiceServer()
+			lis := bufconn.Listen(1024 * 1024)
+			defer lis.Close()
+			grpcSrv := grpc.NewServer(
+				grpc.Creds(insecure.NewCredentials()),
+			)
+			collogspb.RegisterLogsServiceServer(grpcSrv, mockServer)
+			go grpcSrv.Serve(lis)
+			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+				return lis.DialContext(ctx)
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+			defer conn.Close()
+			Expect(err).NotTo(HaveOccurred())
+			timestamp := time.Now()
 			logs := `this is the first log line
 this is the second log line
 this is the third log line
 this is the fourth log line
 this is the fifth log line
 `
-			scanner = bufio.NewScanner(strings.NewReader(logs))
-		})
-		It("should batch the logs together", func() {
+			scanner := bufio.NewScanner(strings.NewReader(logs))
+			otlpShipper := shipper.NewOTLPShipper(
+				conn,
+				&mockDateParser{timestamp: timestamp},
+				testlog.Log,
+			)
 			By("publishing logs")
-			err := otlpShipper.Publish(context.Background(), scanner)
+			err = otlpShipper.Publish(context.Background(), scanner)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(mockServer.logs).To(HaveLen(1))
-			resourceLog := mockServer.logs[0]
+			Eventually(mockServer.getLogs()).Should(HaveLen(1))
+			resourceLog := mockServer.getLogs()[0]
 
 			By("checking the log")
 			Expect(resourceLog.GetScopeLogs()).To(HaveLen(1))

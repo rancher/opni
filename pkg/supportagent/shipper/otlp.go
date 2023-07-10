@@ -25,9 +25,14 @@ type otlpShipper struct {
 	converter              *adapter.Converter
 	collectedErrorMessages []string
 	failureCount           int
-	readingDone            chan struct{}
-	wg                     sync.WaitGroup
-	lg                     *zap.SugaredLogger
+
+	wg sync.WaitGroup
+	lg *zap.SugaredLogger
+
+	rMutex      sync.RWMutex
+	readingDone bool
+
+	wgCounter sync.WaitGroup
 }
 
 type otlpShipperOptions struct {
@@ -37,33 +42,33 @@ type otlpShipperOptions struct {
 	workers   int
 }
 
-type otlpShipperOption func(*otlpShipperOptions)
+type OTLPShipperOption func(*otlpShipperOptions)
 
-func (o *otlpShipperOptions) apply(opts ...otlpShipperOption) {
+func (o *otlpShipperOptions) apply(opts ...OTLPShipperOption) {
 	for _, opt := range opts {
 		opt(o)
 	}
 }
 
-func WithComponent(component string) otlpShipperOption {
+func WithComponent(component string) OTLPShipperOption {
 	return func(o *otlpShipperOptions) {
 		o.component = component
 	}
 }
 
-func WithLogType(logType string) otlpShipperOption {
+func WithLogType(logType string) OTLPShipperOption {
 	return func(o *otlpShipperOptions) {
 		o.logType = logType
 	}
 }
 
-func WithBatchSize(batchSize int) otlpShipperOption {
+func WithBatchSize(batchSize int) OTLPShipperOption {
 	return func(o *otlpShipperOptions) {
 		o.batchSize = batchSize
 	}
 }
 
-func WithWorkers(workers int) otlpShipperOption {
+func WithWorkers(workers int) OTLPShipperOption {
 	return func(o *otlpShipperOptions) {
 		o.workers = workers
 	}
@@ -73,7 +78,7 @@ func NewOTLPShipper(
 	cc grpc.ClientConnInterface,
 	parser dateparser.DateParser,
 	lg *zap.SugaredLogger,
-	opts ...otlpShipperOption,
+	opts ...OTLPShipperOption,
 ) Shipper {
 	options := otlpShipperOptions{
 		batchSize: 50,
@@ -85,7 +90,6 @@ func NewOTLPShipper(
 		client:             collogspb.NewLogsServiceClient(cc),
 		dateParser:         parser,
 		converter:          adapter.NewConverter(lg.Desugar()),
-		readingDone:        make(chan struct{}),
 		lg:                 lg,
 	}
 }
@@ -114,8 +118,10 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 			if len(entries) >= s.batchSize {
 				s.lg.Infof("batching %d logs", len(entries))
 
+				s.wgCounter.Add(1)
 				err := s.converter.Batch(entries)
 				if err != nil {
+					s.wgCounter.Done()
 					s.lg.Errorw("failed to batch logs", zap.Error(err))
 					s.failureCount += len(entries)
 					s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
@@ -139,11 +145,15 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 		continueScan = tokens.Scan()
 	}
 	// Once we've finished the scan, we need to ship the last log
-	entries = append(entries, previousEnt)
+	if previousEnt != nil {
+		entries = append(entries, previousEnt)
+	}
 
 	if len(entries) > 0 {
+		s.wgCounter.Add(1)
 		err := s.converter.Batch(entries)
 		if err != nil {
+			s.wgCounter.Done()
 			s.lg.Errorw("failed to batch logs", zap.Error(err))
 			s.failureCount += len(entries)
 			s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
@@ -154,8 +164,13 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 		s.lg.Errorw("failed to scan logs", zap.Error(err))
 	}
 
-	close(s.readingDone)
+	// wait for batching to finish
+	s.wgCounter.Wait()
+
 	// wait for shipping to finish
+	s.rMutex.Lock()
+	s.readingDone = true
+	s.rMutex.Unlock()
 	s.lg.Info("waiting for shipping to finish")
 	s.wg.Wait()
 	if s.failureCount > 0 {
@@ -171,18 +186,22 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 func (s *otlpShipper) shipLogs(ctx context.Context) {
 	defer s.wg.Done()
 	for {
+		s.rMutex.RLock()
 		select {
 		case <-ctx.Done():
 			s.lg.Info("context cancelled, stopping shipping")
+			s.rMutex.RUnlock()
 			return
 		case logs := <-s.converter.OutChannel():
 			s.exportLogs(ctx, logs)
+			s.wgCounter.Done()
+			s.rMutex.RUnlock()
 		default:
-			select {
-			case <-s.readingDone:
+			if s.readingDone {
+				s.rMutex.RUnlock()
 				return
-			default:
 			}
+			s.rMutex.RUnlock()
 		}
 	}
 }

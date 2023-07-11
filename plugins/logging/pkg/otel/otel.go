@@ -11,18 +11,22 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/supportagent"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
 const (
 	defaultAddress = "http://localhost:8080"
 	clusterIDKey   = "cluster_id"
+	nodeNameKey    = "node_name"
+	caseNumberKey  = "case_number"
 )
 
 type OTELForwarder struct {
@@ -137,29 +141,54 @@ func (f *OTELForwarder) Export(
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
 	clusterID := cluster.StreamAuthorizedID(ctx)
+	addValueToResource(request, clusterIDKey, clusterID)
 
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return f.forwardLogs(ctx, request)
+	}
+
+	values := md.Get(supportagent.AttributeValuesKey)
+
+	if len(values) < 2 {
+		return f.forwardLogs(ctx, request)
+	}
+
+	if len(values)%2 != 0 {
+		f.lg.Warnf("invalid number of attribute values: %d", len(values))
+		return f.forwardLogs(ctx, request)
+	}
+
+	for i := 0; i < len(values); i += 2 {
+		key := values[i]
+		value := values[i+1]
+		addValueToResource(request, key, value)
+	}
+
+	return f.forwardLogs(ctx, request)
+}
+
+func addValueToResource(request *collogspb.ExportLogsServiceRequest, key, value string) {
 	logs := request.GetResourceLogs()
 	for _, log := range logs {
 		resource := log.GetResource()
-		if resource != nil && !clusterIDExists(resource.GetAttributes()) {
+		if resource != nil && !keyExists(resource.GetAttributes(), key) {
 			resource.Attributes = append(resource.Attributes, &otlpcommonv1.KeyValue{
-				Key: clusterIDKey,
+				Key: key,
 				Value: &otlpcommonv1.AnyValue{
 					Value: &otlpcommonv1.AnyValue_StringValue{
-						StringValue: clusterID,
+						StringValue: value,
 					},
 				},
 			})
 		}
 	}
 	request.ResourceLogs = logs
-
-	return f.forwardLogs(ctx, request)
 }
 
-func clusterIDExists(attr []*otlpcommonv1.KeyValue) bool {
+func keyExists(attr []*otlpcommonv1.KeyValue, key string) bool {
 	for _, kv := range attr {
-		if kv.GetKey() == clusterIDKey {
+		if kv.GetKey() == key {
 			return true
 		}
 	}

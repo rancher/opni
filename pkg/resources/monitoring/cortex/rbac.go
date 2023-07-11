@@ -16,5 +16,5 @@ func (r *Reconciler) serviceAccount() resources.Resource {
 		},
 		AutomountServiceAccountToken: lo.ToPtr(true),
 	}
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, sa)
+	return resources.PresentIff(lo.FromPtr(r.mc.Spec.Cortex.Enabled), sa)
 }

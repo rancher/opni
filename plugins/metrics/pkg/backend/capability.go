@@ -36,7 +36,7 @@ func (m *MetricsBackend) CanInstall(_ context.Context, _ *emptypb.Empty) (*empty
 }
 
 func (m *MetricsBackend) canInstall(ctx context.Context) error {
-	stat, err := m.ClusterDriver.GetClusterStatus(ctx, &emptypb.Empty{})
+	stat, err := m.ClusterDriver.Status(ctx, &emptypb.Empty{})
 	if err != nil {
 		return status.Error(codes.Unavailable, err.Error())
 	}

@@ -1,40 +1,37 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/descriptor.proto";
-import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
-import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
-import "google/protobuf/duration.proto";
-
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
 
 package node.metrics;
+
+import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
+import "google/api/annotations.proto";
+import "google/api/http.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
 
 // The NodeMetricsCapability service serves implementation-specific config
 // for metrics capability nodes.
 // Served as a stream API extension.
 service NodeMetricsCapability {
   rpc Sync(SyncRequest) returns (SyncResponse);
-
-
-
 }
 
 // The NodeConfiguration service allows for per-node configuration of the
 // metrics capability.
 // Served as a management API extension.
 service NodeConfiguration {
-  rpc GetDefaultConfiguration(google.protobuf.Empty) returns (MetricsCapabilitySpec) {
+  rpc GetDefaultNodeConfiguration(google.protobuf.Empty) returns (MetricsCapabilitySpec) {
     option (google.api.http) = {
       get: "/node_config"
     };
   }
-  rpc SetDefaultConfiguration(MetricsCapabilitySpec) returns (google.protobuf.Empty) {
+  rpc SetDefaultNodeConfiguration(MetricsCapabilitySpec) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/node_config"
+      put:  "/node_config"
       body: "*"
     };
   }
@@ -45,7 +42,7 @@ service NodeConfiguration {
   }
   rpc SetNodeConfiguration(NodeConfigRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/node_config/{node.id}"
+      put:  "/node_config/{node.id}"
       body: "*"
     };
   }
@@ -62,8 +59,8 @@ message MetricsCapabilityConfig {
   bool enabled = 1;
   // If enabled is false, conditions may contain a list of relevant status
   // messages describing why the capability is disabled.
-  repeated string conditions = 2;
-  MetricsCapabilitySpec spec = 3;
+  repeated string       conditions = 2;
+  MetricsCapabilitySpec spec       = 3;
 }
 
 message MetricsCapabilitySpec {
@@ -83,13 +80,13 @@ message PrometheusSpec {
 
 message OTELSpec {
   repeated ScrapeConfig additionalScrapeConfigs = 1;
-  WALConfig wal = 2;
-  optional bool hostMetrics = 3;
+  WALConfig             wal                     = 2;
+  optional bool         hostMetrics             = 3;
 }
 
 message WALConfig {
-  bool enabled = 1;
-  int64 bufferSize = 2;
+  bool                     enabled           = 1;
+  int64                    bufferSize        = 2;
   google.protobuf.Duration truncateFrequency = 3;
 }
 
@@ -98,18 +95,18 @@ message SyncRequest {
 }
 
 message ScrapeConfig {
-  string jobName = 1;
-  repeated string targets = 2;
-  string scrapeInterval = 3;
+  string          jobName        = 1;
+  repeated string targets        = 2;
+  string          scrapeInterval = 3;
 }
 
 enum ConfigStatus {
-  Unknown = 0;
-  UpToDate = 1;
+  Unknown     = 0;
+  UpToDate    = 1;
   NeedsUpdate = 2;
 }
 
 message SyncResponse {
-  ConfigStatus configStatus = 1;
+  ConfigStatus            configStatus  = 1;
   MetricsCapabilityConfig updatedConfig = 2;
 }

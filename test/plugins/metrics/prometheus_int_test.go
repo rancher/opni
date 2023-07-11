@@ -33,9 +33,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 		client = environment.NewManagementClient()
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-		})
+		_, err := opsClient.Install(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})

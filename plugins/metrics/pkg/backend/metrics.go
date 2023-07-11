@@ -16,13 +16,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -36,10 +34,10 @@ import (
 type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
-	node.UnsafeNodeConfigurationServer
-	cortexops.UnsafeCortexOpsServer
 	remoteread.UnsafeRemoteReadGatewayServer
 	MetricsBackendConfig
+	OpsBackend  *OpsServiceBackend
+	NodeBackend *NodeServiceBackend
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
@@ -52,8 +50,6 @@ type MetricsBackend struct {
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
-var _ node.NodeConfigurationServer = (*MetricsBackend)(nil)
-var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
 var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
@@ -68,8 +64,9 @@ type MetricsBackendConfig struct {
 }
 
 type KVClients struct {
-	DefaultCapabilitySpec storage.ValueStoreT[*node.MetricsCapabilitySpec]
-	NodeCapabilitySpecs   storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
+	DefaultClusterConfigurationSpec storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
+	DefaultCapabilitySpec           storage.ValueStoreT[*node.MetricsCapabilitySpec]
+	NodeCapabilitySpecs             storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -234,55 +231,4 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 		ConfigStatus:  node.ConfigStatus_NeedsUpdate,
 		UpdatedConfig: new,
 	}
-}
-
-func (m *MetricsBackend) GetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*node.MetricsCapabilitySpec, error) {
-	m.WaitForInit()
-	return m.getDefaultNodeSpec(ctx)
-}
-
-func (m *MetricsBackend) GetNodeConfiguration(ctx context.Context, node *v1.Reference) (*node.MetricsCapabilitySpec, error) {
-	m.WaitForInit()
-	return m.getNodeSpecOrDefault(ctx, node.GetId())
-}
-
-func (m *MetricsBackend) SetDefaultConfiguration(ctx context.Context, conf *node.MetricsCapabilitySpec) (*emptypb.Empty, error) {
-	m.WaitForInit()
-	var empty node.MetricsCapabilitySpec
-	if cmp.Equal(conf, &empty, protocmp.Transform()) {
-		if err := m.KV.DefaultCapabilitySpec.Delete(ctx); err != nil {
-			return nil, err
-		}
-		m.requestNodeSync(ctx, &corev1.Reference{})
-		return &emptypb.Empty{}, nil
-	}
-	if err := conf.Validate(); err != nil {
-		return nil, err
-	}
-	if err := m.KV.DefaultCapabilitySpec.Put(ctx, conf); err != nil {
-		return nil, err
-	}
-	m.requestNodeSync(ctx, &corev1.Reference{})
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-	if req.Spec == nil {
-		if err := m.KV.NodeCapabilitySpecs.Delete(ctx, req.Node.GetId()); err != nil {
-			return nil, err
-		}
-		m.requestNodeSync(ctx, req.Node)
-		return &emptypb.Empty{}, nil
-	}
-	if err := req.Spec.Validate(); err != nil {
-		return nil, err
-	}
-
-	if err := m.KV.NodeCapabilitySpecs.Put(ctx, req.Node.GetId(), req.GetSpec()); err != nil {
-		return nil, err
-	}
-
-	m.requestNodeSync(ctx, req.Node)
-	return &emptypb.Empty{}, nil
 }

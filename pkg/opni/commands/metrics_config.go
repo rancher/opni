@@ -26,7 +26,7 @@ func BuildMetricsConfigCmd() *cobra.Command {
 		Short: "View and configure the metrics capability",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defaultConfig, err := nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			defaultConfig, err := nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -208,7 +208,7 @@ func BuildMetricsConfigSetDefaultCmd() *cobra.Command {
 			} else {
 				// fetch the current spec, open it in an editor (json), and then
 				// parse the result
-				spec, err = nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+				spec, err = nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 				if err != nil {
 					return err
 				}
@@ -223,7 +223,7 @@ func BuildMetricsConfigSetDefaultCmd() *cobra.Command {
 				spec = updated
 			}
 
-			_, err = nodeConfigClient.SetDefaultConfiguration(cmd.Context(), spec)
+			_, err = nodeConfigClient.SetDefaultNodeConfiguration(cmd.Context(), spec)
 			if err != nil {
 				return err
 			}
@@ -240,7 +240,7 @@ func BuildMetricsConfigGetDefaultCmd() *cobra.Command {
 		Short: "Get the default metrics configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			spec, err := nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			spec, err := nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -258,7 +258,7 @@ func BuildMetricsConfigResetDefaultCmd() *cobra.Command {
 		Short: "Reset the default metrics configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := nodeConfigClient.SetDefaultConfiguration(cmd.Context(), &node.MetricsCapabilitySpec{})
+			_, err := nodeConfigClient.SetDefaultNodeConfiguration(cmd.Context(), &node.MetricsCapabilitySpec{})
 			if err != nil {
 				return err
 			}

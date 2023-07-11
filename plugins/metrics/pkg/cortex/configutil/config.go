@@ -228,36 +228,84 @@ type CortexConfigOverrider interface {
 	inputType() reflect.Type
 }
 
-// These are overrides that are required when running Cortex in HA mode.
-func NewHAOverrides() []CortexConfigOverrider {
+// These overrides will automatically apply additional settings when deploying
+// components in separate targets, rather than using the 'all' target.
+func NewAutomaticHAOverrides() []CortexConfigOverrider {
+	const (
+		unknown = iota
+		aio
+		ha
+	)
+	detectedMode := unknown
 	return []CortexConfigOverrider{
+		NewOverrider(func(in *cortex.Config) {
+			targets := in.Target
+			if len(targets) == 1 && targets[0] == "all" {
+				detectedMode = aio
+			} else if len(targets) > 1 {
+				detectedMode = ha
+			}
+		}),
 		NewOverrider(func(in *kv.Config) {
-			in.Store = "memberlist"
+			if detectedMode == ha {
+				in.Store = "memberlist"
+			}
 		}),
 		NewOverrider(func(in *ring.LifecyclerConfig) {
-			in.JoinAfter = 10 * time.Second
-			in.ObservePeriod = 10 * time.Second
+			if detectedMode == ha {
+				in.JoinAfter = 10 * time.Second
+				in.ObservePeriod = 10 * time.Second
+			}
 		}),
 		NewOverrider(func(in *ring.Config) {
-			in.ReplicationFactor = 3
+			switch detectedMode {
+			case aio:
+				in.ReplicationFactor = 1
+			case ha:
+				if in.ReplicationFactor < 3 {
+					in.ReplicationFactor = 3
+				}
+			}
 		}),
 		NewOverrider(func(in *ruler.Config) {
-			in.EnableSharding = true
+			if detectedMode == ha {
+				in.EnableSharding = true
+			}
 		}),
 		NewOverrider(func(in *storegateway.Config) {
-			in.ShardingEnabled = true
+			if detectedMode == ha {
+				in.ShardingEnabled = true
+			}
 		}),
 		NewOverrider(func(in *storegateway.RingConfig) {
-			in.ReplicationFactor = 3
+			switch detectedMode {
+			case aio:
+				in.ReplicationFactor = 1
+			case ha:
+				if in.ReplicationFactor < 3 {
+					in.ReplicationFactor = 3
+				}
+			}
 		}),
 		NewOverrider(func(in *alertmanager.RingConfig) {
-			in.ReplicationFactor = 3
+			switch detectedMode {
+			case aio:
+				in.ReplicationFactor = 1
+			case ha:
+				if in.ReplicationFactor < 3 {
+					in.ReplicationFactor = 3
+				}
+			}
 		}),
 		NewOverrider(func(in *alertmanager.MultitenantAlertmanagerConfig) {
-			in.ShardingEnabled = true
+			if detectedMode == ha {
+				in.ShardingEnabled = true
+			}
 		}),
 		NewOverrider(func(in *compactor.Config) {
-			in.ShardingEnabled = true
+			if detectedMode == ha {
+				in.ShardingEnabled = true
+			}
 		}),
 	}
 }

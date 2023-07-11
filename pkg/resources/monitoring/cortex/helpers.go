@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -180,60 +179,9 @@ func VolumeClaimTemplates(templates ...corev1.PersistentVolumeClaim) CortexWorkl
 	}
 }
 
-func WithOverrides(spec *corev1beta1.CortexWorkloadSpec) CortexWorkloadOption {
-	return func(o *CortexWorkloadOptions) {
-		if spec == nil {
-			return
-		}
-		if spec.Replicas != nil {
-			o.replicas = *spec.Replicas
-		}
-		if spec.ExtraVolumes != nil {
-			o.extraVolumes = append(o.extraVolumes, spec.ExtraVolumes...)
-		}
-		if spec.ExtraVolumeMounts != nil {
-			o.extraVolumeMounts = append(o.extraVolumeMounts, spec.ExtraVolumeMounts...)
-		}
-		if spec.ExtraEnvVars != nil {
-			o.extraEnvVars = append(o.extraEnvVars, spec.ExtraEnvVars...)
-		}
-		if spec.ExtraArgs != nil {
-			o.extraArgs = append(o.extraArgs, spec.ExtraArgs...)
-		}
-		if spec.SidecarContainers != nil {
-			o.sidecarContainers = append(o.sidecarContainers, spec.SidecarContainers...)
-		}
-		if spec.InitContainers != nil {
-			o.initContainers = append(o.initContainers, spec.InitContainers...)
-		}
-		if spec.DeploymentStrategy != nil {
-			o.deploymentStrategy = *spec.DeploymentStrategy
-		}
-		if spec.UpdateStrategy != nil {
-			o.updateStrategy = *spec.UpdateStrategy
-		}
-		if spec.SecurityContext != nil {
-			o.securityContext = *spec.SecurityContext
-		}
-		if spec.Affinity != nil {
-			o.affinity = *spec.Affinity
-		}
-	}
-}
-
 func (r *Reconciler) defaultWorkloadOptions(target string) CortexWorkloadOptions {
-	defaultReplicas := func() int32 {
-		switch r.mc.Spec.Cortex.DeploymentMode {
-		case corev1beta1.DeploymentModeAllInOne:
-			return 1
-		case corev1beta1.DeploymentModeHighlyAvailable:
-			return 3
-		}
-		return 0
-	}
-
 	options := CortexWorkloadOptions{
-		replicas:    defaultReplicas(),
+		replicas:    0,
 		ports:       []Port{HTTP, Gossip, GRPC},
 		serviceName: fmt.Sprintf("cortex-%s", target),
 		securityContext: corev1.SecurityContext{
@@ -274,6 +222,30 @@ func (r *Reconciler) defaultWorkloadOptions(target string) CortexWorkloadOptions
 	}
 
 	return options
+}
+
+func (r *Reconciler) buildCortexDeploymentMeta(target string) *appsv1.Deployment {
+	labels := cortexWorkloadLabels(target)
+
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("cortex-%s", target),
+			Namespace: r.mc.Namespace,
+			Labels:    labels,
+		},
+	}
+}
+
+func (r *Reconciler) buildCortexStatefulSetMeta(target string) *appsv1.StatefulSet {
+	labels := cortexWorkloadLabels(target)
+
+	return &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("cortex-%s", target),
+			Namespace: r.mc.Namespace,
+			Labels:    labels,
+		},
+	}
 }
 
 func (r *Reconciler) buildCortexDeployment(
@@ -417,7 +389,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					LivenessProbe:   mtlsProbe,
 					ReadinessProbe:  mtlsProbe,
 					SecurityContext: &options.securityContext,
-					Env:             r.mc.Spec.Cortex.ExtraEnvVars,
+					Env:             options.extraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
 						{
 							Name:      "data",
@@ -564,13 +536,7 @@ func (r *Reconciler) buildCortexWorkloadServices(
 	options := CortexServiceOptions{}
 	options.apply(opts...)
 
-	var targetLabels map[string]string
-	switch r.mc.Spec.Cortex.DeploymentMode {
-	case corev1beta1.DeploymentModeAllInOne:
-		targetLabels = cortexWorkloadLabels("all")
-	case corev1beta1.DeploymentModeHighlyAvailable:
-		targetLabels = cortexWorkloadLabels(target)
-	}
+	targetLabels := cortexWorkloadLabels(target)
 
 	httpPort := corev1.ServicePort{
 		Name:       "http-metrics",

@@ -11,12 +11,14 @@ import (
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/cortexproject/cortex/pkg/storage/tsdb"
 	"github.com/go-kit/log"
+	"github.com/kralicky/gpkg/sync/atomic"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util/merge"
+	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -25,6 +27,7 @@ import (
 	metrics_agent_drivers "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -80,23 +83,195 @@ func init() {
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
 
-	lock         sync.Mutex
-	state        cortexops.InstallState
+	lock         sync.RWMutex
+	state        atomic.Value[cortexops.InstallState]
 	cortexCtx    context.Context
 	cortexCancel context.CancelFunc
 
-	Env           *test.Environment
-	Configuration *cortexops.ClusterConfiguration
+	Env             *test.Environment
+	ResourceVersion string
+	activeConfig    *cortexops.CapabilityBackendConfigSpec
+	configTracker   *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
 }
 
-func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
-	defaultConf := &cortexops.ClusterConfiguration{}
-	defaultConf.LoadDefaults()
-	return &TestEnvMetricsClusterDriver{
-		Env:           env,
-		Configuration: defaultConf,
-		state:         cortexops.InstallState_NotInstalled,
+// ListPresets implements cortexops.CortexOpsServer.
+func (*TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empty) (*cortexops.PresetList, error) {
+	return &cortexops.PresetList{
+		Items: []*cortexops.Preset{
+			{
+				Id: &corev1.Reference{Id: "test-environment"},
+				Metadata: map[string]string{
+					"displayName": "Test Environment",
+					"description": "Cortex deployment for the test environment",
+				},
+				Spec: &cortexops.CapabilityBackendConfigSpec{
+					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
+						Targets: map[string]*cortexops.CortexWorkloadSpec{
+							"all": {
+								Replicas: 1,
+							},
+						},
+					},
+					CortexConfig: &cortexops.CortexApplicationConfig{
+						LogLevel: "warn",
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	err := k.configTracker.SetConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
+		Enabled: lo.ToPtr[bool](false),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to uninstall monitoring cluster: %s", err.Error())
 	}
+	return &emptypb.Empty{}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	err := k.configTracker.SetConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
+		Enabled: lo.ToPtr[bool](true),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to install monitoring cluster: %s", err.Error())
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) GetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
+	return k.configTracker.GetDefaultConfig(ctx)
+}
+
+func (k *TestEnvMetricsClusterDriver) SetDefaultConfiguration(ctx context.Context, spec *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+	spec.Enabled = nil
+	if err := k.configTracker.SetDefaultConfig(ctx, spec); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if err := k.configTracker.ResetDefaultConfig(ctx); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) GetConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
+	return k.configTracker.GetConfig(ctx)
+}
+
+func (d *TestEnvMetricsClusterDriver) SetConfiguration(ctx context.Context, conf *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+	conf.Enabled = nil
+	if err := d.configTracker.SetConfig(ctx, conf); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (k *TestEnvMetricsClusterDriver) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if err := k.configTracker.ResetConfig(ctx); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+var _ cortexops.CortexOpsServer = (*TestEnvMetricsClusterDriver)(nil)
+
+func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
+	d := &TestEnvMetricsClusterDriver{
+		Env: env,
+	}
+	d.state.Store(cortexops.InstallState_NotInstalled)
+	defaultStore := storage.NewInMemoryValueStore[*cortexops.CapabilityBackendConfigSpec]()
+	activeStore := storage.NewInMemoryValueStore[*cortexops.CapabilityBackendConfigSpec](d.onActiveConfigChanged)
+	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
+		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
+	)
+	return d
+}
+
+func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.CapabilityBackendConfigSpec) {
+	if !d.lock.TryLock() {
+		start := time.Now()
+		d.Env.Logger.Info("Waiting for a previous config update to complete...")
+		d.lock.Lock()
+		d.Env.Logger.With(
+			zap.Duration("waited", time.Since(start)),
+		).Info("Previous config update completed, continuing")
+	}
+	defer d.lock.Unlock()
+
+	d.Env.Logger.With(
+		zap.Any("old", old),
+		zap.Any("new", new),
+	).Info("Config changed")
+
+	oldCtx, oldCancel := d.cortexCtx, d.cortexCancel
+
+	ctx, ca := context.WithCancel(waitctx.FromContext(d.Env.Context()))
+	d.cortexCtx = ctx
+	d.cortexCancel = ca
+
+	if oldCancel != nil {
+		oldCancel()
+		waitctx.Wait(oldCtx)
+	}
+
+	if !new.GetEnabled() {
+		d.state.Store(cortexops.InstallState_NotInstalled)
+		return
+	}
+
+	d.state.Store(cortexops.InstallState_Updating)
+
+	d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions) ([]byte, []byte, error) {
+		cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(d.activeConfig.GetCortexConfig(),
+			configutil.MergeOverrideLists(
+				configutil.NewAutomaticHAOverrides(),
+				configutil.NewStandardOverrides(cco),
+				[]configutil.CortexConfigOverrider{
+					configutil.NewOverrider(func(t *ring.LifecyclerConfig) {
+						t.Addr = "localhost"
+						t.JoinAfter = 1 * time.Millisecond
+						t.MinReadyDuration = 1 * time.Millisecond
+						t.FinalSleep = 1 * time.Millisecond
+					}),
+					configutil.NewOverrider(func(t *ruler.Config) {
+						t.EvaluationInterval = 1 * time.Second
+						t.PollInterval = 1 * time.Second
+					}),
+					configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) {
+						t.SyncInterval = 10 * time.Second
+					}),
+				},
+			)...,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if err := cconf.Validate(log.NewNopLogger()); err != nil {
+			d.Env.Logger.With(
+				zap.Error(err),
+			).Warn("Cortex config failed validation (ignoring)")
+		}
+
+		cconfBytes, err := configutil.MarshalCortexConfig(cconf)
+		if err != nil {
+			return nil, nil, err
+		}
+		rtconfBytes, err := configutil.MarshalRuntimeConfig(rtconf)
+		if err != nil {
+			return nil, nil, err
+		}
+		return cconfBytes, rtconfBytes, nil
+	})
+
+	d.state.Store(cortexops.InstallState_Installed)
 }
 
 func NewTestEnvPrometheusNodeDriver(env *test.Environment) *TestEnvPrometheusNodeDriver {
@@ -116,10 +291,10 @@ func (d *TestEnvMetricsClusterDriver) Name() string {
 }
 
 func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 
-	switch d.state {
+	switch d.state.Load() {
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
 		return status.Error(codes.Unavailable, fmt.Sprintf("Cortex cluster is not installed"))
 	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
@@ -132,134 +307,15 @@ func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) error
 	}
 }
 
-func (d *TestEnvMetricsClusterDriver) GetClusterConfiguration(context.Context, *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	if d.state == cortexops.InstallState_NotInstalled {
-		return nil, status.Error(codes.NotFound, "Cortex cluster is not installed")
-	}
-	return d.Configuration, nil
-}
-
-func (d *TestEnvMetricsClusterDriver) ConfigureCluster(_ context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	switch d.state {
-	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Installed:
-		d.state = cortexops.InstallState_Updating
-	case cortexops.InstallState_Updating:
-		return nil, status.Error(codes.FailedPrecondition, "cluster is already being updated")
-	case cortexops.InstallState_Uninstalling:
-		return nil, status.Error(codes.FailedPrecondition, "cluster is currently being uninstalled")
-	default:
-		panic("bug: unknown state")
-	}
-
-	oldCtx, oldCancel := d.cortexCtx, d.cortexCancel
-
-	ctx, ca := context.WithCancel(waitctx.FromContext(d.Env.Context()))
-	d.cortexCtx = ctx
-	d.cortexCancel = ca
-	merge.MergeOptions{
-		ReplaceLists: true,
-	}.Merge(d.Configuration, conf)
-
-	go func() {
-		if oldCancel != nil {
-			oldCancel()
-			waitctx.Wait(oldCtx)
-		}
-		d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions) ([]byte, []byte, error) {
-			cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(d.Configuration.Cortex,
-				configutil.MergeOverrideLists(
-					configutil.NewStandardOverrides(cco),
-					[]configutil.CortexConfigOverrider{
-						configutil.NewOverrider(func(t *ring.LifecyclerConfig) {
-							t.Addr = "localhost"
-							t.JoinAfter = 1 * time.Millisecond
-							t.MinReadyDuration = 1 * time.Millisecond
-							t.FinalSleep = 1 * time.Millisecond
-						}),
-						configutil.NewOverrider(func(t *ruler.Config) {
-							t.EvaluationInterval = 1 * time.Second
-							t.PollInterval = 1 * time.Second
-						}),
-						configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) {
-							t.SyncInterval = 10 * time.Second
-						}),
-					},
-				)...,
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			if err := cconf.Validate(log.NewNopLogger()); err != nil {
-				d.Env.Logger.With(
-					zap.Error(err),
-				).Warn("Cortex config failed validation (ignoring)")
-			}
-
-			cconfBytes, err := configutil.MarshalCortexConfig(cconf)
-			if err != nil {
-				return nil, nil, err
-			}
-			rtconfBytes, err := configutil.MarshalRuntimeConfig(rtconf)
-			if err != nil {
-				return nil, nil, err
-			}
-			return cconfBytes, rtconfBytes, nil
-		})
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		d.state = cortexops.InstallState_Installed
-	}()
-
-	return &emptypb.Empty{}, nil
-}
-
-func (d *TestEnvMetricsClusterDriver) GetClusterStatus(context.Context, *emptypb.Empty) (*cortexops.InstallStatus, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+func (d *TestEnvMetricsClusterDriver) Status(context.Context, *emptypb.Empty) (*cortexops.InstallStatus, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 
 	return &cortexops.InstallStatus{
-		State:    d.state,
+		State:    d.state.Load(),
 		Version:  cortexVersion,
 		Metadata: map[string]string{"test-environment": "true"},
 	}, nil
-}
-
-func (d *TestEnvMetricsClusterDriver) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	switch d.state {
-	case cortexops.InstallState_NotInstalled:
-		return nil, status.Error(codes.FailedPrecondition, "cluster is not installed")
-	case cortexops.InstallState_Installed, cortexops.InstallState_Updating:
-		d.state = cortexops.InstallState_Uninstalling
-	case cortexops.InstallState_Uninstalling:
-		return nil, status.Error(codes.FailedPrecondition, "cluster is already being uninstalled")
-	default:
-		panic("bug: unknown state")
-	}
-
-	oldCtx, oldCancel := d.cortexCtx, d.cortexCancel
-
-	go func() {
-		if oldCancel != nil {
-			oldCancel()
-			waitctx.Wait(oldCtx)
-		}
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		d.cortexCtx = nil
-		d.cortexCancel = nil
-		d.state = cortexops.InstallState_NotInstalled
-	}()
-
-	return &emptypb.Empty{}, nil
 }
 
 type TestEnvPrometheusNodeDriver struct {

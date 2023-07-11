@@ -45,9 +45,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		environment.StartPrometheus(agentId)
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-		})
+		_, err = opsClient.Install(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
 		mgmtClient := environment.NewManagementClient()

@@ -86,6 +86,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
 		backendKvClients:    future.New[*backend.KVClients](),
 	}
+	p.metrics.OpsBackend = &backend.OpsServiceBackend{MetricsBackend: &p.metrics}
+	p.metrics.NodeBackend = &backend.NodeServiceBackend{MetricsBackend: &p.metrics}
 
 	future.Wait2(p.cortexClientSet, p.config,
 		func(cortexClientSet cortex.ClientSet, config *v1beta1.GatewayConfig) {
@@ -174,9 +176,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 	)
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, &p.cortexAdmin),
-		util.PackService(&cortexops.CortexOps_ServiceDesc, &p.metrics),
+		util.PackService(&cortexops.CortexOps_ServiceDesc, p.metrics.OpsBackend),
 		util.PackService(&remoteread.RemoteReadGateway_ServiceDesc, &p.metrics),
-		util.PackService(&node.NodeConfiguration_ServiceDesc, &p.metrics),
+		util.PackService(&node.NodeConfiguration_ServiceDesc, p.metrics.NodeBackend),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))

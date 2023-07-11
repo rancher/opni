@@ -2,13 +2,8 @@ package v1beta1
 
 import (
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
-	"github.com/rancher/opni/internal/cortex/config/compactor"
-	"github.com/rancher/opni/internal/cortex/config/querier"
-	"github.com/rancher/opni/internal/cortex/config/runtimeconfig"
-	"github.com/rancher/opni/internal/cortex/config/validation"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	appsv1 "k8s.io/api/apps/v1"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,115 +41,14 @@ type AlertingSpec struct {
 	RawInternalRouting string `json:"rawInternalRouting,omitempty"`
 }
 
-type DeploymentMode string
-
-const (
-	DeploymentModeAllInOne        DeploymentMode = "AllInOne"
-	DeploymentModeHighlyAvailable DeploymentMode = "HighlyAvailable"
-)
-
 type CortexSpec struct {
-	Enabled        bool                   `json:"enabled,omitempty"`
-	Image          *opnimeta.ImageSpec    `json:"image,omitempty"`
-	LogLevel       string                 `json:"logLevel,omitempty"`
-	Storage        *storagev1.StorageSpec `json:"storage,omitempty"`
-	ExtraEnvVars   []corev1.EnvVar        `json:"extraEnvVars,omitempty"`
-	DeploymentMode DeploymentMode         `json:"deploymentMode,omitempty"`
-
-	// Overrides for specific workloads. If unset, all values have automatic
-	// defaults based on the deployment mode.
-	Workloads       CortexWorkloadsSpec                `json:"workloads,omitempty"`
-	Limits          *validation.Limits                 `json:"limits,omitempty"`
-	RuntimeConfig   *runtimeconfig.RuntimeConfigValues `json:"runtimeConfig,omitempty"`
-	CompactorConfig *compactor.Config                  `json:"compactorConfig,omitempty"`
-	QuerierConfig   *querier.Config                    `json:"querierConfig,omitempty"`
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetStorage() *storagev1.StorageSpec {
-	if cs == nil {
-		return nil
-	}
-	return cs.Storage
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetLimits() *validation.Limits {
-	if cs == nil {
-		return nil
-	}
-	return cs.Limits
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetRuntimeConfig() *runtimeconfig.RuntimeConfigValues {
-	if cs == nil {
-		return nil
-	}
-	return cs.RuntimeConfig
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetCompactor() *compactor.Config {
-	if cs == nil {
-		return nil
-	}
-	return cs.CompactorConfig
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetQuerier() *querier.Config {
-	if cs == nil {
-		return nil
-	}
-	return cs.QuerierConfig
-}
-
-// Implements constraint configutil.cortexconfig
-func (cs *CortexSpec) GetLogLevel() string {
-	if cs == nil {
-		return ""
-	}
-	return cs.LogLevel
-}
-
-type CortexWorkloadsSpec struct {
-	Distributor   *CortexWorkloadSpec `json:"distributor,omitempty"`
-	Ingester      *CortexWorkloadSpec `json:"ingester,omitempty"`
-	Compactor     *CortexWorkloadSpec `json:"compactor,omitempty"`
-	StoreGateway  *CortexWorkloadSpec `json:"storeGateway,omitempty"`
-	Ruler         *CortexWorkloadSpec `json:"ruler,omitempty"`
-	QueryFrontend *CortexWorkloadSpec `json:"queryFrontend,omitempty"`
-	Querier       *CortexWorkloadSpec `json:"querier,omitempty"`
-	Purger        *CortexWorkloadSpec `json:"purger,omitempty"`
-
-	// Used only when deploymentMode is AllInOne.
-	AllInOne *CortexWorkloadSpec `json:"allInOne,omitempty"`
-}
-
-type CortexWorkloadSpec struct {
-	Replicas  *int32   `json:"replicas,omitempty"`
-	ExtraArgs []string `json:"extraArgs,omitempty"`
-
-	ExtraVolumes         []corev1.Volume                   `json:"extraVolumes,omitempty"`
-	ExtraVolumeMounts    []corev1.VolumeMount              `json:"extraVolumeMounts,omitempty"`
-	ExtraEnvVars         []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
-	SidecarContainers    []corev1.Container                `json:"sidecarContainers,omitempty"`
-	InitContainers       []corev1.Container                `json:"initContainers,omitempty"`
-	DeploymentStrategy   *appsv1.DeploymentStrategy        `json:"deploymentStrategy,omitempty"`
-	UpdateStrategy       *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	SecurityContext      *corev1.SecurityContext           `json:"securityContext,omitempty"`
-	Affinity             *corev1.Affinity                  `json:"affinity,omitempty"`
-	ResourceRequirements *corev1.ResourceRequirements      `json:"resourceLimits,omitempty"`
-	NodeSelector         map[string]string                 `json:"nodeSelector,omitempty"`
-	Tolerations          []corev1.Toleration               `json:"tolerations,omitempty"`
+	Enabled         *bool                              `json:"enabled,omitempty"`
+	CortexWorkloads *cortexops.CortexWorkloadsConfig   `json:"cortexWorkloads,omitempty"`
+	CortexConfig    *cortexops.CortexApplicationConfig `json:"cortexConfig,omitempty"`
 }
 
 type GrafanaSpec struct {
-	Enabled bool `json:"enabled,omitempty"`
-	//+kubebuilder:validation:Required
-	Hostname string `json:"hostname"`
-
+	*cortexops.GrafanaConfig `json:",inline,omitempty"`
 	// Contains any additional configuration or overrides for the Grafana
 	// installation spec.
 	grafanav1alpha1.GrafanaSpec `json:",inline,omitempty"`

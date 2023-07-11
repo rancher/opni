@@ -123,7 +123,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		// wait for the test env to replace the default config
 		Eventually(func() error {
 			var err error
-			defaultConfig, err = nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err = nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 			return nil
 		}).Should(Succeed())
@@ -155,7 +155,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 			}
 
 			verifySync(func() {
-				_, err := nodeClient.SetDefaultConfiguration(context.Background(), newConfig)
+				_, err := nodeClient.SetDefaultNodeConfiguration(context.Background(), newConfig)
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
@@ -182,7 +182,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				},
 			}
 
-			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
@@ -207,7 +207,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	When("resetting a config for a node", func() {
 		It("should return the default config for that node", func() {
-			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
@@ -233,7 +233,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	When("resetting the default config", func() {
 		It("should return the original default config for all nodes", func() {
 			verifySync(func() {
-				_, err := nodeClient.SetDefaultConfiguration(context.Background(), &node.MetricsCapabilitySpec{})
+				_, err := nodeClient.SetDefaultNodeConfiguration(context.Background(), &node.MetricsCapabilitySpec{})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
@@ -251,7 +251,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	When("setting a config for a node that is the same as the default", func() {
 		It("should preserve the config for that node if the default changes", func() {
-			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
@@ -270,7 +270,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				},
 			}
 			verifySync(func() {
-				_, err = nodeClient.SetDefaultConfiguration(context.Background(), newConfig)
+				_, err = nodeClient.SetDefaultNodeConfiguration(context.Background(), newConfig)
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 

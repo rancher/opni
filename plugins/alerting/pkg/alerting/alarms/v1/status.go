@@ -260,7 +260,7 @@ func (a *AlarmServerComponent) loadMetricsInfo(ctx context.Context) (*metricsInf
 	if err != nil {
 		return nil, err
 	}
-	metricsBackendStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+	metricsBackendStatus, err := cortexOpsClient.Status(ctx, &emptypb.Empty{})
 	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
 		metricsBackendStatus = &cortexops.InstallStatus{
 			State: cortexops.InstallState_NotInstalled,

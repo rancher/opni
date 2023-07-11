@@ -11,11 +11,11 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
-	util "github.com/rancher/opni/pkg/opni/util"
+	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
-	v2 "github.com/thediveo/enumflag/v2"
+	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
 )
@@ -35,7 +35,7 @@ func CortexOpsClientFromContext(ctx context.Context) (CortexOpsClient, bool) {
 
 var extraCmds_CortexOps []*cobra.Command
 
-func addCortexOpsCommand(custom *cobra.Command) {
+func addExtraCortexOpsCmd(custom *cobra.Command) {
 	extraCmds_CortexOps = append(extraCmds_CortexOps, custom)
 }
 
@@ -47,24 +47,32 @@ func BuildCortexOpsCmd() *cobra.Command {
 		ValidArgsFunction: cobra.NoFileCompletions,
 	}
 
-	cmd.AddCommand(BuildGetClusterConfigurationCmd())
-	cmd.AddCommand(BuildConfigureClusterCmd())
-	cmd.AddCommand(BuildGetClusterStatusCmd())
-	cmd.AddCommand(BuildUninstallClusterCmd())
-	for _, extraCmd := range extraCmds_CortexOps {
-		cmd.AddCommand(extraCmd)
-	}
+	cliutil.AddSubcommands(cmd,
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsGetDefaultConfigurationCmd(),
+	)
+	cliutil.AddSubcommands(cmd, extraCmds_CortexOps...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }
 
-func BuildGetClusterConfigurationCmd() *cobra.Command {
+func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get-configuration",
-		Short: "Gets the current configuration of the managed Cortex cluster.",
+		Use:   "config get-default",
+		Short: "If a default configuration was previously set using SetDefaultConfiguration,",
 		Long: `
+returns that configuration. Otherwise, returns implementation-specific defaults.
+
 HTTP handlers for this method:
-- GET /configuration
+- GET /configuration/default
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -74,7 +82,7 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.GetClusterConfiguration(cmd.Context(), &emptypb.Empty{})
+			response, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -85,20 +93,24 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func BuildConfigureClusterCmd() *cobra.Command {
-	in := &ClusterConfiguration{}
+func BuildCortexOpsSetDefaultConfigurationCmd() *cobra.Command {
+	in := &CapabilityBackendConfigSpec{}
 	cmd := &cobra.Command{
-		Use:   "configure",
-		Short: "Updates the configuration of the managed Cortex cluster to match the provided configuration.",
+		Use:   "config set-default",
+		Short: "Sets the default configuration that will be used as the base for future",
 		Long: `
-If the cluster is not installed, it will be configured and installed.
-Otherwise, the already-installed cluster will be reconfigured.
+configuration changes.
+If no custom default configuration is set using this method,
+implementation-specific defaults may be chosen.
+If all fields are unset, this will clear any previously-set default configuration
+and revert back to the implementation-specific defaults.
 
-Note: some fields may contain secrets. The placeholder value "***" can be used to
-keep an existing secret when updating the cluster configuration.
+This API is different from the SetConfiguration API, and should not be necessary
+for most use cases. It can be used in situations where an additional persistence
+layer that is not driver-specific is desired.
 
 HTTP handlers for this method:
-- POST /configure
+- PUT /configuration/default
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -108,11 +120,11 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			if curValue, err := client.GetClusterConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+			if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
 				in = curValue
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := util.EditInteractive(in); err != nil {
+				if edited, err := cliutil.EditInteractive(in); err != nil {
 					return err
 				} else {
 					in = edited
@@ -126,7 +138,7 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			_, err := client.ConfigureCluster(cmd.Context(), in)
+			_, err := client.SetDefaultConfiguration(cmd.Context(), in)
 			if err != nil {
 				return err
 			}
@@ -135,16 +147,154 @@ HTTP handlers for this method:
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
 	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
-	cmd.RegisterFlagCompletionFunc("mode", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"AllInOne", "HighlyAvailable"}, cobra.ShellCompDirectiveDefault
-	})
-	cmd.RegisterFlagCompletionFunc("cortex.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cmd.RegisterFlagCompletionFunc("cortex-config.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
 	})
 	return cmd
 }
 
-func BuildGetClusterStatusCmd() *cobra.Command {
+func BuildCortexOpsResetDefaultConfigurationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config reset-default",
+		Short: "",
+		Long: `
+HTTP handlers for this method:
+- DELETE /configuration/default
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			_, err := client.ResetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config get",
+		Short: "Gets the current configuration of the managed Cortex cluster.",
+		Long: `
+HTTP handlers for this method:
+- GET /configuration
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.GetConfiguration(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildCortexOpsSetConfigurationCmd() *cobra.Command {
+	in := &CapabilityBackendConfigSpec{}
+	cmd := &cobra.Command{
+		Use:   "config set",
+		Short: "Updates the configuration of the managed Cortex cluster to match the provided configuration.",
+		Long: `
+If the cluster is not installed, it will be configured, but remain disabled.
+Otherwise, the already-installed cluster will be reconfigured.
+The provided configuration will be merged with the default configuration
+by directly overwriting fields. Slices and maps are overwritten and not combined.
+Subsequent calls to this API will merge inputs with the current configuration,
+not the default configuration.
+
+Note: some fields may contain secrets. The placeholder value "***" can be used to
+keep an existing secret when updating the cluster configuration.
+
+HTTP handlers for this method:
+- PUT /configuration
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+				in = curValue
+			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if edited, err := cliutil.EditInteractive(in); err != nil {
+					return err
+				} else {
+					in = edited
+				}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			_, err := client.SetConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.RegisterFlagCompletionFunc("cortex-config.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
+	})
+	return cmd
+}
+
+func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config reset",
+		Short: "Resets the configuration of the managed Cortex cluster to the current",
+		Long: `
+default configuration.
+
+HTTP handlers for this method:
+- DELETE /configuration
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			_, err := client.ResetConfiguration(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildCortexOpsStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Gets the current status of the managed Cortex cluster.",
@@ -166,7 +316,7 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.GetClusterStatus(cmd.Context(), &emptypb.Empty{})
+			response, err := client.Status(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -177,7 +327,36 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func BuildUninstallClusterCmd() *cobra.Command {
+func BuildCortexOpsInstallCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Installs the managed Cortex cluster.",
+		Long: `
+The cluster will be installed using the current configuration, or the
+default configuration if none is explicitly set.
+
+HTTP handlers for this method:
+- POST /install
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			_, err := client.Install(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildCortexOpsUninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Uninstalls the managed Cortex cluster.",
@@ -197,7 +376,7 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			_, err := client.UninstallCluster(cmd.Context(), &emptypb.Empty{})
+			_, err := client.Uninstall(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -207,111 +386,92 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func (in *ClusterConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ClusterConfiguration", pflag.ExitOnError)
+func BuildCortexOpsListPresetsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "presets list",
+		Short: "Returns a static list of presets that can be used as a base for configuring",
+		Long: `
+the managed Cortex cluster. There are several ways to use the presets, depending
+on the desired behavior:
+1. Set the default configuration to a preset spec, then use SetConfiguration
+to fill in any additional required fields (credentials, etc)
+2. Add the required fields to the default configuration, then use
+SetConfiguration with a preset spec.
+3. Leave the default configuration as-is, and use SetConfiguration with a
+preset spec plus the required fields.
+
+HTTP handlers for this method:
+- GET /presets
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.ListPresets(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(v2.New(&in.Mode, "DeploymentMode", map[DeploymentMode][]string{
-		DeploymentMode_AllInOne:        {"AllInOne"},
-		DeploymentMode_HighlyAvailable: {"HighlyAvailable"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "mode"), "."), "The deployment mode to use for Cortex.")
+	fs.Var(flagutil.BoolPtrValue(&in.Enabled), strings.Join(append(prefix, "enabled"), "."), "")
+	if in.CortexWorkloads == nil {
+		in.CortexWorkloads = &CortexWorkloadsConfig{}
+	}
+	fs.AddFlagSet(in.CortexWorkloads.FlagSet(append(prefix, "cortex-workloads")...))
+	if in.CortexConfig == nil {
+		in.CortexConfig = &CortexApplicationConfig{}
+	}
+	fs.AddFlagSet(in.CortexConfig.FlagSet(append(prefix, "cortex-config")...))
 	if in.Grafana == nil {
 		in.Grafana = &GrafanaConfig{}
 	}
 	fs.AddFlagSet(in.Grafana.FlagSet(append(prefix, "grafana")...))
-	if in.Workloads == nil {
-		in.Workloads = &CortexWorkloadsSpec{}
-	}
-	fs.AddFlagSet(in.Workloads.FlagSet(append(prefix, "workloads")...))
-	if in.Cortex == nil {
-		in.Cortex = &CortexConfig{}
-	}
-	fs.AddFlagSet(in.Cortex.FlagSet(append(prefix, "cortex")...))
 	return fs
 }
 
-func (in *ClusterConfiguration) RedactSecrets() {
+func (in *CapabilityBackendConfigSpec) RedactSecrets() {
 	if in == nil {
 		return
 	}
-	in.Cortex.RedactSecrets()
+	in.CortexConfig.RedactSecrets()
 }
 
-func (in *ClusterConfiguration) UnredactSecrets(unredacted *ClusterConfiguration) error {
+func (in *CapabilityBackendConfigSpec) UnredactSecrets(unredacted *CapabilityBackendConfigSpec) error {
 	if in == nil {
 		return nil
 	}
-	if err := in.Cortex.UnredactSecrets(unredacted.GetCortex()); err != nil {
+	if err := in.CortexConfig.UnredactSecrets(unredacted.GetCortexConfig()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("GrafanaConfig", pflag.ExitOnError)
+func (in *CortexWorkloadsConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CortexWorkloadsConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.BoolVar(&in.Enabled, strings.Join(append(prefix, "enabled"), "."), false, "Whether to deploy a managed Grafana instance.")
-	fs.StringVar(&in.Hostname, strings.Join(append(prefix, "hostname"), "."), "", "DNS name at which Grafana will be available in the browser.")
 	return fs
 }
 
-func (in *CortexWorkloadsSpec) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CortexWorkloadsSpec", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Distributor == nil {
-		in.Distributor = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Distributor.FlagSet(append(prefix, "distributor")...))
-	fs.Lookup(strings.Join(append(prefix, "distributor", "replicas"), ".")).DefValue = "1"
-	if in.Ingester == nil {
-		in.Ingester = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Ingester.FlagSet(append(prefix, "ingester")...))
-	if in.Compactor == nil {
-		in.Compactor = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Compactor.FlagSet(append(prefix, "compactor")...))
-	if in.StoreGateway == nil {
-		in.StoreGateway = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.StoreGateway.FlagSet(append(prefix, "store-gateway")...))
-	if in.Ruler == nil {
-		in.Ruler = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Ruler.FlagSet(append(prefix, "ruler")...))
-	if in.QueryFrontend == nil {
-		in.QueryFrontend = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.QueryFrontend.FlagSet(append(prefix, "query-frontend")...))
-	fs.Lookup(strings.Join(append(prefix, "query-frontend", "replicas"), ".")).DefValue = "1"
-	if in.Querier == nil {
-		in.Querier = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
-	if in.Purger == nil {
-		in.Purger = &CortexWorkloadSpec{}
-	}
-	fs.AddFlagSet(in.Purger.FlagSet(append(prefix, "purger")...))
-	fs.Lookup(strings.Join(append(prefix, "purger", "replicas"), ".")).DefValue = "1"
-	return fs
-}
-
-func (in *CortexWorkloadSpec) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CortexWorkloadSpec", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(&in.Replicas), strings.Join(append(prefix, "replicas"), "."), "Number of replicas to run for this workload. Should be an odd number.")
-	fs.StringSliceVar(&in.ExtraArgs, strings.Join(append(prefix, "extra-args"), "."), nil, "Any additional arguments to pass to Cortex.")
-	return fs
-}
-
-func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CortexConfig", pflag.ExitOnError)
+func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CortexApplicationConfig", pflag.ExitOnError)
 	fs.SortFlags = true
 	if in.Limits == nil {
 		in.Limits = &validation.Limits{}
 	}
 	fs.AddFlagSet(in.Limits.FlagSet(append(prefix, "limits")...))
 	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate"), ".")).DefValue = "600000"
-	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate-strategy"), ".")).DefValue = "local"
 	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-burst-size"), ".")).DefValue = "1000000"
 	fs.Lookup(strings.Join(append(prefix, "limits", "compactor-blocks-retention-period"), ".")).DefValue = "seconds:2592000"
 	if in.RuntimeConfig == nil {
@@ -334,14 +494,14 @@ func (in *CortexConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *CortexConfig) RedactSecrets() {
+func (in *CortexApplicationConfig) RedactSecrets() {
 	if in == nil {
 		return
 	}
 	in.Storage.RedactSecrets()
 }
 
-func (in *CortexConfig) UnredactSecrets(unredacted *CortexConfig) error {
+func (in *CortexApplicationConfig) UnredactSecrets(unredacted *CortexApplicationConfig) error {
 	if in == nil {
 		return nil
 	}
@@ -349,4 +509,85 @@ func (in *CortexConfig) UnredactSecrets(unredacted *CortexConfig) error {
 		return err
 	}
 	return nil
+}
+
+func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("GrafanaConfig", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.BoolVar(&in.Enabled, strings.Join(append(prefix, "enabled"), "."), false, "Whether to deploy a managed Grafana instance.")
+	fs.StringVar(&in.Version, strings.Join(append(prefix, "version"), "."), "latest", "The version of Grafana to deploy.")
+	fs.StringVar(&in.Hostname, strings.Join(append(prefix, "hostname"), "."), "", "")
+	return fs
+}
+
+func (in *InstallStatus) DeepCopyInto(out *InstallStatus) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *InstallStatus) DeepCopy() *InstallStatus {
+	return proto.Clone(in).(*InstallStatus)
+}
+
+func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CapabilityBackendConfigSpec) DeepCopy() *CapabilityBackendConfigSpec {
+	return proto.Clone(in).(*CapabilityBackendConfigSpec)
+}
+
+func (in *CortexWorkloadsConfig) DeepCopyInto(out *CortexWorkloadsConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexWorkloadsConfig) DeepCopy() *CortexWorkloadsConfig {
+	return proto.Clone(in).(*CortexWorkloadsConfig)
+}
+
+func (in *CortexWorkloadSpec) DeepCopyInto(out *CortexWorkloadSpec) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexWorkloadSpec) DeepCopy() *CortexWorkloadSpec {
+	return proto.Clone(in).(*CortexWorkloadSpec)
+}
+
+func (in *CortexApplicationConfig) DeepCopyInto(out *CortexApplicationConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexApplicationConfig) DeepCopy() *CortexApplicationConfig {
+	return proto.Clone(in).(*CortexApplicationConfig)
+}
+
+func (in *GrafanaConfig) DeepCopyInto(out *GrafanaConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *GrafanaConfig) DeepCopy() *GrafanaConfig {
+	return proto.Clone(in).(*GrafanaConfig)
+}
+
+func (in *PresetList) DeepCopyInto(out *PresetList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PresetList) DeepCopy() *PresetList {
+	return proto.Clone(in).(*PresetList)
+}
+
+func (in *Preset) DeepCopyInto(out *Preset) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Preset) DeepCopy() *Preset {
+	return proto.Clone(in).(*Preset)
 }

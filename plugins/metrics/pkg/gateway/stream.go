@@ -28,7 +28,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		},
 		{
 			Desc:              &node.NodeMetricsCapability_ServiceDesc,
-			Impl:              &p.metrics,
+			Impl:              p.metrics.NodeBackend,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 	}

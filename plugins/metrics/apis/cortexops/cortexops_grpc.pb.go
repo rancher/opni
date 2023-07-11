@@ -20,37 +20,79 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	CortexOps_GetClusterConfiguration_FullMethodName = "/cortexops.CortexOps/GetClusterConfiguration"
-	CortexOps_ConfigureCluster_FullMethodName        = "/cortexops.CortexOps/ConfigureCluster"
-	CortexOps_GetClusterStatus_FullMethodName        = "/cortexops.CortexOps/GetClusterStatus"
-	CortexOps_UninstallCluster_FullMethodName        = "/cortexops.CortexOps/UninstallCluster"
+	CortexOps_GetDefaultConfiguration_FullMethodName   = "/cortexops.CortexOps/GetDefaultConfiguration"
+	CortexOps_SetDefaultConfiguration_FullMethodName   = "/cortexops.CortexOps/SetDefaultConfiguration"
+	CortexOps_ResetDefaultConfiguration_FullMethodName = "/cortexops.CortexOps/ResetDefaultConfiguration"
+	CortexOps_GetConfiguration_FullMethodName          = "/cortexops.CortexOps/GetConfiguration"
+	CortexOps_SetConfiguration_FullMethodName          = "/cortexops.CortexOps/SetConfiguration"
+	CortexOps_ResetConfiguration_FullMethodName        = "/cortexops.CortexOps/ResetConfiguration"
+	CortexOps_Status_FullMethodName                    = "/cortexops.CortexOps/Status"
+	CortexOps_Install_FullMethodName                   = "/cortexops.CortexOps/Install"
+	CortexOps_Uninstall_FullMethodName                 = "/cortexops.CortexOps/Uninstall"
+	CortexOps_ListPresets_FullMethodName               = "/cortexops.CortexOps/ListPresets"
 )
 
 // CortexOpsClient is the client API for CortexOps service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
+	// If a default configuration was previously set using SetDefaultConfiguration,
+	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
+	// Sets the default configuration that will be used as the base for future
+	// configuration changes.
+	// If no custom default configuration is set using this method,
+	// implementation-specific defaults may be chosen.
+	// If all fields are unset, this will clear any previously-set default configuration
+	// and revert back to the implementation-specific defaults.
+	//
+	// This API is different from the SetConfiguration API, and should not be necessary
+	// for most use cases. It can be used in situations where an additional persistence
+	// layer that is not driver-specific is desired.
+	SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
-	GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error)
+	GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
-	// If the cluster is not installed, it will be configured and installed.
+	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
+	// The provided configuration will be merged with the default configuration
+	// by directly overwriting fields. Slices and maps are overwritten and not combined.
+	// Subsequent calls to this API will merge inputs with the current configuration,
+	// not the default configuration.
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
-	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Resets the configuration of the managed Cortex cluster to the current
+	// default configuration.
+	ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
 	// the cluster is in the process of being reconfigured or uninstalled, it will
 	// be reflected in the install state.
 	// No guarantees are made about the contents of the metadata field; its
 	// contents are strictly informational.
-	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	// Installs the managed Cortex cluster.
+	// The cluster will be installed using the current configuration, or the
+	// default configuration if none is explicitly set.
+	Install(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Uninstalls the managed Cortex cluster.
 	// Implementation details including error handling and system state requirements
 	// are left to the cluster driver, and this API makes no guarantees about
 	// the state of the cluster after the call completes (regardless of success).
-	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Returns a static list of presets that can be used as a base for configuring
+	// the managed Cortex cluster. There are several ways to use the presets, depending
+	// on the desired behavior:
+	//  1. Set the default configuration to a preset spec, then use SetConfiguration
+	//     to fill in any additional required fields (credentials, etc)
+	//  2. Add the required fields to the default configuration, then use
+	//     SetConfiguration with a preset spec.
+	//  3. Leave the default configuration as-is, and use SetConfiguration with a
+	//     preset spec plus the required fields.
+	ListPresets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PresetList, error)
 }
 
 type cortexOpsClient struct {
@@ -61,36 +103,90 @@ func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
 }
 
-func (c *cortexOpsClient) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error) {
-	out := new(ClusterConfiguration)
-	err := c.cc.Invoke(ctx, CortexOps_GetClusterConfiguration_FullMethodName, in, out, opts...)
+func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+	out := new(CapabilityBackendConfigSpec)
+	err := c.cc.Invoke(ctx, CortexOps_GetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexOpsClient) ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CortexOps_ConfigureCluster_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, CortexOps_SetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexOpsClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+func (c *cortexOpsClient) ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CortexOps_ResetDefaultConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+	out := new(CapabilityBackendConfigSpec)
+	err := c.cc.Invoke(ctx, CortexOps_GetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CortexOps_SetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CortexOps_ResetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
 	out := new(InstallStatus)
-	err := c.cc.Invoke(ctx, CortexOps_GetClusterStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, CortexOps_Status_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) Install(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, CortexOps_UninstallCluster_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, CortexOps_Install_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CortexOps_Uninstall_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) ListPresets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PresetList, error) {
+	out := new(PresetList)
+	err := c.cc.Invoke(ctx, CortexOps_ListPresets_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,27 +197,63 @@ func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empt
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
+	// If a default configuration was previously set using SetDefaultConfiguration,
+	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
+	// Sets the default configuration that will be used as the base for future
+	// configuration changes.
+	// If no custom default configuration is set using this method,
+	// implementation-specific defaults may be chosen.
+	// If all fields are unset, this will clear any previously-set default configuration
+	// and revert back to the implementation-specific defaults.
+	//
+	// This API is different from the SetConfiguration API, and should not be necessary
+	// for most use cases. It can be used in situations where an additional persistence
+	// layer that is not driver-specific is desired.
+	SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
+	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
-	GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error)
+	GetConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
-	// If the cluster is not installed, it will be configured and installed.
+	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
+	// The provided configuration will be merged with the default configuration
+	// by directly overwriting fields. Slices and maps are overwritten and not combined.
+	// Subsequent calls to this API will merge inputs with the current configuration,
+	// not the default configuration.
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
-	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
+	SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
+	// Resets the configuration of the managed Cortex cluster to the current
+	// default configuration.
+	ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
 	// the cluster is in the process of being reconfigured or uninstalled, it will
 	// be reflected in the install state.
 	// No guarantees are made about the contents of the metadata field; its
 	// contents are strictly informational.
-	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	Status(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	// Installs the managed Cortex cluster.
+	// The cluster will be installed using the current configuration, or the
+	// default configuration if none is explicitly set.
+	Install(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Uninstalls the managed Cortex cluster.
 	// Implementation details including error handling and system state requirements
 	// are left to the cluster driver, and this API makes no guarantees about
 	// the state of the cluster after the call completes (regardless of success).
-	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// Returns a static list of presets that can be used as a base for configuring
+	// the managed Cortex cluster. There are several ways to use the presets, depending
+	// on the desired behavior:
+	//  1. Set the default configuration to a preset spec, then use SetConfiguration
+	//     to fill in any additional required fields (credentials, etc)
+	//  2. Add the required fields to the default configuration, then use
+	//     SetConfiguration with a preset spec.
+	//  3. Leave the default configuration as-is, and use SetConfiguration with a
+	//     preset spec plus the required fields.
+	ListPresets(context.Context, *emptypb.Empty) (*PresetList, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
 
@@ -129,17 +261,35 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
-func (UnimplementedCortexOpsServer) GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfiguration not implemented")
+func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConfigureCluster not implemented")
+func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+func (UnimplementedCortexOpsServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
+func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
+}
+func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
+}
+func (UnimplementedCortexOpsServer) ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetConfiguration not implemented")
+}
+func (UnimplementedCortexOpsServer) Status(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedCortexOpsServer) Install(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
+}
+func (UnimplementedCortexOpsServer) Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
+}
+func (UnimplementedCortexOpsServer) ListPresets(context.Context, *emptypb.Empty) (*PresetList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPresets not implemented")
 }
 func (UnimplementedCortexOpsServer) mustEmbedUnimplementedCortexOpsServer() {}
 
@@ -154,74 +304,182 @@ func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 	s.RegisterService(&CortexOps_ServiceDesc, srv)
 }
 
-func _CortexOps_GetClusterConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).GetClusterConfiguration(ctx, in)
+		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CortexOps_GetClusterConfiguration_FullMethodName,
+		FullMethod: CortexOps_GetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetClusterConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexOps_ConfigureCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClusterConfiguration)
+func _CortexOps_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityBackendConfigSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).ConfigureCluster(ctx, in)
+		return srv.(CortexOpsServer).SetDefaultConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CortexOps_ConfigureCluster_FullMethodName,
+		FullMethod: CortexOps_SetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).ConfigureCluster(ctx, req.(*ClusterConfiguration))
+		return srv.(CortexOpsServer).SetDefaultConfiguration(ctx, req.(*CapabilityBackendConfigSpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexOps_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexOps_ResetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).GetClusterStatus(ctx, in)
+		return srv.(CortexOpsServer).ResetDefaultConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CortexOps_GetClusterStatus_FullMethodName,
+		FullMethod: CortexOps_ResetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).ResetDefaultConfiguration(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexOps_UninstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).UninstallCluster(ctx, in)
+		return srv.(CortexOpsServer).GetConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CortexOps_UninstallCluster_FullMethodName,
+		FullMethod: CortexOps_GetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).UninstallCluster(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetConfiguration(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityBackendConfigSpec)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).SetConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_SetConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).SetConfiguration(ctx, req.(*CapabilityBackendConfigSpec))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_ResetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).ResetConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_ResetConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).ResetConfiguration(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_Status_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).Status(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_Install_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).Install(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_Install_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).Install(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_Uninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).Uninstall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_Uninstall_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).Uninstall(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_ListPresets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).ListPresets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_ListPresets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).ListPresets(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -234,20 +492,44 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CortexOpsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetClusterConfiguration",
-			Handler:    _CortexOps_GetClusterConfiguration_Handler,
+			MethodName: "GetDefaultConfiguration",
+			Handler:    _CortexOps_GetDefaultConfiguration_Handler,
 		},
 		{
-			MethodName: "ConfigureCluster",
-			Handler:    _CortexOps_ConfigureCluster_Handler,
+			MethodName: "SetDefaultConfiguration",
+			Handler:    _CortexOps_SetDefaultConfiguration_Handler,
 		},
 		{
-			MethodName: "GetClusterStatus",
-			Handler:    _CortexOps_GetClusterStatus_Handler,
+			MethodName: "ResetDefaultConfiguration",
+			Handler:    _CortexOps_ResetDefaultConfiguration_Handler,
 		},
 		{
-			MethodName: "UninstallCluster",
-			Handler:    _CortexOps_UninstallCluster_Handler,
+			MethodName: "GetConfiguration",
+			Handler:    _CortexOps_GetConfiguration_Handler,
+		},
+		{
+			MethodName: "SetConfiguration",
+			Handler:    _CortexOps_SetConfiguration_Handler,
+		},
+		{
+			MethodName: "ResetConfiguration",
+			Handler:    _CortexOps_ResetConfiguration_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _CortexOps_Status_Handler,
+		},
+		{
+			MethodName: "Install",
+			Handler:    _CortexOps_Install_Handler,
+		},
+		{
+			MethodName: "Uninstall",
+			Handler:    _CortexOps_Uninstall_Handler,
+		},
+		{
+			MethodName: "ListPresets",
+			Handler:    _CortexOps_ListPresets_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

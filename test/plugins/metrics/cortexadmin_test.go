@@ -118,9 +118,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		DeferCleanup(env.Stop)
 
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-		})
+		_, err := opsClient.Install(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
 		client := env.NewManagementClient()

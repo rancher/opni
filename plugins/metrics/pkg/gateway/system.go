@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -85,8 +86,9 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.uninstallController.Set(ctrl)
 
 	p.backendKvClients.Set(&backend.KVClients{
-		DefaultCapabilitySpec: storage.NewValueStore(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/default"),
-		NodeCapabilitySpecs:   storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/nodes/"),
+		DefaultClusterConfigurationSpec: storage.NewValueStore(system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](client), "/config/cluster/default"),
+		DefaultCapabilitySpec:           storage.NewValueStore(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/default"),
+		NodeCapabilitySpecs:             storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/nodes/"),
 	})
 	<-p.ctx.Done()
 }

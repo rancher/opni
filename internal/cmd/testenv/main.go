@@ -342,7 +342,24 @@ func main() {
 					testlog.Log.Info(chalk.Green.Color("Metrics backend configured"))
 				}()
 				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{})
+				presets, err := opsClient.ListPresets(context.Background(), &emptypb.Empty{})
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+				if len(presets.Items) == 0 {
+					testlog.Log.Error("No presets available")
+					return
+				}
+				// take the first preset
+				preset := presets.Items[0]
+				_, err = opsClient.SetConfiguration(context.Background(), preset.GetSpec())
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+
+				_, err = opsClient.Install(context.Background(), &emptypb.Empty{})
 				if err != nil {
 					testlog.Log.Error(err)
 				}
@@ -355,7 +372,7 @@ func main() {
 					testlog.Log.Info(chalk.Green.Color("Metrics backend uninstalled"))
 				}()
 				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.UninstallCluster(environment.Context(), &emptypb.Empty{})
+				_, err := opsClient.Uninstall(environment.Context(), &emptypb.Empty{})
 				if err != nil {
 					testlog.Log.Error(err)
 				}

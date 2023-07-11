@@ -83,9 +83,7 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 		agent2Port, errC := env.StartAgent("agent2", token, []string{fp}, test.WithAgentVersion("v2"))
 		Eventually(errC).Should(Receive(BeNil()))
 
-		_, err = cortexOpsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-		})
+		_, err = cortexOpsClient.Install(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{

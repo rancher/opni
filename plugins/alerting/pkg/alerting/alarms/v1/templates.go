@@ -691,7 +691,7 @@ func (p *AlarmServerComponent) fetchMonitoringBackendInfo(ctx context.Context) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire cortex ops client %s", err)
 	}
-	state, err := cortexOps.GetClusterStatus(ctx, &emptypb.Empty{})
+	state, err := cortexOps.Status(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get monitoring backend status %s", err)
 	}

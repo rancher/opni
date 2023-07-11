@@ -111,18 +111,18 @@ var NodeMetricsCapability_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NodeConfiguration_GetDefaultConfiguration_FullMethodName = "/node.metrics.NodeConfiguration/GetDefaultConfiguration"
-	NodeConfiguration_SetDefaultConfiguration_FullMethodName = "/node.metrics.NodeConfiguration/SetDefaultConfiguration"
-	NodeConfiguration_GetNodeConfiguration_FullMethodName    = "/node.metrics.NodeConfiguration/GetNodeConfiguration"
-	NodeConfiguration_SetNodeConfiguration_FullMethodName    = "/node.metrics.NodeConfiguration/SetNodeConfiguration"
+	NodeConfiguration_GetDefaultNodeConfiguration_FullMethodName = "/node.metrics.NodeConfiguration/GetDefaultNodeConfiguration"
+	NodeConfiguration_SetDefaultNodeConfiguration_FullMethodName = "/node.metrics.NodeConfiguration/SetDefaultNodeConfiguration"
+	NodeConfiguration_GetNodeConfiguration_FullMethodName        = "/node.metrics.NodeConfiguration/GetNodeConfiguration"
+	NodeConfiguration_SetNodeConfiguration_FullMethodName        = "/node.metrics.NodeConfiguration/SetNodeConfiguration"
 )
 
 // NodeConfigurationClient is the client API for NodeConfiguration service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeConfigurationClient interface {
-	GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricsCapabilitySpec, error)
-	SetDefaultConfiguration(ctx context.Context, in *MetricsCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetDefaultNodeConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricsCapabilitySpec, error)
+	SetDefaultNodeConfiguration(ctx context.Context, in *MetricsCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetNodeConfiguration(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*MetricsCapabilitySpec, error)
 	SetNodeConfiguration(ctx context.Context, in *NodeConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -135,18 +135,18 @@ func NewNodeConfigurationClient(cc grpc.ClientConnInterface) NodeConfigurationCl
 	return &nodeConfigurationClient{cc}
 }
 
-func (c *nodeConfigurationClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricsCapabilitySpec, error) {
+func (c *nodeConfigurationClient) GetDefaultNodeConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricsCapabilitySpec, error) {
 	out := new(MetricsCapabilitySpec)
-	err := c.cc.Invoke(ctx, NodeConfiguration_GetDefaultConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NodeConfiguration_GetDefaultNodeConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) SetDefaultConfiguration(ctx context.Context, in *MetricsCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeConfigurationClient) SetDefaultNodeConfiguration(ctx context.Context, in *MetricsCapabilitySpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, NodeConfiguration_SetDefaultConfiguration_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, NodeConfiguration_SetDefaultNodeConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +175,8 @@ func (c *nodeConfigurationClient) SetNodeConfiguration(ctx context.Context, in *
 // All implementations must embed UnimplementedNodeConfigurationServer
 // for forward compatibility
 type NodeConfigurationServer interface {
-	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*MetricsCapabilitySpec, error)
-	SetDefaultConfiguration(context.Context, *MetricsCapabilitySpec) (*emptypb.Empty, error)
+	GetDefaultNodeConfiguration(context.Context, *emptypb.Empty) (*MetricsCapabilitySpec, error)
+	SetDefaultNodeConfiguration(context.Context, *MetricsCapabilitySpec) (*emptypb.Empty, error)
 	GetNodeConfiguration(context.Context, *v1.Reference) (*MetricsCapabilitySpec, error)
 	SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedNodeConfigurationServer()
@@ -186,11 +186,11 @@ type NodeConfigurationServer interface {
 type UnimplementedNodeConfigurationServer struct {
 }
 
-func (UnimplementedNodeConfigurationServer) GetDefaultConfiguration(context.Context, *emptypb.Empty) (*MetricsCapabilitySpec, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
+func (UnimplementedNodeConfigurationServer) GetDefaultNodeConfiguration(context.Context, *emptypb.Empty) (*MetricsCapabilitySpec, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultNodeConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) SetDefaultConfiguration(context.Context, *MetricsCapabilitySpec) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
+func (UnimplementedNodeConfigurationServer) SetDefaultNodeConfiguration(context.Context, *MetricsCapabilitySpec) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultNodeConfiguration not implemented")
 }
 func (UnimplementedNodeConfigurationServer) GetNodeConfiguration(context.Context, *v1.Reference) (*MetricsCapabilitySpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodeConfiguration not implemented")
@@ -211,38 +211,38 @@ func RegisterNodeConfigurationServer(s grpc.ServiceRegistrar, srv NodeConfigurat
 	s.RegisterService(&NodeConfiguration_ServiceDesc, srv)
 }
 
-func _NodeConfiguration_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NodeConfiguration_GetDefaultNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, in)
+		return srv.(NodeConfigurationServer).GetDefaultNodeConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_GetDefaultConfiguration_FullMethodName,
+		FullMethod: NodeConfiguration_GetDefaultNodeConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(NodeConfigurationServer).GetDefaultNodeConfiguration(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NodeConfiguration_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NodeConfiguration_SetDefaultNodeConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricsCapabilitySpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeConfigurationServer).SetDefaultConfiguration(ctx, in)
+		return srv.(NodeConfigurationServer).SetDefaultNodeConfiguration(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeConfiguration_SetDefaultConfiguration_FullMethodName,
+		FullMethod: NodeConfiguration_SetDefaultNodeConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).SetDefaultConfiguration(ctx, req.(*MetricsCapabilitySpec))
+		return srv.(NodeConfigurationServer).SetDefaultNodeConfiguration(ctx, req.(*MetricsCapabilitySpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -291,12 +291,12 @@ var NodeConfiguration_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*NodeConfigurationServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetDefaultConfiguration",
-			Handler:    _NodeConfiguration_GetDefaultConfiguration_Handler,
+			MethodName: "GetDefaultNodeConfiguration",
+			Handler:    _NodeConfiguration_GetDefaultNodeConfiguration_Handler,
 		},
 		{
-			MethodName: "SetDefaultConfiguration",
-			Handler:    _NodeConfiguration_SetDefaultConfiguration_Handler,
+			MethodName: "SetDefaultNodeConfiguration",
+			Handler:    _NodeConfiguration_SetDefaultNodeConfiguration_Handler,
 		},
 		{
 			MethodName: "GetNodeConfiguration",

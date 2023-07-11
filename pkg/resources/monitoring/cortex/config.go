@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/go-kit/log"
-	"github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
+	"github.com/samber/lo"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ import (
 )
 
 func (r *Reconciler) config() ([]resources.Resource, error) {
-	if !r.mc.Spec.Cortex.Enabled {
+	if lo.FromPtr(r.mc.Spec.Cortex.Enabled) {
 		return []resources.Resource{
 			resources.Absent(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -39,9 +39,9 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		}, nil
 	}
 
-	if r.mc.Spec.Cortex.Storage == nil {
+	if r.mc.Spec.Cortex.CortexConfig.GetStorage() == nil {
 		r.logger.Warn("No cortex storage configured; using volatile EmptyDir storage. It is recommended to configure a storage backend.")
-		r.mc.Spec.Cortex.Storage = &storagev1.StorageSpec{
+		r.mc.Spec.Cortex.CortexConfig.Storage = &storagev1.StorageSpec{
 			Backend: storagev1.Filesystem,
 			Filesystem: &storagev1.FilesystemStorageSpec{
 				Directory: "/data",
@@ -50,7 +50,7 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 	}
 
 	logLevel := logging.Level{}
-	level := r.mc.Spec.Cortex.LogLevel
+	level := r.mc.Spec.Cortex.CortexConfig.GetLogLevel()
 	if level == "" {
 		level = "info"
 	}
@@ -83,18 +83,15 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 			TLSServerConfig:   configutil.TLSServerConfigShape(tlsServerConfig),
 			TLSClientConfig:   configutil.TLSClientConfigShape(tlsClientConfig),
 		}),
+		configutil.NewAutomaticHAOverrides(),
 		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
 			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
 			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
 			AlertmanagerURL:      fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
 		}),
 	}
-	switch r.mc.Spec.Cortex.DeploymentMode {
-	case v1beta1.DeploymentModeHighlyAvailable:
-		overrideLists = append(overrideLists, configutil.NewHAOverrides())
-	}
 
-	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(&r.mc.Spec.Cortex,
+	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig,
 		configutil.MergeOverrideLists(overrideLists...)...,
 	)
 	if err != nil {
@@ -165,5 +162,5 @@ mute_time_intervals: []`
 		},
 	}
 	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, cm)
+	return resources.PresentIff(lo.FromPtr(r.mc.Spec.Cortex.Enabled), cm)
 }

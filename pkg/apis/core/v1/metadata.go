@@ -116,6 +116,17 @@ func (c *Cluster) GetCreationTimestamp() time.Time {
 	return c.GetMetadata().GetCreationTimestamp().AsTime()
 }
 
+func (r *Role) GetResourceVersion() string {
+	return r.GetMetadata().GetResourceVersion()
+}
+
+func (r *Role) SetResourceVersion(version string) {
+	if r.Metadata == nil {
+		r.Metadata = &RoleMetadata{}
+	}
+	r.Metadata.ResourceVersion = version
+}
+
 type lastKnownConnectionDetailsKeyType struct{}
 
 var lastKnownConnectionDetailsKey lastKnownConnectionDetailsKeyType

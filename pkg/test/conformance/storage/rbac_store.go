@@ -2,6 +2,7 @@ package conformance_storage
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +10,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 )
 
@@ -47,6 +49,29 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					Expect(roles.Items[0].GetId()).To(Equal("foo"))
 				})
 			})
+			It("should be able to update a role", func() {
+				role := &corev1.Role{
+					Id: "foo",
+				}
+
+				fetched, err := ts.GetRole(context.Background(), role.Reference())
+				Expect(err).NotTo(HaveOccurred())
+
+				prevVersion := fetched.GetResourceVersion()
+				actual, err := ts.UpdateRole(context.Background(), role.Reference(), func(r *corev1.Role) {
+					r.ClusterIDs = []string{"test-cluster"}
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actual.GetResourceVersion()).NotTo(BeEmpty())
+				Expect(actual.GetResourceVersion()).NotTo(Equal(prevVersion))
+				if integer, err := strconv.Atoi(actual.GetResourceVersion()); err == nil {
+					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
+				}
+
+				role, err = ts.GetRole(context.Background(), role.Reference())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(role.ClusterIDs).To(Equal([]string{"test-cluster"}))
+			})
 			It("should delete roles", func() {
 				all, err := ts.ListRoles(context.Background())
 				Expect(err).NotTo(HaveOccurred())
@@ -69,6 +94,15 @@ func RBACStoreTestSuite[T storage.RBACStore](
 
 				err = ts.CreateRole(context.Background(), role)
 				Expect(err).To(MatchError(storage.ErrAlreadyExists))
+			})
+			It("should fail to update if the role does not exist", func() {
+				role := &corev1.Role{
+					Id: "does-not-exist",
+				}
+				_, err := ts.UpdateRole(context.Background(), role.Reference(), func(r *corev1.Role) {
+					r.ClusterIDs = []string{"test-cluster"}
+				})
+				Expect(err).To(MatchError(storage.ErrNotFound))
 			})
 		})
 		Context("Role Bindings", func() {

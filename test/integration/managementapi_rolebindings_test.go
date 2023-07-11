@@ -235,7 +235,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
-
 	//#endregion
 
 })

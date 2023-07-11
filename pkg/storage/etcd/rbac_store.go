@@ -4,15 +4,19 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 )
 
 func (e *EtcdStore) CreateRole(ctx context.Context, role *corev1.Role) error {
+	role.SetResourceVersion("")
 	data, err := protojson.Marshal(role)
 	if err != nil {
 		return fmt.Errorf("failed to marshal role: %w", err)
@@ -29,20 +33,62 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	if !resp.Succeeded {
 		return storage.ErrAlreadyExists
 	}
+	role.SetResourceVersion(fmt.Sprint(resp.Header.Revision))
 	return nil
 }
 
-func (e *EtcdStore) UpdateRole(ctx context.Context, role *corev1.Role) error {
-	data, err := protojson.Marshal(role)
-	if err != nil {
-		return fmt.Errorf("failed to marshal role: %w", err)
+func (e *EtcdStore) UpdateRole(
+	ctx context.Context,
+	ref *corev1.Reference,
+	mutator storage.MutatorFunc[*corev1.Role],
+) (*corev1.Role, error) {
+	var retRole *corev1.Role
+
+	retryFunc := func() error {
+		txn := e.Client.Txn(ctx)
+		key := path.Join(e.Prefix, roleKey, ref.Id)
+		role, err := e.GetRole(ctx, ref)
+		if err != nil {
+			return fmt.Errorf("failed to get role: %w", err)
+		}
+		revision, err := strconv.Atoi(role.GetResourceVersion())
+		if err != nil {
+			return fmt.Errorf("internal error: role has invalid resource version: %w", err)
+		}
+		mutator(role)
+		data, err := protojson.Marshal(role)
+		if err != nil {
+			return fmt.Errorf("failed to marshal role: %w", err)
+		}
+		txnResp, err := txn.If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
+			Then(clientv3.OpPut(key, string(data))).
+			Commit()
+		if err != nil {
+			e.Logger.With(
+				zap.Error(err),
+			).Error("error updating role")
+			return err
+		}
+		if !txnResp.Succeeded {
+			return errRetry
+		}
+		role.SetResourceVersion(fmt.Sprint(txnResp.Header.Revision))
+		retRole = role
+		return nil
 	}
-	key := path.Join(e.Prefix, roleKey, role.Id)
-	_, err = e.Client.Put(ctx, key, string(data))
-	if err != nil {
-		return fmt.Errorf("failed to update role: %w", err)
+	c := defaultBackoff.Start(ctx)
+	var err error
+	for backoff.Continue(c) {
+		err = retryFunc()
+		if isRetryErr(err) {
+			continue
+		}
+		break
 	}
-	return nil
+	if err != nil {
+		return nil, err
+	}
+	return retRole, nil
 }
 
 func (e *EtcdStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
@@ -68,6 +114,7 @@ func (e *EtcdStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1
 	if err := protojson.Unmarshal(resp.Kvs[0].Value, role); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal role: %w", err)
 	}
+	role.SetResourceVersion(fmt.Sprint(resp.Kvs[0].ModRevision))
 	return role, nil
 }
 

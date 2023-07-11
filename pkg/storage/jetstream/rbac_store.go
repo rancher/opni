@@ -3,7 +3,11 @@ package jetstream
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
@@ -15,26 +19,50 @@ func (s *JetStreamStore) CreateRole(_ context.Context, role *corev1.Role) error 
 	if err != nil {
 		return err
 	}
-	_, err = s.kv.Roles.Create(role.Id, data)
+	rev, err := s.kv.Roles.Create(role.Id, data)
 	if errors.Is(err, nats.ErrKeyExists) {
 		return storage.ErrAlreadyExists
 	}
+	role.SetResourceVersion(fmt.Sprint(rev))
 	return err
 }
 
-func (s *JetStreamStore) UpdateRole(_ context.Context, role *corev1.Role) error {
-	data, err := protojson.Marshal(role)
-	if err != nil {
-		return err
-	}
-	if _, err := s.kv.Roles.Get(role.Id); err != nil {
-		if errors.Is(err, nats.ErrKeyNotFound) {
-			return storage.ErrNotFound
+func (s *JetStreamStore) UpdateRole(ctx context.Context, ref *corev1.Reference, mutator storage.RoleMutator) (*corev1.Role, error) {
+	p := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(1*time.Millisecond),
+		backoff.WithMaxInterval(128*time.Millisecond),
+		backoff.WithMultiplier(2),
+	)
+	b := p.Start(ctx)
+	var updateErr error
+	for backoff.Continue(b) {
+		role, err := s.GetRole(ctx, ref)
+		if err != nil {
+			return nil, err
 		}
-		return err
+		versionStr := role.GetResourceVersion()
+		version, err := strconv.ParseUint(versionStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("internal error: role has invalid resource version: %w", err)
+		}
+		mutator(role)
+		data, err := protojson.Marshal(role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal role: %w", err)
+		}
+		rev, err := s.kv.Roles.Update(ref.Id, data, version)
+		if err != nil {
+			updateErr = err
+			continue
+		}
+		role.SetResourceVersion(fmt.Sprint(rev))
+		return role, nil
 	}
-	_, err = s.kv.Roles.Put(role.Id, data)
-	return err
+	if updateErr != nil {
+		return nil, fmt.Errorf("failed to update role: %w", updateErr)
+	}
+	return nil, fmt.Errorf("failed to update role: (unknown error)")
 }
 
 func (s *JetStreamStore) DeleteRole(_ context.Context, ref *corev1.Reference) error {
@@ -59,6 +87,7 @@ func (s *JetStreamStore) GetRole(_ context.Context, ref *corev1.Reference) (*cor
 	if err := protojson.Unmarshal(entry.Value(), role); err != nil {
 		return nil, err
 	}
+	role.SetResourceVersion(fmt.Sprint(entry.Revision()))
 	return role, nil
 }
 

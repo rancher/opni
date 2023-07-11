@@ -15,11 +15,25 @@ func (s *Server) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empt
 	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRole(ctx, in)
 }
 
-func (s *Server) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+func (m *Server) UpdateRole(
+	ctx context.Context,
+	in *corev1.Role,
+) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
-		return nil, err
+		return &emptypb.Empty{}, err
 	}
-	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().UpdateRole(ctx, in)
+
+	oldRole, err := m.GetRole(ctx, in.Reference())
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	_, err = m.coreDataSource.StorageBackend().UpdateRole(ctx, oldRole.Reference(), func(role *corev1.Role) {
+		role.ClusterIDs = in.GetClusterIDs()
+		role.MatchLabels = in.GetMatchLabels()
+		role.Metadata = in.GetMetadata()
+	})
+	return &emptypb.Empty{}, err
 }
 
 func (s *Server) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {

@@ -20,6 +20,7 @@ func BuildRolesCmd() *cobra.Command {
 		Short:   "Manage roles",
 	}
 	rolesCmd.AddCommand(BuildRolesCreateCmd())
+	rolesCmd.AddCommand(BuildRolesUpdateCmd())
 	rolesCmd.AddCommand(BuildRolesDeleteCmd())
 	rolesCmd.AddCommand(BuildRolesShowCmd())
 	rolesCmd.AddCommand(BuildRolesListCmd())
@@ -68,6 +69,44 @@ func BuildRolesCreateCmd() *cobra.Command {
 				},
 			}
 			_, err := mgmtClient.CreateRole(cmd.Context(), role)
+			if err != nil {
+				lg.Fatal(err)
+			}
+			fmt.Println(cliutil.RenderRole(role))
+		},
+	}
+	cmd.Flags().StringSliceVar(&clusterIDs, "cluster-ids", []string{}, "Explicit cluster IDs to allow")
+	cmd.Flags().StringSliceVar(&matchLabelsStrings, "match-labels", []string{}, "List of key=value cluster labels to match allowed clusters")
+	return cmd
+}
+
+func BuildRolesUpdateCmd() *cobra.Command {
+	var clusterIDs []string
+	var matchLabelsStrings []string
+	matchLabels := map[string]string{}
+	cmd := &cobra.Command{
+		Use:               "update <role-id>",
+		Short:             "Update a role",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// split key=value strings in matchLabels
+			var err error
+			matchLabels, err = cliutil.ParseKeyValuePairs(matchLabelsStrings)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			role := &corev1.Role{
+				Id:         args[0],
+				ClusterIDs: clusterIDs,
+				MatchLabels: &corev1.LabelSelector{
+					MatchLabels: matchLabels,
+				},
+			}
+			_, err := mgmtClient.UpdateRole(cmd.Context(), role)
 			if err != nil {
 				lg.Fatal(err)
 			}

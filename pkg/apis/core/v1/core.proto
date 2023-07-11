@@ -126,6 +126,12 @@ message Role {
   string id = 1;
   repeated string clusterIDs = 2;
   LabelSelector matchLabels = 3;
+  RoleMetadata metadata = 4;
+}
+
+message RoleMetadata {
+  // read-only
+  string resourceVersion = 1;
 }
 
 message RoleBinding {

@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,18 +26,31 @@ func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	return err
 }
 
-func (c *CRDStore) UpdateRole(ctx context.Context, role *corev1.Role) error {
-	err := c.client.Update(ctx, &monitoringv1beta1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      role.Id,
+func (c *CRDStore) UpdateRole(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Role]) (*corev1.Role, error) {
+	var role *corev1.Role
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
+		existing := &monitoringv1beta1.Role{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
 			Namespace: c.namespace,
-		},
-		Spec: role,
+		}, existing)
+		if err != nil {
+			return err
+		}
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		role = clone.Spec
+		err = c.client.Update(ctx, clone)
+		role.SetResourceVersion(clone.GetObjectMeta().GetResourceVersion())
+		return err
 	})
-	if k8serrors.IsNotFound(err) {
-		return storage.ErrNotFound
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
+		return nil, err
 	}
-	return err
+	return role, nil
 }
 
 func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
@@ -64,6 +78,7 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.
 		}
 		return nil, err
 	}
+	role.Spec.SetResourceVersion(role.GetResourceVersion())
 	return role.Spec, nil
 }
 

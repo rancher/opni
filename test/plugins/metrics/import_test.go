@@ -7,9 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/snappy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/prometheus/prometheus/prompb"
+	"github.com/samber/lo"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
@@ -34,12 +38,46 @@ const testNamespace = "test-ns"
 type blockingHttpHandler struct {
 }
 
-func (h blockingHttpHandler) ServeHTTP(_ http.ResponseWriter, request *http.Request) {
+func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	switch request.URL.Path {
 	case "/block":
 		// select {} will block forever without using CPU.
 		select {}
+	case "/large":
+		uncompressed, err := proto.Marshal(&prompb.ReadResponse{
+			Results: []*prompb.QueryResult{
+				{
+					Timeseries: []*prompb.TimeSeries{
+						{
+							Labels: []prompb.Label{
+								{
+									Name:  "__name__",
+									Value: "test_metric",
+								},
+							},
+							// Samples: lo.Map(make([]prompb.Sample, 4194304), func(sample prompb.Sample, i int) prompb.Sample {
+							Samples: lo.Map(make([]prompb.Sample, 65536), func(sample prompb.Sample, i int) prompb.Sample {
+								sample.Timestamp = time.Now().UnixMilli()
+								return sample
+							}),
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		compressed := snappy.Encode(nil, uncompressed)
+
+		_, err = w.Write(compressed)
+		if err != nil {
+			panic(err)
+		}
+	case "/health":
 	default:
+		panic(fmt.Sprintf("unsupported endpoint: %s", request.URL.Path))
 	}
 }
 
@@ -47,20 +85,30 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 	ctx := context.Background()
 	agentId := "import-agent"
 
-	target := &remoteread.Target{
+	blockingTarget := &remoteread.Target{
 		Meta: &remoteread.TargetMeta{
-			Name:      "test",
+			Name:      "test-block",
 			ClusterId: agentId,
 		},
 		Spec: &remoteread.TargetSpec{
 			Endpoint: "",
 		},
-		Status: nil,
+	}
+
+	largeTarget := &remoteread.Target{
+		Meta: &remoteread.TargetMeta{
+			Name:      "test-large",
+			ClusterId: agentId,
+		},
+		Spec: &remoteread.TargetSpec{
+			Endpoint: "",
+		},
 	}
 
 	query := &remoteread.Query{
 		StartTimestamp: &timestamppb.Timestamp{
-			Seconds: time.Now().Unix() - int64(time.Hour.Seconds()),
+			// we only want this to run 1-3 times to avoid waiting for several large packets with backoffs due to ingest rate limiting, so we set the start time to be 2 * the read query step
+			Seconds: int64(time.Now().Unix()) - int64(time.Minute.Seconds()*2),
 		},
 		EndTimestamp: &timestamppb.Timestamp{
 			Seconds: time.Now().Unix(),
@@ -98,10 +146,13 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		_, errC := env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
 
+		cortexCtx := waitctx.Background()
+		env.StartCortex(cortexCtx)
+
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())
 		s := scheme.Scheme
-		monitoringcoreosv1.AddToScheme(s)
+		monitoringv1.AddToScheme(s)
 
 		config, _, err := testk8s.StartK8s(k8sctx, []string{
 			"../../../config/crd/prometheus",
@@ -153,11 +204,11 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		By("creating import client")
 		importClient = remoteread.NewRemoteReadGatewayClient(env.ManagementClientConn())
 
-		By("adding a dummy remote read server")
-		port := freeport.GetFreePort()
+		By("adding a remote read server")
+		addr := fmt.Sprintf("127.0.0.1:%d", freeport.GetFreePort())
 
-		addr := fmt.Sprintf("127.0.0.1:%d", port)
-		target.Spec.Endpoint = "http://" + addr + "/block"
+		blockingTarget.Spec.Endpoint = "http://" + addr + "/block"
+		largeTarget.Spec.Endpoint = "http://" + addr + "/large"
 
 		server := http.Server{
 			Addr:    addr,
@@ -170,9 +221,9 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		// Shutdown will block indefinitely due to the server's blockingHttpHandler
 		DeferCleanup(server.Close)
 
-		// wait fo rhttp server to be up
+		// wait for http server to be up
 		Eventually(func() error {
-			_, err := (&http.Client{}).Get("http://" + addr)
+			_, err := (&http.Client{}).Get("http://" + addr + "/health")
 			return err
 		}).WithContext(ctx).Should(Not(HaveOccurred()))
 	})
@@ -180,31 +231,49 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 	When("add targets", func() {
 		It("should succeed", func() {
 			_, err := importClient.AddTarget(ctx, &remoteread.TargetAddRequest{
-				Target:    target,
-				ClusterId: target.Meta.ClusterId,
+				Target:    blockingTarget,
+				ClusterId: blockingTarget.Meta.ClusterId,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = importClient.AddTarget(ctx, &remoteread.TargetAddRequest{
+				Target:    largeTarget,
+				ClusterId: largeTarget.Meta.ClusterId,
 			})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should fail on duplicate targets", func() {
 			_, err := importClient.AddTarget(ctx, &remoteread.TargetAddRequest{
-				Target:    target,
-				ClusterId: target.Meta.ClusterId,
+				Target:    blockingTarget,
+				ClusterId: blockingTarget.Meta.ClusterId,
 			})
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
-	When("starting a target", func() {
+	When("starting targets", func() {
 		It("should succeed", func() {
 			_, err := importClient.Start(ctx, &remoteread.StartReadRequest{
-				Target: target,
+				Target: blockingTarget,
 				Query:  query,
 			})
 			Expect(err).ToNot(HaveOccurred())
 
 			status, err := importClient.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
-				Meta: target.Meta,
+				Meta: blockingTarget.Meta,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(status.State).To(Equal(remoteread.TargetState_Running))
+
+			_, err = importClient.Start(ctx, &remoteread.StartReadRequest{
+				Target: largeTarget,
+				Query:  query,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			status, err = importClient.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
+				Meta: largeTarget.Meta,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(status.State).To(Equal(remoteread.TargetState_Running))
@@ -214,7 +283,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 	When("target is running", func() {
 		It("should fail to start a running target", func() {
 			_, err := importClient.Start(ctx, &remoteread.StartReadRequest{
-				Target: target,
+				Target: blockingTarget,
 				Query:  query,
 			})
 			Expect(err).To(HaveOccurred())
@@ -222,7 +291,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 		It("should fail to edit a target", func() {
 			_, err := importClient.EditTarget(ctx, &remoteread.TargetEditRequest{
-				Meta: target.Meta,
+				Meta: blockingTarget.Meta,
 				TargetDiff: &remoteread.TargetDiff{
 					Name: "new-name",
 				},
@@ -232,62 +301,19 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 		It("should fail to delete a target", func() {
 			_, err := importClient.RemoveTarget(ctx, &remoteread.TargetRemoveRequest{
-				Meta: target.Meta,
+				Meta: blockingTarget.Meta,
 			})
 			Expect(err).To(HaveOccurred())
 		})
-	})
 
-	//When("discovering targets", func() {
-	//	It("should find all Prometheuses", func() {
-	//		entries, err := importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
-	//			ClusterIds: []string{agentId},
-	//		})
-	//		Expect(err).ToNot(HaveOccurred())
-	//		Expect(entries).To(ContainElements(
-	//			&remoteread.DiscoveryEntry{
-	//				Name:             "test-prometheus",
-	//				ClusterId:        "",
-	//				ExternalEndpoint: "external-url.domain",
-	//				InternalEndpoint: "test-prometheus.default.svc.cluster.local",
-	//			},
-	//			&remoteread.DiscoveryEntry{
-	//				Name:             "test-prometheus",
-	//				ClusterId:        "",
-	//				ExternalEndpoint: "external-url.domain",
-	//				InternalEndpoint: "test-prometheus.test-ns.svc.cluster.local",
-	//			},
-	//		))
-	//	})
-	//
-	//	It("should limit Prometheus discovery to namespaces", func() {
-	//		defaultNs := "default"
-	//		testNs := testNamespace
-	//
-	//		entries, err := importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
-	//			ClusterIds: []string{agentId},
-	//			Namespace:  &defaultNs,
-	//		})
-	//		Expect(err).NotTo(HaveOccurred())
-	//		Expect(entries).To(ContainElement(
-	//			&remoteread.DiscoveryEntry{
-	//				Name:             "test-prometheus",
-	//				ClusterId:        "",
-	//				ExternalEndpoint: "external-url.domain",
-	//				InternalEndpoint: "test-prometheus.default.svc.cluster.local",
-	//			}))
-	//
-	//		entries, err = importClient.DiscoverPrometheuses(ctx, &remoteread.DiscoveryRequest{
-	//			ClusterIds: []string{agentId},
-	//			Namespace:  &testNs,
-	//		})
-	//		Expect(err).NotTo(HaveOccurred())
-	//		Expect(entries).To(ContainElement(&remoteread.DiscoveryEntry{
-	//			Name:             "test-prometheus",
-	//			ClusterId:        "",
-	//			ExternalEndpoint: "external-url.domain",
-	//			InternalEndpoint: "test-prometheus.test-ns.svc.cluster.local",
-	//		}))
-	//	})
-	//})
+		It("should be able to send large data", func() {
+			Eventually(func() (remoteread.TargetState, error) {
+				status, err := importClient.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
+					Meta: largeTarget.Meta,
+				})
+
+				return status.State, err
+			}, "15s").Should(Equal(remoteread.TargetState_Completed))
+		})
+	})
 })

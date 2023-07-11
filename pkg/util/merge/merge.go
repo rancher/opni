@@ -30,11 +30,21 @@ func Merge(dst, src proto.Message) {
 	MergeOptions{}.Merge(dst, src)
 }
 
+func MergeWithReplace[T proto.Message](dst, src T) {
+	MergeOptions{
+		ReplaceLists: true,
+		ReplaceMaps:  true,
+	}.Merge(dst, src)
+}
+
 // MergeOptions provides a namespace for merge functions, and can be
 // exported in the future if we add user-visible merge options.
 type MergeOptions struct {
 	// If true, slices are replaced instead of appended to.
 	ReplaceLists bool
+
+	// If true, maps are replaced instead of merged.
+	ReplaceMaps bool
 }
 
 func (o MergeOptions) Merge(dst, src proto.Message) {
@@ -65,7 +75,7 @@ func (o MergeOptions) mergeMessage(dst, src protoreflect.Message) {
 	}
 
 	if !dst.IsValid() {
-		panic(fmt.Sprintf("cannot merge into invalid %v message", dst.Descriptor().FullName()))
+		panic(fmt.Sprintf("cannot merge into nil %v message", dst.Descriptor().FullName()))
 	}
 
 	src.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
@@ -90,7 +100,6 @@ func (o MergeOptions) mergeMessage(dst, src protoreflect.Message) {
 }
 
 func (o MergeOptions) mergeList(dst, src protoreflect.List, fd protoreflect.FieldDescriptor) {
-	// Merge semantics appends to the end of the existing list.
 	if o.ReplaceLists {
 		dst.Truncate(0)
 	}
@@ -109,7 +118,12 @@ func (o MergeOptions) mergeList(dst, src protoreflect.List, fd protoreflect.Fiel
 }
 
 func (o MergeOptions) mergeMap(dst, src protoreflect.Map, fd protoreflect.FieldDescriptor) {
-	// Merge semantics replaces, rather than merges into existing entries.
+	if o.ReplaceMaps {
+		dst.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+			dst.Clear(k)
+			return true
+		})
+	}
 	src.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 		switch {
 		case fd.Message() != nil:

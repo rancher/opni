@@ -18,7 +18,7 @@ type WriteLimit struct {
 func DefaultWriteLimit() WriteLimit {
 	return WriteLimit{
 		GrpcMaxBytes:             4194304,
-		CortexIngestionRateLimit: 2500,
+		CortexIngestionRateLimit: 25000,
 	}
 }
 

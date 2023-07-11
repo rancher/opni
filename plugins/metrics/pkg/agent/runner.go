@@ -192,9 +192,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 			}
 
 			switch {
-			case strings.Contains(err.Error(), "context cancelled"),
-				strings.Contains(err.Error(), "ingestion rate limit"):
-
+			case strings.Contains(err.Error(), "ingestion rate limit"):
 				tr.logger.With(
 					zap.Error(err),
 				).Warn("failed to push to remote write, retrying...")
@@ -206,10 +204,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 }
 
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
-	limit := util.WriteLimit{
-		GrpcMaxBytes:             4194304,
-		CortexIngestionRateLimit: 2500,
-	}
+	limit := util.DefaultWriteLimit()
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 

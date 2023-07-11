@@ -29,9 +29,11 @@ enum ClientDependencyInjectionStrategy {
 }
 
 message GeneratorOptions {
-  bool                              generate                    = 1;
-  bool                              generate_deepcopy           = 2;
-  ClientDependencyInjectionStrategy client_dependency_injection = 3;
+  bool generate                        = 1;
+  bool generate_deepcopy               = 2;
+  bool generate_flags_for_all_messages = 3;
+
+  ClientDependencyInjectionStrategy client_dependency_injection = 4;
 }
 
 message FlagOptions {
@@ -53,5 +55,6 @@ message CommandGroupOptions {
 
 message CommandOptions {
   string          use            = 25601;
+  repeated string aliases        = 25602;
   repeated string required_flags = 25603;
 }

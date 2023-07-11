@@ -74,7 +74,7 @@ var (
 	_pflag     = protogen.GoImportPath("github.com/spf13/pflag")
 	_emptypb   = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	_flagutil  = protogen.GoImportPath("github.com/rancher/opni/pkg/util/flagutil")
-	_cliutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/util")
+	_cliutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/cliutil")
 	_enumflag  = protogen.GoImportPath("github.com/thediveo/enumflag/v2")
 	_errors    = protogen.GoImportPath("errors")
 )
@@ -112,8 +112,18 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 
 	anyServices := len(file.Services) > 0
 	cg.generateServices(&opts, file, g)
-	if !anyServices {
+	if !anyServices || (opts.GenerateFlagsForAllMessages && len(file.Messages) > 0) {
 		g.Skip()
+	}
+
+	if opts.GenerateFlagsForAllMessages {
+		for _, msg := range file.Messages {
+			// check if a flagset has already been generated for this message
+			if _, ok := cg.allFlagSets[g.QualifiedGoIdent(msg.GoIdent)]; ok {
+				continue
+			}
+			cg.generateFlagSet(g, msg)
+		}
 	}
 
 	for _, fs := range cg.orderedFlagSets {
@@ -131,17 +141,35 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	return g
 }
 
+func cmdBuilderMethodName(method *protogen.Method) string {
+	return fmt.Sprintf("Build%s%sCmd", method.Parent.GoName, method.GoName)
+}
+
 func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.File, g *protogen.GeneratedFile) {
 	svcCtx := serviceGenWriters{}
 	switch opts.ClientDependencyInjection {
 	case ClientDependencyInjectionStrategy_InjectIntoContext:
 		generateContextInjectionFunctions(file, g)
 		svcCtx = serviceGenWriters{
-			PrintAddCmd: func(method *protogen.Method, g *protogen.GeneratedFile) {
-				g.P("cmd.AddCommand(Build", method.GoName, "Cmd())")
+			PrintAddCmds: func(methods []*protogen.Method, g *protogen.GeneratedFile) {
+				if len(methods) == 0 {
+					return
+				}
+				if len(methods) == 1 {
+					g.P("cmd.AddCommand(", cmdBuilderMethodName(methods[0]), "())")
+					return
+				}
+				g.P(_cliutil.Ident("AddSubcommands(cmd, "))
+				for _, method := range methods {
+					if cg.shouldSkipMethod(method) {
+						continue
+					}
+					g.P(cmdBuilderMethodName(methods[0]), "(),")
+				}
+				g.P(")")
 			},
-			PrintCmdBuilderSignature: func(methodName, _ string, g *protogen.GeneratedFile) {
-				g.P("func Build", methodName, "Cmd() *", _cobra.Ident("Command"), " {")
+			PrintCmdBuilderSignature: func(methodName, svcName string, g *protogen.GeneratedFile) {
+				g.P("func Build", svcName, methodName, "Cmd() *", _cobra.Ident("Command"), " {")
 			},
 			PrintObtainClient: func(service *protogen.Service, g *protogen.GeneratedFile) {
 				g.P("client, ok := ", service.GoName+"ClientFromContext(cmd.Context())")
@@ -154,11 +182,22 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 
 	case ClientDependencyInjectionStrategy_InjectAsArgument:
 		svcCtx = serviceGenWriters{
-			PrintAddCmd: func(method *protogen.Method, g *protogen.GeneratedFile) {
-				g.P("cmd.AddCommand(Build", method.GoName, "Cmd(client))")
+			PrintAddCmds: func(methods []*protogen.Method, g *protogen.GeneratedFile) {
+				if len(methods) == 0 {
+					return
+				}
+				if len(methods) == 1 {
+					g.P("cmd.AddCommand(", cmdBuilderMethodName(methods[0]), "(client))")
+					return
+				}
+				g.P(_cliutil.Ident("AddSubcommands(cmd, "))
+				for _, method := range methods {
+					g.P(cmdBuilderMethodName(method), "(client),")
+				}
+				g.P(")")
 			},
 			PrintCmdBuilderSignature: func(methodName, svcName string, g *protogen.GeneratedFile) {
-				g.P("func Build", methodName, "Cmd(client ", svcName+"Client", ") *", _cobra.Ident("Command"), " {")
+				g.P("func Build", svcName, methodName, "Cmd(client ", svcName+"Client", ") *", _cobra.Ident("Command"), " {")
 			},
 			PrintObtainClient: func(service *protogen.Service, g *protogen.GeneratedFile) {},
 		}
@@ -168,14 +207,25 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 		cg.generateServiceTopLevelCmd(service, g, svcCtx)
 		g.P()
 		for _, method := range service.Methods {
+			if cg.shouldSkipMethod(method) {
+				continue
+			}
 			cg.generateMethodCmd(service, method, g, svcCtx)
 			g.P()
 		}
 	}
 }
 
+func (cg *Generator) shouldSkipMethod(method *protogen.Method) bool {
+	// todo: streaming methods are not implemented yet
+	if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
+		return true
+	}
+	return false
+}
+
 type serviceGenWriters struct {
-	PrintAddCmd              func(method *protogen.Method, g *protogen.GeneratedFile)
+	PrintAddCmds             func(methods []*protogen.Method, g *protogen.GeneratedFile)
 	PrintCmdBuilderSignature func(methodName, svcName string, g *protogen.GeneratedFile)
 	PrintObtainClient        func(service *protogen.Service, g *protogen.GeneratedFile)
 }
@@ -207,12 +257,12 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 
 	g.P("var extraCmds_", service.GoName, " []*", _cobra.Ident("Command"))
 	g.P()
-	g.P("func addCortexOpsCommand(custom *", _cobra.Ident("Command"), ") {")
+	g.P("func addExtra", service.GoName, "Cmd(custom *", _cobra.Ident("Command"), ") {")
 	g.P(" extraCmds_", service.GoName, " = append(extraCmds_", service.GoName, ", custom)")
 	g.P("}")
 	g.P()
 
-	writers.PrintCmdBuilderSignature(service.GoName, service.GoName, g)
+	writers.PrintCmdBuilderSignature("", service.GoName, g)
 
 	g.P("cmd := &", _cobra.Ident("Command"), "{")
 	g.P(" Use:   \"", opts.Use, "\",")
@@ -236,12 +286,8 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 	g.P("}")
 	g.P()
 
-	for _, method := range service.Methods {
-		writers.PrintAddCmd(method, g)
-	}
-	g.P("for _, extraCmd := range extraCmds_", service.GoName, " {")
-	g.P(" cmd.AddCommand(extraCmd)")
-	g.P("}")
+	writers.PrintAddCmds(service.Methods, g)
+	g.P(_cliutil.Ident("AddSubcommands"), "(cmd, extraCmds_", service.GoName, "...)")
 
 	g.P(_cli.Ident("AddOutputFlag(cmd)"))
 
@@ -611,9 +657,10 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					})
 
 					// generate a flag set if either:
-					// - the field is from a message in the same file
+					// - the field is from a *different* message in the same file
+					//   (note that this effectively always skips recursive message fields)
 					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
-					if field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() ||
+					if (field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() && field.Message != message) ||
 						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
 						depFs := cg.generateFlagSet(g.g, field.Message)
 						deps[kebabName] = depFs
@@ -854,8 +901,11 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 		if responseIsEmpty {
 			// try to find a matching "getter" method. If found, use it to obtain the current
 			// value of `in` and pass it to the setter method.
+			// Right now this will only match commands that look like the following (names are not checked):
+			// rpc A(Message) returns (google.protobuf.Empty);
+			// rpc B(google.protobuf.Empty) returns (Message);
 			for _, candidate := range service.Methods {
-				if candidate == method {
+				if candidate == method || cg.shouldSkipMethod(candidate) {
 					continue
 				}
 				if candidate.Desc.Input() == method.Desc.Output() && candidate.Desc.Output() == method.Desc.Input() {

@@ -28,6 +28,9 @@ func GenCortexConfig() error {
 	if err := generate[cortex.RuntimeConfigValues]("github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconfig.proto"); err != nil {
 		return err
 	}
+	if err := generate[compactor.Config]("github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto"); err != nil {
+		return err
+	}
 	if err := generate[querier.Config]("github.com/rancher/opni/internal/cortex/config/querier/querier.proto",
 		func(rf reflect.StructField) bool {
 			if rf.Name == "StoreGatewayAddresses" || rf.Name == "StoreGatewayClient" {

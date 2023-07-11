@@ -34,6 +34,7 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-playground/validator/v10 v10.14.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/golang/protobuf v1.5.3
 	github.com/golang/snappy v0.0.4
@@ -90,7 +91,7 @@ require (
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.10.0
-	github.com/prometheus/procfs v0.10.1
+	github.com/prometheus/procfs v0.11.0
 	github.com/prometheus/prometheus v0.44.1-0.20230530154238-dfae954dc113
 	github.com/pulumi/pulumi/sdk/v3 v3.68.0
 	github.com/qmuntal/stateless v1.6.3
@@ -329,7 +330,6 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gogo/status v1.1.1 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang-migrate/migrate/v4 v4.16.2 // indirect

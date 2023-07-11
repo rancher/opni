@@ -211,9 +211,5 @@ func tryEdit[T proto.Message](spec T, lang language, extraComments []string) (T,
 		return nilT, err
 	}
 
-	if proto.Equal(spec, editedSpec.Interface()) {
-		return nilT, fmt.Errorf("%w: no changes were made", ErrAborted)
-	}
-
 	return editedSpec.Interface().(T), nil
 }

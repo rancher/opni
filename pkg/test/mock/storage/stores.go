@@ -9,10 +9,10 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	keyring "github.com/rancher/opni/pkg/keyring"
 	storage "github.com/rancher/opni/pkg/storage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.

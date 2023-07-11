@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
@@ -409,16 +408,16 @@ func RunAlertManager(
 	By("Verifying that the config can be loaded by alertmanager")
 	freePort := freeport.GetFreePort()
 	ctxCa, caF := context.WithCancel(ctx)
-	apiPort := e.StartEmbeddedAlertManager(ctxCa, tmpPath, lo.ToPtr(freePort))
-	apiNode := backend.NewAlertManagerReadyClient(
-		ctx,
-		fmt.Sprintf("http://localhost:%d", apiPort),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithDefaultRetrier(),
+	ports := e.StartEmbeddedAlertManager(ctxCa, tmpPath, lo.ToPtr(freePort))
+	alertingClient := client.NewClient(
+		nil,
+		fmt.Sprintf("http://localhost:%d", ports.ApiPort),
+		fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
 	)
-	err = apiNode.DoRequest()
-	Expect(err).To(Succeed())
-	return apiPort, caF
+	Eventually(func() error {
+		return alertingClient.Ready(ctxCa)
+	}).Should(Succeed())
+	return ports.ApiPort, caF
 }
 
 func ExpectAlertManagerConfigToBeValid(
@@ -454,16 +453,16 @@ func ExpectAlertManagerConfigToBeValid(
 	}
 
 	By("Verifying that the config can be loaded by alertmanager")
-	apiPort := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
-	apiNode := backend.NewAlertManagerReadyClient(
-		ctx,
-		fmt.Sprintf("http://localhost:%d", apiPort),
-		backend.WithExpectClosure(backend.NewExpectStatusOk()),
-		backend.WithDefaultRetrier(),
+	ports := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
+	alertingClient := client.NewClient(
+		nil,
+		fmt.Sprintf("http://localhost:%d", ports.ApiPort),
+		fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
 	)
-	err = apiNode.DoRequest()
-	Expect(err).To(Succeed(), fmt.Sprintf("failed to load the config into alertmanager on step : %s", strings.TrimSuffix(writeFile, filepath.Ext(writeFile))))
-	// in the future we can look at enhancing by providing partial matches through the /api/v2/status api
+	Eventually(func() error {
+		return alertingClient.Ready(ctx)
+	}).Should(Succeed())
+
 }
 
 func ExpectToRecoverConfig(router routing.OpniRouting, name ...string) {
@@ -597,13 +596,13 @@ func NewRoutableDataset() *RoutableDataset {
 		},
 		ExpectedAlarms: []AlarmPair{
 			{A: &alertingv1.ListAlarmMessageRequest{
-				ConditionId:  condId1,
+				ConditionId:  &alertingv1.ConditionReference{Id: condId1},
 				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
 				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
 				Fingerprints: []string{"fingerprint"},
 			}, B: 1},
 			{A: &alertingv1.ListAlarmMessageRequest{
-				ConditionId:  condId2,
+				ConditionId:  &alertingv1.ConditionReference{Id: condId2},
 				Start:        timestamppb.New(time.Now().Add(-10000 * time.Hour)),
 				End:          timestamppb.New(time.Now().Add(10000 * time.Hour)),
 				Fingerprints: []string{"fingerprint"},

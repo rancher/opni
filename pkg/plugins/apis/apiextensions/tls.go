@@ -35,6 +35,8 @@ func (tc *CertConfig) TLSConfig() (*tls.Config, error) {
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,
 		RootCAs:      caPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caPool,
 		Certificates: []tls.Certificate{*bundle},
 	}, nil
 }

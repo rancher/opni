@@ -83,16 +83,17 @@ type TLSClientConfigShape = struct {
 }
 
 type StandardOverridesShape = struct {
-	HttpListenAddress string
-	HttpListenPort    int
-	HttpListenNetwork string
-	GrpcListenAddress string
-	GrpcListenPort    int
-	GrpcListenNetwork string
-	StorageDir        string
-	RuntimeConfig     string
-	TLSServerConfig   TLSServerConfigShape
-	TLSClientConfig   TLSClientConfigShape
+	HttpListenAddress      string
+	HttpListenPort         int
+	HttpListenNetwork      string
+	GrpcListenAddress      string
+	GrpcListenPort         int
+	GrpcListenNetwork      string
+	StorageDir             string
+	RuntimeConfig          string
+	TLSServerConfig        TLSServerConfigShape
+	TLSGatewayClientConfig TLSClientConfigShape
+	TLSCortexClientConfig  TLSClientConfigShape
 }
 
 type ImplementationSpecificOverridesShape = struct {
@@ -327,15 +328,18 @@ func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 		}),
 		NewOverrider(func(t *grpcclient.Config) {
 			t.TLSEnabled = true
-			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
 		}),
 		NewOverrider(func(t *alertmanager.ClientConfig) {
 			t.TLSEnabled = true
-			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
 		}),
 		NewOverrider(func(t *querier.ClientConfig) {
 			t.TLSEnabled = true
-			t.TLS = cortextls.ClientConfig(impl.TLSClientConfig)
+			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
+		}),
+		NewOverrider(func(t *ruler.NotifierConfig) {
+			t.TLS = cortextls.ClientConfig(impl.TLSGatewayClientConfig)
 		}),
 		NewOverrider(func(t *querier.Config) {
 			t.ActiveQueryTrackerDir = filepath.Join(impl.StorageDir, "active-query-tracker")

@@ -214,7 +214,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				},
 			},
 		},
-		Secrets: []string{"grafana-datasource-cert"},
+		Secrets: []string{"opni-gateway-client-cert"},
 		DataStorage: &grafanav1alpha1.GrafanaDataStorage{
 			Size: resource.MustParse("10Gi"),
 		},
@@ -259,7 +259,9 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 					TlsAuthWithCACert: true,
 				},
 				SecureJsonData: grafanav1alpha1.GrafanaDataSourceSecureJsonData{
-					TlsCaCert: "$__file{/etc/grafana-secrets/grafana-datasource-cert/ca.crt}",
+					TlsCaCert:     "$__file{/etc/grafana-secrets/opni-gateway-client-cert/ca.crt}",
+					TlsClientCert: "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.crt}",
+					TlsClientKey:  "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.key}",
 				},
 			},
 			{
@@ -276,7 +278,9 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 					OauthPassThru:     true,
 				},
 				SecureJsonData: grafanav1alpha1.GrafanaDataSourceSecureJsonData{
-					TlsCaCert: "$__file{/etc/grafana-secrets/grafana-datasource-cert/ca.crt}",
+					TlsCaCert:     "$__file{/etc/grafana-secrets/opni-gateway-client-cert/ca.crt}",
+					TlsClientCert: "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.crt}",
+					TlsClientKey:  "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.key}",
 				},
 			},
 		},

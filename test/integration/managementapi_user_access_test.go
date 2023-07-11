@@ -44,7 +44,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	})
 
 	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

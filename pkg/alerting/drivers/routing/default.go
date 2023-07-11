@@ -118,9 +118,9 @@ func NewRootNode(embeddedServerHook string) *config.Config {
 			// be subgrouped to opni-specific subrouting trees and user-synced subrouting trees
 			GroupByStr: []string{"..."},
 			Routes:     []*config.Route{},
-			GroupWait:  lo.ToPtr(model.Duration(60 * time.Second)),
+			GroupWait:  DefaultConfig.GlobalConfig.GroupWait,
 			//GroupInterval:  lo.ToPtr(model.Duration(1 * time.Minute)),
-			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+			RepeatInterval: DefaultConfig.GlobalConfig.RepeatInterval,
 		},
 		Receivers: []*config.Receiver{
 			FinalizerReceiver(embeddedServerHook),
@@ -151,9 +151,9 @@ func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 
 	// must be last to prevent any opni alerts from leaking into the user's production routing tree
 	opniRoute.Routes = append(opniRoute.Routes, newFinalizer(nil, rateLimitingConfig{
-		InitialDelay:       time.Second * 10,
-		ThrottlingDuration: time.Minute * 1,
-		RepeatInterval:     time.Hour * 5,
+		InitialDelay:       DefaultConfig.FinalizerConfig.InitialDelay,
+		ThrottlingDuration: DefaultConfig.FinalizerConfig.ThrottlingDuration,
+		RepeatInterval:     DefaultConfig.FinalizerConfig.RepeatInterval,
 	}))
 	return opniRoute, allRecvs
 }
@@ -237,8 +237,8 @@ func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.R
 		// continue = false here overrides the subtree's continue = true?
 		Continue:       false,
 		Routes:         []*config.Route{},
-		GroupWait:      lo.ToPtr(model.Duration(60 * time.Second)),
-		RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+		GroupWait:      DefaultConfig.SubtreeConfig.GroupWait,
+		RepeatInterval: DefaultConfig.SubtreeConfig.RepeatInterval,
 	}
 	receivers := []*config.Receiver{}
 	subRoutes := []*config.Route{}
@@ -249,9 +249,9 @@ func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.R
 	}
 	// always terminate the namespace with a finalizer
 	finalizer := newFinalizer(lo.ToPtr(namespace), rateLimitingConfig{
-		InitialDelay:       time.Second * 30,
-		ThrottlingDuration: time.Minute * 5,
-		RepeatInterval:     time.Minute * 10,
+		InitialDelay:       DefaultConfig.FinalizerConfig.InitialDelay,
+		ThrottlingDuration: DefaultConfig.FinalizerConfig.ThrottlingDuration,
+		RepeatInterval:     DefaultConfig.FinalizerConfig.RepeatInterval,
 	})
 	subRoutes = append(subRoutes, finalizer) // finalizer must always be last
 	parentRoute.Routes = subRoutes

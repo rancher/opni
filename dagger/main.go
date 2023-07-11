@@ -288,8 +288,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithExec([]string{"go", "mod", "download"}).
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
-		WithEnvVariable("CGO_ENABLED", "0"). // important for cached magefiles
+		WithEnvVariable("CGO_ENABLED", "0").  // important for cached magefiles
+		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
+		WithoutEnvVariable("GOBIN").
 		WithDirectory(b.workdir, b.sources)
 
 	nodeBuild := nodeBase.
@@ -403,6 +405,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		eg.Go(func() error {
 			charts.Directory(filepath.Join(b.workdir, "charts")).Export(ctx, "./charts")
 			charts.Directory(filepath.Join(b.workdir, "assets")).Export(ctx, "./assets")
+			charts.File(filepath.Join(b.workdir, "index.yaml")).Export(ctx, "./index.yaml")
 			return nil
 		})
 	}

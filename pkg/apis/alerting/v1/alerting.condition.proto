@@ -3,7 +3,6 @@ package alerting;
 
 option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
 
-
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/empty.proto";
@@ -13,23 +12,26 @@ import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 
-
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.endpoint.proto";
 
 
-
 // -------- CRUD for alerting conditions -------
 service AlertConditions {
-    rpc CreateAlertCondition(alerting.AlertCondition) returns (core.Reference) {
+  rpc ListAlertConditionGroups(google.protobuf.Empty) returns (core.ReferenceList){
+    option (google.api.http) = {
+      get : "/groups"
+    };
+  }
+  rpc CreateAlertCondition(alerting.AlertCondition) returns (alerting.ConditionReference) {
     option (google.api.http) = {
       post : "/configure"
       body : "*"
     };
   }
 
-  rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
+  rpc GetAlertCondition(alerting.ConditionReference) returns (AlertCondition) {
     option (google.api.http) = {
       post : "/list/{id}"
       body : "*"
@@ -53,24 +55,25 @@ service AlertConditions {
 
   rpc ListAlertConditionChoices(AlertDetailChoicesRequest)
       returns (ListAlertTypeDetails) {
-      option (google.api.http) = {
-        post : "/choices"
+    option (google.api.http) = {
+      post : "/choices"
     };
   }
 
-  rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeleteAlertCondition(alerting.ConditionReference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete : "/configure"
     };
   }
 
-  rpc AlertConditionStatus(core.Reference) returns (AlertStatusResponse) {
+  rpc AlertConditionStatus(alerting.ConditionReference) returns (AlertStatusResponse) {
     option (google.api.http) = {
       post : "/status/{id}"
     };
   }
 
-  rpc ListAlertConditionsWithStatus(ListStatusRequest) returns (ListStatusResponse) {
+  rpc ListAlertConditionsWithStatus(ListStatusRequest)
+      returns (ListStatusResponse) {
     option (google.api.http) = {
       get : "/list/withStatus"
     };
@@ -83,7 +86,8 @@ service AlertConditions {
     };
   }
 
-  //  can only active silence when alert is in firing state (limitation of alertmanager)
+  //  can only active silence when alert is in firing state (limitation of
+  //  alertmanager)
   rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post : "/silences"
@@ -91,7 +95,7 @@ service AlertConditions {
     };
   }
   // id corresponds to conditionId
-  rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeactivateSilence(alerting.ConditionReference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete : "/silences"
     };
@@ -128,7 +132,7 @@ message AlertCondition {
 
   // the following are read-only for consumers of the API
 
-  SilenceInfo silence = 7;// Set & Unset via the silence API
+  SilenceInfo silence = 7; // Set & Unset via the silence API
   // the object id
   google.protobuf.Timestamp lastUpdated = 8;
   string id = 9;
@@ -136,6 +140,8 @@ message AlertCondition {
   GoldenSignal goldenSignal = 10;
   // overrides the String type of AlertType Details for use in the UI
   string overrideType = 11;
+  map<string,string> metadata = 12;
+  string groupId = 13;
 }
 
 enum AlertType {
@@ -171,16 +177,13 @@ enum AlertConditionState {
   Firing = 3;
   Silenced = 4;
   Invalidated = 5;
+  Deleting = 6;
 }
 
 // enum will map to an object of available choices
-message AlertDetailChoicesRequest {
-  AlertType alertType = 1;
-}
+message AlertDetailChoicesRequest { AlertType alertType = 1; }
 
-message AlertDetailChoicesResponse {
-  repeated AlertTypeDetails choices = 1;
-}
+message AlertDetailChoicesResponse { repeated AlertTypeDetails choices = 1; }
 
 message AlertTypeDetails {
   oneof type {
@@ -222,9 +225,7 @@ message ListAlertTypeDetails {
   }
 }
 
-message ListAlertConditionPrometheusQuery{
-  repeated string clusters = 1;
-}
+message ListAlertConditionPrometheusQuery { repeated string clusters = 1; }
 
 message AlertConditionSystem {
   // same as clusterId
@@ -263,22 +264,20 @@ message ListAlertConditionKubeState {
 // - cpuState : "user", "system", "guest" selected
 message AlertConditionCPUSaturation {
   core.Reference clusterId = 1;
-  // optional filters for nodes and cores, restrict observation to said nodes or cores,
-  // if empty, all nodes and cores are selected
+  // optional filters for nodes and cores, restrict observation to said nodes or
+  // cores, if empty, all nodes and cores are selected
   map<string, Cores> nodeCoreFilters = 2;
   // at least one cpu state should be specified
   repeated string cpuStates = 3;
-  string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
+  string operation = 4;    // one of "<", ">", "<=", ">=", "=". "!="
   float expectedRatio = 5; // 0-1
   google.protobuf.Duration for = 6;
 }
 
-message Cores {
-  repeated int64 items = 1;
-}
+message Cores { repeated int64 items = 1; }
 
 message ListAlertConditionCPUSaturation {
-// clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
+  // clusters -> node (empty selection defaults to all) -> (cpus, cpu_state)
   map<string, CpuNodeGroup> clusters = 1;
   // cpu state, one of :
   // "user": The time spent in userland
@@ -292,9 +291,7 @@ message ListAlertConditionCPUSaturation {
   repeated string cpuStates = 2;
 }
 
-message CpuNodeGroup {
-  map<string, CpuInfo> nodes = 1;
-}
+message CpuNodeGroup { map<string, CpuInfo> nodes = 1; }
 
 message CpuInfo {
   // cores
@@ -305,7 +302,7 @@ message AlertConditionMemorySaturation {
   core.Reference clusterId = 1;
   map<string, MemoryInfo> nodeMemoryFilters = 2; // nodes to devices
   // at least one usageType is required
-  repeated string usageTypes =3;
+  repeated string usageTypes = 3;
   string operation = 4; // one of "<", ">", "<=", ">=", "=". "!="
   double expectedRatio = 5;
   google.protobuf.Duration for =6;
@@ -316,19 +313,15 @@ message ListAlertConditionMemorySaturation {
   repeated string usageTypes = 2;
 }
 
-message MemoryNodeGroup {
-  map<string, MemoryInfo> nodes = 1;
-}
+message MemoryNodeGroup { map<string, MemoryInfo> nodes = 1; }
 
-message MemoryInfo {
-  repeated string devices = 2;
-}
+message MemoryInfo { repeated string devices = 2; }
 
 message AlertConditionFilesystemSaturation {
-  core.Reference clusterId  = 1;
+  core.Reference clusterId = 1;
   // optional filters, if none are set then everything is selected
   map<string, FilesystemInfo> nodeFilters = 2;
-  string operation = 3; // one of "<", ">", "<=", ">=", "=". "!="
+  string operation = 3;     // one of "<", ">", "<=", ">=", "=". "!="
   double expectedRatio = 4; // 0-1
   google.protobuf.Duration for = 5;
 }
@@ -337,69 +330,53 @@ message ListAlertConditionFilesystemSaturation {
   map<string, FilesystemNodeGroup> clusters = 1;
 }
 
-message FilesystemNodeGroup {
-  map<string, FilesystemInfo> nodes = 1;
-}
+message FilesystemNodeGroup { map<string, FilesystemInfo> nodes = 1; }
 
 message FilesystemInfo {
   repeated string mountpoints = 1;
   repeated string devices = 2;
 }
 
-message AlertConditionPrometheusQuery{
+message AlertConditionPrometheusQuery {
   core.Reference clusterId = 1;
   string query = 2;
   google.protobuf.Duration for = 3;
 }
 
-message AlertConditionDownstreamCapability{
+message AlertConditionDownstreamCapability {
   core.Reference clusterId = 1;
   repeated string capabilityState = 2;
   google.protobuf.Duration for = 3;
 }
 
-message ListAlertConditionDownstreamCapability{
+message ListAlertConditionDownstreamCapability {
   map<string, CapabilityState> clusters = 1;
 }
 
-message CapabilityState{
-  repeated string states = 1;
-}
+message CapabilityState { repeated string states = 1; }
 
-message AlertConditionMonitoringBackend{
+message AlertConditionMonitoringBackend {
   // this will alert if these any of these components are unhealthy
   repeated string backendComponents = 1;
   google.protobuf.Duration for = 2;
   core.Reference clusterId = 3;
 }
 
-message ListAlertConditionMonitoringBackend{
+message ListAlertConditionMonitoringBackend {
   repeated string backendComponents = 1;
 }
 
-message StringArray {
-  repeated string items = 1;
-}
+message StringArray { repeated string items = 1; }
 
-message ObjectList {
-  repeated string objects = 1;
-}
+message ObjectList { repeated string objects = 1; }
 
-message NamespaceObjects {
-  map<string, ObjectList> namespaces = 1;
-}
+message NamespaceObjects { map<string, ObjectList> namespaces = 1; }
 
-message KubeObjectGroups {
-  map<string, NamespaceObjects> resourceTypes = 1;
-}
+message KubeObjectGroups { map<string, NamespaceObjects> resourceTypes = 1; }
 
-message ListSelectAlertInfo {
-  AlertType alertType = 1;
-}
+message ListSelectAlertInfo { AlertType alertType = 1; }
 
-message AlertConditionList {
-  repeated AlertConditionWithId items = 1;
-}
+message AlertConditionList { repeated AlertConditionWithId items = 1; }
 
 message AlertConditionComposition {
   CompositionAction action = 1;
@@ -426,7 +403,7 @@ message ListAlertConditionControlFlow {
 }
 
 message AlertConditionWithId {
-  core.Reference id = 1;
+  ConditionReference id = 1;
   AlertCondition alertCondition = 2;
 }
 
@@ -435,15 +412,17 @@ message ListAlertConditionRequest {
   repeated alerting.OpniSeverity severities = 2;
   repeated string labels = 3;
   repeated AlertType alertTypes = 4;
+  // default group is identified by ""
+  repeated string groupIds = 5;
 }
 
 message UpdateAlertConditionRequest {
-  core.Reference id = 1;
+  alerting.ConditionReference id = 1;
   AlertCondition updateAlert = 2;
 }
 
 message SilenceRequest {
-  core.Reference conditionId = 1;
+  alerting.ConditionReference conditionId = 1;
   google.protobuf.Duration duration = 2;
 }
 
@@ -457,8 +436,6 @@ message AlertStatusResponse {
   AlertConditionState state = 1;
   string reason = 2;
 }
-
-
 
 enum TimelineType {
   // do not show, backend error
@@ -477,20 +454,17 @@ message TimelineRequest {
 }
 
 // maps conditionId => list of active windows
-message TimelineResponse {
-  map<string, ActiveWindows> items = 1;
-}
+message TimelineResponse { map<string, ActiveWindows> items = 1; }
 
 message ActiveWindow {
   google.protobuf.Timestamp start = 1;
   google.protobuf.Timestamp end = 2;
   TimelineType type = 3;
   repeated string fingerprints = 4;
+  alerting.ConditionReference ref = 5;
 }
 
-message ActiveWindows {
-  repeated ActiveWindow windows = 1;
-}
+message ActiveWindows { repeated ActiveWindow windows = 1; }
 
 message CloneToRequest {
   AlertCondition alertCondition = 1;

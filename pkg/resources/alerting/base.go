@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/samber/lo"
@@ -22,12 +23,6 @@ const (
 	alertingUser  = "alerting"
 	requiredData  = "opni-alertmanager-data"
 )
-
-func alertingLabels() map[string]string {
-	return map[string]string{
-		"app.kubernetes.io/name": "opni-alerting",
-	}
-}
 
 // Similar to "opensearch.opster.io/pkg/builders"
 func (r *Reconciler) handlePVC(diskSize string) (pvc corev1.PersistentVolumeClaim, volumes []corev1.Volume) {
@@ -86,96 +81,103 @@ func (r *Reconciler) handlePVC(diskSize string) (pvc corev1.PersistentVolumeClai
 }
 
 func (r *Reconciler) alerting() []resources.Resource {
-	labelWithAlert := func(label map[string]string) map[string]string {
+	labelWithAlerting := func(label map[string]string) map[string]string {
 		label["app.kubernetes.io/name"] = "opni-alerting"
 		return label
 	}
-	labelWithNode := func(label map[string]string) map[string]string {
-		label["app.alerting.type"] = "node"
-		return label
-	}
-	labelWithCluster := func(label map[string]string) map[string]string {
-		label["app.alerting.node"] = "controller"
-		return label
-	}
-	publicNodeLabels := labelWithNode(labelWithAlert(map[string]string{}))
+	publicNodeLabels := labelWithAlerting(map[string]string{
+		resources.PartOfLabel: "opni",
+	})
 	publicNodeSvcLabels := publicNodeLabels
-	publicControllerLabels := labelWithCluster(labelWithAlert(map[string]string{}))
-	publicControllerSvcLabels := publicControllerLabels
 	pvc, requiredVolumes := r.handlePVC("5Gi")
 
 	requiredPersistentClaims := []corev1.PersistentVolumeClaim{pvc}
-	controllerService, controllerWorkers := r.newAlertingCluster(
-		shared.OperatorAlertingControllerServiceName,
-		r.alertmanagerControllerArgs(),
-		publicControllerSvcLabels,
-		publicControllerLabels,
-		r.controllerAlertingPorts(),
-		requiredVolumes,
-		requiredPersistentClaims,
-		1,
-	)
 
-	workerService, workerWorkers := r.newAlertingCluster(
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+			Labels:    publicNodeSvcLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     "ClusterIP",
+			Selector: publicNodeLabels,
+			Ports:    r.serviceAlertManagerPorts(append(r.nodeAlertingPorts(), r.syncerPorts()...)),
+		},
+	}
+
+	ss := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+			Labels:    publicNodeLabels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			ServiceName: shared.OperatorAlertingClusterNodeServiceName,
+			Replicas:    r.ac.Spec.Alertmanager.ApplicationSpec.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: publicNodeLabels,
+			},
+			PodManagementPolicy: appsv1.ParallelPodManagement,
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: publicNodeLabels,
+				},
+				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{},
+					Containers: r.newAlertingClusterUnit(
+						r.alertmanagerWorkerArgs(),
+						r.nodeAlertingPorts(),
+					),
+					Volumes: requiredVolumes,
+				},
+			},
+			VolumeClaimTemplates: requiredPersistentClaims,
+		},
+	}
+
+	workerMonitor := r.serviceMonitor(
 		shared.OperatorAlertingClusterNodeServiceName,
-		r.alertmanagerWorkerArgs(),
 		publicNodeSvcLabels,
-		publicNodeLabels,
-		r.nodeAlertingPorts(),
-		requiredVolumes,
-		requiredPersistentClaims,
-		lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)-1,
+		[]monitoringv1.Endpoint{
+			{
+				Scheme:     "http",
+				Path:       "/metrics",
+				TargetPort: lo.ToPtr(intstr.FromString("web-port")),
+			},
+		},
 	)
-	ctrl.SetControllerReference(r.ac, controllerService, r.client.Scheme())
-	ctrl.SetControllerReference(r.ac, controllerWorkers, r.client.Scheme())
-	ctrl.SetControllerReference(r.ac, workerService, r.client.Scheme())
-	ctrl.SetControllerReference(r.ac, workerWorkers, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, svc, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, ss, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, workerMonitor, r.client.Scheme())
 	return []resources.Resource{
-		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, controllerService),
-		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, controllerWorkers),
-		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, workerService),
-		resources.PresentIff(r.ac.Spec.Alertmanager.Enable &&
-			lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1) > 1,
-			workerWorkers,
-		),
+		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, svc),
+		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, ss),
+		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, workerMonitor),
 	}
-}
-
-func (r *Reconciler) alertmanagerControllerArgs() []string {
-	base := []string{
-		fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", 9094),
-		fmt.Sprintf("--config.file=%s", r.configPath()),
-		fmt.Sprintf("--storage.path=%s", dataMountPath),
-		fmt.Sprintf("--log.level=%s", "debug"),
-		fmt.Sprintf("--opni.listen-address=:%d", 3000),
-		"--log.format=json",
-	}
-
-	base = append(
-		base,
-		r.ac.Spec.Alertmanager.ApplicationSpec.ExtraArgs...,
-	)
-	return base
 }
 
 func (r *Reconciler) alertmanagerWorkerArgs() []string {
-	base := []string{
+	amArgs := []string{
 		fmt.Sprintf("--config.file=%s", r.configPath()),
 		fmt.Sprintf("--storage.path=%s", dataMountPath),
 		fmt.Sprintf("--log.level=%s", "info"),
 		"--log.format=json",
-		// join to controller
-		fmt.Sprintf("--cluster.peer=%s:%d",
-			shared.OperatorAlertingControllerServiceName,
-			9094,
-		),
 		fmt.Sprintf("--opni.listen-address=:%d", 3000),
 	}
-	base = append(
-		base,
+	replicas := lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
+	for i := 0; i < int(replicas); i++ {
+		peerDomain := shared.OperatorAlertingClusterNodeServiceName
+		amArgs = append(amArgs, fmt.Sprintf("--cluster.peer=%s-%d.%s:9094", shared.OperatorAlertingClusterNodeServiceName, i, peerDomain))
+	}
+	amArgs = append(
+		amArgs,
 		r.ac.Spec.Alertmanager.ApplicationSpec.ExtraArgs...,
 	)
-	return base
+	return amArgs
 }
 
 func (r *Reconciler) syncerArgs() []string {
@@ -324,9 +326,9 @@ func (r *Reconciler) newAlertingCluster(
 		},
 	}
 
-	spec := &appsv1.StatefulSet{
+	ss := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-internal",
+			Name:      name,
 			Namespace: r.gw.Namespace,
 			Labels:    deployLabels,
 		},
@@ -351,27 +353,7 @@ func (r *Reconciler) newAlertingCluster(
 			VolumeClaimTemplates: persistentClaims,
 		},
 	}
-	return svc, spec
-}
-
-func (r *Reconciler) controllerAlertingPorts() []corev1.ContainerPort {
-	return []corev1.ContainerPort{
-		{
-			Name:          "opni-port",
-			ContainerPort: shared.AlertingDefaultHookPort,
-			Protocol:      "TCP",
-		},
-		{
-			Name:          "web-port",
-			ContainerPort: 9093,
-			Protocol:      "TCP",
-		},
-		{
-			Name:          "cluster-port",
-			ContainerPort: 9094,
-			Protocol:      "TCP",
-		},
-	}
+	return svc, ss
 }
 
 func (r *Reconciler) syncerPorts() []corev1.ContainerPort {
@@ -389,12 +371,22 @@ func (r *Reconciler) nodeAlertingPorts() []corev1.ContainerPort {
 		{
 			Name:          "opni-port",
 			ContainerPort: shared.AlertingDefaultHookPort,
-			Protocol:      "TCP",
+			Protocol:      corev1.ProtocolTCP,
 		},
 		{
 			Name:          "web-port",
 			ContainerPort: 9093,
-			Protocol:      "TCP",
+			Protocol:      corev1.ProtocolTCP,
+		},
+		{
+			Name:          "mesh-tcp",
+			ContainerPort: 9094,
+			Protocol:      corev1.ProtocolTCP,
+		},
+		{
+			Name:          "mesh-udp",
+			ContainerPort: 9094,
+			Protocol:      corev1.ProtocolUDP,
 		},
 	}
 }

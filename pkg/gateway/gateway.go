@@ -163,13 +163,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}))
 
 	// set up http server
-	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
-	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Panic("failed to load TLS config")
-	}
-
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
 	// Set up cluster auth
@@ -239,6 +232,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	httpServer.metricsRegisterer.MustRegister(updateServer.Collectors()...)
 
 	// set up grpc server
+	tlsConfig, pkey, err := grpcTLSConfig(&conf.Spec)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Panic("failed to load TLS config")
+	}
+
 	rateLimitOpts := []RatelimiterOption{}
 	if conf.Spec.RateLimit != nil {
 		rateLimitOpts = append(rateLimitOpts, WithRate(conf.Spec.RateLimit.Rate))
@@ -373,7 +373,20 @@ func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
 	g.httpServer.metricsRegisterer.MustRegister(collector)
 }
 
-func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {
+func grpcTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {
+	servingCertBundle, caPool, err := util.LoadServingCertBundle(cfg.Certs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		RootCAs:      caPool,
+		Certificates: []tls.Certificate{*servingCertBundle},
+		ClientAuth:   tls.NoClientCert,
+	}, servingCertBundle.PrivateKey.(crypto.Signer), nil
+}
+
+func httpTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {
 	servingCertBundle, caPool, err := util.LoadServingCertBundle(cfg.Certs)
 	if err != nil {
 		return nil, nil, err
@@ -381,6 +394,8 @@ func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, 
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,
 		RootCAs:      caPool,
+		ClientCAs:    caPool,
 		Certificates: []tls.Certificate{*servingCertBundle},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
 	}, servingCertBundle.PrivateKey.(crypto.Signer), nil
 }

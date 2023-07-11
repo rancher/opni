@@ -3,9 +3,7 @@ package alarms
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,13 +12,26 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/fingerprint"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+func fallbackInterval(evalInterval time.Duration) *timestamppb.Timestamp {
+	return timestamppb.New(time.Now().Add(-evalInterval))
+}
+
+var (
+	DisconnectStreamEvaluateInterval = time.Second * 10
+	CapabilityStreamEvaluateInterval = time.Second * 10
+	CortexStreamEvaluateInterval     = time.Second * 30
 )
 
 func NewAgentStream() *nats.StreamConfig {
@@ -29,7 +40,7 @@ func NewAgentStream() *nats.StreamConfig {
 		Subjects:  []string{shared.AgentClusterHealthStatusSubjects},
 		Retention: nats.LimitsPolicy,
 		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB
+		MaxBytes:  1 * 1024 * 50, // 50KB
 	}
 }
 
@@ -58,7 +69,7 @@ func NewCortexStatusStream() *nats.StreamConfig {
 		Subjects:  []string{shared.CortexStatusStreamSubjects},
 		Retention: nats.LimitsPolicy,
 		MaxAge:    1 * time.Hour,
-		MaxBytes:  1 * 1024 * 50, //50KB
+		MaxBytes:  1 * 1024 * 50, // 50KB
 	}
 }
 
@@ -84,7 +95,7 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Second * 10,
+			evaluateInterval: DisconnectStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: disconnect.GetTimeout().AsDuration(),
 		},
@@ -99,6 +110,15 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
 			healthOnMessage: func(h *corev1.ClusterHealthStatus) (health bool, ts *timestamppb.Timestamp) {
+				if h == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
+				if h.HealthStatus == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
+				if h.HealthStatus.Status == nil {
+					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+				}
 				lg.Debugf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String())
 				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
 			},
@@ -158,7 +178,7 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Second * 10,
+			evaluateInterval: CapabilityStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: capability.GetFor().AsDuration(),
 		},
@@ -174,8 +194,14 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
 			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
 				healthy = true
+				if h == nil {
+					return false, fallbackInterval(capability.GetFor().AsDuration())
+				}
+				if h.HealthStatus == nil {
+					return false, fallbackInterval(capability.GetFor().AsDuration())
+				}
 				if h.HealthStatus.Health == nil {
-					return false, h.HealthStatus.Status.Timestamp
+					return false, fallbackInterval(capability.GetFor().AsDuration())
 				}
 				lg.Debugf("found health conditions %v", h.HealthStatus.Health.Conditions)
 				for _, s := range h.HealthStatus.Health.Conditions {
@@ -361,7 +387,7 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		&internalConditionContext{
 			parentCtx:        p.ctx,
 			evaluationCtx:    jsCtx,
-			evaluateInterval: time.Minute,
+			evaluateInterval: CortexStreamEvaluateInterval,
 			cancelEvaluation: cancel,
 			evaluateDuration: cortex.GetFor().AsDuration(),
 		},
@@ -376,6 +402,9 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
 			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+				if h == nil {
+					return false, fallbackInterval(cortex.GetFor().AsDuration())
+				}
 				return reduceCortexAdminStates(cortex.GetBackendComponents(), h)
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
@@ -437,8 +466,8 @@ type internalConditionStorage struct {
 	js              nats.JetStreamContext
 	streamSubject   string
 	durableConsumer *nats.ConsumerConfig
-	incidentStorage storage.IncidentStorage
-	stateStorage    storage.StateStorage
+	incidentStorage spec.IncidentStorage
+	stateStorage    spec.StateStorage
 
 	msgCh chan *nats.Msg
 }
@@ -479,13 +508,13 @@ type InternalConditionEvaluator[T proto.Message] struct {
 	*internalConditionStorage
 	*internalConditionState
 	*internalConditionHooks[T]
-	fingerprint string
+	fingerprint fingerprint.Fingerprint
 }
 
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	defer c.cancelEvaluation()
-	//replay consumer if it exists
+	// replay consumer if it exists
 	t := time.NewTicker(c.evaluateInterval)
 	defer t.Stop()
 	for {
@@ -500,9 +529,6 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 				continue
 			}
 			defer subStream.Unsubscribe()
-			if err != nil {
-				continue
-			}
 			shouldExit = true
 		}
 		if shouldExit {
@@ -552,6 +578,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 		case <-ticker.C:
 			lastKnownState, err := c.stateStorage.Get(c.evaluationCtx, c.conditionId)
 			if err != nil {
+				c.lg.With("id", c.conditionId, "name", c.conditionName).Errorf("failed to get last internal condition state %s", err)
 				continue
 			}
 			if !lastKnownState.Healthy {
@@ -559,7 +586,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration { // then we must fire an alert
 					if !c.IsFiring() {
-						c.fingerprint = strconv.Itoa(int(time.Now().Unix()))
+						c.fingerprint = fingerprint.Default()
 						c.SetFiring(true)
 						err = c.UpdateState(c.evaluationCtx, &alertingv1.CachedState{
 							Healthy:   lastKnownState.Healthy,
@@ -569,16 +596,16 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						if err != nil {
 							c.lg.Error(err)
 						}
-						err = c.incidentStorage.OpenInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
+						err = c.incidentStorage.OpenInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 						if err != nil {
 							c.lg.Error(err)
 						}
 					}
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
 					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 					}, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 					})
 				}
 			} else if lastKnownState.Healthy && c.IsFiring() &&
@@ -586,14 +613,14 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 				lastKnownState.Timestamp.AsTime().Add(-c.evaluateInterval).Before(time.Now()) {
 				c.lg.Debugf("condition %s is now healthy again after having fired", c.conditionName)
 				c.SetFiring(false)
-				err = c.incidentStorage.CloseInterval(c.evaluationCtx, c.conditionId, c.fingerprint, timestamppb.Now())
+				err = c.incidentStorage.CloseInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 				if err != nil {
 					c.lg.Error(err)
 				}
 				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 				}, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: c.fingerprint,
+					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
 				})
 				c.fingerprint = ""
 			}
@@ -624,21 +651,32 @@ func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *aler
 
 func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 	incomingState := alertingv1.DefaultCachedState()
-	if _, getErr := c.incidentStorage.Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		err := c.incidentStorage.Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
-		if err != nil {
-			c.lg.Error(err)
+	if _, getErr := c.incidentStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
+		if status, ok := status.FromError(getErr); ok && status.Code() == codes.NotFound {
+			err := c.incidentStorage.Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
+			if err != nil {
+				c.lg.Error(err)
+				c.cancelEvaluation()
+				return
+			}
+		} else {
 			c.cancelEvaluation()
 			return
 		}
 	} else if getErr != nil {
 		c.lg.Error(getErr)
 	}
-	if st, getErr := c.stateStorage.Get(c.evaluationCtx, c.conditionId); errors.Is(nats.ErrKeyNotFound, getErr) {
-		if err := c.stateStorage.Put(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+	if st, getErr := c.stateStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
+		if code, ok := status.FromError(getErr); ok && code.Code() == codes.NotFound {
+			if err := c.stateStorage.Put(c.evaluationCtx, c.conditionId, incomingState); err != nil {
+				c.cancelEvaluation()
+				return
+			}
+		} else {
 			c.cancelEvaluation()
 			return
 		}
+
 	} else if getErr == nil {
 		incomingState = st
 	}

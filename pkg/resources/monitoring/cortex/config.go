@@ -60,12 +60,19 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 	logFmt := logging.Format{}
 	logFmt.Set("json")
 
-	tlsClientConfig := tls.ClientConfig{
+	tlsCortexClientConfig := tls.ClientConfig{
 		CAPath:     "/run/cortex/certs/client/ca.crt",
 		CertPath:   "/run/cortex/certs/client/tls.crt",
 		KeyPath:    "/run/cortex/certs/client/tls.key",
 		ServerName: "cortex-server",
 	}
+
+	tlsGatewayClientConfig := tls.ClientConfig{
+		CAPath:   "/run/gateway/certs/client/ca.crt",
+		CertPath: "/run/gateway/certs/client/tls.crt",
+		KeyPath:  "/run/gateway/certs/client/tls.key",
+	}
+
 	tlsServerConfig := server.TLSConfig{
 		TLSCertPath: "/run/cortex/certs/server/tls.crt",
 		TLSKeyPath:  "/run/cortex/certs/server/tls.key",
@@ -74,20 +81,21 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 	}
 	overrideLists := [][]configutil.CortexConfigOverrider{
 		configutil.NewStandardOverrides(configutil.StandardOverridesShape{
-			HttpListenAddress: "0.0.0.0",
-			HttpListenPort:    8080,
-			GrpcListenAddress: "0.0.0.0",
-			GrpcListenPort:    9095,
-			StorageDir:        "/data",
-			RuntimeConfig:     "/etc/cortex-runtime-config/runtime_config.yaml",
-			TLSServerConfig:   configutil.TLSServerConfigShape(tlsServerConfig),
-			TLSClientConfig:   configutil.TLSClientConfigShape(tlsClientConfig),
+			HttpListenAddress:      "0.0.0.0",
+			HttpListenPort:         8080,
+			GrpcListenAddress:      "0.0.0.0",
+			GrpcListenPort:         9095,
+			StorageDir:             "/data",
+			RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
+			TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
+			TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
+			TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
 		}),
 		configutil.NewAutomaticHAOverrides(),
 		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
 			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
 			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
-			AlertmanagerURL:      fmt.Sprintf("http://%s:9093", shared.OperatorAlertingControllerServiceName),
+			AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
 		}),
 	}
 

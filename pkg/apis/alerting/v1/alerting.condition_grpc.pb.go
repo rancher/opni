@@ -21,6 +21,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	AlertConditions_ListAlertConditionGroups_FullMethodName      = "/alerting.AlertConditions/ListAlertConditionGroups"
 	AlertConditions_CreateAlertCondition_FullMethodName          = "/alerting.AlertConditions/CreateAlertCondition"
 	AlertConditions_GetAlertCondition_FullMethodName             = "/alerting.AlertConditions/GetAlertCondition"
 	AlertConditions_ListAlertConditions_FullMethodName           = "/alerting.AlertConditions/ListAlertConditions"
@@ -39,19 +40,21 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertConditionsClient interface {
-	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error)
-	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
+	ListAlertConditionGroups(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error)
+	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*ConditionReference, error)
+	GetAlertCondition(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error)
-	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertStatusResponse, error)
+	DeleteAlertCondition(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AlertConditionStatus(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*AlertStatusResponse, error)
 	ListAlertConditionsWithStatus(ctx context.Context, in *ListStatusRequest, opts ...grpc.CallOption) (*ListStatusResponse, error)
 	CloneTo(ctx context.Context, in *CloneToRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// can only active silence when alert is in firing state (limitation of alertmanager)
+	// can only active silence when alert is in firing state (limitation of
+	// alertmanager)
 	ActivateSilence(ctx context.Context, in *SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id corresponds to conditionId
-	DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeactivateSilence(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Timeline(ctx context.Context, in *TimelineRequest, opts ...grpc.CallOption) (*TimelineResponse, error)
 }
 
@@ -63,8 +66,17 @@ func NewAlertConditionsClient(cc grpc.ClientConnInterface) AlertConditionsClient
 	return &alertConditionsClient{cc}
 }
 
-func (c *alertConditionsClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error) {
-	out := new(v1.Reference)
+func (c *alertConditionsClient) ListAlertConditionGroups(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
+	out := new(v1.ReferenceList)
+	err := c.cc.Invoke(ctx, AlertConditions_ListAlertConditionGroups_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertConditionsClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*ConditionReference, error) {
+	out := new(ConditionReference)
 	err := c.cc.Invoke(ctx, AlertConditions_CreateAlertCondition_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -72,7 +84,7 @@ func (c *alertConditionsClient) CreateAlertCondition(ctx context.Context, in *Al
 	return out, nil
 }
 
-func (c *alertConditionsClient) GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error) {
+func (c *alertConditionsClient) GetAlertCondition(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*AlertCondition, error) {
 	out := new(AlertCondition)
 	err := c.cc.Invoke(ctx, AlertConditions_GetAlertCondition_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -108,7 +120,7 @@ func (c *alertConditionsClient) ListAlertConditionChoices(ctx context.Context, i
 	return out, nil
 }
 
-func (c *alertConditionsClient) DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertConditionsClient) DeleteAlertCondition(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, AlertConditions_DeleteAlertCondition_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -117,7 +129,7 @@ func (c *alertConditionsClient) DeleteAlertCondition(ctx context.Context, in *v1
 	return out, nil
 }
 
-func (c *alertConditionsClient) AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertStatusResponse, error) {
+func (c *alertConditionsClient) AlertConditionStatus(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*AlertStatusResponse, error) {
 	out := new(AlertStatusResponse)
 	err := c.cc.Invoke(ctx, AlertConditions_AlertConditionStatus_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -153,7 +165,7 @@ func (c *alertConditionsClient) ActivateSilence(ctx context.Context, in *Silence
 	return out, nil
 }
 
-func (c *alertConditionsClient) DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertConditionsClient) DeactivateSilence(ctx context.Context, in *ConditionReference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, AlertConditions_DeactivateSilence_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -175,19 +187,21 @@ func (c *alertConditionsClient) Timeline(ctx context.Context, in *TimelineReques
 // All implementations must embed UnimplementedAlertConditionsServer
 // for forward compatibility
 type AlertConditionsServer interface {
-	CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error)
-	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
+	ListAlertConditionGroups(context.Context, *emptypb.Empty) (*v1.ReferenceList, error)
+	CreateAlertCondition(context.Context, *AlertCondition) (*ConditionReference, error)
+	GetAlertCondition(context.Context, *ConditionReference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
 	ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error)
-	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error)
+	DeleteAlertCondition(context.Context, *ConditionReference) (*emptypb.Empty, error)
+	AlertConditionStatus(context.Context, *ConditionReference) (*AlertStatusResponse, error)
 	ListAlertConditionsWithStatus(context.Context, *ListStatusRequest) (*ListStatusResponse, error)
 	CloneTo(context.Context, *CloneToRequest) (*emptypb.Empty, error)
-	// can only active silence when alert is in firing state (limitation of alertmanager)
+	// can only active silence when alert is in firing state (limitation of
+	// alertmanager)
 	ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error)
 	// id corresponds to conditionId
-	DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	DeactivateSilence(context.Context, *ConditionReference) (*emptypb.Empty, error)
 	Timeline(context.Context, *TimelineRequest) (*TimelineResponse, error)
 	mustEmbedUnimplementedAlertConditionsServer()
 }
@@ -196,10 +210,13 @@ type AlertConditionsServer interface {
 type UnimplementedAlertConditionsServer struct {
 }
 
-func (UnimplementedAlertConditionsServer) CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error) {
+func (UnimplementedAlertConditionsServer) ListAlertConditionGroups(context.Context, *emptypb.Empty) (*v1.ReferenceList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlertConditionGroups not implemented")
+}
+func (UnimplementedAlertConditionsServer) CreateAlertCondition(context.Context, *AlertCondition) (*ConditionReference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertCondition not implemented")
 }
-func (UnimplementedAlertConditionsServer) GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error) {
+func (UnimplementedAlertConditionsServer) GetAlertCondition(context.Context, *ConditionReference) (*AlertCondition, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertCondition not implemented")
 }
 func (UnimplementedAlertConditionsServer) ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error) {
@@ -211,10 +228,10 @@ func (UnimplementedAlertConditionsServer) UpdateAlertCondition(context.Context, 
 func (UnimplementedAlertConditionsServer) ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertConditionChoices not implemented")
 }
-func (UnimplementedAlertConditionsServer) DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertConditionsServer) DeleteAlertCondition(context.Context, *ConditionReference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertCondition not implemented")
 }
-func (UnimplementedAlertConditionsServer) AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error) {
+func (UnimplementedAlertConditionsServer) AlertConditionStatus(context.Context, *ConditionReference) (*AlertStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AlertConditionStatus not implemented")
 }
 func (UnimplementedAlertConditionsServer) ListAlertConditionsWithStatus(context.Context, *ListStatusRequest) (*ListStatusResponse, error) {
@@ -226,7 +243,7 @@ func (UnimplementedAlertConditionsServer) CloneTo(context.Context, *CloneToReque
 func (UnimplementedAlertConditionsServer) ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateSilence not implemented")
 }
-func (UnimplementedAlertConditionsServer) DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertConditionsServer) DeactivateSilence(context.Context, *ConditionReference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeactivateSilence not implemented")
 }
 func (UnimplementedAlertConditionsServer) Timeline(context.Context, *TimelineRequest) (*TimelineResponse, error) {
@@ -243,6 +260,24 @@ type UnsafeAlertConditionsServer interface {
 
 func RegisterAlertConditionsServer(s grpc.ServiceRegistrar, srv AlertConditionsServer) {
 	s.RegisterService(&AlertConditions_ServiceDesc, srv)
+}
+
+func _AlertConditions_ListAlertConditionGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertConditionsServer).ListAlertConditionGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AlertConditions_ListAlertConditionGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertConditionsServer).ListAlertConditionGroups(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertConditions_CreateAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -264,7 +299,7 @@ func _AlertConditions_CreateAlertCondition_Handler(srv interface{}, ctx context.
 }
 
 func _AlertConditions_GetAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(ConditionReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -276,7 +311,7 @@ func _AlertConditions_GetAlertCondition_Handler(srv interface{}, ctx context.Con
 		FullMethod: AlertConditions_GetAlertCondition_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).GetAlertCondition(ctx, req.(*v1.Reference))
+		return srv.(AlertConditionsServer).GetAlertCondition(ctx, req.(*ConditionReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -336,7 +371,7 @@ func _AlertConditions_ListAlertConditionChoices_Handler(srv interface{}, ctx con
 }
 
 func _AlertConditions_DeleteAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(ConditionReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -348,13 +383,13 @@ func _AlertConditions_DeleteAlertCondition_Handler(srv interface{}, ctx context.
 		FullMethod: AlertConditions_DeleteAlertCondition_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).DeleteAlertCondition(ctx, req.(*v1.Reference))
+		return srv.(AlertConditionsServer).DeleteAlertCondition(ctx, req.(*ConditionReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(ConditionReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -366,7 +401,7 @@ func _AlertConditions_AlertConditionStatus_Handler(srv interface{}, ctx context.
 		FullMethod: AlertConditions_AlertConditionStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).AlertConditionStatus(ctx, req.(*v1.Reference))
+		return srv.(AlertConditionsServer).AlertConditionStatus(ctx, req.(*ConditionReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -426,7 +461,7 @@ func _AlertConditions_ActivateSilence_Handler(srv interface{}, ctx context.Conte
 }
 
 func _AlertConditions_DeactivateSilence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(ConditionReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -438,7 +473,7 @@ func _AlertConditions_DeactivateSilence_Handler(srv interface{}, ctx context.Con
 		FullMethod: AlertConditions_DeactivateSilence_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertConditionsServer).DeactivateSilence(ctx, req.(*v1.Reference))
+		return srv.(AlertConditionsServer).DeactivateSilence(ctx, req.(*ConditionReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -468,6 +503,10 @@ var AlertConditions_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "alerting.AlertConditions",
 	HandlerType: (*AlertConditionsServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListAlertConditionGroups",
+			Handler:    _AlertConditions_ListAlertConditionGroups_Handler,
+		},
 		{
 			MethodName: "CreateAlertCondition",
 			Handler:    _AlertConditions_CreateAlertCondition_Handler,

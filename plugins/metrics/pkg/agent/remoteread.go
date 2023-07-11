@@ -40,7 +40,7 @@ func (client *remoteReader) Read(ctx context.Context, endpoint string, readReque
 
 	request, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(compressedData))
 	if err != nil {
-		return nil, fmt.Errorf("unable to crete remote read http readRequest: %w", err)
+		return nil, fmt.Errorf("unable to create remote read http readRequest: %w", err)
 	}
 
 	request.Header.Add("Content-Encoding", "snappy")
@@ -53,7 +53,7 @@ func (client *remoteReader) Read(ctx context.Context, endpoint string, readReque
 
 	response, err := client.prometheusClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("could not get response from rmeote read: %w", err)
+		return nil, fmt.Errorf("could not get response from remote read: %w", err)
 	}
 
 	defer func() {

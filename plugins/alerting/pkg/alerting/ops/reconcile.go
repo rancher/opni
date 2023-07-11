@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/alerting/storage"
 	sync_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
@@ -17,6 +17,11 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
+)
+
+var (
+	SyncInterval      = time.Minute * 1
+	ForceSyncInterval = time.Minute * 15
 )
 
 func cacheEndpointToWebhook(endpoint string) string {
@@ -67,8 +72,8 @@ func (a *AlertingOpsNode) ConnectRemoteSyncer(
 
 func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 	lg := a.logger.With("method", "runPeriodicSync")
-	ticker := time.NewTicker(time.Minute * 1)
-	longTicker := time.NewTicker(time.Minute * 15)
+	ticker := time.NewTicker(SyncInterval)
+	longTicker := time.NewTicker(ForceSyncInterval)
 	defer ticker.Stop()
 	defer longTicker.Stop()
 	for {
@@ -106,7 +111,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 					return
 				}
-				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				routerKeys, err := clientSet.Sync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),
@@ -149,7 +154,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 					lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 					return
 				}
-				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddreess(
+				if err := clientSet.ForceSync(ctx, sync_opts.WithDefaultReceiverAddress(
 					util.Must(
 						url.Parse(cacheEndpointToWebhook(endpoint)),
 					),
@@ -174,7 +179,7 @@ func (a *AlertingOpsNode) runPeriodicSync(ctx context.Context) {
 func (a *AlertingOpsNode) SendManualSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) {
 	a.syncMu.Lock()
 	defer a.syncMu.Unlock()
@@ -188,7 +193,7 @@ func (a *AlertingOpsNode) SendManualSyncRequest(
 func (a *AlertingOpsNode) constructSyncRequest(
 	ctx context.Context,
 	routerKeys []string,
-	routers storage.RouterStorage,
+	routers spec.RouterStorage,
 ) *alertops.SyncRequest {
 	lg := a.logger.With("method", "constructSyncRequest")
 	syncReq := &alertops.SyncRequest{

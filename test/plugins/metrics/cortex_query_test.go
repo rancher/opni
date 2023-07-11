@@ -94,7 +94,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 
 		client := http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: environment.GatewayTLSConfig(),
+				TLSClientConfig: environment.GatewayClientTLSConfig(),
 			},
 		}
 		gatewayAddr := environment.GatewayConfig().Spec.HTTPListenAddress

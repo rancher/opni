@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -26,34 +27,34 @@ import (
 const defaultTrackerTTL = 24 * time.Hour
 
 type CompositeAlertingClientSet struct {
-	conds     ConditionStorage
-	endps     EndpointStorage
-	routers   RouterStorage
-	states    StateStorage
-	incidents IncidentStorage
+	conds     spec.ConditionStorage
+	endps     spec.EndpointStorage
+	routers   spec.RouterStorage
+	states    spec.StateStorage
+	incidents spec.IncidentStorage
 	hashes    map[string]string
 	Logger    *zap.SugaredLogger
 }
 
-var _ AlertingClientSet = (*CompositeAlertingClientSet)(nil)
+var _ spec.AlertingClientSet = (*CompositeAlertingClientSet)(nil)
 
-func (c CompositeAlertingClientSet) Conditions() ConditionStorage {
+func (c CompositeAlertingClientSet) Conditions() spec.ConditionStorage {
 	return c.conds
 }
 
-func (c CompositeAlertingClientSet) Endpoints() EndpointStorage {
+func (c CompositeAlertingClientSet) Endpoints() spec.EndpointStorage {
 	return c.endps
 }
 
-func (c CompositeAlertingClientSet) Routers() RouterStorage {
+func (c CompositeAlertingClientSet) Routers() spec.RouterStorage {
 	return c.routers
 }
 
-func (c CompositeAlertingClientSet) States() StateStorage {
+func (c CompositeAlertingClientSet) States() spec.StateStorage {
 	return c.states
 }
 
-func (c CompositeAlertingClientSet) Incidents() IncidentStorage {
+func (c CompositeAlertingClientSet) Incidents() spec.IncidentStorage {
 	return c.incidents
 }
 
@@ -70,16 +71,19 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 		aggregate += syncOptions.DefaultEndpoint.String()
 	}
 	if key == shared.SingleConfigId {
-		conds, err := c.Conditions().List(ctx)
+		conds, err := c.listAllConditions(ctx)
 		if err != nil {
 			return err
 		}
 		slices.SortFunc(conds, func(a, b *alertingv1.AlertCondition) bool {
+			if a.GroupId != b.GroupId {
+				return a.GroupId < b.GroupId
+			}
 			return a.Id < b.Id
 		})
 		aggregate += strings.Join(
 			lo.Map(conds, func(a *alertingv1.AlertCondition, _ int) string {
-				return a.Id + a.LastUpdated.String()
+				return a.Id + a.GroupId + a.LastUpdated.String()
 			}), "-")
 		endps, err := c.Endpoints().List(ctx)
 		if err != nil {
@@ -104,10 +108,26 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 	return nil
 }
 
+func (c *CompositeAlertingClientSet) listAllConditions(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
+	groups, err := c.Conditions().ListGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conds := []*alertingv1.AlertCondition{}
+	for _, groupId := range groups {
+		groupConds, err := c.Conditions().Group(groupId).List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		conds = append(conds, groupConds...)
+	}
+	return conds, nil
+}
+
 func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncOpts *storage_opts.SyncOptions) ([]string, error) {
 	key := shared.SingleConfigId
 	// List all conditions & map their endpoints
-	conds, err := c.Conditions().List(ctx)
+	conds, err := c.listAllConditions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -226,16 +246,23 @@ func (c *CompositeAlertingClientSet) Sync(ctx context.Context, incomingOpts ...s
 func (c *CompositeAlertingClientSet) Purge(ctx context.Context) error {
 	errG, ctxCa := errgroup.WithContext(ctx)
 	errG.Go(func() error {
-		keys, err := c.Conditions().ListKeys(ctxCa)
+		groups, err := c.Conditions().ListGroups(ctxCa)
 		if err != nil {
 			return err
 		}
-		for _, key := range keys {
-			err := c.Conditions().Delete(ctxCa, key)
+		for _, groupId := range groups {
+			keys, err := c.Conditions().Group(groupId).ListKeys(ctxCa)
 			if err != nil {
 				return err
 			}
+			for _, key := range keys {
+				err := c.Conditions().Group(groupId).Delete(ctxCa, key)
+				if err != nil {
+					return err
+				}
+			}
 		}
+
 		return nil
 	})
 	errG.Go(func() error {

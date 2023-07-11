@@ -21,7 +21,7 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 		createClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			err := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, alarms.NewAgentDurableReplayConsumer(event.Cluster.Id))
-			p.Logger.Info("added durable ordered push consumer for cluster %s", event.Cluster.Id)
+			p.logger.Info("added durable ordered push consumer for cluster %s", event.Cluster.Id)
 			if err != nil {
 				panic(err)
 			}

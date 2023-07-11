@@ -12,70 +12,148 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
-func (p *AlarmServerComponent) setupCondition(
+const (
+	metadataLastAppliedHashKey = "opni.io/alarm-hash"
+	metadataInactiveAlarm      = "opni.io/alarm-inactive"
+)
+
+func (p *AlarmServerComponent) shouldDelete(
+	cond *alertingv1.AlertCondition,
+) bool {
+	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataCleanUpAlarm] != "" {
+		return true
+	}
+	return false
+}
+
+func (p *AlarmServerComponent) hasChanged(
 	ctx context.Context,
-	_ *zap.SugaredLogger,
-	req *alertingv1.AlertCondition,
-	newConditionId string) (*corev1.Reference, error) {
-	if req.GetAlertType().GetSystem() != nil {
-		err := p.handleSystemAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
-		if err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	newCond *alertingv1.AlertCondition,
+	conditionId string,
+) (bool, error) {
+	condStorage, err := p.conditionStorage.GetContext(ctx)
+	if err != nil {
+		return false, err
 	}
-	if req.GetAlertType().GetDownstreamCapability() != nil {
-		err := p.handleDownstreamCapabilityAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
-		if err != nil {
-			return nil, err
+	cond, err := condStorage.Group(newCond.GroupId).Get(ctx, conditionId)
+	if err == nil {
+		if lastAppliedHash, ok := cond.GetMetadata()[metadataLastAppliedHashKey]; ok {
+			configHash, err := newCond.Hash()
+			if err != nil {
+				return false, err
+			}
+			if lastAppliedHash == configHash {
+				return false, nil
+			}
 		}
-		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if req.GetAlertType().GetMonitoringBackend() != nil {
-		err := p.handleMonitoringBackendAlertCreation(ctx, req, newConditionId, req.GetName(), req.Namespace())
-		if err != nil {
-			return nil, err
+	return true, nil
+}
+
+func (p *AlarmServerComponent) requiresDeploy(
+	ctx context.Context,
+	cond *alertingv1.AlertCondition,
+	conditionId string,
+) bool {
+	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataInactiveAlarm] != "" {
+		return true
+	}
+
+	status, err := p.AlertConditionStatus(ctx, &alertingv1.ConditionReference{Id: conditionId, GroupId: cond.GroupId})
+	if err == nil {
+		if status.State != alertingv1.AlertConditionState_Invalidated {
+			return false
 		}
-		return &corev1.Reference{Id: newConditionId}, nil
 	}
-	if req.GetAlertType().GetKubeState() != nil {
-		err := p.handleKubeAlertCreation(ctx, req, newConditionId, req.Name)
-		if err != nil {
-			return nil, err
+	return true
+}
+
+func (p *AlarmServerComponent) applyAlarm(
+	ctx context.Context,
+	cond *alertingv1.AlertCondition,
+	conditionId string,
+) (ref *corev1.Reference, retErr error) {
+	shouldDelete := p.shouldDelete(cond)
+	if shouldDelete {
+		return &corev1.Reference{Id: conditionId}, p.teardownCondition(ctx, cond, conditionId, true)
+	}
+
+	hasChanged, err := p.hasChanged(ctx, cond, conditionId)
+	if err != nil {
+		return nil, err
+	}
+	isInvalid := p.requiresDeploy(ctx, cond, conditionId)
+	shouldDeploy := isInvalid || hasChanged
+	if !shouldDeploy {
+		return
+	}
+	return p.activateCondition(
+		ctx,
+		cond,
+		conditionId,
+	)
+}
+
+func (p *AlarmServerComponent) activateCondition(
+	ctx context.Context,
+	cond *alertingv1.AlertCondition,
+	conditionId string,
+) (ref *corev1.Reference, retErr error) {
+	conditionStorage, err := p.conditionStorage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if retErr == nil {
+			configHash, err := cond.Hash()
+			if err != nil {
+				retErr = err
+				return
+			}
+			md := func() map[string]string {
+				md := cond.GetMetadata()
+				if md == nil {
+					return map[string]string{}
+				}
+				return md
+			}()
+			md[metadataLastAppliedHashKey] = configHash
+			delete(md, metadataInactiveAlarm)
+			cond.Metadata = md
+			retErr = conditionStorage.Group(cond.GroupId).Put(ctx, conditionId, cond)
 		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	}()
+
+	if cond.GetAlertType().GetSystem() != nil {
+		retErr = p.handleSystemAlertCreation(ctx, cond, conditionId, cond.GetName(), cond.Namespace())
 	}
-	if req.GetAlertType().GetCpu() != nil {
-		err := p.handleCpuSaturationAlertCreation(ctx, req, newConditionId, req.Name)
-		if err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	if cond.GetAlertType().GetDownstreamCapability() != nil {
+		retErr = p.handleDownstreamCapabilityAlertCreation(ctx, cond, conditionId, cond.GetName(), cond.Namespace())
 	}
-	if req.AlertType.GetMemory() != nil {
-		err := p.handleMemorySaturationAlertCreation(ctx, req, newConditionId, req.Name)
-		if err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	if cond.GetAlertType().GetMonitoringBackend() != nil {
+		retErr = p.handleMonitoringBackendAlertCreation(ctx, cond, conditionId, cond.GetName(), cond.Namespace())
 	}
-	if req.AlertType.GetFs() != nil {
-		if err := p.handleFsSaturationAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	if cond.GetAlertType().GetKubeState() != nil {
+		retErr = p.handleKubeAlertCreation(ctx, cond, conditionId, cond.Name)
 	}
-	if req.AlertType.GetPrometheusQuery() != nil {
-		if err := p.handlePrometheusQueryAlertCreation(ctx, req, newConditionId, req.Name); err != nil {
-			return nil, err
-		}
-		return &corev1.Reference{Id: newConditionId}, nil
+	if cond.GetAlertType().GetCpu() != nil {
+		retErr = p.handleCpuSaturationAlertCreation(ctx, cond, conditionId, cond.Name)
 	}
-	return nil, shared.AlertingErrNotImplemented
+	if cond.AlertType.GetMemory() != nil {
+		retErr = p.handleMemorySaturationAlertCreation(ctx, cond, conditionId, cond.Name)
+		return &corev1.Reference{Id: conditionId}, nil
+	}
+	if cond.AlertType.GetFs() != nil {
+		retErr = p.handleFsSaturationAlertCreation(ctx, cond, conditionId, cond.Name)
+	}
+	if cond.AlertType.GetPrometheusQuery() != nil {
+		retErr = p.handlePrometheusQueryAlertCreation(ctx, cond, conditionId, cond.Name)
+	}
+	ref = &corev1.Reference{Id: conditionId}
+	return
 }
 
 func (p *AlarmServerComponent) handleSystemAlertCreation(
@@ -147,7 +225,11 @@ func (p *AlarmServerComponent) handleKubeAlertCreation(ctx context.Context, cond
 		return err
 	}
 	p.logger.With("Expr", "kube-state").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   k.GetClusterId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out,
@@ -188,8 +270,12 @@ func (p *AlarmServerComponent) handleCpuSaturationAlertCreation(
 		return err
 	}
 	p.logger.With("Expr", "cpu").Debugf("%s", string(out))
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		return err
+	}
 
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+	_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   c.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out,
@@ -226,7 +312,11 @@ func (p *AlarmServerComponent) handleMemorySaturationAlertCreation(ctx context.C
 		return err
 	}
 	p.logger.With("Expr", "mem").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   m.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out,
@@ -264,7 +354,11 @@ func (p *AlarmServerComponent) handleFsSaturationAlertCreation(ctx context.Conte
 		return err
 	}
 	p.logger.With("Expr", "fs").Debugf("%s", string(out))
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   fs.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out,
@@ -297,7 +391,11 @@ func (p *AlarmServerComponent) handlePrometheusQueryAlertCreation(ctx context.Co
 		return err
 	}
 	p.logger.With("Expr", "user-query").Debugf("%s", out.String())
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.LoadRuleRequest{
+	adminClient, err := p.adminClient.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = adminClient.LoadRules(ctx, &cortexadmin.LoadRuleRequest{
 		ClusterId:   q.ClusterId.GetId(),
 		Namespace:   shared.OpniAlertingCortexNamespace,
 		YamlContent: out.Bytes(),

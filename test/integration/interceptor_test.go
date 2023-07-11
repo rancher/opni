@@ -25,6 +25,10 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 		ctx = env.Context()
 	})
 
+	AfterAll(func() {
+		ExpectGracefulExamplePluginShutdown(env)
+	})
+
 	When("we use the gateway caching interceptors", func() {
 		It("should allow clients to opt-in to caching", func() {
 			By("making a request with caching")

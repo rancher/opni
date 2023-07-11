@@ -2,7 +2,9 @@
 import Loading from '@shell/components/Loading';
 import dayjs from 'dayjs';
 import { TimelineType } from '../models/alerting/Condition';
-import { getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState } from '../utils/requests/alerts';
+import {
+  getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications
+} from '../utils/requests/alerts';
 import { getClusters } from '../utils/requests/management';
 
 export default {
@@ -78,9 +80,13 @@ export default {
             events:    (value?.windows || [])
               .filter(w => w.type !== TimelineType.Timeline_Unknown)
               .map(w => ({
-                start:       now.diff(dayjs(w.start), 'h', true),
-                end:         now.diff(dayjs(w.end), 'h', true),
-                type:        w.type
+                start:        now.diff(dayjs(w.start), 'h', true),
+                end:          now.diff(dayjs(w.end), 'h', true),
+                startRaw:     w.start,
+                endRaw:       w.end,
+                fingerprints: w.fingerprints,
+                conditionId:  condition.id,
+                type:         w.type
               }))
           };
         })
@@ -135,6 +141,62 @@ export default {
       }
 
       return 'Agent Capability Unhealthy';
+    },
+    async loadContent(event) {
+      const request = {
+        conditionId:  event.conditionId,
+        fingerprints: event.fingerprints,
+        start:        event.startRaw,
+        end:          event.endRaw,
+      };
+
+      const notification = (await getAlarmNotifications(request))?.items?.[0];
+
+      if (!notification) {
+        return '<div class="body">Error: Failed to retrieve event data</div>';
+      }
+
+      const renderDetails = (details) => {
+        if (!details) {
+          return '';
+        }
+
+        const elements = Object.entries(details).map(([key, value]) => `<li><strong>${ key }: </strong>${ value }</li>`);
+
+        return `<ul>${ elements }</ul>`;
+      };
+
+      const format = 'MM-DD-YY (h:mm:ss a)';
+
+      return `
+      <div class="container">
+        <ul class="row">
+          <li class="col span-4"><strong>Title:</strong> ${ notification.notification.title }</li>
+          <li class="col span-4"><strong>Severity:</strong> ${ notification.notification.properties.opni_severity }</li>
+          <li class="col span-4"><strong>Golden Signal:</strong> ${ notification.notification.properties.opni_goldenSignal }</li>
+        </ul>
+        <div class="row body"><div class="col span-12">${ notification.notification.body }</div></div>
+        <div class="row">
+          <div class="col span-6">
+            <div class="title"><strong>Start</strong> - ${ dayjs(event.startRaw).format(format) }</div>
+          </div>
+          <div class="col span-6">
+            <div class="title"><strong>End</strong> - ${ dayjs(event.endRaw).format(format) }</div>
+          </div>
+        </div>
+        <div class="row details">
+          <div class="col span-6">
+            ${ renderDetails(notification.startDetails) }
+          </div>
+          <div class="col span-6">
+            ${ renderDetails(notification.lastDetails) }
+          </div>
+        </div>
+      </div>
+      `;
+    },
+    loadingContent() {
+      return `<div class="tooltip-spinner"><i class="icon icon-spinner" /></div>`;
     }
   },
   computed: {
@@ -190,7 +252,12 @@ export default {
             <div
               v-for="(event, k) in timeline.events"
               :key="'event'+k"
-              v-tooltip="computeTooltip(event)"
+              v-tooltip="{
+                content: () => loadContent(event),
+                loadingContent: loadingContent(),
+                html: true,
+                classes: ['event-tooltip']
+              }"
               class="event"
               :class="event.type"
               :style="{left: computeEventLeft(event), width: computeEventWidth(event), }"
@@ -317,6 +384,7 @@ tr.no-data {
 }
 
 .event {
+  cursor: pointer;
   background-color: var(--error);
   opacity: 0.75;
 
@@ -339,4 +407,42 @@ tr.no-data {
   align-items: center;
   height: 100%;
 }
+</style>
+
+<style lang="scss">
+  .event-tooltip .tooltip-inner {
+    padding: 0;
+    border: 2px solid #dcdee7;
+
+    .tooltip-spinner {
+      padding: 10px;
+    }
+
+    .row {
+      padding: 5px 12px;
+    }
+
+    .body {
+      padding: 5px 12px;
+    }
+
+    .container {
+      width: 500px;
+      position: relative;
+      padding: 0;
+
+      ul {
+        margin: 0;
+        list-style: none;
+      }
+
+      .body, .details {
+        background-color: #FFF;
+      }
+
+      .details ul {
+        padding: 0;
+      }
+    }
+  }
 </style>

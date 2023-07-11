@@ -285,3 +285,9 @@ message AuthInfo {
   reserved 2058 to 2060;
   bytes mac = 2061;
 }
+
+enum ConfigStatus{
+  Unkown = 0;
+  UpToDate = 1;
+  NeedsUpdate = 2;
+}

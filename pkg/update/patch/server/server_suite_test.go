@@ -27,9 +27,9 @@ func TestPatch(t *testing.T) {
 
 var (
 	test1Path    = "github.com/rancher/opni/pkg/test/testdata/patch/test1"
-	test1Package = "urn:opni:plugin:binary:test1"
+	test1Package = "urn:opni:plugin:binary:github.com/rancher/opni/pkg/test/testdata/patch/test1"
 	test2Path    = "github.com/rancher/opni/pkg/test/testdata/patch/test2"
-	test2Package = "urn:opni:plugin:binary:test2"
+	test2Package = "urn:opni:plugin:binary:github.com/rancher/opni/pkg/test/testdata/patch/test2"
 
 	testBinaries = map[string]map[string][]byte{
 		"test1": {},

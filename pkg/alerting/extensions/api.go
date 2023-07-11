@@ -58,7 +58,6 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 				return
 			}
 		}
-
 	}
 	wr.WriteHeader(http.StatusOK)
 }
@@ -141,13 +140,13 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 		return item, struct{}{}
 	})
 
-	n := len(listRequest.ConditionId)
+	n := len(listRequest.ConditionId.Id)
 
 	for severity, keys := range e.alarmCache.PartitionedKeys() {
 		for _, key := range keys {
 			if !strings.HasPrefix(
 				key,
-				listRequest.ConditionId,
+				listRequest.ConditionId.Id,
 			) {
 				continue
 			}

@@ -1,6 +1,7 @@
 package stream_test
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +10,9 @@ import (
 )
 
 func TestStream(t *testing.T) {
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(func(message string, callerSkip ...int) {
+		fmt.Println(message)
+		Fail(message, callerSkip...)
+	})
 	RunSpecs(t, "Stream API Extensions Suite")
 }

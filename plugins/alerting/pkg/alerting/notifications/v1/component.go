@@ -1,13 +1,14 @@
 package notifications
 
 import (
+	"context"
 	"sync"
 
-	"github.com/rancher/opni/pkg/alerting/storage"
+	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
 
@@ -16,47 +17,59 @@ type NotificationServerComponent struct {
 
 	util.Initializer
 
-	mu                   sync.Mutex
-	clusterConfiguration struct{}
+	mu sync.Mutex
+	server.Config
 
 	logger *zap.SugaredLogger
 
-	opsNode          future.Future[*ops.AlertingOpsNode]
-	conditionStorage future.Future[storage.ConditionStorage]
+	conditionStorage future.Future[spec.ConditionStorage]
 }
+
+var _ server.ServerComponent = (*NotificationServerComponent)(nil)
 
 func NewNotificationServerComponent(
 	logger *zap.SugaredLogger,
 ) *NotificationServerComponent {
 	return &NotificationServerComponent{
 		logger:           logger,
-		opsNode:          future.New[*ops.AlertingOpsNode](),
-		conditionStorage: future.New[storage.ConditionStorage](),
+		conditionStorage: future.New[spec.ConditionStorage](),
 	}
 }
 
 type NotificationServerConfiguration struct {
-	storage.ConditionStorage
-	OpsNode *ops.AlertingOpsNode
+	spec.ConditionStorage
 }
 
-func (n *NotificationServerComponent) Status() struct{} {
-	return struct{}{}
+func (n *NotificationServerComponent) Name() string {
+	return "notification"
 }
 
-func (n *NotificationServerComponent) SetConfig(conf struct{}) {
+func (n *NotificationServerComponent) Status() server.Status {
+	return server.Status{
+		Running: n.Initialized(),
+	}
+}
+
+func (n *NotificationServerComponent) Ready() bool {
+	return n.Initialized()
+}
+
+func (n *NotificationServerComponent) Healthy() bool {
+	return n.Initialized()
+}
+
+func (n *NotificationServerComponent) SetConfig(conf server.Config) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.clusterConfiguration = conf
+	n.Config = conf
 }
 
-func (n *NotificationServerComponent) Sync(_ bool) error {
+func (n *NotificationServerComponent) Sync(_ context.Context, _ bool) error {
 	return nil
 }
 
 func (n *NotificationServerComponent) Initialize(conf NotificationServerConfiguration) {
 	n.InitOnce(func() {
 		n.conditionStorage.Set(conf.ConditionStorage)
-		n.opsNode.Set(conf.OpsNode)
 	})
 }

@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/rancher/opni/pkg/alerting/drivers/backend"
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -27,16 +28,40 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
 )
 
+func init() {
+	routing.DefaultConfig = routing.Config{
+		GlobalConfig: routing.GlobalConfig{
+			GroupWait:      lo.ToPtr(model.Duration(1 * time.Second)),
+			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+		},
+		SubtreeConfig: routing.SubtreeConfig{
+			GroupWait:      lo.ToPtr(model.Duration(1 * time.Second)),
+			RepeatInterval: lo.ToPtr(model.Duration(5 * time.Hour)),
+		},
+		FinalizerConfig: routing.FinalizerConfig{
+			InitialDelay:       time.Second * 1,
+			ThrottlingDuration: time.Minute * 1,
+			RepeatInterval:     time.Hour * 5,
+		},
+		NotificationConfg: routing.NotificationConfg{},
+	}
+}
+
 type TestEnvAlertingClusterDriverOptions struct {
-	AlertingOptions *shared.AlertingClusterOptions            `option:"alertingOptions"`
-	Subscribers     []chan shared.AlertingClusterNotification `option:"subscribers"`
+	AlertingOptions *shared.AlertingClusterOptions `option:"alertingOptions"`
+	Subscribers     []chan []client.AlertingPeer   `option:"subscribers"`
 }
 
 type TestEnvAlertingClusterDriver struct {
@@ -52,12 +77,15 @@ type TestEnvAlertingClusterDriver struct {
 	*alertops.ClusterConfiguration
 
 	alertops.UnsafeAlertingAdminServer
+	client.AlertingClient
 
-	subscribers []chan shared.AlertingClusterNotification
+	subscribers []chan []client.AlertingPeer
 }
 
-var _ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
-var _ alertops.AlertingAdminServer = (*TestEnvAlertingClusterDriver)(nil)
+var (
+	_ alerting_drivers.ClusterDriver = (*TestEnvAlertingClusterDriver)(nil)
+	_ alertops.AlertingAdminServer   = (*TestEnvAlertingClusterDriver)(nil)
+)
 
 func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlertingClusterDriverOptions) *TestEnvAlertingClusterDriver {
 	dir := env.GenerateNewTempDirectory("alertmanager-config")
@@ -124,17 +152,23 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 		}
 	}
 	if len(l.managedInstances) > 1 {
-		l.AlertingClusterOptions.WorkerNodesService = "localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "127.0.0.1"
 		l.AlertingClusterOptions.WorkerNodePort = l.managedInstances[1].AlertManagerPort
 		l.AlertingClusterOptions.OpniPort = l.managedInstances[1].OpniPort
 	}
 	l.ClusterConfiguration = configuration
 
+	peers := []client.AlertingPeer{}
+	for _, inst := range l.managedInstances {
+		peers = append(peers, client.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
+		})
+	}
+	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
+
 	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: true,
-			B: l.AlertingClusterOptions,
-		}
+		subscriber <- peers
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -147,13 +181,15 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 	}
 	l.stateMu.RLock()
 	defer l.stateMu.RUnlock()
-	for _, replica := range l.managedInstances {
-		apiNode := backend.NewAlertManagerReadyClient(ctx, fmt.Sprintf("127.0.0.1:%d", replica.AlertManagerPort))
-		if err := apiNode.DoRequest(); err != nil {
-			return &alertops.InstallStatus{
-				State: alertops.InstallState_InstallUpdating,
-			}, nil
-		}
+	if l.AlertingClient == nil {
+		return &alertops.InstallStatus{
+			State: alertops.InstallState_NotInstalled,
+		}, nil
+	}
+	if err := l.AlertingClient.StatusClient().Ready(ctx); err != nil {
+		return &alertops.InstallStatus{
+			State: alertops.InstallState_InstallUpdating,
+		}, nil
 	}
 
 	return &alertops.InstallStatus{
@@ -177,6 +213,24 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
 	}
+	l.AlertingClient = client.NewClient(
+		nil,
+		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
+		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort),
+	)
+
+	peers := []client.AlertingPeer{}
+	for _, inst := range l.managedInstances {
+		peers = append(peers, client.AlertingPeer{
+			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
+		})
+	}
+	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
+
+	for _, subscriber := range l.subscribers {
+		subscriber <- peers
+	}
 
 	l.enabled.Store(true)
 	l.ClusterSettleTimeout = "1m0s"
@@ -185,13 +239,13 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	l.ResourceLimits.Cpu = "500m"
 	l.ResourceLimits.Memory = "200Mi"
 	l.ResourceLimits.Storage = "500Mi"
-	l.AlertingClusterOptions.ControllerNodeService = "localhost"
+	l.AlertingClusterOptions.ControllerNodeService = "127.0.0.1"
 
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
 	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
 
-	rTree := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", l.managedInstances[0].OpniPort))
+	rTree := routing.NewRoutingTree(fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort))
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -199,13 +253,6 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
 	if err != nil {
 		panic(err)
-	}
-
-	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: true,
-			B: l.AlertingClusterOptions,
-		}
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -219,10 +266,7 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 	l.managedInstances = []AlertingServerUnit{}
 	l.enabled.Store(false)
 	for _, subscriber := range l.subscribers {
-		subscriber <- shared.AlertingClusterNotification{
-			A: false,
-			B: nil,
-		}
+		subscriber <- []client.AlertingPeer{}
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -259,7 +303,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		"alerting-server",
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", configFilePath),
 		fmt.Sprintf("--syncer.listen.address=:%d", syncerPort),
-		fmt.Sprintf("--syncer.alertmanager.address=%s", "http://localhost:"+strconv.Itoa(webPort)),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", "http://127.0.0.1:"+strconv.Itoa(webPort)),
 		fmt.Sprintf("--syncer.gateway.join.address=%s", ":"+strings.Split(l.env.GatewayConfig().Spec.Management.GRPCListenAddress, ":")[2]),
 		"syncer",
 	}
@@ -282,9 +326,9 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	if len(l.managedInstances) > 0 {
 		for _, replica := range l.managedInstances {
 			alertmanagerArgs = append(alertmanagerArgs,
-				fmt.Sprintf("--cluster.peer=localhost:%d", replica.ClusterPort))
+				fmt.Sprintf("--cluster.peer=127.0.0.1:%d", replica.ClusterPort))
 		}
-		l.AlertingClusterOptions.WorkerNodesService = "localhost"
+		l.AlertingClusterOptions.WorkerNodesService = "127.0.0.1"
 		l.AlertingClusterOptions.WorkerNodePort = webPort
 	}
 
@@ -302,7 +346,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 	retries := 0
 	for ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/-/ready", webPort))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -328,7 +372,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 
-	l.logger.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
+	l.logger.With("address", fmt.Sprintf("http://127.0.0.1:%d", webPort)).Info("AlertManager started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
 		cmd, _ := session.G()
@@ -345,7 +389,40 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 }
 
+type TestNodeDriver struct{}
+
+func NewTestNodeDriver() *TestNodeDriver {
+	return &TestNodeDriver{}
+}
+
+func (n *TestNodeDriver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error {
+	return nil
+}
+
+func (n *TestNodeDriver) DiscoverRules(_ context.Context) (*rules.RuleManifest, error) {
+	return &rules.RuleManifest{
+		Rules: []*rules.Rule{
+			{
+				RuleId: &corev1.Reference{
+					Id: "test-rule",
+				},
+				GroupId: &corev1.Reference{
+					Id: "test-group",
+				},
+				Name:        "test",
+				Expr:        "sum(up > 0) > 0",
+				Duration:    durationpb.New(time.Second),
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+			},
+		},
+	}, nil
+}
+
 func init() {
+	node_drivers.NodeDrivers.Register("test_driver", func(ctx context.Context, opts ...driverutil.Option) (node_drivers.NodeDriver, error) {
+		return NewTestNodeDriver(), nil
+	})
 	alerting_drivers.Drivers.Register("test-environment", func(ctx context.Context, opts ...driverutil.Option) (alerting_drivers.ClusterDriver, error) {
 		env := test.EnvFromContext(ctx)
 		options := TestEnvAlertingClusterDriverOptions{}

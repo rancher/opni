@@ -48,7 +48,7 @@ func mage(target string, opts ...dagger.ContainerWithExecOpts) ([]string, dagger
 	if len(opts) == 0 {
 		opts = append(opts, dagger.ContainerWithExecOpts{})
 	}
-	return []string{"/go/bin/mage", "-v", target}, opts[0]
+	return []string{"mage", "-v", target}, opts[0]
 }
 
 func yarn[S string | []string](target S, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {

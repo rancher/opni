@@ -2,7 +2,6 @@ package metrics_test
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -85,12 +84,11 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 				Subjects: []string{"user@example.com"},
 			})
 			Expect(err).NotTo(HaveOccurred())
+			tlsConfig := environment.GatewayClientTLSConfig()
 
 			httpClient := &http.Client{
 				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
+					TLSClientConfig: tlsConfig,
 				},
 			}
 

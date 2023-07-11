@@ -72,12 +72,6 @@ func NewKeyValueStoreWithPrefix[T any](base KeyValueStoreT[T], prefix string) Ke
 	}
 }
 
-type ValueStoreT[T any] interface {
-	Put(ctx context.Context, value T) error
-	Get(ctx context.Context) (T, error)
-	Delete(ctx context.Context) error
-}
-
 type singleValueStoreImpl[T any] struct {
 	base KeyValueStoreT[T]
 	key  string
@@ -100,4 +94,73 @@ func NewValueStore[T any](base KeyValueStoreT[T], key string) ValueStoreT[T] {
 		base: base,
 		key:  key,
 	}
+}
+
+type ValueStoreAdapter[T any] struct {
+	PutFunc    func(ctx context.Context, value T) error
+	GetFunc    func(ctx context.Context) (T, error)
+	DeleteFunc func(ctx context.Context) error
+}
+
+func (s ValueStoreAdapter[T]) Put(ctx context.Context, value T) error {
+	return s.PutFunc(ctx, value)
+}
+
+func (s ValueStoreAdapter[T]) Get(ctx context.Context) (T, error) {
+	return s.GetFunc(ctx)
+}
+
+func (s ValueStoreAdapter[T]) Delete(ctx context.Context) error {
+	return s.DeleteFunc(ctx)
+}
+
+type InMemoryValueStore[T comparable] struct {
+	lock           sync.RWMutex
+	value          T
+	onValueChanged []func(prev, value T)
+}
+
+func NewInMemoryValueStore[T comparable](listeners ...func(prev, value T)) *InMemoryValueStore[T] {
+	return &InMemoryValueStore[T]{
+		onValueChanged: listeners,
+	}
+}
+
+func (s *InMemoryValueStore[T]) Put(ctx context.Context, value T) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	var prev T
+	prev, s.value = s.value, value
+	go func() {
+		for _, listener := range s.onValueChanged {
+			listener(prev, value)
+		}
+	}()
+	return nil
+}
+
+func (s *InMemoryValueStore[T]) Get(ctx context.Context) (T, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	var zero T
+	if s.value == zero {
+		return zero, ErrNotFound
+	}
+	return s.value, nil
+}
+
+func (s *InMemoryValueStore[T]) Delete(ctx context.Context) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	var prev T
+	if s.value == prev {
+		return ErrNotFound
+	}
+	prev, s.value = s.value, prev
+	go func() {
+		for _, listener := range s.onValueChanged {
+			listener(prev, s.value)
+		}
+	}()
+	return nil
 }

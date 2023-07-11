@@ -63,6 +63,12 @@ type KeyValueStoreT[T any] interface {
 	ListKeys(ctx context.Context, prefix string) ([]string, error)
 }
 
+type ValueStoreT[T any] interface {
+	Put(ctx context.Context, value T) error
+	Get(ctx context.Context) (T, error)
+	Delete(ctx context.Context) error
+}
+
 type KeyValueStore KeyValueStoreT[[]byte]
 
 type KeyringStoreBroker interface {

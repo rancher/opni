@@ -19,7 +19,7 @@ type DriverCache[D driver] interface {
 }
 
 type driverCache[D driver] struct {
-	lock     sync.Mutex
+	lock     sync.RWMutex
 	builders map[string]DriverBuilder[D]
 }
 
@@ -38,16 +38,16 @@ func (dc *driverCache[D]) Unregister(name string) {
 }
 
 func (dc *driverCache[D]) Get(name string) (DriverBuilder[D], bool) {
-	dc.lock.Lock()
-	defer dc.lock.Unlock()
+	dc.lock.RLock()
+	defer dc.lock.RUnlock()
 
 	builder, ok := dc.builders[name]
 	return builder, ok
 }
 
 func (dc *driverCache[D]) List() []string {
-	dc.lock.Lock()
-	defer dc.lock.Unlock()
+	dc.lock.RLock()
+	defer dc.lock.RUnlock()
 
 	return lo.Keys(dc.builders)
 }

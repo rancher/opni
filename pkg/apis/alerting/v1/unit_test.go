@@ -44,7 +44,7 @@ func HasSameHash(condA, condB *alertingv1.AlertCondition) error {
 	return nil
 }
 
-var _ = Describe("Extensions test", func() {
+var _ = Describe("Extensions test", Label("unit"), func() {
 	When("we calculate hash for alert conditions", func() {
 		It("should calculate different hashes when general information is change", func() {
 			// name, description, labels, severity, golden signal, attached endpoints

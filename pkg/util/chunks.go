@@ -1,4 +1,4 @@
-package agent
+package util
 
 import (
 	"fmt"
@@ -13,6 +13,13 @@ type WriteLimit struct {
 
 	// CortexIngestionRateLimit is the maximum number of samples that can be sent to cortex per second.
 	CortexIngestionRateLimit int
+}
+
+func DefaultWriteLimit() WriteLimit {
+	return WriteLimit{
+		GrpcMaxBytes:             4194304,
+		CortexIngestionRateLimit: 2500,
+	}
 }
 
 func splitNChunks[T any](a []T, n int) ([][]T, error) {
@@ -100,7 +107,7 @@ func sampleCount(request *prompb.WriteRequest) int {
 	}, 0)
 }
 
-func splitChunksWithLimit(request *prompb.WriteRequest, limit WriteLimit) ([]*prompb.WriteRequest, error) {
+func SplitChunksWithLimit(request *prompb.WriteRequest, limit WriteLimit) ([]*prompb.WriteRequest, error) {
 	bytes, err := request.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("could not check for ")
@@ -117,7 +124,7 @@ func splitChunksWithLimit(request *prompb.WriteRequest, limit WriteLimit) ([]*pr
 
 	out := make([][]*prompb.WriteRequest, 0, len(requests))
 	for _, r := range requests {
-		split, err := splitChunksWithLimit(r, limit)
+		split, err := SplitChunksWithLimit(r, limit)
 		if err != nil {
 			return nil, err
 		}

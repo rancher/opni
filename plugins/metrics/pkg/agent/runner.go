@@ -206,7 +206,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 }
 
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
-	limit := WriteLimit{
+	limit := util.WriteLimit{
 		GrpcMaxBytes:             4194304,
 		CortexIngestionRateLimit: 2500,
 	}
@@ -275,7 +275,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Timeseries: dereferenceResultTimeseries(result.Timeseries),
 			}
 
-			chunkedRequests, err := splitChunksWithLimit(&writeRequest, limit)
+			chunkedRequests, err := util.SplitChunksWithLimit(&writeRequest, limit)
 			if err != nil {
 				return fmt.Errorf("failed to chunk request: %w", err)
 			}

@@ -28,6 +28,9 @@ const (
 type JetStreamStore struct {
 	JetStreamStoreOptions
 
+	// controls the lifetime of the store connection; cancel to disconnect
+	ctx context.Context
+
 	nc *nats.Conn
 	js nats.JetStreamContext
 
@@ -125,6 +128,7 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 
 	store := &JetStreamStore{
 		JetStreamStoreOptions: options,
+		ctx:                   ctx,
 		nc:                    nc,
 		js:                    js,
 		logger:                lg,
@@ -136,27 +140,38 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 	store.kv.Roles = store.upsertBucket(rolesBucket)
 	store.kv.RoleBindings = store.upsertBucket(roleBindingsBucket)
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return store, nil
 }
 
 func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {
 	bucketName := fmt.Sprintf("%s-%s", s.BucketPrefix, name)
-	kv, err := s.js.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket: bucketName,
-		Description: fmt.Sprintf("Opni %s %s Store",
-			strcase.ToCamel(s.BucketPrefix),
-			strcase.ToCamel(name)),
-		Storage:  nats.FileStorage,
-		History:  64,
-		Replicas: 1,
-	})
-	if err != nil {
-		s.logger.With(
-			"bucket", bucketName,
-			zap.Error(err),
-		).Panic("failed to create bucket")
+	for s.ctx.Err() == nil {
+		kv, err := s.js.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket: bucketName,
+			Description: fmt.Sprintf("Opni %s %s Store",
+				strcase.ToCamel(s.BucketPrefix),
+				strcase.ToCamel(name)),
+			Storage:  nats.FileStorage,
+			History:  64,
+			Replicas: 1,
+		})
+		if err != nil {
+			s.logger.With(
+				"bucket", bucketName,
+				zap.Error(err),
+			).Warn("failed to create bucket, retrying")
+			continue
+		}
+		return kv
 	}
-	return kv
+	s.logger.With(
+		"bucket", bucketName,
+		zap.Error(s.ctx.Err()),
+	).Error("failed to create bucket")
+	return nil
 }
 
 func (s *JetStreamStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {

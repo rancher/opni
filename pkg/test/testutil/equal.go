@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func ProtoEqual(expected proto.Message) types.GomegaMatcher {
+func ProtoEqual(expected proto.Message) *ProtoMatcher {
 	return &ProtoMatcher{
 		Expected: expected,
 	}
@@ -46,6 +46,17 @@ func (matcher *ProtoMatcher) NegatedFailureMessage(actual any) (message string) 
 		"not to equal",
 		format.IndentString(prototext.Format(matcher.Expected), 1),
 	)
+}
+
+// implements gomock.Matcher
+func (matcher *ProtoMatcher) String() string {
+	return prototext.MarshalOptions{Multiline: false}.Format(matcher.Expected)
+}
+
+// implements gomock.Matcher
+func (matcher *ProtoMatcher) Matches(x interface{}) bool {
+	success, _ := matcher.Match(x)
+	return success
 }
 
 type StatusCodeMatcher struct {
@@ -125,4 +136,16 @@ func (m *StatusCodeMatcher) FailureMessage(actual any) (message string) {
 func (m *StatusCodeMatcher) NegatedFailureMessage(actual any) (message string) {
 	msg := m.FailureMessage(actual)
 	return strings.Replace(msg, "to match", "not to match", 1)
+}
+
+// implements gomock.Matcher
+func (m *StatusCodeMatcher) String() string {
+	expectedStatusCode := code(m.Expected)
+	return fmt.Sprintf("%s | %s(%d)", format.Object(m.Expected, 1), expectedStatusCode.String(), expectedStatusCode)
+}
+
+// implements gomock.Matcher
+func (m *StatusCodeMatcher) Matches(x interface{}) bool {
+	success, _ := m.Match(x)
+	return success
 }

@@ -49,7 +49,7 @@ func (Generate) Mocks(ctx context.Context) error {
 		wg.Add(1)
 		go func(mock Mock) {
 			defer wg.Done()
-			args := []string{"run", "github.com/golang/mock/mockgen"}
+			args := []string{"run", "go.uber.org/mock/mockgen"}
 			args = append(args, "-destination="+mock.Dest)
 			if mock.Import != "" {
 				args = append(args, mock.Import)

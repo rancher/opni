@@ -27,7 +27,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	natsserver "github.com/nats-io/nats-server/v2/server"
@@ -74,6 +73,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

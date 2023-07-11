@@ -3,10 +3,10 @@ package mock_rules
 import (
 	"context"
 
-	"github.com/golang/mock/gomock"
 	"github.com/rancher/opni/pkg/rules"
-	"github.com/rancher/opni/pkg/test/mock/notifier"
+	mock_notifier "github.com/rancher/opni/pkg/test/mock/notifier"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"go.uber.org/mock/gomock"
 )
 
 func NewTestFinder(ctrl *gomock.Controller, groups func() []rules.RuleGroup) notifier.Finder[rules.RuleGroup] {

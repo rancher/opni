@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	notifier "github.com/rancher/opni/pkg/util/notifier"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClonable is a mock of Clonable interface.

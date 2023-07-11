@@ -42,6 +42,7 @@ mocks:
     types:
       - TokenStore
       - TenantStore
+      - ValueStoreT
   - source: pkg/util/streams/streams.go
     dest: pkg/test/mock/streams/streams.go
     types:

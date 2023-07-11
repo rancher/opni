@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 )
 

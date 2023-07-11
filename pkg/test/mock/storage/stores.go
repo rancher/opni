@@ -878,6 +878,72 @@ func (mr *MockKeyValueStoreTMockRecorder[T]) Put(ctx, key, value interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Put), ctx, key, value)
 }
 
+// MockValueStoreT is a mock of ValueStoreT interface.
+type MockValueStoreT[T any] struct {
+	ctrl     *gomock.Controller
+	recorder *MockValueStoreTMockRecorder[T]
+}
+
+// MockValueStoreTMockRecorder is the mock recorder for MockValueStoreT.
+type MockValueStoreTMockRecorder[T any] struct {
+	mock *MockValueStoreT[T]
+}
+
+// NewMockValueStoreT creates a new mock instance.
+func NewMockValueStoreT[T any](ctrl *gomock.Controller) *MockValueStoreT[T] {
+	mock := &MockValueStoreT[T]{ctrl: ctrl}
+	mock.recorder = &MockValueStoreTMockRecorder[T]{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockValueStoreT[T]) EXPECT() *MockValueStoreTMockRecorder[T] {
+	return m.recorder
+}
+
+// Delete mocks base method.
+func (m *MockValueStoreT[T]) Delete(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockValueStoreTMockRecorder[T]) Delete(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockValueStoreT[T])(nil).Delete), ctx)
+}
+
+// Get mocks base method.
+func (m *MockValueStoreT[T]) Get(ctx context.Context) (T, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx)
+	ret0, _ := ret[0].(T)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockValueStoreTMockRecorder[T]) Get(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockValueStoreT[T])(nil).Get), ctx)
+}
+
+// Put mocks base method.
+func (m *MockValueStoreT[T]) Put(ctx context.Context, value T) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Put", ctx, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Put indicates an expected call of Put.
+func (mr *MockValueStoreTMockRecorder[T]) Put(ctx, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockValueStoreT[T])(nil).Put), ctx, value)
+}
+
 // MockKeyringStoreBroker is a mock of KeyringStoreBroker interface.
 type MockKeyringStoreBroker struct {
 	ctrl     *gomock.Controller

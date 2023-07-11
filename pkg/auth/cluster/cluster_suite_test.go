@@ -3,12 +3,12 @@ package cluster_test
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
 	_ "github.com/rancher/opni/pkg/test/setup"
+	"go.uber.org/mock/gomock"
 )
 
 var (

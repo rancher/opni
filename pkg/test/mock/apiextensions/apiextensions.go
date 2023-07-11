@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	totem "github.com/kralicky/totem"
 	apiextensions "github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"

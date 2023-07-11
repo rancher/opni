@@ -1,10 +1,15 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
-
-import "google/protobuf/empty.proto";
-import "google/api/annotations.proto";
 
 package ext;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
+option (cli.generator) = {
+  generate:                        true
+  generate_flags_for_all_messages: true
+};
 
 service Ext {
   rpc Foo(FooRequest) returns (FooResponse) {
@@ -15,7 +20,7 @@ service Ext {
         get: "/foo"
       }
       additional_bindings {
-        put: "/foo"
+        put:  "/foo"
         body: "request"
       }
       additional_bindings {
@@ -23,7 +28,7 @@ service Ext {
       }
       additional_bindings {
         patch: "/foo"
-        body: "request"
+        body:  "request"
       }
     };
   }
@@ -56,7 +61,7 @@ service Ext {
       body: "*"
 
       additional_bindings {
-        put: "/set/example/{node.id}"
+        put:  "/set/example/{node.id}"
         body: "example"
       }
     };
@@ -70,8 +75,8 @@ message Reference {
 }
 
 message SetRequest {
-  Reference node = 1;
-  string value = 2;
+  Reference    node    = 1;
+  string       value   = 2;
   ExampleValue example = 3;
 }
 
@@ -106,15 +111,23 @@ message BarResponse {
 message BazRequest {
   enum BazEnum {
     UNKNOWN = 0;
-    FOO = 1;
-    BAR = 2;
+    FOO     = 1;
+    BAR     = 2;
   }
-  double paramFloat64 = 1;
-  int64 paramInt64 = 3;
-  bool paramBool = 8;
-  string paramString = 9;
-  bytes paramBytes = 10;
-  BazEnum paramEnum = 11;
+  double          paramFloat64        = 1;
+  int64           paramInt64          = 3;
+  bool            paramBool           = 8;
+  string          paramString         = 9;
+  bytes           paramBytes          = 10;
+  BazEnum         paramEnum           = 11;
   repeated string paramRepeatedString = 12;
-  BazRequest paramMsg = 13;
+  BazRequest      paramMsg            = 13;
+}
+
+message SampleConfiguration {
+  string              stringField   = 1;
+  string              secretField   = 2 [(cli.flag).secret = true];
+  map<string, string> mapField      = 3;
+  repeated string     repeatedField = 4;
+  SampleConfiguration messageField  = 5;
 }

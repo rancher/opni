@@ -40,11 +40,11 @@ func (p *AlarmServerComponent) teardownCondition(
 		p.runner.RemoveConfigListener(id)
 		if err := p.incidentStorage.Get().Delete(ctx, id); err != nil {
 			retErr = err
-			return
 		}
 		if err := p.stateStorage.Get().Delete(ctx, id); err != nil {
 			retErr = err
 		}
+		return
 	}
 	if alertingv1.IsMetricsCondition(req) {
 		if r, _ := extractClusterMd(req.AlertType); r != nil {

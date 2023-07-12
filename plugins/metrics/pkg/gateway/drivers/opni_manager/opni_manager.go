@@ -8,6 +8,7 @@ import (
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/flagutil"
@@ -157,10 +158,18 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 				Spec: &cortexops.CapabilityBackendConfigSpec{
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
 						Targets: map[string]*cortexops.CortexWorkloadSpec{
-							"all": {Replicas: 1},
+							"all": {},
 						},
 					},
-					CortexConfig: &cortexops.CortexApplicationConfig{},
+					CortexConfig: &cortexops.CortexApplicationConfig{
+						LogLevel: "debug",
+						Storage: &storagev1.StorageSpec{
+							Backend: storagev1.Backend_filesystem,
+							Filesystem: &storagev1.FilesystemStorageSpec{
+								Directory: "/data",
+							},
+						},
+					},
 				},
 			},
 			{
@@ -169,7 +178,27 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 					"displayName": "Highly Available",
 					"description": "Basic HA Cortex deployment with all components running in separate processes",
 				},
-				Spec: &cortexops.CapabilityBackendConfigSpec{},
+				Spec: &cortexops.CapabilityBackendConfigSpec{
+					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
+						Targets: map[string]*cortexops.CortexWorkloadSpec{
+							"distributor":    {},
+							"query-frontend": {},
+							"purger":         {},
+							"ruler":          {},
+							"compactor":      {},
+							"store-gateway":  {},
+							"ingester":       {},
+							"alertmanager":   {},
+							"querier":        {},
+						},
+					},
+					CortexConfig: &cortexops.CortexApplicationConfig{
+						LogLevel: "debug",
+						Storage: &storagev1.StorageSpec{
+							Backend: storagev1.Backend_s3,
+						},
+					},
+				},
 			},
 		},
 	}, nil

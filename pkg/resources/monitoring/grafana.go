@@ -175,9 +175,14 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		return nil, fmt.Errorf("invalid grafana hostname: %w", err)
 	}
 
+	tag := "latest"
+	if r.mc.Spec.Grafana.Version != "" {
+		tag = strings.TrimSpace(r.mc.Spec.Grafana.Version)
+	}
+
 	defaults := grafanav1alpha1.GrafanaSpec{
 		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
-		BaseImage:              "grafana/grafana:latest",
+		BaseImage:              "grafana/grafana:" + tag,
 		Client: &grafanav1alpha1.GrafanaClient{
 			PreferService: lo.ToPtr(true),
 		},

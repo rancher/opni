@@ -228,11 +228,12 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 
 	d.state.Store(cortexops.InstallState_Updating)
 
-	d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions) ([]byte, []byte, error) {
+	d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions, iso test.ImplementationSpecificOverrides) ([]byte, []byte, error) {
 		cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(d.activeConfig.GetCortexConfig(),
 			configutil.MergeOverrideLists(
 				configutil.NewAutomaticHAOverrides(),
 				configutil.NewStandardOverrides(cco),
+				configutil.NewImplementationSpecificOverrides(iso),
 				[]configutil.CortexConfigOverrider{
 					configutil.NewOverrider(func(t *ring.LifecyclerConfig) {
 						t.Addr = "localhost"
@@ -243,6 +244,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 					configutil.NewOverrider(func(t *ruler.Config) {
 						t.EvaluationInterval = 1 * time.Second
 						t.PollInterval = 1 * time.Second
+						t.Notifier.TLS.ServerName = "127.0.0.1"
 					}),
 					configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) {
 						t.SyncInterval = 10 * time.Second

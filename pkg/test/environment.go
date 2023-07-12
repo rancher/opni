@@ -732,7 +732,13 @@ type CortexConfigOptions = struct {
 	TLSCortexClientConfig  CortexClientTlsConfig
 }
 
-func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions) ([]byte, []byte, error)) {
+type ImplementationSpecificOverrides = struct {
+	QueryFrontendAddress string
+	MemberlistJoinAddrs  []string
+	AlertmanagerURL      string
+}
+
+func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions, ImplementationSpecificOverrides) ([]byte, []byte, error)) {
 	lg := e.Logger
 	storageDir := path.Join(e.tempDir, "cortex")
 
@@ -752,9 +758,10 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 			ClientAuth:  "RequireAndVerifyClientCert",
 		},
 		TLSGatewayClientConfig: CortexClientTlsConfig{
-			CertPath: path.Join(e.certDir, "client.crt"),
-			KeyPath:  path.Join(e.certDir, "client.key"),
-			CAPath:   path.Join(e.certDir, "root.crt"),
+			CertPath:   path.Join(e.certDir, "client.crt"),
+			KeyPath:    path.Join(e.certDir, "client.key"),
+			CAPath:     path.Join(e.certDir, "root_ca.crt"),
+			ServerName: "localhost",
 		},
 		TLSCortexClientConfig: CortexClientTlsConfig{
 			CertPath:   path.Join(storageDir, "client.crt"),
@@ -762,6 +769,8 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 			CAPath:     path.Join(storageDir, "root.crt"),
 			ServerName: "localhost",
 		},
+	}, ImplementationSpecificOverrides{
+		AlertmanagerURL: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
 	})
 	if err != nil {
 		panic(err)

@@ -85,7 +85,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.61.0
 	github.com/prometheus/alertmanager v0.25.1-0.20230505130626-263ca5c9438e
 	github.com/prometheus/client_golang v1.15.1
-	github.com/prometheus/common v0.42.0
+	github.com/prometheus/common v0.44.0
 	github.com/prometheus/common/sigv4 v0.1.0
 	github.com/prometheus/exporter-toolkit v0.10.0
 	github.com/prometheus/procfs v0.9.0
@@ -100,7 +100,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/steveteuber/kubectl-graph v0.6.0
-	github.com/thanos-io/thanos v0.31.1-0.20230616082957-d43026952989
+	github.com/thanos-io/thanos v0.31.1-0.20230711160112-df3a5f808726
 	github.com/thediveo/enumflag/v2 v2.0.2
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
@@ -495,7 +495,7 @@ require (
 	github.com/quasilyte/regex/syntax v0.0.0-20210819130434-b3f0c404a727 // indirect
 	github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect
 	github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc // indirect
-	github.com/redis/rueidis v1.0.2-go1.18 // indirect
+	github.com/redis/rueidis v1.0.10-go1.18 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/rs/cors v1.9.0 // indirect
@@ -538,7 +538,7 @@ require (
 	github.com/tdakkota/asciicheck v0.2.0 // indirect
 	github.com/tetafro/godot v1.4.11 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
-	github.com/thanos-io/objstore v0.0.0-20230201072718-11ffbc490204 // indirect
+	github.com/thanos-io/objstore v0.0.0-20230629211010-ff1b35b9841a // indirect
 	github.com/thanos-io/promql-engine v0.0.0-20230526105742-791d78b260ea // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -634,7 +634,7 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 // Forks
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
-	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.0
+	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.1
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230523174150-7468e11cb5a1
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
@@ -688,7 +688,7 @@ replace (
 )
 
 // Version pins
-replace github.com/thanos-io/thanos => github.com/thanos-io/thanos v0.31.1-0.20230616082957-d43026952989
+replace github.com/thanos-io/thanos => github.com/thanos-io/thanos v0.31.1-0.20230711160112-df3a5f808726
 
 replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.44.1-0.20230530154238-dfae954dc113
 

@@ -119,6 +119,7 @@ func (e *EtcdStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1
 }
 
 func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *corev1.RoleBinding) error {
+	roleBinding.SetResourceVersion("")
 	data, err := protojson.Marshal(roleBinding)
 	if err != nil {
 		return fmt.Errorf("failed to marshal role binding: %w", err)
@@ -135,7 +136,62 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *corev1.R
 	if !resp.Succeeded {
 		return storage.ErrAlreadyExists
 	}
+	roleBinding.SetResourceVersion(fmt.Sprint(resp.Header.Revision))
 	return nil
+}
+
+func (e *EtcdStore) UpdateRoleBinding(
+	ctx context.Context,
+	ref *corev1.Reference,
+	mutator storage.MutatorFunc[*corev1.RoleBinding],
+) (*corev1.RoleBinding, error) {
+	var retRb *corev1.RoleBinding
+
+	retryFunc := func() error {
+		txn := e.Client.Txn(ctx)
+		key := path.Join(e.Prefix, roleBindingKey, ref.Id)
+		rb, err := e.GetRoleBinding(ctx, ref)
+		if err != nil {
+			return fmt.Errorf("failed to get role binding: %w", err)
+		}
+		revision, err := strconv.Atoi(rb.GetResourceVersion())
+		if err != nil {
+			return fmt.Errorf("internal error: role binding has invalid resource version: %w", err)
+		}
+		mutator(rb)
+		data, err := protojson.Marshal(rb)
+		if err != nil {
+			return fmt.Errorf("failed to marshal role binding: %w", err)
+		}
+		txnResp, err := txn.If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
+			Then(clientv3.OpPut(key, string(data))).
+			Commit()
+		if err != nil {
+			e.Logger.With(
+				zap.Error(err),
+			).Error("error updating role binding")
+			return err
+		}
+		if !txnResp.Succeeded {
+			return errRetry
+		}
+		rb.SetResourceVersion(fmt.Sprint(txnResp.Header.Revision))
+		retRb = rb
+		return nil
+	}
+	c := defaultBackoff.Start(ctx)
+	var err error
+	for backoff.Continue(c) {
+		err = retryFunc()
+		if isRetryErr(err) {
+			continue
+		}
+		break
+	}
+	if err != nil {
+		return nil, err
+	}
+	return retRb, nil
 }
 
 func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
@@ -164,6 +220,7 @@ func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (
 	if err := storage.ApplyRoleBindingTaints(ctx, e, roleBinding); err != nil {
 		return nil, err
 	}
+	roleBinding.SetResourceVersion(fmt.Sprint(resp.Kvs[0].ModRevision))
 	return roleBinding, nil
 }
 

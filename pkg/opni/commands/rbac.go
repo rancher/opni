@@ -35,6 +35,7 @@ func BuildRoleBindingsCmd() *cobra.Command {
 		Short:   "Manage role bindings",
 	}
 	roleBindingsCmd.AddCommand(BuildRoleBindingsCreateCmd())
+	roleBindingsCmd.AddCommand(BuildRoleBindingsUpdateCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsDeleteCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsShowCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsListCmd())
@@ -196,6 +197,36 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 				Subjects: args[2:],
 			}
 			_, err := mgmtClient.CreateRoleBinding(cmd.Context(), rb)
+			if err != nil {
+				lg.Fatal(err)
+			}
+			rb, err = mgmtClient.GetRoleBinding(cmd.Context(), rb.Reference())
+			if err != nil {
+				lg.Fatal(err)
+			}
+			fmt.Println(cliutil.RenderRoleBinding(rb))
+		},
+	}
+}
+
+func BuildRoleBindingsUpdateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "update <rolebinding-id> <role-id> <user-id>...",
+		Short: "Update a role binding",
+		Args:  cobra.MinimumNArgs(3),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 1 {
+				return completeRoles(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			rb := &corev1.RoleBinding{
+				Id:       args[0],
+				RoleId:   args[1],
+				Subjects: args[2:],
+			}
+			_, err := mgmtClient.UpdateRoleBinding(cmd.Context(), rb)
 			if err != nil {
 				lg.Fatal(err)
 			}

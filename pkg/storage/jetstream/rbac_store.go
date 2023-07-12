@@ -96,11 +96,50 @@ func (s *JetStreamStore) CreateRoleBinding(_ context.Context, rb *corev1.RoleBin
 	if err != nil {
 		return err
 	}
-	_, err = s.kv.RoleBindings.Create(rb.Id, data)
+	rev, err := s.kv.RoleBindings.Create(rb.Id, data)
 	if errors.Is(err, nats.ErrKeyExists) {
 		return storage.ErrAlreadyExists
 	}
+	rb.SetResourceVersion(fmt.Sprint(rev))
 	return err
+}
+
+func (s *JetStreamStore) UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator storage.RoleBindingMutator) (*corev1.RoleBinding, error) {
+	p := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(1*time.Millisecond),
+		backoff.WithMaxInterval(128*time.Millisecond),
+		backoff.WithMultiplier(2),
+	)
+	b := p.Start(ctx)
+	var updateErr error
+	for backoff.Continue(b) {
+		rb, err := s.GetRoleBinding(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		versionStr := rb.GetResourceVersion()
+		version, err := strconv.ParseUint(versionStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("internal error: role binding has invalid resource version: %w", err)
+		}
+		mutator(rb)
+		data, err := protojson.Marshal(rb)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal role binding: %w", err)
+		}
+		rev, err := s.kv.RoleBindings.Update(ref.Id, data, version)
+		if err != nil {
+			updateErr = err
+			continue
+		}
+		rb.SetResourceVersion(fmt.Sprint(rev))
+		return rb, nil
+	}
+	if updateErr != nil {
+		return nil, fmt.Errorf("failed to update role binding: %w", updateErr)
+	}
+	return nil, fmt.Errorf("failed to update role binding: (unknown error)")
 }
 
 func (s *JetStreamStore) DeleteRoleBinding(_ context.Context, ref *corev1.Reference) error {
@@ -128,6 +167,7 @@ func (s *JetStreamStore) GetRoleBinding(ctx context.Context, ref *corev1.Referen
 	if err := storage.ApplyRoleBindingTaints(ctx, s, rb); err != nil {
 		return nil, err
 	}
+	rb.SetResourceVersion(fmt.Sprint(entry.Revision()))
 	return rb, nil
 }
 

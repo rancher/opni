@@ -761,6 +761,21 @@ func (mr *MockRBACStoreMockRecorder) UpdateRole(ctx, ref, mutator interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACStore)(nil).UpdateRole), ctx, ref, mutator)
 }
 
+// UpdateRoleBinding mocks base method.
+func (m *MockRBACStore) UpdateRoleBinding(ctx context.Context, ref *v1.Reference, mutator storage.RoleBindingMutator) (*v1.RoleBinding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRoleBinding", ctx, ref, mutator)
+	ret0, _ := ret[0].(*v1.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRoleBinding indicates an expected call of UpdateRoleBinding.
+func (mr *MockRBACStoreMockRecorder) UpdateRoleBinding(ctx, ref, mutator interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).UpdateRoleBinding), ctx, ref, mutator)
+}
+
 // MockKeyringStore is a mock of KeyringStore interface.
 type MockKeyringStore struct {
 	ctrl     *gomock.Controller

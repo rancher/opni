@@ -67,10 +67,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				if integer, err := strconv.Atoi(actual.GetResourceVersion()); err == nil {
 					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
 				}
-
-				role, err = ts.GetRole(context.Background(), role.Reference())
-				Expect(err).NotTo(HaveOccurred())
-				Expect(role.ClusterIDs).To(Equal([]string{"test-cluster"}))
+				Expect(actual.ClusterIDs).To(Equal([]string{"test-cluster"}))
 			})
 			It("should delete roles", func() {
 				all, err := ts.ListRoles(context.Background())
@@ -132,6 +129,28 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					Expect(rbs.Items[0].GetId()).To(Equal("foo"))
 				})
 			})
+			It("should be able to update a role binding", func() {
+				rb := &corev1.RoleBinding{
+					Id: "foo",
+				}
+
+				fetched, err := ts.GetRoleBinding(context.Background(), rb.Reference())
+				Expect(err).NotTo(HaveOccurred())
+
+				prevVersion := fetched.GetResourceVersion()
+				actual, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
+					r.RoleId = "test-role"
+					r.Subjects = []string{"test-subject"}
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actual.GetResourceVersion()).NotTo(BeEmpty())
+				Expect(actual.GetResourceVersion()).NotTo(Equal(prevVersion))
+				if integer, err := strconv.Atoi(actual.GetResourceVersion()); err == nil {
+					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
+				}
+				Expect(actual.RoleId).To(Equal("test-role"))
+				Expect(actual.Subjects).To(Equal([]string{"test-subject"}))
+			})
 			It("should delete role bindings", func() {
 				all, err := ts.ListRoleBindings(context.Background())
 				Expect(err).NotTo(HaveOccurred())
@@ -154,6 +173,15 @@ func RBACStoreTestSuite[T storage.RBACStore](
 
 				err = ts.CreateRoleBinding(context.Background(), rb)
 				Expect(err).To(MatchError(storage.ErrAlreadyExists))
+			})
+			It("should fail to update if the role does not exist", func() {
+				rb := &corev1.RoleBinding{
+					Id: "does-not-exist",
+				}
+				_, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
+					r.RoleId = "test-role"
+				})
+				Expect(err).To(MatchError(storage.ErrNotFound))
 			})
 		})
 	}

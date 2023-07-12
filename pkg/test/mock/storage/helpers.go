@@ -533,6 +533,27 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		}).
 		AnyTimes()
 	mockRBACStore.EXPECT().
+		UpdateRoleBinding(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, ref *v1.Reference, mutator storage.MutatorFunc[*v1.RoleBinding]) (*v1.RoleBinding, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			if err, ok := InjectedStorageError(ctx); ok {
+				return nil, err
+			}
+			if _, ok := rbs[ref.Id]; !ok {
+				return nil, storage.ErrNotFound
+			}
+			rb := rbs[ref.Id]
+			cloned := proto.Clone(rb).(*v1.RoleBinding)
+			mutator(cloned)
+			if _, ok := rbs[ref.Id]; !ok {
+				return nil, storage.ErrNotFound
+			}
+			rbs[ref.Id] = cloned
+			return cloned, nil
+		}).
+		AnyTimes()
+	mockRBACStore.EXPECT().
 		DeleteRoleBinding(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, ref *v1.Reference) error {
 			mu.Lock()

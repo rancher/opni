@@ -139,6 +139,12 @@ message RoleBinding {
   string roleId = 2;
   repeated string subjects = 3;
   repeated string taints = 4;
+  RoleBindingMetadata metadata = 5;
+}
+
+message RoleBindingMetadata {
+  // read-only
+  string resourceVersion = 1;
 }
 
 message RoleList {

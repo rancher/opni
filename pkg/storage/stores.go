@@ -21,6 +21,7 @@ type MutatorFunc[T any] func(T)
 type TokenMutator = MutatorFunc[*corev1.BootstrapToken]
 type ClusterMutator = MutatorFunc[*corev1.Cluster]
 type RoleMutator = MutatorFunc[*corev1.Role]
+type RoleBindingMutator = MutatorFunc[*corev1.RoleBinding]
 
 type TokenStore interface {
 	CreateToken(ctx context.Context, ttl time.Duration, opts ...TokenCreateOption) (*corev1.BootstrapToken, error)
@@ -46,6 +47,7 @@ type RBACStore interface {
 	DeleteRole(context.Context, *corev1.Reference) error
 	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
 	CreateRoleBinding(context.Context, *corev1.RoleBinding) error
+	UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator RoleBindingMutator) (*corev1.RoleBinding, error)
 	DeleteRoleBinding(context.Context, *corev1.Reference) error
 	GetRoleBinding(context.Context, *corev1.Reference) (*corev1.RoleBinding, error)
 	ListRoles(context.Context) (*corev1.RoleList, error)

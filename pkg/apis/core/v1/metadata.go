@@ -127,6 +127,17 @@ func (r *Role) SetResourceVersion(version string) {
 	r.Metadata.ResourceVersion = version
 }
 
+func (rb *RoleBinding) GetResourceVersion() string {
+	return rb.GetMetadata().GetResourceVersion()
+}
+
+func (rb *RoleBinding) SetResourceVersion(version string) {
+	if rb.Metadata == nil {
+		rb.Metadata = &RoleBindingMetadata{}
+	}
+	rb.Metadata.ResourceVersion = version
+}
+
 type lastKnownConnectionDetailsKeyType struct{}
 
 var lastKnownConnectionDetailsKey lastKnownConnectionDetailsKeyType

@@ -96,6 +96,33 @@ func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding
 	return err
 }
 
+func (c *CRDStore) UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.RoleBinding]) (*corev1.RoleBinding, error) {
+	var rb *corev1.RoleBinding
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
+		existing := &monitoringv1beta1.RoleBinding{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
+			Namespace: c.namespace,
+		}, existing)
+		if err != nil {
+			return err
+		}
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		rb = clone.Spec
+		err = c.client.Update(ctx, clone)
+		rb.SetResourceVersion(clone.GetObjectMeta().GetResourceVersion())
+		return err
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
+		return nil, err
+	}
+	return rb, nil
+}
+
 func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
 	err := c.client.Delete(ctx, &monitoringv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -121,6 +148,7 @@ func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*
 		}
 		return nil, err
 	}
+	rb.Spec.SetResourceVersion(rb.GetResourceVersion())
 	return rb.Spec, nil
 }
 

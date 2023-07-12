@@ -73,6 +73,30 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		}
 	})
 
+	It("can update an existing role binding", func() {
+		_, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
+			Id: "test-rolebinding1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		rb := &corev1.RoleBinding{
+			Id:       "test-rolebinding1",
+			RoleId:   "updated-test-role",
+			Subjects: []string{"updated-test-subject"},
+		}
+		_, err = client.UpdateRoleBinding(context.Background(), rb)
+		Expect(err).NotTo(HaveOccurred())
+
+		rbInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
+			Id: "test-rolebinding1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(rbInfo.Id).To(Equal("test-rolebinding1"))
+		Expect(rbInfo.RoleId).To(Equal("updated-test-role"))
+		Expect(rbInfo.Subjects).To(ContainElement("updated-test-subject"))
+	})
+
 	It("can delete an existing rolebinding", func() {
 		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding1",
@@ -234,6 +258,15 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 			Id: "test-rolebinding7",
 		})
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("cannot update a non existent role binding", func() {
+		_, err = client.UpdateRoleBinding(context.Background(), &corev1.RoleBinding{
+			Id:     "does-not-exist",
+			RoleId: "test-role",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 	//#endregion
 

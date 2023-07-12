@@ -116,13 +116,17 @@ func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 }
 
 func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
-	groupIds, err := a.conditionStorage.Get().ListGroups(a.ctx)
+	conditionStorage, err := a.conditionStorage.GetContext(a.ctx)
+	if err != nil {
+		return err
+	}
+	groupIds, err := conditionStorage.ListGroups(a.ctx)
 	if err != nil {
 		return err
 	}
 	conds := []*alertingv1.AlertCondition{}
 	for _, groupId := range groupIds {
-		groupConds, err := a.conditionStorage.Get().Group(groupId).List(a.ctx)
+		groupConds, err := conditionStorage.Group(groupId).List(a.ctx)
 		if err != nil {
 			return err
 		}

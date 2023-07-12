@@ -25,6 +25,7 @@ import (
 var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integration"), func() {
 	var env *test.Environment
 	var toDeleteMetrics *alertingv1.ConditionReference
+	var toDeleteInternal *alertingv1.ConditionReference
 	var listRuleRequest *cortexadmin.ListRulesRequest
 	agent1 := "agent1"
 	agent2 := "agent2"
@@ -110,6 +111,31 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			Metadata:          map[string]string{},
 		})
 		Expect(err).To(Succeed())
+		refDisconnect, err := conditionsClient.CreateAlertCondition(env.Context(), &alertingv1.AlertCondition{
+			Name:        "agent disconnect",
+			Description: "some disconnect to remove",
+			Labels:      []string{},
+			Severity:    0,
+			AlertType: &alertingv1.AlertTypeDetails{
+				Type: &alertingv1.AlertTypeDetails_System{
+					System: &alertingv1.AlertConditionSystem{
+						ClusterId: &corev1.Reference{
+							Id: agent1,
+						},
+						Timeout: durationpb.New(time.Minute * 10),
+					},
+				},
+			},
+			Silence:      &alertingv1.SilenceInfo{},
+			LastUpdated:  &timestamppb.Timestamp{},
+			Id:           "",
+			GoldenSignal: 0,
+			OverrideType: "",
+			Metadata:     map[string]string{},
+			GroupId:      "",
+		})
+		Expect(err).To(Succeed())
+		toDeleteInternal = refDisconnect
 		toDeleteMetrics = ref
 		listRuleRequest = &cortexadmin.ListRulesRequest{
 			ClusterId:      []string{agent1, agent2},
@@ -208,7 +234,6 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 				}
 				return nil
 			}).Should(Succeed())
-
 		})
 	})
 
@@ -240,7 +265,6 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 							)
 						}
 					}
-
 				}
 				return nil
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
@@ -249,14 +273,28 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 	})
 	When("we delete an alarm of the internal type", func() {
 		It("should successfully submit the alarm for deletion", func() {
+			conditionsClient := env.NewAlertConditionsClient()
 
+			_, err := conditionsClient.DeleteAlertCondition(env.Context(), toDeleteInternal)
+			Expect(err).To(Succeed())
 		})
 
 		It("should clean up the alarm configuration itself", func() {
-		})
-
-		It("should no longer send messages to attached endpoints", func() {
-
+			conditionsClient := env.NewAlertConditionsClient()
+			Eventually(func() error {
+				_, err := conditionsClient.GetAlertCondition(env.Context(), toDeleteInternal)
+				if err == nil {
+					return fmt.Errorf("expected to get an error")
+				}
+				st, ok := status.FromError(err)
+				if !ok {
+					return fmt.Errorf("expected to get a grpc error message")
+				}
+				if st.Code() != codes.NotFound {
+					return fmt.Errorf("expected to get not found error code instead got %d : %s", st.Code(), st.Code().String())
+				}
+				return nil
+			}, time.Second*5).Should(Succeed())
 		})
 	})
 })

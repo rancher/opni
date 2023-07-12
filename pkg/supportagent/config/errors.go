@@ -1,4 +1,4 @@
-package supportagent
+package config
 
 import "errors"
 

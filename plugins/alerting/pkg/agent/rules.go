@@ -105,6 +105,7 @@ func (r *RuleStreamer) run(ctx context.Context) {
 			r.ruleSyncClient.SyncRules(ctx, ruleManifest)
 		case <-ctx.Done():
 			r.lg.Info("Exiting rule sync loop")
+			return
 		}
 	}
 }

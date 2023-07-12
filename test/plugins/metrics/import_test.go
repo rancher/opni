@@ -15,6 +15,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -145,8 +146,9 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		_, errC := env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
 
-		cortexCtx := waitctx.Background()
-		env.StartCortex(cortexCtx)
+		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
+		_, err = cortexOpsClient.Install(ctx, &emptypb.Empty{})
+		Expect(err).ToNot(HaveOccurred())
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())

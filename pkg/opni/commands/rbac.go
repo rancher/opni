@@ -86,10 +86,12 @@ func BuildRolesUpdateCmd() *cobra.Command {
 	var matchLabelsStrings []string
 	matchLabels := map[string]string{}
 	cmd := &cobra.Command{
-		Use:               "update <role-id>",
-		Short:             "Update a role",
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: cobra.NoFileCompletions,
+		Use:   "update <role-id>",
+		Short: "Update a role",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeRoles(cmd, args, toComplete)
+		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// split key=value strings in matchLabels
 			var err error
@@ -188,6 +190,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 			if len(args) == 1 {
 				return completeRoles(cmd, args, toComplete)
 			}
+
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -215,9 +218,13 @@ func BuildRoleBindingsUpdateCmd() *cobra.Command {
 		Short: "Update a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			if len(args) == 1 {
+			switch len(args) {
+			case 0:
+				return completeRoleBindings(cmd, args, toComplete)
+			case 1:
 				return completeRoles(cmd, args, toComplete)
 			}
+
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {

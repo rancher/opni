@@ -18,7 +18,9 @@ func GoBase(client *dagger.Client) *dagger.Container {
 	return client.
 		Container().
 		Pipeline("Go Base Image").
-		From("golang:" + strings.TrimPrefix(runtime.Version(), "go"))
+		From("golang:" + strings.TrimPrefix(runtime.Version(), "go")).
+		WithExec([]string{"apt-get", "update", "-y"}).
+		WithExec([]string{"apt-get", "install", "-y", "libnspr4", "libnss3", "libexpat1", "libfontconfig1", "libuuid1"})
 }
 
 type AlpineOptions struct {

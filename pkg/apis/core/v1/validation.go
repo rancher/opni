@@ -124,7 +124,7 @@ func (r *Role) Validate() error {
 		}
 	}
 	if len(r.ClusterIDs) == 0 && len(r.GetMatchLabels().GetMatchLabels()) == 0 && len(r.GetMatchLabels().GetMatchExpressions()) == 0 {
-		return fmt.Errorf("%w: %s", validation.ErrInvalidValue, "role must have at least one cluster ID or label selector")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "role must have at least one cluster ID or label selector")
 	}
 	return nil
 }
@@ -141,6 +141,9 @@ func (rb *RoleBinding) Validate() error {
 	}
 	if err := validation.ValidateID(rb.RoleId); err != nil {
 		return fmt.Errorf("%w: %q", err, rb.RoleId)
+	}
+	if len(rb.Subjects) == 0 {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subjects")
 	}
 	for _, subject := range rb.Subjects {
 		if err := validation.ValidateSubject(subject); err != nil {

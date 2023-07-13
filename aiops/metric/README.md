@@ -1,13 +1,33 @@
 # Opni Metric Analysis Service
 
-* This service offers a new feature to match metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis.
+* This service offers a new feature to match metrics to 2 types of known pre-defined anomaly chart patterns. For each time of the patterns, a grafana dashboard that visualize all anomaly metrics that match to the patterns will be dynamically generated for user to consume. This feature will make operators' life easier in the process of outage diagnosis. 
 
-## Build
+* The 2 types of pre-defined patterns: 
+
+* This [OEP](https://github.com/rancher/opni/blob/main/enhancements/aiops/20230120-Identify-metrics-that-match-known-anomaly-chart-patterns.md) provides details.
+
+## Get Started
+
+### generate proto files
 run `mage generate` in the root dir of opni to generate .py proto-scripts from cortexadmin.proto 
-TO edit the python code generator rule: the file - https://github.com/kralicky/ragu/tree/main/pkg/plugins/python
-1. clone github.com/kralicky/ragu somewhere
+To edit the python code generator rule: the file - https://github.com/kralicky/ragu/tree/main/pkg/plugins/python
+1. clone `github.com/kralicky/ragu` to somewhere
 2. run go mod edit -replace github.com/kralicky/ragu => /path/to/clone && go mod tidy
 3. mage generate again
+
+### build image and run
+Build image:
+```
+cd ../..
+dagger-cue do aiopsload
+docker tag rancher/metric-ai-service  tybalex/metric-ai-service  &&  docker push tybalex/metric-ai-service
+```
+
+Run:
+```
+kubectl apply -f deploy.yaml
+```
+
 
 ## Testing
 Install libs for testing

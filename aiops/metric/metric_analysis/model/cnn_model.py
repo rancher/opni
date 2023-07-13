@@ -19,6 +19,7 @@ class MpcDataset(Dataset):
 class MpcModel(nn.Module):
     '''
     1D-CNN model.
+    2 conv1D layers and 2 linear layers.
     Input shape: (n, 1, ts_len)
     Explain: n time-series, each of them is a 1d array, each array contains ts_len(default value 60) values.
     '''
@@ -35,6 +36,8 @@ class MpcModel(nn.Module):
         self.l_in = ts_len // 2 * c_out2
 
         super(MpcModel, self).__init__()
+
+        # define the model layers
         self.conv0 = nn.Conv1d(c_in, c_out0, k, padding=p)
         self.relu0 = nn.ReLU()
 
@@ -53,6 +56,7 @@ class MpcModel(nn.Module):
         self.relu4 = nn.ReLU()     
 
     def forward(self, x):
+        # forward. defines how the layers are connected.
         x = self.conv0(x)
         x = self.relu0(x)
 

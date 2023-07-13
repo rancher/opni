@@ -15,6 +15,9 @@ sigma = 1
 min_sigma_increase = 6
 
 class DataSimulator:
+    '''
+    We don't have access to the real data so using data simulator to kick start this feature.
+    '''
 
     @staticmethod
     def get_class_map():

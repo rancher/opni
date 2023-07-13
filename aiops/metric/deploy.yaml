@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metric-ai-worker
+  labels:
+    app: metric-ai-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metric-ai-worker
+  template:
+    metadata:
+      labels:
+        app: metric-ai-worker
+    spec:
+      containers:
+      - env:
+        - name: OPNI_GATEWAY_HOST
+          value: opni-internal
+        - name: OPNI_GATEWAY_PORT
+          value: "11090"
+        - name: NATS_SERVER_URL
+          value: nats://opni-nats-client.opni.svc:4222
+        - name: NKEY_SEED_FILENAME
+          value: /etc/nkey/seed
+        name: metric-ai-container
+        image: docker.io/tybalex/metric-ai-service
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8090
+        volumeMounts:
+        - mountPath: /etc/nkey
+          name: nkey
+          readOnly: true
+      volumes:
+      - name: nkey
+        secret:
+          defaultMode: 420
+          secretName: opni-nats-client
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metric-ai-service
+spec:
+  selector:
+    app: metric-ai-worker
+  ports:
+  - name: http
+    port: 8090
+    targetPort: 8090
+    protocol: TCP
+  type: ClusterIP

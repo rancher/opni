@@ -132,7 +132,7 @@ async def metric_queryrange(
 
 async def main():
     channel = Channel(
-        host=OPNI_HOST, port=OPNI_PORT
+        host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT
     )  # url of opni-internal. can port-forward to localhost:11090
     service = CortexAdminStub(channel)
     # response = await service.get_cortex_status(Empty())

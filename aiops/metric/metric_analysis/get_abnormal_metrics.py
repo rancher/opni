@@ -84,7 +84,7 @@ def filter_metrics(query_results, metric_name, is_debug=False):
         data_window = values0[-PATTERN_WINDOW_SIZE:]
         # TODO: check values , length of vectors before moving forward
 
-        try:
+        try: # apply both ttest filter and zscore filter
             is_anomaly, _ = ttest_filter(evaluate_window, test_window)
             total.append((pod, metric_name))
             if is_anomaly:

@@ -21,7 +21,7 @@ from envvars import OPNI_GATEWAY_HOST, OPNI_GATEWAY_PORT, OPNI_GATEWAY_PLUGINAPI
 from fastapi import BackgroundTasks, FastAPI
 from get_abnormal_metrics import get_abnormal_metrics
 from grpclib.client import Channel
-from model.metric_pattern_classification import predict
+from model.metric_pattern_classification import predict as pattern_predict
 from opni_nats import NatsWrapper
 from grafana_dashboard_utils import get_grafana_dashboard_payload
 
@@ -155,6 +155,10 @@ class jobStatus:
 
 @app.get("/run_job/{job_id}/")
 async def run_job(job_id, background_tasks: BackgroundTasks):
+    '''
+    run the submitted job as a background task. 
+    return jobRunId as reference
+    '''
     ts = datetime.now()
     kv = await nw.get_bucket(BUCKET_NAME)
     job_meta = json.loads((await kv.get(job_id)).decode())
@@ -193,6 +197,10 @@ async def run_job(job_id, background_tasks: BackgroundTasks):
 
 
 async def func_get_abnormal_metrics(jobrun_id, cluster_id, requested_ts=None, nss=[]):
+    '''
+    the function executed in the background task.
+    it applies metric anomaly detection to each deployment selected by user.
+    '''
     channel = Channel(host=OPNI_GATEWAY_HOST, port=OPNI_GATEWAY_PORT)
     service = CortexAdminStub(channel)
     res = {}
@@ -200,26 +208,30 @@ async def func_get_abnormal_metrics(jobrun_id, cluster_id, requested_ts=None, ns
     anomaly_count, total_count = 0, 0
     # get anomalous metrics and match pattern
     for ns in nss:
+        # filter out abnormal metrics by applying statistical based methods
         anomaly_metric_list, all_metric_list = await get_abnormal_metrics(
             service, cluster_id, requested_ts, ns
         )
         anomaly_count += len(anomaly_metric_list)
         total_count += len(all_metric_list)
         anomaly_metrics_value = [values for pod, metric_name, values in anomaly_metric_list]
-        preds = predict(anomaly_metrics_value)
+
+        # use CNN model to match pattern.
+        preds = pattern_predict(anomaly_metrics_value)
         
         for i, (pod, metric_name, values) in enumerate(anomaly_metric_list):
             res[pod + JOB_RUN_DELIMITER + metric_name] = preds[i]
             dashboard_payload_info.append((preds[i], pod + metric_name, get_query(metric_name, namespace=ns)))
     channel.close()
     
-    if anomaly_count > 0:
+    if anomaly_count > 0: # generate the dynamic grafana dashboard
         legal_dashboard_id = jobrun_id.replace(JOB_RUN_DELIMITER,"").lower()
         dashboard_payload = get_grafana_dashboard_payload(dashboard_payload_info, legal_dashboard_id)
         
         dashboard_payload = json.dumps(dashboard_payload)
     else:
         dashboard_payload = ""
+        
     # update jobrun status to natsKV
     kv = await nw.get_bucket(BUCKET_NAME_RUNS)
     current_status = json.loads((await kv.get(jobrun_id)).decode())

@@ -12,7 +12,7 @@ gpu_available = torch.cuda.is_available()
 device = torch.device("cuda" if gpu_available else 'cpu')
 
 
-class_map = {
+class_map = { # map integer numbers to the name of different patterns
       0: "type1_level_shift_up",
       1: "type1_level_shift_down",
       2: "type1_steady_increase",
@@ -111,6 +111,8 @@ def predict(pred_data: List[List[float]]) -> List[str]:
     model prediction.
     Input:
     @pred_data: List of timeseries. 
+    Return:
+    @res: List of strings, each string is one of the pattern class in `class_map`
     '''
     # shape the data as model requires -- (n , 1 , 60)
     pred_data = [torch.tensor(np.array([normalize_timeseries(p)]), dtype=torch.float32) for p in pred_data] 

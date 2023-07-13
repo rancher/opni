@@ -123,6 +123,9 @@ func (r *Role) Validate() error {
 			return err
 		}
 	}
+	if len(r.ClusterIDs) == 0 && len(r.GetMatchLabels().GetMatchLabels()) == 0 && len(r.GetMatchLabels().GetMatchExpressions()) == 0 {
+		return fmt.Errorf("%w: %s", validation.ErrInvalidValue, "role must have at least one cluster ID or label selector")
+	}
 	return nil
 }
 

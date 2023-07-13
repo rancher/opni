@@ -1781,7 +1781,6 @@ func WithListenPort(port int) StartAgentOption {
 
 func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) error {
 	cc := e.ManagementClientConn()
-	defer cc.Close()
 
 	client := managementv1.NewManagementClient(cc)
 	token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -1808,7 +1807,6 @@ func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) err
 
 func (e *Environment) DeleteAgent(id string) error {
 	cc := e.ManagementClientConn()
-	defer cc.Close()
 
 	client := managementv1.NewManagementClient(cc)
 	_, err := client.DeleteCluster(context.Background(), &corev1.Reference{

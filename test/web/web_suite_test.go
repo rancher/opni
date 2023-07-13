@@ -23,7 +23,7 @@ import (
 func TestWeb(t *testing.T) {
 	SetDefaultEventuallyTimeout(5 * time.Second)
 	gin.SetMode(gin.TestMode)
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(AbortSuite)
 	RunSpecs(t, "Web Suite")
 }
 
@@ -78,7 +78,7 @@ func Table() TableInterface {
 
 // 1-indexed
 func (t table) Row(idx int) TableRowInterface {
-	return tableRow(fmt.Sprintf("%s > tbody > tr.main-row:nth-child(%d) ", t, idx))
+	return tableRow(fmt.Sprintf("%s > tbody > tr.main-row:nth-child(%d of tr.main-row) ", t, idx))
 }
 
 func (t table) Header() TableHeaderInterface {
@@ -117,8 +117,16 @@ func HaveReadyBadge() types.GomegaMatcher {
 	return HaveBadge("bg-success", "Ready")
 }
 
+func HaveDegradedBadge() types.GomegaMatcher {
+	return HaveBadge("bg-warning", "Degraded")
+}
+
 func HaveNotInstalledBadge() types.GomegaMatcher {
-	return HaveBadge("bg-info", "Not-installed")
+	return HaveBadge("bg-info", "Not Installed")
+}
+
+func HaveUninstallingBadge() types.GomegaMatcher {
+	return HaveBadge("bg-info", "Uninstalling")
 }
 
 func HaveInstalledBadge() types.GomegaMatcher {

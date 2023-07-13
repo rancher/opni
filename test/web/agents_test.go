@@ -3,6 +3,7 @@ package web_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,8 @@ var _ = Describe("Agents", Ordered, Label("web"), func() {
 
 			Expect(env.BootstrapNewAgent("agent1", test.WithContext(agent1Ctx), test.WithLocalAgent())).To(Succeed())
 			Expect(env.BootstrapNewAgent("agent2", test.WithContext(agent2Ctx))).To(Succeed())
+
+			time.Sleep(1 * time.Second)
 
 			b.Navigate(webUrl + "/agents")
 

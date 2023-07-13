@@ -100,8 +100,8 @@ export class Capability extends Resource {
     const status = this.capabilityStatus[this.type];
 
     return status || {
-      state:   'info',
-      message: 'Not Installed',
+      state:        'info',
+      shortMessage: 'Not Installed',
     };
   }
 
@@ -139,7 +139,7 @@ export class Capability extends Resource {
     function getState(state: TaskState) {
       switch (state) {
       case TaskState.Completed:
-        return null;
+        return 'info';
       case TaskState.Running:
       case TaskState.Pending:
       case TaskState.Canceled:
@@ -163,13 +163,13 @@ export class Capability extends Resource {
 
           if (apiStatus.conditions?.length === 0) {
             Vue.set(this.capabilityStatus, capability, {
-              state:   'success',
-              message: 'Installed',
+              state:        'success',
+              shortMessage: 'Installed',
             });
           } else if (!apiStatus.enabled) {
             Vue.set(this.capabilityStatus, capability, {
-              state:   'warning',
-              message: 'Disabled',
+              state:        'warning',
+              shortMessage: 'Disabled',
             });
           } else {
             Vue.set(this.capabilityStatus, capability, {
@@ -185,11 +185,11 @@ export class Capability extends Resource {
 
           Vue.set(this.capabilityStatus, capability, {
             state,
-            message: state === null ? '' : (log.logs || []).reverse()[0]?.msg,
-            pending
+            shortMessage: pending ? 'Pending' : (log.state === TaskState.Completed ? 'Not Installed' : 'Uninstalling'),
+            message:      (log.logs || []).reverse()[0]?.msg,
           });
         }
-      } catch (ex) { }
+      } catch (ex) {}
     }
 
     this.capLogs = logs;
@@ -240,27 +240,24 @@ export class Capability extends Resource {
       const result = await installCapabilityV2(this.type, this.cluster.id);
 
       Vue.set(this.capabilityStatus, this.type, {
-        state:   CapabilityStatusState[result.status].toLowerCase(),
+        state:        CapabilityStatusState[result.status].toLowerCase(),
         shortMessage: result.status === CapabilityStatusState.Success ? 'Installed' : CapabilityStatusState[result.status],
-        message: result.message,
+        message:      result.message,
       });
 
       await this.updateCapabilities();
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
-        state:   'error',
+        state:        'error',
         shortMessage: 'Error',
-        message: exceptionToErrorsArray(ex).join('; '),
+        message:      exceptionToErrorsArray(ex).join('; '),
       });
     }
   }
 
   clearCapabilityStatus(capabilities: (keyof CapabilityStatuses)[]) {
     capabilities.forEach((capability) => {
-      Vue.set(this.capabilityStatus, capability, {
-        state:   null,
-        message: null,
-      });
+      Vue.set(this.capabilityStatus, capability, {});
     });
   }
 

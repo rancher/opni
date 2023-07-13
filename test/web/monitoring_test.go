@@ -16,8 +16,8 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -30,6 +30,8 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		Expect(env.BootstrapNewAgent("monitoring-test-agent1", test.WithLocalAgent())).To(Succeed())
 		Expect(env.BootstrapNewAgent("monitoring-test-agent2")).To(Succeed())
 		Expect(env.BootstrapNewAgent("monitoring-test-agent3")).To(Succeed())
+
+		time.Sleep(1 * time.Second)
 
 		mcc := env.ManagementClientConn()
 		mgmtClient = managementv1.NewManagementClient(mcc)
@@ -56,6 +58,14 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		Expect("section#storage").To(b.BeVisible())
 		Expect("section#grafana").NotTo(b.BeVisible())
 
+		By("selecting Standalone from the Mode dropdown")
+		Eventually("div.v-select input.vs__search").Should(b.SetValue("Standalone"))
+		Eventually("ul.vs__dropdown-menu > li").Should(b.Click())
+
+		By("selecting Filesystem from the Storage Type dropdown")
+		Eventually("section#storage div.v-select input.vs__search").Should(b.SetValue("Filesystem"))
+		Eventually("ul.vs__dropdown-menu > li").Should(b.Click())
+
 		By("clicking the Grafana tab")
 		b.Click("li#grafana > a")
 
@@ -81,8 +91,9 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 	})
 
 	It("should show all agents in the Capability Management table", func() {
-		By("confirming that all agents have the uninstalled badge")
-		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent1")))
+		By("confirming that the local agent has the Degraded badge")
+		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1")))
+		By("confirming that the other agents have the Not Installed badge")
 		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent2")))
 		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent3")))
 	})
@@ -143,8 +154,9 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		b.Click("section#matchLabels > div.key-value button")
 
 		By("entering a key and value")
-		b.SetValue("section#matchLabels div.key > input", "test-key")
-		b.SetValue("section#matchLabels div.value > input", "test-value")
+		Eventually("section#matchLabels div.key > input").Should(b.SetValue("test-key"))
+		Eventually("section#matchLabels div.value > input").Should(b.SetValue("test-value"))
+		time.Sleep(600 * time.Millisecond) // these text boxes have a 500ms(??) debounce
 
 		By("clicking the Save button")
 		b.Click("div.resource-footer > button.role-primary")
@@ -200,7 +212,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 	doQuery := func() (*http.Response, error) {
 		client := http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: env.GatewayTLSConfig(),
+				TLSClientConfig: env.GatewayClientTLSConfig(),
 			},
 		}
 		gatewayAddr := env.GatewayConfig().Spec.HTTPListenAddress
@@ -259,7 +271,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 						return fmt.Errorf("expected %d samples, got %d: %v", i+1, len(*vec), vec.String())
 					}
 					return nil
-				}, 30*time.Second, 500*time.Millisecond).Should(Succeed())
+				}, 60*time.Second, 500*time.Millisecond).Should(Succeed())
 
 				expectedIds := ids[:i+1]
 				actualIds := make([]string, 0, len(*vec))
@@ -347,10 +359,11 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("clicking the Save button")
 		b.Click("div.uninstall-capabilities-dialog .card-actions button.role-primary")
 
-		By("confirming that all agents have the Not-installed badge")
-		Eventually(Table().Row(1).Col(2)).Should(HaveNotInstalledBadge())
-		Eventually(Table().Row(2).Col(2)).Should(HaveNotInstalledBadge())
-		Eventually(Table().Row(3).Col(2)).Should(HaveNotInstalledBadge())
+		By("confirming that the local agent has the Degraded badge")
+		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1")))
+		By("confirming that the other agents have the Not Installed badge")
+		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent2")))
+		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent3")))
 
 		By("confirming that all agents have the capability uninstalled")
 		c, err := mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent1"})

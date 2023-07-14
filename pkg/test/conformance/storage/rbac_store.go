@@ -3,6 +3,7 @@ package conformance_storage
 import (
 	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,6 +11,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 )
@@ -54,20 +56,54 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					Id: "foo",
 				}
 
-				fetched, err := ts.GetRole(context.Background(), role.Reference())
+				role, err := ts.GetRole(context.Background(), role.Reference())
 				Expect(err).NotTo(HaveOccurred())
 
-				prevVersion := fetched.GetResourceVersion()
-				actual, err := ts.UpdateRole(context.Background(), role.Reference(), func(r *corev1.Role) {
+				prevVersion := role.GetResourceVersion()
+				roleInfo, err := ts.UpdateRole(context.Background(), role.Reference(), func(r *corev1.Role) {
 					r.ClusterIDs = []string{"test-cluster"}
+					r.MatchLabels = &corev1.LabelSelector{
+						MatchLabels: map[string]string{"test-label": "test-value"},
+					}
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(actual.GetResourceVersion()).NotTo(BeEmpty())
-				Expect(actual.GetResourceVersion()).NotTo(Equal(prevVersion))
-				if integer, err := strconv.Atoi(actual.GetResourceVersion()); err == nil {
+				Expect(roleInfo.GetResourceVersion()).NotTo(BeEmpty())
+				Expect(roleInfo.GetResourceVersion()).NotTo(Equal(prevVersion))
+				if integer, err := strconv.Atoi(roleInfo.GetResourceVersion()); err == nil {
 					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
 				}
-				Expect(actual.ClusterIDs).To(Equal([]string{"test-cluster"}))
+				Expect(roleInfo.ClusterIDs).To(Equal([]string{"test-cluster"}))
+				Expect(roleInfo.GetMatchLabels().GetMatchLabels()).To(Equal(map[string]string{"test-label": "test-value"}))
+			})
+			It("should handle multiple concurrent update requests on the same role", func() {
+				role := &corev1.Role{
+					Id: "foo",
+				}
+				role, err := ts.GetRole(context.Background(), role.Reference())
+				Expect(err).NotTo(HaveOccurred())
+
+				wg := sync.WaitGroup{}
+				start := make(chan struct{})
+				count := testruntime.IfCI(5).Else(10)
+				for i := 0; i < count; i++ {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						<-start
+						ts.UpdateRole(context.Background(), role.Reference(), func(r *corev1.Role) {
+							r.ClusterIDs = []string{"updated-test-cluster"}
+							r.MatchLabels = &corev1.LabelSelector{
+								MatchLabels: map[string]string{"concurrent-test-label": "test-value"},
+							}
+						})
+					}()
+				}
+				close(start)
+				wg.Wait()
+
+				roleInfo, err := ts.GetRole(context.Background(), role.Reference())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(roleInfo.GetMatchLabels().GetMatchLabels()).To(Equal(map[string]string{"concurrent-test-label": "test-value"}))
 			})
 			It("should delete roles", func() {
 				all, err := ts.ListRoles(context.Background())
@@ -138,18 +174,47 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				Expect(err).NotTo(HaveOccurred())
 
 				prevVersion := fetched.GetResourceVersion()
-				actual, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
+				rbInfo, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
 					r.RoleId = "test-role"
 					r.Subjects = []string{"test-subject"}
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(actual.GetResourceVersion()).NotTo(BeEmpty())
-				Expect(actual.GetResourceVersion()).NotTo(Equal(prevVersion))
-				if integer, err := strconv.Atoi(actual.GetResourceVersion()); err == nil {
+				Expect(rbInfo.GetResourceVersion()).NotTo(BeEmpty())
+				Expect(rbInfo.GetResourceVersion()).NotTo(Equal(prevVersion))
+				if integer, err := strconv.Atoi(rbInfo.GetResourceVersion()); err == nil {
 					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
 				}
-				Expect(actual.RoleId).To(Equal("test-role"))
-				Expect(actual.Subjects).To(Equal([]string{"test-subject"}))
+				Expect(rbInfo.RoleId).To(Equal("test-role"))
+				Expect(rbInfo.Subjects).To(Equal([]string{"test-subject"}))
+			})
+			It("should handle multiple concurrent update requests on the same role binding", func() {
+				rb := &corev1.RoleBinding{
+					Id: "foo",
+				}
+				rb, err := ts.GetRoleBinding(context.Background(), rb.Reference())
+				Expect(err).NotTo(HaveOccurred())
+
+				wg := sync.WaitGroup{}
+				start := make(chan struct{})
+				count := testruntime.IfCI(5).Else(10)
+				for i := 0; i < count; i++ {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						<-start
+						ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
+							r.RoleId = "concurrent-test-role"
+							r.Subjects = []string{"concurrent-test-subject"}
+						})
+					}()
+				}
+				close(start)
+				wg.Wait()
+
+				rbInfo, err := ts.GetRoleBinding(context.Background(), rb.Reference())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rbInfo.RoleId).To(Equal("concurrent-test-role"))
+				Expect(rbInfo.Subjects).To(Equal([]string{"concurrent-test-subject"}))
 			})
 			It("should delete role bindings", func() {
 				all, err := ts.ListRoleBindings(context.Background())

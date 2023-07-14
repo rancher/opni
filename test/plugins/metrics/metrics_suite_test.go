@@ -10,6 +10,9 @@ import (
 )
 
 func TestMetrics(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Metrics Suite")
 }

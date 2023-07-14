@@ -27,6 +27,16 @@ func (Test) All() error {
 	}, mg.GoCmd(), "test", "-race", "./...")
 }
 
+// Runs all tests in short mode
+func (Test) Short() error {
+	if testbinNeedsUpdate() {
+		mg.Deps(Test.Bin)
+	}
+	return sh.RunWithV(map[string]string{
+		"CGO_ENABLED": "1",
+	}, mg.GoCmd(), "test", "-race", "-short", "./...")
+}
+
 // Runs all tests with coverage analysis
 func (Test) Cover() error {
 	if testbinNeedsUpdate() {

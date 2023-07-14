@@ -36,6 +36,9 @@ func init() {
 }
 
 func TestAlerting(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Alerting Suite")
 }

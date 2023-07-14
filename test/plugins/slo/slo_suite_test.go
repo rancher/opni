@@ -12,6 +12,9 @@ import (
 )
 
 func TestSloPlugin(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Plugins Suite")
 }

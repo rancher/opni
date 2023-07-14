@@ -14,7 +14,6 @@ import (
 	runtimeconfig_gen "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	validation_gen "github.com/rancher/opni/internal/cortex/config/validation"
 	"github.com/rancher/opni/pkg/metrics"
-	"github.com/samber/lo"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -60,13 +59,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-func valueOrDefault[T any](t *T) (_ T) {
-	if t == nil {
-		return
-	}
-	return *t
-}
-
 type TLSServerConfigShape = struct {
 	TLSCertPath string
 	TLSKeyPath  string
@@ -103,10 +95,10 @@ type ImplementationSpecificOverridesShape = struct {
 }
 
 func StorageToBucketConfig(in *storagev1.StorageSpec) bucket.Config {
-	s3Spec := valueOrDefault(in.GetS3())
-	gcsSpec := valueOrDefault(in.GetGcs())
-	azureSpec := valueOrDefault(in.GetAzure())
-	swiftSpec := valueOrDefault(in.GetSwift())
+	s3Spec := in.GetS3()
+	gcsSpec := in.GetGcs()
+	azureSpec := in.GetAzure()
+	swiftSpec := in.GetSwift()
 
 	storageConfig := bucket.Config{
 		Backend: in.GetBackend().String(),
@@ -170,13 +162,13 @@ func StorageToBucketConfig(in *storagev1.StorageSpec) bucket.Config {
 }
 
 type cortexConfigOverrider[T any] interface {
-	applyConfigOverrides(cfg *T)
+	applyConfigOverrides(cfg *T) bool
 }
 
-type cortexConfigOverriderFunc[T any] func(cfg *T)
+type cortexConfigOverriderFunc[T any] func(cfg *T) bool
 
-func (f cortexConfigOverriderFunc[T]) applyConfigOverrides(cfg any) {
-	f(cfg.(*T))
+func (f cortexConfigOverriderFunc[T]) applyConfigOverrides(cfg any) bool {
+	return f(cfg.(*T))
 }
 
 func (f cortexConfigOverriderFunc[T]) inputType() reflect.Type {
@@ -184,11 +176,28 @@ func (f cortexConfigOverriderFunc[T]) inputType() reflect.Type {
 	return reflect.TypeOf(&t).Elem()
 }
 
+// Applies all overrides in order, recursively for each field.
+// If the function returns false, it will not recurse into nested struct fields.
 func applyCortexConfigOverrides(spec any, appliers []CortexConfigOverrider) {
 	sValue := reflect.ValueOf(spec)
 	if sValue.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("bug: invalid spec type for %T: must be pointer", spec))
 	}
+
+	sType := sValue.Elem().Type()
+	for _, app := range appliers {
+		tType := app.inputType()
+		if tType == sType {
+			if !app.applyConfigOverrides(sValue.Interface()) {
+				return
+			}
+		}
+	}
+
+	if sValue.Elem().Kind() != reflect.Struct {
+		return
+	}
+
 	numFields := sValue.Elem().NumField()
 	for i := 0; i < numFields; i++ {
 		field := sValue.Elem().Field(i)
@@ -196,37 +205,33 @@ func applyCortexConfigOverrides(spec any, appliers []CortexConfigOverrider) {
 		if field.CanSet() == false {
 			continue
 		}
-		if field.Type().Kind() == reflect.Ptr && field.Type().Elem().Kind() == reflect.Struct {
+		if field.Type().Kind() == reflect.Ptr {
 			if !field.IsNil() {
 				applyCortexConfigOverrides(field.Interface(), appliers)
 			}
-		} else if field.Type().Kind() == reflect.Struct {
+		} else if field.CanAddr() {
 			applyCortexConfigOverrides(field.Addr().Interface(), appliers)
 		} else {
-			for _, app := range appliers {
-				tType := app.inputType()
-				if field.Type() == tType {
-					app.applyConfigOverrides(field.Addr().Interface())
-				}
-			}
-		}
-	}
-
-	sType := sValue.Elem().Type()
-	for _, app := range appliers {
-		tType := app.inputType()
-		if tType == sType {
-			app.applyConfigOverrides(sValue.Interface())
+			panic(fmt.Sprintf("bug: invalid arg type for %s: must be pointer or addressable", field.Type().String()))
 		}
 	}
 }
-func NewOverrider[T any](fn func(*T)) CortexConfigOverrider {
+func NewOverrider[T any](fn func(*T) bool) CortexConfigOverrider {
 	return cortexConfigOverriderFunc[T](fn)
 }
 
 type CortexConfigOverrider interface {
-	applyConfigOverrides(any)
+	applyConfigOverrides(any) bool
 	inputType() reflect.Type
+}
+
+func NewTargetsOverride(targets ...string) []CortexConfigOverrider {
+	return []CortexConfigOverrider{
+		NewOverrider(func(in *cortex.Config) bool {
+			in.Target = targets
+			return true
+		}),
+	}
 }
 
 // These overrides will automatically apply additional settings when deploying
@@ -239,26 +244,36 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 	)
 	detectedMode := unknown
 	return []CortexConfigOverrider{
-		NewOverrider(func(in *cortex.Config) {
+		NewOverrider(func(in *cortex.Config) bool {
 			targets := in.Target
 			if len(targets) == 1 && targets[0] == "all" {
 				detectedMode = aio
 			} else if len(targets) > 1 {
 				detectedMode = ha
 			}
+			return true
 		}),
-		NewOverrider(func(in *kv.Config) {
+		NewOverrider(func(t *distributor.HATrackerConfig) bool {
+			// NB: we need to keep the distributor ha tracker disabled because
+			// it's not compatible with the memberlist kv store. This it just
+			// for HA prometheus which isn't supported yet anyway.
+			t.EnableHATracker = false
+			return false // Don't recurse into the kv config
+		}),
+		NewOverrider(func(in *kv.Config) bool {
 			if detectedMode == ha {
 				in.Store = "memberlist"
 			}
+			return true
 		}),
-		NewOverrider(func(in *ring.LifecyclerConfig) {
+		NewOverrider(func(in *ring.LifecyclerConfig) bool {
 			if detectedMode == ha {
 				in.JoinAfter = 10 * time.Second
 				in.ObservePeriod = 10 * time.Second
 			}
+			return true
 		}),
-		NewOverrider(func(in *ring.Config) {
+		NewOverrider(func(in *ring.Config) bool {
 			switch detectedMode {
 			case aio:
 				in.ReplicationFactor = 1
@@ -267,18 +282,21 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 					in.ReplicationFactor = 3
 				}
 			}
+			return true
 		}),
-		NewOverrider(func(in *ruler.Config) {
+		NewOverrider(func(in *ruler.Config) bool {
 			if detectedMode == ha {
 				in.EnableSharding = true
 			}
+			return true
 		}),
-		NewOverrider(func(in *storegateway.Config) {
+		NewOverrider(func(in *storegateway.Config) bool {
 			if detectedMode == ha {
 				in.ShardingEnabled = true
 			}
+			return true
 		}),
-		NewOverrider(func(in *storegateway.RingConfig) {
+		NewOverrider(func(in *storegateway.RingConfig) bool {
 			switch detectedMode {
 			case aio:
 				in.ReplicationFactor = 1
@@ -287,8 +305,9 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 					in.ReplicationFactor = 3
 				}
 			}
+			return true
 		}),
-		NewOverrider(func(in *alertmanager.RingConfig) {
+		NewOverrider(func(in *alertmanager.RingConfig) bool {
 			switch detectedMode {
 			case aio:
 				in.ReplicationFactor = 1
@@ -297,16 +316,19 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 					in.ReplicationFactor = 3
 				}
 			}
+			return true
 		}),
-		NewOverrider(func(in *alertmanager.MultitenantAlertmanagerConfig) {
+		NewOverrider(func(in *alertmanager.MultitenantAlertmanagerConfig) bool {
 			if detectedMode == ha {
 				in.ShardingEnabled = true
 			}
+			return true
 		}),
-		NewOverrider(func(in *compactor.Config) {
+		NewOverrider(func(in *compactor.Config) bool {
 			if detectedMode == ha {
 				in.ShardingEnabled = true
 			}
+			return true
 		}),
 	}
 }
@@ -315,7 +337,7 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 // a working Cortex config. They configure network, TLS, and filesystem settings.
 func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 	return []CortexConfigOverrider{
-		NewOverrider(func(t *server.Config) {
+		NewOverrider(func(t *server.Config) bool {
 			t.HTTPListenAddress = impl.HttpListenAddress
 			t.HTTPListenPort = impl.HttpListenPort
 			t.HTTPListenNetwork = "tcp"
@@ -325,52 +347,66 @@ func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 			t.MinVersion = "VersionTLS13"
 			t.HTTPTLSConfig = server.TLSConfig(impl.TLSServerConfig)
 			t.GRPCTLSConfig = server.TLSConfig(impl.TLSServerConfig)
+			return true
 		}),
-		NewOverrider(func(t *grpcclient.Config) {
+		NewOverrider(func(t *grpcclient.Config) bool {
 			t.TLSEnabled = true
 			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
+			return true
 		}),
-		NewOverrider(func(t *alertmanager.ClientConfig) {
+		NewOverrider(func(t *alertmanager.ClientConfig) bool {
 			t.TLSEnabled = true
 			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
+			return true
 		}),
-		NewOverrider(func(t *querier.ClientConfig) {
+		NewOverrider(func(t *querier.ClientConfig) bool {
 			t.TLSEnabled = true
 			t.TLS = cortextls.ClientConfig(impl.TLSCortexClientConfig)
+			return true
 		}),
-		NewOverrider(func(t *ruler.NotifierConfig) {
+		NewOverrider(func(t *ruler.NotifierConfig) bool {
 			t.TLS = cortextls.ClientConfig(impl.TLSGatewayClientConfig)
+			return true
 		}),
-		NewOverrider(func(t *querier.Config) {
+		NewOverrider(func(t *querier.Config) bool {
 			t.ActiveQueryTrackerDir = filepath.Join(impl.StorageDir, "active-query-tracker")
+			return true
 		}),
-		NewOverrider(func(t *alertmanager.MultitenantAlertmanagerConfig) {
+		NewOverrider(func(t *alertmanager.MultitenantAlertmanagerConfig) bool {
 			t.DataDir = filepath.Join(impl.StorageDir, "alertmanager")
+			return true
 		}),
-		NewOverrider(func(t *compactor.Config) {
+		NewOverrider(func(t *compactor.Config) bool {
 			t.DataDir = filepath.Join(impl.StorageDir, "compactor")
+			return true
 		}),
-		NewOverrider(func(t *tsdb.BucketStoreConfig) {
+		NewOverrider(func(t *tsdb.BucketStoreConfig) bool {
 			t.SyncDir = filepath.Join(impl.StorageDir, "tsdb-sync")
+			return true
 		}),
-		NewOverrider(func(t *tsdb.TSDBConfig) {
+		NewOverrider(func(t *tsdb.TSDBConfig) bool {
 			t.Dir = filepath.Join(impl.StorageDir, "tsdb")
+			return true
 		}),
-		NewOverrider(func(t *bucket.Config) {
+		NewOverrider(func(t *bucket.Config) bool {
 			t.Backend = "filesystem"
 			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "bucket")
+			return true
 		}),
-		NewOverrider(func(t *ruler.Config) {
+		NewOverrider(func(t *ruler.Config) bool {
 			t.RulePath = filepath.Join(impl.StorageDir, "rules")
+			return true
 		}),
-		NewOverrider(func(t *rulestore.Config) {
+		NewOverrider(func(t *rulestore.Config) bool {
 			t.Backend = "filesystem"
 			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "rules")
+			return true
 		}),
-		NewOverrider(func(t *runtimeconfig.Config) {
+		NewOverrider(func(t *runtimeconfig.Config) bool {
 			t.LoadPath = filepath.Base(impl.RuntimeConfig)
 			t.StorageConfig.Backend = "filesystem"
 			t.StorageConfig.Filesystem.Directory = filepath.Dir(impl.RuntimeConfig)
+			return false
 		}),
 	}
 }
@@ -380,73 +416,25 @@ func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 // override set.
 func NewImplementationSpecificOverrides(impl ImplementationSpecificOverridesShape) []CortexConfigOverrider {
 	return []CortexConfigOverrider{
-		NewOverrider(func(t *worker.Config) {
+		NewOverrider(func(t *worker.Config) bool {
 			t.FrontendAddress = impl.QueryFrontendAddress
+			return true
 		}),
-		NewOverrider(func(t *memberlist.KVConfig) {
+		NewOverrider(func(t *memberlist.KVConfig) bool {
 			t.JoinMembers = impl.MemberlistJoinAddrs
+			return true
 		}),
-		NewOverrider(func(t *ruler.Config) {
+		NewOverrider(func(t *ruler.Config) bool {
 			t.AlertmanagerURL = impl.AlertmanagerURL
+			return true
 		}),
 	}
 }
 
 func MergeOverrideLists(lists ...[]CortexConfigOverrider) []CortexConfigOverrider {
-	c := make(chan CortexConfigOverrider, 1)
-	merged := lo.Async(func() []CortexConfigOverrider {
-		return mergeOverriders(c)
-	})
-
-	for _, list := range lists {
-		for _, o := range list {
-			c <- o
-		}
-	}
-	close(c)
-	return (<-merged)
-}
-
-type mergedOverrider struct {
-	overriders []CortexConfigOverrider
-	inType     reflect.Type
-}
-
-func (m *mergedOverrider) applyConfigOverrides(in any) {
-	for _, o := range m.overriders {
-		o.applyConfigOverrides(in)
-	}
-}
-
-func (m *mergedOverrider) inputType() reflect.Type {
-	return m.inType
-}
-
-func (m *mergedOverrider) unwrapIfSingular() CortexConfigOverrider {
-	if len(m.overriders) == 1 {
-		return m.overriders[0]
-	}
-	return m
-}
-
-func mergeOverriders(overriders <-chan CortexConfigOverrider) []CortexConfigOverrider {
 	var merged []CortexConfigOverrider
-	mergedOverridersByType := map[reflect.Type]*mergedOverrider{}
-	for o := range overriders {
-		t := o.inputType()
-		if existing, ok := mergedOverridersByType[t]; ok {
-			existing.overriders = append(existing.overriders, o)
-		} else {
-			mo := &mergedOverrider{
-				overriders: []CortexConfigOverrider{o},
-				inType:     t,
-			}
-			mergedOverridersByType[t] = mo
-			merged = append(merged, mo)
-		}
-	}
-	for i, m := range merged {
-		merged[i] = m.(*mergedOverrider).unwrapIfSingular()
+	for _, l := range lists {
+		merged = append(merged, l...)
 	}
 	return merged
 }

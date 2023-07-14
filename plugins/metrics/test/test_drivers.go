@@ -235,19 +235,22 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 				configutil.NewStandardOverrides(cco),
 				configutil.NewImplementationSpecificOverrides(iso),
 				[]configutil.CortexConfigOverrider{
-					configutil.NewOverrider(func(t *ring.LifecyclerConfig) {
+					configutil.NewOverrider(func(t *ring.LifecyclerConfig) bool {
 						t.Addr = "localhost"
 						t.JoinAfter = 1 * time.Millisecond
 						t.MinReadyDuration = 1 * time.Millisecond
 						t.FinalSleep = 1 * time.Millisecond
+						return true
 					}),
-					configutil.NewOverrider(func(t *ruler.Config) {
+					configutil.NewOverrider(func(t *ruler.Config) bool {
 						t.EvaluationInterval = 1 * time.Second
 						t.PollInterval = 1 * time.Second
 						t.Notifier.TLS.ServerName = "127.0.0.1"
+						return true
 					}),
-					configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) {
+					configutil.NewOverrider(func(t *tsdb.BucketStoreConfig) bool {
 						t.SyncInterval = 10 * time.Second
+						return true
 					}),
 				},
 			)...,

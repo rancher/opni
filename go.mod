@@ -653,7 +653,7 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.1
-	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230523174150-7468e11cb5a1
+	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92

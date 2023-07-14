@@ -268,6 +268,22 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
+
+	It("cannot update read only role binding taints", func() {
+		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
+			Id:       "test-rolebinding8",
+			RoleId:   "test-role",
+			Subjects: []string{"test-subject"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = client.UpdateRoleBinding(context.Background(), &corev1.RoleBinding{
+			Id:     "test-rolebinding8",
+			Taints: []string{"modified-taint"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+	})
 	//#endregion
 
 })

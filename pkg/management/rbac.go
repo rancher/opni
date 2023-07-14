@@ -74,6 +74,10 @@ func (s *Server) UpdateRoleBinding(
 		return &emptypb.Empty{}, err
 	}
 
+	if len(in.Taints) > 0 {
+		return nil, validation.ErrReadOnlyField
+	}
+
 	_, err = s.coreDataSource.StorageBackend().UpdateRoleBinding(ctx, oldRb.Reference(), func(rb *corev1.RoleBinding) {
 		rb.RoleId = in.GetRoleId()
 		rb.Subjects = in.GetSubjects()

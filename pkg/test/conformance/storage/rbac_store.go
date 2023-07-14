@@ -239,7 +239,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				err = ts.CreateRoleBinding(context.Background(), rb)
 				Expect(err).To(MatchError(storage.ErrAlreadyExists))
 			})
-			It("should fail to update if the role does not exist", func() {
+			It("should fail to update if the role binding does not exist", func() {
 				rb := &corev1.RoleBinding{
 					Id: "does-not-exist",
 				}

@@ -370,26 +370,6 @@ export default {
       text-transform: uppercase;
     }
 
-    .filter {
-      ::v-deep .labeled-select,
-      ::v-deep .unlabeled-select {
-        .vs__search::placeholder {
-          color: var(--body-text) !important;
-        }
-
-        .vs__dropdown-toggle .vs__actions:after {
-          color: var(--body-text) !important;
-          font-size: 1.5rem;
-          padding-right: 4px;
-        }
-
-        .vs__dropdown-toggle {
-          background: transparent;
-          border: 1px solid var(--header-border);
-        }
-      }
-    }
-
     > * {
       padding: 0 5px;
     }

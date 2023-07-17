@@ -8,13 +8,14 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { Banner } from '@components/Banner';
 import dayjs from 'dayjs';
+import {
+  createAlertCondition, getAlertConditionGroups, updateAlertCondition, deactivateSilenceAlertCondition, silenceAlertCondition
+} from '@pkg/opni/utils/requests/alerts';
 import { exceptionToErrorsArray } from '../../utils/error';
 import { Severity, SeverityResponseToEnum } from '../../models/alerting/Condition';
-import {
-  createAlertCondition, getAlertCondition, updateAlertCondition, deactivateSilenceAlertCondition, silenceAlertCondition
-} from '../../utils/requests/alerts';
 import { getClusters } from '../../utils/requests/management';
 import AttachedEndpoints, { createDefaultAttachedEndpoints } from '../AttachedEndpoints';
+import { createConditionRequest } from './shared';
 import AgentDisconnect from './AgentDisconnect';
 import KubeState from './KubeState';
 import DownstreamCapability from './DownstreamCapability';
@@ -24,6 +25,7 @@ import Prometheus from './Prometheus';
 export function createDefaultConfig() {
   return {
     name:              '',
+    groupId:           '',
     description:       '',
     labels:            [],
     severity:          Severity.INFO,
@@ -67,13 +69,14 @@ export default {
         Prometheus.TYPE_OPTION,
         MonitoringBackend.TYPE_OPTION,
       ],
-      type:   AgentDisconnect.TYPE,
+      type:              AgentDisconnect.TYPE,
       ...AgentDisconnect.DEFAULT_CONFIG,
       ...KubeState.DEFAULT_CONFIG,
       ...DownstreamCapability.DEFAULT_CONFIG,
       ...Prometheus.DEFAULT_CONFIG,
       ...MonitoringBackend.DEFAULT_CONFIG,
-      config: createDefaultConfig(),
+      config:            createDefaultConfig(),
+      originalCondition: null,
 
       options: {
         clusterOptions:  [],
@@ -96,6 +99,7 @@ export default {
           }
         ],
       },
+      groups:     [],
       silenceFor: '1h',
       error:      '',
     };
@@ -103,9 +107,15 @@ export default {
 
   methods: {
     async load() {
-      const conditionRequest = this.$route.params.id && this.$route.params.id !== 'create' ? getAlertCondition(this.$route.params.id, this) : Promise.resolve(false);
+      const conditionRequest = createConditionRequest(this.$route);
       const clusters = await getClusters(this);
       const hasOneMonitoring = clusters.some(c => c.isCapabilityInstalled('metrics'));
+      const groups = await getAlertConditionGroups();
+
+      this.$set(this, 'groups', groups.map(g => ({
+        value: g.id,
+        label: g.id === '' ? 'Default' : g.id
+      })));
 
       if (!hasOneMonitoring) {
         this.conditionTypes.splice(1, 1);
@@ -113,6 +123,8 @@ export default {
 
       if (await conditionRequest) {
         const condition = await conditionRequest;
+
+        this.$set(this, 'originalCondition', condition);
 
         this.$set(this, 'type', condition.type);
         this.$set(this, condition.type, condition.alertType );
@@ -146,9 +158,14 @@ export default {
           delete condition.attachedEndpoints;
         }
 
-        if (this.$route.params.id && this.$route.params.id !== 'create') {
+        // Necessary to work the taggable LabeledSelect because new values will just show up as a label
+        if (condition.groupId && typeof condition.groupId === 'object') {
+          condition.groupId = condition.groupId.label;
+        }
+
+        if (this.originalCondition) {
           const updateConfig = {
-            id:          { id: this.$route.params.id },
+            id:          { id: this.originalCondition.id, groupId: this.originalCondition.groupId },
             updateAlert: condition
           };
 
@@ -174,7 +191,7 @@ export default {
     async silence() {
       try {
         const request = {
-          conditionId: { id: this.id },
+          conditionId: { id: this.originalCondition.id, groupId: this.originalCondition.groupId },
           duration:    this.silenceFor
         };
 
@@ -188,7 +205,7 @@ export default {
     async resume() {
       try {
         if (this.silenceId) {
-          await deactivateSilenceAlertCondition(this.id);
+          await deactivateSilenceAlertCondition({ id: this.originalCondition.id, groupId: this.originalCondition.groupId });
           this.load();
         }
       } catch (err) {
@@ -248,8 +265,11 @@ export default {
         :weight="3"
       >
         <div class="row bottom mb-20">
-          <div class="col span-12">
+          <div class="col span-6">
             <LabeledSelect v-model="type" label="Type" :options="conditionTypes" :required="true" />
+          </div>
+          <div class="col span-6">
+            <LabeledSelect v-model="config.groupId" label="Group" :options="groups" :taggable="true" :searchable="true" />
           </div>
         </div>
         <AgentDisconnect v-if="type === AgentDisconnect.TYPE" v-model="system" />
@@ -317,4 +337,16 @@ export default {
 </template>
 
 <style lang="scss" scoped>
+.resource-footer {
+  display: flex;
+  flex-direction: row;
+
+  justify-content: flex-end;
+}
+
+.middle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
 </style>

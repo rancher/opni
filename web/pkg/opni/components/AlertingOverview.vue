@@ -3,7 +3,7 @@ import Loading from '@shell/components/Loading';
 import dayjs from 'dayjs';
 import { TimelineType } from '../models/alerting/Condition';
 import {
-  getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications
+  getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications, getAlertConditionGroupIds
 } from '../utils/requests/alerts';
 import { getClusters } from '../utils/requests/management';
 
@@ -61,7 +61,8 @@ export default {
 
       const now = dayjs();
       const clusters = await getClusters(this);
-      const [conditions, response] = await Promise.all([getAlertConditionsWithStatus(this, clusters), getConditionTimeline({ lookbackWindow: '24h' })]);
+      const groupIds = await getAlertConditionGroupIds();
+      const [conditions, response] = await Promise.all([getAlertConditionsWithStatus(this, clusters, groupIds), getConditionTimeline({ lookbackWindow: '24h' })]);
 
       const DEFAULT_CLUSTER_ID = 'default';
       const UPSTREAM_CLUSTER_ID = 'UPSTREAM_CLUSTER_ID';

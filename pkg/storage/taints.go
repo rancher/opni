@@ -8,6 +8,7 @@ import (
 )
 
 func ApplyRoleBindingTaints(ctx context.Context, store RBACStore, rb *corev1.RoleBinding) error {
+	rb.Taints = nil
 	if _, err := store.GetRole(ctx, rb.RoleReference()); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			rb.Taints = append(rb.Taints, "role not found")

@@ -15,6 +15,27 @@ func (s *Server) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empt
 	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRole(ctx, in)
 }
 
+func (s *Server) UpdateRole(
+	ctx context.Context,
+	in *corev1.Role,
+) (*emptypb.Empty, error) {
+	if err := validation.Validate(in); err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	oldRole, err := s.GetRole(ctx, in.Reference())
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	_, err = s.coreDataSource.StorageBackend().UpdateRole(ctx, oldRole.Reference(), func(role *corev1.Role) {
+		role.ClusterIDs = in.GetClusterIDs()
+		role.MatchLabels = in.GetMatchLabels()
+		role.Metadata = in.GetMetadata()
+	})
+	return &emptypb.Empty{}, err
+}
+
 func (s *Server) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
@@ -38,6 +59,31 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *corev1.RoleBinding) 
 		return nil, validation.ErrReadOnlyField
 	}
 	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRoleBinding(ctx, in)
+}
+
+func (s *Server) UpdateRoleBinding(
+	ctx context.Context,
+	in *corev1.RoleBinding,
+) (*emptypb.Empty, error) {
+	if err := validation.Validate(in); err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	oldRb, err := s.GetRoleBinding(ctx, in.Reference())
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	if len(in.Taints) > 0 {
+		return nil, validation.ErrReadOnlyField
+	}
+
+	_, err = s.coreDataSource.StorageBackend().UpdateRoleBinding(ctx, oldRb.Reference(), func(rb *corev1.RoleBinding) {
+		rb.RoleId = in.GetRoleId()
+		rb.Subjects = in.GetSubjects()
+		rb.Metadata = in.GetMetadata()
+	})
+	return &emptypb.Empty{}, err
 }
 
 func (s *Server) DeleteRoleBinding(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {

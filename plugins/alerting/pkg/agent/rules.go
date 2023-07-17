@@ -12,9 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	RuleSyncInterval = time.Minute * 2
-)
+var RuleSyncInterval = time.Minute * 2
 
 type RuleStreamer struct {
 	util.Initializer
@@ -105,6 +103,7 @@ func (r *RuleStreamer) run(ctx context.Context) {
 			r.ruleSyncClient.SyncRules(ctx, ruleManifest)
 		case <-ctx.Done():
 			r.lg.Info("Exiting rule sync loop")
+			return
 		}
 	}
 }

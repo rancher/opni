@@ -56,6 +56,17 @@ var _ = Describe("OCI", Label("unit"), func() {
 				Expect(parsed.Tag).To(Equal(""))
 			})
 		})
+		When("both tag and digest are present", func() {
+			It("should parse the image correctly", func() {
+				image := fmt.Sprintf("opni/minimal:v1.0.0@%s", testSHAValue)
+				parsed, err := oci.Parse(image)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Registry).To(Equal(""))
+				Expect(parsed.Repository).To(Equal("opni/minimal"))
+				Expect(parsed.Digest.String()).To(Equal(testSHAValue))
+				Expect(parsed.Tag).To(Equal("v1.0.0"))
+			})
+		})
 	})
 	When("image string contains registry", func() {
 		When("image tag is present", func() {
@@ -87,6 +98,17 @@ var _ = Describe("OCI", Label("unit"), func() {
 				Expect(parsed.Repository).To(Equal("opni/minimal"))
 				Expect(parsed.Tag).To(Equal(""))
 				Expect(parsed.Digest.String()).To(Equal(""))
+			})
+		})
+		When("both tag and digest are present", func() {
+			It("should parse the image correctly", func() {
+				image := fmt.Sprintf("docker.io/opni/minimal:v1.0.0@%s", testSHAValue)
+				parsed, err := oci.Parse(image)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Registry).To(Equal("docker.io"))
+				Expect(parsed.Repository).To(Equal("opni/minimal"))
+				Expect(parsed.Digest.String()).To(Equal(testSHAValue))
+				Expect(parsed.Tag).To(Equal("v1.0.0"))
 			})
 		})
 	})
@@ -217,7 +239,7 @@ var _ = Describe("OCI", Label("unit"), func() {
 			})
 			It("should successfuilly update the tag", func() {
 				image := &oci.Image{}
-				err := image.UpdateReference(ref)
+				err := image.UpdateDigestOrTag(ref)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(image.Tag).To(Equal(ref))
 			})
@@ -228,7 +250,7 @@ var _ = Describe("OCI", Label("unit"), func() {
 			})
 			It("should error", func() {
 				image := &oci.Image{}
-				err := image.UpdateReference(ref)
+				err := image.UpdateDigestOrTag(ref)
 				Expect(err).To(MatchError(oci.ErrInvalidReferenceFormat))
 			})
 		})
@@ -238,7 +260,7 @@ var _ = Describe("OCI", Label("unit"), func() {
 			})
 			It("should successfuilly update the tag", func() {
 				image := &oci.Image{}
-				err := image.UpdateReference(ref)
+				err := image.UpdateDigestOrTag(ref)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(image.Digest.String()).To(Equal(ref))
 			})
@@ -249,14 +271,14 @@ var _ = Describe("OCI", Label("unit"), func() {
 			})
 			It("should error", func() {
 				image := &oci.Image{}
-				err := image.UpdateReference(ref)
+				err := image.UpdateDigestOrTag(ref)
 				Expect(err).To(MatchError(oci.ErrInvalidReferenceFormat))
 			})
 		})
 		When("the ref is an empty string", func() {
 			It("should error", func() {
 				image := &oci.Image{}
-				err := image.UpdateReference(ref)
+				err := image.UpdateDigestOrTag(ref)
 				Expect(err).To(MatchError(oci.ErrInvalidReferenceFormat))
 			})
 		})

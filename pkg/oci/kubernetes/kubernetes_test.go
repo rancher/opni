@@ -3,6 +3,7 @@ package kubernetes_test
 import (
 	"context"
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,7 +15,8 @@ import (
 )
 
 const (
-	imageDigest = "sha256:15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
+	imageDigest  = "sha256:15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225"
+	imageDigest2 = "sha256:576d76d88778a1d23c411e92701b89fbf9807cf3c8ca5f832677843ce9db1ccb"
 )
 
 var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func() {
@@ -73,6 +75,18 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 				Image: fmt.Sprintf("rancher/opni-test@%s", imageDigest),
 			}
 			Expect(k8sClient.Status().Update(context.Background(), gateway)).To(Succeed())
+		})
+		When("the minimal image is available from the environment", func() {
+			It("should return the minimal image", func() {
+				minimalRef := fmt.Sprintf("rancher/opni-test@%s", imageDigest2)
+				os.Setenv("OPNI_MINIMAL_IMAGE_REF", minimalRef)
+				DeferCleanup(func() {
+					os.Unsetenv("OPNI_MINIMAL_IMAGE_REF")
+				})
+				image, err := k8sOCI.GetImage(context.Background(), oci.ImageTypeMinimal)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(image.String()).To(Equal(minimalRef))
+			})
 		})
 		When("version is unset", func() {
 			BeforeEach(func() {

@@ -193,7 +193,7 @@ func (k *kubernetesAgentUpgrader) patchContainer(container *corev1.Container, pa
 	if err != nil {
 		return err
 	}
-	if oldImage.Reference() != patch.GetOldDigest() {
+	if oldImage.DigestOrTag() != patch.GetOldDigest() {
 		return kubernetes.ErrOldDigestMismatch
 	}
 	image, err := oci.Parse(patch.GetPath())
@@ -201,7 +201,7 @@ func (k *kubernetesAgentUpgrader) patchContainer(container *corev1.Container, pa
 		return err
 	}
 
-	err = image.UpdateReference(patch.GetNewDigest())
+	err = image.UpdateDigestOrTag(patch.GetNewDigest())
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func makeEntry(container *corev1.Container, packageType kubernetes.ComponentType
 	return &controlv1.UpdateManifestEntry{
 		Package: entryURN.String(),
 		Path:    image.Path(),
-		Digest:  image.Reference(),
+		Digest:  image.DigestOrTag(),
 	}
 }
 

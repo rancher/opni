@@ -89,7 +89,7 @@ func (i *Image) Empty() bool {
 	return i.Repository == ""
 }
 
-func (i *Image) UpdateReference(ref string) error {
+func (i *Image) UpdateDigestOrTag(ref string) error {
 	match := anchoredTagRegexp.FindString(ref)
 	if match != "" {
 		i.Tag = match
@@ -107,10 +107,10 @@ func (i *Image) UpdateReference(ref string) error {
 		return nil
 	}
 
-	return ErrInvalidReferenceFormat
+	return fmt.Errorf("%w: %q", ErrInvalidReferenceFormat, ref)
 }
 
-func (i *Image) Reference() string {
+func (i *Image) DigestOrTag() string {
 	if i.Digest != "" {
 		return i.Digest.String()
 	}

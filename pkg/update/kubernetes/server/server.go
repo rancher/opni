@@ -153,7 +153,7 @@ func patchForImage(
 		return nil, nil
 	}
 
-	if entry.GetDigest() == image.Reference() && existingImage.Repository == image.Repository {
+	if entry.GetDigest() == image.DigestOrTag() && existingImage.Repository == image.Repository {
 		return &controlv1.PatchSpec{
 			Package: entry.GetPackage(),
 			Path:    entry.GetPath(),
@@ -163,12 +163,12 @@ func patchForImage(
 	newEntry := &controlv1.UpdateManifestEntry{
 		Package: entry.GetPackage(),
 		Path:    image.Path(),
-		Digest:  image.Reference(),
+		Digest:  image.DigestOrTag(),
 	}
 	return &controlv1.PatchSpec{
 		Op:        controlv1.PatchOp_Update,
 		OldDigest: entry.GetDigest(),
-		NewDigest: image.Reference(),
+		NewDigest: image.DigestOrTag(),
 		Package:   entry.GetPackage(),
 		Path:      image.Path(),
 	}, newEntry

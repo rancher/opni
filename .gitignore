@@ -49,3 +49,6 @@ index.yaml
 
 # vale styles
 styles/*
+
+# magefile binaries
+mage_output_file.go

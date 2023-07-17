@@ -8,6 +8,7 @@ import (
 var (
 	ErrClusterAlreadyExists    = errors.New("cluster already exists")
 	ErrInvalidList             = errors.New("list did not return exactly 1 result")
+	ErrLoggingClusterNotFound  = errors.New("logging cluster not found")
 	ErrInvalidPersistence      = errors.New("invalid persistence config")
 	ErrInvalidCluster          = errors.New("invalid opensearch cluster")
 	ErrClusterIDMissing        = errors.New("request does not include cluster ID")

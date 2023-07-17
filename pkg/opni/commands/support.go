@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/ident"
 	_ "github.com/rancher/opni/pkg/ident/supportagent"
+	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/supportagent"
 	supportagentconfig "github.com/rancher/opni/pkg/supportagent/config"
@@ -27,6 +29,7 @@ import (
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/crypto/blake2b"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -41,6 +44,7 @@ func BuildSupportCmd() *cobra.Command {
 	supportCmd.AddCommand(BuildSupportBootstrapCmd())
 	supportCmd.AddCommand(BuildSupportPingCmd())
 	supportCmd.AddCommand(BuildSupportShipCmd())
+	supportCmd.AddCommand(BuildSupportPasswordCmd())
 	return supportCmd
 }
 
@@ -292,6 +296,48 @@ func BuildSupportShipCmd() *cobra.Command {
 	shipCmd.Flags().StringVar(&nodeName, "node-name", "", "node name to attach to logs")
 
 	return shipCmd
+}
+
+func BuildSupportPasswordCmd() *cobra.Command {
+	var logLevel string
+	pwdCmd := &cobra.Command{
+		Use:   "password",
+		Short: "Shows the initial password for Opensearch Dashboards",
+		Run: func(cmd *cobra.Command, args []string) {
+			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+
+			kr, err := supportagentconfig.LoadKeyring(getRetrievePassword)
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Fatal("failed to get keyring")
+			}
+
+			var sharedKeys *keyring.SharedKeys
+			ok := kr.Try(func(key *keyring.SharedKeys) {
+				sharedKeys = key
+			})
+
+			if !ok {
+				agentlg.Fatal("failed to get shared keys")
+			}
+
+			hash, err := blake2b.New512(sharedKeys.ClientKey)
+
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Fatal("failed to generate hash")
+			}
+
+			p := hash.Sum(nil)
+			fmt.Println(base64.StdEncoding.EncodeToString(p))
+		},
+	}
+
+	pwdCmd.Flags().StringVar(&logLevel, "log-level", "info", "log level")
+
+	return pwdCmd
 }
 
 func validateShipArgs(_ *cobra.Command, args []string) error {

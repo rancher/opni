@@ -120,12 +120,7 @@ func GatewayClientFromConfig(
 		return nil, ErrNoConfig
 	}
 
-	krData, err := openKeyRingData(pwdFunc)
-	if err != nil {
-		return nil, err
-	}
-
-	kr, err := keyring.Unmarshal(krData)
+	kr, err := LoadKeyring(pwdFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +144,15 @@ func GatewayClientFromConfig(
 
 	controlv1.RegisterIdentityServer(client, identserver.NewFromProvider(ip))
 	return client, nil
+}
+
+func LoadKeyring(pwdFunc keystore.PromptFunc) (keyring.Keyring, error) {
+	krData, err := openKeyRingData(pwdFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	return keyring.Unmarshal(krData)
 }
 
 func ensureDirExists(path string) error {

@@ -231,8 +231,9 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 	It("cannot update a non existent role binding", func() {
 		_, err = client.UpdateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:     "does-not-exist",
-			RoleId: "test-role",
+			Id:       "does-not-exist",
+			RoleId:   "test-role",
+			Subjects: []string{"test-subject"},
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.NotFound))
@@ -247,8 +248,10 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.UpdateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:     "test-rolebinding8",
-			Taints: []string{"modified-taint"},
+			Id:       "test-rolebinding8",
+			RoleId:   "test-role",
+			Subjects: []string{"test-subject"},
+			Taints:   []string{"modified-taint"},
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))

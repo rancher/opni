@@ -248,7 +248,8 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 
 	It("cannot update a non existent role", func() {
 		_, err = client.UpdateRole(context.Background(), &corev1.Role{
-			Id: "does-not-exist",
+			Id:         "does-not-exist",
+			ClusterIDs: []string{"test-cluster"},
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.NotFound))

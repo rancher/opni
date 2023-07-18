@@ -11,4 +11,5 @@ var Aliases = map[string]any{
 	"test":     targets.Test.All,
 	"build":    targets.Build.All,
 	"generate": targets.Generate.All,
+	"crd":      targets.CRD.All,
 }

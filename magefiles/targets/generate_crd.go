@@ -2,6 +2,7 @@ package targets
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -14,11 +15,17 @@ import (
 	"github.com/samber/lo"
 )
 
-func (Generate) GenerateCRD() {
-	mg.SerialDeps(CRDGen, ReplaceCRDText)
+type CRD mg.Namespace
+
+func (CRD) All(ctx context.Context) {
+	ctx, tr := Tracer.Start(ctx, "target.crd")
+	defer tr.End()
+	mg.SerialCtxDeps(ctx, CRD.CRDGen, CRD.ReplaceCRDText)
 }
 
-func CRDGen() error {
+func (CRD) CRDGen(ctx context.Context) error {
+	_, tr := Tracer.Start(ctx, "target.crd.crdgen")
+	defer tr.End()
 	var commands []*exec.Cmd
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v5",
 		"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
@@ -95,7 +102,9 @@ func prependDocumentSeparator(path string) error {
 	return nil
 }
 
-func ReplaceCRDText() error {
+func (CRD) ReplaceCRDText(ctx context.Context) error {
+	_, tr := Tracer.Start(ctx, "target.crd.replacecrdtext")
+	defer tr.End()
 	files := []string{
 		"./packages/opni/opni/charts/crds/crds.yaml",
 	}

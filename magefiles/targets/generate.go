@@ -13,5 +13,5 @@ func (Generate) All(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.generate")
 	defer tr.End()
 
-	mg.CtxDeps(ctx, Generate.Protobuf, Generate.Mocks, Generate.GenerateCRD, Generate.Controllers)
+	mg.CtxDeps(ctx, Generate.Protobuf, Generate.Mocks, Generate.Controllers)
 }

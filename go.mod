@@ -75,6 +75,7 @@ require (
 	github.com/nats-io/nats.go v1.23.0
 	github.com/nats-io/nkeys v0.4.4
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
+	github.com/onsi/biloba v0.1.5
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza v0.0.0-00010101000000-000000000000
@@ -133,6 +134,7 @@ require (
 	golang.org/x/crypto v0.11.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/mod v0.11.0
+	golang.org/x/net v0.12.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/term v0.10.0
 	golang.org/x/time v0.3.0
@@ -494,7 +496,6 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/onsi/biloba v0.1.5 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.80.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
@@ -626,7 +627,6 @@ require (
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230221090011-e4bae7ad2296 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect

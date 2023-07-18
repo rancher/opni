@@ -12,7 +12,7 @@ export default {
 
   computed: {
     color() {
-      return `bg-${ this.value.state }`;
+      return `bg-${ this.value.state || 'error' }`;
     }
   }
 };
@@ -20,7 +20,7 @@ export default {
 
 <template>
   <div class="status-badge">
-    <BadgeState v-tooltip="value.longMessage" :color="color" :label="value.shortMessage || value.message" />
+    <BadgeState v-tooltip="value.longMessage" :color="color" :label="value.shortMessage || value.message || 'Unknown'" />
   </div>
 </template>
 

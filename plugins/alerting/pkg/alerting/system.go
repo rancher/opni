@@ -166,6 +166,10 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	cc, err := intf.GetClientConn(p.ctx, services...)
 	if err != nil {
 		p.logger.With("err", err).Error("failed to get required clients for alerting : %s", strings.Join(services, ","))
+		if p.ctx.Err() != nil {
+			// Plugin is shutting down, don't exit
+			return
+		}
 		os.Exit(1)
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))

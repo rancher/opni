@@ -29,6 +29,10 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin", "AlertEndpoints")
 	if err != nil {
 		p.logger.Error("failed to get cortex admin client", "error", err)
+		if p.ctx.Err() != nil {
+			// Plugin is shutting down, don't exit
+			return
+		}
 		os.Exit(1)
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)

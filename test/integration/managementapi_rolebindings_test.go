@@ -13,6 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testutil"
 )
 
 // #region Test Setup
@@ -26,8 +27,10 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 
 		_, err := client.CreateRole(context.Background(), &corev1.Role{
 			Id: "test-role",
-		},
-		)
+			MatchLabels: &corev1.LabelSelector{
+				MatchLabels: map[string]string{"test": "test"},
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -153,51 +156,17 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
 	})
 
-	It("can create and get rolebindings without a subject", func() {
+	It("cannot create rolebindings without a subject", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			Id:     "test-rolebinding3",
 			RoleId: "test-role",
 		})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, ContainSubstring("missing required field: subjects")))
 
-		rolebindingInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
+		_, err = client.GetRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding3",
 		})
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding3"))
-		Expect(rolebindingInfo.RoleId).To(Equal("test-role"))
-		Expect(rolebindingInfo.Subjects).To(BeNil())
-		Expect(rolebindingInfo.Taints).To(Equal([]string{"no subjects"}))
-
-		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding3",
-		})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("can create and get rolebindings without a taint", func() {
-		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "test-rolebinding4",
-			RoleId:   "test-role",
-			Subjects: []string{"test-subject"},
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		rolebindingInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding4",
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(rolebindingInfo.Id).To(Equal("test-rolebinding4"))
-		Expect(rolebindingInfo.RoleId).To(Equal("test-role"))
-		Expect(rolebindingInfo.Subjects).To(ContainElement("test-subject"))
-		Expect(rolebindingInfo.Taints).To(BeNil())
-
-		_, err = client.DeleteRoleBinding(context.Background(), &corev1.Reference{
-			Id: "test-rolebinding4",
-		})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 	})
 
 	It("cannot delete a rolebinding without specifying an Id", func() {

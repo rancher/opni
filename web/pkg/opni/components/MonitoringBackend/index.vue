@@ -160,7 +160,9 @@ export default {
 
     async disable() {
       await uninstallCluster();
-      this.$set(this.config.storage.s3, 'secretAccessKey', '');
+      if (this.config.storage.s3?.secretAccessKey) {
+        this.$set(this.config.storage.s3, 'secretAccessKey', '');
+      }
     },
 
     async save() {

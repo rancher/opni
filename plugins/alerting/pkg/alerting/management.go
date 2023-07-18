@@ -52,7 +52,7 @@ func (p *Plugin) watchCortexClusterStatus() {
 	}
 	// acquire cortex client
 	var adminClient cortexadmin.CortexAdminClient
-	for {
+	for p.ctx.Err() == nil {
 		ctxca, ca := context.WithTimeout(p.ctx, 5*time.Second)
 		acquiredClient, err := p.adminClient.GetContext(ctxca)
 		ca()

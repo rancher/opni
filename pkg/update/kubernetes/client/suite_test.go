@@ -34,7 +34,7 @@ func TestAPIs(t *testing.T) {
 	SetDefaultConsistentlyDuration(2 * time.Second)
 	SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Kubernetes update client suite")
+	RunSpecs(t, "Kubernetes Update Client Suite")
 }
 
 var _ = BeforeSuite(func() {

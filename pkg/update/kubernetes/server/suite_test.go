@@ -10,5 +10,5 @@ import (
 
 func TestPatch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "kubernetes server suite")
+	RunSpecs(t, "Kubernetes Update Server Suite")
 }

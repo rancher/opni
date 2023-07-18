@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,6 +24,33 @@ func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 		return storage.ErrAlreadyExists
 	}
 	return err
+}
+
+func (c *CRDStore) UpdateRole(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Role]) (*corev1.Role, error) {
+	var role *corev1.Role
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
+		existing := &monitoringv1beta1.Role{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
+			Namespace: c.namespace,
+		}, existing)
+		if err != nil {
+			return err
+		}
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		role = clone.Spec
+		err = c.client.Update(ctx, clone)
+		role.SetResourceVersion(clone.GetObjectMeta().GetResourceVersion())
+		return err
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
+		return nil, err
+	}
+	return role, nil
 }
 
 func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
@@ -50,6 +78,7 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.
 		}
 		return nil, err
 	}
+	role.Spec.SetResourceVersion(role.GetResourceVersion())
 	return role.Spec, nil
 }
 
@@ -65,6 +94,33 @@ func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding
 		return storage.ErrAlreadyExists
 	}
 	return err
+}
+
+func (c *CRDStore) UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.RoleBinding]) (*corev1.RoleBinding, error) {
+	var rb *corev1.RoleBinding
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
+		existing := &monitoringv1beta1.RoleBinding{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
+			Namespace: c.namespace,
+		}, existing)
+		if err != nil {
+			return err
+		}
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		rb = clone.Spec
+		err = c.client.Update(ctx, clone)
+		rb.SetResourceVersion(clone.GetObjectMeta().GetResourceVersion())
+		return err
+	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
+		return nil, err
+	}
+	return rb, nil
 }
 
 func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
@@ -92,6 +148,7 @@ func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*
 		}
 		return nil, err
 	}
+	rb.Spec.SetResourceVersion(rb.GetResourceVersion())
 	return rb.Spec, nil
 }
 

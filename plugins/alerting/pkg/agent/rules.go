@@ -12,9 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	RuleSyncInterval = time.Minute * 2
-)
+var RuleSyncInterval = time.Minute * 2
 
 type RuleStreamer struct {
 	util.Initializer

@@ -352,6 +352,9 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		}
 
 		if b.Test {
+			chromedp := b.client.Container().
+				From("chromedp/headless-shell:114.0.5735.199")
+
 			eg.Go(func() error {
 				var opts cmds.TestBinOptions
 				confJson, err := test.Stdout(ctx)
@@ -361,7 +364,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
 					return err
 				}
-				test = cmds.TestBin(b.client, test, opts)
+				test = cmds.TestBin(b.client, test, opts).
+					WithMountedDirectory("/headless-shell", chromedp.Directory("/headless-shell")).
+					WithEnvVariable("PATH", "$PATH:/headless-shell", dagger.ContainerWithEnvVariableOpts{Expand: true})
+
 				if b.Coverage.Export {
 					_, err := test.Pipeline("Run Tests").
 						WithExec(mage("test:cover")).

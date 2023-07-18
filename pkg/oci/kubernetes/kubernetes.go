@@ -2,11 +2,13 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/oci"
+	"github.com/rancher/opni/pkg/versions"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -90,22 +92,34 @@ func (d *kubernetesResolveImageDriver) GetImage(ctx context.Context, imageType o
 }
 
 func (d *kubernetesResolveImageDriver) getOpniImage(ctx context.Context) (*oci.Image, error) {
-	return oci.Parse(d.getOpniImageString(ctx))
+	imageStr, err := d.getOpniImageString(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving opni image: %w", err)
+	}
+	return oci.Parse(imageStr)
 }
 
 func (d *kubernetesResolveImageDriver) getMinimalImage(ctx context.Context) (*oci.Image, error) {
-	image, err := d.getOpniImage(ctx)
-	if err != nil {
-		return nil, err
+	minimalImageStr, minimalImageErr := getMinimalImageString()
+	if minimalImageErr == nil {
+		// use the minimal image from the environment
+		return oci.Parse(minimalImageStr)
 	}
-	minimalDigest := getMinimalDigest()
-	if minimalDigest != "" {
-		err := image.UpdateReference(minimalDigest)
-		if err != nil {
-			return nil, err
+
+	// no minimal image available, try to guess based on the full image
+	opniImage, opniImageErr := d.getOpniImage(ctx)
+	if opniImageErr == nil {
+		// if we have a version, we can append the "-minimal" suffix to the tag
+		// to get the tagged minimal image for the same version
+		if versions.Version != "unversioned" {
+			opniImage.Tag = versions.Version + "-minimal"
+			opniImage.Digest = ""
 		}
+		// no version, only thing we can do is fall back to using the full image
+		return opniImage, nil
 	}
-	return image, nil
+
+	return nil, fmt.Errorf("error resolving minimal image: %w", errors.Join(minimalImageErr, opniImageErr))
 }
 
 func init() {

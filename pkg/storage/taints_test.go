@@ -40,6 +40,19 @@ var _ = Describe("Taints", Ordered, Label("unit"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rb.Taints).To(BeEmpty())
 		})
+		It("should only apply the relevant taint once", func() {
+			store := mock_storage.NewTestRBACStore(ctrl)
+			rb := &corev1.RoleBinding{
+				Id:       "test-rb2",
+				RoleId:   "does-not-exist",
+				Subjects: []string{"foo"},
+			}
+			err := storage.ApplyRoleBindingTaints(context.Background(), store, rb)
+			Expect(err).NotTo(HaveOccurred())
+			err = storage.ApplyRoleBindingTaints(context.Background(), store, rb)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rb.Taints).To(Equal([]string{"role not found"}))
+		})
 	})
 	When("A role binding has no subjects", func() {
 		It("should apply the relevant taint", func() {

@@ -78,6 +78,7 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 			Exceptions: []any{
 				"github.com/rancher/opni/pkg/opni/commands",
 				"github.com/rancher/opni/internal/cmd/testenv",
+				"github.com/rancher/opni/test/web_test",
 			},
 		},
 		{

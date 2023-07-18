@@ -85,6 +85,12 @@ service Management {
       body: "*"
     };
   }
+  rpc UpdateRole(core.Role) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/roles"
+      body: "*"
+    };
+  }
   rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/roles/{id}"
@@ -98,6 +104,12 @@ service Management {
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/rolebindings"
+      body: "*"
+    };
+  }
+  rpc UpdateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/rolebindings"
       body: "*"
     };
   }

@@ -38,13 +38,12 @@ func getNextStatus(ctx context.Context, request *remoteread.TargetStatusRequest)
 }
 
 func getProgressAsPercent(progress *remoteread.TargetProgress) float64 {
-	if progress == nil || progress.LastReadTimestamp == nil {
+	completed := float64(progress.GetLastReadTimestamp().GetSeconds() - progress.GetStartTimestamp().GetSeconds())
+	total := float64(progress.GetEndTimestamp().GetSeconds() - progress.GetStartTimestamp().GetSeconds())
+	if total == 0 {
 		return 0
 	}
-
-	percent := float64(progress.LastReadTimestamp.Seconds-progress.StartTimestamp.Seconds) /
-		float64(progress.EndTimestamp.Seconds-progress.StartTimestamp.Seconds)
-
+	percent := completed / total
 	return math.Min(1, percent)
 }
 
@@ -126,7 +125,7 @@ func (model ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		model.percent = getProgressAsPercent(msg.Progress)
-		model.lastRead = msg.Progress.LastReadTimestamp
+		model.lastRead = msg.GetProgress().GetLastReadTimestamp()
 
 		if model.percent >= 1 {
 			importDone = true

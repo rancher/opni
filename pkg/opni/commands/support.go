@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/crypto"
 	"github.com/rancher/opni/pkg/ident"
 	_ "github.com/rancher/opni/pkg/ident/supportagent"
 	"github.com/rancher/opni/pkg/keyring"
@@ -29,7 +30,6 @@ import (
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/blake2b"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -322,15 +322,14 @@ func BuildSupportPasswordCmd() *cobra.Command {
 				agentlg.Fatal("failed to get shared keys")
 			}
 
-			hash, err := blake2b.New512(sharedKeys.ClientKey)
-
+			hasher := crypto.NewCShakeHasher(sharedKeys.ServerKey, supportagent.SupportAgentDomain)
+			p, err := hasher.Hash(sharedKeys.ClientKey, 32)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
-				).Fatal("failed to generate hash")
+				).Fatal("failed create hash")
 			}
 
-			p := hash.Sum(nil)
 			fmt.Println(base64.StdEncoding.EncodeToString(p))
 		},
 	}

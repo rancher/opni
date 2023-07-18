@@ -9,10 +9,11 @@ import (
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/crypto"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/supportagent"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
-	"golang.org/x/crypto/blake2b"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -129,10 +130,7 @@ func (b *LoggingBackend) generatePassword(ctx context.Context, cluster *opnicore
 		return []byte{}, errors.New("keyring does not contain shared keys")
 	}
 
-	hash, err := blake2b.New512(sharedKeys.ClientKey)
-	if err != nil {
-		return []byte{}, err
-	}
+	hasher := crypto.NewCShakeHasher(sharedKeys.ServerKey, supportagent.SupportAgentDomain)
 
-	return hash.Sum(nil), nil
+	return hasher.Hash(sharedKeys.ClientKey, 32)
 }

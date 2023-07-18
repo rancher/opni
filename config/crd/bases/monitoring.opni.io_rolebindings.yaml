@@ -29,6 +29,11 @@ spec:
             properties:
               id:
                 type: string
+              metadata:
+                properties:
+                  resourceVersion:
+                    type: string
+                type: object
               roleId:
                 type: string
               subjects:

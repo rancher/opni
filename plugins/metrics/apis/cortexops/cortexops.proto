@@ -25,7 +25,8 @@ service CortexOps {
     use: "ops"
   };
 
-  // If a default configuration was previously set using SetDefaultConfiguration,
+  // Returns the default implementation-specific configuration, or one previously set.
+  // If a default configuration was previously set using SetDefaultConfiguration, it
   // returns that configuration. Otherwise, returns implementation-specific defaults.
   rpc GetDefaultConfiguration(google.protobuf.Empty) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
@@ -36,8 +37,7 @@ service CortexOps {
     };
   }
 
-  // Sets the default configuration that will be used as the base for future
-  // configuration changes.
+  // Sets the default configuration that will be used as the base for future configuration changes.
   // If no custom default configuration is set using this method,
   // implementation-specific defaults may be chosen.
   // If all fields are unset, this will clear any previously-set default configuration
@@ -56,6 +56,10 @@ service CortexOps {
     };
   }
 
+  // Resets the default configuration to the implementation-specific defaults.
+  // If a custom default configuration was previously set using SetDefaultConfiguration,
+  // this will clear it and revert back to the implementation-specific defaults.
+  // Otherwise, this will have no effect.
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset-default"
@@ -95,8 +99,7 @@ service CortexOps {
     };
   }
 
-  // Resets the configuration of the managed Cortex cluster to the current
-  // default configuration.
+  // Resets the configuration of the managed Cortex cluster to the current default configuration.
   rpc ResetConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset"
@@ -146,8 +149,8 @@ service CortexOps {
     };
   }
 
-  // Returns a static list of presets that can be used as a base for configuring
-  // the managed Cortex cluster. There are several ways to use the presets, depending
+  // Returns a static list of presets that can be used as a base for configuring the managed Cortex cluster.
+  // There are several ways to use the presets, depending
   // on the desired behavior:
   // 1. Set the default configuration to a preset spec, then use SetConfiguration
   //    to fill in any additional required fields (credentials, etc)

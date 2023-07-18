@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
@@ -115,7 +116,37 @@ func NewPlugin(ctx context.Context) *Plugin {
 				StorageBackend:  storageBackend,
 			})
 		})
-
+	future.Wait3(p.cortexClientSet, p.config, p.backendKvClients, func(
+		cortexClientSet cortex.ClientSet,
+		config *v1beta1.GatewayConfig,
+		backendKvClients *backend.KVClients,
+	) {
+		driverName := config.Spec.Cortex.Management.ClusterDriver
+		if driverName == "" {
+			p.logger.Warn("no cluster driver configured")
+		}
+		builder, ok := drivers.ClusterDrivers.Get(driverName)
+		if !ok {
+			p.logger.With(
+				"driver", driverName,
+			).Error("unknown cluster driver, using fallback noop driver")
+			builder, ok = drivers.ClusterDrivers.Get("noop")
+			if !ok {
+				panic("bug: noop cluster driver not found")
+			}
+		}
+		driver, err := builder(p.ctx,
+			driverutil.NewOption("defaultConfigStore", backendKvClients.DefaultClusterConfigurationSpec),
+		)
+		if err != nil {
+			p.logger.With(
+				"driver", driverName,
+				zap.Error(err),
+			).Error("failed to initialize cluster driver")
+			return
+		}
+		p.clusterDriver.Set(driver)
+	})
 	future.Wait7(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate, p.backendKvClients,
 		func(
 			storageBackend storage.Backend,

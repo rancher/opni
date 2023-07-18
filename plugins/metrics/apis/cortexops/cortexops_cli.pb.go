@@ -49,15 +49,15 @@ func BuildCortexOpsCmd() *cobra.Command {
 
 	cliutil.AddSubcommands(cmd,
 		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
-		BuildCortexOpsGetDefaultConfigurationCmd(),
+		BuildCortexOpsSetDefaultConfigurationCmd(),
+		BuildCortexOpsResetDefaultConfigurationCmd(),
+		BuildCortexOpsGetConfigurationCmd(),
+		BuildCortexOpsSetConfigurationCmd(),
+		BuildCortexOpsResetConfigurationCmd(),
+		BuildCortexOpsStatusCmd(),
+		BuildCortexOpsInstallCmd(),
+		BuildCortexOpsUninstallCmd(),
+		BuildCortexOpsListPresetsCmd(),
 	)
 	cliutil.AddSubcommands(cmd, extraCmds_CortexOps...)
 	cli.AddOutputFlag(cmd)
@@ -67,8 +67,9 @@ func BuildCortexOpsCmd() *cobra.Command {
 func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config get-default",
-		Short: "If a default configuration was previously set using SetDefaultConfiguration,",
+		Short: "Returns the default implementation-specific configuration, or one previously set.",
 		Long: `
+If a default configuration was previously set using SetDefaultConfiguration, it
 returns that configuration. Otherwise, returns implementation-specific defaults.
 
 HTTP handlers for this method:
@@ -97,9 +98,8 @@ func BuildCortexOpsSetDefaultConfigurationCmd() *cobra.Command {
 	in := &CapabilityBackendConfigSpec{}
 	cmd := &cobra.Command{
 		Use:   "config set-default",
-		Short: "Sets the default configuration that will be used as the base for future",
+		Short: "Sets the default configuration that will be used as the base for future configuration changes.",
 		Long: `
-configuration changes.
 If no custom default configuration is set using this method,
 implementation-specific defaults may be chosen.
 If all fields are unset, this will clear any previously-set default configuration
@@ -156,8 +156,12 @@ HTTP handlers for this method:
 func BuildCortexOpsResetDefaultConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config reset-default",
-		Short: "",
+		Short: "Resets the default configuration to the implementation-specific defaults.",
 		Long: `
+If a custom default configuration was previously set using SetDefaultConfiguration,
+this will clear it and revert back to the implementation-specific defaults.
+Otherwise, this will have no effect.
+
 HTTP handlers for this method:
 - DELETE /configuration/default
 `[1:],
@@ -269,10 +273,8 @@ HTTP handlers for this method:
 func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config reset",
-		Short: "Resets the configuration of the managed Cortex cluster to the current",
+		Short: "Resets the configuration of the managed Cortex cluster to the current default configuration.",
 		Long: `
-default configuration.
-
 HTTP handlers for this method:
 - DELETE /configuration
 `[1:],
@@ -389,9 +391,9 @@ HTTP handlers for this method:
 func BuildCortexOpsListPresetsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "presets list",
-		Short: "Returns a static list of presets that can be used as a base for configuring",
+		Short: "Returns a static list of presets that can be used as a base for configuring the managed Cortex cluster.",
 		Long: `
-the managed Cortex cluster. There are several ways to use the presets, depending
+There are several ways to use the presets, depending
 on the desired behavior:
 1. Set the default configuration to a preset spec, then use SetConfiguration
 to fill in any additional required fields (credentials, etc)

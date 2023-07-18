@@ -164,7 +164,7 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 					if cg.shouldSkipMethod(method) {
 						continue
 					}
-					g.P(cmdBuilderMethodName(methods[0]), "(),")
+					g.P(cmdBuilderMethodName(method), "(),")
 				}
 				g.P(")")
 			},
@@ -192,6 +192,9 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 				}
 				g.P(_cliutil.Ident("AddSubcommands(cmd, "))
 				for _, method := range methods {
+					if cg.shouldSkipMethod(method) {
+						continue
+					}
 					g.P(cmdBuilderMethodName(method), "(client),")
 				}
 				g.P(")")

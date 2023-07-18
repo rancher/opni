@@ -62,8 +62,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			os.Exit(1)
 		}
 		p.cortexClientSet.Set(clientset)
-
-		p.configureCortexManagement()
 	})
 
 	p.authMw.Set(machinery.LoadAuthProviders(p.ctx, objectList))

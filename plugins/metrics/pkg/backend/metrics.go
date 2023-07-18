@@ -60,7 +60,7 @@ type MetricsBackendConfig struct {
 	UninstallController *task.Controller                                           `validate:"required"`
 	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
 	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
-	KV                  *KVClients
+	KV                  *KVClients                                                 `validate:"required"`
 }
 
 type KVClients struct {

@@ -36,11 +36,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
-	// If a default configuration was previously set using SetDefaultConfiguration,
+	// Returns the default implementation-specific configuration, or one previously set.
+	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
 	GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
-	// Sets the default configuration that will be used as the base for future
-	// configuration changes.
+	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
 	// If all fields are unset, this will clear any previously-set default configuration
@@ -50,6 +50,10 @@ type CortexOpsClient interface {
 	// for most use cases. It can be used in situations where an additional persistence
 	// layer that is not driver-specific is desired.
 	SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Resets the default configuration to the implementation-specific defaults.
+	// If a custom default configuration was previously set using SetDefaultConfiguration,
+	// this will clear it and revert back to the implementation-specific defaults.
+	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
 	GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
@@ -64,8 +68,7 @@ type CortexOpsClient interface {
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Resets the configuration of the managed Cortex cluster to the current
-	// default configuration.
+	// Resets the configuration of the managed Cortex cluster to the current default configuration.
 	ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
@@ -83,8 +86,8 @@ type CortexOpsClient interface {
 	// are left to the cluster driver, and this API makes no guarantees about
 	// the state of the cluster after the call completes (regardless of success).
 	Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Returns a static list of presets that can be used as a base for configuring
-	// the managed Cortex cluster. There are several ways to use the presets, depending
+	// Returns a static list of presets that can be used as a base for configuring the managed Cortex cluster.
+	// There are several ways to use the presets, depending
 	// on the desired behavior:
 	//  1. Set the default configuration to a preset spec, then use SetConfiguration
 	//     to fill in any additional required fields (credentials, etc)
@@ -197,11 +200,11 @@ func (c *cortexOpsClient) ListPresets(ctx context.Context, in *emptypb.Empty, op
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
-	// If a default configuration was previously set using SetDefaultConfiguration,
+	// Returns the default implementation-specific configuration, or one previously set.
+	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
 	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
-	// Sets the default configuration that will be used as the base for future
-	// configuration changes.
+	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
 	// If all fields are unset, this will clear any previously-set default configuration
@@ -211,6 +214,10 @@ type CortexOpsServer interface {
 	// for most use cases. It can be used in situations where an additional persistence
 	// layer that is not driver-specific is desired.
 	SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
+	// Resets the default configuration to the implementation-specific defaults.
+	// If a custom default configuration was previously set using SetDefaultConfiguration,
+	// this will clear it and revert back to the implementation-specific defaults.
+	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
 	GetConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
@@ -225,8 +232,7 @@ type CortexOpsServer interface {
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
-	// Resets the configuration of the managed Cortex cluster to the current
-	// default configuration.
+	// Resets the configuration of the managed Cortex cluster to the current default configuration.
 	ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
@@ -244,8 +250,8 @@ type CortexOpsServer interface {
 	// are left to the cluster driver, and this API makes no guarantees about
 	// the state of the cluster after the call completes (regardless of success).
 	Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	// Returns a static list of presets that can be used as a base for configuring
-	// the managed Cortex cluster. There are several ways to use the presets, depending
+	// Returns a static list of presets that can be used as a base for configuring the managed Cortex cluster.
+	// There are several ways to use the presets, depending
 	// on the desired behavior:
 	//  1. Set the default configuration to a preset spec, then use SetConfiguration
 	//     to fill in any additional required fields (credentials, etc)

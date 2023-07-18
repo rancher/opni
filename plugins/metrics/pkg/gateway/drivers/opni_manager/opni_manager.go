@@ -29,10 +29,10 @@ import (
 )
 
 type OpniManagerClusterDriverOptions struct {
-	K8sClient         client.Client                                               `option:"k8sClient"`
-	MonitoringCluster types.NamespacedName                                        `option:"monitoringCluster"`
-	GatewayRef        types.NamespacedName                                        `option:"gatewayRef"`
-	KV                storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"kv"`
+	K8sClient          client.Client                                               `option:"k8sClient"`
+	MonitoringCluster  types.NamespacedName                                        `option:"monitoringCluster"`
+	GatewayRef         types.NamespacedName                                        `option:"gatewayRef"`
+	DefaultConfigStore storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"defaultConfigStore"`
 }
 
 func (k OpniManagerClusterDriverOptions) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster {
@@ -71,6 +71,9 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 		}
 		options.K8sClient = c
+	}
+	if options.DefaultConfigStore == nil {
+		return nil, fmt.Errorf("missing required option: DefaultConfigStore")
 	}
 	activeStore := storage.ValueStoreAdapter[*cortexops.CapabilityBackendConfigSpec]{
 		PutFunc: func(ctx context.Context, value *cortexops.CapabilityBackendConfigSpec) error {
@@ -141,7 +144,7 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	return &OpniManager{
 		OpniManagerClusterDriverOptions: options,
 		configTracker: driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
-			options.KV, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec]),
+			options.DefaultConfigStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec]),
 	}, nil
 }
 

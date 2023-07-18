@@ -56,9 +56,9 @@ func BuildExtCmd() *cobra.Command {
 
 	cliutil.AddSubcommands(cmd,
 		BuildExtFooCmd(),
-		BuildExtFooCmd(),
-		BuildExtFooCmd(),
-		BuildExtFooCmd(),
+		BuildExtBarCmd(),
+		BuildExtBazCmd(),
+		BuildExtSetCmd(),
 	)
 	cliutil.AddSubcommands(cmd, extraCmds_Ext...)
 	cli.AddOutputFlag(cmd)

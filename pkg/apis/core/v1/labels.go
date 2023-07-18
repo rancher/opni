@@ -15,6 +15,7 @@ const (
 	LabelSelectorOpDoesNotExist LabelSelectorOperator = "DoesNotExist"
 
 	NameLabel       = "opni.io/name"
+	SupportLabel    = "opni.io/support-user"
 	LegacyNameLabel = "kubernetes.io/metadata.name"
 )
 

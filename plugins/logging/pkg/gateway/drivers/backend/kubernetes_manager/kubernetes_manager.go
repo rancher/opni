@@ -2,6 +2,7 @@ package kubernetes_manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -15,7 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	"github.com/rancher/opni/plugins/logging/pkg/errors"
+	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type KubernetesManagerDriver struct {
@@ -86,21 +88,17 @@ func (d *KubernetesManagerDriver) GetInstallStatus(ctx context.Context) backend.
 }
 
 func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.Reference, friendlyName string) error {
-	labels := map[string]string{
-		resources.OpniClusterID: req.GetId(),
-	}
-	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
-	if err := d.K8sClient.List(
-		ctx,
-		loggingClusterList,
-		client.InNamespace(d.Namespace),
-		client.MatchingLabels{resources.OpniClusterID: req.GetId()},
-	); err != nil {
-		return errors.ErrListingClustersFaled(err)
+	_, err := d.getCluster(ctx, req.GetId())
+	if err == nil {
+		return loggingerrors.ErrCreateFailedAlreadyExists(req.GetId())
 	}
 
-	if len(loggingClusterList.Items) > 0 {
-		return errors.ErrCreateFailedAlreadyExists(req.GetId())
+	if !errors.Is(err, loggingerrors.ErrLoggingClusterNotFound) {
+		return err
+	}
+
+	labels := map[string]string{
+		resources.OpniClusterID: req.GetId(),
 	}
 
 	loggingCluster := &opnicorev1beta1.LoggingCluster{
@@ -116,12 +114,12 @@ func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.
 	}
 
 	if err := d.K8sClient.Create(ctx, loggingCluster); err != nil {
-		errors.ErrStoreClusterFailed(err)
+		loggingerrors.ErrStoreClusterFailed(err)
 	}
 	return nil
 }
 
-func (d *KubernetesManagerDriver) StoreClusterMetadata(ctx context.Context, id, name string) error {
+func (d *KubernetesManagerDriver) getCluster(ctx context.Context, id string) (*opnicorev1beta1.LoggingCluster, error) {
 	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
 	if err := d.K8sClient.List(
 		ctx,
@@ -129,14 +127,25 @@ func (d *KubernetesManagerDriver) StoreClusterMetadata(ctx context.Context, id, 
 		client.InNamespace(d.Namespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		return errors.ErrListingClustersFaled(err)
+		return nil, loggingerrors.ErrListingClustersFaled(err)
 	}
 
-	if len(loggingClusterList.Items) != 1 {
-		return errors.ErrInvalidList
+	if len(loggingClusterList.Items) == 0 {
+		return nil, loggingerrors.ErrLoggingClusterNotFound
 	}
 
-	cluster := &loggingClusterList.Items[0]
+	if len(loggingClusterList.Items) > 1 {
+		return nil, loggingerrors.ErrInvalidList
+	}
+
+	return &loggingClusterList.Items[0], nil
+}
+
+func (d *KubernetesManagerDriver) StoreClusterMetadata(ctx context.Context, id, name string) error {
+	cluster, err := d.getCluster(ctx, id)
+	if err != nil {
+		return err
+	}
 
 	if cluster.Spec.FriendlyName == name {
 		return nil
@@ -160,12 +169,12 @@ func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context, id string) 
 		client.InNamespace(d.OpensearchCluster.Namespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		errors.ErrListingClustersFaled(err)
+		loggingerrors.ErrListingClustersFaled(err)
 	}
 
 	switch {
 	case len(loggingClusterList.Items) > 1:
-		return errors.ErrDeleteClusterInvalidList(id)
+		return loggingerrors.ErrDeleteClusterInvalidList(id)
 	case len(loggingClusterList.Items) == 1:
 		loggingCluster := &loggingClusterList.Items[0]
 		return d.K8sClient.Delete(ctx, loggingCluster)
@@ -183,11 +192,11 @@ func (d *KubernetesManagerDriver) SetClusterStatus(ctx context.Context, id strin
 		client.InNamespace(d.Namespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		return errors.ErrListingClustersFaled(err)
+		return loggingerrors.ErrListingClustersFaled(err)
 	}
 
 	if len(loggingClusterList.Items) != 1 {
-		return errors.ErrInvalidList
+		return loggingerrors.ErrInvalidList
 	}
 
 	cluster := &loggingClusterList.Items[0]
@@ -211,7 +220,7 @@ func (d *KubernetesManagerDriver) GetClusterStatus(ctx context.Context, id strin
 		client.InNamespace(d.Namespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		return nil, errors.ErrListingClustersFaled(err)
+		return nil, loggingerrors.ErrListingClustersFaled(err)
 	}
 
 	if len(loggingClusterList.Items) == 0 {
@@ -222,7 +231,7 @@ func (d *KubernetesManagerDriver) GetClusterStatus(ctx context.Context, id strin
 	}
 
 	if len(loggingClusterList.Items) != 1 {
-		return nil, errors.ErrInvalidList
+		return nil, loggingerrors.ErrInvalidList
 	}
 
 	return &capabilityv1.NodeCapabilityStatus{
@@ -233,6 +242,50 @@ func (d *KubernetesManagerDriver) GetClusterStatus(ctx context.Context, id strin
 
 func (d *KubernetesManagerDriver) SetSyncTime() {
 	d.ephemeralSyncTime = time.Now()
+}
+
+func (d *KubernetesManagerDriver) StoreClusterReadUser(ctx context.Context, username, password, id string) error {
+	user := &loggingv1beta1.MulticlusterUser{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      username,
+			Namespace: d.Namespace,
+		},
+		Spec: loggingv1beta1.MulticlusterUserSpec{
+			Password:             password,
+			OpensearchClusterRef: d.OpensearchCluster,
+		},
+	}
+
+	cluster, err := d.getCluster(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	controllerutil.SetOwnerReference(cluster, user, d.K8sClient.Scheme())
+	err = client.IgnoreAlreadyExists(d.K8sClient.Create(ctx, user))
+	if err != nil {
+		return err
+	}
+
+	binding := &loggingv1beta1.LoggingClusterBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("support-%s", username),
+			Namespace: d.Namespace,
+		},
+		Spec: loggingv1beta1.LoggingClusterBindingSpec{
+			MulticlusterUser: &loggingv1beta1.MulticlusterUserRef{
+				Name:      username,
+				Namespace: d.Namespace,
+			},
+			LoggingCluster: &loggingv1beta1.LoggingClusterRef{
+				ID: id,
+			},
+			OpensearchClusterRef: d.OpensearchCluster,
+		},
+	}
+	controllerutil.SetOwnerReference(cluster, binding, d.K8sClient.Scheme())
+
+	return client.IgnoreAlreadyExists(d.K8sClient.Create(ctx, binding))
 }
 
 func init() {

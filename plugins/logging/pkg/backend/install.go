@@ -2,12 +2,17 @@ package backend
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/crypto"
+	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/supportagent"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -66,6 +71,19 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
+	supportLabelValue, ok := cluster.GetMetadata().GetLabels()[opnicorev1.SupportLabel]
+	supportUser := ok && supportLabelValue == "true"
+	if supportUser {
+		p, err := b.generatePassword(ctx, req.GetCluster())
+		if err != nil {
+			return nil, err
+		}
+		err = b.ClusterDriver.StoreClusterReadUser(ctx, name, base64.StdEncoding.EncodeToString(p), cluster.GetId())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	_, err = b.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)),
 	)
@@ -96,4 +114,23 @@ func (b *LoggingBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*ca
 			`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-stack.enabled={{ value }}" }} ` +
 			`--create-namespace`,
 	}, nil
+}
+
+func (b *LoggingBackend) generatePassword(ctx context.Context, cluster *opnicorev1.Reference) ([]byte, error) {
+	krStore := b.StorageBackend.KeyringStore("gateway", cluster)
+	kr, err := krStore.Get(ctx)
+	if err != nil {
+		return []byte{}, err
+	}
+	var sharedKeys *keyring.SharedKeys
+	ok := kr.Try(func(key *keyring.SharedKeys) {
+		sharedKeys = key
+	})
+	if !ok {
+		return []byte{}, errors.New("keyring does not contain shared keys")
+	}
+
+	hasher := crypto.NewCShakeHasher(sharedKeys.ServerKey, supportagent.SupportAgentDomain)
+
+	return hasher.Hash(sharedKeys.ClientKey, 32)
 }

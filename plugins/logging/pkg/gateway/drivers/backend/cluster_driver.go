@@ -21,9 +21,11 @@ type ClusterDriver interface {
 	GetInstallStatus(context.Context) InstallState
 	StoreCluster(context.Context, *corev1.Reference, string) error
 	StoreClusterMetadata(context.Context, string, string) error
+	StoreClusterReadUser(ctx context.Context, username, password, id string) error
 	DeleteCluster(context.Context, string) error
 	SetClusterStatus(context.Context, string, bool) error
 	GetClusterStatus(context.Context, string) (*capabilityv1.NodeCapabilityStatus, error)
+
 	SetSyncTime()
 }
 

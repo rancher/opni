@@ -13,7 +13,7 @@ import (
 
 func TestPatch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "update suite")
+	RunSpecs(t, "Update Suite")
 }
 
 type mockHandler struct {

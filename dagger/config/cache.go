@@ -27,7 +27,7 @@ type Caches struct {
 
 func SetupCaches(client *dagger.Client, cacheMode string) Caches {
 	if _, ok := os.LookupEnv("CI"); ok {
-		cacheMode = CacheModeNone
+		cacheMode = CacheModeVolumes
 	}
 	identity := func(ctr *dagger.Container) *dagger.Container { return ctr }
 	switch cacheMode {

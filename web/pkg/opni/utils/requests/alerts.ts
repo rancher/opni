@@ -45,7 +45,7 @@ export async function getAlertCondition(id: string, vue: any): Promise<Condition
 }
 
 export async function getAlertConditionsWithStatus(vue: any, clusters: Cluster[]) {
-  const response = (await axios.get<ListStatusResponse>('opni-api/AlertConditions/list/withStatus')).data;
+  const response = (await axios.post<ListStatusResponse>('opni-api/AlertConditions/list/withStatus')).data;
 
   return (Object.values(response.alertConditions) || []).map(conditionWithStatus => new Condition(conditionWithStatus, vue, clusters));
 }

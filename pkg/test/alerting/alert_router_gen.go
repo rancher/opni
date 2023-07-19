@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -545,8 +546,8 @@ func NewRoutableDataset() *RoutableDataset {
 			Title: fmt.Sprintf("test %d", i),
 			Body:  "test",
 			Properties: map[string]string{
-				alertingv1.NotificationPropertySeverity: name,
-				alertingv1.NotificationPropertyOpniUuid: uuid.New().String(),
+				message.NotificationPropertySeverity: name,
+				message.NotificationPropertyOpniUuid: uuid.New().String(),
 			},
 		}
 		notif.Sanitize()

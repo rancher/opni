@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
@@ -234,8 +235,8 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 			ConditionId: &corev1.Reference{Id: ephemeralId},
 			Namespace:   ns,
 			Annotations: map[string]string{
-				shared.OpniHeaderAnnotations: "Test notification",
-				shared.OpniBodyAnnotations:   "Admin has sent a test notification",
+				message.NotificationContentHeader:  "Test notification",
+				message.NotificationContentSummary: "Admin has sent a test notification",
 			},
 			Labels: map[string]string{
 				ns: ephemeralId,

@@ -261,7 +261,7 @@ func (a *AlertingClusterManager) controllerStatus(ctx context.Context) (*alertop
 		return nil, err
 	}
 
-	ws := newOpniWorkerSet(a.GatewayRef.Namespace)
+	ws := newAlertmanagerSet(a.GatewayRef.Namespace)
 
 	workErr := a.K8sClient.Get(ctx, client.ObjectKeyFromObject(ws), ws)
 	replicas := lo.FromPtrOr(existing.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
@@ -337,24 +337,12 @@ func (a *AlertingClusterManager) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
 }
 
-func (a *AlertingClusterManager) GetRuntimeOptions() shared.AlertingClusterOptions {
-	return shared.AlertingClusterOptions{
-		Namespace:             a.GatewayRef.Namespace,
-		WorkerNodesService:    shared.OperatorAlertingClusterNodeServiceName,
-		WorkerNodePort:        9093,
-		ControllerNodeService: shared.OperatorAlertingControllerServiceName,
-		ControllerNodePort:    9093,
-		ControllerClusterPort: 9094,
-		OpniPort:              3000,
-	}
-}
-
 func listPeers(replicas int) []alertingClient.AlertingPeer {
 	peers := []alertingClient.AlertingPeer{}
 	for i := 0; i < replicas; i++ {
 		peers = append(peers, alertingClient.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
-			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:6006", shared.EmitterService, i, shared.EmitterService),
 		})
 	}
 	return peers

@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/cache"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -99,7 +100,7 @@ func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *ht
 			msg, _ := e.notificationCache.Get(severityKey, key)
 			if _, ok := goldenSignals[lo.ValueOr(
 				msg.Notification.Properties,
-				alertingv1.NotificationPropertyGoldenSignal,
+				message.NotificationPropertyGoldenSignal,
 				alertingv1.OpniSeverity_Info.String(),
 			)]; !ok {
 				continue
@@ -187,20 +188,20 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 }
 
 func isAlarmMessage(annotations map[string]string) bool {
-	_, ok := annotations[shared.OpniAlarmNameAnnotation]
+	_, ok := annotations[message.NotificationContentAlarmName]
 	return ok
 }
 
-func parseAlertToOpniMd(alert config.Alert) MessageMetadata {
-	return MessageMetadata{
+func parseAlertToOpniMd(alert config.Alert) cache.MessageMetadata {
+	return cache.MessageMetadata{
 		IsAlarm:        isAlarmMessage(alert.Annotations),
-		Uuid:           lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyOpniUuid, ""),
-		GroupDedupeKey: lo.ValueOr(alert.Labels, alertingv1.NotificationPropertyDedupeKey, ""),
+		Uuid:           lo.ValueOr(alert.Labels, message.NotificationPropertyOpniUuid, ""),
+		GroupDedupeKey: lo.ValueOr(alert.Labels, message.NotificationPropertyDedupeKey, ""),
 		Severity: lo.ValueOr(alertingv1.OpniSeverity_value,
-			lo.ValueOr(alert.Labels, alertingv1.NotificationPropertySeverity, defaultSeverity),
+			lo.ValueOr(alert.Labels, message.NotificationPropertySeverity, defaultSeverity),
 			0,
 		),
-		Fingerprint:       lo.ValueOr(alert.Annotations, alertingv1.NotificationPropertyFingerprint, ""),
+		Fingerprint:       lo.ValueOr(alert.Annotations, message.NotificationPropertyFingerprint, ""),
 		SourceFingerprint: alert.Fingerprint,
 	}
 }

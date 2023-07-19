@@ -1,17 +1,15 @@
 package routing
 
 import (
-	"net/url"
 	"time"
 
-	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 )
@@ -27,7 +25,7 @@ func abs(x int) int {
 type RouteValues lo.Tuple2[string, rateLimitingConfig]
 
 func NotificationSubTreeLabel() string {
-	return alertingv1.NotificationPropertySeverity
+	return message.NotificationPropertySeverity
 }
 
 // ! values must be returned sorted in a deterministic order
@@ -75,26 +73,22 @@ var (
 
 	OpniSeverityTreeMatcher *labels.Matcher = &labels.Matcher{
 		Type:  labels.MatchNotEqual,
-		Name:  alertingv1.NotificationPropertySeverity,
+		Name:  message.NotificationPropertySeverity,
 		Value: "",
 	}
 )
 
-func FinalizerReceiver(embeddedServerHook string) *config.Receiver {
+func FinalizerReceiver(cfg *config.WebhookConfig) *config.Receiver {
 	return &config.Receiver{
 		Name: shared.AlertingHookReceiverName,
 		WebhookConfigs: []*config.WebhookConfig{
-			{
-				URL: &amCfg.URL{
-					URL: util.Must(url.Parse(embeddedServerHook)),
-				},
-			},
+			cfg,
 		},
 	}
 }
 
-func NewRoutingTree(embeddedServerHook string) *config.Config {
-	root := NewRootNode(embeddedServerHook)
+func NewRoutingTree(cfg *config.WebhookConfig) *config.Config {
+	root := NewRootNode(cfg)
 	subtree, recvs := NewOpniSubRoutingTree()
 	metricsSubtree := NewOpniMetricsSubtree()
 	root.Route.Routes = append(root.Route.Routes, subtree)
@@ -109,7 +103,7 @@ func NewRoutingTree(embeddedServerHook string) *config.Config {
 
 // This needs to expand all labels, due to assumptions we make about external backends like
 // AiOps pushing messages to the severity tree
-func NewRootNode(embeddedServerHook string) *config.Config {
+func NewRootNode(cfg *config.WebhookConfig) *config.Config {
 	return &config.Config{
 		Global: lo.ToPtr(config.DefaultGlobalConfig()),
 		Route: &config.Route{
@@ -123,7 +117,7 @@ func NewRootNode(embeddedServerHook string) *config.Config {
 			RepeatInterval: DefaultConfig.GlobalConfig.RepeatInterval,
 		},
 		Receivers: []*config.Receiver{
-			FinalizerReceiver(embeddedServerHook),
+			FinalizerReceiver(cfg),
 		},
 		MuteTimeIntervals: []config.MuteTimeInterval{},
 		InhibitRules:      []*config.InhibitRule{},
@@ -135,7 +129,7 @@ func NewRootNode(embeddedServerHook string) *config.Config {
 // contains the setup for broadcasting and conditions
 func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 	opniRoute := &config.Route{
-		GroupByStr: []string{alertingv1.NotificationPropertyOpniUuid},
+		GroupByStr: []string{message.NotificationPropertyOpniUuid},
 
 		Matchers: OpniSubRoutingTreeId,
 		Routes:   []*config.Route{},
@@ -260,7 +254,7 @@ func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.R
 
 func NewNotificationLeaf(namespace string, value RouteValues) (*config.Route, *config.Receiver) {
 	valueRoute := &config.Route{
-		GroupByStr: []string{alertingv1.NotificationPropertyGroupKey},
+		GroupByStr: []string{message.NotificationPropertyGroupKey},
 		Matchers: config.Matchers{
 			newNamespaceMatcher(namespace, value.A),
 		},

@@ -144,6 +144,7 @@ message AlertCondition {
   string overrideType = 11;
   map<string,string> metadata = 12;
   string groupId = 13;
+  map<string,string> annotations = 14;
 }
 
 enum AlertType {

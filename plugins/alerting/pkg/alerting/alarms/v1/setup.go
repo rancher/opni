@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
+	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -75,12 +76,14 @@ func (p *AlarmServerComponent) applyAlarm(
 	ctx context.Context,
 	cond *alertingv1.AlertCondition,
 	conditionId string,
+	syncInfo alertingSync.SyncInfo,
 ) (ref *corev1.Reference, retErr error) {
 	shouldDelete := p.shouldDelete(cond)
 	if shouldDelete {
 		return &corev1.Reference{Id: conditionId}, p.teardownCondition(ctx, cond, conditionId, true)
 	}
 
+	cond.Visit(syncInfo)
 	hasChanged, err := p.hasChanged(ctx, cond, conditionId)
 	if err != nil {
 		return nil, err

@@ -41,7 +41,8 @@ service AlertConditions {
   rpc ListAlertConditions(ListAlertConditionRequest)
       returns (AlertConditionList) {
     option (google.api.http) = {
-      get : "/list"
+      post : "/list"
+      body : "*"
     };
   }
 
@@ -75,7 +76,8 @@ service AlertConditions {
   rpc ListAlertConditionsWithStatus(ListStatusRequest)
       returns (ListStatusResponse) {
     option (google.api.http) = {
-      get : "/list/withStatus"
+      post : "/list/withStatus"
+      body : "*"
     };
   }
 

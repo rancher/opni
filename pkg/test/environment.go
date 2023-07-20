@@ -620,6 +620,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 		"--cluster.peer-timeout=3s",
 		"--cluster.gossip-interval=200ms",
 		"--log.level=debug",
+		"--no-opni.send-k8s",
 	}
 	if opniPort != nil {
 		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))

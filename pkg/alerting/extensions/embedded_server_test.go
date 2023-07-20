@@ -121,7 +121,7 @@ func BuildEmbeddedServerNotificationTests(
 			freeport := freeport.GetFreePort()
 			Expect(freeport).NotTo(BeZero())
 			opniPort = freeport
-			extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
+			extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort), false)
 
 			router := routerConstructor(opniPort)
 			Expect(tmpConfigDir).NotTo(BeEmpty())
@@ -247,7 +247,7 @@ func BuildEmbeddedServerNotificationTests(
 				freeport := freeport.GetFreePort()
 				Expect(freeport).NotTo(BeZero())
 				opniPort = freeport
-				extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
+				extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort), false)
 
 				router := routerConstructor(opniPort)
 				By("building the required routes for the routables")

@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/rancher/opni/pkg/alerting/cache"
+	"github.com/rancher/opni/pkg/alerting/extensions/destination"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -30,23 +31,41 @@ type EmbeddedServer struct {
 	// layered caches
 	notificationCache cache.MessageCache[alertingv1.OpniSeverity, *alertingv1.MessageInstance]
 	alarmCache        cache.MessageCache[alertingv1.OpniSeverity, *alertingv1.MessageInstance]
+	sendK8s           bool
+	k8sDestination    destination.Destination
 }
 
 func NewEmbeddedServer(
 	lg *zap.SugaredLogger,
 	lub int,
+	sendK8s bool,
 ) *EmbeddedServer {
-	return &EmbeddedServer{
+	e := &EmbeddedServer{
 		logger:            lg,
+		sendK8s:           sendK8s,
 		lub:               lub,
 		notificationCache: cache.NewLFUMessageCache(lub),
 		alarmCache:        cache.NewLFUMessageCache(lub),
 	}
+	if sendK8s {
+		e.logger.Info("Configuring alerts to be sent to kubernetes events...")
+		k8s, err := destination.NewK8sDestination(lg)
+		if err != nil {
+			panic(err)
+		}
+		e.k8sDestination = k8s
+
+	}
+	return e
 }
 
-func StartOpniEmbeddedServer(ctx context.Context, opniAddr string) *http.Server {
+func StartOpniEmbeddedServer(
+	ctx context.Context,
+	opniAddr string,
+	sendK8s bool,
+) *http.Server {
 	lg := logger.NewPluginLogger().Named("opni.alerting")
-	es := NewEmbeddedServer(lg, 125)
+	es := NewEmbeddedServer(lg, 125, sendK8s)
 	mux := http.NewServeMux()
 
 	// request body will be in the form of AM webhook payload :

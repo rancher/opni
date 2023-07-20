@@ -48,7 +48,7 @@ func (a *Alert) GetHeader() (header string, found bool) {
 	ap := message.Properties(a.Annotations)
 	header, ok := lp.GetHeader()
 	if !ok {
-		return ap.GetSummary()
+		return ap.GetHeader()
 	}
 	return header, ok
 }

@@ -14,11 +14,11 @@ type memoryBuffer[T any] struct {
 	ch chan T
 }
 
-func (b memoryBuffer[T]) Add(ctx context.Context, t T) error {
+func (b memoryBuffer[T]) Add(_ context.Context, t T) error {
 	b.ch <- t
 	return nil
 }
 
-func (b memoryBuffer[T]) Get(ctx context.Context) (T, error) {
+func (b memoryBuffer[T]) Get(_ context.Context) (T, error) {
 	return <-b.ch, nil
 }

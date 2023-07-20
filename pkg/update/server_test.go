@@ -10,6 +10,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/test/testgrpc"
+	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util/streams"
@@ -23,7 +24,7 @@ import (
 
 var _ = Describe("update server", Ordered, Label("unit"), func() {
 	var (
-		server = update.NewUpdateServer()
+		server = update.NewUpdateServer(testlog.Log)
 		mock   = newMockHandler()
 	)
 	BeforeAll(func() {
@@ -83,7 +84,6 @@ var _ = Describe("update server", Ordered, Label("unit"), func() {
 			syncResults, err := server.SyncManifest(context.Background(), manifest)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(syncResults.RequiredPatches).ToNot(BeNil())
-			Expect(syncResults.DesiredState).To(Equal(manifest))
 		})
 	})
 

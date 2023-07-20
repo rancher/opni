@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/rancher/opni/pkg/update/patch/server"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/spf13/afero"
 	"google.golang.org/grpc"
@@ -32,7 +33,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func() {
@@ -72,7 +72,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should have the correct manifest", func() {
-			manifest, err := srv.GetPluginManifest(context.Background(), &emptypb.Empty{})
+			manifest, err := srv.CalculateExpectedManifest(context.Background(), urn.Plugin)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(manifest.Items).To(HaveLen(2))
@@ -109,7 +109,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		})
 
 		It("should have the correct updated manifest", func() {
-			manifest, err := srv.GetPluginManifest(context.Background(), &emptypb.Empty{})
+			manifest, err := srv.CalculateExpectedManifest(context.Background(), urn.Plugin)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(manifest.Items).To(HaveLen(2))
@@ -143,7 +143,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		var initialCacheItems []fs.FileInfo
 		When("the client has old v1 plugins", func() {
 			It("should return patch operations", func() {
-				patches, _, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
+				patches, _, err := srv.CalculateUpdate(context.Background(), urn.Plugin)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(patches.Items).To(HaveLen(2))
@@ -276,10 +276,10 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 				srv, err = newServer()
 				Expect(err).NotTo(HaveOccurred())
 
-				// plugin manifest is lazy-initialized, call GetPluginManifest to
+				// plugin manifest is lazy-initialized, call CalculateExpectedManifest to
 				// trigger initialization
 				// TODO: if that logic is modified, update this test accordingly
-				manifest, err := srv.GetPluginManifest(context.Background(), &emptypb.Empty{})
+				manifest, err := srv.CalculateExpectedManifest(context.Background(), urn.Plugin)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(manifest).To(Equal(srvManifestV2))
 

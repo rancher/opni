@@ -68,7 +68,8 @@ type Gateway struct {
 }
 
 type GatewayOptions struct {
-	lifecycler config.Lifecycler
+	lifecycler          config.Lifecycler
+	extraUpdateHandlers []update.UpdateTypeHandler
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -82,6 +83,12 @@ func (o *GatewayOptions) apply(opts ...GatewayOption) {
 func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	return func(o *GatewayOptions) {
 		o.lifecycler = lc
+	}
+}
+
+func WithExtraUpdateHandlers(handlers ...update.UpdateTypeHandler) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.extraUpdateHandlers = append(o.extraUpdateHandlers, handlers...)
 	}
 }
 
@@ -195,7 +202,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	))
 
 	//set up update server
-	updateServer := update.NewUpdateServer()
+	updateServer := update.NewUpdateServer(lg)
 
 	// set up plugin sync server
 	binarySyncServer, err := patchserver.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg,
@@ -228,6 +235,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to create kubernetes agent sync server")
 	}
 	updateServer.RegisterUpdateHandler(kubernetesSyncServer.Strategy(), kubernetesSyncServer)
+
+	for _, handler := range options.extraUpdateHandlers {
+		updateServer.RegisterUpdateHandler(handler.Strategy(), handler)
+	}
 
 	httpServer.metricsRegisterer.MustRegister(updateServer.Collectors()...)
 

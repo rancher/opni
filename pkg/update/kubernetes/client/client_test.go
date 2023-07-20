@@ -132,7 +132,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})

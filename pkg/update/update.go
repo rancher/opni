@@ -18,7 +18,8 @@ var (
 )
 
 type UpdateTypeHandler interface {
-	CalculateUpdate(context.Context, *controlv1.UpdateManifest) (*controlv1.PatchList, *controlv1.UpdateManifest, error)
+	CalculateUpdate(context.Context, *controlv1.UpdateManifest) (*controlv1.PatchList, error)
+	CalculateExpectedManifest(context.Context, urn.UpdateType) (*controlv1.UpdateManifest, error)
 	Collectors() []prometheus.Collector
 	Strategy() string
 }
@@ -61,10 +62,17 @@ func GetPluginSyncHandlerBuilder[T ~string](strategy T) SyncHandlerBuilder {
 	return pluginSyncHandlerBuilders[string(strategy)]
 }
 
-func GetType(entries ManifestEntryList) (urn.UpdateType, error) {
+type entry interface {
+	GetPackage() string
+}
+
+func GetType[T entry](entries []T) (urn.UpdateType, error) {
 	var updateType urn.UpdateType
+	if len(entries) == 0 {
+		return "", ErrNoEntries
+	}
 	for _, entry := range entries {
-		opniURN, err := urn.ParseString(entry.Package)
+		opniURN, err := urn.ParseString(entry.GetPackage())
 		if err != nil {
 			return "", err
 		}
@@ -95,10 +103,13 @@ func GetType(entries ManifestEntryList) (urn.UpdateType, error) {
 	return updateType, nil
 }
 
-func getStrategy(entries ManifestEntryList) (string, error) {
+func getStrategy[T entry](entries []T) (string, error) {
 	var strategy string
+	if len(entries) == 0 {
+		return "", ErrNoEntries
+	}
 	for _, entry := range entries {
-		opniURN, err := urn.ParseString(entry.Package)
+		opniURN, err := urn.ParseString(entry.GetPackage())
 		if err != nil {
 			return "", err
 		}

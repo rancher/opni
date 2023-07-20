@@ -2,8 +2,11 @@ package v1
 
 import (
 	"encoding/hex"
+	"fmt"
 	"hash"
+	"strconv"
 
+	"github.com/rancher/opni/pkg/urn"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/exp/slices"
 )
@@ -16,7 +19,7 @@ func (m *UpdateManifest) DigestSet() map[string]struct{} {
 	return hm
 }
 
-func (m *UpdateManifest) PluginDigests() map[string]string {
+func (m *UpdateManifest) DigestMap() map[string]string {
 	hm := map[string]string{}
 	for _, v := range m.Items {
 		hm[v.GetId()] = v.GetDigest()
@@ -76,15 +79,35 @@ const (
 	AgentBuildInfoKey = "agent-build-info"
 )
 
+func ManifestDigestKeyForType(t urn.UpdateType) string {
+	return fmt.Sprintf("%s-%s", ManifestDigestKey, t)
+}
+
+func UpdateStrategyKeyForType(t urn.UpdateType) string {
+	return fmt.Sprintf("%s-%s", UpdateStrategyKey, t)
+}
+
 // Returns a hash of the manifest metadata list. This can be used to compare
 // manifests between the gateway and agent.
 func (m *UpdateManifest) Digest() string {
+	if m == nil {
+		return ""
+	}
 	m.Sort()
 	hash, _ := blake2b.New256(nil)
-	for _, entry := range m.GetItems() {
+	hash.Write([]byte(strconv.Itoa(len(m.GetItems()))))
+	for i, entry := range m.GetItems() {
+		hash.Write([]byte(strconv.Itoa(i)))
+
+		hash.Write([]byte(strconv.Itoa(len(entry.GetPackage()))))
 		hash.Write([]byte(entry.GetPackage()))
+
+		hash.Write([]byte(strconv.Itoa(len(entry.GetPath()))))
 		hash.Write([]byte(entry.GetPath()))
+
+		hash.Write([]byte(strconv.Itoa(len(entry.GetDigest()))))
 		hash.Write([]byte(entry.GetDigest()))
 	}
+
 	return hex.EncodeToString(hash.Sum(nil))
 }

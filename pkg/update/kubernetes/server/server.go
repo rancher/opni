@@ -93,25 +93,12 @@ func (k *kubernetesSyncServer) CalculateUpdate(
 	}
 }
 
-type manifestMetadataKeyType struct{}
-
-var manifestMetadataKey = manifestMetadataKeyType{}
-
-func (*kubernetesSyncServer) ManifestMetadataFromContext(ctx context.Context) (*controlv1.UpdateManifest, bool) {
-	md, ok := ctx.Value(manifestMetadataKey).(*controlv1.UpdateManifest)
-	return md, ok
-}
-
-func ManifestMetadataFromContext(ctx context.Context) (*controlv1.UpdateManifest, bool) {
-	return (*kubernetesSyncServer)(nil).ManifestMetadataFromContext(ctx)
-}
-
 func (k *kubernetesSyncServer) CalculateExpectedManifest(ctx context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
 	if updateType != opniurn.Agent {
 		return nil, status.Error(codes.Unimplemented, kubernetes.ErrUnhandledUpdateType(string(updateType)).Error())
 	}
 	expectedManifest := &controlv1.UpdateManifest{}
-	strategy := metadata.ValueFromIncomingContext(ctx, controlv1.UpdateStrategyKey)
+	strategy := metadata.ValueFromIncomingContext(ctx, controlv1.UpdateStrategyKeyForType(updateType))
 	if len(strategy) != 1 {
 		return nil, status.Error(codes.InvalidArgument, "update strategy missing or invalid")
 	}
@@ -132,20 +119,36 @@ func (k *kubernetesSyncServer) CalculateExpectedManifest(ctx context.Context, up
 
 func (k *kubernetesSyncServer) calculateAgentUpdate(
 	ctx context.Context,
-	manifest *controlv1.UpdateManifest,
+	current *controlv1.UpdateManifest,
 ) (*controlv1.PatchList, error) {
 	patches := []*controlv1.PatchSpec{}
 
-	for _, item := range manifest.GetItems() {
-		image, err := k.imageForEntry(ctx, item)
+	expected, err := k.CalculateExpectedManifest(ctx, opniurn.Agent)
+	if err != nil {
+		return nil, err
+	}
+
+	expectedItems := map[string]*controlv1.UpdateManifestEntry{}
+	for _, entry := range expected.GetItems() {
+		urn, err := opniurn.ParseString(entry.GetPackage())
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, err
 		}
-		if image == nil || image.Empty() {
+		expectedItems[urn.Component] = entry
+	}
+
+	for _, item := range current.GetItems() {
+		urn, err := opniurn.ParseString(item.GetPackage())
+		if err != nil {
+			return nil, err
+		}
+		expectedItem, ok := expectedItems[urn.Component]
+		if !ok {
+			// TODO: implement all patch operations
 			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no image found for %s", item.GetPackage()))
 		}
-		patch := patchForImage(item, image)
-		patches = append(patches, patch)
+
+		patches = append(patches, patchForEntry(item, expectedItem))
 	}
 	patchList := &controlv1.PatchList{
 		Items: patches,
@@ -174,30 +177,35 @@ func (k *kubernetesSyncServer) imageForEntry(
 	return k.imageFetcher.GetImage(ctx, imageType)
 }
 
-func patchForImage(
-	entry *controlv1.UpdateManifestEntry,
-	image *oci.Image,
+func patchForEntry(
+	oldEntry, newEntry *controlv1.UpdateManifestEntry,
 ) *controlv1.PatchSpec {
-	if entry == nil {
+	if oldEntry == nil {
 		return nil
 	}
-	existingImage, err := oci.Parse(entry.GetPath())
+
+	existingImage, err := oci.Parse(oldEntry.GetPath())
+	if err != nil {
+		return nil
+	}
+	newImage, err := oci.Parse(newEntry.GetPath())
 	if err != nil {
 		return nil
 	}
 
-	if entry.GetDigest() == image.DigestOrTag() && existingImage.Repository == image.Repository {
+	if oldEntry.GetDigest() == newEntry.GetDigest() && existingImage.Repository == newImage.Repository {
+
 		return &controlv1.PatchSpec{
-			Package: entry.GetPackage(),
-			Path:    entry.GetPath(),
+			Package: oldEntry.GetPackage(),
+			Path:    oldEntry.GetPath(),
 			Op:      controlv1.PatchOp_None,
 		}
 	}
 	return &controlv1.PatchSpec{
 		Op:        controlv1.PatchOp_Update,
-		OldDigest: entry.GetDigest(),
-		NewDigest: image.DigestOrTag(),
-		Package:   entry.GetPackage(),
-		Path:      image.Path(),
+		OldDigest: oldEntry.GetDigest(),
+		NewDigest: newEntry.GetDigest(),
+		Package:   oldEntry.GetPackage(),
+		Path:      newEntry.GetPath(),
 	}
 }

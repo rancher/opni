@@ -18,7 +18,7 @@ const (
 )
 
 func AllUpdateTypes() []UpdateType {
-	return []UpdateType{Plugin, Agent}
+	return []UpdateType{Agent, Plugin}
 }
 
 type OpniURN struct {

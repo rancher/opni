@@ -22,6 +22,8 @@ import (
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/update"
+	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/rancher/opni/pkg/urn"
@@ -37,10 +39,12 @@ import (
 
 var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func() {
 	var srv *server.FilesystemPluginSyncServer
+	var updateSrv *update.UpdateServer
 	fsys := afero.Afero{Fs: memfs.NewModeAwareMemFs()}
 	tmpDir := "/tmp/test"
 	fsys.MkdirAll(tmpDir, 0755)
 
+	var agentManifest *controlv1.UpdateManifest
 	var srvManifestV1 *controlv1.UpdateManifest
 	var srvManifestV2 *controlv1.UpdateManifest
 
@@ -58,6 +62,18 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			},
 		}, testlog.Log, server.WithFs(fsys))
 	}
+	newUpdateServer := func(s *server.FilesystemPluginSyncServer) *update.UpdateServer {
+		srv := update.NewUpdateServer(testlog.Log)
+		agentSrv := noop.NewSyncServer(noop.WithAllowedTypes(urn.Agent))
+		srv.RegisterUpdateHandler(agentSrv.Strategy(), agentSrv)
+		agentManifest, _ = agentSrv.CalculateExpectedManifest(context.Background(), urn.Agent)
+		srv.RegisterUpdateHandler(s.Strategy(), s)
+		return srv
+	}
+
+	BeforeEach(func() {
+		updateSrv = newUpdateServer(srv)
+	})
 
 	When("starting the filesystem sync server", func() {
 		It("should succeed", func() {
@@ -143,7 +159,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		var initialCacheItems []fs.FileInfo
 		When("the client has old v1 plugins", func() {
 			It("should return patch operations", func() {
-				patches, _, err := srv.CalculateUpdate(context.Background(), urn.Plugin)
+				patches, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(patches.Items).To(HaveLen(2))
@@ -186,7 +202,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		})
 		When("another client connects", func() {
 			It("should return patch operations using cached patches", func() {
-				patches, _, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
+				patches, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(patches).To(testutil.ProtoEqual(initialPatchResponse))
 			})
@@ -199,7 +215,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 		})
 		When("the server is unable to provide patches for the request", func() {
 			It("should return a create op with the full plugin contents", func() {
-				patches, _, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
+				patches, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
 					Items: []*controlv1.UpdateManifestEntry{
 						{
 							Package: test1Package,
@@ -231,11 +247,11 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 			When("the server is unable to read a plugin on disk", func() {
 				It("should succeed if it still has the relevant patch", func() {
 					Expect(fsys.Remove(filepath.Join(tmpDir, "cache", patch.PluginsDir, srvManifestV2.Items[0].Digest))).To(Succeed())
-					_, _, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
+					_, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should return an error if it does not have the relevant patch", func() {
-					_, _, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
+					_, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
 						Items: []*controlv1.UpdateManifestEntry{
 							{
 								Package: test1Package,
@@ -249,7 +265,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 				})
 
 				It("should return an internal error when issuing create operations", func() {
-					_, _, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
+					_, err := srv.CalculateUpdate(context.Background(), &controlv1.UpdateManifest{
 						Items: []*controlv1.UpdateManifestEntry{},
 					})
 					Expect(status.Code(err)).To(Equal(codes.Internal))
@@ -264,7 +280,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 					DeferCleanup(func() {
 						Expect(fsys.Chmod(path, 0644)).To(Succeed())
 					})
-					_, _, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
+					_, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
 					Expect(status.Code(err)).To(Equal(codes.Internal))
 					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("internal error in plugin cache, cannot sync: %s", test1Package)))
 				})
@@ -306,7 +322,7 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 						defer wg.Done()
 						<-start
 						startTime := time.Now()
-						patches, _, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
+						patches, err := srv.CalculateUpdate(context.Background(), srvManifestV1)
 						exp.RecordDuration("SyncPluginManifest", time.Since(startTime), gmeasure.Precision(time.Nanosecond))
 						Expect(err).NotTo(HaveOccurred())
 						Expect(patches.Items).To(HaveLen(2))
@@ -337,14 +353,14 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 						}
 						return handler(srv, sc)
 					},
-					srv.StreamServerInterceptor(),
+					updateSrv.StreamServerInterceptor(),
 				),
 				grpc.Creds(insecure.NewCredentials()),
 			)
 
 			testgrpc.RegisterStreamServiceServer(s, &testgrpc.StreamServer{
 				ServerHandler: func(stream testgrpc.StreamService_StreamServer) error {
-					md, ok := server.ManifestMetadataFromContext(stream.Context())
+					md, ok := update.ManifestMetadataFromContext(stream.Context())
 					Expect(ok).To(BeTrue())
 					return stream.Send(&testgrpc.StreamResponse{
 						Response: md.Digest(),
@@ -362,40 +378,49 @@ var _ = Describe("Filesystem Sync Server", Ordered, Label("unit", "slow"), func(
 
 			client := testgrpc.NewStreamServiceClient(conn)
 
-			By("sending a request with an invalid manifest digest")
+			By("sending a request with a missing manifest digest")
 			{
 				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.ManifestDigestKey, "invalid",
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "noop",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), srv.Strategy(),
+					controlv1.ManifestDigestKeyForType(urn.Agent), agentManifest.Digest(),
 				))
 				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
 				Expect(err).NotTo(HaveOccurred())
 				_, err = stream.Recv()
-				Expect(err).To(HaveOccurred())
-				Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+				Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument))
 			}
 
 			By("sending a request with an outdated manifest digest")
 			{
 				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.ManifestDigestKey, srvManifestV1.Digest(),
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "noop",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), srv.Strategy(),
+					controlv1.ManifestDigestKeyForType(urn.Agent), agentManifest.Digest(),
+					controlv1.ManifestDigestKeyForType(urn.Plugin), srvManifestV1.Digest(),
 				))
 				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
 				Expect(err).NotTo(HaveOccurred())
 				_, err = stream.Recv()
-				Expect(err).To(HaveOccurred())
-				Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+				Expect(err).To(testutil.MatchStatusCode(codes.FailedPrecondition))
 			}
 
 			By("sending a request with a matching manifest digest")
 			{
 				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.ManifestDigestKey, srvManifestV2.Digest(),
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "noop",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), srv.Strategy(),
+					controlv1.ManifestDigestKeyForType(urn.Agent), agentManifest.Digest(),
+					controlv1.ManifestDigestKeyForType(urn.Plugin), srvManifestV2.Digest(),
 				))
 				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := stream.Recv()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.Response).To(Equal(srvManifestV2.Digest()))
+				digest := (&controlv1.UpdateManifest{
+					Items: append(srvManifestV2.Items, agentManifest.Items...),
+				}).Digest()
+				Expect(resp.Response).To(Equal(digest))
 			}
 		})
 		It("should garbage collect old plugins and patches", func() {

@@ -129,7 +129,6 @@ func (s *UpdateServer) StreamServerInterceptor() grpc.StreamServerInterceptor {
 				updateType: string(updateType),
 				upToDate:   actual[0] == expectedDigest,
 			})
-
 		}
 		typesOutOfDate := []string{}
 		for _, c := range checked {

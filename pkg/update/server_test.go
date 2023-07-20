@@ -2,17 +2,20 @@ package update_test
 
 import (
 	"context"
-	"fmt"
 	"net"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	mock_update "github.com/rancher/opni/pkg/test/mock/update"
 	"github.com/rancher/opni/pkg/test/testgrpc"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/urn"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,32 +27,69 @@ import (
 
 var _ = Describe("update server", Ordered, Label("unit"), func() {
 	var (
-		server = update.NewUpdateServer(testlog.Log)
-		mock   = newMockHandler()
+		server                 = update.NewUpdateServer(testlog.Log)
+		agentUrn1              = urn.NewOpniURN(urn.Agent, "agent1", "foo")
+		pluginUrn1             = urn.NewOpniURN(urn.Plugin, "test1", "bar")
+		pluginUrn2             = urn.NewOpniURN(urn.Plugin, "test2", "bar")
+		expectedPluginManifest *controlv1.UpdateManifest
+		expectedAgentManifest  *controlv1.UpdateManifest
+		patchList              *controlv1.PatchList
 	)
 	BeforeAll(func() {
-		server.RegisterUpdateHandler(mock.Strategy(), mock)
+		ctrl := gomock.NewController(GinkgoT())
+		mockHandler := mock_update.NewMockUpdateTypeHandler(ctrl)
+		mockHandler.EXPECT().
+			Strategy().Return("mock").AnyTimes()
+		mockHandler.EXPECT().
+			Collectors().Return(nil).AnyTimes()
+		mockHandler.EXPECT().
+			CalculateExpectedManifest(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
+				if updateType == urn.Agent {
+					return expectedAgentManifest, nil
+				}
+				return expectedPluginManifest, nil
+			}).AnyTimes()
+		mockHandler.EXPECT().
+			CalculateUpdate(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, manifest *controlv1.UpdateManifest) (*controlv1.PatchList, error) {
+				return patchList, nil
+			}).
+			AnyTimes()
+		server.RegisterUpdateHandler(mockHandler.Strategy(), mockHandler)
+	})
+
+	BeforeEach(func() {
+		expectedAgentManifest = &controlv1.UpdateManifest{
+			Items: []*controlv1.UpdateManifestEntry{
+				{
+					Package: agentUrn1.String(),
+					Path:    "agent1",
+					Digest:  "xyz",
+				},
+			},
+		}
+		expectedPluginManifest = &controlv1.UpdateManifest{
+			Items: []*controlv1.UpdateManifestEntry{
+				{
+					Package: pluginUrn1.String(),
+					Path:    "foo",
+					Digest:  "abc",
+				},
+				{
+					Package: pluginUrn2.String(),
+					Path:    "bar",
+					Digest:  "abc",
+				},
+			},
+		}
 	})
 
 	When("manifest has mixed strategies", func() {
 		It("should return an error", func() {
-			urn1 := urn.NewOpniURN(urn.Plugin, "test1", "bar")
-			urn2 := urn.NewOpniURN(urn.Plugin, "test2", "bar")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: urn1.String(),
-						Path:    "foo",
-						Digest:  "abc",
-					},
-					{
-						Package: urn2.String(),
-						Path:    "bar",
-						Digest:  "abc",
-					},
-				},
-			}
-			_, err := server.SyncManifest(context.Background(), manifest)
+			invalid := util.ProtoClone(expectedPluginManifest)
+			invalid.Items[1].Package = urn.NewOpniURN(urn.Agent, "test2", "bar").String()
+			_, err := server.SyncManifest(context.Background(), invalid)
 			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 		})
 	})
@@ -71,7 +111,7 @@ var _ = Describe("update server", Ordered, Label("unit"), func() {
 	})
 	When("manifest is valid", func() {
 		It("should return a patch list and desired state", func() {
-			urn1 := urn.NewOpniURN(urn.Plugin, "noop", "bar")
+			urn1 := urn.NewOpniURN(urn.Plugin, "mock", "bar")
 			manifest := &controlv1.UpdateManifest{
 				Items: []*controlv1.UpdateManifestEntry{
 					{
@@ -81,6 +121,17 @@ var _ = Describe("update server", Ordered, Label("unit"), func() {
 					},
 				},
 			}
+			patchList = &controlv1.PatchList{
+				Items: []*controlv1.PatchSpec{
+					{
+						Op:        controlv1.PatchOp_Create,
+						Package:   pluginUrn2.String(),
+						Path:      "bar",
+						NewDigest: "abc",
+					},
+				},
+			}
+
 			syncResults, err := server.SyncManifest(context.Background(), manifest)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(syncResults.RequiredPatches).ToNot(BeNil())
@@ -112,9 +163,23 @@ var _ = Describe("update server", Ordered, Label("unit"), func() {
 
 			testgrpc.RegisterStreamServiceServer(grpcSrv, &testgrpc.StreamServer{
 				ServerHandler: func(stream testgrpc.StreamService_StreamServer) error {
-					return stream.Send(&testgrpc.StreamResponse{
-						Response: fmt.Sprintf("handler called %d times", mock.streamHandlerCalls),
+					// if we get here, everything needs to be up to date
+					manifest, ok := update.ManifestMetadataFromContext(stream.Context())
+					if !ok {
+						return status.Errorf(codes.Internal, "fail: no manifest metadata")
+					}
+					expected := &controlv1.UpdateManifest{}
+					expected.Items = append(expected.Items, expectedAgentManifest.Items...)
+					expected.Items = append(expected.Items, expectedPluginManifest.Items...)
+					expected.Sort()
+
+					if manifest.Digest() != expected.Digest() {
+						return status.Errorf(codes.Internal, "fail: manifest digest mismatch")
+					}
+					stream.Send(&testgrpc.StreamResponse{
+						Response: "OK",
 					})
+					return nil
 				},
 			})
 			go grpcSrv.Serve(lis)
@@ -132,54 +197,122 @@ var _ = Describe("update server", Ordered, Label("unit"), func() {
 			lis.Close()
 		})
 		When("no strategy in metadata", func() {
-			It("should pass through the handler", func() {
+			It("should return an InvalidArgument error", func() {
 				stream, err := client.Stream(context.Background(), grpc.WaitForReady(true))
 				Expect(err).NotTo(HaveOccurred())
-				resp, err := stream.Recv()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.GetResponse()).To(Equal("handler called 0 times"))
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument))
 			})
 		})
-		When("no server interceptor in handler", func() {
-			It("should pass through the handler", func() {
+		When("no handlers are available for the requested update strategies", func() {
+			It("should return an Unimplemented error", func() {
 				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.UpdateStrategyKey, "noop",
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "unimplemented",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "unimplemented",
+					controlv1.ManifestDigestKeyForType(urn.Agent), "-",
+					controlv1.ManifestDigestKeyForType(urn.Plugin), "-",
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.Unimplemented))
+			})
+		})
+		When("one handler is unimplemented but one is available", func() {
+			It("should return an Unimplemented error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "unimplemented",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), "-",
+					controlv1.ManifestDigestKeyForType(urn.Plugin), "-",
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.Unimplemented))
+			})
+		})
+		When("agent manifest is out of date", func() {
+			It("should return a FailedPrecondition error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), "old",
+					controlv1.ManifestDigestKeyForType(urn.Plugin), expectedPluginManifest.Digest(),
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.FailedPrecondition, Equal("agent resources out of date")))
+			})
+		})
+		When("plugin manifest is out of date", func() {
+			It("should return a FailedPrecondition error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), expectedAgentManifest.Digest(),
+					controlv1.ManifestDigestKeyForType(urn.Plugin), "old",
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.FailedPrecondition, Equal("plugin resources out of date")))
+			})
+		})
+		When("agent and plugin manifests are out of date", func() {
+			It("should return a FailedPrecondition error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), "old",
+					controlv1.ManifestDigestKeyForType(urn.Plugin), "old",
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.FailedPrecondition, Equal("agent, plugin resources out of date")))
+			})
+		})
+		When("missing manifest digest key for agent", func() {
+			It("should return an InvalidArgument error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Plugin), expectedPluginManifest.Digest(),
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, Equal("manifest digest for type \"agent\" missing or invalid")))
+			})
+		})
+		When("missing manifest digest key for plugin", func() {
+			It("should return an InvalidArgument error", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), expectedAgentManifest.Digest(),
+				))
+				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
+				Expect(err).NotTo(HaveOccurred())
+				_, err = stream.Recv()
+				Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, Equal("manifest digest for type \"plugin\" missing or invalid")))
+			})
+		})
+		When("all manifests are up to date", func() {
+			It("should succeed", func() {
+				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+					controlv1.UpdateStrategyKeyForType(urn.Agent), "mock",
+					controlv1.UpdateStrategyKeyForType(urn.Plugin), "mock",
+					controlv1.ManifestDigestKeyForType(urn.Agent), expectedAgentManifest.Digest(),
+					controlv1.ManifestDigestKeyForType(urn.Plugin), expectedPluginManifest.Digest(),
 				))
 				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := stream.Recv()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.GetResponse()).To(Equal("handler called 0 times"))
-			})
-		})
-		When("there is a server interceptor in handler", func() {
-			It("should call the handler", func() {
-				interceptor := mock.mockInterceptor()
-				server.RegisterUpdateHandler("mock", interceptor)
-				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.UpdateStrategyKey, "mock",
-				))
-				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
-				Expect(err).NotTo(HaveOccurred())
-				resp, err := stream.Recv()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.GetResponse()).To(Equal("handler called 1 times"))
-			})
-		})
-		When("there are multiple server interceptors in handler", func() {
-			It("should call the handlers", func() {
-				mock.streamHandlerCalls = 0
-				interceptor := mock.mockInterceptor()
-				server.RegisterUpdateHandler("mock2", interceptor)
-				ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-					controlv1.UpdateStrategyKey, "mock",
-				))
-				ctx = metadata.AppendToOutgoingContext(ctx, controlv1.UpdateStrategyKey, "mock2")
-				stream, err := client.Stream(ctx, grpc.WaitForReady(true))
-				Expect(err).NotTo(HaveOccurred())
-				resp, err := stream.Recv()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.GetResponse()).To(Equal("handler called 2 times"))
+				Expect(resp.Response).To(Equal("OK"))
 			})
 		})
 	})

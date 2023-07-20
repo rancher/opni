@@ -53,7 +53,7 @@ func (CRD) CRDGen(ctx context.Context) error {
 		}
 	}
 
-	expr := `del(.. | select(has("description")).description) | .. style="flow"`
+	expr := `del(.. | select(has("description")).description | select(has("type") | not )) | .. style="flow"`
 
 	e1 := lo.Async(func() error {
 		return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")

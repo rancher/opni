@@ -98,9 +98,12 @@ func (k *kubernetesSyncServer) CalculateExpectedManifest(ctx context.Context, up
 		return nil, status.Error(codes.Unimplemented, kubernetes.ErrUnhandledUpdateType(string(updateType)).Error())
 	}
 	expectedManifest := &controlv1.UpdateManifest{}
-	strategy := metadata.ValueFromIncomingContext(ctx, controlv1.UpdateStrategyKeyForType(updateType))
-	if len(strategy) != 1 {
-		return nil, status.Error(codes.InvalidArgument, "update strategy missing or invalid")
+	strategyKey := controlv1.UpdateStrategyKeyForType(updateType)
+	strategy := metadata.ValueFromIncomingContext(ctx, strategyKey)
+	if len(strategy) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "update strategy for type %q missing (key: %s)", updateType, strategyKey)
+	} else if len(strategy) > 1 {
+		return nil, status.Errorf(codes.InvalidArgument, "expected 1 value for metadata key %s, got %d", strategyKey, len(strategy))
 	}
 	for component, updateType := range kubernetes.ComponentImageMap {
 		image, err := k.imageFetcher.GetImage(ctx, updateType)

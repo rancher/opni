@@ -74,17 +74,17 @@ func (l *PatchList) Sort() {
 }
 
 const (
-	UpdateStrategyKey = "update-strategy"
-	ManifestDigestKey = "manifest-digest"
+	updateStrategyKey = "update-strategy"
+	manifestDigestKey = "manifest-digest"
 	AgentBuildInfoKey = "agent-build-info"
 )
 
 func ManifestDigestKeyForType(t urn.UpdateType) string {
-	return fmt.Sprintf("%s-%s", ManifestDigestKey, t)
+	return fmt.Sprintf("%s-%s", manifestDigestKey, t)
 }
 
 func UpdateStrategyKeyForType(t urn.UpdateType) string {
-	return fmt.Sprintf("%s-%s", UpdateStrategyKey, t)
+	return fmt.Sprintf("%s-%s", updateStrategyKey, t)
 }
 
 // Returns a hash of the manifest metadata list. This can be used to compare

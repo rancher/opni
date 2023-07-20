@@ -572,7 +572,7 @@ func (conf syncConfig) doSync(ctx context.Context) error {
 	).Debug("sending manifest sync request")
 
 	syncResp, err := conf.client.SyncManifest(metadata.AppendToOutgoingContext(ctx,
-		controlv1.UpdateStrategyKey, syncer.Strategy(),
+		controlv1.UpdateStrategyKeyForType(updateType), syncer.Strategy(),
 	), initialManifest)
 	if err != nil {
 		return fmt.Errorf("failed to sync agent manifest: %w", err)

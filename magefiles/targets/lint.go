@@ -13,5 +13,7 @@ func Lint(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.lint")
 	defer tr.End()
 
-	return sh.RunV(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint", "run", "-v", "--fast")
+	return sh.RunWith(map[string]string{
+		"CGO_ENABLED": "1",
+	}, mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint", "run", "-v", "--fast")
 }

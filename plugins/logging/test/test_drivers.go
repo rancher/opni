@@ -180,6 +180,10 @@ func (d *MockBackendDriver) GetClusterStatus(_ context.Context, id string) (*cap
 	}, nil
 }
 
+func (d *MockBackendDriver) StoreClusterReadUser(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
 func (d *MockBackendDriver) SetSyncTime() {
 	d.syncM.Lock()
 	defer d.syncM.Unlock()

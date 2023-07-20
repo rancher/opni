@@ -9,13 +9,13 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/server"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -24,7 +24,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"go.uber.org/zap"
 
@@ -57,8 +56,6 @@ type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	// components       serverComponents
-	opsNode          *ops.AlertingOpsNode
 	storageClientSet future.Future[spec.AlertingClientSet]
 
 	client.AlertingClient

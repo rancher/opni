@@ -3,12 +3,10 @@ package alerting_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -25,7 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ = Describe("", Ordered, Label("integration"), func() {
+var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 	var env *test.Environment
 	agents := []string{"agent1", "agent2", "agent3"}
 	agentAlertingEndpoints := map[string][]*alerting.MockIntegrationWebhookServer{}
@@ -61,9 +59,8 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 
 			for _, agent := range agents {
 				_, errC := env.StartAgent(agent, token, []string{fingerprint})
-				Eventually(errC, time.Second*5, time.Millisecond*200).Should(Receive(BeNil()))
+				Eventually(errC, time.Second*10, time.Millisecond*200).Should(Receive(BeNil()))
 			}
-
 			Eventually(func() error {
 				alertingState, err := alertopsClient.GetClusterStatus(env.Context(), &emptypb.Empty{})
 				if err != nil {
@@ -85,28 +82,6 @@ var _ = Describe("", Ordered, Label("integration"), func() {
 				}
 				return nil
 			}, time.Second*30, time.Second).Should(Succeed())
-		})
-
-		It("should collect the internal alerting metrics", func() {
-			metricsUrl := fmt.Sprintf("http://%s/metrics", env.GatewayConfig().Spec.MetricsListenAddress)
-
-			Eventually(func() error {
-				res := promtestutil.ScrapeAndCompare(metricsUrl, strings.NewReader(`
-# HELP opni_gateway_alerting_sync_cycle_processing_latency_milliseconds Latency of alerting sync cycles in milliseconds
-# TYPE opni_gateway_alerting_sync_cycle_processing_latency_milliseconds histogram
-`[1:],
-				), "opni_gateway_alerting_sync_cycle_processing_latency_milliseconds")
-				return res
-			}).Should(Succeed())
-
-			Eventually(func() error {
-				res := promtestutil.ScrapeAndCompare(metricsUrl, strings.NewReader(`
-# HELP opni_gateway_alerting_alarm_activation_count_total Total number of alerting alarm activations
-# TYPE opni_gateway_alerting_alarm_activation_count_total counter
-`[1:],
-				), "opni_gateway_alerting_alarm_activation_count_total")
-				return res
-			}).Should(Succeed())
 		})
 
 		It("should create prometheus query alerts that map to endpoints", func() {

@@ -52,7 +52,7 @@ func init() {
 		}
 	}
 
-	alerting.SyncInterval = time.Second * 5
+	alerting.SyncInterval = time.Second * 1
 	alerting.ForceSyncInterval = time.Second * 60
 
 	alarms.DisconnectStreamEvaluateInterval = time.Second * 1

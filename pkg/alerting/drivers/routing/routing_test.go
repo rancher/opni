@@ -2,10 +2,12 @@ package routing_test
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -13,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testruntime"
+	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -40,26 +43,52 @@ var _ = Describe("Alerting Router defaults", Ordered, Serial, Label("integration
 	})
 
 	When("creating the default routing tree", func() {
+
 		Specify("The default opni routing tree root should be valid for alertmanager", func() {
+
 			fp := freeport.GetFreePort()
-			cfg := routing.NewRootNode(fmt.Sprintf("http://localhost:%d", fp))
+			cfg := config.WebhookConfig{
+				NotifierConfig: config.NotifierConfig{
+					VSendResolved: false,
+				},
+				URL: &amCfg.URL{
+					URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d", fp))),
+				},
+			}
+			route := routing.NewRootNode(&cfg)
 			Expect(cfg).ToNot(BeNil())
-			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTreeRoot.yaml", cfg, fp)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTreeRoot.yaml", route, fp)
 		})
 
 		Specify("the opni subtree should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
-			cfg := routing.NewRootNode(fmt.Sprintf("http://localhost:%d", fp))
+			cfg := config.WebhookConfig{
+				NotifierConfig: config.NotifierConfig{
+					VSendResolved: false,
+				},
+				URL: &amCfg.URL{
+					URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d", fp))),
+				},
+			}
+			route := routing.NewRootNode(&cfg)
 			subtree, recvs := routing.NewOpniSubRoutingTree()
-			cfg.Route.Routes = append(cfg.Route.Routes, subtree)
-			cfg.Receivers = append(cfg.Receivers, recvs...)
-			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingSubtree.yaml", cfg, fp)
+			route.Route.Routes = append(route.Route.Routes, subtree)
+			route.Receivers = append(route.Receivers, recvs...)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingSubtree.yaml", route, fp)
 		})
 
 		Specify("the default routing tree of opni routing should be in a valid alertmanager format", func() {
 			fp := freeport.GetFreePort()
-			cfg := routing.NewRoutingTree(fmt.Sprintf("http://localhost:%d", fp))
-			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTree.yaml", cfg, fp)
+			cfg := config.WebhookConfig{
+				NotifierConfig: config.NotifierConfig{
+					VSendResolved: false,
+				},
+				URL: &amCfg.URL{
+					URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d", fp))),
+				},
+			}
+			route := routing.NewRootNode(&cfg)
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, "routingTree.yaml", route, fp)
 		})
 	})
 })

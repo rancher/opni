@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
@@ -27,7 +28,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// WIP
 type ProductionConfigSyncer interface {
 	// Walks the tree of routes in the config, calling the given function
 	Walk(map[string]string, func(depth int, r *config.Route) error) error
@@ -44,7 +44,8 @@ type ProductionConfigSyncer interface {
 type RoutingIdentifer interface {
 	HasLabels(routingId string) []*labels.Matcher
 	HasReceivers(routingId string) []string
-	SetDefaultReceiver(endpoint url.URL)
+	// SetDefaultReceiver(endpoint url.URL)
+	SetDefaultReceiver(config.WebhookConfig)
 }
 
 // OpniRouting Responsible for handling the mapping of ids
@@ -52,9 +53,6 @@ type RoutingIdentifer interface {
 type OpniRouting interface {
 	ProductionConfigSyncer
 	RoutingIdentifer
-
-	yaml.Unmarshaler
-	MarshalYAML() ([]byte, error)
 
 	SetDefaultNamespaceConfig(endps []*alertingv1.AlertEndpoint) error
 	SetNamespaceSpec(namespace string, routeId string, specs *alertingv1.FullAttachedEndpoints) error
@@ -72,14 +70,16 @@ type OpniRouting interface {
 	Clone() OpniRouting
 }
 
-func NewDefaultOpniRoutingWithOverrideHook(hook string) OpniRouting {
-	return NewOpniRouterV1(util.Must(url.Parse(hook)))
-}
-
 func NewDefaultOpniRouting() OpniRouting {
-	return NewOpniRouterV1(util.Must(
-		url.Parse(fmt.Sprintf("http://localhost:3000%s", shared.AlertingDefaultHookName)),
-	))
+	url := util.Must(url.Parse(fmt.Sprintf("http://localhost:3000%s", shared.AlertingDefaultHookName)))
+	return NewOpniRouterV1(config.WebhookConfig{
+		NotifierConfig: config.NotifierConfig{
+			VSendResolved: false,
+		},
+		URL: &amCfg.URL{
+			URL: url,
+		},
+	})
 }
 
 var _ interfaces.Cloneable[OpniRouting] = (OpniRouting)(nil)
@@ -147,7 +147,7 @@ type rateLimitingConfig struct {
 
 // indexes using endpointId for scalability
 type OpniRouterV1 struct {
-	HookEndpoint url.URL `yaml:"hookEndpoint,omitempty" json:"hookEndpoint,omitempty"`
+	DefaultReceiver config.WebhookConfig `yaml:"defaultReceiver,omitempty" json:"hookEndpoint,omitempty"`
 	// Contains an AlertManager config not created and managed by Opni
 	SyncedConfig *config.Config `yaml:"embeddedConfig,omitempty" json:"embeddedConfig,omitempty"`
 
@@ -159,14 +159,14 @@ type OpniRouterV1 struct {
 	NamespacedRateLimiting namespaceRateLimiting `yaml:"namespacedRateLimiting,omitempty" json:"namespacedRateLimiting,omitempty"`
 }
 
-func NewOpniRouterV1(hookEndpoint *url.URL) *OpniRouterV1 {
+func NewOpniRouterV1(defaultRevc config.WebhookConfig) *OpniRouterV1 {
 	return &OpniRouterV1{
 		// am empty config.Config is invalid in many ways, so it is easier to mark no config as nil
 		SyncedConfig:            nil,
 		DefaultNamespaceConfigs: make(map[string]map[string]config.OpniReceiver),
 		NamespacedSpecs:         make(map[string]map[string]map[string]config.OpniReceiver),
 		NamespacedRateLimiting:  make(map[string]map[string]rateLimitingConfig),
-		HookEndpoint:            *hookEndpoint,
+		DefaultReceiver:         defaultRevc,
 	}
 }
 
@@ -224,8 +224,8 @@ func (o *OpniRouterV1) HasReceivers(routingId string) []string {
 	return []string{}
 }
 
-func (o *OpniRouterV1) SetDefaultReceiver(endpoint url.URL) {
-	o.HookEndpoint = endpoint
+func (o *OpniRouterV1) SetDefaultReceiver(cfg config.WebhookConfig) {
+	o.DefaultReceiver = cfg
 }
 
 func (o *OpniRouterV1) SyncExternalConfig(content []byte) error {
@@ -342,7 +342,7 @@ func (o *OpniRouterV1) DeleteEndpoint(id string) error {
 }
 
 func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
-	root := NewRoutingTree(o.HookEndpoint.String())
+	root := NewRoutingTree(&o.DefaultReceiver)
 
 	// update the default namespace with the configs
 	for i, recv := range root.Receivers {
@@ -452,29 +452,8 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 	return root, nil
 }
 
-func (o *OpniRouterV1) MarshalYAML() ([]byte, error) {
-	bytes, err := yaml.Marshal(o)
-	if err != nil {
-		return nil, err
-	}
-	return bytes, nil
-}
-
-func (o *OpniRouterV1) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	defaultHook := util.Must(url.Parse(fmt.Sprintf("http://localhost:%d", shared.AlertingDefaultHookPort)))
-	o = NewOpniRouterV1(defaultHook)
-	type plain OpniRouterV1
-	if err := unmarshal((*plain)(o)); err != nil {
-		return err
-	}
-	if o.HookEndpoint.String() == "" {
-		o.HookEndpoint = *defaultHook
-	}
-	return nil
-}
-
 func (o *OpniRouterV1) Clone() OpniRouting {
-	oCopy := NewOpniRouterV1(&o.HookEndpoint)
+	oCopy := NewOpniRouterV1(o.DefaultReceiver)
 	if o.SyncedConfig != nil {
 		oCopy.SyncedConfig = util.DeepCopy(o.SyncedConfig)
 	}

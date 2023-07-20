@@ -2,18 +2,22 @@ package client_test
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testruntime"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 )
@@ -38,8 +42,17 @@ var _ = BeforeSuite(func() {
 
 		opniPort := freeport.GetFreePort()
 
+		singleEmitterCfg := config.WebhookConfig{
+			NotifierConfig: config.NotifierConfig{
+				VSendResolved: false,
+			},
+			URL: &amCfg.URL{
+				URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d%s", opniPort, shared.AlertingDefaultHookName))),
+			},
+		}
+
 		// set up a config file
-		router := routing.NewDefaultOpniRoutingWithOverrideHook(fmt.Sprintf("http://localhost:%d%s", opniPort, shared.AlertingDefaultHookName))
+		router := routing.NewOpniRouterV1(singleEmitterCfg)
 		cfg, err := router.BuildConfig()
 		Expect(err).To(Succeed())
 		dir := env.GenerateNewTempDirectory("alertmanager_client")
@@ -59,7 +72,15 @@ var _ = BeforeSuite(func() {
 		cl = clA
 
 		msgPort := freeport.GetFreePort()
-		haRouter := routing.NewDefaultOpniRoutingWithOverrideHook(fmt.Sprintf("http://localhost:%d%s", msgPort, shared.AlertingDefaultHookName))
+		haEmitterCfg := config.WebhookConfig{
+			NotifierConfig: config.NotifierConfig{
+				VSendResolved: false,
+			},
+			URL: &amCfg.URL{
+				URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d%s", msgPort, shared.AlertingDefaultHookName))),
+			},
+		}
+		haRouter := routing.NewOpniRouterV1(haEmitterCfg)
 		haCfg, err := haRouter.BuildConfig()
 		Expect(err).To(Succeed())
 		haFile, err := os.Create(fmt.Sprintf("%s/ha_alertmanager.yaml", dir))

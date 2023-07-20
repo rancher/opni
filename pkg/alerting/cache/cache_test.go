@@ -1,4 +1,4 @@
-package extensions_test
+package cache_test
 
 import (
 	"time"
@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/alerting/cache"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
-	"github.com/rancher/opni/pkg/alerting/extensions"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 )
@@ -16,19 +16,19 @@ import (
 var _ = Describe("Message caching for alerting", Label("unit"), Ordered, func() {
 	When("we use a frquency based cache", func() {
 		It("should cache alert manager messages while preserving opni metadata", func() {
-			cache := extensions.NewLFUMessageCache(50)
+			cache := cache.NewLFUMessageCache(50)
 			uuid := uuid.New().String()
 			alert := config.Alert{
 				Status:   "Firing",
 				StartsAt: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 				EndsAt:   time.Date(2777, 1, 1, 0, 0, 0, 0, time.UTC),
 				Labels: map[string]string{
-					alertingv1.NotificationPropertyOpniUuid: uuid,
+					message.NotificationPropertyOpniUuid: uuid,
 				},
 				Annotations: map[string]string{
-					shared.OpniHeaderAnnotations:               "test",
-					shared.OpniBodyAnnotations:                 "some body",
-					alertingv1.NotificationPropertyFingerprint: "opaque-fingerprint",
+					message.NotificationContentHeader:       "test",
+					message.NotificationContentSummary:      "some body",
+					message.NotificationPropertyFingerprint: "opaque-fingerprint",
 				},
 			}
 			By("verifying the object is cached")
@@ -40,7 +40,7 @@ var _ = Describe("Message caching for alerting", Label("unit"), Ordered, func() 
 			Expect(obj.Notification.Title).To(Equal("test"))
 			Expect(obj.Notification.Body).To(Equal("some body"))
 			By("preserving additional properties")
-			Expect(obj.Notification.Properties[alertingv1.NotificationPropertyFingerprint]).To(Equal("opaque-fingerprint"))
+			Expect(obj.Notification.Properties[message.NotificationPropertyFingerprint]).To(Equal("opaque-fingerprint"))
 
 			By("verifying last updated time is persisted")
 			cache.Set(alertingv1.OpniSeverity_Critical, "key", alert)
@@ -51,10 +51,10 @@ var _ = Describe("Message caching for alerting", Label("unit"), Ordered, func() 
 		})
 
 		It("should construct unique keys based on message metadata", func() {
-			cache := extensions.NewLFUMessageCache(50)
+			lfuCache := cache.NewLFUMessageCache(50)
 			uuid1 := uuid.New().String()
 			uuid2 := uuid.New().String()
-			uniqScenarios := []extensions.MessageMetadata{
+			uniqScenarios := []cache.MessageMetadata{
 				{
 					IsAlarm:     true,
 					Uuid:        uuid1,
@@ -88,14 +88,14 @@ var _ = Describe("Message caching for alerting", Label("unit"), Ordered, func() 
 			}
 			keys := []string{}
 			for _, s := range uniqScenarios {
-				keys = append(keys, cache.Key(s))
+				keys = append(keys, lfuCache.Key(s))
 			}
 			keys = lo.Uniq(keys)
 			Expect(keys).To(HaveLen(len(uniqScenarios)))
 		})
 
 		It("should return a set of partitioned key layers", func() {
-			cache := extensions.NewLFUMessageCache(50)
+			cache := cache.NewLFUMessageCache(50)
 			mappedKeys := cache.PartitionedKeys()
 			Expect(mappedKeys).ToNot(BeNil())
 			Expect(lo.Keys(mappedKeys)).To(ConsistOf(

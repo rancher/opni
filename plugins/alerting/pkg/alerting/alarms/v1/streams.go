@@ -13,6 +13,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/fingerprint"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -603,9 +604,9 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 					}
 					c.lg.Debugf("triggering alert for condition %s", c.conditionName)
 					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
+						message.NotificationPropertyFingerprint: string(c.fingerprint),
 					}, map[string]string{
-						alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
+						message.NotificationPropertyFingerprint: string(c.fingerprint),
 					})
 				}
 			} else if lastKnownState.Healthy && c.IsFiring() &&
@@ -618,9 +619,9 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 					c.lg.Error(err)
 				}
 				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
+					message.NotificationPropertyFingerprint: string(c.fingerprint),
 				}, map[string]string{
-					alertingv1.NotificationPropertyFingerprint: string(c.fingerprint),
+					message.NotificationPropertyFingerprint: string(c.fingerprint),
 				})
 				c.fingerprint = ""
 			}

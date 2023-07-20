@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/samber/lo"
@@ -82,7 +83,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 				Eventually(Object(cl)).Should(Exist())
 				Eventually(Object(&appsv1.StatefulSet{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting",
+						Name:      shared.AlertmanagerService,
 						Namespace: gateway.Namespace,
 					},
 				})).Should(ExistAnd(
@@ -104,7 +105,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 
 				Eventually(Object(&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting",
+						Name:      shared.AlertmanagerService,
 						Namespace: gateway.Namespace,
 					},
 				})).Should(Exist())
@@ -147,7 +148,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 
 				Eventually(Object(&appsv1.StatefulSet{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting",
+						Name:      shared.AlertmanagerService,
 						Namespace: gateway.Namespace,
 					},
 				})).Should(ExistAnd(
@@ -169,7 +170,7 @@ var _ = Describe("Alerting Controller", Ordered, Label("controller", "slow"), fu
 
 				Eventually(Object(&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "opni-alerting",
+						Name:      shared.AlertmanagerService,
 						Namespace: gateway.Namespace,
 					},
 				})).Should(Exist())

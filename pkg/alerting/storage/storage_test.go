@@ -13,6 +13,8 @@ import (
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	amCfg "github.com/prometheus/alertmanager/config"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -578,7 +580,15 @@ func BuildStorageClientSetSuite(
 			Specify("the default caching endpoint changing should trigger a hash change", func() {
 				for i := 0; i < 10; i++ {
 					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					syncOpts.DefaultEndpoint = util.Must(url.Parse(fmt.Sprintf("http://localhost/%s", uuid.New().String()[0:4])))
+					cfg := config.WebhookConfig{
+						NotifierConfig: config.NotifierConfig{
+							VSendResolved: false,
+						},
+						URL: &amCfg.URL{
+							URL: util.Must(url.Parse(fmt.Sprintf("http://localhost/%s", uuid.New().String()[0:4]))),
+						},
+					}
+					syncOpts.DefaultReceiver = &cfg
 					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 					Expect(err).To(Succeed())
 					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))

@@ -3,6 +3,7 @@ package alerting_test
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -11,13 +12,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/alertmanager/api/v2/models"
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testruntime"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -31,7 +35,15 @@ func init() {
 			func() routing.OpniRouting {
 				defaultHooks := alerting.NewWebhookMemoryServer(env, "webhook")
 				defaultHook = defaultHooks
-				return routing.NewDefaultOpniRoutingWithOverrideHook(defaultHook.GetWebhook())
+				cfg := config.WebhookConfig{
+					NotifierConfig: config.NotifierConfig{
+						VSendResolved: false,
+					},
+					URL: &amCfg.URL{
+						URL: util.Must(url.Parse(defaultHook.GetWebhook())),
+					},
+				}
+				return routing.NewOpniRouterV1(cfg)
 			},
 		)
 	})

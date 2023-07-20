@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/server/sync"
 )
 
 type InitializerF interface {
@@ -22,7 +23,7 @@ type ServerComponent interface {
 	// Server components that manage independent dependencies
 	// should implement this method to sync them
 	// Sync implementations should be cancellable on ctx.Err()
-	Sync(ctx context.Context, shouldSync bool) error
+	Sync(ctx context.Context, info sync.SyncInfo) error
 }
 
 type Config struct {

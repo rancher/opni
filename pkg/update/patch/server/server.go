@@ -131,7 +131,7 @@ func (f *FilesystemPluginSyncServer) RunGarbageCollection(ctx context.Context, s
 	return nil
 }
 
-func (f *FilesystemPluginSyncServer) CalculateExpectedManifest(ctx context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
+func (f *FilesystemPluginSyncServer) CalculateExpectedManifest(_ context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
 	if updateType != urn.Plugin {
 		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("unknown update type: %s", updateType))
 	}

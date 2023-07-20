@@ -46,7 +46,7 @@ func NewSyncServer(opts ...SyncServerOption) update.UpdateTypeHandler {
 	}
 }
 
-func (s *syncServer) CalculateExpectedManifest(ctx context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
+func (s *syncServer) CalculateExpectedManifest(_ context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
 	if !slices.Contains(s.allowedTypes, updateType) {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid update type: %q", updateType)
 	}
@@ -61,7 +61,7 @@ func (s *syncServer) CalculateExpectedManifest(ctx context.Context, updateType u
 	}, nil
 }
 
-func (s *syncServer) CalculateUpdate(ctx context.Context, manifest *controlv1.UpdateManifest) (*controlv1.PatchList, error) {
+func (s *syncServer) CalculateUpdate(_ context.Context, manifest *controlv1.UpdateManifest) (*controlv1.PatchList, error) {
 	updateType, err := update.GetType(manifest.GetItems())
 	if err != nil {
 		return nil, err

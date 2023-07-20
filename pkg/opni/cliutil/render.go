@@ -334,7 +334,7 @@ func RenderClusterDetails(cluster *corev1.Cluster) string {
 			w.AppendSeparator()
 			pluginPairs := lo.ToPairs(lkcd.GetPluginVersions())
 
-			w.AppendRow(table.Row{"Plugins", pluginPairs[0].Key, pluginPairs[0].Value})
+			w.AppendRow(table.Row{"Manifest", pluginPairs[0].Key, pluginPairs[0].Value})
 			for _, v := range pluginPairs[1:] {
 				w.AppendRow(table.Row{"", v.Key, v.Value})
 			}

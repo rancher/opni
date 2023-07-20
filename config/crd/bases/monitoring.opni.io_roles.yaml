@@ -53,6 +53,11 @@ spec:
                       type: string
                     type: object
                 type: object
+              metadata:
+                properties:
+                  resourceVersion:
+                    type: string
+                type: object
             type: object
         type: object
     served: true

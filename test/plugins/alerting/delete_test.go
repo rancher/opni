@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -141,6 +142,51 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			ClusterId:      []string{agent1, agent2},
 			RuleNameRegexp: fmt.Sprintf(".*%s.*", toDeleteMetrics.GetId()),
 		}
+	})
+
+	When("we update an alarm of the disconnect type", func() {
+		It("should successfully update the group of the alarm", func() {
+			reduce := func(in *corev1.ReferenceList) []string {
+				return lo.Map(in.GetItems(), func(item *corev1.Reference, _ int) string {
+					return item.GetId()
+				})
+			}
+			conditionsClient := env.NewAlertConditionsClient()
+			By("verifying the only the default group exists")
+			groups, err := conditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(reduce(groups)).To(ConsistOf([]string{""}))
+
+			cond, err := conditionsClient.GetAlertCondition(env.Context(), toDeleteInternal)
+			Expect(err).To(Succeed())
+			cond.GroupId = "new-group"
+
+			_, err = conditionsClient.UpdateAlertCondition(env.Context(), &alertingv1.UpdateAlertConditionRequest{
+				Id:          toDeleteInternal,
+				UpdateAlert: cond,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			newGroups, err := conditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(reduce(newGroups)).To(ConsistOf([]string{"", "new-group"}))
+
+			_, err = conditionsClient.GetAlertCondition(env.Context(), toDeleteInternal)
+			Expect(err).To(HaveOccurred())
+			st, ok := status.FromError(err)
+			if !ok {
+				Fail("expected to get a grpc error message")
+			}
+			By("veriying the condition in the old group storage is not found")
+			Expect(st.Code()).To(Equal(codes.NotFound))
+
+			By("veryfing the condition has been move to the new group storage")
+			toDeleteInternal.GroupId = "new-group"
+			updatedCond, err := conditionsClient.GetAlertCondition(env.Context(), toDeleteInternal)
+			Expect(err).To(Succeed())
+			Expect(updatedCond.GroupId).To(Equal("new-group"))
+		})
+
 	})
 
 	When("we delete an alarm of the metrics type", func() {

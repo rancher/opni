@@ -84,6 +84,7 @@ import (
 	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
+	"github.com/rancher/opni/pkg/update/noop"
 	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
@@ -1736,6 +1737,7 @@ func (e *Environment) startGateway() {
 	}})
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
 		gateway.WithLifecycler(lifecycler),
+		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
 	e.managementServerMu.Lock()
@@ -1908,6 +1910,12 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
+			Upgrade: v1beta1.AgentUpgradeSpec{
+				Type: v1beta1.AgentUpgradeNoop,
+			},
+			PluginUpgrade: v1beta1.PluginUpgradeSpec{
+				Type: v1beta1.PluginUpgradeNoop,
+			},
 			TrustStrategy:    v1beta1.TrustStrategyPKP,
 			ListenAddress:    fmt.Sprintf("127.0.0.1:%d", options.listenPort),
 			GatewayAddress:   gatewayAddress,

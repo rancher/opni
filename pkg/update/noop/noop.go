@@ -2,69 +2,80 @@ package noop
 
 import (
 	"context"
+	"encoding/hex"
 
-	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/update"
+	"github.com/rancher/opni/pkg/urn"
 )
 
 const (
 	updateStrategy = "noop"
 )
 
-type noopUpdate struct{}
+type agentSyncHandler struct{}
 
-type NoopUpdate interface {
-	update.SyncHandler
-	update.UpdateTypeHandler
+var _ update.SyncHandler = (*agentSyncHandler)(nil)
+
+type pluginSyncHandler struct{}
+
+var _ update.SyncHandler = (*pluginSyncHandler)(nil)
+
+func NewPluginSyncHandler() update.SyncHandler {
+	return &pluginSyncHandler{}
 }
 
-func NewNoopUpdate() NoopUpdate {
-	return &noopUpdate{}
+func NewAgentSyncHandler() update.SyncHandler {
+	return &agentSyncHandler{}
 }
 
-func (n *noopUpdate) Strategy() string {
+func (n *pluginSyncHandler) Strategy() string {
 	return updateStrategy
 }
 
-func (n *noopUpdate) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{}
+func (n *agentSyncHandler) Strategy() string {
+	return updateStrategy
 }
 
-func (n *noopUpdate) CalculateUpdate(
-	_ context.Context,
-	manifest *controlv1.UpdateManifest,
-) (*controlv1.PatchList, *controlv1.UpdateManifest, error) {
-	patches := []*controlv1.PatchSpec{}
-	for _, item := range manifest.GetItems() {
-		patches = append(patches, &controlv1.PatchSpec{
-			Op:        controlv1.PatchOp_None,
-			Package:   item.Package,
-			Path:      item.Path,
-			OldDigest: item.Digest,
-			NewDigest: item.Digest,
-		})
-	}
-	return &controlv1.PatchList{
-		Items: patches,
-	}, manifest, nil
-}
+var emptyDigest = hex.EncodeToString(make([]byte, 32))
 
-func (n *noopUpdate) GetCurrentManifest(_ context.Context) (*controlv1.UpdateManifest, error) {
+func (n *pluginSyncHandler) GetCurrentManifest(_ context.Context) (*controlv1.UpdateManifest, error) {
 	return &controlv1.UpdateManifest{
-		Items: nil,
+		Items: []*controlv1.UpdateManifestEntry{
+			{
+				Package: urn.NewOpniURN(urn.Plugin, updateStrategy, "unmanaged").String(),
+				Path:    "unmanaged",
+				Digest:  emptyDigest,
+			},
+		},
 	}, nil
 }
 
-func (n *noopUpdate) HandleSyncResults(_ context.Context, _ *controlv1.SyncResults) error {
+func (n *agentSyncHandler) GetCurrentManifest(_ context.Context) (*controlv1.UpdateManifest, error) {
+	return &controlv1.UpdateManifest{
+		Items: []*controlv1.UpdateManifestEntry{
+			{
+				Package: urn.NewOpniURN(urn.Agent, updateStrategy, "unmanaged").String(),
+				Path:    "unmanaged",
+				Digest:  emptyDigest,
+			},
+		},
+	}, nil
+}
+
+func (*pluginSyncHandler) HandleSyncResults(_ context.Context, _ *controlv1.SyncResults) error {
+	return nil
+}
+
+func (*agentSyncHandler) HandleSyncResults(_ context.Context, _ *controlv1.SyncResults) error {
 	return nil
 }
 
 func init() {
 	update.RegisterAgentSyncHandlerBuilder(updateStrategy, func(args ...any) (update.SyncHandler, error) {
-		return NewNoopUpdate(), nil
+		return NewAgentSyncHandler(), nil
 	})
 	update.RegisterPluginSyncHandlerBuilder(updateStrategy, func(args ...any) (update.SyncHandler, error) {
-		return NewNoopUpdate(), nil
+		return NewPluginSyncHandler(), nil
 	})
 }

@@ -17,13 +17,12 @@ type CacheVolume struct {
 }
 
 type Caches struct {
-	GoMod       func(*dagger.Container) *dagger.Container
-	GoBuild     func(*dagger.Container) *dagger.Container
-	GoBin       func(*dagger.Container) *dagger.Container
-	Mage        func(*dagger.Container) *dagger.Container
-	Yarn        func(*dagger.Container) *dagger.Container
-	NodeModules func(*dagger.Container) *dagger.Container
-	TestBin     func(*dagger.Container) *dagger.Container
+	GoMod        func(*dagger.Container) *dagger.Container
+	GoBuild      func(*dagger.Container) *dagger.Container
+	GoBin        func(*dagger.Container) *dagger.Container
+	Mage         func(*dagger.Container) *dagger.Container
+	Yarn         func(*dagger.Container) *dagger.Container
+	GolangciLint func(*dagger.Container) *dagger.Container
 }
 
 func SetupCaches(client *dagger.Client, cacheMode string) Caches {
@@ -35,34 +34,34 @@ func SetupCaches(client *dagger.Client, cacheMode string) Caches {
 	case CacheModeVolumes:
 		return Caches{
 			GoMod: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/go/pkg/mod", client.CacheVolume("gomod"))
+				return ctr.WithMountedCache("/go/pkg/mod", client.CacheVolume("opni_gomod"))
 			},
 			GoBuild: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/root/.cache/go-build", client.CacheVolume("gobuild"))
+				return ctr.WithMountedCache("/root/.cache/go-build", client.CacheVolume("opni_gobuild"))
 			},
 			GoBin: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/go/bin", client.CacheVolume("gobin"))
+				return ctr.WithMountedCache("/go/bin", client.CacheVolume("opni_gobin"))
 			},
 			Mage: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/root/.magefile", client.CacheVolume("mage"))
+				return ctr.WithMountedCache("/root/.magefile", client.CacheVolume("opni_mage"))
 			},
 			Yarn: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/cache/yarn", client.CacheVolume("yarn"))
+				return ctr.WithMountedCache("/cache/yarn", client.CacheVolume("opni_yarn"))
 			},
-			NodeModules: func(ctr *dagger.Container) *dagger.Container {
-				return ctr.WithMountedCache("/src/web/node_modules", client.CacheVolume("node_modules"))
+			GolangciLint: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/root/.cache/golangci-lint", client.CacheVolume("opni_golangci_lint"))
 			},
 		}
 	case CacheModeNone:
 		fallthrough
 	default:
 		return Caches{
-			GoMod:       identity,
-			GoBuild:     identity,
-			GoBin:       identity,
-			Mage:        identity,
-			Yarn:        identity,
-			NodeModules: identity,
+			GoMod:        identity,
+			GoBuild:      identity,
+			GoBin:        identity,
+			Mage:         identity,
+			Yarn:         identity,
+			GolangciLint: identity,
 		}
 	}
 }

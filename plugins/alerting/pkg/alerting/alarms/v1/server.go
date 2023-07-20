@@ -111,11 +111,13 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 	}
 	lg := a.logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
+	conditionStorage := a.conditionStorage.Get()
 	conditionId := req.Id.Id
-	groupId := req.Id.GroupId
+	existingGroup := req.Id.GroupId
+	incomingGroup := req.UpdateAlert.GroupId
 
 	req.UpdateAlert.LastUpdated = timestamppb.Now()
-	existing, err := a.conditionStorage.Get().Group(groupId).Get(ctx, conditionId)
+	existing, err := conditionStorage.Group(existingGroup).Get(ctx, conditionId)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +126,13 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 		applyMutableReadOnlyFields(configurationChangeReadOnly, req.UpdateAlert)
 		req.UpdateAlert = configurationChangeReadOnly
 	}
-	if err := a.conditionStorage.Get().Group(req.UpdateAlert.GroupId).Put(ctx, conditionId, req.UpdateAlert); err != nil {
+	if existingGroup != incomingGroup {
+		if err := conditionStorage.Group(existingGroup).Delete(ctx, conditionId); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := a.conditionStorage.Get().Group(incomingGroup).Put(ctx, conditionId, req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

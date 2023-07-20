@@ -45,4 +45,6 @@ if (isStandalone) {
   baseConfig.pages.index.template = './pkg/opni/index.html';
 }
 
+baseConfig.productionSourceMap = false;
+
 module.exports = baseConfig;

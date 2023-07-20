@@ -60,7 +60,7 @@ func (Generate) Mocks(ctx context.Context) error {
 			}
 			args = append(args, strings.Join(mock.Types, ","))
 			err := sh.RunWithV(map[string]string{
-				"CGO_ENABLED": "0",
+				"CGO_ENABLED": "1",
 			}, mg.GoCmd(), args...)
 			if err != nil {
 				mu.Lock()

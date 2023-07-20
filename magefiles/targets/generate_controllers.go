@@ -35,7 +35,7 @@ func (Generate) Controllers(ctx context.Context) error {
 	}
 	if ok {
 		return sh.RunWithV(map[string]string{
-			"CGO_ENABLED": "0",
+			"CGO_ENABLED": "1",
 		}, mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
 			"crd:maxDescLen=0,ignoreUnexportedFields=true,allowDangerousTypes=true",
 			"rbac:roleName=manager-role",

@@ -96,6 +96,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.LoggingMulticlusterUserReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging MulticlusterUser")
+			return err
+		}
+
 		if err = (&controllers.LoggingMulticlusterRoleBindingReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Logging MulticlusterRoleBinding")
 			return err

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	encodingjson "encoding/json"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -282,27 +282,27 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	goBuild := goBase.
 		Pipeline("Go Build").
-		WithDirectory(b.workdir, b.sources, dagger.ContainerWithDirectoryOpts{
-			Include: []string{"go.mod", "go.sum", "tools.go"},
-		}).
-		WithExec([]string{"go", "mod", "download"}).
-		WithEnvVariable("CGO_ENABLED", "1").
-		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
 		WithEnvVariable("CGO_ENABLED", "0").  // important for cached magefiles
 		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
-		WithoutEnvVariable("GOBIN").
-		WithDirectory(b.workdir, b.sources)
+		WithDirectory(b.workdir, b.sources, dagger.ContainerWithDirectoryOpts{
+			Include: []string{
+				"go.mod",
+				"go.sum",
+				"tools.go",
+			},
+		}).
+		WithEnvVariable("CGO_ENABLED", "1").
+		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
+		WithEnvVariable("CGO_ENABLED", "0").
+		WithDirectory(b.workdir, b.sources).
+		WithoutEnvVariable("GOBIN")
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
-		With(b.caches.NodeModules).
-		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web"), dagger.ContainerWithDirectoryOpts{
-			Include: []string{"package.json", "yarn.lock"},
-		}).
-		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
-		With(b.caches.NodeModules). // mount again since node_modules would be overwritten by the previous mount
+		// With(b.caches.NodeModules).
+		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
 	generated := goBuild.
@@ -327,15 +327,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		Pipeline("Build Opni Minimal").
 		WithExec(mage("build:opniminimal"))
 
-	linterPlugin := goBuild.
-		Pipeline("Build Linter Plugin").
-		WithExec(mage("build:linter"))
-
-	linterPluginPath := filepath.Join(b.workdir, "internal/linter/linter.so")
-	lint := goBuild.
+	lint := archives.
 		Pipeline("Run Linter").
-		WithMountedFile(linterPluginPath, linterPlugin.File(linterPluginPath)).
-		WithExec([]string{"golangci-lint", "run", "-v", "--fast"})
+		With(b.caches.GolangciLint).
+		WithExec(mage("lint"))
 
 	test := opni.
 		WithExec(mage("test:binconfig"))
@@ -361,7 +356,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-				if err := encodingjson.Unmarshal([]byte(confJson), &opts); err != nil {
+				if err := json.Unmarshal([]byte(confJson), &opts); err != nil {
 					return err
 				}
 				test = cmds.TestBin(b.client, test, opts).

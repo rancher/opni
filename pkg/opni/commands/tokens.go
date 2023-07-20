@@ -76,7 +76,8 @@ func BuildTokensCreateSupportCmd() *cobra.Command {
 			}
 
 			labels := map[string]string{
-				corev1.NameLabel: username,
+				corev1.NameLabel:    username,
+				corev1.SupportLabel: "true",
 			}
 			t, err := mgmtClient.CreateBootstrapToken(cmd.Context(),
 				&managementv1.CreateBootstrapTokenRequest{

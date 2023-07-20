@@ -146,6 +146,7 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 	}
 	// Once we've finished the scan, we need to ship the last log
 	if previousEnt != nil {
+		previousEnt.AddAttribute("log", previousEnt.Body.(string))
 		entries = append(entries, previousEnt)
 	}
 

@@ -153,13 +153,6 @@ func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.Rem
 	tr.remoteWriteClient = client
 }
 
-// func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
-// 	tr.remoteReaderMu.Lock()
-// 	defer tr.remoteReaderMu.Unlock()
-
-// 	tr.remoteReader = client
-// }
-
 func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
 	return nil
 }
@@ -212,12 +205,14 @@ func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *Targ
 		case <-expbackoff.Next():
 			readResponse, err := reader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
 
-			// todo: check if recoverable
-			if err != nil {
-				return nil, fmt.Errorf("failed to read from target endpoint: %w", err)
+			if err == nil {
+				return readResponse, nil
 			}
 
-			return readResponse, nil
+			tr.logger.With(
+				zap.Error(err),
+				"endpoint", run.Target.Spec.Endpoint,
+			).Warn("failed to read from target endpoint, retrying...")
 		}
 	}
 }
@@ -234,6 +229,8 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
+	var err error
+
 	waitctx.Go(wc, func() {
 		labelMatchers := toLabelMatchers(run.Query.Matchers)
 
@@ -243,11 +240,11 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 
 		reader := NewRemoteReader(&http.Client{})
 
-		for nextStart < importEnd {
+		for err == nil && nextStart < importEnd {
 			select {
-			case <-ctx.Done():
+			case <-wc.Done():
 				return
-			default: // continue with import
+			default: // continue reading
 			}
 
 			nextStart = nextEnd
@@ -271,9 +268,10 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				},
 			}
 
-			readResponse, err := tr.doRead(wc, reader, run, readRequest)
+			var readResponse *prompb.ReadResponse
+
+			readResponse, err = tr.doRead(wc, reader, run, readRequest)
 			if err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 				return
 			}
 
@@ -284,16 +282,17 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				Metadata: []prompb.MetricMetadata{},
 			}
 
-			chunks, err := util.SplitChunksWithLimit(writeRequest, limit)
+			var chunks []*prompb.WriteRequest
+
+			chunks, err = util.SplitChunksWithLimit(writeRequest, limit)
 			if err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 				return
 			}
 
 			activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
 
 			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
-				if err := b.Add(WriteMetadata{
+				if err := b.Add(wc, WriteMetadata{
 					Query:         readRequest.Queries[0],
 					WriteChunk:    chunk,
 					ProgressRatio: 1.0 / float64(len(chunks)),
@@ -311,31 +310,42 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 		}
 		activeTask.SetProgress(progress)
 
-		for progress.Current < progress.Total {
+		for err == nil && progress.Current < progress.Total {
 			select {
-			case <-ctx.Done():
+			case <-wc.Done():
 				return
-			case meta := <-b.ch:
-				activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
-
-				if err := tr.doPush(wc, meta.WriteChunk); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
-					return
-				}
-
-				progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
-
-				progress.Current += progressDelta
-				activeTask.SetProgress(progress)
-
-				fmt.Printf("=== [taskRunner.OnTaskRunning %s] %F ===\n", run.Target.Meta.Name, float64(progress.Current)/float64(progress.Total))
+			default: // continue pushing
 			}
+
+			var meta WriteMetadata
+
+			meta, err = b.Get(wc)
+			if err != nil {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", err.Error()))
+				continue
+			}
+
+			activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
+
+			if err = tr.doPush(wc, meta.WriteChunk); err != nil {
+				return
+			}
+
+			progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
+
+			progress.Current += progressDelta
+			activeTask.SetProgress(progress)
 		}
 	})
 
 	waitctx.Wait(wc)
 
-	return nil
+	if err != nil {
+		activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+		return err
+	}
+
+	return ctx.Err()
 }
 
 func (tr *taskRunner) OnTaskCompleted(_ context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
@@ -488,10 +498,3 @@ func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[re
 
 	runner.runner.SetRemoteWriteClient(client)
 }
-
-// func (runner *taskingTargetRunner) SetRemoteReaderClient(client RemoteReader) {
-// 	runner.runnerMu.Lock()
-// 	defer runner.runnerMu.Unlock()
-
-// 	runner.runner.SetRemoteReaderClient(client)
-// }

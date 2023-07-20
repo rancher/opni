@@ -7,20 +7,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/snappy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testk8s"
@@ -35,64 +29,6 @@ import (
 )
 
 const testNamespace = "test-ns"
-
-// readHttpHandler is only here to keep a remote reader connection open to keep it running indefinitely
-type readHttpHandler struct {
-	lg *zap.SugaredLogger
-}
-
-func NewReadHandler() http.Handler {
-	return readHttpHandler{
-		lg: logger.New(
-			logger.WithLogLevel(zap.DebugLevel),
-		).Named("read-handler"),
-	}
-}
-
-func (h readHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
-	fmt.Printf("=== [readHttpHandler.ServeHTTP] %s ===\n", request.URL.Path)
-
-	switch request.URL.Path {
-	case "/block":
-		// select {} will block forever without using CPU.
-		select {}
-	case "/large":
-		uncompressed, err := proto.Marshal(&prompb.ReadResponse{
-			Results: []*prompb.QueryResult{
-				{
-					Timeseries: []*prompb.TimeSeries{
-						{
-							Labels: []prompb.Label{
-								{
-									Name:  "__name__",
-									Value: "test_metric",
-								},
-							},
-							// Samples: lo.Map(make([]prompb.Sample, 4194304), func(sample prompb.Sample, i int) prompb.Sample {
-							Samples: lo.Map(make([]prompb.Sample, 65536), func(sample prompb.Sample, i int) prompb.Sample {
-								sample.Timestamp = time.Now().UnixMilli()
-								return sample
-							}),
-						},
-					},
-				},
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-
-		compressed := snappy.Encode(nil, uncompressed)
-
-		_, err = w.Write(compressed)
-		if err != nil {
-			panic(err)
-		}
-	case "/health":
-	default:
-		panic(fmt.Sprintf("unsupported endpoint: %s", request.URL.Path))
-	}
-}
 
 var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()

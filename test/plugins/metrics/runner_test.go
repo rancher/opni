@@ -3,13 +3,14 @@ package metrics_test
 import (
 	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/prometheus/prompb"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
@@ -17,59 +18,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func newRespondingReader() *mockRemoteReader {
-	return &mockRemoteReader{
-		Responses: []*prompb.ReadResponse{
-			{
-				Results: []*prompb.QueryResult{
-					{
-						Timeseries: []*prompb.TimeSeries{
-							{
-								Labels: []prompb.Label{},
-								Samples: []prompb.Sample{
-									{
-										Value:     100,
-										Timestamp: 100,
-									},
-								},
-								Exemplars: []prompb.Exemplar{
-									{
-										Labels:    nil,
-										Value:     0,
-										Timestamp: 0,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	var (
 		// todo: set up a mock prometheus endpoint since we no longer handle readers
-
-		// failingReader = &mockRemoteReader{
-		// 	Error: fmt.Errorf("failed"),
-		// }
-
-		runner agent.TargetRunner
-
+		addr         string
+		runner       agent.TargetRunner
 		writerClient *mockRemoteWriteClient
-
-		target = &remoteread.Target{
-			Meta: &remoteread.TargetMeta{
-				Name:      "test",
-				ClusterId: "00000-00000",
-			},
-			Spec: &remoteread.TargetSpec{
-				Endpoint: "http://127.0.0.1:9090/api/v1/read",
-			},
-			Status: nil,
-		}
+		target       *remoteread.Target
 
 		query = &remoteread.Query{
 			StartTimestamp: &timestamppb.Timestamp{},
@@ -80,6 +35,26 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 		}
 	)
 
+	BeforeAll(func() {
+		By("adding a remote read  server")
+		addr = fmt.Sprintf("127.0.0.1:%d", freeport.GetFreePort())
+
+		server := http.Server{
+			Addr:    addr,
+			Handler: NewReadHandler(),
+		}
+
+		go func() {
+			server.ListenAndServe()
+		}()
+		DeferCleanup(server.Close)
+
+		Eventually(func() error {
+			_, err := (&http.Client{}).Get(fmt.Sprintf("http://%s/health", addr))
+			return err
+		}).Should(Not(HaveOccurred()))
+	})
+
 	BeforeEach(func() {
 		lg := logger.NewPluginLogger().Named("test-runner")
 
@@ -89,6 +64,18 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 		runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 			return writerClient
 		}))
+
+		target = &remoteread.Target{
+			Meta: &remoteread.TargetMeta{
+				Name:      "testTarget",
+				ClusterId: "testCluster",
+			},
+			Spec: &remoteread.TargetSpec{
+				Endpoint: "http://127.0.0.1:9090/api/v1/read",
+			},
+			Status: nil,
+		}
+
 	})
 
 	When("target status is not running", func() {
@@ -109,37 +96,24 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	})
 
 	When("target runner cannot reach target endpoint", func() {
-		It("should fail", func() {
-			// runner.SetRemoteReaderClient(failingReader)
+		It("should retry until success", func() {
+			target.Spec.Endpoint = "http://i.do.not.exist:9090/api/v1/read"
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
 
-			var status *remoteread.TargetStatus
-			Eventually(func() remoteread.TargetState {
-				status, _ = runner.GetStatus(target.Meta.Name)
-				return status.State
-			}).Should(Equal(remoteread.TargetState_Failed))
+			status, err := runner.GetStatus(target.Meta.Name)
+			Expect(err).NotTo(HaveOccurred())
 
-			expected := &remoteread.TargetStatus{
-				Progress: &remoteread.TargetProgress{
-					StartTimestamp:    &timestamppb.Timestamp{},
-					LastReadTimestamp: &timestamppb.Timestamp{},
-					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
-					},
-				},
-				Message: "failed to read from target endpoint: failed",
-				State:   remoteread.TargetState_Failed,
-			}
+			time.Sleep(time.Second)
 
-			AssertTargetStatus(expected, status)
+			Expect(status.State).To(Equal(remoteread.TargetState_Running))
 		})
 	})
 
 	When("editing and restarting failed import", func() {
 		It("should succeed", func() {
-			// runner.SetRemoteReaderClient(newRespondingReader())
+			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
@@ -177,7 +151,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("target runner can reach target endpoint", func() {
 		It("should complete", func() {
-			// runner.SetRemoteReaderClient(newRespondingReader())
+			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
@@ -214,8 +188,8 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("target is stopped during push", func() {
 		It("should be marked as stopped", func() {
-			// new reader with the longest possible delay
-			// runner.SetRemoteReaderClient(newRespondingReader())
+			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)
+
 			runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 				return &mockRemoteWriteClient{
 					Delay: math.MaxInt64,
@@ -244,12 +218,13 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("target pushes with unrecoverable error", func() {
 		It("should fail", func() {
+			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)
+
 			runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 				return &mockRemoteWriteClient{
-					Error: fmt.Errorf("context canceled"),
+					Error: fmt.Errorf("some unrecoverable error"),
 				}
 			}))
-			// runner.SetRemoteReaderClient(newRespondingReader())
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())

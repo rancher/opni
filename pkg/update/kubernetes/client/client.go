@@ -95,7 +95,7 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 	var entries []*controlv1.UpdateManifestEntry
 	agentDeploy, err := k.getAgentDeployment(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get agent deployment: %w", err)
 	}
 
 	// calculate agent manifest entry
@@ -105,6 +105,8 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 			getAgentContainer(agentDeploy.Spec.Template.Spec.Containers),
 			kubernetes.AgentComponent,
 		))
+	} else {
+		return nil, fmt.Errorf("agent container not found in deployment")
 	}
 
 	// calculate controller manifest entry
@@ -114,6 +116,8 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 			getControllerContainer(agentDeploy.Spec.Template.Spec.Containers),
 			kubernetes.ControllerComponent,
 		))
+	} else {
+		return nil, fmt.Errorf("controller container not found in deployment")
 	}
 
 	return &controlv1.UpdateManifest{
@@ -122,7 +126,7 @@ func (k *kubernetesAgentUpgrader) GetCurrentManifest(ctx context.Context) (*cont
 }
 
 func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results *controlv1.SyncResults) error {
-	updateType, err := update.GetType(results.GetDesiredState().GetItems())
+	updateType, err := update.GetType(results.RequiredPatches.GetItems())
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -139,6 +143,9 @@ func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results
 
 	for _, patch := range results.GetRequiredPatches().GetItems() {
 		if patch.GetOp() == controlv1.PatchOp_None {
+			k.lg.With(
+				"urn", patch.GetPackage(),
+			).Info("update not required")
 			continue
 		}
 
@@ -150,6 +157,13 @@ func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results
 			).Error("malformed package URN")
 			continue
 		}
+
+		k.lg.With(
+			"urn", patchURN.String(),
+			"op", patch.GetOp().String(),
+			"old", patch.GetOldDigest(),
+			"new", patch.GetNewDigest(),
+		).Info("applying patch")
 
 		switch kubernetes.ComponentType(patchURN.Component) {
 		case kubernetes.AgentComponent:

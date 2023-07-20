@@ -339,12 +339,22 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
-	if a.unmanagedPluginLoader == nil {
-		var manifests *controlv1.UpdateManifest
+	syncClient := controlv1.NewUpdateSyncClient(a.gatewayClient.ClientConn())
+
+	agentSyncConf := syncConfig{
+		client: syncClient,
+		syncer: a.agentSyncer,
+		logger: a.Logger.Named("agent-updater"),
+	}
+	pluginSyncConf := syncConfig{
+		client: syncClient,
+		syncer: a.pluginSyncer,
+		logger: a.Logger.Named("plugin-updater"),
+	}
+
+	for _, conf := range []syncConfig{agentSyncConf, pluginSyncConf} {
 		for ctx.Err() == nil {
-			var err error
-			// sync all updates
-			manifests, err = a.syncUpdates(ctx)
+			err := conf.doSync(ctx)
 			if err != nil {
 				switch status.Code(err) {
 				case codes.Unauthenticated:
@@ -363,29 +373,25 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 				case codes.Unavailable:
 					a.Logger.With(
 						zap.Error(err),
-					).Warn("error syncing plugins (retrying)")
+					).Warn("error syncing manifest (retrying)")
 					continue
 				}
-				return fmt.Errorf("error syncing plugins: %w", err)
+				return fmt.Errorf("error syncing manifest: %w", err)
 			}
 			break
 		}
-		// eventually passed to runGatewayClient
-		buildInfo, ok := versions.ReadBuildInfo()
-		if !ok {
-			return fmt.Errorf("error reading build info")
-		}
+	}
+	agentManifest, err := agentSyncConf.result(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting updated agent manifest: %w", err)
+	}
 
-		buildInfoData, err := protojson.Marshal(buildInfo)
-		if err != nil {
-			return err
-		}
-		ctx = metadata.AppendToOutgoingContext(ctx,
-			controlv1.ManifestDigestKey, manifests.Digest(),
-			controlv1.AgentBuildInfoKey, string(buildInfoData),
-			controlv1.UpdateStrategyKey, a.pluginSyncer.Strategy(),
-		)
+	pluginManifest, err := pluginSyncConf.result(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting updated plugin manifest: %w", err)
+	}
 
+	if a.unmanagedPluginLoader == nil {
 		done := make(chan struct{})
 		a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
 			a.Logger.Infof("loaded %d plugins", numPlugins)
@@ -393,7 +399,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		}))
 
 		a.pluginLoader.LoadPlugins(ctx, a.config.PluginDir, plugins.AgentScheme,
-			plugins.WithManifest(manifests),
+			plugins.WithManifest(pluginManifest),
 		)
 
 		select {
@@ -404,6 +410,23 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	} else {
 		a.Logger.Info("using unmanaged plugin loader")
 	}
+	// eventually passed to runGatewayClient
+	buildInfo, ok := versions.ReadBuildInfo()
+	if !ok {
+		return fmt.Errorf("error reading build info")
+	}
+
+	buildInfoData, err := protojson.Marshal(buildInfo)
+	if err != nil {
+		return err
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		controlv1.AgentBuildInfoKey, string(buildInfoData),
+		controlv1.ManifestDigestKeyForType(urn.Agent), agentManifest.Digest(),
+		controlv1.ManifestDigestKeyForType(urn.Plugin), pluginManifest.Digest(),
+		controlv1.UpdateStrategyKeyForType(urn.Agent), a.agentSyncer.Strategy(),
+		controlv1.UpdateStrategyKeyForType(urn.Plugin), a.pluginSyncer.Strategy(),
+	)
 
 	listener, err := net.Listen("tcp4", a.config.ListenAddress)
 	if err != nil {
@@ -524,66 +547,57 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (a *Agent) syncUpdates(ctx context.Context) (_ *controlv1.UpdateManifest, retErr error) {
-	a.Logger.Info("attempting to sync plugins with gateway")
+type syncConfig struct {
+	client controlv1.UpdateSyncClient
+	syncer update.SyncHandler
+	logger *zap.SugaredLogger
+}
 
-	manifestClient := controlv1.NewUpdateSyncClient(a.gatewayClient.ClientConn())
-
-	// First sync the agent
-	manifest, err := a.agentSyncer.GetCurrentManifest(ctx)
+func (conf syncConfig) doSync(ctx context.Context) error {
+	syncer := conf.syncer
+	initialManifest, err := getManifestWithTimeout(ctx, syncer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current agent manifest: %w", err)
+		return err
 	}
-
-	// validate the manifest
-	if len(manifest.GetItems()) > 0 {
-		updateType, err := update.GetType(manifest.GetItems())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get manifest update type: %w", err)
-		}
-		if updateType != urn.Agent {
-			panic("bug: agent manifest is not of type agent")
-		}
-		syncResp, err := manifestClient.SyncManifest(ctx, manifest)
-		if err != nil {
-			return nil, fmt.Errorf("failed to sync agent manifest: %w", err)
-		}
-
-		err = a.agentSyncer.HandleSyncResults(ctx, syncResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to handle agent sync results: %w", err)
-		}
-	} else {
-		a.Logger.Debug("skipping agent update: empty manifest")
-	}
-
-	// Now sync the plugins
-	manifest, err = a.pluginSyncer.GetCurrentManifest(ctx)
+	updateType, err := update.GetType(initialManifest.GetItems())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current plugin manifest: %w", err)
+		return fmt.Errorf("failed to get manifest update type: %w", err)
 	}
 
-	// validate the manifest
-	if len(manifest.GetItems()) > 0 {
-		updateType, err := update.GetType(manifest.GetItems())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get manifest update type: %w", err)
-		}
-		if updateType != urn.Plugin {
-			panic("bug: plugin manifest is not of type plugin")
-		}
-	}
+	lg := conf.logger.With(
+		zap.String("type", string(updateType)),
+	)
+	lg.With(
+		"entries", len(initialManifest.GetItems()),
+	).Debug("sending manifest sync request")
 
-	syncResp, err := manifestClient.SyncManifest(ctx, manifest, grpc.UseCompressor("zstd"))
+	syncResp, err := conf.client.SyncManifest(metadata.AppendToOutgoingContext(ctx,
+		controlv1.UpdateStrategyKeyForType(updateType), syncer.Strategy(),
+	), initialManifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sync plugin manifest: %w", err)
+		return fmt.Errorf("failed to sync agent manifest: %w", err)
 	}
-	a.Logger.Info("received patch manifest from gateway")
-
-	err = a.pluginSyncer.HandleSyncResults(ctx, syncResp)
+	lg.Info("received sync response")
+	err = syncer.HandleSyncResults(ctx, syncResp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to handle plugin sync results: %w", err)
+		return fmt.Errorf("failed to handle agent sync results: %w", err)
 	}
+	lg.With(
+		"entries", len(initialManifest.GetItems()),
+	).Info("manifest sync complete")
+	return nil
+}
 
-	return syncResp.DesiredState, nil
+func (conf syncConfig) result(ctx context.Context) (*controlv1.UpdateManifest, error) {
+	return getManifestWithTimeout(ctx, conf.syncer)
+}
+
+func getManifestWithTimeout(ctx context.Context, syncer update.SyncHandler) (*controlv1.UpdateManifest, error) {
+	ctx, ca := context.WithTimeout(ctx, 10*time.Second)
+	m, err := syncer.GetCurrentManifest(ctx)
+	ca()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current manifest: %w", err)
+	}
+	return m, nil
 }

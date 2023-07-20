@@ -46,3 +46,7 @@ mocks:
     dest: pkg/test/mock/streams/streams.go
     types:
       - Stream
+  - source: pkg/update/update.go
+    dest: pkg/test/mock/update/update.go
+    types:
+      - UpdateTypeHandler

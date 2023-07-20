@@ -10,22 +10,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/rancher/opni/pkg/urn"
-	"github.com/rancher/opni/pkg/util/streams"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type FilesystemPluginSyncServer struct {
@@ -110,7 +105,11 @@ func (f *FilesystemPluginSyncServer) RunGarbageCollection(ctx context.Context, s
 	if err != nil {
 		return err
 	}
-	digestsToKeep := f.getUpdateManifest().DigestSet()
+	expected, err := f.CalculateExpectedManifest(ctx, urn.Plugin)
+	if err != nil {
+		return err
+	}
+	digestsToKeep := expected.DigestSet()
 	for _, cluster := range clusters.Items {
 		versions := cluster.GetMetadata().GetLastKnownConnectionDetails().GetPluginVersions()
 		for _, v := range versions {
@@ -132,9 +131,12 @@ func (f *FilesystemPluginSyncServer) RunGarbageCollection(ctx context.Context, s
 	return nil
 }
 
-func (f *FilesystemPluginSyncServer) getUpdateManifest() *controlv1.UpdateManifest {
+func (f *FilesystemPluginSyncServer) CalculateExpectedManifest(_ context.Context, updateType urn.UpdateType) (*controlv1.UpdateManifest, error) {
+	if updateType != urn.Plugin {
+		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("unknown update type: %s", updateType))
+	}
 	f.loadMetadataOnce.Do(f.loadUpdateManifest)
-	return f.manifest
+	return f.manifest, nil
 }
 
 func (f *FilesystemPluginSyncServer) loadUpdateManifest() {
@@ -160,22 +162,21 @@ func (f *FilesystemPluginSyncServer) loadUpdateManifest() {
 func (f *FilesystemPluginSyncServer) CalculateUpdate(
 	ctx context.Context,
 	theirManifest *controlv1.UpdateManifest,
-) (*controlv1.PatchList, *controlv1.UpdateManifest, error) {
+) (*controlv1.PatchList, error) {
 	// on startup
 	if err := theirManifest.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if items := theirManifest.GetItems(); len(items) > 0 {
 		updateType, err := update.GetType(items)
 		if err != nil {
-			return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		switch updateType {
 		case urn.Plugin:
 			return f.calculatePluginUpdates(ctx, theirManifest)
 		default:
-			return nil, nil,
-				status.Error(codes.Unimplemented, fmt.Sprintf("unknown update type: %s", updateType))
+			return nil, status.Error(codes.Unimplemented, fmt.Sprintf("unknown update type: %s", updateType))
 		}
 	}
 	return f.calculatePluginUpdates(ctx, theirManifest)
@@ -184,8 +185,11 @@ func (f *FilesystemPluginSyncServer) CalculateUpdate(
 func (f *FilesystemPluginSyncServer) calculatePluginUpdates(
 	ctx context.Context,
 	theirManifest *controlv1.UpdateManifest,
-) (*controlv1.PatchList, *controlv1.UpdateManifest, error) {
-	ourManifest := f.getUpdateManifest()
+) (*controlv1.PatchList, error) {
+	ourManifest, err := f.CalculateExpectedManifest(ctx, urn.Plugin)
+	if err != nil {
+		return nil, err
+	}
 	archive := patch.LeftJoinOn(ourManifest, theirManifest)
 
 	errg, _ := errgroup.WithContext(ctx)
@@ -236,49 +240,10 @@ func (f *FilesystemPluginSyncServer) calculatePluginUpdates(
 		})
 	}
 	if err := errg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return archive, ourManifest, nil
-}
-
-func (f *FilesystemPluginSyncServer) GetPluginManifest(_ context.Context, _ *emptypb.Empty) (*controlv1.UpdateManifest, error) {
-	return f.getUpdateManifest(), nil
-}
-
-type manifestMetadataKeyType struct{}
-
-var manifestMetadataKey = manifestMetadataKeyType{}
-
-func ManifestMetadataFromContext(ctx context.Context) (*controlv1.UpdateManifest, bool) {
-	md, ok := ctx.Value(manifestMetadataKey).(*controlv1.UpdateManifest)
-	return md, ok
-}
-
-func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServerInterceptor {
-	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		id := cluster.StreamAuthorizedID(stream.Context())
-
-		//for now, plugin manifest validation is voluntary, but this may change in the future
-		md, ok := metadata.FromIncomingContext(stream.Context())
-		if ok {
-			values := md.Get(controlv1.ManifestDigestKey)
-			if len(values) > 0 {
-				digest := values[0]
-				if f.getUpdateManifest().Digest() != digest {
-					f.logger.With(
-						"id", id,
-					).Info("agent plugins are out of date; requesting update")
-					return status.Errorf(codes.FailedPrecondition, "plugins are out of date")
-				}
-			}
-		}
-
-		return handler(srv, &streams.ServerStreamWithContext{
-			Stream: stream,
-			Ctx:    context.WithValue(stream.Context(), manifestMetadataKey, f.getUpdateManifest()),
-		})
-	}
+	return archive, nil
 }
 
 func (f *FilesystemPluginSyncServer) Collectors() []prometheus.Collector {

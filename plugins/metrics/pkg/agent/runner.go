@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -77,9 +78,12 @@ type TargetRunMetadata struct {
 }
 
 // todo: could probably find a better name for this
-type ReadMetadata struct {
-	Query   *prompb.Query
-	Request *prompb.WriteRequest
+type WriteMetadata struct {
+	Query      *prompb.Query
+	WriteChunk *prompb.WriteRequest
+
+	// ProgressRatio is the ratio of the progress of this chunk to the total progress of the original request.
+	ProgressRatio float64
 }
 
 type targetStore struct {
@@ -128,9 +132,6 @@ func (store *targetStore) ListKeys(_ context.Context, prefix string) ([]string, 
 type taskRunner struct {
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 
-	remoteReaderMu sync.RWMutex
-	remoteReader   RemoteReader
-
 	backoffPolicy backoff.Policy
 
 	logger *zap.SugaredLogger
@@ -152,12 +153,12 @@ func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.Rem
 	tr.remoteWriteClient = client
 }
 
-func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
-	tr.remoteReaderMu.Lock()
-	defer tr.remoteReaderMu.Unlock()
+// func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
+// 	tr.remoteReaderMu.Lock()
+// 	defer tr.remoteReaderMu.Unlock()
 
-	tr.remoteReader = client
-}
+// 	tr.remoteReader = client
+// }
 
 func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
 	return nil
@@ -201,7 +202,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 	}
 }
 
-func (tr *taskRunner) doRead(ctx context.Context, run *TargetRunMetadata, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *TargetRunMetadata, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	expbackoff := tr.backoffPolicy.Start(ctx)
 
 	for {
@@ -209,9 +210,7 @@ func (tr *taskRunner) doRead(ctx context.Context, run *TargetRunMetadata, readRe
 		case <-expbackoff.Done():
 			return nil, ctx.Err()
 		case <-expbackoff.Next():
-			tr.remoteReaderMu.Lock()
-			readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
-			tr.remoteReaderMu.Unlock()
+			readResponse, err := reader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
 
 			// todo: check if recoverable
 			if err != nil {
@@ -226,11 +225,9 @@ func (tr *taskRunner) doRead(ctx context.Context, run *TargetRunMetadata, readRe
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	limit := util.DefaultWriteLimit()
 
-	b := &memoryBuffer[ReadMetadata]{
-		ch: make(chan ReadMetadata),
+	b := &memoryBuffer[WriteMetadata]{
+		ch: make(chan WriteMetadata),
 	}
-
-	writeChan := make(chan *ReadMetadata)
 
 	wc := waitctx.FromContext(ctx)
 
@@ -244,12 +241,11 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 		nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 		nextEnd := nextStart
 
-		activeTask.AddLogEntry(zapcore.InfoLevel, "import read running")
+		reader := NewRemoteReader(&http.Client{})
 
 		for nextStart < importEnd {
 			select {
 			case <-ctx.Done():
-				activeTask.AddLogEntry(zapcore.InfoLevel, "import read stopped")
 				return
 			default: // continue with import
 			}
@@ -275,69 +271,64 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 				},
 			}
 
-			readResponse, err := tr.doRead(wc, run, readRequest)
+			readResponse, err := tr.doRead(wc, reader, run, readRequest)
 			if err != nil {
 				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 				return
 			}
 
-			meta := &ReadMetadata{
-				Query: readRequest.Queries[0],
-				Request: &prompb.WriteRequest{
-					Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
-						return lo.FromPtr(t)
-					}),
-					Metadata: []prompb.MetricMetadata{},
-				},
+			writeRequest := &prompb.WriteRequest{
+				Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
+					return lo.FromPtr(t)
+				}),
+				Metadata: []prompb.MetricMetadata{},
 			}
 
-			writeChan <- meta
-		}
-	})
+			chunks, err := util.SplitChunksWithLimit(writeRequest, limit)
+			if err != nil {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+				return
+			}
 
-	waitctx.Go(wc, func() {
-		for {
-			select {
-			case <-ctx.Done():
-				break
-			case meta := <-writeChan:
-				chunks, err := util.SplitChunksWithLimit(meta.Request, limit)
-				if err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
-					return
+			activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
+
+			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
+				if err := b.Add(WriteMetadata{
+					Query:         readRequest.Queries[0],
+					WriteChunk:    chunk,
+					ProgressRatio: 1.0 / float64(len(chunks)),
+				}); err != nil {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not add chunk to buffer: %s", err.Error()))
 				}
-
-				lo.ForEach(chunks, func(chunk *prompb.WriteRequest, _ int) {
-					b.Add(ReadMetadata{
-						Query:   meta.Query,
-						Request: chunk,
-					})
-				})
-			}
+			})
 		}
 	})
 
 	waitctx.Go(wc, func() {
 		progress := &corev1.Progress{
 			Current: 0,
-			Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli()),
+			Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli() - run.Query.StartTimestamp.AsTime().UnixMilli()),
 		}
 		activeTask.SetProgress(progress)
 
-		activeTask.AddLogEntry(zapcore.InfoLevel, "import push running")
-
-		for {
+		for progress.Current < progress.Total {
 			select {
 			case <-ctx.Done():
 				return
 			case meta := <-b.ch:
-				if err := tr.doPush(wc, meta.Request); err != nil {
+				activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
+
+				if err := tr.doPush(wc, meta.WriteChunk); err != nil {
 					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 					return
 				}
 
-				progress.Current += uint64(meta.Query.EndTimestampMs - meta.Query.StartTimestampMs)
+				progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
+
+				progress.Current += progressDelta
 				activeTask.SetProgress(progress)
+
+				fmt.Printf("=== [taskRunner.OnTaskRunning %s] %F ===\n", run.Target.Meta.Name, float64(progress.Current)/float64(progress.Total))
 			}
 		}
 	})
@@ -363,7 +354,6 @@ type TargetRunner interface {
 	Stop(name string) error
 	GetStatus(name string) (*remoteread.TargetStatus, error)
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
-	SetRemoteReaderClient(client RemoteReader)
 }
 
 type taskingTargetRunner struct {
@@ -499,9 +489,9 @@ func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[re
 	runner.runner.SetRemoteWriteClient(client)
 }
 
-func (runner *taskingTargetRunner) SetRemoteReaderClient(client RemoteReader) {
-	runner.runnerMu.Lock()
-	defer runner.runnerMu.Unlock()
+// func (runner *taskingTargetRunner) SetRemoteReaderClient(client RemoteReader) {
+// 	runner.runnerMu.Lock()
+// 	defer runner.runnerMu.Unlock()
 
-	runner.runner.SetRemoteReaderClient(client)
-}
+// 	runner.runner.SetRemoteReaderClient(client)
+// }

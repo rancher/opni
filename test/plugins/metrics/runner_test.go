@@ -50,9 +50,11 @@ func newRespondingReader() *mockRemoteReader {
 
 var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	var (
-		failingReader = &mockRemoteReader{
-			Error: fmt.Errorf("failed"),
-		}
+		// todo: set up a mock prometheus endpoint since we no longer handle readers
+
+		// failingReader = &mockRemoteReader{
+		// 	Error: fmt.Errorf("failed"),
+		// }
 
 		runner agent.TargetRunner
 
@@ -108,7 +110,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("target runner cannot reach target endpoint", func() {
 		It("should fail", func() {
-			runner.SetRemoteReaderClient(failingReader)
+			// runner.SetRemoteReaderClient(failingReader)
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
@@ -137,7 +139,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("editing and restarting failed import", func() {
 		It("should succeed", func() {
-			runner.SetRemoteReaderClient(newRespondingReader())
+			// runner.SetRemoteReaderClient(newRespondingReader())
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
@@ -175,7 +177,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	When("target runner can reach target endpoint", func() {
 		It("should complete", func() {
-			runner.SetRemoteReaderClient(newRespondingReader())
+			// runner.SetRemoteReaderClient(newRespondingReader())
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())
@@ -213,7 +215,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	When("target is stopped during push", func() {
 		It("should be marked as stopped", func() {
 			// new reader with the longest possible delay
-			runner.SetRemoteReaderClient(newRespondingReader())
+			// runner.SetRemoteReaderClient(newRespondingReader())
 			runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 				return &mockRemoteWriteClient{
 					Delay: math.MaxInt64,
@@ -247,7 +249,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 					Error: fmt.Errorf("context canceled"),
 				}
 			}))
-			runner.SetRemoteReaderClient(newRespondingReader())
+			// runner.SetRemoteReaderClient(newRespondingReader())
 
 			err := runner.Start(target, query)
 			Expect(err).NotTo(HaveOccurred())

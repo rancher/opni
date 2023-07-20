@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -68,7 +67,6 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 		targetRunner: NewTargetRunner(lg),
 	}
 	mn.conditions.AddListener(mn.sendHealthUpdate)
-	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 
 	// FIXME: this is a hack, update the old sync code to use delegates instead
 	mn.conditions.AddListener(func(key string) {

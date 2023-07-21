@@ -102,6 +102,12 @@ kube-prometheus-stack:
   alertmanager:
     enabled: false # disable the default Alertmanager deployment
 
+import-buffer:
+  enabled: false
+  resources:
+    requests:
+      storage: 10Gi
+
 global:
   cattle:
     systemDefaultRegistry: ""

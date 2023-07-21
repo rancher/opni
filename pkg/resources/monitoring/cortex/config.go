@@ -5,14 +5,13 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/samber/lo"
-	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	"go.uber.org/zap"
 
 	"github.com/cortexproject/cortex/pkg/util/tls"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +19,7 @@ import (
 )
 
 func (r *Reconciler) config() ([]resources.Resource, error) {
-	if lo.FromPtr(r.mc.Spec.Cortex.Enabled) {
+	if lo.FromPtr(r.mc.Spec.Cortex.Enabled) { // nil defaults to false
 		return []resources.Resource{
 			resources.Absent(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -39,26 +38,9 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		}, nil
 	}
 
-	if r.mc.Spec.Cortex.CortexConfig.GetStorage() == nil {
-		r.logger.Warn("No cortex storage configured; using volatile EmptyDir storage. It is recommended to configure a storage backend.")
-		r.mc.Spec.Cortex.CortexConfig.Storage = &storagev1.StorageSpec{
-			Backend: storagev1.Filesystem,
-			Filesystem: &storagev1.FilesystemStorageSpec{
-				Directory: "/data",
-			},
-		}
+	if r.mc.Spec.Cortex.CortexConfig == nil {
+		r.mc.Spec.Cortex.CortexConfig = &cortexops.CortexApplicationConfig{}
 	}
-
-	logLevel := logging.Level{}
-	level := r.mc.Spec.Cortex.CortexConfig.GetLogLevel()
-	if level == "" {
-		level = "info"
-	}
-	if err := logLevel.Set(level); err != nil {
-		return nil, err
-	}
-	logFmt := logging.Format{}
-	logFmt.Set("json")
 
 	tlsCortexClientConfig := tls.ClientConfig{
 		CAPath:     "/run/cortex/certs/client/ca.crt",

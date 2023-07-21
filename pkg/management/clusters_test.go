@@ -13,8 +13,8 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -248,8 +248,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = stream.Recv()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring(storage.ErrNotFound.Error()))
+		Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 	})
 	It("should not allow editing immutable labels", func() {
 		c := &corev1.Cluster{

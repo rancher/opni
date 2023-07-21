@@ -116,8 +116,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				StorageBackend:  storageBackend,
 			})
 		})
-	future.Wait3(p.cortexClientSet, p.config, p.backendKvClients, func(
-		cortexClientSet cortex.ClientSet,
+	future.Wait2(p.config, p.backendKvClients, func(
 		config *v1beta1.GatewayConfig,
 		backendKvClients *backend.KVClients,
 	) {
@@ -142,9 +141,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.logger.With(
 				"driver", driverName,
 				zap.Error(err),
-			).Error("failed to initialize cluster driver")
+			).Panic("failed to initialize cluster driver")
 			return
 		}
+		p.logger.With(
+			"driver", driverName,
+		).Info("initialized cluster driver")
 		p.clusterDriver.Set(driver)
 	})
 	future.Wait7(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate, p.backendKvClients,

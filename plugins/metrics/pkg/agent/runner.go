@@ -17,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"github.com/samber/lo"
@@ -205,6 +204,46 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 	}
 }
 
+func (tr *taskRunner) runPush(ctx context.Context, stopChan chan struct{}, activeTask task.ActiveTask, run *TargetRunMetadata) error {
+	progress := &corev1.Progress{
+		Current: 0,
+		Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli() - run.Query.StartTimestamp.AsTime().UnixMilli()),
+	}
+	activeTask.SetProgress(progress)
+
+	for progress.Current < progress.Total {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-stopChan:
+			return nil
+		default: // continue pushing
+		}
+
+		meta, getErr := tr.buffer.Get(ctx, run.Target.Meta.Name)
+		if getErr != nil {
+			if !errors.Is(getErr, ErrBufferNotFound) {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", getErr.Error()))
+			}
+			continue
+		}
+
+		activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
+
+		if err := tr.doPush(ctx, meta.WriteChunk); err != nil {
+			close(stopChan)
+			return err
+		}
+
+		progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
+
+		progress.Current += progressDelta
+		activeTask.SetProgress(progress)
+	}
+
+	return nil
+}
+
 func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *TargetRunMetadata, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	expbackoff := tr.backoffPolicy.Start(ctx)
 
@@ -227,126 +266,103 @@ func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *Targ
 	}
 }
 
-func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) runRead(ctx context.Context, stopChan chan struct{}, activeTask task.ActiveTask, run *TargetRunMetadata) error {
 	limit := util.DefaultWriteLimit()
 
-	wc := waitctx.FromContext(ctx)
+	labelMatchers := toLabelMatchers(run.Query.Matchers)
 
+	importEnd := run.Query.EndTimestamp.AsTime().UnixMilli()
+	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
+	nextEnd := nextStart
+
+	reader := NewRemoteReader(&http.Client{})
+
+	for nextStart < importEnd {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-stopChan:
+			return nil
+		default: // continue reading
+		}
+
+		nextStart = nextEnd
+		nextEnd = nextStart + TimeDeltaMillis
+
+		if nextStart >= importEnd {
+			break
+		}
+
+		if nextEnd >= importEnd {
+			nextEnd = importEnd
+		}
+
+		readRequest := &prompb.ReadRequest{
+			Queries: []*prompb.Query{
+				{
+					StartTimestampMs: nextStart,
+					EndTimestampMs:   nextEnd,
+					Matchers:         labelMatchers,
+				},
+			},
+		}
+
+		readResponse, err := tr.doRead(ctx, reader, run, readRequest)
+		if err != nil {
+			close(stopChan)
+			return err
+		}
+
+		writeRequest := &prompb.WriteRequest{
+			Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
+				return lo.FromPtr(t)
+			}),
+			Metadata: []prompb.MetricMetadata{},
+		}
+
+		var chunks []*prompb.WriteRequest
+
+		chunks, err = util.SplitChunksWithLimit(writeRequest, limit)
+		if err != nil {
+			close(stopChan)
+			return err
+		}
+
+		activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
+
+		lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
+			if err := tr.buffer.Add(ctx, run.Target.Meta.Name, WriteMetadata{
+				Query:         readRequest.Queries[0],
+				WriteChunk:    chunk,
+				ProgressRatio: 1.0 / float64(len(chunks)),
+			}); err != nil {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not add chunk to buffer: %s", err.Error()))
+			}
+		})
+	}
+
+	return nil
+}
+
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	run := &TargetRunMetadata{}
 	activeTask.LoadTaskMetadata(run)
 
-	var err error
+	stopChan := make(chan struct{})
 
-	waitctx.Go(wc, func() {
-		labelMatchers := toLabelMatchers(run.Query.Matchers)
+	var eg util.MultiErrGroup
 
-		importEnd := run.Query.EndTimestamp.AsTime().UnixMilli()
-		nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
-		nextEnd := nextStart
-
-		reader := NewRemoteReader(&http.Client{})
-
-		for err == nil && nextStart < importEnd {
-			select {
-			case <-wc.Done():
-				return
-			default: // continue reading
-			}
-
-			nextStart = nextEnd
-			nextEnd = nextStart + TimeDeltaMillis
-
-			if nextStart >= importEnd {
-				break
-			}
-
-			if nextEnd >= importEnd {
-				nextEnd = importEnd
-			}
-
-			readRequest := &prompb.ReadRequest{
-				Queries: []*prompb.Query{
-					{
-						StartTimestampMs: nextStart,
-						EndTimestampMs:   nextEnd,
-						Matchers:         labelMatchers,
-					},
-				},
-			}
-
-			var readResponse *prompb.ReadResponse
-
-			readResponse, err = tr.doRead(wc, reader, run, readRequest)
-			if err != nil {
-				return
-			}
-
-			writeRequest := &prompb.WriteRequest{
-				Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
-					return lo.FromPtr(t)
-				}),
-				Metadata: []prompb.MetricMetadata{},
-			}
-
-			var chunks []*prompb.WriteRequest
-
-			chunks, err = util.SplitChunksWithLimit(writeRequest, limit)
-			if err != nil {
-				return
-			}
-
-			activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
-
-			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
-				if err := tr.buffer.Add(wc, run.Target.Meta.Name, WriteMetadata{
-					Query:         readRequest.Queries[0],
-					WriteChunk:    chunk,
-					ProgressRatio: 1.0 / float64(len(chunks)),
-				}); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not add chunk to buffer: %s", err.Error()))
-				}
-			})
-		}
+	eg.Go(func() error {
+		return tr.runRead(ctx, stopChan, activeTask, run)
 	})
 
-	waitctx.Go(wc, func() {
-		progress := &corev1.Progress{
-			Current: 0,
-			Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli() - run.Query.StartTimestamp.AsTime().UnixMilli()),
-		}
-		activeTask.SetProgress(progress)
-
-		for err == nil && progress.Current < progress.Total {
-			select {
-			case <-wc.Done():
-				return
-			default: // continue pushing
-			}
-
-			meta, getErr := tr.buffer.Get(wc, run.Target.Meta.Name)
-			if getErr != nil {
-				if !errors.Is(getErr, ErrBufferNotFound) {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", getErr.Error()))
-				}
-				continue
-			}
-
-			activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
-
-			if err = tr.doPush(wc, meta.WriteChunk); err != nil {
-				return
-			}
-
-			progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
-
-			progress.Current += progressDelta
-			activeTask.SetProgress(progress)
-		}
+	eg.Go(func() error {
+		return tr.runPush(ctx, stopChan, activeTask, run)
 	})
 
-	waitctx.Wait(wc)
+	eg.Wait()
 
-	if err != nil {
+	if err := eg.Error(); err != nil {
 		activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
 		return err
 	}

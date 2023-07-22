@@ -124,7 +124,6 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 				return status.State
 			}).Should(Equal(remoteread.TargetState_Completed))
 
-			// log message timing is not guaranteed
 			Eventually(func() string {
 				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.Message
@@ -183,6 +182,41 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 			AssertTargetStatus(expected, status)
 			Expect(len(writerClient.Payloads)).To(Equal(1))
+		})
+
+		It("should complete with large payload", func() {
+			target.Spec.Endpoint = fmt.Sprintf("http://%s/large", addr)
+
+			err := runner.Start(target, query)
+			Expect(err).NotTo(HaveOccurred())
+
+			var status *remoteread.TargetStatus
+			Eventually(func() remoteread.TargetState {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.State
+			}).Should(Equal(remoteread.TargetState_Completed))
+
+			Eventually(func() string {
+				status, _ = runner.GetStatus(target.Meta.Name)
+				return status.Message
+			}).Should(Equal("completed"))
+
+			expected := &remoteread.TargetStatus{
+				Progress: &remoteread.TargetProgress{
+					StartTimestamp: &timestamppb.Timestamp{},
+					LastReadTimestamp: &timestamppb.Timestamp{
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+					},
+					EndTimestamp: &timestamppb.Timestamp{
+						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
+					},
+				},
+				Message: "completed",
+				State:   remoteread.TargetState_Completed,
+			}
+
+			AssertTargetStatus(expected, status)
+			Expect(len(writerClient.Payloads)).To(Equal(4))
 		})
 	})
 

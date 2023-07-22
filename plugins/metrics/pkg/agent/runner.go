@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,7 +29,8 @@ import (
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
 
-const BufferDir = "/var/lib/opni-agent/import-buffer"
+// const BufferDir = "/var/lib/opni-agent/import-buffer"
+const BufferDir = "import-buffer"
 
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
@@ -140,13 +142,12 @@ type taskRunner struct {
 
 	logger *zap.SugaredLogger
 
-	buffer Buffer[WriteMetadata]
+	buffer ChunkBuffer
 }
 
 func newTaskRunner(logger *zap.SugaredLogger) (*taskRunner, error) {
 	buffer, err := NewDiskBuffer(BufferDir)
 	if err != nil {
-		err := fmt.Errorf("could not create buffer: %w", err)
 		return nil, fmt.Errorf("could not create buffer: %w", err)
 	}
 
@@ -301,7 +302,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 			activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
 
 			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
-				if err := tr.buffer.Add(wc, WriteMetadata{
+				if err := tr.buffer.Add(wc, run.Target.Meta.Name, WriteMetadata{
 					Target:        run.Target.Meta.Name,
 					Query:         readRequest.Queries[0],
 					WriteChunk:    chunk,
@@ -329,9 +330,11 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 
 			var meta WriteMetadata
 
-			meta, err = tr.buffer.Get(wc)
+			meta, err = tr.buffer.Get(wc, run.Target.Meta.Name)
 			if err != nil {
-				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", err.Error()))
+				if !errors.Is(err, ErrBufferNotFound) {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", err.Error()))
+				}
 				continue
 			}
 
@@ -358,14 +361,15 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 	return ctx.Err()
 }
 
-func (tr *taskRunner) OnTaskCompleted(_ context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
+func (tr *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
 	switch state {
 	case task.StateCompleted:
 		activeTask.AddLogEntry(zapcore.InfoLevel, "completed")
 	case task.StateFailed:
-		// a log will be added in OnTaskRunning for failed imports so we don't need to log anything here
+		tr.buffer.Delete(ctx, activeTask.TaskId())
 	case task.StateCanceled:
 		activeTask.AddLogEntry(zapcore.WarnLevel, "canceled")
+		tr.buffer.Delete(ctx, activeTask.TaskId())
 	}
 }
 

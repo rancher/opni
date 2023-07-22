@@ -28,6 +28,8 @@ import (
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
 
+const BufferDir = "/var/lib/opni-agent/import-buffer"
+
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
 
@@ -78,7 +80,9 @@ type TargetRunMetadata struct {
 }
 
 // todo: could probably find a better name for this
+// todo: replace ProgressRatio and Query with a ProgressDelta
 type WriteMetadata struct {
+	Target     string
 	Query      *prompb.Query
 	WriteChunk *prompb.WriteRequest
 
@@ -135,9 +139,17 @@ type taskRunner struct {
 	backoffPolicy backoff.Policy
 
 	logger *zap.SugaredLogger
+
+	buffer Buffer[WriteMetadata]
 }
 
-func newTaskRunner(logger *zap.SugaredLogger) *taskRunner {
+func newTaskRunner(logger *zap.SugaredLogger) (*taskRunner, error) {
+	buffer, err := NewDiskBuffer(BufferDir)
+	if err != nil {
+		err := fmt.Errorf("could not create buffer: %w", err)
+		return nil, fmt.Errorf("could not create buffer: %w", err)
+	}
+
 	return &taskRunner{
 		backoffPolicy: backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -146,7 +158,8 @@ func newTaskRunner(logger *zap.SugaredLogger) *taskRunner {
 			backoff.WithMultiplier(1.1),
 		),
 		logger: logger.Named("task-runner"),
-	}
+		buffer: buffer,
+	}, nil
 }
 
 func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -220,10 +233,6 @@ func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *Targ
 func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
 	limit := util.DefaultWriteLimit()
 
-	b := &memoryBuffer[WriteMetadata]{
-		ch: make(chan WriteMetadata),
-	}
-
 	wc := waitctx.FromContext(ctx)
 
 	run := &TargetRunMetadata{}
@@ -292,7 +301,8 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 			activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
 
 			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
-				if err := b.Add(wc, WriteMetadata{
+				if err := tr.buffer.Add(wc, WriteMetadata{
+					Target:        run.Target.Meta.Name,
 					Query:         readRequest.Queries[0],
 					WriteChunk:    chunk,
 					ProgressRatio: 1.0 / float64(len(chunks)),
@@ -319,7 +329,7 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 
 			var meta WriteMetadata
 
-			meta, err = b.Get(wc)
+			meta, err = tr.buffer.Get(wc)
 			if err != nil {
 				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", err.Error()))
 				continue
@@ -380,7 +390,10 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 		inner: make(map[string]*corev1.TaskStatus),
 	}
 
-	runner := newTaskRunner(logger)
+	runner, err := newTaskRunner(logger)
+	if err != nil {
+		panic(fmt.Sprintf("bug: failed to create target task runner: %s", err))
+	}
 
 	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {

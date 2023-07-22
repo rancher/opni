@@ -84,7 +84,6 @@ type TargetRunMetadata struct {
 // todo: could probably find a better name for this
 // todo: replace ProgressRatio and Query with a ProgressDelta
 type WriteMetadata struct {
-	Target     string
 	Query      *prompb.Query
 	WriteChunk *prompb.WriteRequest
 
@@ -303,7 +302,6 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 
 			lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
 				if err := tr.buffer.Add(wc, run.Target.Meta.Name, WriteMetadata{
-					Target:        run.Target.Meta.Name,
 					Query:         readRequest.Queries[0],
 					WriteChunk:    chunk,
 					ProgressRatio: 1.0 / float64(len(chunks)),
@@ -328,12 +326,10 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 			default: // continue pushing
 			}
 
-			var meta WriteMetadata
-
-			meta, err = tr.buffer.Get(wc, run.Target.Meta.Name)
-			if err != nil {
-				if !errors.Is(err, ErrBufferNotFound) {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", err.Error()))
+			meta, getErr := tr.buffer.Get(wc, run.Target.Meta.Name)
+			if getErr != nil {
+				if !errors.Is(getErr, ErrBufferNotFound) {
+					activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", getErr.Error()))
 				}
 				continue
 			}
@@ -362,14 +358,16 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 }
 
 func (tr *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
+	if err := tr.buffer.Delete(ctx, activeTask.TaskId()); err != nil {
+		activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not delete task from buffer: %s", err.Error()))
+	}
+
 	switch state {
 	case task.StateCompleted:
 		activeTask.AddLogEntry(zapcore.InfoLevel, "completed")
 	case task.StateFailed:
-		tr.buffer.Delete(ctx, activeTask.TaskId())
 	case task.StateCanceled:
 		activeTask.AddLogEntry(zapcore.WarnLevel, "canceled")
-		tr.buffer.Delete(ctx, activeTask.TaskId())
 	}
 }
 
@@ -502,11 +500,15 @@ func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetSta
 		state = remoteread.TargetState_Canceled
 	}
 
-	return &remoteread.TargetStatus{
+	status := &remoteread.TargetStatus{
 		Progress: statusProgress,
 		Message:  getMessageFromTaskLogs(taskStatus.Logs),
 		State:    state,
-	}, nil
+	}
+
+	// fmt.Printf("=== [taskingTargetRunner.GetStatus] 000 %s ===\n", status)
+
+	return status, nil
 }
 
 func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {

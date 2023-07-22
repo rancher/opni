@@ -63,10 +63,10 @@ func (b *diskBuffer) Add(_ context.Context, name string, meta WriteMetadata) err
 	}
 
 	// todo: will create a new directory for each target name which will not be cleaned up internally
-	filePath := path.Join(b.dir, meta.Target, uuid.New().String())
+	filePath := path.Join(b.dir, name, uuid.New().String())
 
 	if err := os.MkdirAll(path.Dir(filePath), 0755); err != nil && !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("could not create buffer directory for target '%s': %w", meta.Target, err)
+		return fmt.Errorf("could not create buffer directory for target '%s': %w", name, err)
 	}
 
 	uncompressed, err := json.Marshal(meta)

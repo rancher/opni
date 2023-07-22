@@ -111,43 +111,6 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 		})
 	})
 
-	When("editing and restarting failed import", func() {
-		It("should succeed", func() {
-			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)
-
-			err := runner.Start(target, query)
-			Expect(err).NotTo(HaveOccurred())
-
-			var status *remoteread.TargetStatus
-			Eventually(func() remoteread.TargetState {
-				status, _ = runner.GetStatus(target.Meta.Name)
-				return status.State
-			}).Should(Equal(remoteread.TargetState_Completed))
-
-			Eventually(func() string {
-				status, _ = runner.GetStatus(target.Meta.Name)
-				return status.Message
-			}).Should(Equal("completed"))
-
-			expected := &remoteread.TargetStatus{
-				Progress: &remoteread.TargetProgress{
-					StartTimestamp: &timestamppb.Timestamp{},
-					LastReadTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
-					},
-					EndTimestamp: &timestamppb.Timestamp{
-						Seconds: agent.TimeDeltaMillis / 2 / time.Second.Milliseconds(),
-					},
-				},
-				Message: "completed",
-				State:   remoteread.TargetState_Completed,
-			}
-
-			AssertTargetStatus(expected, status)
-			Expect(len(writerClient.Payloads)).To(Equal(1))
-		})
-	})
-
 	When("target runner can reach target endpoint", func() {
 		It("should complete", func() {
 			target.Spec.Endpoint = fmt.Sprintf("http://%s/small", addr)

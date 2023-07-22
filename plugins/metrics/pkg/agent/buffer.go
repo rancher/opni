@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrBufferNotFound error = fmt.Errorf("buffer not found")
+var ErrBufferNotFound = fmt.Errorf("buffer not found")
 
 type ChunkBuffer interface {
 	// Add blo cks until the value can be added to the buffer.
@@ -35,7 +35,6 @@ type diskBuffer struct {
 	chunkChans map[string]chan string
 }
 
-// todo: reconcile pre-existing chunks (useful for pod restarts during import)
 func NewDiskBuffer(dir string) (ChunkBuffer, error) {
 	buffer := &diskBuffer{
 		dir:        path.Join(BufferDir),
@@ -46,7 +45,41 @@ func NewDiskBuffer(dir string) (ChunkBuffer, error) {
 		return nil, fmt.Errorf("could not create buffer directory: %w", err)
 	}
 
+	if err := buffer.reconcileExistingChunks(); err != nil {
+		return nil, err
+	}
+
 	return buffer, nil
+}
+
+func (b *diskBuffer) reconcileExistingChunks() error {
+	entries, err := os.ReadDir(b.dir)
+	if err != nil {
+		return fmt.Errorf("could not reconcile existing chunks: %w", err)
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		chunkChan := make(chan string, 100)
+
+		b.chanLocker.Lock()
+		b.chunkChans[e.Name()] = chunkChan
+		b.chanLocker.Unlock()
+
+		subBufferDir := path.Join(b.dir, e.Name())
+		subEntries, err := os.ReadDir(subBufferDir)
+		if err != nil {
+			return fmt.Errorf("could not reconcile existing chunks: %w", err)
+		}
+
+		for _, se := range subEntries {
+			chunkChan <- path.Join(subBufferDir, se.Name())
+		}
+	}
+	return nil
 }
 
 func (b *diskBuffer) Add(_ context.Context, name string, meta WriteMetadata) error {
@@ -62,7 +95,6 @@ func (b *diskBuffer) Add(_ context.Context, name string, meta WriteMetadata) err
 		b.chanLocker.Unlock()
 	}
 
-	// todo: will create a new directory for each target name which will not be cleaned up internally
 	filePath := path.Join(b.dir, name, uuid.New().String())
 
 	if err := os.MkdirAll(path.Dir(filePath), 0755); err != nil && !errors.Is(err, os.ErrExist) {
@@ -123,7 +155,7 @@ func (b *diskBuffer) Get(ctx context.Context, name string) (WriteMetadata, error
 	}
 }
 
-func (b *diskBuffer) Delete(ctx context.Context, name string) error {
+func (b *diskBuffer) Delete(_ context.Context, name string) error {
 	b.chanLocker.Lock()
 	delete(b.chunkChans, name)
 	b.chanLocker.Unlock()

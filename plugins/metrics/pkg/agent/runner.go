@@ -29,8 +29,7 @@ import (
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
 
-// const BufferDir = "/var/lib/opni-agent/import-buffer"
-const BufferDir = "import-buffer"
+const BufferDir = "/var/lib/opni-agent/import-buffer"
 
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
@@ -81,8 +80,6 @@ type TargetRunMetadata struct {
 	Query  *remoteread.Query
 }
 
-// todo: could probably find a better name for this
-// todo: replace ProgressRatio and Query with a ProgressDelta
 type WriteMetadata struct {
 	Query      *prompb.Query
 	WriteChunk *prompb.WriteRequest

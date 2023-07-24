@@ -6,6 +6,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/storage/lock"
 )
 
 type Backend interface {
@@ -85,6 +86,20 @@ type SubjectAccessCapableStore interface {
 }
 
 type WatchEventType string
+
+type Lock interface {
+	Lock() error
+	Unlock() error
+}
+
+type RWLock interface {
+	RLock() error
+	RUnlock() error
+}
+
+type LockManager interface {
+	Locker(key string, opts ...lock.LockOption) Lock
+}
 
 const (
 	WatchEventCreate WatchEventType = "PUT"

@@ -157,7 +157,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 			Eventually(func() remoteread.TargetState {
 				status, _ = runner.GetStatus(target.Meta.Name)
 				return status.State
-			}).Should(Equal(remoteread.TargetState_Completed))
+			}, "5s").Should(Equal(remoteread.TargetState_Completed))
 
 			Eventually(func() string {
 				status, _ = runner.GetStatus(target.Meta.Name)

@@ -17,13 +17,67 @@ var ErrBufferNotFound = fmt.Errorf("buffer not found")
 
 type ChunkBuffer interface {
 	// Add blo cks until the value can be added to the buffer.
-	Add(context.Context, string, WriteMetadata) error
+	Add(context.Context, string, ChunkMetadata) error
 
 	// Get blocks until a value can be retrieved from the buffer.
-	Get(context.Context, string) (WriteMetadata, error)
+	Get(context.Context, string) (ChunkMetadata, error)
 
 	// Delete removes a buffer for the named task from the buffer.
 	Delete(context.Context, string) error
+}
+
+type memoryBuffer struct {
+	chanLocker sync.RWMutex
+	chunkChan  map[string]chan ChunkMetadata
+}
+
+func NewMemoryBuffer() ChunkBuffer {
+	return &memoryBuffer{
+		chunkChan: make(map[string]chan ChunkMetadata),
+	}
+}
+
+func (b *memoryBuffer) Add(_ context.Context, name string, meta ChunkMetadata) error {
+	b.chanLocker.RLock()
+	chunkChan, found := b.chunkChan[name]
+	b.chanLocker.RUnlock()
+
+	if !found {
+		chunkChan = make(chan ChunkMetadata)
+
+		b.chanLocker.Lock()
+		b.chunkChan[name] = chunkChan
+		b.chanLocker.Unlock()
+	}
+
+	chunkChan <- meta
+
+	return nil
+}
+
+func (b *memoryBuffer) Get(ctx context.Context, name string) (ChunkMetadata, error) {
+	b.chanLocker.RLock()
+	chunkChan, found := b.chunkChan[name]
+	b.chanLocker.RUnlock()
+
+	if !found {
+		return ChunkMetadata{}, ErrBufferNotFound
+	}
+
+	select {
+	case <-ctx.Done():
+		return ChunkMetadata{}, ctx.Err()
+	case meta := <-chunkChan:
+		return meta, nil
+	}
+}
+
+func (b *memoryBuffer) Delete(_ context.Context, name string) error {
+	b.chanLocker.Lock()
+	delete(b.chunkChan, name)
+	b.chanLocker.Unlock()
+
+	return nil
 }
 
 type diskBuffer struct {
@@ -55,6 +109,10 @@ func NewDiskBuffer(dir string) (ChunkBuffer, error) {
 func (b *diskBuffer) reconcileExistingChunks() error {
 	entries, err := os.ReadDir(b.dir)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
 		return fmt.Errorf("could not reconcile existing chunks: %w", err)
 	}
 
@@ -82,7 +140,7 @@ func (b *diskBuffer) reconcileExistingChunks() error {
 	return nil
 }
 
-func (b *diskBuffer) Add(_ context.Context, name string, meta WriteMetadata) error {
+func (b *diskBuffer) Add(_ context.Context, name string, meta ChunkMetadata) error {
 	b.chanLocker.RLock()
 	chunkChan, found := b.chunkChans[name]
 	b.chanLocker.RUnlock()
@@ -119,36 +177,36 @@ func (b *diskBuffer) Add(_ context.Context, name string, meta WriteMetadata) err
 	return nil
 }
 
-func (b *diskBuffer) Get(ctx context.Context, name string) (WriteMetadata, error) {
+func (b *diskBuffer) Get(ctx context.Context, name string) (ChunkMetadata, error) {
 	b.chanLocker.RLock()
 	chunkChan, found := b.chunkChans[name]
 	b.chanLocker.RUnlock()
 
 	if !found {
-		return WriteMetadata{}, ErrBufferNotFound
+		return ChunkMetadata{}, ErrBufferNotFound
 	}
 
 	select {
 	case <-ctx.Done():
-		return WriteMetadata{}, ctx.Err()
+		return ChunkMetadata{}, ctx.Err()
 	case path := <-chunkChan:
 		compressed, err := os.ReadFile(path)
 		if err != nil {
-			return WriteMetadata{}, fmt.Errorf("could not read chunk from buffer: %w", err)
+			return ChunkMetadata{}, fmt.Errorf("could not read chunk from buffer: %w", err)
 		}
 
 		uncompressed, err := snappy.Decode(nil, compressed)
 		if err != nil {
-			return WriteMetadata{}, fmt.Errorf("could not decompress chunk from buffer: %w", err)
+			return ChunkMetadata{}, fmt.Errorf("could not decompress chunk from buffer: %w", err)
 		}
 
-		var meta WriteMetadata
+		var meta ChunkMetadata
 		if err := json.Unmarshal(uncompressed, &meta); err != nil {
-			return WriteMetadata{}, fmt.Errorf("could not unmarshal chunk from buffer: %w", err)
+			return ChunkMetadata{}, fmt.Errorf("could not unmarshal chunk from buffer: %w", err)
 		}
 
 		if err := os.Remove(path); err != nil {
-			return WriteMetadata{}, fmt.Errorf("could not remove chunk file from disk, data may linger on system longer than expected: %w", err)
+			return ChunkMetadata{}, fmt.Errorf("could not remove chunk file from disk, data may linger on system longer than expected: %w", err)
 		}
 
 		return meta, nil

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -74,12 +75,17 @@ func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	return ""
 }
 
+func dirExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
 type TargetRunMetadata struct {
 	Target *remoteread.Target
 	Query  *remoteread.Query
 }
 
-type WriteMetadata struct {
+type ChunkMetadata struct {
 	Query      *prompb.Query
 	WriteChunk *prompb.WriteRequest
 
@@ -141,9 +147,20 @@ type taskRunner struct {
 }
 
 func newTaskRunner(logger *zap.SugaredLogger) (*taskRunner, error) {
-	buffer, err := NewDiskBuffer(BufferDir)
-	if err != nil {
-		return nil, fmt.Errorf("could not create buffer: %w", err)
+	logger = logger.Named("task-runner")
+
+	var buffer ChunkBuffer
+	var err error
+
+	// if buffer volume is not mounted use a simple blocking buffer
+	if !dirExists(BufferDir) {
+		logger.Infof("buffer not enabled, using in memory buffer")
+		buffer = NewMemoryBuffer()
+	} else {
+		buffer, err = NewDiskBuffer(BufferDir)
+		if err != nil {
+			return nil, fmt.Errorf("could not create buffer: %w", err)
+		}
 	}
 
 	return &taskRunner{
@@ -153,7 +170,7 @@ func newTaskRunner(logger *zap.SugaredLogger) (*taskRunner, error) {
 			backoff.WithMaxInterval(5*time.Minute),
 			backoff.WithMultiplier(1.1),
 		),
-		logger: logger.Named("task-runner"),
+		logger: logger,
 		buffer: buffer,
 	}, nil
 }
@@ -331,7 +348,7 @@ func (tr *taskRunner) runRead(ctx context.Context, stopChan chan struct{}, activ
 		activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
 
 		lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
-			if err := tr.buffer.Add(ctx, run.Target.Meta.Name, WriteMetadata{
+			if err := tr.buffer.Add(ctx, run.Target.Meta.Name, ChunkMetadata{
 				Query:         readRequest.Queries[0],
 				WriteChunk:    chunk,
 				ProgressRatio: 1.0 / float64(len(chunks)),
@@ -518,8 +535,6 @@ func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetSta
 		Message:  getMessageFromTaskLogs(taskStatus.Logs),
 		State:    state,
 	}
-
-	// fmt.Printf("=== [taskingTargetRunner.GetStatus] 000 %s ===\n", status)
 
 	return status, nil
 }

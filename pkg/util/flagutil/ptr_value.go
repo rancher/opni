@@ -92,5 +92,61 @@ func (i *uintPtrValue[T]) Type() string {
 }
 
 func (i *uintPtrValue[T]) String() string {
+	if *i.p == nil {
+		return "nil"
+	}
 	return strconv.FormatUint(uint64(**i.p), 10)
+}
+
+type floatPtrValue[T constraints.Float] struct {
+	p **T
+}
+
+func FloatPtrValue[T constraints.Float](p **T) pflag.Value {
+	return &floatPtrValue[T]{p}
+}
+
+func (i *floatPtrValue[T]) Set(s string) error {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return err
+	}
+	tv := T(v)
+	*i.p = &tv
+	return nil
+}
+
+func (i *floatPtrValue[T]) Type() string {
+	return reflect.TypeOf(T(0)).Name()
+}
+
+func (i *floatPtrValue[T]) String() string {
+	if *i.p == nil {
+		return "nil"
+	}
+	return strconv.FormatFloat(float64(**i.p), 'g', -1, 64)
+}
+
+type stringPtrValue struct {
+	p **string
+}
+
+func StringPtrValue(p **string) pflag.Value {
+	return &stringPtrValue{p}
+}
+
+func (s *stringPtrValue) Set(v string) error {
+	*s.p = &v
+	return nil
+}
+
+func (s *stringPtrValue) Type() string {
+	return "string"
+}
+
+func (s *stringPtrValue) String() string {
+	if *s.p == nil {
+		return "nil"
+	}
+	return **s.p
 }

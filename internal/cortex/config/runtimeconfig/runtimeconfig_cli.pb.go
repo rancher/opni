@@ -57,7 +57,7 @@ func (in *RuntimeConfigValues) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *KvMultiRuntimeConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("KvMultiRuntimeConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&in.Primary, strings.Join(append(prefix, "primary"), "."), "", "")
+	fs.Var(flagutil.StringPtrValue(&in.Primary), strings.Join(append(prefix, "primary"), "."), "")
 	fs.Var(flagutil.BoolPtrValue(&in.MirrorEnabled), strings.Join(append(prefix, "mirror-enabled"), "."), "")
 	return fs
 }
@@ -65,9 +65,9 @@ func (in *KvMultiRuntimeConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *IngesterInstanceLimits) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("IngesterInstanceLimits", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Float64Var(&in.MaxIngestionRate, strings.Join(append(prefix, "max-ingestion-rate"), "."), 0.0, "")
-	fs.Int64Var(&in.MaxTenants, strings.Join(append(prefix, "max-tenants"), "."), 0, "")
-	fs.Int64Var(&in.MaxSeries, strings.Join(append(prefix, "max-series"), "."), 0, "")
-	fs.Int64Var(&in.MaxInflightPushRequests, strings.Join(append(prefix, "max-inflight-push-requests"), "."), 0, "")
+	fs.Var(flagutil.FloatPtrValue(&in.MaxIngestionRate), strings.Join(append(prefix, "max-ingestion-rate"), "."), "")
+	fs.Var(flagutil.IntPtrValue(&in.MaxTenants), strings.Join(append(prefix, "max-tenants"), "."), "")
+	fs.Var(flagutil.IntPtrValue(&in.MaxSeries), strings.Join(append(prefix, "max-series"), "."), "")
+	fs.Var(flagutil.IntPtrValue(&in.MaxInflightPushRequests), strings.Join(append(prefix, "max-inflight-push-requests"), "."), "")
 	return fs
 }

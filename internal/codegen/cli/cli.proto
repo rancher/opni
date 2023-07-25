@@ -49,8 +49,9 @@ message FlagSetOptions {
 }
 
 message CommandGroupOptions {
-  string use      = 25601;
-  string group_id = 25602;
+  string use          = 25601;
+  string group_id     = 25602;
+  bool   enable_hooks = 25603;
 }
 
 message CommandOptions {
@@ -58,4 +59,5 @@ message CommandOptions {
   repeated string aliases        = 25602;
   repeated string required_flags = 25603;
   bool            skip           = 25604;
+  bool            enable_hooks   = 25605;
 }

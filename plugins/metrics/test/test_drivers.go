@@ -186,8 +186,9 @@ func (k *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops
 		return nil, err
 	}
 	return &cortexops.DryRunResponse{
-		Current:  res.Current,
-		Modified: res.Modified,
+		Current:          res.Current,
+		Modified:         res.Modified,
+		ValidationErrors: configutil.CollectValidationErrorLogs(res.Modified.GetCortexConfig()),
 	}, nil
 }
 

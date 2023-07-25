@@ -97,9 +97,10 @@ var customFieldTypes = map[reflect.Type]func() *builder.FieldType{}
 
 func generate[T any](destFilename string, skipFunc ...func(rf reflect.StructField) bool) error {
 	messages := descriptors.BuildMessage[T](descriptors.BuilderOptions{
-		FieldNameFromTags: []string{"json", "yaml"},
-		EditFlagOptions:   editFlagOptions,
-		EditFieldComment:  editFieldComment,
+		FieldNameFromTags:       []string{"json", "yaml"},
+		EditFlagOptions:         editFlagOptions,
+		EditFieldComment:        editFieldComment,
+		AllScalarFieldsOptional: true,
 		SkipFieldFunc: func(rf reflect.StructField) bool {
 			if cortexTypesToSkip[rf.Type] {
 				return true

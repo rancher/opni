@@ -9,16 +9,13 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	cobra "github.com/spf13/cobra"
+	"github.com/ttacon/chalk"
 	"google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-func init() {
-	addExtraCortexOpsCmd(BuildDryRunCmd())
-}
 
 func BuildDryRunCmd() *cobra.Command {
 	var diffFull bool
@@ -52,6 +49,12 @@ func BuildDryRunCmd() *cobra.Command {
 				return nil
 			}
 			response := dryRunClient.Response
+			if errs := response.GetValidationErrors(); len(errs) > 0 {
+				cmd.Println(fmt.Sprintf("validation errors occurred (%d):", len(errs)))
+				for _, errMsg := range errs {
+					cmd.Println("- " + chalk.Red.Color(errMsg))
+				}
+			}
 
 			currentJson, _ := protojson.MarshalOptions{
 				EmitUnpopulated: true,
@@ -161,29 +164,29 @@ func (dc *DryRunClient) SetDefaultConfiguration(ctx context.Context, in *Capabil
 	return &emptypb.Empty{}, nil
 }
 
+// ListPresets implements CortexOpsClient.
+func (dc *DryRunClient) ListPresets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PresetList, error) {
+	return dc.Client.ListPresets(ctx, in, opts...)
+}
+
+// GetConfiguration implements CortexOpsClient.
+func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+	return dc.Client.GetConfiguration(ctx, in, opts...)
+}
+
+// GetDefaultConfiguration implements CortexOpsClient.
+func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+	return dc.Client.GetDefaultConfiguration(ctx, in, opts...)
+}
+
 // DryRun implements CortexOpsClient.
 func (dc *DryRunClient) DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method DryRun not implemented")
 }
 
-// GetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
-	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method GetConfiguration not implemented")
-}
-
-// GetDefaultConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
-	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method GetDefaultConfiguration not implemented")
-}
-
 // Install implements CortexOpsClient.
 func (dc *DryRunClient) Install(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Install not implemented")
-}
-
-// ListPresets implements CortexOpsClient.
-func (dc *DryRunClient) ListPresets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PresetList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method ListPresets not implemented")
 }
 
 // Status implements CortexOpsClient.

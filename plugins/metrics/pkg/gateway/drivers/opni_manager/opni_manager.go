@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -333,8 +334,9 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 		return nil, err
 	}
 	return &cortexops.DryRunResponse{
-		Current:  res.Current,
-		Modified: res.Modified,
+		Current:          res.Current,
+		Modified:         res.Modified,
+		ValidationErrors: configutil.CollectValidationErrorLogs(res.Modified.GetCortexConfig()),
 	}, nil
 }
 

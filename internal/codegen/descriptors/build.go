@@ -32,6 +32,8 @@ type BuilderOptions struct {
 	SkipFieldFunc func(rf reflect.StructField) bool
 
 	CustomFieldTypes map[reflect.Type]func() *builder.FieldType
+
+	AllScalarFieldsOptional bool
 }
 
 type Builder struct {
@@ -245,12 +247,11 @@ FIELDS:
 		}
 
 		field := builder.NewField(rfName, b.fieldType(rfType))
-		// if the field is a pointer to a scalar, set optional
-		if isPtr && isScalar(rfType) {
-			field.SetProto3Optional(true)
-		}
 		if isSlice {
 			field.SetRepeated()
+		} else if (b.AllScalarFieldsOptional || isPtr) && isScalar(rfType) {
+			// if the field is a pointer to a scalar, set optional
+			field.SetProto3Optional(true)
 		}
 		newFieldHook(field, rf)
 		m.AddField(field)
@@ -295,7 +296,10 @@ func (b *Builder) fieldType(rf reflect.Type) *builder.FieldType {
 
 func isScalar(t reflect.Type) bool {
 	switch t.Kind() {
-	case reflect.Bool, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.String:
+	case reflect.Bool, reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
 		return true
 	default:
 		return false

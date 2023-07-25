@@ -209,6 +209,12 @@ HTTP handlers for this method:
 	return cmd
 }
 
+var buildHooks_CortexOpsSetConfiguration []func(*cobra.Command)
+
+func addBuildHook_CortexOpsSetConfiguration(hook func(*cobra.Command)) {
+	buildHooks_CortexOpsSetConfiguration = append(buildHooks_CortexOpsSetConfiguration, hook)
+}
+
 func BuildCortexOpsSetConfigurationCmd() *cobra.Command {
 	in := &CapabilityBackendConfigSpec{}
 	cmd := &cobra.Command{
@@ -266,6 +272,9 @@ HTTP handlers for this method:
 	cmd.RegisterFlagCompletionFunc("cortex-config.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
 	})
+	for _, hook := range buildHooks_CortexOpsSetConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
@@ -609,13 +618,4 @@ func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
 
 func (in *DryRunResponse) DeepCopy() *DryRunResponse {
 	return proto.Clone(in).(*DryRunResponse)
-}
-
-func (in *ValidationError) DeepCopyInto(out *ValidationError) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ValidationError) DeepCopy() *ValidationError {
-	return proto.Clone(in).(*ValidationError)
 }

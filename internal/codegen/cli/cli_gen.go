@@ -272,6 +272,14 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 	g.P(" extraCmds_", service.GoName, " = append(extraCmds_", service.GoName, ", custom)")
 	g.P("}")
 	g.P()
+	if opts.EnableHooks {
+		g.P("var buildHooks_", service.GoName, " []func(*", _cobra.Ident("Command"), ")")
+		g.P()
+		g.P("func addBuildHook_", service.GoName, "(hook func(*", _cobra.Ident("Command"), ")) {")
+		g.P(" buildHooks_", service.GoName, " = append(buildHooks_", service.GoName, ", hook)")
+		g.P("}")
+		g.P()
+	}
 
 	writers.PrintCmdBuilderSignature("", service.GoName, g)
 
@@ -301,11 +309,30 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 
 	g.P(_cli.Ident("AddOutputFlag(cmd)"))
 
+	if opts.EnableHooks {
+		g.P("for _, hook := range buildHooks_", service.GoName, " {")
+		g.P(" hook(cmd)")
+		g.P("}")
+	}
+
 	g.P("return cmd")
 	g.P("}")
 }
 
 func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+	opts := CommandOptions{
+		Use: strcase.ToKebab(method.GoName),
+	}
+	applyOptions(method.Desc, &opts)
+
+	if opts.EnableHooks {
+		g.P("var buildHooks_", service.GoName, method.GoName, " []func(*", _cobra.Ident("Command"), ")")
+		g.P()
+		g.P("func addBuildHook_", service.GoName, method.GoName, "(hook func(*", _cobra.Ident("Command"), ")) {")
+		g.P(" buildHooks_", service.GoName, method.GoName, " = append(buildHooks_", service.GoName, method.GoName, ", hook)")
+		g.P("}")
+		g.P()
+	}
 	writers.PrintCmdBuilderSignature(method.GoName, service.GoName, g)
 	isEmpty := method.Input.Desc.FullName() == "google.protobuf.Empty"
 	if !isEmpty {
@@ -313,11 +340,6 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 	}
 	methodOptions := method.Desc.Options().(*descriptorpb.MethodOptions)
 	leadingComments := formatComments(method.Comments)
-
-	opts := CommandOptions{
-		Use: strcase.ToKebab(method.GoName),
-	}
-	applyOptions(method.Desc, &opts)
 
 	g.P("cmd := &", _cobra.Ident("Command"), "{")
 	g.P(" Use:   \"", opts.Use, "\",")
@@ -385,6 +407,12 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 
 	for _, requiredFlag := range opts.RequiredFlags {
 		g.P("cmd.MarkFlagRequired(\"", requiredFlag, "\")")
+	}
+
+	if opts.EnableHooks {
+		g.P("for _, hook := range buildHooks_", service.GoName, method.GoName, " {")
+		g.P(" hook(cmd)")
+		g.P("}")
 	}
 
 	g.P("return cmd")
@@ -603,6 +631,12 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						continue
 					case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
 						g.P(`fs.Var(`, _flagutil.Ident("UintPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						continue
+					case protoreflect.FloatKind, protoreflect.DoubleKind:
+						g.P(`fs.Var(`, _flagutil.Ident("FloatPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						continue
+					case protoreflect.StringKind:
+						g.P(`fs.Var(`, _flagutil.Ident("StringPtrValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 						continue
 					default:
 						panic("unimplemented: *" + field.Desc.Kind().String())

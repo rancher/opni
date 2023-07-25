@@ -91,7 +91,8 @@ service CortexOps {
   // keep an existing secret when updating the cluster configuration.
   rpc SetConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config set"
+      use:          "config set"
+      enable_hooks: true
     };
     option (google.api.http) = {
       put:  "/configuration"
@@ -273,10 +274,5 @@ message DryRunRequest {
 message DryRunResponse {
   CapabilityBackendConfigSpec current          = 1;
   CapabilityBackendConfigSpec modified         = 2;
-  repeated ValidationError    validationErrors = 3;
-}
-
-message ValidationError {
-  string path    = 1;
-  string message = 2;
+  repeated string             validationErrors = 3;
 }

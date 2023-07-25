@@ -20,19 +20,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cortexproject/cortex/pkg/alertmanager"
-	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
-	"github.com/cortexproject/cortex/pkg/api"
-	"github.com/cortexproject/cortex/pkg/chunk/cache"
 	"github.com/cortexproject/cortex/pkg/compactor"
 	"github.com/cortexproject/cortex/pkg/cortex"
-	"github.com/cortexproject/cortex/pkg/cortex/storage"
 	"github.com/cortexproject/cortex/pkg/distributor"
-	"github.com/cortexproject/cortex/pkg/flusher"
 	"github.com/cortexproject/cortex/pkg/ingester"
-	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/cortexproject/cortex/pkg/querier"
-	"github.com/cortexproject/cortex/pkg/querier/tenantfederation"
-	"github.com/cortexproject/cortex/pkg/querier/tripperware/queryrange"
 	"github.com/cortexproject/cortex/pkg/querier/worker"
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/ring/kv"
@@ -470,133 +462,61 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 
 	storageConfig := StorageToBucketConfig(in.GetStorage())
 
-	config := cortex.Config{
-		AuthEnabled: true,
-		TenantFederation: tenantfederation.Config{
-			Enabled: true,
-		},
-		API: api.Config{
-			PrometheusHTTPPrefix: "/prometheus",
-			ResponseCompression:  true,
-		},
-		Server: server.Config{
-			GPRCServerMaxConcurrentStreams: 10000,
-			GRPCServerMaxSendMsgSize:       100 << 20,
-			GPRCServerMaxRecvMsgSize:       100 << 20, // typo in upstream
-			LogLevel:                       logLevel,
-			LogFormat:                      logFmt,
-		},
-		Storage: storage.Config{
-			Engine: "blocks",
-		},
-		BlocksStorage: tsdb.BlocksStorageConfig{
-			TSDB: tsdb.TSDBConfig{
-				FlushBlocksOnShutdown: true,
-			},
-			Bucket: storageConfig,
-			BucketStore: tsdb.BucketStoreConfig{
-				BucketIndex: tsdb.BucketIndexConfig{
-					Enabled: true,
-				},
-				SyncInterval: 5 * time.Minute,
-				IndexCache: tsdb.IndexCacheConfig{
-					Backend: "inmemory",
-				},
-			},
-		},
-		RulerStorage: rulestore.Config{
-			Config: storageConfig,
-		},
-		MemberlistKV: memberlist.KVConfig{
-			JoinMembers: nil,
-		},
-
-		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
-			EnableAPI: true,
-			ExternalURL: flagext.URLValue{
-				URL: util.Must(url.Parse("/api/prom/alertmanager")),
-			},
-			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
-			ShardingEnabled:    false,
-			ShardingRing: alertmanager.RingConfig{
-				KVStore:           kvConfig,
-				ReplicationFactor: 1,
-			},
-		},
-		AlertmanagerStorage: alertstore.Config{
-			Config: storageConfig,
-		},
-
-		Compactor: compactor.Config{
-			ShardingEnabled: false,
-			ShardingRing: compactor.RingConfig{
-				KVStore: kvConfig,
-			},
-			CleanupInterval: 5 * time.Minute,
-		},
-		Distributor: distributor.Config{
-			PoolConfig: distributor.PoolConfig{
-				HealthCheckIngesters: true,
-			},
-			DistributorRing: distributor.RingConfig{
-				KVStore: kvConfig,
-			},
-			ShardByAllLabels: true,
-		},
-		Ingester: ingester.Config{
-			LifecyclerConfig: ring.LifecyclerConfig{
-				NumTokens: 512,
-				RingConfig: ring.Config{
-					KVStore:           kvConfig,
-					ReplicationFactor: 1,
-				},
-			},
-		},
-		IngesterClient: client.Config{
-			GRPCClientConfig: grpcclient.Config{
-				MaxSendMsgSize: 100 << 20,
-			},
-		},
-		Querier: querier.Config{
-			QueryStoreForLabels: true,
-		},
-		QueryRange: queryrange.Config{
-			SplitQueriesByInterval: 24 * time.Hour,
-			AlignQueriesWithStep:   true,
-			CacheResults:           true,
-			ResultsCacheConfig: queryrange.ResultsCacheConfig{
-				CacheConfig: cache.Config{
-					EnableFifoCache: true,
-					Fifocache: cache.FifoCacheConfig{
-						Validity: 1 * time.Hour,
-					},
-				},
-			},
-		},
-		Ruler: ruler.Config{
-			AlertmanangerEnableV2API: true,
-			EnableAPI:                true,
-			Ring: ruler.RingConfig{
-				KVStore: kvConfig,
-			},
-			EnableSharding: false,
-		},
-		StoreGateway: storegateway.Config{
-			ShardingEnabled: false,
-			ShardingRing: storegateway.RingConfig{
-				KVStore:           kvConfig,
-				ReplicationFactor: 1,
-			},
-		},
-		LimitsConfig: validation.Limits{
-			MetricRelabelConfigs: []*relabel.Config{
-				metrics.OpniInternalLabelFilter(),
-			},
-		},
-		Flusher: flusher.Config{
-			ExitAfterFlush: false,
-		},
+	config := cortex.Config{}
+	flagext.DefaultValues(&config)
+	config.AuthEnabled = true
+	config.TenantFederation.Enabled = true
+	config.API.PrometheusHTTPPrefix = "/prometheus"
+	config.API.ResponseCompression = true
+	config.Server.GPRCServerMaxConcurrentStreams = 10000 // typo in upstream
+	config.Server.GRPCServerMaxSendMsgSize = 100 << 20
+	config.Server.GPRCServerMaxRecvMsgSize = 100 << 20 // typo in upstream
+	config.Server.LogLevel = logLevel
+	config.Server.LogFormat = logFmt
+	config.Storage.Engine = "blocks"
+	config.BlocksStorage.TSDB.FlushBlocksOnShutdown = true
+	config.BlocksStorage.Bucket = storageConfig
+	config.BlocksStorage.BucketStore.BucketIndex.Enabled = true
+	config.BlocksStorage.BucketStore.SyncInterval = 5 * time.Minute
+	config.BlocksStorage.BucketStore.IndexCache.Backend = "inmemory"
+	config.RulerStorage.Config = storageConfig
+	config.MemberlistKV.JoinMembers = nil
+	config.Alertmanager.EnableAPI = true
+	config.Alertmanager.ExternalURL = flagext.URLValue{
+		URL: util.Must(url.Parse("/api/prom/alertmanager")),
 	}
+	config.Alertmanager.FallbackConfigFile = "/etc/alertmanager/fallback.yaml"
+	config.Alertmanager.ShardingEnabled = false
+	config.Alertmanager.ShardingRing.KVStore = kvConfig
+	config.Alertmanager.ShardingRing.ReplicationFactor = 1
+	config.AlertmanagerStorage.Config = storageConfig
+	config.Compactor.ShardingEnabled = false
+	config.Compactor.ShardingRing.KVStore = kvConfig
+	config.Compactor.CleanupInterval = 5 * time.Minute
+	config.Distributor.PoolConfig.HealthCheckIngesters = true
+	config.Distributor.DistributorRing.KVStore = kvConfig
+	config.Distributor.ShardByAllLabels = true
+	config.Ingester.LifecyclerConfig.NumTokens = 512
+	config.Ingester.LifecyclerConfig.RingConfig.KVStore = kvConfig
+	config.Ingester.LifecyclerConfig.RingConfig.ReplicationFactor = 1
+	config.IngesterClient.GRPCClientConfig.MaxSendMsgSize = 100 << 20
+	config.Querier.QueryStoreForLabels = true
+	config.QueryRange.SplitQueriesByInterval = 24 * time.Hour
+	config.QueryRange.AlignQueriesWithStep = true
+	config.QueryRange.CacheResults = true
+	config.QueryRange.ResultsCacheConfig.CacheConfig.EnableFifoCache = true
+	config.QueryRange.ResultsCacheConfig.CacheConfig.Fifocache.Validity = 1 * time.Hour
+	config.Ruler.AlertmanangerEnableV2API = true
+	config.Ruler.EnableAPI = true
+	config.Ruler.Ring.KVStore = kvConfig
+	config.Ruler.EnableSharding = false
+	config.StoreGateway.ShardingEnabled = false
+	config.StoreGateway.ShardingRing.KVStore = kvConfig
+	config.StoreGateway.ShardingRing.ReplicationFactor = 1
+	config.LimitsConfig.MetricRelabelConfigs = []*relabel.Config{
+		metrics.OpniInternalLabelFilter(),
+	}
+	config.Flusher.ExitAfterFlush = false
 
 	limitsData, err := protojson.MarshalOptions{
 		UseProtoNames: true,
@@ -616,7 +536,7 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 			return nil, nil, fmt.Errorf("failed to marshal compactor config: %w", err)
 		}
 		if err := yaml.Unmarshal(compactorData, &config.Compactor); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal compactor config: %w", err)
+			return nil, nil, fmt.Errorf("failed to unmarshal compactor config: %w\n%s", err, string(compactorData))
 		}
 	}
 	if in.GetQuerier() != nil {
@@ -641,15 +561,15 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 		rtConfig.IngesterChunkStreaming = rt.IngesterStreamChunksWhenUsingBlocks
 	}
 	if multi := rt.GetMultiKvConfig(); multi != nil {
-		rtConfig.Multi.PrimaryStore = multi.Primary
+		rtConfig.Multi.PrimaryStore = multi.GetPrimary()
 		rtConfig.Multi.Mirroring = multi.MirrorEnabled
 	}
 	if il := rt.GetIngesterLimits(); il != nil {
 		rtConfig.IngesterLimits = &ingester.InstanceLimits{
-			MaxIngestionRate:        il.MaxIngestionRate,
-			MaxInMemoryTenants:      il.MaxTenants,
-			MaxInMemorySeries:       il.MaxSeries,
-			MaxInflightPushRequests: il.MaxInflightPushRequests,
+			MaxIngestionRate:        il.GetMaxIngestionRate(),
+			MaxInMemoryTenants:      il.GetMaxTenants(),
+			MaxInMemorySeries:       il.GetMaxSeries(),
+			MaxInflightPushRequests: il.GetMaxInflightPushRequests(),
 		}
 	}
 	for tenantId, tenantLimits := range rt.GetOverrides() {
@@ -672,7 +592,7 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := kyamlv3.NewEncoder(buf)
-	encoder.SetAlwaysOmitEmpty(true)
+	// encoder.SetAlwaysOmitEmpty(true)
 	encoder.OverrideMarshalerForType(reflect.TypeOf(flagext.Secret{}),
 		newOverrideMarshaler(func(s flagext.Secret) (any, error) {
 			return s.Value, nil
@@ -688,7 +608,7 @@ func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 func MarshalRuntimeConfig(config *cortex.RuntimeConfigValues) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := kyamlv3.NewEncoder(buf)
-	encoder.SetAlwaysOmitEmpty(true)
+	// encoder.SetAlwaysOmitEmpty(true)
 	err := encoder.Encode(config)
 	if err != nil {
 		return nil, err

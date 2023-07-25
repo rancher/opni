@@ -179,6 +179,18 @@ func (k *TestEnvMetricsClusterDriver) ResetConfiguration(ctx context.Context, _ 
 	return &emptypb.Empty{}, nil
 }
 
+// DryRun implements cortexops.CortexOpsServer.
+func (k *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
+	res, err := k.configTracker.DryRun(ctx, req.Target, req.Action, req.Spec)
+	if err != nil {
+		return nil, err
+	}
+	return &cortexops.DryRunResponse{
+		Current:  res.Current,
+		Modified: res.Modified,
+	}, nil
+}
+
 var _ cortexops.CortexOpsServer = (*TestEnvMetricsClusterDriver)(nil)
 
 func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {

@@ -159,14 +159,14 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 					g.P("cmd.AddCommand(", cmdBuilderMethodName(methods[0]), "())")
 					return
 				}
-				g.P(_cliutil.Ident("AddSubcommands(cmd, "))
+				g.P(_cliutil.Ident("AddSubcommands"), "(cmd, append([]*", _cobra.Ident("Command"), "{")
 				for _, method := range methods {
 					if cg.shouldSkipMethod(method) {
 						continue
 					}
 					g.P(cmdBuilderMethodName(method), "(),")
 				}
-				g.P(")")
+				g.P("}, extraCmds_", methods[0].Parent.GoName, "...)...)")
 			},
 			PrintCmdBuilderSignature: func(methodName, svcName string, g *protogen.GeneratedFile) {
 				g.P("func Build", svcName, methodName, "Cmd() *", _cobra.Ident("Command"), " {")
@@ -190,14 +190,14 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 					g.P("cmd.AddCommand(", cmdBuilderMethodName(methods[0]), "(client))")
 					return
 				}
-				g.P(_cliutil.Ident("AddSubcommands(cmd, "))
+				g.P(_cliutil.Ident("AddSubcommands"), "(cmd, append([]*", _cobra.Ident("Command"), "{")
 				for _, method := range methods {
 					if cg.shouldSkipMethod(method) {
 						continue
 					}
 					g.P(cmdBuilderMethodName(method), "(client),")
 				}
-				g.P(")")
+				g.P("}, extraCmds_", methods[0].Parent.GoName, "...)...)")
 			},
 			PrintCmdBuilderSignature: func(methodName, svcName string, g *protogen.GeneratedFile) {
 				g.P("func Build", svcName, methodName, "Cmd(client ", svcName+"Client", ") *", _cobra.Ident("Command"), " {")
@@ -220,6 +220,14 @@ func (cg *Generator) generateServices(opts *GeneratorOptions, file *protogen.Fil
 }
 
 func (cg *Generator) shouldSkipMethod(method *protogen.Method) bool {
+	opts := CommandOptions{
+		Use: strcase.ToKebab(method.GoName),
+	}
+	applyOptions(method.Desc, &opts)
+	if opts.Skip {
+		return true
+	}
+
 	// todo: streaming methods are not implemented yet
 	if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
 		return true
@@ -290,7 +298,6 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 	g.P()
 
 	writers.PrintAddCmds(service.Methods, g)
-	g.P(_cliutil.Ident("AddSubcommands"), "(cmd, extraCmds_", service.GoName, "...)")
 
 	g.P(_cli.Ident("AddOutputFlag(cmd)"))
 

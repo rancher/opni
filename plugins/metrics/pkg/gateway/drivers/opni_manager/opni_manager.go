@@ -327,6 +327,17 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 	}
 }
 
+func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
+	res, err := k.configTracker.DryRun(ctx, req.Target, req.Action, req.Spec)
+	if err != nil {
+		return nil, err
+	}
+	return &cortexops.DryRunResponse{
+		Current:  res.Current,
+		Modified: res.Modified,
+	}, nil
+}
+
 func init() {
 	drivers.ClusterDrivers.Register("opni-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
 		options := OpniManagerClusterDriverOptions{

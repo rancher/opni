@@ -47,7 +47,7 @@ func BuildCortexOpsCmd() *cobra.Command {
 		ValidArgsFunction: cobra.NoFileCompletions,
 	}
 
-	cliutil.AddSubcommands(cmd,
+	cliutil.AddSubcommands(cmd, append([]*cobra.Command{
 		BuildCortexOpsGetDefaultConfigurationCmd(),
 		BuildCortexOpsSetDefaultConfigurationCmd(),
 		BuildCortexOpsResetDefaultConfigurationCmd(),
@@ -58,8 +58,7 @@ func BuildCortexOpsCmd() *cobra.Command {
 		BuildCortexOpsInstallCmd(),
 		BuildCortexOpsUninstallCmd(),
 		BuildCortexOpsListPresetsCmd(),
-	)
-	cliutil.AddSubcommands(cmd, extraCmds_CortexOps...)
+	}, extraCmds_CortexOps...)...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }
@@ -592,4 +591,31 @@ func (in *Preset) DeepCopyInto(out *Preset) {
 
 func (in *Preset) DeepCopy() *Preset {
 	return proto.Clone(in).(*Preset)
+}
+
+func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *DryRunRequest) DeepCopy() *DryRunRequest {
+	return proto.Clone(in).(*DryRunRequest)
+}
+
+func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *DryRunResponse) DeepCopy() *DryRunResponse {
+	return proto.Clone(in).(*DryRunResponse)
+}
+
+func (in *ValidationError) DeepCopyInto(out *ValidationError) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ValidationError) DeepCopy() *ValidationError {
+	return proto.Clone(in).(*ValidationError)
 }

@@ -25,11 +25,12 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {
 		cmd.PersistentPreRunE = managementPreRunE
 	} else {
+		oldPreRunE := cmd.PersistentPreRunE
 		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 			if err := managementPreRunE(cmd, args); err != nil {
 				return err
 			}
-			return cmd.PersistentPreRunE(cmd, args)
+			return oldPreRunE(cmd, args)
 		}
 	}
 }

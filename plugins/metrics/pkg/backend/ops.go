@@ -108,3 +108,9 @@ func (m *OpsServiceBackend) ListPresets(context.Context, *emptypb.Empty) (*corte
 
 	return m.ClusterDriver.ListPresets(context.Background(), &emptypb.Empty{})
 }
+
+func (m *OpsServiceBackend) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
+	m.WaitForInit()
+
+	return m.ClusterDriver.DryRun(ctx, req)
+}

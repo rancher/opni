@@ -9,9 +9,9 @@ import "github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconf
 import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/dryrun.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/struct.proto";
 
 option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
 option (cli.generator) = {
@@ -166,6 +166,14 @@ service CortexOps {
       get: "/presets"
     };
   }
+
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+    option (google.api.http) = {
+      post: "/dry-run"
+      body: "*"
+    };
+  }
 }
 
 enum InstallState {
@@ -254,4 +262,21 @@ message Preset {
   core.Reference              id       = 1;
   map<string, string>         metadata = 2;
   CapabilityBackendConfigSpec spec     = 3;
+}
+
+message DryRunRequest {
+  driverutil.Target           target = 1;
+  driverutil.Action           action = 2;
+  CapabilityBackendConfigSpec spec   = 3;
+}
+
+message DryRunResponse {
+  CapabilityBackendConfigSpec current          = 1;
+  CapabilityBackendConfigSpec modified         = 2;
+  repeated ValidationError    validationErrors = 3;
+}
+
+message ValidationError {
+  string path    = 1;
+  string message = 2;
 }

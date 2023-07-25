@@ -57,4 +57,5 @@ message CommandOptions {
   string          use            = 25601;
   repeated string aliases        = 25602;
   repeated string required_flags = 25603;
+  bool            skip           = 25604;
 }

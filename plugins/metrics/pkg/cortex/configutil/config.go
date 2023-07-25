@@ -216,6 +216,7 @@ func applyCortexConfigOverrides(spec any, appliers []CortexConfigOverrider) {
 		}
 	}
 }
+
 func NewOverrider[T any](fn func(*T) bool) CortexConfigOverrider {
 	return cortexConfigOverriderFunc[T](fn)
 }

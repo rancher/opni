@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package driverutil;
+
+option go_package = "github.com/rancher/opni/pkg/plugins/driverutil";
+
+enum Target {
+  InvalidTarget        = 0;
+  DefaultConfiguration = 1;
+  ActiveConfiguration  = 2;
+}
+enum Action {
+  InvalidAction = 0;
+  Set           = 1;
+  Reset         = 2;
+}

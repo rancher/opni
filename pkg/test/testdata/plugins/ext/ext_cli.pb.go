@@ -54,13 +54,12 @@ func BuildExtCmd() *cobra.Command {
 		ValidArgsFunction: cobra.NoFileCompletions,
 	}
 
-	cliutil.AddSubcommands(cmd,
+	cliutil.AddSubcommands(cmd, append([]*cobra.Command{
 		BuildExtFooCmd(),
 		BuildExtBarCmd(),
 		BuildExtBazCmd(),
 		BuildExtSetCmd(),
-	)
-	cliutil.AddSubcommands(cmd, extraCmds_Ext...)
+	}, extraCmds_Ext...)...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }
@@ -251,7 +250,6 @@ func BuildExt2Cmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(BuildExt2FooCmd())
-	cliutil.AddSubcommands(cmd, extraCmds_Ext2...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }

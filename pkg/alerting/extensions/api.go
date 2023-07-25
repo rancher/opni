@@ -59,6 +59,11 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 				return
 			}
 		}
+		if e.sendK8s {
+			if err := e.k8sDestination.Push(req.Context(), wMsg); err != nil {
+				e.logger.Error(err)
+			}
+		}
 	}
 	wr.WriteHeader(http.StatusOK)
 }

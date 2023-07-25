@@ -132,7 +132,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 						r.alertmanagerWorkerArgs(),
 						r.nodeAlertingPorts(),
 					),
-					Volumes: requiredVolumes,
+					Volumes:                      requiredVolumes,
+					ServiceAccountName:           "opni",
+					AutomountServiceAccountToken: lo.ToPtr(true),
 				},
 			},
 			VolumeClaimTemplates: requiredPersistentClaims,
@@ -150,13 +152,30 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	)
+
+	oldSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+		},
+	}
+	oldSS := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+		},
+	}
 	ctrl.SetControllerReference(r.ac, svc, r.client.Scheme())
 	ctrl.SetControllerReference(r.ac, ss, r.client.Scheme())
 	ctrl.SetControllerReference(r.ac, workerMonitor, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, oldSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, oldSS, r.client.Scheme())
 	return []resources.Resource{
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, svc),
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, ss),
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, workerMonitor),
+		resources.Absent(oldSvc),
+		resources.Absent(oldSS),
 	}
 }
 
@@ -167,6 +186,8 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 		fmt.Sprintf("--log.level=%s", "info"),
 		"--log.format=json",
 		fmt.Sprintf("--opni.listen-address=:%d", 3000),
+		// TODO : make this configurable
+		"--opni.send-k8s",
 	}
 	replicas := lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	for i := 0; i < int(replicas); i++ {
@@ -212,6 +233,10 @@ func (r *Reconciler) newAlertingAlertManager(
 			{
 				Name:  "USER",
 				Value: alertingUser,
+			},
+			{
+				Name:  "POD_NAMESPACE",
+				Value: r.gw.Namespace,
 			},
 		},
 		Name:            "opni-alertmanager",

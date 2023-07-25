@@ -43,6 +43,7 @@ import (
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/rancher/opni/pkg/alerting/extensions"
 	"github.com/rancher/opni/pkg/alerting/templates"
+	"github.com/samber/lo"
 
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"
@@ -237,7 +238,8 @@ func run(args []string) int {
 		allowInsecureAdvertise = kingpin.Flag("cluster.allow-insecure-public-advertise-address-discovery", "[EXPERIMENTAL] Allow alertmanager to discover and listen on a public IP address.").Bool()
 
 		// opni
-		opniAddr = kingpin.Flag("opni.listen-address", "Listen address for the opni embedded server").String()
+		opniAddr    = kingpin.Flag("opni.listen-address", "Listen address for the opni embedded server").String()
+		opniSendK8s = kingpin.Flag("opni.send-k8s", "Send alerts to k8s").Bool()
 	)
 
 	promlogflag.AddFlags(kingpin.CommandLine, &promlogConfig)
@@ -249,7 +251,7 @@ func run(args []string) int {
 	ctxCa, cancelCa := context.WithCancel(context.Background())
 	defer cancelCa()
 	if opniAddr != nil && *opniAddr != "" {
-		extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr)
+		extensions.StartOpniEmbeddedServer(ctxCa, *opniAddr, lo.FromPtrOr(opniSendK8s, false))
 	}
 
 	logger := promlog.New(&promlogConfig)

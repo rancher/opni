@@ -163,7 +163,7 @@ func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Conte
 	return value, nil
 }
 
-// Apply sets the active config by merging the given config onto the existing
+// ApplyConfig sets the active config by merging the given config onto the existing
 // active config, or onto the default config if no active config has been set.
 func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig T) error {
 	ct.lock.Lock()
@@ -179,21 +179,6 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 
 	merge.MergeWithReplace(existing, newConfig)
 	return ct.activeStore.Put(ctx, existing)
-}
-
-// SetConfig sets the active config by merging the given config onto the default
-// config, regardless of whether an active config has been set.
-func (ct *DefaultingConfigTracker[T]) SetConfig(ctx context.Context, newConfig T) error {
-	ct.lock.Lock()
-	defer ct.lock.Unlock()
-
-	def, err := ct.getDefaultConfigLocked(ctx)
-	if err != nil {
-		return err
-	}
-
-	merge.MergeWithReplace(def, newConfig)
-	return ct.activeStore.Put(ctx, def)
 }
 
 func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target, action Action, spec T) (*DryRunResults[T], error) {

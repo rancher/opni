@@ -366,7 +366,7 @@ func autoDiscoverMetadataFromFlags[F flagT, T any, PT interface {
 					f.Options = &descriptorpb.FieldOptions{}
 				}
 				mutateExtension(f.Options, cli.E_Flag, func(ext *cli.FlagOptions) {
-					ext.Default = flag.DefValue
+					ext.Default = &flag.DefValue
 				})
 			}
 		}

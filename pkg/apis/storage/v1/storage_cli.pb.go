@@ -155,11 +155,11 @@ func (in *SSEConfig) UnredactSecrets(unredacted *SSEConfig) error {
 func (in *HTTPConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("HTTPConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.DurationpbValue(0, &in.IdleConnTimeout), strings.Join(append(prefix, "idle-conn-timeout"), "."), "The time an idle connection will remain idle before closing.")
-	fs.Var(flagutil.DurationpbValue(0, &in.ResponseHeaderTimeout), strings.Join(append(prefix, "response-header-timeout"), "."), "The amount of time the client will wait for a servers response headers.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.IdleConnTimeout), strings.Join(append(prefix, "idle-conn-timeout"), "."), "The time an idle connection will remain idle before closing.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.ResponseHeaderTimeout), strings.Join(append(prefix, "response-header-timeout"), "."), "The amount of time the client will wait for a servers response headers.")
 	fs.BoolVar(&in.InsecureSkipVerify, strings.Join(append(prefix, "insecure-skip-verify"), "."), false, "If the client connects via HTTPS and this option is enabled, the client will accept any certificate and hostname.")
-	fs.Var(flagutil.DurationpbValue(0, &in.TlsHandshakeTimeout), strings.Join(append(prefix, "tls-handshake-timeout"), "."), "Maximum time to wait for a TLS handshake. 0 means no limit.")
-	fs.Var(flagutil.DurationpbValue(0, &in.ExpectContinueTimeout), strings.Join(append(prefix, "expect-continue-timeout"), "."), "The time to wait for a server's first response headers after fully writing the request headers if the request has an Expect header. 0 to send the request body immediately.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.TlsHandshakeTimeout), strings.Join(append(prefix, "tls-handshake-timeout"), "."), "Maximum time to wait for a TLS handshake. 0 means no limit.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.ExpectContinueTimeout), strings.Join(append(prefix, "expect-continue-timeout"), "."), "The time to wait for a server's first response headers after fully writing the request headers if the request has an Expect header. 0 to send the request body immediately.")
 	fs.Int32Var(&in.MaxIdleConns, strings.Join(append(prefix, "max-idle-conns"), "."), 0, "Maximum number of idle (keep-alive) connections across all hosts. 0 means no limit.")
 	fs.Int32Var(&in.MaxIdleConnsPerHost, strings.Join(append(prefix, "max-idle-conns-per-host"), "."), 0, "Maximum number of idle (keep-alive) connections to keep per-host. If 0, a built-in default value is used.")
 	fs.Int32Var(&in.MaxConnsPerHost, strings.Join(append(prefix, "max-conns-per-host"), "."), 0, "Maximum number of connections per host. 0 means no limit.")
@@ -263,8 +263,8 @@ func (in *SwiftStorageSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.StringVar(&in.RegionName, strings.Join(append(prefix, "region-name"), "."), os.Getenv("OS_REGION_NAME"), "OpenStack Swift Region to use (v2,v3 auth only). ($OS_REGION_NAME)")
 	fs.StringVar(&in.ContainerName, strings.Join(append(prefix, "container-name"), "."), "", "Name of the OpenStack Swift container to use. The container must already exist.")
 	fs.Int32Var(&in.MaxRetries, strings.Join(append(prefix, "max-retries"), "."), 0, "Max number of times to retry failed requests.")
-	fs.Var(flagutil.DurationpbValue(0, &in.ConnectTimeout), strings.Join(append(prefix, "connect-timeout"), "."), "Time after which a connection attempt is aborted.")
-	fs.Var(flagutil.DurationpbValue(0, &in.RequestTimeout), strings.Join(append(prefix, "request-timeout"), "."), "Time after which an idle request is aborted. The timeout watchdog is reset each time some data is received, so the timeout triggers after X time no data is received on a request.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.ConnectTimeout), strings.Join(append(prefix, "connect-timeout"), "."), "Time after which a connection attempt is aborted.")
+	fs.Var(flagutil.DurationpbValue(nil, &in.RequestTimeout), strings.Join(append(prefix, "request-timeout"), "."), "Time after which an idle request is aborted. The timeout watchdog is reset each time some data is received, so the timeout triggers after X time no data is received on a request.")
 	return fs
 }
 

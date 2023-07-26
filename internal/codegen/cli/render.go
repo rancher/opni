@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -30,8 +31,8 @@ type TextRenderer interface {
 
 func RenderOutput(cmd *cobra.Command, response proto.Message) {
 	outputFormat, _ := cmd.Flags().GetString("output")
+	outWriter := cmd.OutOrStdout()
 	if outputFormat == "auto" {
-		outWriter := cmd.OutOrStdout()
 		if file, ok := outWriter.(*os.File); ok {
 			if term.IsTerminal(int(file.Fd())) {
 				outputFormat = "text"
@@ -43,9 +44,9 @@ func RenderOutput(cmd *cobra.Command, response proto.Message) {
 
 	switch outputFormat {
 	case "json":
-		cmd.Println(protojson.MarshalOptions{}.Format(response))
+		fmt.Fprintln(outWriter, protojson.MarshalOptions{}.Format(response))
 	case "json,multiline":
-		cmd.Println(protojson.MarshalOptions{
+		fmt.Fprintln(outWriter, protojson.MarshalOptions{
 			Multiline: true,
 		}.Format(response))
 	case "yaml":
@@ -54,13 +55,13 @@ func RenderOutput(cmd *cobra.Command, response proto.Message) {
 			cmd.PrintErrln(err)
 			return
 		}
-		cmd.Println(string(out))
+		fmt.Fprintln(outWriter, string(out))
 	case "text":
 		if renderer, ok := response.(TextRenderer); ok {
 			renderer.RenderText(cmd)
 			return
 		}
-		cmd.Println(prototext.MarshalOptions{
+		fmt.Fprintln(outWriter, prototext.MarshalOptions{
 			Multiline: true,
 		}.Format(response))
 	default:

@@ -37,11 +37,11 @@ message GeneratorOptions {
 }
 
 message FlagOptions {
-  string default       = 1;
-  string env           = 2;
-  bool   secret        = 3;
-  string type_override = 4;
-  bool   skip          = 5;
+  optional string default       = 1;
+  string          env           = 2;
+  bool            secret        = 3;
+  string          type_override = 4;
+  bool            skip          = 5;
 }
 
 message FlagSetOptions {
@@ -54,10 +54,20 @@ message CommandGroupOptions {
   bool   enable_hooks = 25603;
 }
 
+enum EditScope {
+  // Allows all individual fields of the message to be edited individually.
+  // This option generates flags and uses them in the CLI.
+  EditFields = 0;
+  // The whole message is edited as a single unit. This option does not use
+  // flags, but instead enables editing the message with an editor, or from
+  // a file.
+  EditMessage = 1;
+}
 message CommandOptions {
   string          use            = 25601;
   repeated string aliases        = 25602;
   repeated string required_flags = 25603;
   bool            skip           = 25604;
   bool            enable_hooks   = 25605;
+  EditScope       granularity    = 25606;
 }

@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/runtime/protoiface"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Merge merges src into dst, which must be a message with the same descriptor.
@@ -71,6 +73,24 @@ func (o MergeOptions) mergeMessage(dst, src protoreflect.Message) {
 			if out.Flags&protoiface.MergeComplete != 0 {
 				return
 			}
+		}
+	}
+
+	if fqn := src.Descriptor().FullName(); fqn == "google.protobuf.Duration" {
+		srcpb := src.Interface().(*durationpb.Duration)
+		dstpb := dst.Interface().(*durationpb.Duration)
+		if srcpb != nil && dstpb != nil && srcpb.Seconds == 0 && srcpb.Nanos == 0 {
+			dstpb.Seconds = 0
+			dstpb.Nanos = 0
+			return
+		}
+	} else if fqn == "google.protobuf.Timestamp" {
+		srcpb := src.Interface().(*timestamppb.Timestamp)
+		dstpb := dst.Interface().(*timestamppb.Timestamp)
+		if srcpb != nil && dstpb != nil && srcpb.Seconds == 0 && srcpb.Nanos == 0 {
+			dstpb.Seconds = 0
+			dstpb.Nanos = 0
+			return
 		}
 	}
 

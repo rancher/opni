@@ -7,7 +7,6 @@ import (
 	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"gopkg.in/yaml.v2"
@@ -40,7 +39,6 @@ var allTargets = []string{
 var _ = Describe("Config", func() {
 	It("should generate a valid default config", func() {
 		appconfig := &cortexops.CortexApplicationConfig{}
-		flagutil.LoadDefaults(appconfig)
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig, configutil.NewTargetsOverride("all")...)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(conf.Target).To(ConsistOf("all"))
@@ -51,7 +49,6 @@ var _ = Describe("Config", func() {
 	})
 	It("should generate a valid config with overrides", func() {
 		appconfig := &cortexops.CortexApplicationConfig{}
-		flagutil.LoadDefaults(appconfig)
 
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig,
 			configutil.MergeOverrideLists(
@@ -77,7 +74,6 @@ var _ = Describe("Config", func() {
 	})
 	It("should generate a valid config with extra overrides", func() {
 		appconfig := &cortexops.CortexApplicationConfig{}
-		flagutil.LoadDefaults(appconfig)
 
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig,
 			configutil.MergeOverrideLists(

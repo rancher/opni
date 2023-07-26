@@ -8,6 +8,10 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+func Ptr[T any](t T) *T {
+	return &t
+}
+
 type boolPtrFlag interface {
 	pflag.Value
 	IsBoolFlag() bool
@@ -17,7 +21,8 @@ type boolPtrValue struct {
 	p **bool
 }
 
-func BoolPtrValue(p **bool) pflag.Value {
+func BoolPtrValue(val *bool, p **bool) pflag.Value {
+	*p = val
 	return &boolPtrValue{p}
 }
 
@@ -44,7 +49,8 @@ type intPtrValue[T constraints.Signed] struct {
 	p **T
 }
 
-func IntPtrValue[T constraints.Signed](p **T) pflag.Value {
+func IntPtrValue[T constraints.Signed](val *T, p **T) pflag.Value {
+	*p = val
 	return &intPtrValue[T]{p}
 }
 
@@ -73,7 +79,8 @@ type uintPtrValue[T constraints.Unsigned] struct {
 	p **T
 }
 
-func UintPtrValue[T constraints.Unsigned](p **T) pflag.Value {
+func UintPtrValue[T constraints.Unsigned](val *T, p **T) pflag.Value {
+	*p = val
 	return &uintPtrValue[T]{p}
 }
 
@@ -102,7 +109,8 @@ type floatPtrValue[T constraints.Float] struct {
 	p **T
 }
 
-func FloatPtrValue[T constraints.Float](p **T) pflag.Value {
+func FloatPtrValue[T constraints.Float](val *T, p **T) pflag.Value {
+	*p = val
 	return &floatPtrValue[T]{p}
 }
 
@@ -131,7 +139,8 @@ type stringPtrValue struct {
 	p **string
 }
 
-func StringPtrValue(p **string) pflag.Value {
+func StringPtrValue(val *string, p **string) pflag.Value {
+	*p = val
 	return &stringPtrValue{p}
 }
 

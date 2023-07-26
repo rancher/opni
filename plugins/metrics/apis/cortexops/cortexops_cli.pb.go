@@ -5,6 +5,7 @@ package cortexops
 
 import (
 	context "context"
+	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	compactor "github.com/rancher/opni/internal/cortex/config/compactor"
 	querier "github.com/rancher/opni/internal/cortex/config/querier"
@@ -12,7 +13,6 @@ import (
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
-	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	proto "google.golang.org/protobuf/proto"
@@ -76,7 +76,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -113,29 +113,33 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
-				in = curValue
-			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				client, ok := CortexOpsClientFromContext(cmd.Context())
+				if !ok {
+					cmd.PrintErrln("failed to get client from context")
+					return nil
+				}
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+					in = curValue
+				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
 					return err
 				} else {
 					in = edited
 				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
-			client, ok := CortexOpsClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			_, err := client.SetDefaultConfiguration(cmd.Context(), in)
 			if err != nil {
@@ -144,11 +148,10 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
 	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
-	cmd.RegisterFlagCompletionFunc("cortex-config.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
-	})
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
 	return cmd
 }
 
@@ -166,7 +169,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -192,7 +195,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -236,29 +239,33 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
-				in = curValue
-			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				client, ok := CortexOpsClientFromContext(cmd.Context())
+				if !ok {
+					cmd.PrintErrln("failed to get client from context")
+					return nil
+				}
+				if curValue, err := client.GetConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+					in = curValue
+				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
 					return err
 				} else {
 					in = edited
 				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
-			client, ok := CortexOpsClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			_, err := client.SetConfiguration(cmd.Context(), in)
 			if err != nil {
@@ -267,11 +274,10 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
 	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
-	cmd.RegisterFlagCompletionFunc("cortex-config.storage.backend", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"filesystem", "s3", "gcs", "azure", "swift"}, cobra.ShellCompDirectiveDefault
-	})
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
 	for _, hook := range buildHooks_CortexOpsSetConfiguration {
 		hook(cmd)
 	}
@@ -288,7 +294,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -320,7 +326,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -350,7 +356,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -380,7 +386,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -415,7 +421,7 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := CortexOpsClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
@@ -435,7 +441,6 @@ HTTP handlers for this method:
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.BoolPtrValue(&in.Enabled), strings.Join(append(prefix, "enabled"), "."), "")
 	if in.CortexWorkloads == nil {
 		in.CortexWorkloads = &CortexWorkloadsConfig{}
 	}
@@ -496,7 +501,7 @@ func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Querier = &querier.Config{}
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
-	fs.StringVar(&in.LogLevel, strings.Join(append(prefix, "log-level"), "."), "", "")
+	fs.StringVar(&in.LogLevel, strings.Join(append(prefix, "log-level"), "."), "debug", "")
 	if in.Storage == nil {
 		in.Storage = &v1.StorageSpec{}
 	}
@@ -609,6 +614,15 @@ func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
 
 func (in *DryRunRequest) DeepCopy() *DryRunRequest {
 	return proto.Clone(in).(*DryRunRequest)
+}
+
+func (in *ValidationError) DeepCopyInto(out *ValidationError) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ValidationError) DeepCopy() *ValidationError {
+	return proto.Clone(in).(*ValidationError)
 }
 
 func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {

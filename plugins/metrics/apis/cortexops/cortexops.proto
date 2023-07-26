@@ -48,7 +48,8 @@ service CortexOps {
   // layer that is not driver-specific is desired.
   rpc SetDefaultConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config set-default"
+      use:         "config set-default"
+      granularity: EditMessage
     };
     option (google.api.http) = {
       put:  "/configuration/default"
@@ -93,6 +94,7 @@ service CortexOps {
     option (cli.command) = {
       use:          "config set"
       enable_hooks: true
+      granularity:  EditMessage
     };
     option (google.api.http) = {
       put:  "/configuration"
@@ -168,6 +170,15 @@ service CortexOps {
     };
   }
 
+  // Show what changes would be made to a configuration without saving them.
+  // The request expects an action, target, and spec to be provided. These
+  // correspond roughly to the other APIs in this service.
+  //
+  // Configuring DryRunRequest:
+  // - Use the Active target for the SetConfiguration API, and the Default target
+  //   for the SetDefaultConfiguration API. Install and Uninstall actions do not
+  //   require a target.
+  // - Only the Set action requires a spec to be provided.
   rpc DryRun(DryRunRequest) returns (DryRunResponse) {
     option (cli.command).skip = true;
     option (google.api.http) = {
@@ -191,20 +202,8 @@ message InstallStatus {
   map<string, string> metadata = 3;
 }
 
-// enum DeploymentMode {
-//   // All components are together in a single process. Not recommended for production use.
-//   AllInOne = 0;
-//   // Components are distributed across multiple processes.
-//   HighlyAvailable = 1;
-// }
-
-// message CapabilityBackendConfig {
-//   string                      revision = 1;
-//   CapabilityBackendConfigSpec spec     = 2;
-// }
-
 message CapabilityBackendConfigSpec {
-  optional bool           enabled         = 1 [(cli.flag).default = "false"];
+  optional bool           enabled         = 1 [(cli.flag).skip = true];
   CortexWorkloadsConfig   cortexWorkloads = 4;
   CortexApplicationConfig cortexConfig    = 5;
   GrafanaConfig           grafana         = 9;
@@ -212,14 +211,6 @@ message CapabilityBackendConfigSpec {
 
 message CortexWorkloadsConfig {
   map<string, CortexWorkloadSpec> targets = 1 [(cli.flag).skip = true];
-  // DriverSpecificConfig distributor   = 1;
-  // DriverSpecificConfig ingester      = 2;
-  // DriverSpecificConfig compactor     = 3;
-  // DriverSpecificConfig storeGateway  = 4;
-  // DriverSpecificConfig ruler         = 5;
-  // DriverSpecificConfig queryFrontend = 6;
-  // DriverSpecificConfig querier       = 7;
-  // DriverSpecificConfig purger        = 8;
 }
 
 message CortexWorkloadSpec {
@@ -241,7 +232,7 @@ message CortexApplicationConfig {
   runtimeconfig.RuntimeConfigValues runtime_config = 2;
   compactor.Config                  compactor      = 3;
   querier.Config                    querier        = 4;
-  string                            log_level      = 5;
+  string                            log_level      = 5 [(cli.flag).default = "debug"];
   storage.StorageSpec               storage        = 6;
 }
 
@@ -271,8 +262,18 @@ message DryRunRequest {
   CapabilityBackendConfigSpec spec   = 3;
 }
 
+message ValidationError {
+  enum Severity {
+    Unknown = 0;
+    Warning = 1;
+    Error   = 2;
+  }
+  Severity severity = 1;
+  string   message  = 2;
+}
+
 message DryRunResponse {
   CapabilityBackendConfigSpec current          = 1;
   CapabilityBackendConfigSpec modified         = 2;
-  repeated string             validationErrors = 3;
+  repeated ValidationError    validationErrors = 3;
 }

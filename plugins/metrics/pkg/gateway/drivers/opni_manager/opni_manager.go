@@ -250,7 +250,7 @@ func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*cortexops.
 }
 
 func (k *OpniManager) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.SetConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
+	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
 		Enabled: lo.ToPtr[bool](false),
 	})
 	if err != nil {
@@ -260,7 +260,7 @@ func (k *OpniManager) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb
 }
 
 func (k *OpniManager) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.SetConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
+	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
 		Enabled: lo.ToPtr[bool](true),
 	})
 	if err != nil {
@@ -291,12 +291,12 @@ func (k *OpniManager) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.
 }
 
 func (k *OpniManager) GetConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetConfig(ctx)
+	return k.configTracker.GetConfigOrDefault(ctx)
 }
 
 func (k *OpniManager) SetConfiguration(ctx context.Context, conf *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
 	conf.Enabled = nil
-	if err := k.configTracker.SetConfig(ctx, conf); err != nil {
+	if err := k.configTracker.ApplyConfig(ctx, conf); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

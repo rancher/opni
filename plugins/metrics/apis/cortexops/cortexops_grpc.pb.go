@@ -97,6 +97,15 @@ type CortexOpsClient interface {
 	//  3. Leave the default configuration as-is, and use SetConfiguration with a
 	//     preset spec plus the required fields.
 	ListPresets(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PresetList, error)
+	// Show what changes would be made to a configuration without saving them.
+	// The request expects an action, target, and spec to be provided. These
+	// correspond roughly to the other APIs in this service.
+	//
+	// Configuring DryRunRequest:
+	//   - Use the Active target for the SetConfiguration API, and the Default target
+	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
+	//     require a target.
+	//   - Only the Set action requires a spec to be provided.
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
 }
 
@@ -271,6 +280,15 @@ type CortexOpsServer interface {
 	//  3. Leave the default configuration as-is, and use SetConfiguration with a
 	//     preset spec plus the required fields.
 	ListPresets(context.Context, *emptypb.Empty) (*PresetList, error)
+	// Show what changes would be made to a configuration without saving them.
+	// The request expects an action, target, and spec to be provided. These
+	// correspond roughly to the other APIs in this service.
+	//
+	// Configuring DryRunRequest:
+	//   - Use the Active target for the SetConfiguration API, and the Default target
+	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
+	//     require a target.
+	//   - Only the Set action requires a spec to be provided.
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }

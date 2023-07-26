@@ -327,7 +327,7 @@ var _ = Describe("DefaultingConfigTracker", func() {
 			defClone.StringField = "newActive"
 			mockActiveStore.EXPECT().Put(ctx, testutil.ProtoEqual(defClone)).Return(nil).Times(1)
 
-			err := configTracker.SetConfig(ctx, &ext.SampleConfiguration{
+			err := configTracker.ApplyConfig(ctx, &ext.SampleConfiguration{
 				StringField: "newActive",
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -336,7 +336,7 @@ var _ = Describe("DefaultingConfigTracker", func() {
 			It("should return the error", func() {
 				mockDefaultStore.EXPECT().Get(ctx).Return(nil, testStoreError).Times(1)
 
-				err := configTracker.SetConfig(ctx, &ext.SampleConfiguration{})
+				err := configTracker.ApplyConfig(ctx, &ext.SampleConfiguration{})
 				Expect(err).To(MatchError(testStoreError))
 			})
 		})

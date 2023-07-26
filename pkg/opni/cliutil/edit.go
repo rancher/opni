@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -119,6 +120,35 @@ func EditInteractive[T proto.Message](spec T, id ...string) (T, error) {
 		}
 		return editedSpec, nil
 	}
+}
+
+func LoadFromFile[T proto.Message](spec T, path string) error {
+	var f *os.File
+	if path == "-" {
+		f = os.Stdin
+	} else {
+		var err error
+		f, err = os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+	}
+	bytes, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	if len(bytes) == 0 {
+		return fmt.Errorf("file is empty")
+	}
+	jsonData, err := yaml.YAMLToJSON(bytes)
+	if err != nil {
+		return fmt.Errorf("error parsing yaml/json: %w", err)
+	}
+	if err := protojson.Unmarshal(jsonData, spec); err != nil {
+		return fmt.Errorf("error unmarshalling json: %w", err)
+	}
+	return nil
 }
 
 func tryEdit[T proto.Message](spec T, lang language, extraComments []string) (T, error) {

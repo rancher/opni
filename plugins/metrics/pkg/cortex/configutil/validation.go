@@ -20,11 +20,14 @@ func (l *errLogger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig) []string {
-	errs := []string{}
+func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig) []*cortexops.ValidationError {
+	errs := []*cortexops.ValidationError{}
 	conf, _, err := CortexAPISpecToCortexConfig(cfg)
 	if err != nil {
-		errs = append(errs, err.Error())
+		errs = append(errs, &cortexops.ValidationError{
+			Severity: cortexops.ValidationError_Error,
+			Message:  err.Error(),
+		})
 		return errs
 	}
 	lg := errLogger{}
@@ -34,9 +37,17 @@ func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig) []string
 		// config only has one field, which is a bool with a default value of true
 		// that we always set to false
 		if err.Error() != `the Flusher configuration in YAML has been specified as an empty YAML node` {
-			errs = append(errs, err.Error())
+			errs = append(errs, &cortexops.ValidationError{
+				Severity: cortexops.ValidationError_Error,
+				Message:  err.Error(),
+			})
 		}
 	}
-	errs = append(errs, lg.errs...)
+	for _, err := range lg.errs {
+		errs = append(errs, &cortexops.ValidationError{
+			Severity: cortexops.ValidationError_Error,
+			Message:  err,
+		})
+	}
 	return errs
 }

@@ -8,6 +8,7 @@ import (
 	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
@@ -79,21 +80,14 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
-					return err
-				} else {
-					in = edited
-				}
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := ExtClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			response, err := client.Foo(cmd.Context(), in)
 			if err != nil {
@@ -104,7 +98,6 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	return cmd
 }
 
@@ -120,21 +113,14 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
-					return err
-				} else {
-					in = edited
-				}
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := ExtClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			response, err := client.Bar(cmd.Context(), in)
 			if err != nil {
@@ -145,7 +131,6 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	return cmd
 }
 
@@ -162,21 +147,14 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
-					return err
-				} else {
-					in = edited
-				}
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := ExtClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			response, err := client.Baz(cmd.Context(), in)
 			if err != nil {
@@ -187,7 +165,6 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	cmd.RegisterFlagCompletionFunc("param-enum", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"UNKNOWN", "FOO", "BAR"}, cobra.ShellCompDirectiveDefault
 	})
@@ -206,21 +183,14 @@ HTTP handlers for this method:
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
-					return err
-				} else {
-					in = edited
-				}
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := ExtClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			response, err := client.Set(cmd.Context(), in)
 			if err != nil {
@@ -231,7 +201,6 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	return cmd
 }
 
@@ -261,21 +230,14 @@ func BuildExt2FooCmd() *cobra.Command {
 		Short:             "",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
-					return err
-				} else {
-					in = edited
-				}
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, argenerateArgsgs []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := Ext2ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
 			}
 			response, err := client.Foo(cmd.Context(), in)
 			if err != nil {
@@ -286,7 +248,6 @@ func BuildExt2FooCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	return cmd
 }
 
@@ -319,11 +280,8 @@ func (in *BazRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 		BazRequest_FOO:     {"FOO"},
 		BazRequest_BAR:     {"BAR"},
 	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "param-enum"), "."), "")
+	fs.Var(flagutil.DurationpbValue(nil, &in.ParamDuration), strings.Join(append(prefix, "param-duration"), "."), "")
 	fs.StringSliceVar(&in.ParamRepeatedString, strings.Join(append(prefix, "param-repeated-string"), "."), nil, "")
-	if in.ParamMsg == nil {
-		in.ParamMsg = &BazRequest{}
-	}
-	fs.AddFlagSet(in.ParamMsg.FlagSet(append(prefix, "param-msg")...))
 	return fs
 }
 
@@ -379,10 +337,6 @@ func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.StringVar(&in.SecretField, strings.Join(append(prefix, "secret-field"), "."), "", "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
 	fs.StringSliceVar(&in.RepeatedField, strings.Join(append(prefix, "repeated-field"), "."), nil, "")
-	if in.MessageField == nil {
-		in.MessageField = &SampleConfiguration{}
-	}
-	fs.AddFlagSet(in.MessageField.FlagSet(append(prefix, "message-field")...))
 	return fs
 }
 

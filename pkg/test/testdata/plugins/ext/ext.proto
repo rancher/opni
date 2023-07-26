@@ -4,6 +4,7 @@ package ext;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
 
 option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
 option (cli.generator) = {
@@ -114,14 +115,15 @@ message BazRequest {
     FOO     = 1;
     BAR     = 2;
   }
-  double          paramFloat64        = 1;
-  int64           paramInt64          = 3;
-  bool            paramBool           = 8;
-  string          paramString         = 9;
-  bytes           paramBytes          = 10;
-  BazEnum         paramEnum           = 11;
-  repeated string paramRepeatedString = 12;
-  BazRequest      paramMsg            = 13;
+  double                   paramFloat64        = 1;
+  int64                    paramInt64          = 3;
+  bool                     paramBool           = 8;
+  string                   paramString         = 9;
+  bytes                    paramBytes          = 10;
+  BazEnum                  paramEnum           = 11;
+  google.protobuf.Duration paramDuration       = 12;
+  repeated string          paramRepeatedString = 13;
+  BazRequest               paramMsg            = 14;
 }
 
 message SampleConfiguration {

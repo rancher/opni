@@ -46,7 +46,7 @@ func (in *RuntimeConfigValues) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.MultiKvConfig = &KvMultiRuntimeConfig{}
 	}
 	fs.AddFlagSet(in.MultiKvConfig.FlagSet(append(prefix, "multi-kv-config")...))
-	fs.Var(flagutil.BoolPtrValue(&in.IngesterStreamChunksWhenUsingBlocks), strings.Join(append(prefix, "ingester-stream-chunks-when-using-blocks"), "."), "")
+	fs.Var(flagutil.BoolPtrValue(nil, &in.IngesterStreamChunksWhenUsingBlocks), strings.Join(append(prefix, "ingester-stream-chunks-when-using-blocks"), "."), "")
 	if in.IngesterLimits == nil {
 		in.IngesterLimits = &IngesterInstanceLimits{}
 	}
@@ -57,17 +57,17 @@ func (in *RuntimeConfigValues) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *KvMultiRuntimeConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("KvMultiRuntimeConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(&in.Primary), strings.Join(append(prefix, "primary"), "."), "")
-	fs.Var(flagutil.BoolPtrValue(&in.MirrorEnabled), strings.Join(append(prefix, "mirror-enabled"), "."), "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Primary), strings.Join(append(prefix, "primary"), "."), "")
+	fs.Var(flagutil.BoolPtrValue(nil, &in.MirrorEnabled), strings.Join(append(prefix, "mirror-enabled"), "."), "")
 	return fs
 }
 
 func (in *IngesterInstanceLimits) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("IngesterInstanceLimits", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.FloatPtrValue(&in.MaxIngestionRate), strings.Join(append(prefix, "max-ingestion-rate"), "."), "")
-	fs.Var(flagutil.IntPtrValue(&in.MaxTenants), strings.Join(append(prefix, "max-tenants"), "."), "")
-	fs.Var(flagutil.IntPtrValue(&in.MaxSeries), strings.Join(append(prefix, "max-series"), "."), "")
-	fs.Var(flagutil.IntPtrValue(&in.MaxInflightPushRequests), strings.Join(append(prefix, "max-inflight-push-requests"), "."), "")
+	fs.Var(flagutil.FloatPtrValue(nil, &in.MaxIngestionRate), strings.Join(append(prefix, "max-ingestion-rate"), "."), "")
+	fs.Var(flagutil.IntPtrValue(nil, &in.MaxTenants), strings.Join(append(prefix, "max-tenants"), "."), "")
+	fs.Var(flagutil.IntPtrValue(nil, &in.MaxSeries), strings.Join(append(prefix, "max-series"), "."), "")
+	fs.Var(flagutil.IntPtrValue(nil, &in.MaxInflightPushRequests), strings.Join(append(prefix, "max-inflight-push-requests"), "."), "")
 	return fs
 }

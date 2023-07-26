@@ -8,6 +8,7 @@ import (
 	"github.com/nsf/jsondiff"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"google.golang.org/grpc"
@@ -51,17 +52,25 @@ func BuildDryRunCmd() *cobra.Command {
 			response := dryRunClient.Response
 			if errs := response.GetValidationErrors(); len(errs) > 0 {
 				cmd.Println(fmt.Sprintf("validation errors occurred (%d):", len(errs)))
-				for _, errMsg := range errs {
-					cmd.Println("- " + chalk.Red.Color(errMsg))
+				for _, e := range errs {
+					switch e.GetSeverity() {
+					case ValidationError_Warning:
+						cmd.Print("[" + chalk.Yellow.Color("WARN") + "] ")
+					case ValidationError_Error:
+						cmd.Print("[" + chalk.Red.Color("ERROR") + "] ")
+					}
+					cmd.Println(e.GetMessage())
 				}
 			}
 
 			currentJson, _ := protojson.MarshalOptions{
 				EmitUnpopulated: true,
+				UseProtoNames:   true,
 			}.Marshal(response.Current)
 
 			modifiedJson, _ := protojson.MarshalOptions{
 				EmitUnpopulated: true,
+				UseProtoNames:   true,
 			}.Marshal(response.Modified)
 
 			var opts jsondiff.Options
@@ -77,7 +86,11 @@ func BuildDryRunCmd() *cobra.Command {
 			}
 			opts.SkipMatches = !diffFull
 
-			_, str := jsondiff.Compare(currentJson, modifiedJson, &opts)
+			difference, str := jsondiff.Compare(currentJson, modifiedJson, &opts)
+			if difference == jsondiff.FullMatch {
+				fmt.Println("no changes")
+				return nil
+			}
 			fmt.Println(str)
 			return nil
 		},
@@ -90,6 +103,8 @@ func BuildDryRunCmd() *cobra.Command {
 		BuildCortexOpsSetDefaultConfigurationCmd(),
 		BuildCortexOpsResetConfigurationCmd(),
 		BuildCortexOpsResetDefaultConfigurationCmd(),
+		BuildCortexOpsInstallCmd(),
+		BuildCortexOpsUninstallCmd(),
 	}
 
 	for _, cmd := range dryRunnableCmds {
@@ -136,6 +151,7 @@ func (dc *DryRunClient) ResetDefaultConfiguration(ctx context.Context, in *empty
 
 // SetConfiguration implements CortexOpsClient.
 func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	in.Enabled = nil
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_ActiveConfiguration,
 		Action: driverutil.Action_Set,
@@ -151,6 +167,7 @@ func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *CapabilityBack
 
 // SetDefaultConfiguration implements CortexOpsClient.
 func (dc *DryRunClient) SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	in.Enabled = nil
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_DefaultConfiguration,
 		Action: driverutil.Action_Set,
@@ -186,7 +203,19 @@ func (dc *DryRunClient) DryRun(ctx context.Context, in *DryRunRequest, opts ...g
 
 // Install implements CortexOpsClient.
 func (dc *DryRunClient) Install(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Install not implemented")
+	dc.Request = &DryRunRequest{
+		Action: driverutil.Action_Set,
+		Target: driverutil.Target_ActiveConfiguration,
+		Spec: &CapabilityBackendConfigSpec{
+			Enabled: lo.ToPtr(true),
+		},
+	}
+	var err error
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	if err != nil {
+		return nil, fmt.Errorf("[dry-run] error: %w", err)
+	}
+	return &emptypb.Empty{}, nil
 }
 
 // Status implements CortexOpsClient.
@@ -196,5 +225,17 @@ func (dc *DryRunClient) Status(ctx context.Context, in *emptypb.Empty, opts ...g
 
 // Uninstall implements CortexOpsClient.
 func (dc *DryRunClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Uninstall not implemented")
+	dc.Request = &DryRunRequest{
+		Action: driverutil.Action_Set,
+		Target: driverutil.Target_ActiveConfiguration,
+		Spec: &CapabilityBackendConfigSpec{
+			Enabled: lo.ToPtr(true),
+		},
+	}
+	var err error
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	if err != nil {
+		return nil, fmt.Errorf("[dry-run] error: %w", err)
+	}
+	return &emptypb.Empty{}, nil
 }
